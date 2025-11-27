@@ -4,264 +4,497 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SMMM Adem Yılmaz — Mali Müşavir</title>
+
   <style>
+    :root {
+      --primary: #1565c0;
+      --primary-dark: #0d47a1;
+      --primary-light: #42a5f5;
+      --bg: #f4f6fb;
+    }
+
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: #f0f4f8;
-      color: #333;
+      background: var(--bg);
+      color: #2b3440;
       line-height: 1.6;
     }
-    header {
-      background: #0057b8;
-      color: white;
-      padding: 20px 15px;
-      text-align: center;
-    }
-    header img {
-      width: 100px;
-      max-width: 120px;
-      display: block;
-      margin: 0 auto 10px auto;
-    }
-    header h1 {
-      margin: 0;
-      font-size: 28px;
-    }
-    header p {
-      margin: 5px 0 0 0;
-      font-size: 18px;
+
+    /* NAVBAR */
+    .top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: #ffffffdd;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     }
 
-    nav {
-      background: white;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      padding: 10px 0;
+    .nav-inner {
+      max-width: 1150px;
+      margin: auto;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
-    nav ul {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      text-align: center;
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    nav ul li {
-      display: inline-block;
-      margin: 0 15px;
+
+    .nav-logo img {
+      width: 46px;
+      height: 46px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
-    nav ul li a {
-      text-decoration: none;
-      color: #0057b8;
-      font-weight: bold;
+
+    .nav-titles {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+    }
+
+    .nav-title {
+      font-weight: 700;
+      color: var(--primary-dark);
       font-size: 16px;
     }
-    nav ul li a:hover {
-      color: #003a80;
+
+    .nav-sub {
+      font-size: 12px;
+      color: #555;
+      margin-top: 3px;
     }
 
-    .container {
+    .nav-links a {
+      text-decoration: none;
+      color: var(--primary-dark);
+      margin-left: 15px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .nav-links a:hover { color: var(--primary-light); }
+
+    /* HERO */
+    .hero {
+      background: linear-gradient(135deg, #0d47a1, #1565c0, #42a5f5);
+      padding: 45px 16px 70px;
+      color: #fff;
+    }
+
+    .hero-inner {
+      max-width: 1150px;
+      margin: auto;
       display: flex;
+      gap: 30px;
       flex-wrap: wrap;
-      max-width: 1100px;
-      margin: 20px auto;
-      padding: 0 15px;
+      align-items: center;
     }
-    .main-content {
-      flex: 1 1 65%;
-      min-width: 300px;
-      margin-right: 20px;
+
+    .hero-logo-box {
+      width: 220px;
+      background: rgba(0,0,0,0.20);
+      padding: 12px;
+      border-radius: 14px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      text-align: center;
     }
-    .sidebar {
-      flex: 1 1 30%;
+
+    .hero-logo-box img {
+      width: 100%;
+      border-radius: 12px;
+    }
+
+    .hero-text {
+      flex: 1;
       min-width: 260px;
     }
 
-    section.card {
-      background: white;
-      padding: 20px;
-      margin-bottom: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-    }
-    section.card h2 {
-      color: #0057b8;
-      margin-top: 0;
-    }
-    section.card ul {
-      margin-left: 20px;
+    .hero-text h1 {
+      margin: 0;
+      font-size: 30px;
+      font-weight: bold;
     }
 
-    .btn {
+    .hero-text h2 {
+      margin: 8px 0 16px 0;
+      font-size: 17px;
+      font-weight: 500;
+      opacity: 0.9;
+    }
+
+    .hero-text p {
+      margin-bottom: 18px;
+      max-width: 600px;
+    }
+
+    .hero-actions a {
       display: inline-block;
-      background: #0057b8;
-      color: white;
       padding: 10px 18px;
-      border-radius: 5px;
+      border-radius: 999px;
+      margin-right: 8px;
+      font-weight: 600;
       text-decoration: none;
-      margin-top: 10px;
-    }
-    .btn:hover {
-      background: #003a80;
+      font-size: 14px;
     }
 
-    iframe {
-      width: 100%;
-      height: 250px;
-      border: 0;
+    .btn-primary { background: #fff; color: var(--primary-dark); }
+    .btn-outline-light { border: 1px solid #fff; color: #fff; }
+
+    /* CONTENT GRID */
+    .page-wrapper { max-width: 1150px; margin: -40px auto 30px; padding: 0 16px; }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+    }
+
+    /* CARD */
+    .card {
+      background: #fff;
+      padding: 20px;
+      border-radius: 14px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.07);
+      margin-bottom: 18px;
+    }
+
+    .card h2 { margin-top: 0; color: var(--primary-dark); }
+
+    /* VERGİ TAKVİMİ */
+    .takvim-item {
+      background: #e8f1ff;
+      border: 1px solid #d0e1ff;
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+      color: var(--primary-dark);
+    }
+
+    /* SSS */
+    #sss details {
+      padding: 10px;
+      background: #f9fbff;
+      border: 1px solid #d9e7ff;
       border-radius: 8px;
-      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+
+    #sss summary {
+      font-weight: 600;
+      color: var(--primary-dark);
+      cursor: pointer;
+    }
+
+    /* HARİTA */
+    .map-box iframe {
+      width: 100%;
+      height: 260px;
+      border: 0;
+      border-radius: 14px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+
+    /* WHATSAPP */
+    .whatsapp-fab {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: #25d366;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: #fff;
+      text-decoration: none;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
     }
 
     footer {
-      background: #e0e0e0;
-      color: #555;
+      padding: 16px;
       text-align: center;
-      padding: 15px;
-      margin-top: 30px;
+      background: #e9edf3;
+      border-top: 1px solid #d4d9e2;
+      margin-top: 20px;
     }
 
-    @media (max-width: 800px) {
-      .container {
-        flex-direction: column;
-      }
-      .main-content {
-        margin-right: 0;
-      }
+    @media(max-width: 800px) {
+      .content-grid { grid-template-columns: 1fr; }
+      .hero-inner { flex-direction: column; text-align: center; }
     }
   </style>
 </head>
 
 <body>
 
-<header>
-  <img src="logo.png" alt="SMMM Logo">
-  <h1>ADEM YILMAZ</h1>
-  <p>SERBEST MUHASEBECİ MALİ MÜŞAVİR</p>
-</header>
+  <!-- NAVBAR -->
+  <div class="top-nav">
+    <div class="nav-inner">
+      <div class="nav-left">
+        <div class="nav-logo"><img src="logo.png"></div>
 
-<nav>
-  <ul>
-    <li><a href="#hakkimda">Hakkımda</a></li>
-    <li><a href="#hizmetler">Hizmetler</a></li>
-    <li><a href="#danismanlik">Danışmanlık</a></li>
-    <li><a href="#mali-hukuk">Mali Hukuk</a></li>
-    <li><a href="#iletisim">İletişim</a></li>
-  </ul>
-</nav>
+        <div class="nav-titles">
+          <div class="nav-title">Adem Yılmaz</div>
+          <div class="nav-sub">Serbest Muhasebeci Mali Müşavir — Ümraniye / İstanbul</div>
+        </div>
+      </div>
 
-<div class="container">
-
-  <div class="main-content">
-
-    <!-- HAKKIMDA -->
-    <section id="hakkimda" class="card">
-      <h2>Hakkımda</h2>
-      <p>
-        1986 yılında İstanbul’da doğdum. Süleyman Demirel Üniversitesi’nden 2008 yılında mezun olduktan sonra,
-        2008–2025 yılları arasında bir muhasebe ofisinde yönetici olarak görev aldım. Bu süreçte muhasebe,
-        vergi mevzuatı, şirket yönetimi, finansal raporlama ve mali danışmanlık alanlarında kapsamlı bir
-        deneyim kazandım.
-      </p>
-      <p>
-        2021 yılında kendi mali müşavirlik hizmetimi vermeye başlayarak bağımsız olarak çalışmaya başladım.
-        Aynı zamanda uzun yıllar görev yaptığım ofise de danışmanlık hizmeti sunmaya devam etmekteyim.
-      </p>
-      <p>
-        Bugün, çeşitli ulusal ve uluslararası firmalara; muhasebe, mali müşavirlik, şirket kuruluşları,
-        muhasebe sistemlerinin kurulumu, mali denetim, iç kontrol sistemlerinin tasarlanması ve mevzuata
-        uygun süreç yönetimi gibi alanlarda profesyonel danışmanlık hizmetleri vermekteyim.
-      </p>
-      <p>
-        Serbest Muhasebeci Mali Müşavir olarak bağımsız ofisimde, işletmelerin ihtiyaçlarına özel çözümler üretmeye,
-        mevzuata uyumlu, güvenilir ve sürdürülebilir finansal süreçler oluşturmaya devam ediyorum.
-      </p>
-      <p><strong>Evli ve iki çocuk babasıyım.</strong></p>
-    </section>
-
-    <!-- HİZMETLER -->
-    <section id="hizmetler" class="card">
-      <h2>Hizmetlerimiz</h2>
-      <ul>
-        <li>3568 Sayılı Kanun’a göre mali müşavirlik hizmetleri</li>
-        <li>Bütçe ve nakit akış tabloları hazırlanması</li>
-        <li>Muhasebe defterlerinin mevzuata uygun tutulması ve raporlanması</li>
-        <li>Bilanço, kar-zarar tablosu, beyannameler ve belgelerin düzenlenmesi</li>
-        <li>Muhasebe sistemlerinin kurulumu ve geliştirilmesi</li>
-        <li>Çalışan ücret bordrolarının hazırlanması</li>
-        <li>Çalışan sözleşmeleri ve özlük dosyaları hazırlanması</li>
-        <li>SGK / SSK / Bağ-Kur / İşkur / vergi süreçlerinin takibi</li>
-        <li>İşe giriş/çıkış işlemleri ve resmi bildirimler</li>
-      </ul>
-    </section>
-
-    <!-- DANIŞMANLIK -->
-    <section id="danismanlik" class="card">
-      <h2>Danışmanlık Hizmetleri</h2>
-      <ul>
-        <li>SGK ve İş Hukuku danışmanlığı</li>
-        <li>Vergi mevzuatı ve uyum danışmanlığı</li>
-        <li>Vergi uzlaşmaları ve vergi davaları danışmanlığı</li>
-        <li>Muhasebe uygulamaları danışmanlığı</li>
-        <li>Büyüme ve gelişme stratejileri danışmanlığı</li>
-        <li>Ticari sözleşme danışmanlığı</li>
-        <li>Uluslararası çifte vergilendirme uygulamaları danışmanlığı</li>
-        <li>Şirket kuruluşu, şube/irtibat bürosu açılışı, yapılandırma</li>
-        <li>Sermaye artırımı, ana sözleşme değişikliği, ortaklık yapıları</li>
-        <li>Dernek kuruluşu, genel kurul, mevzuat değişiklikleri danışmanlığı</li>
-      </ul>
-    </section>
-
-    <!-- MALİ HUKUK -->
-    <section id="mali-hukuk" class="card">
-      <h2>Mali Hukuk Hizmetleri</h2>
-      <ul>
-        <li>Mali tablo ve beyannamelere ilişkin yazılı görüşlerin hazırlanması</li>
-        <li>Raporlama, bilirkişilik, tahkim ve benzeri hizmetler</li>
-        <li>Vergi daireleri ile uzlaşma ve resmi süreçlerin yönetimi</li>
-        <li>Mahkemelere sunulan bilanço ve raporların hazırlanması</li>
-        <li>Kamu kurumları ile ticari işletmeler arasında hakemlik ve danışmanlık</li>
-        <li>Vergi, fon, gecikme faizi ve cezalarıyla ilgili uyuşmazlıkların çözülmesi</li>
-      </ul>
-    </section>
-
-    <!-- İLETİŞİM + Harita + Teklif Al -->
-    <section id="iletisim" class="card">
-      <h2>İletişim</h2>
-      <p><strong>Adres:</strong> Atatürk Mh. Sütçü Cd. No:101/5 Ümraniye / İstanbul</p>
-      <p><strong>Telefon:</strong> 0553 619 41 34</p>
-      <p><strong>E-posta:</strong> adem@smmmyilmaz.com</p>
-
-      <a class="btn" href="https://wa.me/905536194134?text=Merhaba%2C+mali+m%C3%BC%C5%9Favirlik+i%C3%A7in+teklif+almak+istiyorum." target="_blank">
-        📩 Teklif Al
-      </a>
-
-      <h3>Konum</h3>
-      <iframe
-        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3008.4921248939303!2d29.113325!3d41.019535!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14cab79ba4ae4e6f%3A0x6d4133b6e64042f8!2sAtat%C3%BCrk%20Mah.%20S%C3%BCt%C3%A7%C3%BC%20Cd.%20No%3A101%2F5%2C%2034734%20%C3%9Cmraniye%2F%C4%B0stanbul!5e0!3m2!1str!2str!4v9999999999999"
-        allowfullscreen=""
-        loading="lazy">
-      </iframe>
-
-      <a class="btn" href="https://maps.app.goo.gl/J4T29JaFxWUJSHBZ6" target="_blank">
-        📍 Haritada Aç
-      </a>
-
-    </section>
+      <div class="nav-links">
+        <a href="#hakkimda">Hakkımda</a>
+        <a href="#uzmanlik">Uzmanlık</a>
+        <a href="#hizmetler">Hizmetlerimiz</a>
+        <a href="#danismanlik">Danışmanlık</a>
+        <a href="#iletisim">İletişim</a>
+      </div>
+    </div>
   </div>
 
-  <!-- GİB Duyuruları -->
-  <div class="sidebar">
-    <section class="card">
-      <h2>GİB Duyuruları</h2>
-      <p>Son resmi duyurular için butona tıklayın:</p>
-      <a href="https://dijital.gib.gov.tr/duyurular" target="_blank" class="btn">Duyuruları Gör →</a>
-    </section>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-inner">
+
+      <div class="hero-logo-box">
+        <img src="logo.png">
+      </div>
+
+      <div class="hero-text">
+        <h1>Adem Yılmaz</h1>
+        <h2>Serbest Muhasebeci Mali Müşavir — Ümraniye / İstanbul</h2>
+
+        <p>
+          Muhasebe, vergi ve mali mevzuat süreçlerinde profesyonel destek sağlayarak işletmelerin
+          tüm mali yükümlülüklerini güvenilir şekilde yönetiyorum.
+        </p>
+
+        <div class="hero-actions">
+          <a class="btn-primary" href="#iletisim">İletişime Geç</a>
+
+          <a class="btn-outline-light" target="_blank"
+          href="https://wa.me/905536194134?text=Merhaba,+ileti%C5%9Fime+ge%C3%A7mek+istiyorum.">
+            WhatsApp ile İletişime Geç
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+
+  <!-- CONTENT -->
+  <div class="page-wrapper">
+    <div class="content-grid">
+
+      <!-- SOL TARAF -->
+      <div>
+
+        <!-- HAKKIMDA -->
+        <section id="hakkimda" class="card">
+          <h2>Hakkımda</h2>
+          <p>
+            1986 yılında İstanbul’da doğdum. Süleyman Demirel Üniversitesi İşletme bölümünden 
+            2008 yılında mezun oldum. 2008–2025 yılları arasında profesyonel bir muhasebe 
+            ofisinde yönetici olarak görev aldım.
+          </p>
+          <p>
+            2021 yılında  Serbest Muhasebeci Mali Müşavir olarak bağımsız hizmet vermeye başladım. Ulusal ve uluslararası                  	    firmalara; şirket kurulumu,mali denetim, iç kontrol, bordro, vergi danışmanlığı ve muhasebe sistemlerinin 
+	    kurulumu alanlarında profesyonel hizmet sunuyorum.
+          </p>
+          <p>Evli ve iki çocuk babasıyım.</p>
+        </section>
+
+        <!-- UZMANLIK (Sade uzun metin) -->
+        <section id="uzmanlik" class="card">
+          <h2>Uzmanlık Alanlarım</h2>
+          <p>
+            Muhasebe, finansal raporlama, vergi mevzuatı, SGK ve iş hukuku uygulamaları, şirket 
+            kuruluş işlemleri, mali analiz, denetim ve işletme süreçlerinin iyileştirilmesi konularında uzmandır.
+          </p>
+        </section>
+
+        <!-- HİZMETLER (uzun liste) -->
+        <section id="hizmetler" class="card">
+          <h2>Hizmetlerimiz</h2>
+          <ul>
+            <li>3568 sayılı Kanununa göre mali müşavirlik hizmetleri.</li>
+            <li>Bütçe ve nakit akış tablolarının hazırlanması.</li>
+            <li>Muhasebe defterlerinin tutulması.</li>
+            <li>Bilanço, gelir tablosu ve beyannamelerin hazırlanması.</li>
+            <li>Muhasebe sistem kurulumları.</li>
+            <li>Çalışan bordrolarının düzenlenmesi.</li>
+            <li>İşe giriş — çıkış işlemleri.</li>
+            <li>Personel özlük dosyalarının hazırlanması.</li>
+            <li>Vergi, sigorta ve ücret hesaplamaları.</li>
+            <li>İzin defterlerinin tutulması.</li>
+            <li>SSK bildirgeleri ve stopaj beyannameleri.</li>
+            <li>Resmi kurumlara verilmesi gereken bildirimler.</li>
+            <li>Ticaret Odası, SGK, Bağkur işlemleri.</li>
+            <li>İş sözleşmeleri ve iş hukuku belgeleri.</li>
+            <li>Teşvik işlemleri.</li>
+          </ul>
+        </section>
+
+        <!-- DANIŞMANLIK -->
+        <section id="danismanlik" class="card">
+          <h2>Danışmanlık Hizmetleri</h2>
+          <ul>
+            <li>Vergi danışmanlığı.</li>
+            <li>İş ve SGK mevzuatı danışmanlığı.</li>
+            <li>Muhasebe süreç danışmanlığı.</li>
+            <li>Vergi uyuşmazlıkları ve uzlaşmalar.</li>
+            <li>Büyüme ve finansal strateji danışmanlığı.</li>
+            <li>Ticari sözleşme danışmanlığı.</li>
+            <li>Uluslararası vergilendirme danışmanlığı.</li>
+            <li>Birleşme — devralma danışmanlığı.</li>
+            <li>Dernek kuruluş süreçleri.</li>
+          </ul>
+        </section>
+
+        <!-- MALİ HUKUK -->
+        <section id="mali-hukuk" class="card">
+          <h2>Mali Hukuk Hizmetleri</h2>
+          <ul>
+            <li>Mali tablolar için yazılı görüş hazırlama.</li>
+            <li>Bilirkişilik ve tahkim hizmetleri.</li>
+            <li>Vergi daireleri ile uzlaşma.</li>
+            <li>Vergi davaları için inceleme raporları.</li>
+            <li>Kamu kurumları ile hakemlik hizmetleri.</li>
+            <li>Banka ve finans kurumlarına mali inceleme.</li>
+          </ul>
+        </section>
+
+      </div>
+
+      <!-- SAĞ TARAF -->
+      <div>
+
+        <!-- VERGİ TAKVİMİ -->
+        <section class="card">
+          <h2>Bu Ayın Vergi Takvimi</h2>
+          <div id="takvim"></div>
+        </section>
+
+        <!-- SSS SAĞA ALINDI -->
+        <section id="sss" class="card">
+          <h2>Sık Sorulan Sorular</h2>
+
+          <details>
+            <summary>Şirket kuruluşu ne kadar sürer?</summary>
+            <p>Genellikle 1–2 iş gününde tamamlanır.</p>
+          </details>
+
+          <details>
+            <summary>E-fatura zorunlu mu?</summary>
+            <p>Ciro limitine bağlı olarak zorunlu hale gelir.</p>
+          </details>
+
+          <details>
+            <summary>Bordro işlemleri neyi kapsar?</summary>
+            <p>Ücret hesaplama, SGK bildirgeleri ve iş hukuku süreçlerini içerir.</p>
+          </details>
+        </section>
+
+        <!-- GİB -->
+        <section class="card">
+          <h2>GİB Duyuruları</h2>
+          <a href="https://dijital.gib.gov.tr/duyurular" target="_blank">GİB Duyurularını Gör →</a>
+        </section>
+
+        <!-- TÜRMOB -->
+        <section class="card">
+          <h2>TÜRMOB Haberleri</h2>
+          <a href="https://www.turmob.org.tr/Haberler" target="_blank">TÜRMOB Haberlerini Gör →</a>
+        </section>
+
+      </div>
+    </div>
   </div>
 
-</div>
 
-<footer>
-  © 2025 • SMMM Adem Yılmaz
-</footer>
+
+  <!-- İLETİŞİM -->
+  <section id="iletisim" class="card" style="max-width:1150px; margin:auto;">
+    <h2>İletişim</h2>
+
+    <p>📍 <strong>Adres:</strong> Atatürk Mh. Sütçü Cd. No:101/5 Ümraniye / İstanbul</p>
+    <p>📞 <strong>Telefon:</strong> <a href="tel:905536194134">0553 619 41 34</a></p>
+    <p>✉️ <strong>E-posta:</strong> <a href="mailto:adem@smmmyilmaz.com">adem@smmmyilmaz.com</a></p>
+
+    <p style="display:flex; align-items:center; gap:8px;">
+      <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" width="22">
+      <a href="https://www.linkedin.com/in/ademyilmazz" target="_blank" style="font-weight:600; color:var(--primary-dark);">
+        Adem Yılmaz
+      </a>
+    </p>
+
+    <!-- HARİTA YUVARLAK PREMIUM -->
+    <div class="map-box">
+      <iframe 
+  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3010.148324182282!2d29.124126676152325!3d41.000591820806695!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14cac84c1df3258f%3A0xddd6b26204ce0f45!2s%C3%9Cmraniye%2C%20Istanbul!5e0!3m2!1str!2str!4v1701193941992!5m2!1str!2str" 
+  width="100%" 
+  height="260" 
+  style="border:0; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.15);" 
+  allowfullscreen="" 
+  loading="lazy">
+</iframe>
+
+    </div>
+  </section>
+
+  <!-- WHATSAPP -->
+  <a class="whatsapp-fab" href="https://wa.me/905536194134" target="_blank">💬</a>
+
+  <!-- FOOTER -->
+  <footer>
+    © 2025 Adem Yılmaz — Serbest Muhasebeci Mali Müşavir
+  </footer>
+
+
+
+  <!-- VERGİ TAKVİMİ OTOMATİK -->
+  <script>
+    function isWeekend(d){ return d.getDay()==0 || d.getDay()==6; }
+    function nextBusiness(d){ while(isWeekend(d)) d.setDate(d.getDate()+1); return d; }
+    function fd(d){ return ("0"+d.getDate()).slice(-2)+"/"+("0"+(d.getMonth()+1)).slice(-2)+"/"+d.getFullYear(); }
+
+    const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1;
+    const taxes=[];
+
+    function add(name,day){
+      let d = day==="end" ? new Date(y,m,0) : new Date(y,m-1,day);
+      d = nextBusiness(d);
+      taxes.push({name,date:fd(d)});
+    }
+
+    add("Aylık Stopaj",26);
+    add("KDV",28);
+    add("KDV-2",25);
+    add("SSK","end");
+    add("Bağkur","end");
+
+    if([1,5,8,11].includes(m)) add("Peşin Vergi",17);
+    if([1,4,7,10].includes(m)) add("3 Aylık Stopaj",26);
+    if(m===3) add("Yıllık Gelir Vergisi",31);
+
+    const wrap=document.getElementById("takvim");
+    taxes.forEach(t=>{
+      const div=document.createElement("div");
+      div.className="takvim-item";
+      div.innerHTML=`<span>${t.name}</span><span>${t.date}</span>`;
+      wrap.appendChild(div);
+    });
+  </script>
 
 </body>
 </html>
