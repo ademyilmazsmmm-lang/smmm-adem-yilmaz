@@ -34,7 +34,7 @@
     }
 
     nav {
-      background: #ffffff;
+      background: white;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       padding: 10px 0;
     }
@@ -89,6 +89,7 @@
     section.card ul {
       margin-left: 20px;
     }
+
     .btn {
       display: inline-block;
       background: #0057b8;
@@ -102,6 +103,14 @@
       background: #003a80;
     }
 
+    iframe {
+      width: 100%;
+      height: 250px;
+      border: 0;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+
     footer {
       background: #e0e0e0;
       color: #555;
@@ -110,7 +119,6 @@
       margin-top: 30px;
     }
 
-    /* Mobil uyumlu ayar */
     @media (max-width: 800px) {
       .container {
         flex-direction: column;
@@ -121,10 +129,10 @@
     }
   </style>
 </head>
+
 <body>
 
 <header>
-  <!-- Logo dosyasını repository'e ekle ve adını "logo.png" koy -->
   <img src="logo.png" alt="SMMM Logo">
   <h1>ADEM YILMAZ</h1>
   <p>SERBEST MUHASEBECİ MALİ MÜŞAVİR</p>
@@ -141,8 +149,10 @@
 </nav>
 
 <div class="container">
+
   <div class="main-content">
 
+    <!-- HAKKIMDA -->
     <section id="hakkimda" class="card">
       <h2>Hakkımda</h2>
       <p>
@@ -167,6 +177,7 @@
       <p><strong>Evli ve iki çocuk babasıyım.</strong></p>
     </section>
 
+    <!-- HİZMETLER -->
     <section id="hizmetler" class="card">
       <h2>Hizmetlerimiz</h2>
       <ul>
@@ -182,6 +193,7 @@
       </ul>
     </section>
 
+    <!-- DANIŞMANLIK -->
     <section id="danismanlik" class="card">
       <h2>Danışmanlık Hizmetleri</h2>
       <ul>
@@ -198,6 +210,7 @@
       </ul>
     </section>
 
+    <!-- MALİ HUKUK -->
     <section id="mali-hukuk" class="card">
       <h2>Mali Hukuk Hizmetleri</h2>
       <ul>
@@ -210,23 +223,40 @@
       </ul>
     </section>
 
+    <!-- İLETİŞİM + Harita + Teklif Al -->
     <section id="iletisim" class="card">
       <h2>İletişim</h2>
       <p><strong>Adres:</strong> Atatürk Mh. Sütçü Cd. No:101/5 Ümraniye / İstanbul</p>
       <p><strong>Telefon:</strong> 0553 619 41 34</p>
       <p><strong>E-posta:</strong> adem@smmmyilmaz.com</p>
-      <a href="https://wa.me/905536194134" class="btn">WhatsApp ile İletişim</a>
-    </section>
 
+      <a class="btn" href="https://wa.me/905536194134?text=Merhaba%2C+mali+m%C3%BC%C5%9Favirlik+i%C3%A7in+teklif+almak+istiyorum." target="_blank">
+        📩 Teklif Al
+      </a>
+
+      <h3>Konum</h3>
+      <iframe
+        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3008.4921248939303!2d29.113325!3d41.019535!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14cab79ba4ae4e6f%3A0x6d4133b6e64042f8!2sAtat%C3%BCrk%20Mah.%20S%C3%BCt%C3%A7%C3%BC%20Cd.%20No%3A101%2F5%2C%2034734%20%C3%9Cmraniye%2F%C4%B0stanbul!5e0!3m2!1str!2str!4v9999999999999"
+        allowfullscreen=""
+        loading="lazy">
+      </iframe>
+
+      <a class="btn" href="https://maps.app.goo.gl/J4T29JaFxWUJSHBZ6" target="_blank">
+        📍 Haritada Aç
+      </a>
+
+    </section>
   </div>
 
+  <!-- GİB Duyuruları -->
   <div class="sidebar">
     <section class="card">
       <h2>GİB Duyuruları</h2>
-      <p>Son resmi duyurular için aşağıdaki butona tıklayabilirsiniz:</p>
+      <p>Son resmi duyurular için butona tıklayın:</p>
       <a href="https://dijital.gib.gov.tr/duyurular" target="_blank" class="btn">Duyuruları Gör →</a>
     </section>
   </div>
+
 </div>
 
 <footer>
