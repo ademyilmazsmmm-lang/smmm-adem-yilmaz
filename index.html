@@ -6,6 +6,33 @@
   <title>SMMM Adem Yılmaz — Mali Müşavir</title>
 
   <style>
+    #sss .accordion-body {
+  padding: 10px 18px 16px 18px !important;
+}
+
+/* SSS kartı altındaki gereksiz boşluğu yok eder */
+#sss details {
+  margin: 0 0 8px 0;
+  padding: 12px;
+  background: #f9fbff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f8;
+}
+
+/* İlk details açılmadan önceki boş çizgi görünmesin */
+#sss .accordion-body:empty {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Sıkılaştırılmış görünüm */
+#sss summary {
+  padding: 4px 0;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--primary-dark);
+}
+
     :root {
       --primary: #1565c0;
       --primary-dark: #0d47a1;
@@ -730,4 +757,5 @@
 
 </body>
 </html>
+
 
