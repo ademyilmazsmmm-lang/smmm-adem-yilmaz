@@ -1,761 +1,568 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SMMM Adem Yılmaz — Mali Müşavir</title>
 
-  <style>
-       ... (senin tüm mevcut CSS kodların burada) ...
+<style>
 
+/* ==========================================================
+   GENEL RENKLER
+========================================================== */
+:root {
+  --primary:#1565c0;
+  --primary-dark:#0d47a1;
+  --primary-light:#42a5f5;
+  --bg:#f4f6fb;
+}
 
-    /* ===== SSS DÜZELTME ===== */
-    #sss .accordion-body {
-      padding: 10px 18px 16px 18px !important;
-    }
+/* ==========================================================
+   GENEL
+========================================================== */
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:var(--bg);
+  color:#2b3440;
+  line-height:1.6;
+}
 
-    #sss details {
-      margin: 0 0 8px 0;
-      padding: 12px;
-      background: #f9fbff;
-      border-radius: 10px;
-      border: 1px solid #e2e8f8;
-    }
+/* ==========================================================
+   NAVBAR
+========================================================== */
+.top-nav{
+  position:sticky;
+  top:0;
+  z-index:100;
+  background:#ffffffdd;
+  backdrop-filter:blur(6px);
+  box-shadow:0 2px 6px rgba(0,0,0,0.08);
+}
+.nav-inner{
+  max-width:1150px;
+  margin:auto;
+  padding:8px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
 
-    #sss .accordion-body:empty {
-      padding: 0 !important;
-      margin: 0 !important;
-    }
+.nav-left{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
 
-    #sss summary {
-      padding: 4px 0;
-      font-weight: 600;
-      cursor: pointer;
-      color: var(--primary-dark);
-    }
+.nav-logo img{
+  width:56px;     /* iPhone büyük logo */
+  height:56px;
+  border-radius:8px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.2);
+}
+
+.nav-titles{
+  display:flex;
+  flex-direction:column;
+  line-height:1.2;
+}
+
+.nav-title{
+  font-weight:700;
+  color:var(--primary-dark);
+  font-size:15px;
+}
+.nav-sub{
+  font-size:12px;
+  color:#555;
+}
+.nav-sub2{
+  margin-top:2px;
+  font-size:12px;
+  color:#555;
+}
+
+.nav-links a{
+  text-decoration:none;
+  color:var(--primary-dark);
+  margin-left:15px;
+  font-weight:600;
+  font-size:14px;
+}
+.nav-links a:hover{color:var(--primary-light);}
+
+/* ==========================================================
+   HERO
+========================================================== */
+.hero{
+  background:linear-gradient(135deg,#0d47a1,#1565c0,#42a5f5);
+  padding:45px 16px 70px;
+  color:#fff;
+}
+
+.hero-inner{
+  max-width:1150px;
+  margin:auto;
+  display:flex;
+  gap:30px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.hero-logo-box{
+  width:220px;
+  background:rgba(0,0,0,0.20);
+  padding:12px;
+  border-radius:14px;
+  box-shadow:0 8px 20px rgba(0,0,0,0.3);
+  text-align:center;
+}
+
+.hero-logo-box img{
+  width:100%;
+  border-radius:12px;
+}
+
+.hero-text{
+  flex:1;
+  min-width:260px;
+}
+
+.hero-text h1{
+  margin:0;
+  font-size:28px;
+  font-weight:bold;
+}
+
+.hero-text h2{
+  margin:8px 0 16px;
+  font-size:15px;
+  opacity:.9;
+}
+
+.hero-actions a{
+  display:inline-block;
+  padding:10px 18px;
+  border-radius:999px;
+  margin-right:8px;
+  font-weight:600;
+  text-decoration:none;
+  font-size:14px;
+}
+
+.btn-primary{background:#fff;color:var(--primary-dark);}
+.btn-outline-light{border:1px solid #fff;color:#fff;}
+
+/* ==========================================================
+   CONTENT GRID
+========================================================== */
+.page-wrapper{max-width:1150px;margin:-40px auto 30px;padding:0 16px;}
+.content-grid{
+  display:grid;
+  grid-template-columns:2fr 1fr;
+  gap:20px;
+}
+
+/* ==========================================================
+   CARD
+========================================================== */
+.card{
+  background:#fff;
+  padding:20px;
+  border-radius:14px;
+  box-shadow:0 8px 20px rgba(0,0,0,0.07);
+  margin-bottom:18px;
+}
+.card h2{margin-top:0;color:var(--primary-dark);}
+
+/* ==========================================================
+   ACCORDION (SOL)
+========================================================== */
+.accordion-card{padding:0;overflow:hidden;}
+.accordion-header{
+  padding:14px 18px;
+  background:#f2f5fc;
+  border-bottom:1px solid #dde5f7;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  cursor:pointer;
+}
+.accordion-header-title{
+  font-size:16px;
+  font-weight:600;
+  color:var(--primary-dark);
+}
+.accordion-icon{
+  font-size:18px;
+  color:var(--primary-dark);
+  transition:transform .2s;
+}
+.accordion-card.open .accordion-icon{transform:rotate(90deg);}
+
+.accordion-body{
+  padding:0 18px 16px;
+  max-height:0;
+  overflow:hidden;
+  transition:max-height .25s ease;
+}
+.accordion-card.open .accordion-body{max-height:1200px;}
+
+/* ==========================================================
+   VERGİ TAKVİMİ
+========================================================== */
+.takvim-item{
+  background:#e8f1ff;
+  border:1px solid #d0e1ff;
+  padding:10px 14px;
+  margin-bottom:10px;
+  border-radius:10px;
+  display:flex;
+  justify-content:space-between;
+  font-weight:600;
+  color:var(--primary-dark);
+}
+
+/* ==========================================================
+   HARİTA
+========================================================== */
+.map-box{position:relative;margin-top:15px;}
+.map-box iframe{
+  width:100%;
+  height:175px;
+  border:0;
+  border-radius:14px;
+  box-shadow:0 4px 14px rgba(0,0,0,0.12);
+}
+
+.map-go-btn{
+  position:absolute;
+  bottom:10px;right:10px;
+  background:var(--primary);
+  color:#fff;
+  text-decoration:none;
+  padding:6px 10px;
+  border-radius:8px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  font-weight:600;
+  box-shadow:0 3px 10px rgba(0,0,0,0.25);
+}
+.map-go-btn:hover{background:var(--primary-dark);transform:translateY(-2px);}
+
+/* ==========================================================
+   SSS – YENİ TASARIM (KAPALI BAŞLANGIÇ)
+========================================================== */
+#sss details{
+  margin:0 0 8px 0;
+  padding:12px;
+  background:#f9fbff;
+  border-radius:10px;
+  border:1px solid #e2e8f8;
+}
+
+#sss summary{
+  font-weight:600;
+  cursor:pointer;
+  color:var(--primary-dark);
+}
+
+#sss .accordion-card .accordion-body{
+  padding:14px 18px 18px;
+}
+
+/* ==========================================================
+   MOBİL
+========================================================== */
+@media(max-width:800px){
+  .content-grid{grid-template-columns:1fr;}
+  .hero-inner{flex-direction:column;text-align:center;}
+
+  .nav-inner{
+    flex-direction:row;
+    justify-content:flex-start;
+    gap:12px;
+  }
+
+  .hero-text h2{
+    display:block;
+    margin-top:4px;
+    line-height:20px;
+  }
+}
 
 </style>
-
-    :root {
-      --primary: #1565c0;
-      --primary-dark: #0d47a1;
-      --primary-light: #42a5f5;
-      --bg: #f4f6fb;
-    }
-
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: var(--bg);
-      color: #2b3440;
-      line-height: 1.6;
-    }
-
-    /* NAVBAR */
-    .top-nav {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: #ffffffdd;
-      backdrop-filter: blur(6px);
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-    }
-
-    .nav-inner {
-      max-width: 1150px;
-      margin: auto;
-      padding: 8px 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .nav-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .nav-logo img {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    }
-
-    .nav-titles {
-      display: flex;
-      flex-direction: column;
-      line-height: 1.2;
-    }
-
-    .nav-title {
-      font-weight: 700;
-      color: var(--primary-dark);
-      font-size: 15px;
-    }
-
-    .nav-sub {
-      font-size: 11px;
-      color: #555;
-      margin-top: 3px;
-    }
-
-    .nav-links a {
-      text-decoration: none;
-      color: var(--primary-dark);
-      margin-left: 15px;
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .nav-links a:hover { color: var(--primary-light); }
-
-    /* HERO */
-    .hero {
-      background: linear-gradient(135deg, #0d47a1, #1565c0, #42a5f5);
-      padding: 45px 16px 70px;
-      color: #fff;
-    }
-
-    .hero-inner {
-      max-width: 1150px;
-      margin: auto;
-      display: flex;
-      gap: 30px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .hero-logo-box {
-      width: 160px;
-      background: rgba(0,0,0,0.20);
-      padding: 12px;
-      border-radius: 14px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-      text-align: center;
-    }
-
-    .hero-logo-box img {
-      width: 100%;
-      border-radius: 12px;
-    }
-
-    .hero-text {
-      flex: 1;
-      min-width: 260px;
-    }
-
-    .hero-text h1 {
-      margin: 0;
-      font-size: 28px;
-      font-weight: bold;
-    }
-
-    .hero-text h2 {
-      margin: 6px 0 16px 0;
-      font-size: 15px;
-      font-weight: 500;
-      opacity: 0.9;
-    }
-
-    .hero-text p {
-      margin-bottom: 18px;
-      max-width: 600px;
-    }
-
-    .hero-actions a {
-      display: inline-block;
-      padding: 10px 18px;
-      border-radius: 999px;
-      margin-right: 8px;
-      font-weight: 600;
-      text-decoration: none;
-      font-size: 14px;
-    }
-
-    .btn-primary { background: #fff; color: var(--primary-dark); }
-    .btn-outline-light { border: 1px solid #fff; color: #fff; }
-
-    .mobile-block {
-      white-space: nowrap;
-    }
-
-    /* CONTENT GRID */
-    .page-wrapper { max-width: 1150px; margin: -40px auto 30px; padding: 0 16px; }
-
-    .content-grid {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 20px;
-    }
-
-    /* CARD */
-    .card {
-      background: #fff;
-      padding: 20px;
-      border-radius: 14px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.07);
-      margin-bottom: 18px;
-    }
-
-    .card h2 { margin-top: 0; color: var(--primary-dark); }
-
-    /* ACCORDION CARD */
-    .accordion-card { padding: 0; overflow: hidden; }
-
-    .accordion-header {
-      padding: 14px 18px;
-      background: #f2f5fc;
-      border-bottom: 1px solid #dde5f7;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-    }
-
-    .accordion-header-title { font-size: 16px; font-weight: 600; color: var(--primary-dark); }
-
-    .accordion-icon {
-      font-size: 18px;
-      color: var(--primary-dark);
-      transition: transform 0.2s;
-    }
-
-    .accordion-card.open .accordion-icon {
-      transform: rotate(90deg);
-    }
-
-    .accordion-body {
-      padding: 0 18px 16px 18px;
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.25s ease;
-    }
-
-    .accordion-card.open .accordion-body { max-height: 1000px; }
-
-    /* VERGİ TAKVİMİ */
-    .takvim-item {
-      background: #e8f1ff;
-      border: 1px solid #d0e1ff;
-      padding: 10px 14px;
-      margin-bottom: 10px;
-      border-radius: 10px;
-      display: flex;
-      justify-content: space-between;
-      font-weight: 600;
-      color: var(--primary-dark);
-    }
-
-    /* HARİTA */
-    .map-box { position: relative; margin-top: 15px; }
-
-    .map-box iframe {
-      width: 100%;
-      height: 170px;
-      border: 0;
-      border-radius: 14px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
-    }
-
-    .map-go-btn {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      background: var(--primary);
-      color: #fff;
-      text-decoration: none;
-      padding: 6px 10px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.25);
-    }
-
-    /* SSS */
-    #sss details {
-      padding: 10px;
-      background: #f9fbff;
-      border: 1px solid #d9e7ff;
-      border-radius: 8px;
-      margin-bottom: 10px;
-    }
-
-    #sss summary {
-      font-weight: 600;
-      color: var(--primary-dark);
-      cursor: pointer;
-    }
-
-    /* DUYURULAR */
-    .duyuru-link {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 6px;
-      font-size: 14px;
-    }
-
-    .duyuru-link span {
-      font-size: 18px;
-    }
-
-    .duyuru-link a {
-      color: var(--primary-dark);
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    .duyuru-link a:hover {
-      color: var(--primary-light);
-      text-decoration: underline;
-    }
-
-    /* WHATSAPP FAB */
-    .whatsapp-fab {
-      position: fixed;
-      right: 18px;
-      bottom: 18px;
-      width: 54px;
-      height: 54px;
-      border-radius: 50%;
-      background: #25d366;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 28px;
-      color: #fff;
-      text-decoration: none;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
-    }
-
-    footer {
-      padding: 16px;
-      text-align: center;
-      background: #e9edf3;
-      border-top: 1px solid #d4d9e2;
-      margin-top: 20px;
-    }
-
-    /* MOBİL DÜZENLEMELER (iPhone vb.) */
-    @media(max-width: 800px) {
-      .content-grid { grid-template-columns: 1fr; }
-      .hero-inner { flex-direction: column; text-align: center; }
-
-      .nav-inner {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        gap: 6px;
-      }
-
-      .nav-left {
-        flex-direction: row;          /* Logo solda, metin sağda */
-        align-items: center;
-        justify-content: center;
-      }
-
-      .nav-logo img {
-        width: 52px;                  /* iPhone'da logo büyütüldü */
-        height: 52px;
-      }
-
-      .nav-links {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 10px;
-      }
-
-      .hero-logo-box { width: 130px; }
-
-      .hero-text h1 { font-size: 22px; }
-      .hero-text h2 { font-size: 14px; }
-
-      .mobile-block {
-        display: block;               /* iPhone’da Ümraniye / İstanbul alt satır */
-      }
-    }
-  </style>
 </head>
 
 <body>
 
-  <!-- NAVBAR -->
-  <div class="top-nav">
-    <div class="nav-inner">
-      <div class="nav-left">
-        <div class="nav-logo"><img src="logo.png" alt="SMMM Logo"></div>
+<!-- NAVBAR -->
+<div class="top-nav">
+  <div class="nav-inner">
 
-        <div class="nav-titles">
-          <div class="nav-title">Adem Yılmaz</div>
-          <div class="nav-sub">Serbest Muhasebeci Mali Müşavir</div>
-          <div class="nav-sub">Ümraniye / İstanbul</div>
-        </div>
-      </div>
+    <div class="nav-left">
+      <div class="nav-logo"><img src="logo.png"></div>
 
-      <div class="nav-links">
-        <a href="#hakkimda">Hakkımda</a>
-        <a href="#uzmanlik">Uzmanlık</a>
-        <a href="#hizmetler">Hizmetler</a>
-        <a href="#danismanlik">Danışmanlık</a>
-        <a href="#vergi-takvimi">Vergi Takvimi</a>
-        <a href="#iletisim">İletişim</a>
+      <div class="nav-titles">
+        <div class="nav-title">Adem Yılmaz</div>
+        <div class="nav-sub">Serbest Muhasebeci Mali Müşavir</div>
+        <div class="nav-sub2">Ümraniye / İstanbul</div>
       </div>
     </div>
+
+    <div class="nav-links">
+      <a href="#hakkimda">Hakkımda</a>
+      <a href="#uzmanlik">Uzmanlık</a>
+      <a href="#hizmetler">Hizmetler</a>
+      <a href="#danismanlik">Danışmanlık</a>
+      <a href="#takvim-bolumu">Vergi Takvimi</a>
+      <a href="#iletisim">İletişim</a>
+    </div>
+
   </div>
+</div>
 
-  <!-- HERO -->
-  <section class="hero">
-    <div class="hero-inner">
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
 
-      <div class="hero-logo-box">
-        <img src="logo.png" alt="Adem Yılmaz Logo">
-      </div>
+    <div class="hero-logo-box">
+      <img src="logo.png">
+    </div>
 
-      <div class="hero-text">
-        <h1>Adem Yılmaz</h1>
-        <h2>
-          Serbest Muhasebeci Mali Müşavir
-          <span class="mobile-block"> Ümraniye / İstanbul</span>
-        </h2>
+    <div class="hero-text">
+      <h1>Adem Yılmaz</h1>
+      <h2>Serbest Muhasebeci Mali Müşavir<br>Ümraniye / İstanbul</h2>
 
-        <p>
-          Muhasebe, vergi ve mali mevzuat süreçlerinde profesyonel destek sağlayarak
-          işletmelerin tüm mali yükümlülüklerini güvenilir şekilde yönetiyorum.
-        </p>
+      <p>
+        Muhasebe, vergi ve mali mevzuat süreçlerinde profesyonel destek sağlayarak 
+        işletmelerin tüm mali yükümlülüklerini güvenilir şekilde yönetiyorum.
+      </p>
 
-        <div class="hero-actions">
-          <a class="btn-primary" href="#iletisim">İletişime Geç</a>
-          <a class="btn-outline-light" target="_blank"
-             href="https://wa.me/905536194134?text=Merhaba,+ileti%C5%9Fime+ge%C3%A7mek+istiyorum.">
-            WhatsApp ile İletişime Geç
-          </a>
-        </div>
-
+      <div class="hero-actions">
+        <a class="btn-primary" href="#iletisim">İletişime Geç</a>
+        <a class="btn-outline-light" target="_blank"
+          href="https://wa.me/905536194134?text=Merhaba,+ileti%C5%9Fime+ge%C3%A7mek+istiyorum.">
+          WhatsApp ile İletişime Geç
+        </a>
       </div>
     </div>
-  </section>
-
-
-
-  <!-- CONTENT -->
-  <div class="page-wrapper">
-    <div class="content-grid">
-
-      <!-- SOL TARAF (ACCORDION KARTLAR + SSS) -->
-      <div>
-
-        <!-- HAKKIMDA -->
-        <section id="hakkimda" class="card accordion-card">
-          <div class="accordion-header">
-            <span class="accordion-header-title">Hakkımda</span>
-            <span class="accordion-icon">›</span>
-          </div>
-          <div class="accordion-body">
-            <p>
-              1986 yılında İstanbul’da doğdum. Eskişehir Üniversitesi İşletme ve 
-              Süleyman Demirel Üniversitesi Muhasebe bölümünden 2008 yılında mezun olduktan sonra, 
-              2008–2025 yılları arasında profesyonel bir muhasebe ofisinde yönetici olarak görev aldım.
-            </p>
-
-            <p>
-              2021 yılında Serbest Muhasebeci Mali Müşavir unvanıyla bağımsız olarak hizmet vermeye başladım. 
-              Aynı zamanda uzun yıllar görev yaptığım ofise de yönetici ve danışmanlık hizmeti sunmaya devam ediyorum.
-            </p>
-
-            <p>
-              Ulusal ve uluslararası firmalara danışmanlık; muhasebe sistem kurulumu, mali denetim, 
-              iç kontrol süreçleri, şirket kuruluşu ve vergi yönetimi alanlarında profesyonel hizmet sunuyorum.
-            </p>
-          </div>
-        </section>
-
-        <!-- UZMANLIK -->
-        <section id="uzmanlik" class="card accordion-card">
-          <div class="accordion-header">
-            <span class="accordion-header-title">Uzmanlık Alanlarım</span>
-            <span class="accordion-icon">›</span>
-          </div>
-          <div class="accordion-body">
-            <p>
-              Muhasebe, finansal raporlama, vergi mevzuatı, SGK ve iş hukuku uygulamaları, şirket 
-              kuruluş işlemleri, mali analiz, denetim ve işletme süreçlerinin iyileştirilmesi konularında uzmanım.
-            </p>
-          </div>
-        </section>
-
-        <!-- HİZMETLER -->
-        <section id="hizmetler" class="card accordion-card">
-          <div class="accordion-header">
-            <span class="accordion-header-title">Hizmetlerimiz</span>
-            <span class="accordion-icon">›</span>
-          </div>
-          <div class="accordion-body">
-            <ul>
-              <li>3568 sayılı Kanununa göre mali müşavirlik hizmetleri.</li>
-              <li>Bütçe ve nakit akış tablolarının hazırlanması.</li>
-              <li>Muhasebe defterlerinin tutulması.</li>
-              <li>Bilanço, gelir tablosu ve beyannamelerin hazırlanması.</li>
-              <li>Muhasebe sistem kurulumları.</li>
-              <li>Çalışan bordrolarının düzenlenmesi.</li>
-              <li>İşe giriş — çıkış işlemleri.</li>
-              <li>Personel özlük dosyalarının hazırlanması.</li>
-              <li>Vergi, sigorta ve ücret hesaplamaları.</li>
-              <li>İzin defterlerinin tutulması.</li>
-              <li>SSK bildirgeleri ve stopaj beyannameleri.</li>
-              <li>Resmi kurumlara verilmesi gereken bildirimler.</li>
-              <li>Ticaret Odası, SGK, Bağkur işlemleri.</li>
-              <li>İş sözleşmeleri ve iş hukuku belgeleri.</li>
-              <li>Teşvik işlemleri.</li>
-            </ul>
-          </div>
-        </section>
-
-        <!-- DANIŞMANLIK -->
-        <section id="danismanlik" class="card accordion-card">
-          <div class="accordion-header">
-            <span class="accordion-header-title">Danışmanlık Hizmetleri</span>
-            <span class="accordion-icon">›</span>
-          </div>
-          <div class="accordion-body">
-            <ul>
-              <li>Vergi danışmanlığı.</li>
-              <li>İş ve SGK mevzuatı danışmanlığı.</li>
-              <li>Muhasebe süreç danışmanlığı.</li>
-              <li>Vergi uyuşmazlıkları ve uzlaşmalar.</li>
-              <li>Büyüme ve finansal strateji danışmanlığı.</li>
-              <li>Ticari sözleşme danışmanlığı.</li>
-              <li>Uluslararası vergilendirme danışmanlığı.</li>
-              <li>Birleşme — devralma danışmanlığı.</li>
-              <li>Dernek kuruluş süreçleri.</li>
-            </ul>
-          </div>
-        </section>
-
-        <!-- MALİ HUKUK -->
-        <section id="mali-hukuk" class="card accordion-card">
-          <div class="accordion-header">
-            <span class="accordion-header-title">Mali Hukuk Hizmetleri</span>
-            <span class="accordion-icon">›</span>
-          </div>
-          <div class="accordion-body">
-            <ul>
-              <li>Mali tablolar için yazılı görüş hazırlama.</li>
-              <li>Bilirkişilik ve tahkim hizmetleri.</li>
-              <li>Vergi daireleri ile uzlaşma.</li>
-              <li>Vergi davaları için inceleme raporları.</li>
-              <li>Kamu kurumları ile hakemlik hizmetleri.</li>
-              <li>Banka ve finans kurumlarına mali inceleme.</li>
-            </ul>
-          </div>
-        </section>
-
-       <!-- SIK SORULAN SORULAR – YENİ TASARIM -->
-<section id="sss" class="card accordion-card">
-  <div class="accordion-header">
-    <span class="accordion-header-title">Sık Sorulan Sorular</span>
-    <span class="accordion-icon">›</span>
-  </div>
-
-  <div class="accordion-body">
-
-    <details>
-      <summary>Şirket kuruluşu ne kadar sürer?</summary>
-      <p>Genellikle 1–2 iş gününde tamamlanır.</p>
-    </details>
-
-    <details>
-      <summary>E-fatura zorunlu mu?</summary>
-      <p>Ciro limitine bağlı olarak belirlenmiş hadleri aşan mükellefler için e-fatura zorunludur.</p>
-    </details>
-
-    <details>
-      <summary>Bordro işlemleri neyi kapsar?</summary>
-      <p>Ücret hesaplama, SGK bildirgeleri ve iş hukuku süreçlerini içerir.</p>
-    </details>
-
-    <details>
-      <summary>Giderler ve indirilebilir harcamalar nelerdir?</summary>
-      <p>İşle ilgili kira, yakıt, iletişim, yemek, kırtasiye, bakım-onarım vb. giderler indirim konusu yapılabilir.</p>
-    </details>
-
-    <details>
-      <summary>İşe giriş bildirgesi ne zaman verilir?</summary>
-      <p>Çalışan işbaşı yapmadan en geç 1 gün önce SGK’ya bildirilmelidir.</p>
-    </details>
-
-    <details>
-      <summary>Fatura düzenleme – iptal – itiraz süreleri nedir?</summary>
-      <ul>
-        <li>Fatura düzenleme: 7 gün</li>
-        <li>İptal süresi: 8 gün</li>
-        <li>İtiraz süresi: Takip eden ayın 15’i</li>
-      </ul>
-    </details>
-
-    <details>
-      <summary>Nakit ödeme ve tahsilat limiti nedir?</summary>
-      <p>KDV dahil 30.000 TL üzeri ödemeler banka yoluyla yapılmalıdır.</p>
-    </details>
-
-    <details>
-      <summary>Şubeler arası mal sevkiyatında e-irsaliye zorunlu mu?</summary>
-      <p>Aynı mükellefe ait depo/şubeler arası hareketlerde e-irsaliye zorunludur.</p>
-    </details>
-
-    <details>
-      <summary>Tevkifat – demirbaş – POS fiş limiti nedir?</summary>
-      <p>Belge alt sınırı 9.900 TL’dir.</p>
-    </details>
-
-    <details>
-      <summary>Şahıs firmalarında fatura nasıl düzenlenir?</summary>
-      <p>Şahıs firmalarında fatura T.C. kimlik numarasına göre düzenlenir.</p>
-    </details>
-
-    <details>
-      <summary>İkinci el gayrimenkulde özel matrah nasıl uygulanır?</summary>
-      <p>KDV, alış ve satış arasındaki kâr farkı üzerinden hesaplanır.</p>
-    </details>
-
-    <details>
-      <summary>2 günlük rapor alan işçinin ücreti kim tarafından ödenir?</summary>
-      <p>Raporun 3. gününden sonra ödeme SGK tarafından yapılır.</p>
-    </details>
-
-    <details>
-      <summary>Çalışanı olmayan işletmelerde İSG zorunlu mu?</summary>
-      <p>Çalışanı olmayan işletmeler için İSG hizmeti alma zorunluluğu yoktur.</p>
-    </details>
 
   </div>
 </section>
 
-      </div>
+<!-- CONTENT -->
+<div class="page-wrapper">
+  <div class="content-grid">
 
+    <!-- SOL TARAF — ACCORDION -->
+    <div>
 
+      <!-- HAKKIMDA -->
+      <section id="hakkimda" class="card accordion-card">
+        <div class="accordion-header">
+          <span class="accordion-header-title">Hakkımda</span>
+          <span class="accordion-icon">›</span>
+        </div>
+        <div class="accordion-body">
+          <p>1986 İstanbul doğumluyum... (senin metnin burada)</p>
+        </div>
+      </section>
 
-      <!-- SAĞ TARAF – VERGİ TAKVİMİ + DUYURULAR -->
-      <div>
+      <!-- UZMANLIK -->
+      <section id="uzmanlik" class="card accordion-card">
+        <div class="accordion-header">
+          <span class="accordion-header-title">Uzmanlık Alanlarım</span>
+          <span class="accordion-icon">›</span>
+        </div>
+        <div class="accordion-body">
+          <p>Muhasebe, vergi, SGK süreçleri...</p>
+        </div>
+      </section>
 
-        <!-- VERGİ TAKVİMİ (MENÜDEN LİNKLENEN) -->
-        <section id="vergi-takvimi" class="card">
-          <h2>Bu Ayın Vergi Takvimi</h2>
-          <div id="takvim"></div>
-        </section>
+      <!-- HİZMETLER -->
+      <section id="hizmetler" class="card accordion-card">
+        <div class="accordion-header">
+          <span class="accordion-header-title">Hizmetlerimiz</span>
+          <span class="accordion-icon">›</span>
+        </div>
+        <div class="accordion-body">
+          <ul>
+            <li>Muhasebe Defteri</li>
+            <li>Beyanname</li>
+            <li>Bütçe ve Nakit Akışı...</li>
+          </ul>
+        </div>
+      </section>
 
-        <!-- DUYURULAR -->
-        <section class="card">
-          <h2>Duyurular</h2>
+      <!-- DANIŞMANLIK -->
+      <section id="danismanlik" class="card accordion-card">
+        <div class="accordion-header">
+          <span class="accordion-header-title">Danışmanlık Hizmetleri</span>
+          <span class="accordion-icon">›</span>
+        </div>
+        <div class="accordion-body">
+          <ul>
+            <li>Vergi Danışmanlığı</li>
+            <li>SGK – İş Hukuku</li>
+            <li>Finansal Danışmanlık</li>
+          </ul>
+        </div>
+      </section>
 
-          <div class="duyuru-link">
-            <span>👉</span>
-            <a href="https://dijital.gib.gov.tr/duyurular" target="_blank">GİB Duyuruları</a>
-          </div>
-
-          <div class="duyuru-link">
-            <span>👉</span>
-            <a href="https://www.sgk.gov.tr/Duyuru" target="_blank">SGK Duyuruları</a>
-          </div>
-
-          <div class="duyuru-link">
-            <span>👉</span>
-            <a href="https://www.turmob.org.tr/Haberler" target="_blank">TÜRMOB Haberleri</a>
-          </div>
-        </section>
-
-      </div>
     </div>
+
+    <!-- SAĞ TARAF -->
+    <div>
+
+      <!-- VERGİ TAKVİMİ -->
+      <section id="takvim-bolumu" class="card">
+        <h2>Bu Ayın Vergi Takvimi</h2>
+        <div id="takvim"></div>
+      </section>
+
+      <!-- SIK SORULAN SORULAR -->
+      <section id="sss" class="card accordion-card">
+        <div class="accordion-header">
+          <span class="accordion-header-title">Sık Sorulan Sorular</span>
+          <span class="accordion-icon">›</span>
+        </div>
+
+        <div class="accordion-body">
+
+          <details>
+            <summary>Şirket kuruluşu ne kadar sürer?</summary>
+            <p>Genellikle 1–2 iş günü.</p>
+          </details>
+
+          <details>
+            <summary>E-fatura zorunlu mu?</summary>
+            <p>Ciro sınırına göre zorunludur.</p>
+          </details>
+
+          <details>
+            <summary>Giderler ve indirilebilir harcamalar?</summary>
+            <p>Kira, yakıt, iletişim vb. giderler indirilir.</p>
+          </details>
+
+          <details>
+            <summary>İşe giriş bildirgesi ne zaman verilir?</summary>
+            <p>İşbaşı yapmadan 1 gün önce.</p>
+          </details>
+
+          <details>
+            <summary>Fatura – iptal – itiraz süreleri?</summary>
+            <ul>
+              <li>Fatura: 7 gün</li>
+              <li>İptal: 8 gün</li>
+              <li>İtiraz: Ayın 15’i</li>
+            </ul>
+          </details>
+
+          <details>
+            <summary>Nakit ödeme limiti?</summary>
+            <p>30.000 TL üzeri banka ile.</p>
+          </details>
+
+          <details>
+            <summary>Şubeler arası mal sevkiyatı?</summary>
+            <p>E-irsaliye zorunlu.</p>
+          </details>
+
+          <details>
+            <summary>Belge alt limiti?</summary>
+            <p>9.900 TL.</p>
+          </details>
+
+          <details>
+            <summary>Şahıs firmasında fatura?</summary>
+            <p>TC Kimlik numarasına kesilir.</p>
+          </details>
+
+          <details>
+            <summary>2 günlük rapor ücreti?</summary>
+            <p>SGK tarafından ödenir.</p>
+          </details>
+
+          <details>
+            <summary>İSG zorunlu mu?</summary>
+            <p>Çalışanı olmayan işletmede zorunlu değildir.</p>
+          </details>
+
+        </div>
+      </section>
+
+    </div>
+
   </div>
+</div>
 
+<!-- İLETİŞİM -->
+<section id="iletisim" class="card" style="max-width:1150px;margin:auto;">
+  <h2>İletişim</h2>
 
+  <p>📍 <strong>Adres:</strong> Atatürk Mh. Sütçü Cd. No:101/5 Ümraniye / İstanbul</p>
+  <p>📞 <a href="tel:905536194134">0553 619 41 34</a></p>
+  <p>✉️ <a href="mailto:adem@smmmyilmaz.com">adem@smmmyilmaz.com</a></p>
 
-  <!-- İLETİŞİM (TAKVİMDEN SONRA) -->
-  <section id="iletisim" class="card" style="max-width:1150px; margin:auto;">
-    <h2>İletişim</h2>
+  <div class="map-box">
+    <iframe 
+      src="https://maps.google.com/maps?q=41.00307,29.17024&z=16&output=embed"
+      loading="lazy"></iframe>
 
-    <p>📍 <strong>Adres:</strong> Atatürk Mh. Sütçü Cd. No:101/5 Ümraniye / İstanbul</p>
-    <p>📞 <strong>Telefon:</strong> <a href="tel:905536194134">0553 619 41 34</a></p>
-    <p>✉️ <strong>E-posta:</strong> <a href="mailto:adem@smmmyilmaz.com">adem@smmmyilmaz.com</a></p>
+    <a class="map-go-btn" 
+       href="https://maps.app.goo.gl/7JbYMK2JuFgPtxPL8"
+       target="_blank">
+      Konuma Git
+    </a>
+  </div>
+</section>
 
-    <p style="display:flex; align-items:center; gap:8px;">
-      <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" width="22" alt="LinkedIn">
-      <a href="https://www.linkedin.com/in/ademyilmazz" target="_blank" style="font-weight:600; color:var(--primary-dark);">
-        Adem Yılmaz
-      </a>
-    </p>
+<!-- WHATSAPP -->
+<a class="whatsapp-fab" 
+   href="https://wa.me/905536194134" target="_blank">💬</a>
 
-    <div class="map-box">
-<iframe 
-  src="https://maps.google.com/maps?q=41.00307,29.17024&z=16&output=embed"
-  width="100%" 
-  height="170" 
-  style="border:0; border-radius:14px;" 
-  allowfullscreen="" 
-  loading="lazy">
-</iframe>
+<!-- FOOTER -->
+<footer style="padding:16px;text-align:center;background:#e9edf3;border-top:1px solid #d4d9e2;margin-top:20px;">
+  © 2025 Adem Yılmaz — Serbest Muhasebeci Mali Müşavir
+</footer>
 
-      <a class="map-go-btn" href="https://maps.app.goo.gl/7JbYMK2JuFgPtxPL8" target="_blank">Konuma Git</a>
-    </div>
+<!-- JS: TAKVİM + ACCORDION -->
+<script>
+// Vergi Takvimi
+function isWeekend(d){return d.getDay()==0||d.getDay()==6;}
+function nextBusiness(d){while(isWeekend(d))d.setDate(d.getDate()+1);return d;}
+function fd(d){return ("0"+d.getDate()).slice(-2)+"/"+("0"+(d.getMonth()+1)).slice(-2)+"/"+d.getFullYear();}
+const now=new Date(),y=now.getFullYear(),m=now.getMonth()+1;const taxes=[];
+function add(name,day){
+ let d=day==="end"?new Date(y,m,0):new Date(y,m-1,day);
+ d=nextBusiness(d);
+ taxes.push({name,date:fd(d)});
+}
+add("Aylık Stopaj",26);
+add("KDV",28);
+add("KDV-2",25);
+add("SSK","end");
+add("Bağkur","end");
+if([1,5,8,11].includes(m))add("Peşin Vergi",17);
+if([1,4,7,10].includes(m))add("3 Aylık Stopaj",26);
+if(m===3)add("Yıllık Gelir Vergisi",31);
+const wrap=document.getElementById("takvim");
+taxes.forEach(t=>{
+ let div=document.createElement("div");
+ div.className="takvim-item";
+ div.innerHTML=`<span>${t.name}</span><span>${t.date}</span>`;
+ wrap.appendChild(div);
+});
 
-  </section>
-
-  <!-- WHATSAPP -->
-  <a class="whatsapp-fab" href="https://wa.me/905536194134" target="_blank">💬</a>
-
-  <!-- FOOTER -->
-  <footer>
-    © 2025 Adem Yılmaz — Serbest Muhasebeci Mali Müşavir
-  </footer>
-
-
-
-  <!-- JS – VERGİ TAKVİMİ + ACCORDION -->
-  <script>
-    // Vergi Takvimi
-    function isWeekend(d){ return d.getDay()==0 || d.getDay()==6; }
-    function nextBD(d){ while(isWeekend(d)) d.setDate(d.getDate()+1); return d; }
-    function fd(d){ return ("0"+d.getDate()).slice(-2)+"/"+("0"+(d.getMonth()+1)).slice(-2)+"/"+d.getFullYear(); }
-
-    const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1;
-    const taxes=[];
-
-    function add(name,day){
-      let d = day==="end" ? new Date(y,m,0) : new Date(y,m-1,day);
-      d = nextBD(d);
-      taxes.push({name,date:fd(d)});
-    }
-
-    add("Aylık Stopaj",26);
-    add("KDV",28);
-    add("KDV-2",25);
-    add("SSK","end");
-    add("Bağkur","end");
-
-    if([1,5,8,11].includes(m)) add("Peşin Vergi",17);
-    if([1,4,7,10].includes(m)) add("3 Aylık Stopaj",26);
-    if(m===3) add("Yıllık Gelir Vergisi",31);
-
-    const wrap=document.getElementById("takvim");
-    taxes.forEach(t=>{
-      const div=document.createElement("div");
-      div.className="takvim-item";
-      div.innerHTML=`<span>${t.name}</span><span>${t.date}</span>`;
-      wrap.appendChild(div);
-    });
-
-    // Accordion Kartlar
-    document.querySelectorAll('.accordion-card').forEach(function(card){
-      card.querySelector('.accordion-header').addEventListener('click', function(){
-        card.classList.toggle('open');
-      });
-    });
-  </script>
+// Accordion
+document.querySelectorAll('.accordion-card').forEach(card=>{
+ const header=card.querySelector('.accordion-header');
+ header.addEventListener('click',()=>card.classList.toggle('open'));
+});
+</script>
 
 </body>
 </html>
