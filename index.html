@@ -47,8 +47,8 @@
     }
 
     .nav-logo img {
-      width: 46px;
-      height: 46px;
+      width: 32px;   /* küçültüldü */
+      height: 32px;  /* küçültüldü */
       border-radius: 8px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
@@ -62,11 +62,11 @@
     .nav-title {
       font-weight: 700;
       color: var(--primary-dark);
-      font-size: 16px;
+      font-size: 15px;
     }
 
     .nav-sub {
-      font-size: 12px;
+      font-size: 11px;
       color: #555;
       margin-top: 3px;
     }
@@ -98,7 +98,7 @@
     }
 
     .hero-logo-box {
-      width: 220px;
+      width: 160px; /* %30 küçültüldü */
       background: rgba(0,0,0,0.20);
       padding: 12px;
       border-radius: 14px;
@@ -118,13 +118,13 @@
 
     .hero-text h1 {
       margin: 0;
-      font-size: 30px;
+      font-size: 28px;
       font-weight: bold;
     }
 
     .hero-text h2 {
-      margin: 8px 0 16px 0;
-      font-size: 17px;
+      margin: 6px 0 16px 0;
+      font-size: 15px;
       font-weight: 500;
       opacity: 0.9;
     }
@@ -167,11 +167,8 @@
 
     .card h2 { margin-top: 0; color: var(--primary-dark); }
 
-    /* ACCORDION CARD (SOL TARAF) */
-    .accordion-card {
-      padding: 0;
-      overflow: hidden;
-    }
+    /* ACCORDION CARD */
+    .accordion-card { padding: 0; overflow: hidden; }
 
     .accordion-header {
       padding: 14px 18px;
@@ -183,11 +180,7 @@
       cursor: pointer;
     }
 
-    .accordion-header-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--primary-dark);
-    }
+    .accordion-header-title { font-size: 16px; font-weight: 600; color: var(--primary-dark); }
 
     .accordion-icon {
       font-size: 18px;
@@ -206,14 +199,7 @@
       transition: max-height 0.25s ease;
     }
 
-    .accordion-card.open .accordion-body {
-      max-height: 1000px; /* yeterli büyük limit */
-    }
-
-    .accordion-body p,
-    .accordion-body ul {
-      margin-top: 14px;
-    }
+    .accordion-card.open .accordion-body { max-height: 1000px; }
 
     /* VERGİ TAKVİMİ */
     .takvim-item {
@@ -229,14 +215,11 @@
     }
 
     /* HARİTA */
-    .map-box {
-      position: relative;
-      margin-top: 15px;
-    }
+    .map-box { position: relative; margin-top: 15px; }
 
     .map-box iframe {
       width: 100%;
-      height: 175px; /* %33 küçültüldü */
+      height: 170px;
       border: 0;
       border-radius: 14px;
       box-shadow: 0 4px 14px rgba(0,0,0,0.12);
@@ -257,17 +240,6 @@
       font-size: 12px;
       font-weight: 600;
       box-shadow: 0 3px 10px rgba(0,0,0,0.25);
-      transition: 0.15s;
-    }
-
-    .map-go-btn svg {
-      width: 14px;
-      fill: #fff;
-    }
-
-    .map-go-btn:hover {
-      background: var(--primary-dark);
-      transform: translateY(-2px);
     }
 
     /* SSS */
@@ -283,30 +255,6 @@
       font-weight: 600;
       color: var(--primary-dark);
       cursor: pointer;
-    }
-
-    /* DUYURULAR LİNKLERİ */
-    .duyuru-link {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 6px;
-      font-size: 14px;
-    }
-
-    .duyuru-link span {
-      font-size: 18px;
-    }
-
-    .duyuru-link a {
-      color: var(--primary-dark);
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    .duyuru-link a:hover {
-      color: var(--primary-light);
-      text-decoration: underline;
     }
 
     /* WHATSAPP */
@@ -335,33 +283,39 @@
       margin-top: 20px;
     }
 
-    /* MOBİL DÜZENLEMELER (iPhone vb.) */
+    /* MOBİL DÜZENLEMELER — TAM ORTALI */
     @media(max-width: 800px) {
       .content-grid { grid-template-columns: 1fr; }
       .hero-inner { flex-direction: column; text-align: center; }
 
       .nav-inner {
         flex-direction: column;
-        align-items: flex-start;
+        align-items: center;
+        text-align: center;
         gap: 6px;
       }
 
+      .nav-left {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .nav-links {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+      }
+
       .nav-logo img {
-        width: 36px;
-        height: 36px;
+        width: 26px;
+        height: 26px;
       }
 
-      .hero-logo-box {
-        width: 170px;
-      }
+      .hero-logo-box { width: 130px; }
 
-      .hero-text h1 {
-        font-size: 24px;
-      }
-
-      .hero-text h2 {
-        font-size: 15px;
-      }
+      .hero-text h1 { font-size: 22px; }
+      .hero-text h2 { font-size: 14px; }
     }
   </style>
 </head>
@@ -376,14 +330,15 @@
 
         <div class="nav-titles">
           <div class="nav-title">Adem Yılmaz</div>
-          <div class="nav-sub">Serbest Muhasebeci Mali Müşavir — Ümraniye / İstanbul</div>
+          <div class="nav-sub">Serbest Muhasebeci Mali Müşavir</div>
+          <div class="nav-sub">Ümraniye / İstanbul</div>
         </div>
       </div>
 
       <div class="nav-links">
         <a href="#hakkimda">Hakkımda</a>
         <a href="#uzmanlik">Uzmanlık</a>
-        <a href="#hizmetler">Hizmetlerimiz</a>
+        <a href="#hizmetler">Hizmetler</a>
         <a href="#danismanlik">Danışmanlık</a>
         <a href="#iletisim">İletişim</a>
       </div>
@@ -403,18 +358,18 @@
         <h2>Serbest Muhasebeci Mali Müşavir — Ümraniye / İstanbul</h2>
 
         <p>
-          Muhasebe, vergi ve mali mevzuat süreçlerinde profesyonel destek sağlayarak işletmelerin
-          tüm mali yükümlülüklerini güvenilir şekilde yönetiyorum.
+          Muhasebe, vergi ve mali mevzuat süreçlerinde profesyonel destek sağlayarak
+          işletmelerin tüm mali yükümlülüklerini güvenilir şekilde yönetiyorum.
         </p>
 
         <div class="hero-actions">
           <a class="btn-primary" href="#iletisim">İletişime Geç</a>
-
           <a class="btn-outline-light" target="_blank"
-          href="https://wa.me/905536194134?text=Merhaba,+ileti%C5%9Fime+ge%C3%A7mek+istiyorum.">
+             href="https://wa.me/905536194134?text=Merhaba,+ileti%C5%9Fime+ge%C3%A7mek+istiyorum.">
             WhatsApp ile İletişime Geç
           </a>
         </div>
+
       </div>
     </div>
   </section>
@@ -449,7 +404,6 @@
             <p>
               Ulusal ve uluslararası firmalara danışmanlık; muhasebe sistem kurulumu, mali denetim, 
               iç kontrol süreçleri, şirket kuruluşu ve vergi yönetimi alanlarında profesyonel hizmet sunuyorum.
-              Evli ve iki çocuk babasıyım.
             </p>
           </div>
         </section>
@@ -536,10 +490,12 @@
 
       </div>
 
-      <!-- SAĞ TARAF -->
+
+
+      <!-- SAĞ TARAF – VERGİ TAKVİMİ + SSS + DUYURULAR -->
       <div>
 
-        <!-- VERGİ TAKVİMİ -->
+        <!-- VERGİ TAKVİMİ – İLETİŞİMDEN ÖNE ALINDI -->
         <section class="card">
           <h2>Bu Ayın Vergi Takvimi</h2>
           <div id="takvim"></div>
@@ -565,7 +521,7 @@
           </details>
         </section>
 
-        <!-- DUYURULAR (GİB / SGK / TÜRMOB) -->
+        <!-- DUYURULAR -->
         <section class="card">
           <h2>Duyurular</h2>
 
@@ -591,7 +547,7 @@
 
 
 
-  <!-- İLETİŞİM -->
+  <!-- İLETİŞİM (TAKVİMDEN SONRA) -->
   <section id="iletisim" class="card" style="max-width:1150px; margin:auto;">
     <h2>İletişim</h2>
 
@@ -606,7 +562,6 @@
       </a>
     </p>
 
-    <!-- HARİTA -->
     <div class="map-box">
       <iframe 
         src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3010.1253912676893!2d29.170246!3d41.002076!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14cac682850947e1%3A0xf84aa3aa26446bbc!2zQXRha2VudCBBcm1hLCDFnnR1c2x1a3JldCBNZXJrZXppLCBBdGFrZW50L8Swc3RhbmJ1bA!5e0!3m2!1str!2str!4v1732724667910!5m2!1str!2str"
@@ -615,14 +570,7 @@
         referrerpolicy="no-referrer-when-downgrade">
       </iframe>
 
-      <a class="map-go-btn" href="https://maps.app.goo.gl/7JbYMK2JuFgPtxPL8" target="_blank">
-        <svg viewBox="0 0 24 24">
-          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 
-                   9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 
-                   2.5-2.5 2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/>
-        </svg>
-        Konuma Git
-      </a>
+      <a class="map-go-btn" href="https://maps.app.goo.gl/7JbYMK2JuFgPtxPL8" target="_blank">Konuma Git</a>
     </div>
 
   </section>
@@ -637,11 +585,10 @@
 
 
 
-  <!-- VERGİ TAKVİMİ + ACCORDION JS -->
+  <!-- JS – TAKVİM + KARTLAR -->
   <script>
-    // Vergi Takvimi
     function isWeekend(d){ return d.getDay()==0 || d.getDay()==6; }
-    function nextBusiness(d){ while(isWeekend(d)) d.setDate(d.getDate()+1); return d; }
+    function nextBD(d){ while(isWeekend(d)) d.setDate(d.getDate()+1); return d; }
     function fd(d){ return ("0"+d.getDate()).slice(-2)+"/"+("0"+(d.getMonth()+1)).slice(-2)+"/"+d.getFullYear(); }
 
     const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1;
@@ -649,7 +596,7 @@
 
     function add(name,day){
       let d = day==="end" ? new Date(y,m,0) : new Date(y,m-1,day);
-      d = nextBusiness(d);
+      d = nextBD(d);
       taxes.push({name,date:fd(d)});
     }
 
@@ -673,8 +620,7 @@
 
     // Accordion
     document.querySelectorAll('.accordion-card').forEach(function(card){
-      const header = card.querySelector('.accordion-header');
-      header.addEventListener('click', function(){
+      card.querySelector('.accordion-header').addEventListener('click', function(){
         card.classList.toggle('open');
       });
     });
