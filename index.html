@@ -180,6 +180,48 @@
       color: var(--primary-dark);
     }
 
+    /* HARİTA */
+    .map-box {
+      position: relative;
+      margin-top: 15px;
+    }
+
+    .map-box iframe {
+      width: 100%;
+      height: 175px; /* %33 küçültüldü */
+      border: 0;
+      border-radius: 14px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    }
+
+    .map-go-btn {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: var(--primary);
+      color: #fff;
+      text-decoration: none;
+      padding: 6px 10px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+      transition: 0.15s;
+    }
+
+    .map-go-btn svg {
+      width: 14px;
+      fill: #fff;
+    }
+
+    .map-go-btn:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+    }
+
     /* SSS */
     #sss details {
       padding: 10px;
@@ -193,15 +235,6 @@
       font-weight: 600;
       color: var(--primary-dark);
       cursor: pointer;
-    }
-
-    /* HARİTA */
-    .map-box iframe {
-      width: 100%;
-      height: 260px;
-      border: 0;
-      border-radius: 14px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
     }
 
     /* WHATSAPP */
@@ -302,28 +335,35 @@
         <!-- HAKKIMDA -->
         <section id="hakkimda" class="card">
           <h2>Hakkımda</h2>
+
           <p>
-            1986 yılında İstanbul’da doğdum. Süleyman Demirel Üniversitesi İşletme bölümünden 
-            2008 yılında mezun oldum. 2008–2025 yılları arasında profesyonel bir muhasebe 
-            ofisinde yönetici olarak görev aldım.
+            1986 yılında İstanbul’da doğdum. Eskişehir Üniversitesi İşletme ve 
+            Süleyman Demirel Üniversitesi Muhasebe bölümünden 2008 yılında mezun olduktan sonra, 
+            2008–2025 yılları arasında profesyonel bir muhasebe ofisinde yönetici olarak görev aldım.
           </p>
+
           <p>
-            2021 yılında  Serbest Muhasebeci Mali Müşavir olarak bağımsız hizmet vermeye başladım. Ulusal ve uluslararası                  	    firmalara; şirket kurulumu,mali denetim, iç kontrol, bordro, vergi danışmanlığı ve muhasebe sistemlerinin 
-	    kurulumu alanlarında profesyonel hizmet sunuyorum.
+            2021 yılında Serbest Muhasebeci Mali Müşavir unvanıyla bağımsız olarak hizmet vermeye başladım. 
+            Aynı zamanda uzun yıllar görev yaptığım ofise de yönetici ve danışmanlık hizmeti sunmaya devam ediyorum.
           </p>
-          <p>Evli ve iki çocuk babasıyım.</p>
+
+          <p>
+            Ulusal ve uluslararası firmalara danışmanlık; muhasebe sistem kurulumu, mali denetim, 
+            iç kontrol süreçleri, şirket kuruluşu ve vergi yönetimi alanlarında profesyonel hizmet sunuyorum.Evli ve iki çocuk babasıyım.
+          </p>
+
         </section>
 
-        <!-- UZMANLIK (Sade uzun metin) -->
+        <!-- UZMANLIK -->
         <section id="uzmanlik" class="card">
           <h2>Uzmanlık Alanlarım</h2>
           <p>
             Muhasebe, finansal raporlama, vergi mevzuatı, SGK ve iş hukuku uygulamaları, şirket 
-            kuruluş işlemleri, mali analiz, denetim ve işletme süreçlerinin iyileştirilmesi konularında uzmandır.
+            kuruluş işlemleri, mali analiz, denetim ve işletme süreçlerinin iyileştirilmesi konularında uzmanım.
           </p>
         </section>
 
-        <!-- HİZMETLER (uzun liste) -->
+        <!-- HİZMETLER -->
         <section id="hizmetler" class="card">
           <h2>Hizmetlerimiz</h2>
           <ul>
@@ -385,7 +425,7 @@
           <div id="takvim"></div>
         </section>
 
-        <!-- SSS SAĞA ALINDI -->
+        <!-- SSS -->
         <section id="sss" class="card">
           <h2>Sık Sorulan Sorular</h2>
 
@@ -438,18 +478,25 @@
       </a>
     </p>
 
-    <!-- HARİTA YUVARLAK PREMIUM -->
+    <!-- HARİTA -->
     <div class="map-box">
       <iframe 
-  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3010.148324182282!2d29.124126676152325!3d41.000591820806695!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14cac84c1df3258f%3A0xddd6b26204ce0f45!2s%C3%9Cmraniye%2C%20Istanbul!5e0!3m2!1str!2str!4v1701193941992!5m2!1str!2str" 
-  width="100%" 
-  height="260" 
-  style="border:0; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.15);" 
-  allowfullscreen="" 
-  loading="lazy">
-</iframe>
+        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3010.1253912676893!2d29.170246!3d41.002076!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14cac682850947e1%3A0xf84aa3aa26446bbc!2zQXRha2VudCBBcm1hLCDFnnR1c2x1a3JldCBNZXJrZXppLCBBdGFrZW50L8Swc3RhbmJ1bA!5e0!3m2!1str!2str!4v1732724667910!5m2!1str!2str"
+        loading="lazy"
+        allowfullscreen=""
+        referrerpolicy="no-referrer-when-downgrade">
+      </iframe>
 
+      <a class="map-go-btn" href="https://maps.app.goo.gl/7JbYMK2JuFgPtxPL8" target="_blank">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 
+                   9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 
+                   2.5-2.5 2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/>
+        </svg>
+        Konuma Git
+      </a>
     </div>
+
   </section>
 
   <!-- WHATSAPP -->
