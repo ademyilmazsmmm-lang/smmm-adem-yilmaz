@@ -47,8 +47,8 @@
     }
 
     .nav-logo img {
-      width: 32px;   /* küçültüldü */
-      height: 32px;  /* küçültüldü */
+      width: 32px;
+      height: 32px;
       border-radius: 8px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
@@ -98,7 +98,7 @@
     }
 
     .hero-logo-box {
-      width: 160px; /* %30 küçültüldü */
+      width: 160px;
       background: rgba(0,0,0,0.20);
       padding: 12px;
       border-radius: 14px;
@@ -146,6 +146,10 @@
 
     .btn-primary { background: #fff; color: var(--primary-dark); }
     .btn-outline-light { border: 1px solid #fff; color: #fff; }
+
+    .mobile-block {
+      white-space: nowrap;
+    }
 
     /* CONTENT GRID */
     .page-wrapper { max-width: 1150px; margin: -40px auto 30px; padding: 0 16px; }
@@ -257,7 +261,31 @@
       cursor: pointer;
     }
 
-    /* WHATSAPP */
+    /* DUYURULAR */
+    .duyuru-link {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .duyuru-link span {
+      font-size: 18px;
+    }
+
+    .duyuru-link a {
+      color: var(--primary-dark);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .duyuru-link a:hover {
+      color: var(--primary-light);
+      text-decoration: underline;
+    }
+
+    /* WHATSAPP FAB */
     .whatsapp-fab {
       position: fixed;
       right: 18px;
@@ -283,7 +311,7 @@
       margin-top: 20px;
     }
 
-    /* MOBİL DÜZENLEMELER — TAM ORTALI */
+    /* MOBİL DÜZENLEMELER (iPhone vb.) */
     @media(max-width: 800px) {
       .content-grid { grid-template-columns: 1fr; }
       .hero-inner { flex-direction: column; text-align: center; }
@@ -296,8 +324,14 @@
       }
 
       .nav-left {
-        flex-direction: column;
-        text-align: center;
+        flex-direction: row;          /* Logo solda, metin sağda */
+        align-items: center;
+        justify-content: center;
+      }
+
+      .nav-logo img {
+        width: 52px;                  /* iPhone'da logo büyütüldü */
+        height: 52px;
       }
 
       .nav-links {
@@ -307,15 +341,14 @@
         gap: 10px;
       }
 
-      .nav-logo img {
-        width: 26px;
-        height: 26px;
-      }
-
       .hero-logo-box { width: 130px; }
 
       .hero-text h1 { font-size: 22px; }
       .hero-text h2 { font-size: 14px; }
+
+      .mobile-block {
+        display: block;               /* iPhone’da Ümraniye / İstanbul alt satır */
+      }
     }
   </style>
 </head>
@@ -340,6 +373,7 @@
         <a href="#uzmanlik">Uzmanlık</a>
         <a href="#hizmetler">Hizmetler</a>
         <a href="#danismanlik">Danışmanlık</a>
+        <a href="#vergi-takvimi">Vergi Takvimi</a>
         <a href="#iletisim">İletişim</a>
       </div>
     </div>
@@ -355,7 +389,10 @@
 
       <div class="hero-text">
         <h1>Adem Yılmaz</h1>
-        <h2>Serbest Muhasebeci Mali Müşavir — Ümraniye / İstanbul</h2>
+        <h2>
+          Serbest Muhasebeci Mali Müşavir
+          <span class="mobile-block"> — Ümraniye / İstanbul</span>
+        </h2>
 
         <p>
           Muhasebe, vergi ve mali mevzuat süreçlerinde profesyonel destek sağlayarak
@@ -380,7 +417,7 @@
   <div class="page-wrapper">
     <div class="content-grid">
 
-      <!-- SOL TARAF (ACCORDION KARTLAR) -->
+      <!-- SOL TARAF (ACCORDION KARTLAR + SSS) -->
       <div>
 
         <!-- HAKKIMDA -->
@@ -488,20 +525,7 @@
           </div>
         </section>
 
-      </div>
-
-
-
-      <!-- SAĞ TARAF – VERGİ TAKVİMİ + SSS + DUYURULAR -->
-      <div>
-
-        <!-- VERGİ TAKVİMİ – İLETİŞİMDEN ÖNE ALINDI -->
-        <section class="card">
-          <h2>Bu Ayın Vergi Takvimi</h2>
-          <div id="takvim"></div>
-        </section>
-
-        <!-- SSS -->
+        <!-- SIK SORULAN SORULAR (SOL TARAFTA) -->
         <section id="sss" class="card">
           <h2>Sık Sorulan Sorular</h2>
 
@@ -512,13 +536,101 @@
 
           <details>
             <summary>E-fatura zorunlu mu?</summary>
-            <p>Ciro limitine bağlı olarak zorunlu hale gelir.</p>
+            <p>Ciro limitine bağlı olarak belirlenmiş hadleri aşan mükellefler için e-fatura zorunlu hale gelir.</p>
           </details>
 
           <details>
             <summary>Bordro işlemleri neyi kapsar?</summary>
             <p>Ücret hesaplama, SGK bildirgeleri ve iş hukuku süreçlerini içerir.</p>
           </details>
+
+          <details>
+            <summary>Giderler ve indirilebilir harcamalar nelerdir?</summary>
+            <p>
+              İşle doğrudan ilgili olmak şartıyla kira, yakıt, iletişim, yemek, kırtasiye, sarf malzemesi,
+              bakım-onarım vb. giderler indirim konusu yapılabilir.
+            </p>
+          </details>
+
+          <details>
+            <summary>İşe giriş bildirgesi ne zaman verilir?</summary>
+            <p>
+              Çalışan, işbaşı yapmadan en geç 1 gün önce SGK’ya bildirilmelidir.
+            </p>
+          </details>
+
+          <details>
+            <summary>Fatura düzenleme, iptal ve itiraz süreleri nedir?</summary>
+            <ul>
+              <li>Fatura düzenleme: Mal/hizmet tarihinden itibaren 7 gün</li>
+              <li>İptal süresi: 8 gün</li>
+              <li>İtiraz süresi: Takip eden ayın 15’i</li>
+            </ul>
+          </details>
+
+          <details>
+            <summary>Nakit ödeme ve tahsilat limiti nedir?</summary>
+            <p>
+              KDV dahil 30.000 TL üzeri nakit ödeme yapılamaz; ödeme banka yoluyla yapılmalıdır.
+            </p>
+          </details>
+
+          <details>
+            <summary>Şubeler arası mal sevkiyatında e-irsaliye zorunlu mu?</summary>
+            <p>
+              Aynı mükellefe ait depo/şubeler arası mal hareketlerinde e-irsaliye düzenlemek zorunludur.
+            </p>
+          </details>
+
+          <details>
+            <summary>Tevkifat, demirbaş ve POS fişi için belge alt limiti nedir?</summary>
+            <p>
+              Belge düzeninde alt sınır 9.900 TL’dir.  
+              (Tevkifat faturası, demirbaş kaydı ve yazar kasa POS fişleri için.)
+            </p>
+          </details>
+
+          <details>
+            <summary>Şahıs firmalarında fatura nasıl düzenlenir?</summary>
+            <p>
+              Şahıs firmalarında fatura T.C. kimlik numarasına göre düzenlenir. Vergi numarası kullanılmaz.
+            </p>
+          </details>
+
+          <details>
+            <summary>İkinci el gayrimenkulde özel matrah nasıl uygulanır?</summary>
+            <p>
+              KDV, alış ve satış fiyatı arasındaki kâr farkı üzerinden hesaplanır.
+              Faturada alış ve satış bedelleri ayrı gösterilir.
+            </p>
+          </details>
+
+          <details>
+            <summary>2 günlük rapor alan işçinin ücreti kim tarafından ödenir?</summary>
+            <p>
+              Raporlu 2 gün için işveren ücret ödemez. Ödeme, rapor süresine göre SGK tarafından yapılır.
+            </p>
+          </details>
+
+          <details>
+            <summary>Çalışanı olmayan işletmelerde İSG zorunluluğu var mı?</summary>
+            <p>
+              Çalışanı olmayan işletmeler için iş sağlığı ve güvenliği hizmeti alma zorunluluğu yoktur.
+            </p>
+          </details>
+        </section>
+
+      </div>
+
+
+
+      <!-- SAĞ TARAF – VERGİ TAKVİMİ + DUYURULAR -->
+      <div>
+
+        <!-- VERGİ TAKVİMİ (MENÜDEN LİNKLENEN) -->
+        <section id="vergi-takvimi" class="card">
+          <h2>Bu Ayın Vergi Takvimi</h2>
+          <div id="takvim"></div>
         </section>
 
         <!-- DUYURULAR -->
@@ -585,8 +697,9 @@
 
 
 
-  <!-- JS – TAKVİM + KARTLAR -->
+  <!-- JS – VERGİ TAKVİMİ + ACCORDION -->
   <script>
+    // Vergi Takvimi
     function isWeekend(d){ return d.getDay()==0 || d.getDay()==6; }
     function nextBD(d){ while(isWeekend(d)) d.setDate(d.getDate()+1); return d; }
     function fd(d){ return ("0"+d.getDate()).slice(-2)+"/"+("0"+(d.getMonth()+1)).slice(-2)+"/"+d.getFullYear(); }
@@ -618,7 +731,7 @@
       wrap.appendChild(div);
     });
 
-    // Accordion
+    // Accordion Kartlar
     document.querySelectorAll('.accordion-card').forEach(function(card){
       card.querySelector('.accordion-header').addEventListener('click', function(){
         card.classList.toggle('open');
