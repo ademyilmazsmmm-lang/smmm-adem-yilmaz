@@ -261,11 +261,16 @@
       color: var(--primary-dark);
       cursor: pointer;
     }
-/* SSS ALTTAKİ BOŞ ÇİZGİYİ YOK ET — KESİN ÇÖZÜM */
+    /* SSS ALTTAKİ BEYAZ ÇİZGİYİ MASAÜSTÜNDE KALDIR – KESİN ÇÖZÜM */
 #sss .accordion-body {
-  border: none !important;
-  padding-top: 0 !important;
+  border-top: none !important;
   margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+#sss .accordion-body > *:first-child {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
 }
 
     /* DUYURULAR */
@@ -750,6 +755,7 @@
 
 </body>
 </html>
+
 
 
 
