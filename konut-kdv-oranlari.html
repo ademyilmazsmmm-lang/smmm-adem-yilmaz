@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Konut Teslimlerinde KDV Oranları</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    max-width: 900px;
+    margin: auto;
+    padding: 20px;
+    background: #f4f6fb;
+    line-height: 1.65;
+    color: #2b3440;
+  }
+
+  h1 {
+    color: #0d47a1;
+    margin-bottom: 10px;
+    font-size: 26px;
+    text-align: center;
+  }
+
+  .section-box {
+    background: #ffffff;
+    padding: 18px 22px;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.10);
+    margin-bottom: 22px;
+  }
+
+  .section-title {
+    background: #e9edf7;
+    padding: 10px 14px;
+    border-left: 4px solid #1565c0;
+    font-weight: 700;
+    font-size: 18px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+  }
+
+  ul {
+    margin-top: 6px;
+    margin-bottom: 16px;
+  }
+
+  ul li {
+    margin-bottom: 6px;
+    padding-left: 4px;
+  }
+
+  .icon-li::before {
+    content: "✔ ";
+    color: #1565c0;
+    font-weight: bold;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    background: white;
+  }
+
+  table th {
+    background: #1565c0;
+    color: white;
+    padding: 10px;
+    text-align: left;
+  }
+
+  table td {
+    border: 1px solid #d9dce3;
+    padding: 8px;
+  }
+
+  .info {
+    font-size: 14px;
+    color: #444;
+    background: #eef3ff;
+    padding: 12px;
+    border-radius: 8px;
+    border-left: 4px solid #1565c0;
+    margin-bottom: 18px;
+  }
+</style>
+
+</head>
+<body>
+
+<h1>Konut Teslimlerinde KDV Oranları</h1>
+
+<div class="info">
+  Yapı ruhsatındaki <strong>ilk alınan ruhsat tarihi</strong> ve <strong>konutun net alanı</strong> KDV oranını belirler.  
+  Büyükşehir ve arsa birim m² vergi değeri de bazı dönemlerde önem taşır.
+</div>
+
+<!-- 2013 ÖNCESİ -->
+<div class="section-box">
+  <div class="section-title">🏗 Yapı ruhsatı 01.01.2013’ten önce alınan projeler</div>
+  <ul>
+    <li class="icon-li">150 m² altı konutlarda KDV: <strong>%1</strong></li>
+    <li class="icon-li">150 m² üzeri konutlarda KDV: <strong>%20</strong></li>
+  </ul>
+</div>
+
+<!-- 2013 - 2016 -->
+<div class="section-box">
+  <div class="section-title">🏗 Yapı ruhsatı 01.01.2013 – 31.12.2016 arası alınan projeler</div>
+  <ul>
+    <li class="icon-li">Büyükşehir hariç 150 m²’ye kadar KDV: <strong>%1</strong></li>
+    <li class="icon-li">150 m² üzerindeki konutlarda KDV: <strong>%20</strong></li>
+  </ul>
+
+  <h4>Büyükşehirlerde 150 m²’ye kadar konutlarda arsa birim m² değerine göre:</h4>
+
+  <table>
+    <tr><th>Arsa Birim m² Vergi Değeri</th><th>KDV Oranı</th></tr>
+    <tr><td>500 – 999 TL</td><td><strong>%10</strong></td></tr>
+    <tr><td>1.000 TL ve üzeri</td><td><strong>%20</strong></td></tr>
+  </table>
+</div>
+
+<!-- 2017 - 2022 -->
+<div class="section-box">
+  <div class="section-title">🏗 Yapı ruhsatı 01.01.2017 – 31.03.2022 arası alınan projeler</div>
+  <ul>
+    <li class="icon-li">Büyükşehir hariç 150 m²’ye kadar KDV: <strong>%1</strong></li>
+    <li class="icon-li">150 m² üzeri konutlarda KDV: <strong>%20</strong></li>
+  </ul>
+
+  <h4>Büyükşehirlerde (150 m² altı) arsa değerine göre:</h4>
+
+  <table>
+    <tr><th>Arsa Birim m² Vergi Değeri</th><th>KDV Oranı</th></tr>
+    <tr><td>1.000 – 1.999 TL</td><td><strong>%10</strong></td></tr>
+    <tr><td>2.000 TL ve üzeri</td><td><strong>%20</strong></td></tr>
+  </table>
+</div>
+
+<!-- 2022 SONRASI -->
+<div class="section-box">
+  <div class="section-title">🏗 Yapı ruhsatı 01.04.2022’den sonra alınan projeler</div>
+  <ul>
+    <li class="icon-li">150 m² altı konutlarda KDV: <strong>%1</strong></li>
+    <li class="icon-li">150 m² üzeri konutlarda:  
+      <ul>
+        <li>150 m²’ye kadar kısmı: <strong>%1</strong></li>
+        <li>Üzeri: <strong>%20</strong></li>
+      </ul>
+    </li>
+  </ul>
+</div>
+
+<!-- KENTSEL DÖNÜŞÜM -->
+<div class="section-box">
+  <div class="section-title">🏚 6306 Sayılı Kanun (Kentsel Dönüşüm) Kapsamındaki Konutlar</div>
+
+  <table>
+    <tr><th>Konut Alanı</th><th>KDV Oranı</th></tr>
+    <tr><td>150 m² altı</td><td><strong>%1</strong></td></tr>
+    <tr><td>150 m² üzeri</td><td>İlk 150 m²: <strong>%1</strong> — Üzeri: <strong>%20</strong></td></tr>
+  </table>
+</div>
+
+</body>
+</html>
