@@ -8,161 +8,193 @@
 <style>
   body {
     font-family: Arial, sans-serif;
-    max-width: 900px;
+    max-width: 980px;
     margin: auto;
     padding: 20px;
     background: #f4f6fb;
-    line-height: 1.65;
+    line-height: 1.55;
     color: #2b3440;
   }
 
   h1 {
-    color: #0d47a1;
-    margin-bottom: 10px;
-    font-size: 26px;
     text-align: center;
-  }
-
-  .section-box {
-    background: #ffffff;
-    padding: 18px 22px;
-    border-radius: 12px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.10);
-    margin-bottom: 22px;
-  }
-
-  .section-title {
-    background: #e9edf7;
-    padding: 10px 14px;
-    border-left: 4px solid #1565c0;
-    font-weight: 700;
-    font-size: 18px;
-    border-radius: 6px;
-    margin-bottom: 14px;
-  }
-
-  ul {
-    margin-top: 6px;
-    margin-bottom: 16px;
-  }
-
-  ul li {
-    margin-bottom: 6px;
-    padding-left: 4px;
-  }
-
-  .icon-li::before {
-    content: "✔ ";
-    color: #1565c0;
-    font-weight: bold;
+    color: #0d47a1;
+    margin-bottom: 25px;
   }
 
   table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 10px;
     background: white;
-  }
-
-  table th {
-    background: #1565c0;
-    color: white;
-    padding: 10px;
-    text-align: left;
-  }
-
-  table td {
-    border: 1px solid #d9dce3;
-    padding: 8px;
-  }
-
-  .info {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     font-size: 14px;
-    color: #444;
-    background: #eef3ff;
+  }
+
+  th {
+    background: #0d47a1;
+    color: white;
     padding: 12px;
-    border-radius: 8px;
+    text-align: center;
+  }
+
+  td {
+    border: 1px solid #dde3f1;
+    padding: 10px;
+    vertical-align: top;
+  }
+
+  .sub {
+    background: #eef3ff;
+    font-weight: bold;
+    color: #0d47a1;
+    text-align: center;
+  }
+
+  .note {
+    margin-top: 20px;
+    padding: 12px;
+    background: #e9f0ff;
     border-left: 4px solid #1565c0;
-    margin-bottom: 18px;
+    border-radius: 6px;
+    font-size: 14px;
   }
 </style>
-
 </head>
+
 <body>
 
 <h1>Konut Teslimlerinde KDV Oranları</h1>
 
-<div class="info">
-  Yapı ruhsatındaki <strong>ilk alınan ruhsat tarihi</strong> ve <strong>konutun net alanı</strong> KDV oranını belirler.  
-  Büyükşehir ve arsa birim m² vergi değeri de bazı dönemlerde önem taşır.
-</div>
+<table>
 
-<!-- 2013 ÖNCESİ -->
-<div class="section-box">
-  <div class="section-title">🏗 Yapı ruhsatı 01.01.2013’ten önce alınan projeler</div>
-  <ul>
-    <li class="icon-li">150 m² altı konutlarda KDV: <strong>%1</strong></li>
-    <li class="icon-li">150 m² üzeri konutlarda KDV: <strong>%20</strong></li>
-  </ul>
-</div>
+  <tr>
+    <th>Dönem</th>
+    <th>Şehir Durumu</th>
+    <th>Net Alan</th>
+    <th>Arsa Birim m² Vergi Değeri</th>
+    <th>KDV Oranı</th>
+  </tr>
 
-<!-- 2013 - 2016 -->
-<div class="section-box">
-  <div class="section-title">🏗 Yapı ruhsatı 01.01.2013 – 31.12.2016 arası alınan projeler</div>
-  <ul>
-    <li class="icon-li">Büyükşehir hariç 150 m²’ye kadar KDV: <strong>%1</strong></li>
-    <li class="icon-li">150 m² üzerindeki konutlarda KDV: <strong>%20</strong></li>
-  </ul>
+  <!-- 2013 ÖNCESİ -->
+  <tr>
+    <td rowspan="2" class="sub">01.01.2013’ten Önce</td>
+    <td rowspan="2">Tüm Türkiye</td>
+    <td>150 m² altı</td>
+    <td>—</td>
+    <td><strong>%1</strong></td>
+  </tr>
+  <tr>
+    <td>150 m² üzeri</td>
+    <td>—</td>
+    <td><strong>%20</strong></td>
+  </tr>
 
-  <h4>Büyükşehirlerde 150 m²’ye kadar konutlarda arsa birim m² değerine göre:</h4>
+  <!-- 2013 – 2016 -->
+  <tr>
+    <td rowspan="4" class="sub">01.01.2013 – 31.12.2016</td>
+    <td rowspan="2">Büyükşehir Harici</td>
+    <td>150 m² altı</td>
+    <td>—</td>
+    <td><strong>%1</strong></td>
+  </tr>
+  <tr>
+    <td>150 m² üzeri</td>
+    <td>—</td>
+    <td><strong>%20</strong></td>
+  </tr>
 
-  <table>
-    <tr><th>Arsa Birim m² Vergi Değeri</th><th>KDV Oranı</th></tr>
-    <tr><td>500 – 999 TL</td><td><strong>%10</strong></td></tr>
-    <tr><td>1.000 TL ve üzeri</td><td><strong>%20</strong></td></tr>
-  </table>
-</div>
+  <tr>
+    <td rowspan="2">Büyükşehir</td>
+    <td>150 m² altı</td>
+    <td>500 TL’ye kadar</td>
+    <td><strong>%1</strong></td>
+  </tr>
+  <tr>
+    <td>150 m² altı</td>
+    <td>500 – 999,99 TL</td>
+    <td><strong>%10</strong></td>
+  </tr>
+  <tr>
+    <td colspan="3"></td>
+    <td>1.000 TL ve üzeri</td>
+    <td><strong>%20</strong></td>
+  </tr>
 
-<!-- 2017 - 2022 -->
-<div class="section-box">
-  <div class="section-title">🏗 Yapı ruhsatı 01.01.2017 – 31.03.2022 arası alınan projeler</div>
-  <ul>
-    <li class="icon-li">Büyükşehir hariç 150 m²’ye kadar KDV: <strong>%1</strong></li>
-    <li class="icon-li">150 m² üzeri konutlarda KDV: <strong>%20</strong></li>
-  </ul>
+  <!-- 2017 – 2022 -->
+  <tr>
+    <td rowspan="4" class="sub">01.01.2017 – 31.03.2022</td>
+    <td rowspan="2">Büyükşehir Harici</td>
+    <td>150 m² altı</td>
+    <td>—</td>
+    <td><strong>%1</strong></td>
+  </tr>
+  <tr>
+    <td>150 m² üzeri</td>
+    <td>—</td>
+    <td><strong>%20</strong></td>
+  </tr>
 
-  <h4>Büyükşehirlerde (150 m² altı) arsa değerine göre:</h4>
+  <tr>
+    <td rowspan="2">Büyükşehir</td>
+    <td>150 m² altı</td>
+    <td>1.000 TL’ye kadar</td>
+    <td><strong>%1</strong></td>
+  </tr>
+  <tr>
+    <td>150 m² altı</td>
+    <td>1.000 – 1.999,99 TL</td>
+    <td><strong>%10</strong></td>
+  </tr>
+  <tr>
+    <td colspan="3"></td>
+    <td>2.000 TL ve üzeri</td>
+    <td><strong>%20</strong></td>
+  </tr>
 
-  <table>
-    <tr><th>Arsa Birim m² Vergi Değeri</th><th>KDV Oranı</th></tr>
-    <tr><td>1.000 – 1.999 TL</td><td><strong>%10</strong></td></tr>
-    <tr><td>2.000 TL ve üzeri</td><td><strong>%20</strong></td></tr>
-  </table>
-</div>
+  <!-- 2022 SONRASI -->
+  <tr>
+    <td rowspan="3" class="sub">01.04.2022 Sonrası</td>
+    <td rowspan="3">Tüm Türkiye</td>
+    <td>150 m² altı</td>
+    <td>—</td>
+    <td><strong>%10</strong></td>
+  </tr>
+  <tr>
+    <td>150 m² üzeri (İlk 150 m²)</td>
+    <td>—</td>
+    <td><strong>%10</strong></td>
+  </tr>
+  <tr>
+    <td>150 m² üzeri (Aşan kısım)</td>
+    <td>—</td>
+    <td><strong>%20</strong></td>
+  </tr>
 
-<!-- 2022 SONRASI -->
-<div class="section-box">
-  <div class="section-title">🏗 Yapı ruhsatı 01.04.2022’den sonra alınan projeler</div>
-  <ul>
-    <li class="icon-li">150 m² altı konutlarda KDV: <strong>%1</strong></li>
-    <li class="icon-li">150 m² üzeri konutlarda:  
-      <ul>
-        <li>150 m²’ye kadar kısmı: <strong>%1</strong></li>
-        <li>Üzeri: <strong>%20</strong></li>
-      </ul>
-    </li>
-  </ul>
-</div>
+  <!-- KENTSEL DÖNÜŞÜM -->
+  <tr>
+    <td rowspan="3" class="sub">6306 Sayılı Kanun</td>
+    <td rowspan="3">Tüm Türkiye</td>
+    <td>150 m² altı</td>
+    <td>—</td>
+    <td><strong>%1</strong></td>
+  </tr>
+  <tr>
+    <td>150 m² üzeri (Ruhsat 01.04.2022 Öncesi)</td>
+    <td>—</td>
+    <td><strong>%20</strong></td>
+  </tr>
+  <tr>
+    <td>150 m² üzeri (Ruhsat 01.04.2022 Sonrası)</td>
+    <td>—</td>
+    <td>İlk 150 m²: %1 <br> Üstü: <strong>%20</strong></td>
+  </tr>
 
-<!-- KENTSEL DÖNÜŞÜM -->
-<div class="section-box">
-  <div class="section-title">🏚 6306 Sayılı Kanun (Kentsel Dönüşüm) Kapsamındaki Konutlar</div>
+</table>
 
-  <table>
-    <tr><th>Konut Alanı</th><th>KDV Oranı</th></tr>
-    <tr><td>150 m² altı</td><td><strong>%1</strong></td></tr>
-    <tr><td>150 m² üzeri</td><td>İlk 150 m²: <strong>%1</strong> — Üzeri: <strong>%20</strong></td></tr>
-  </table>
+<div class="note">
+  Bu tablo 3065 sayılı KDV Kanunu, ilgili BKK ve Cumhurbaşkanı Kararları çerçevesinde hazırlanmıştır.
 </div>
 
 </body>
