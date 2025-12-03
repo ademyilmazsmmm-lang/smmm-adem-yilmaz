@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ne Zaman Emekli Olurum? | SMMM Adem Yılmaz</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background: #f4f6fc;
+        color: #333;
+    }
+
+    .container {
+        max-width: 960px;
+        margin: 30px auto;
+        background: #ffffff;
+        padding: 24px 20px 30px;
+        border-radius: 14px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+        text-align: center;
+        margin: 0 0 24px;
+        color: #0d47a1;
+        font-size: 30px;
+        font-weight: 800;
+    }
+
+    .sub {
+        text-align: center;
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 20px;
+    }
+
+    /* Accordion */
+    .accordion-section {
+        margin-bottom: 14px;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #d0d6e4;
+        background:#f8f9ff;
+    }
+
+    .accordion-header {
+        width: 100%;
+        text-align: left;
+        padding: 12px 16px;
+        background: linear-gradient(90deg,#0d47a1,#1565c0);
+        color: #fff;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 700;
+        position: relative;
+    }
+
+    .accordion-header span.title {
+        display:inline-block;
+        padding-right:28px;
+    }
+
+    .accordion-header::after {
+        content: "▾";
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 18px;
+        transition: transform 0.2s;
+    }
+
+    .accordion-header.active::after {
+        transform: translateY(-50%) rotate(180deg);
+    }
+
+    .accordion-content {
+        display: none;
+        background: #fdfdff;
+        padding: 16px 16px 18px;
+    }
+
+    .box {
+        background:#fff;
+        border-radius:10px;
+        border:1px solid #d0d6e4;
+        padding:16px 16px 14px;
+        margin-bottom:16px;
+    }
+
+    h2 {
+        margin:0 0 10px;
+        font-size:20px;
+        color:#0d47a1;
+    }
+
+    h3 {
+        margin:8px 0 6px;
+        font-size:16px;
+        color:#0d47a1;
+    }
+
+    ul {
+        margin:0;
+        padding-left:20px;
+    }
+
+    p {
+        margin:4px 0 8px;
+        line-height:1.5;
+    }
+
+    table {
+        width:100%;
+        border-collapse:collapse;
+        margin-top:8px;
+        font-size:14px;
+    }
+
+    table th, table td {
+        border:1px solid #d0d6e0;
+        padding:6px 8px;
+        text-align:left;
+    }
+
+    table th {
+        background:#e9f0ff;
+        color:#0d47a1;
+        font-weight:700;
+    }
+
+    .note {
+        font-size:13px;
+        color:#777;
+    }
+
+    .pill {
+        display:inline-block;
+        background:#e7f0ff;
+        border-radius:999px;
+        padding:4px 10px;
+        font-size:12px;
+        margin-top:4px;
+        color:#0d47a1;
+    }
+
+    a {
+        color:#0d47a1;
+    }
+
+    @media(max-width:700px){
+        .container { padding:18px 12px 24px; }
+        h1 { font-size:24px; }
+        table { font-size:13px; }
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+    <h1>NE ZAMAN EMEKLİ OLURUM?</h1>
+    <div class="sub">
+        Emeklilik hesaplamalarında kullanılan temel kriterler, borçlanma hakları ve Bağkur / SSK için genel şartlar.
+    </div>
+
+    <!-- 1. GENEL HÜKÜMLER -->
+    <div class="accordion-section">
+        <button class="accordion-header"><span class="title">Genel Hükümler ve Emeklilikte Dikkate Alınan Kriterler</span></button>
+        <div class="accordion-content">
+
+            <div class="box">
+                <h2>Emeklilik Hesaplamasında Dikkate Alınan Kriterler</h2>
+                <p>Emeklilik hesabında her sigortalı için bazı temel bilgiler esas alınır:</p>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-top:10px;">
+                    <div style="background:#f4f7ff; padding:10px 12px; border-radius:8px; border:1px solid #dce4f5;">İlk sigortalı olunan tarih</div>
+                    <div style="background:#f4f7ff; padding:10px 12px; border-radius:8px; border:1px solid #dce4f5;">Doğum tarihi (yaş)</div>
+                    <div style="background:#f4f7ff; padding:10px 12px; border-radius:8px; border:1px solid #dce4f5;">Prim ödeme günü (tüm kurumlar toplamı)</div>
+                    <div style="background:#f4f7ff; padding:10px 12px; border-radius:8px; border:1px solid #dce4f5;">Hangi kurumdan emekli olunacağı</div>
+                    <div style="background:#f4f7ff; padding:10px 12px; border-radius:8px; border:1px solid #dce4f5;">Cinsiyet</div>
+                    <div style="background:#f4f7ff; padding:10px 12px; border-radius:8px; border:1px solid #dce4f5;">Erken yaşlanma / malullük durumu</div>
+                </div>
+
+                <p class="note" style="margin-top:10px;">
+                    01/10/2008 öncesi birden fazla kurumda hizmeti olanlarda son 7 yıllık (2520 gün) süre esas alınır; en fazla hangi kurumda prim ödenmişse o kurumdan emeklilik başvurusu yapılır.
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 2. BORÇLANILABİLECEK SÜRELER -->
+    <div class="accordion-section">
+        <button class="accordion-header"><span class="title">Borçlanılabilecek Süreler</span></button>
+        <div class="accordion-content">
+
+            <div class="box">
+                <h2>Borçlanılabilecek Süreler</h2>
+                <ul>
+                    <li>Askerlik borçlanması</li>
+                    <li>Doğum borçlanması</li>
+                    <li>Yurtdışı borçlanması</li>
+                    <li>Hükümlü / tutuklulukta geçen süreler</li>
+                    <li>Hizmet tespit davası ile kazanılan, bildirilmeyen çalışma günleri</li>
+                </ul>
+                <p class="note">
+                    * Yukarıdakiler dışında ihtiyari (isteğe bağlı) borçlanma yapılamamaktadır.
+                </p>
+            </div>
+
+            <div class="box">
+                <h3>Askerlik Borçlanması</h3>
+                <p>
+                    Sigortalılık başlangıcı askerlikten <strong>sonra</strong> ise, borçlanılan süre kadar sigorta başlangıcı geriye çekilir ve emeklilik yaşını etkileyebilir.
+                    Sigorta başlangıcı askerlikten <strong>önce</strong> ise yaşa etkisi olmaz, sadece prim günü artar.
+                </p>
+                <p>
+                    Askerlikte er olarak geçen sürelerin tamamı veya bir kısmı borçlanılabilir. Yedek subay olanlarda okulda geçen süreler de borçlanılabilir.
+                </p>
+                <p>
+                    Borçlanma tutarı: <strong>Günlük prime esas kazancın %20’si × borçlanılacak gün sayısı</strong> (4a için eski sistemdeki örnek).
+                </p>
+            </div>
+
+            <div class="box">
+                <h3>Doğum Borçlanması</h3>
+                <ul>
+                    <li>İlk sigortalı olduktan sonraki doğumlar için geçerlidir.</li>
+                    <li>En fazla <strong>2 doğum</strong> için borçlanma yapılabilir.</li>
+                    <li>Her doğum için en fazla <strong>720 gün</strong> borçlanılabilir.</li>
+                    <li>Doğumdan sonraki 2 yıllık sürede çalışılmayan (boşta geçen) günler borçlanılabilir.</li>
+                </ul>
+            </div>
+
+            <div class="box">
+                <h3>Yurtdışı Borçlanma</h3>
+                <p>
+                    3201 sayılı Kanun kapsamında;
+                </p>
+                <ul>
+                    <li>Yurtdışında geçen sigortalılık süreleri,</li>
+                    <li>Bu süreler arasındaki veya sonundaki 1 yıla kadar işsizlik süreleri,</li>
+                    <li>Ev kadını olarak geçen süreler</li>
+                </ul>
+                <p>
+                    belirli şartlarla borçlanılabilir. Borçlanma tutarı; başvuru tarihindeki
+                    prime esas günlük kazanç alt–üst sınırları arasında seçilecek tutarın
+                    <strong>%32’si × gün sayısı</strong>dır.
+                </p>
+                <p class="note">
+                    Detay: SGK “Yurtdışı Borçlanma” rehberleri.
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 3. ÇİFT EMEKLİ MAAŞI -->
+    <div class="accordion-section">
+        <button class="accordion-header"><span class="title">Çift Emekli Maaşı Alma Şartları</span></button>
+        <div class="accordion-content">
+
+            <div class="box">
+                <h2>Çift Emekli Maaşı Alma Şartları</h2>
+
+                <h3>Sigortalı 2008’den Önce Vefat Ettiğinde</h3>
+                <table>
+                    <tr>
+                        <th>Eş</th>
+                        <th>Anne - Baba</th>
+                    </tr>
+                    <tr>
+                        <td>Bağkur</td>
+                        <td>SSK veya Emekli Sandığı</td>
+                    </tr>
+                    <tr>
+                        <td>SSK</td>
+                        <td>Bağkur veya Emekli Sandığı</td>
+                    </tr>
+                    <tr>
+                        <td>Emekli Sandığı</td>
+                        <td>SSK veya Bağkur</td>
+                    </tr>
+                </table>
+
+                <h3 style="margin-top:18px;">Sigortalı 2008’den Sonra Vefat Ettiğinde</h3>
+                <table>
+                    <tr>
+                        <th>Eş</th>
+                        <th>Anne - Baba</th>
+                    </tr>
+                    <tr>
+                        <td>Bağkur</td>
+                        <td>Emekli Sandığı</td>
+                    </tr>
+                    <tr>
+                        <td>SSK</td>
+                        <td>Emekli Sandığı</td>
+                    </tr>
+                    <tr>
+                        <td>Emekli Sandığı</td>
+                        <td>SSK veya Bağkur</td>
+                    </tr>
+                </table>
+
+                <p style="margin-top:14px; background:#f9fbff; padding:10px 12px; border-radius:8px; border:1px solid #dce4f5;">
+                    ✔ Eş Emekli Sandığı üyesi ve <strong>Ekim 2008’den önce</strong> vefat etmişse,  
+                    SSK'lı anne–baba daha sonra vefat ettiğinde <strong>çift maaş bağlanabilir</strong>.<br><br>
+                    ✔ Anne–baba Emekli Sandığı üyesi, SSK'lı eş ise <strong>Ekim 2008’den önce</strong> vefat etmişse  
+                    yine <strong>çift maaş imkânı</strong> doğabilir.
+                </p>
+
+                <p class="note">
+                    Uygulamada detay; dul–yetim aylığı bağlanma şartları, gelir testleri, bağlanan aylıkların kesilmesi gibi
+                    ek hükümlerle birlikte değerlendirilmelidir.
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 4. BAĞKUR ERKEK -->
+    <div class="accordion-section">
+        <button class="accordion-header"><span class="title">Bağkur (4/b) – Erkek Emeklilik Şartları (Özet)</span></button>
+        <div class="accordion-content">
+
+            <div class="box">
+                <h2>Bağkurlu Erkeklerde Emeklilik Şartları</h2>
+
+                <h3>Normal Emeklilik</h3>
+                <ul>
+                    <li><strong>9000 gün (25 yıl)</strong> prim ödeme süresi</li>
+                    <li>Yaş şartı: Kademeli olarak <strong>44–65 yaş</strong> aralığı</li>
+                    <li>01.06.2002 itibariyle 25 yılı doldurmaya kalan süreye göre yaş belirlenir.</li>
+                </ul>
+
+                <p class="note">
+                    Örneğin; 01.06.2002’de 25 yılı doldurmaya 2 yıldan az kalmışsa 44 yaş,  
+                    daha fazla kalmışsa kademeli olarak 45, 46, …, 60 yaş şartı uygulanmaktadır.
+                </p>
+
+                <h3>Kısmi Emeklilik (5400 Gün)</h3>
+                <ul>
+                    <li><strong>En az 5400 gün</strong> (15 yıl) prim</li>
+                    <li>01.10.1999 itibariyle 15 yılı tamamlamaya kalan süreye göre yaş: <strong>55–58</strong></li>
+                </ul>
+
+                <p class="note">
+                    İlgili kanun maddesi: 1479 sayılı Kanun Geçici 10. madde.<br>
+                    Detaylı kademeli tablo ve kesin hesaplama için:
+                    <a href="https://uyg.sgk.gov.tr/EMEKTARWEB/hakKazanma.do" target="_blank">
+                        SGK – Bağkur Emeklilik Hesaplama
+                    </a>
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 5. BAĞKUR KADIN -->
+    <div class="accordion-section">
+        <button class="accordion-header"><span class="title">Bağkur (4/b) – Kadın Emeklilik Şartları (Özet)</span></button>
+        <div class="accordion-content">
+
+            <div class="box">
+                <h2>Bağkurlu Kadınlarda Emeklilik Şartları</h2>
+
+                <h3>Normal Emeklilik</h3>
+                <ul>
+                    <li><strong>7200 gün (20 yıl)</strong> prim ödeme süresi</li>
+                    <li>01.06.2002 itibariyle 20 yılı tamamlamaya kalan süreye göre yaş: <strong>40–58</strong></li>
+                    <li>Kademeli tabloya göre her 1,5–2 yıl fark için yaş 1 yıl artar.</li>
+                </ul>
+
+                <h3>Kısmi Emeklilik (5400 Gün)</h3>
+                <ul>
+                    <li><strong>5400 gün</strong> prim</li>
+                    <li>01.10.1999 itibariyle 15 yılı tamamlamaya kalan süreye göre yaş: <strong>50–56</strong></li>
+                </ul>
+
+                <p class="note">
+                    İlgili Kanun Maddesi: 1479 sayılı Kanun Geçici 10. madde.<br>
+                    Detaylı kademeli tablo ve kesin hesaplama için:
+                    <a href="https://uyg.sgk.gov.tr/EMEKTARWEB/hakKazanma.do" target="_blank">
+                        SGK – Bağkur Emeklilik Hesaplama
+                    </a>
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 6. SSK ERKEK -->
+    <div class="accordion-section">
+        <button class="accordion-header"><span class="title">SSK (4/a) – Erkek Emeklilik Şartları (Özet)</span></button>
+        <div class="accordion-content">
+
+            <div class="box">
+                <h2>SSK’lı Erkeklerde Emeklilik Şartları</h2>
+
+                <h3>A) 08.09.1999’dan Önce Sigortalı Olanlar</h3>
+                <ul>
+                    <li>Normal emeklilikte genel olarak: <strong>25 yıl sigortalılık + 5000–5975 gün + yaş</strong></li>
+                    <li>İlk işe giriş tarihine göre 44–58 yaş arasında kademeli yaş şartı uygulanır.</li>
+                </ul>
+
+                <h3>Kısmi Emeklilik (15 Yıl – 3600 Gün)</h3>
+                <ul>
+                    <li>En az <strong>15 yıl sigortalılık + 3600 gün</strong></li>
+                    <li>3600 günü tamamlama tarihine göre yaş: <strong>55–60</strong> arası kademeli.</li>
+                </ul>
+
+                <h3>B) 08.09.1999 – 30.04.2008 Arası Sigortalı Olanlar</h3>
+                <ul>
+                    <li>Normal emeklilik: <strong>7000 gün + 60 yaş</strong></li>
+                    <li>Kısmi emeklilik: <strong>25 yıl sigortalılık + 4500 gün + 60 yaş</strong></li>
+                </ul>
+
+                <h3>C) 01.05.2008 Sonrası Sigortalı Olan Erkekler</h3>
+                <ul>
+                    <li>Normal emeklilik: <strong>7200 gün</strong>, 2028–2045 arası tamamlanma tarihine göre <strong>60–65 yaş</strong></li>
+                    <li>Kısmi emeklilik: <strong>5400 gün</strong>, tamamlanma tarihine göre <strong>63–65 yaş</strong></li>
+                </ul>
+
+                <p class="note">
+                    İlgili Kanun Maddesi: 506 sayılı Kanun Geçici 81. madde.<br>
+                    Detaylı kademeli tablo ve kendi durumunuza göre hesap için:
+                    <a href="https://uyg.sgk.gov.tr/nezaman/" target="_blank">
+                        SGK – Ne Zaman Emekli Olurum?
+                    </a>
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 7. SSK KADIN -->
+    <div class="accordion-section">
+        <button class="accordion-header"><span class="title">SSK (4/a) – Kadın Emeklilik Şartları (Özet)</span></button>
+        <div class="accordion-content">
+
+            <div class="box">
+                <h2>SSK’lı Kadınlarda Emeklilik Şartları</h2>
+
+                <h3>A) 08.09.1999’dan Önce Sigortalı Olanlar</h3>
+                <ul>
+                    <li>Normal emeklilik: <strong>20 yıl sigortalılık + 5000–5975 gün + 38–56 yaş</strong></li>
+                    <li>İşe başlama tarihine göre 38–56 yaş arasında kademeli yaş tablosu uygulanır.</li>
+                </ul>
+
+                <h3>Kısmi Emeklilik (15 Yıl – 3600 Gün)</h3>
+                <ul>
+                    <li>15 yıl ve 3600 günü tamamlama tarihine göre <strong>52–58 yaş</strong> arasında emeklilik.</li>
+                </ul>
+
+                <h3>B) 08.09.1999 – 30.04.2008 Arası Sigortalı Olanlar</h3>
+                <ul>
+                    <li>Normal emeklilik: <strong>7000 gün + 58 yaş</strong></li>
+                    <li>Kısmi emeklilik: <strong>25 yıl sigortalılık + 4500 gün + 58 yaş</strong></li>
+                </ul>
+
+                <h3>C) 01.05.2008 Sonrası Sigortalı Olan Kadınlar</h3>
+                <ul>
+                    <li>Normal emeklilik: <strong>7200 gün</strong>, tamamlanma tarihine göre <strong>58–65 yaş</strong></li>
+                    <li>Kısmi emeklilik: <strong>5400 gün</strong>, tamamlanma tarihine göre <strong>61–65 yaş</strong></li>
+                </ul>
+
+                <p class="note">
+                    İlgili Kanun Maddesi: 506 sayılı Kanun Geçici 81. madde.<br>
+                    Detaylı kişisel hesaplama için:
+                    <a href="https://uyg.sgk.gov.tr/nezaman/" target="_blank">
+                        SGK – Ne Zaman Emekli Olurum?
+                    </a>
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <div style="margin-top:18px; font-size:12px; color:#888; text-align:center;">
+        Kaynak düzenlemesi: SMMM Ali Karaahmet verilerinden derlenmiştir. | Düzenleme: SMMM Adem Yılmaz
+    </div>
+
+</div>
+
+<script>
+    // Accordion toggle
+    document.querySelectorAll('.accordion-header').forEach(function(header){
+        header.addEventListener('click', function(){
+            const content = header.nextElementSibling;
+            const isOpen = header.classList.contains('active');
+
+            // Tek tek aç/kapa (hepsi açık kalabilir istersen bunu yorum satırına al)
+            // document.querySelectorAll('.accordion-header').forEach(h => h.classList.remove('active'));
+            // document.querySelectorAll('.accordion-content').forEach(c => c.style.display = 'none');
+
+            if(isOpen){
+                header.classList.remove('active');
+                content.style.display = 'none';
+            } else {
+                header.classList.add('active');
+                content.style.display = 'block';
+            }
+        });
+    });
+</script>
+
+</body>
+</html>
