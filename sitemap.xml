@@ -1,19 +1,32 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- ANASAYFA -->
   <url>
     <loc>https://smmmyilmaz.com/</loc>
     <lastmod>2025-12-07</lastmod>
+    <priority>1.00</priority>
   </url>
+
+  <!-- BASİT USULDEN GERÇEK USULE GEÇİŞ -->
   <url>
-  <loc>https://smmmyilmaz.com/basit-usulden-gercek-usule-gecis.html</loc>
-  <priority>0.88</priority>
- </url>
+    <loc>https://smmmyilmaz.com/basit-usulden-gercek-usule-gecis.html</loc>
+    <lastmod>2025-12-07</lastmod>
+    <priority>0.88</priority>
+  </url>
+
+  <!-- KONUT KDV ORANLARI -->
   <url>
     <loc>https://smmmyilmaz.com/konut-kdv-oranlari.html</loc>
     <lastmod>2025-12-07</lastmod>
+    <priority>0.85</priority>
   </url>
+
+  <!-- EMEKLİLİK -->
   <url>
     <loc>https://smmmyilmaz.com/emeklilik.html</loc>
     <lastmod>2025-12-07</lastmod>
+    <priority>0.85</priority>
   </url>
+
 </urlset>
