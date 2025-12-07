@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Vergi Türü Kodları Açıklaması | SMMM Adem Yılmaz</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Vergi türü kodlarının mantığı, önemi ve örnek kod listesi hakkında genel açıklamalar.">
+  <meta name="keywords" content="vergi türü kodu, vergi kodları listesi, tahakkuk, ödeme kodu">
+  <style>
+  
+    :root {
+      --primary: #1565c0;
+      --primary-dark: #0d47a1;
+      --primary-light: #42a5f5;
+      --bg: #f4f6fb;
+    }
+    *{box-sizing:border-box;}
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: #243447;
+      line-height: 1.6;
+    }
+    header{
+      background:#fff;
+      box-shadow:0 2px 6px rgba(0,0,0,.06);
+      position:sticky;
+      top:0;
+      z-index:10;
+    }
+    .top-bar{
+      max-width:1100px;
+      margin:0 auto;
+      padding:10px 20px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .logo-text{
+      font-weight:700;
+      color:var(--primary-dark);
+      font-size:1.05rem;
+    }
+    .page-tag{
+      font-size:.85rem;
+      color:#546e7a;
+    }
+    main{
+      max-width:1100px;
+      margin:20px auto 40px;
+      padding:0 20px;
+    }
+    h1{
+      font-size:1.9rem;
+      margin-bottom:.4rem;
+      color:var(--primary-dark);
+    }
+    h2{
+      font-size:1.35rem;
+      margin-top:1.8rem;
+      color:#1b3557;
+    }
+    h3{
+      font-size:1.05rem;
+      margin-top:1.2rem;
+      color:#294766;
+    }
+    .pill{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      background:#e3f2fd;
+      color:#0d47a1;
+      font-size:.8rem;
+      margin-bottom:10px;
+    }
+    .lead{
+      font-size:.98rem;
+      color:#455a64;
+    }
+    .card{
+      background:#fff;
+      border-radius:12px;
+      padding:18px 20px;
+      margin:18px 0;
+      box-shadow:0 2px 8px rgba(15,35,52,.06);
+    }
+    .info{
+      font-size:.9rem;
+      color:#546e7a;
+    }
+    ul{
+      padding-left:20px;
+    }
+    .highlight{
+      background:#fff8e1;
+      border-left:4px solid #ffb300;
+      padding:10px 12px;
+      border-radius:8px;
+      font-size:.9rem;
+      margin-top:10px;
+    }
+    .note{
+      background:#e3f2fd;
+      border-left:4px solid #1976d2;
+      padding:10px 12px;
+      border-radius:8px;
+      font-size:.9rem;
+      margin-top:10px;
+    }
+    .table-wrap{
+      overflow-x:auto;
+      margin-top:8px;
+    }
+    table{
+      border-collapse:collapse;
+      width:100%;
+      background:#fff;
+      border-radius:8px;
+      overflow:hidden;
+      font-size:.9rem;
+    }
+    th,td{
+      padding:8px 10px;
+      border-bottom:1px solid #eceff1;
+      text-align:left;
+    }
+    th{
+      background:#e3f2fd;
+      font-weight:600;
+      white-space:nowrap;
+    }
+    footer{
+      font-size:.8rem;
+      color:#78909c;
+      text-align:center;
+      padding:24px 10px 30px;
+    }
+    @media(max-width:600px){
+      h1{font-size:1.55rem;}
+      main{padding:0 12px;}
+      .top-bar{padding:8px 12px;}
+    }
+
+  </style>
+</head>
+<body>
+<header>
+  <div class="top-bar">
+    <div class="logo-text">SMMM Adem Yılmaz</div>
+    <div class="page-tag">Ümraniye Mali Müşavirlik &amp; Danışmanlık</div>
+  </div>
+</header>
+<main>
+
+  <span class="pill">Vergi Tür Kodları</span>
+  <h1>Vergi Türü Kodları Rehberi</h1>
+  <p class="lead">
+    Beyanname ve tahakkuk işlemlerinde kullanılan vergi türü kodları, ödemelerin doğru vergi hesabına
+    işlenmesi için kritik öneme sahiptir. Yanlış kod ile yapılan ödeme, hem zaman kaybına hem de takip
+    sürecinde karışıklığa yol açabilir.
+  </p>
+
+  <div class="card">
+    <h2>Vergi Tür Kodu Nedir?</h2>
+    <p>
+      Vergi tür kodu; gelir vergisi, kurumlar vergisi, KDV, damga vergisi, ÖTV gibi her bir vergi türüne
+      tahsis edilmiş sayısal koddur. Vergi dairesi sistemlerinde, banka tahsilat ekranlarında ve
+      interaktif vergi dairesinde bu kodlar üzerinden takip yapılır.
+    </p>
+    <div class="highlight">
+      Örneğin aynı tutar için <strong>damga vergisi</strong> yerine yanlışlıkla <strong>GV stopaj</strong> kodu
+      seçilirse, sistemde ilgili vergi borcu kapanmaz ve mükellef hâlâ borçlu görünebilir.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Temel Vergi Tür Kodlarına Örnek Liste</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Kod</th>
+            <th>Vergi Türü</th>
+            <th>Kısa Açıklama</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>0015</td>
+            <td>Muhtasar Gelir Vergisi Stopajı</td>
+            <td>Ücret, serbest meslek, kira vb. stopajlar</td>
+          </tr>
+          <tr>
+            <td>0080</td>
+            <td>KDV Beyannamesi</td>
+            <td>Aylık KDV tahakkukları</td>
+          </tr>
+          <tr>
+            <td>0032</td>
+            <td>Damga Vergisi</td>
+            <td>Muhtelif sözleşme ve kağıtlara ilişkin damga vergisi</td>
+          </tr>
+          <tr>
+            <td>0046</td>
+            <td>Motorlu Taşıtlar Vergisi</td>
+            <td>Taşıtların yıllık MTV ödemeleri</td>
+          </tr>
+          <tr>
+            <td>0061</td>
+            <td>Gelir Vergisi Yıllık Beyan</td>
+            <td>Yıllık gelir vergisi tahakkuku</td>
+          </tr>
+          <tr>
+            <td>0062</td>
+            <td>Kurumlar Vergisi</td>
+            <td>Kurumlar vergisi yıllık beyan tahakkuku</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">
+      Bu tablo örnek amaçlıdır; uygulamada daha geniş bir vergi tür kodu listesi bulunmaktadır.
+      Ödeme öncesi, tahakkuk fişi üzerindeki kodlarla bankadaki işlemlerin uyumu mutlaka kontrol edilmelidir.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Ödeme Yaparken Dikkat Edilmesi Gerekenler</h2>
+    <ul>
+      <li>Tahakkuk fişi üzerindeki vergi tür kodu ile banka ekranındaki seçeneğin aynı olduğundan emin olun.</li>
+      <li>İnteraktif Vergi Dairesi üzerinden “borç dökümü” alarak ilgili borcun hangi kodda gözüktüğünü kontrol edin.</li>
+      <li>Yanlış koda yapılan ödeme durumunda, düzeltme için vergi dairesine dilekçe verilmesi gerekebilir.</li>
+    </ul>
+  </div>
+
+</main>
+<footer>
+  Bu sayfa genel bilgilendirme amaçlıdır. Uygulama öncesinde mali müşavirinizden profesyonel destek almanız önerilir.
+</footer>
+</body>
+</html>

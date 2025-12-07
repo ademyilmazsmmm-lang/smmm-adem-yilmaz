@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>SGK / Bağ-Kur Temelleri ve Emeklilik Planlaması | SMMM Adem Yılmaz</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SGK ve Bağ-Kur statüleri ile emeklilik planlamasının temel parametreleri hakkında özet rehber.">
+  <meta name="keywords" content="sgk, bağkur, emeklilik, 4a, 4b, prim günü">
+  <style>
+  
+    :root {
+      --primary: #1565c0;
+      --primary-dark: #0d47a1;
+      --primary-light: #42a5f5;
+      --bg: #f4f6fb;
+    }
+    *{box-sizing:border-box;}
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: #243447;
+      line-height: 1.6;
+    }
+    header{
+      background:#fff;
+      box-shadow:0 2px 6px rgba(0,0,0,.06);
+      position:sticky;
+      top:0;
+      z-index:10;
+    }
+    .top-bar{
+      max-width:1100px;
+      margin:0 auto;
+      padding:10px 20px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .logo-text{
+      font-weight:700;
+      color:var(--primary-dark);
+      font-size:1.05rem;
+    }
+    .page-tag{
+      font-size:.85rem;
+      color:#546e7a;
+    }
+    main{
+      max-width:1100px;
+      margin:20px auto 40px;
+      padding:0 20px;
+    }
+    h1{
+      font-size:1.9rem;
+      margin-bottom:.4rem;
+      color:var(--primary-dark);
+    }
+    h2{
+      font-size:1.35rem;
+      margin-top:1.8rem;
+      color:#1b3557;
+    }
+    h3{
+      font-size:1.05rem;
+      margin-top:1.2rem;
+      color:#294766;
+    }
+    .pill{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      background:#e3f2fd;
+      color:#0d47a1;
+      font-size:.8rem;
+      margin-bottom:10px;
+    }
+    .lead{
+      font-size:.98rem;
+      color:#455a64;
+    }
+    .card{
+      background:#fff;
+      border-radius:12px;
+      padding:18px 20px;
+      margin:18px 0;
+      box-shadow:0 2px 8px rgba(15,35,52,.06);
+    }
+    .info{
+      font-size:.9rem;
+      color:#546e7a;
+    }
+    ul{
+      padding-left:20px;
+    }
+    .highlight{
+      background:#fff8e1;
+      border-left:4px solid #ffb300;
+      padding:10px 12px;
+      border-radius:8px;
+      font-size:.9rem;
+      margin-top:10px;
+    }
+    .note{
+      background:#e3f2fd;
+      border-left:4px solid #1976d2;
+      padding:10px 12px;
+      border-radius:8px;
+      font-size:.9rem;
+      margin-top:10px;
+    }
+    .table-wrap{
+      overflow-x:auto;
+      margin-top:8px;
+    }
+    table{
+      border-collapse:collapse;
+      width:100%;
+      background:#fff;
+      border-radius:8px;
+      overflow:hidden;
+      font-size:.9rem;
+    }
+    th,td{
+      padding:8px 10px;
+      border-bottom:1px solid #eceff1;
+      text-align:left;
+    }
+    th{
+      background:#e3f2fd;
+      font-weight:600;
+      white-space:nowrap;
+    }
+    footer{
+      font-size:.8rem;
+      color:#78909c;
+      text-align:center;
+      padding:24px 10px 30px;
+    }
+    @media(max-width:600px){
+      h1{font-size:1.55rem;}
+      main{padding:0 12px;}
+      .top-bar{padding:8px 12px;}
+    }
+
+  </style>
+</head>
+<body>
+<header>
+  <div class="top-bar">
+    <div class="logo-text">SMMM Adem Yılmaz</div>
+    <div class="page-tag">Ümraniye Mali Müşavirlik &amp; Danışmanlık</div>
+  </div>
+</header>
+<main>
+
+  <span class="pill">SGK &amp; Emeklilik</span>
+  <h1>SGK / Bağ-Kur Temelleri ve Emeklilik Planlamasına Genel Bakış</h1>
+  <p class="lead">
+    Emeklilik planlaması yapılırken; sigortalılık statüsü (4A-SSK, 4B-Bağ-Kur, 4C-Emekli Sandığı),
+    prim gün sayısı, yaş şartı ve ilk sigorta giriş tarihi birlikte değerlendirilir. Herkes için ideal
+    emeklilik tarihi aynı olmadığından, kişiye özel analiz önemlidir.
+  </p>
+
+  <div class="card">
+    <h2>4A, 4B ve 4C Arasındaki Temel Farklar</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Statü</th>
+            <th>Kapsam</th>
+            <th>Kısa Açıklama</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>4A (SSK)</td>
+            <td>Hizmet akdi ile çalışanlar</td>
+            <td>İşveren yanında sigortalı olarak çalışan işçiler</td>
+          </tr>
+          <tr>
+            <td>4B (Bağ-Kur)</td>
+            <td>Kendi nam ve hesabına çalışanlar</td>
+            <td>Şahıs işletmesi sahipleri, limited ortakları vb.</td>
+          </tr>
+          <tr>
+            <td>4C</td>
+            <td>Kamu görevlileri</td>
+            <td>Emekli Sandığı kapsamındaki memurlar</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Emeklilik Planlamasında Temel Parametreler</h2>
+    <ul>
+      <li>İlk sigorta giriş tarihi (ilk işe giriş),</li>
+      <li>Toplam prim ödeme gün sayısı,</li>
+      <li>Hangi statüden daha fazla prim ödendiği (4A/4B/4C),</li>
+      <li>Yaş şartı ve varsa kademeli geçiş hükümleri.</li>
+    </ul>
+    <div class="note">
+      Türkiye'de emeklilik şartları; yıllara göre değişen kademeli sistemlere bağlıdır.
+      Bu nedenle kişinin kendi hizmet dökümü üzerinden özel hesap yapılması gerekir.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Bağ-Kur ve Prim Borçlanmaları</h2>
+    <p>
+      Bağ-Kur kapsamında ticari faaliyette bulunanların genel olarak prim ödemeleri kendi sorumluluğundadır.
+      Bazı dönemler için yapılandırma ve borç silme düzenlemeleri gündeme gelebilir.
+    </p>
+    <ul>
+      <li>Eksik prim günleri için isteğe bağlı sigorta,</li>
+      <li>Doğum borçlanması, askerlik borçlanması gibi imkânlar,</li>
+      <li>Yapılandırma dönemlerinde sağlanan ödeme kolaylıkları.</li>
+    </ul>
+  </div>
+
+</main>
+<footer>
+  Bu sayfa genel bilgilendirme amaçlıdır. Uygulama öncesinde mali müşavirinizden profesyonel destek almanız önerilir.
+</footer>
+</body>
+</html>

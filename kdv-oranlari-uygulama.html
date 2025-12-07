@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>KDV Oranları ve Uygulamaları Rehberi | SMMM Adem Yılmaz</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="KDV oranları, indirim ve beyan süreçlerine genel bakış sağlayan özet rehber.">
+  <meta name="keywords" content="kdv oranları, kdv uygulaması, indirimli oran, kdv beyannamesi">
+  <style>
+  
+    :root {
+      --primary: #1565c0;
+      --primary-dark: #0d47a1;
+      --primary-light: #42a5f5;
+      --bg: #f4f6fb;
+    }
+    *{box-sizing:border-box;}
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: #243447;
+      line-height: 1.6;
+    }
+    header{
+      background:#fff;
+      box-shadow:0 2px 6px rgba(0,0,0,.06);
+      position:sticky;
+      top:0;
+      z-index:10;
+    }
+    .top-bar{
+      max-width:1100px;
+      margin:0 auto;
+      padding:10px 20px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .logo-text{
+      font-weight:700;
+      color:var(--primary-dark);
+      font-size:1.05rem;
+    }
+    .page-tag{
+      font-size:.85rem;
+      color:#546e7a;
+    }
+    main{
+      max-width:1100px;
+      margin:20px auto 40px;
+      padding:0 20px;
+    }
+    h1{
+      font-size:1.9rem;
+      margin-bottom:.4rem;
+      color:var(--primary-dark);
+    }
+    h2{
+      font-size:1.35rem;
+      margin-top:1.8rem;
+      color:#1b3557;
+    }
+    h3{
+      font-size:1.05rem;
+      margin-top:1.2rem;
+      color:#294766;
+    }
+    .pill{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      background:#e3f2fd;
+      color:#0d47a1;
+      font-size:.8rem;
+      margin-bottom:10px;
+    }
+    .lead{
+      font-size:.98rem;
+      color:#455a64;
+    }
+    .card{
+      background:#fff;
+      border-radius:12px;
+      padding:18px 20px;
+      margin:18px 0;
+      box-shadow:0 2px 8px rgba(15,35,52,.06);
+    }
+    .info{
+      font-size:.9rem;
+      color:#546e7a;
+    }
+    ul{
+      padding-left:20px;
+    }
+    .highlight{
+      background:#fff8e1;
+      border-left:4px solid #ffb300;
+      padding:10px 12px;
+      border-radius:8px;
+      font-size:.9rem;
+      margin-top:10px;
+    }
+    .note{
+      background:#e3f2fd;
+      border-left:4px solid #1976d2;
+      padding:10px 12px;
+      border-radius:8px;
+      font-size:.9rem;
+      margin-top:10px;
+    }
+    .table-wrap{
+      overflow-x:auto;
+      margin-top:8px;
+    }
+    table{
+      border-collapse:collapse;
+      width:100%;
+      background:#fff;
+      border-radius:8px;
+      overflow:hidden;
+      font-size:.9rem;
+    }
+    th,td{
+      padding:8px 10px;
+      border-bottom:1px solid #eceff1;
+      text-align:left;
+    }
+    th{
+      background:#e3f2fd;
+      font-weight:600;
+      white-space:nowrap;
+    }
+    footer{
+      font-size:.8rem;
+      color:#78909c;
+      text-align:center;
+      padding:24px 10px 30px;
+    }
+    @media(max-width:600px){
+      h1{font-size:1.55rem;}
+      main{padding:0 12px;}
+      .top-bar{padding:8px 12px;}
+    }
+
+  </style>
+</head>
+<body>
+<header>
+  <div class="top-bar">
+    <div class="logo-text">SMMM Adem Yılmaz</div>
+    <div class="page-tag">Ümraniye Mali Müşavirlik &amp; Danışmanlık</div>
+  </div>
+</header>
+<main>
+
+  <span class="pill">KDV Oranları</span>
+  <h1>KDV Oranları ve Uygulamalarına Genel Bakış</h1>
+  <p class="lead">
+    Katma Değer Vergisi (KDV); mal ve hizmet teslimlerinde uygulanan, çok aşamalı bir dolaylı vergidir.
+    Türkiye'de genel KDV oranı yanında indirimli oranlar da uygulanmaktadır. Hangi işlemde hangi oranın
+    kullanılacağı, hem fiyatlandırmayı hem de vergi riskini doğrudan etkiler.
+  </p>
+
+  <div class="card">
+    <h2>Genel KDV Oranlarına Örnek Bakış</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Oran</th>
+            <th>Örnek İşlem Türü</th>
+            <th>Kısa Açıklama</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>%1</td>
+            <td>Belirli gıda, konut teslimleri vb.</td>
+            <td>İndirimli oran kapsamındaki bazı teslim ve hizmetler</td>
+          </tr>
+          <tr>
+            <td>%10</td>
+            <td>Belirli mal ve hizmet grupları</td>
+            <td>Arada kalan bazı teslimler için uygulanabilen oran</td>
+          </tr>
+          <tr>
+            <td>%20</td>
+            <td>Genel teslim ve hizmetler</td>
+            <td>Standart KDV oranı olarak uygulanır</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="highlight">
+      KDV oranları; tebliğ, karar ve listelerle zaman zaman güncellenebildiği için,
+      her yeni iş kolunda mutlaka güncel mevzuat kontrol edilmelidir.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>KDV İndirimi ve Beyan</h2>
+    <p>
+      Mükellefler, yaptıkları alışlarda ödedikleri KDV'yi "indirilecek KDV", satışlarında tahsil ettikleri
+      KDV'yi ise "hesaplanan KDV" olarak kayıt altına alırlar. Dönem sonunda, aradaki fark beyan edilip
+      ödenir veya devreden KDV olarak izlenir.
+    </p>
+    <ul>
+      <li>Belgeye dayalı ve kanunen kabul edilen giderlerdeki KDV indirilebilir.</li>
+      <li>İndirilemeyen KDV'ler, şartlara göre gider veya maliyet yazılabilir.</li>
+      <li>İade hakkı doğuran işlemler için özel iade süreçleri bulunmaktadır.</li>
+    </ul>
+  </div>
+
+</main>
+<footer>
+  Bu sayfa genel bilgilendirme amaçlıdır. Uygulama öncesinde mali müşavirinizden profesyonel destek almanız önerilir.
+</footer>
+</body>
+</html>
