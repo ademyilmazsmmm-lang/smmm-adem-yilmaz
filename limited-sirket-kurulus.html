@@ -1,19 +1,249 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8">
-<title>Limited Şirket Kuruluşu</title>
-<meta name="description" content="Limited şirket kurulum rehberi">
-<style>
-body{font-family:Arial;background:#f4f6fb;padding:20px;line-height:1.6;color:#1b2a3a}
-h1{color:#0d47a1}
-.card{background:white;padding:15px;border-radius:10px;margin:15px 0;box-shadow:0 2px 6px rgba(0,0,0,.1)}
-</style>
+  <meta charset="UTF-8">
+  <title>Limited Şirket Kuruluşu | SMMM Adem Yılmaz</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Limited şirketin özellikleri, kuruluş adımları ve dikkat edilmesi gerekenler hakkında rehber.">
+  <meta name="keywords" content="limited şirket kuruluşu, şirket açılışı, mersis, ticaret sicili, Ümraniye mali müşavir">
+  <style>
+  
+    :root {
+      --primary: #1565c0;
+      --primary-dark: #0d47a1;
+      --primary-light: #42a5f5;
+      --bg: #f4f6fb;
+    }
+    *{box-sizing:border-box;}
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: #243447;
+      line-height: 1.6;
+    }
+    header{
+      background:#fff;
+      box-shadow:0 2px 6px rgba(0,0,0,.06);
+      position:sticky;
+      top:0;
+      z-index:10;
+    }
+    .top-bar{
+      max-width:1100px;
+      margin:0 auto;
+      padding:10px 20px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .logo-text{
+      font-weight:700;
+      color:var(--primary-dark);
+      font-size:1.05rem;
+    }
+    .page-tag{
+      font-size:.85rem;
+      color:#546e7a;
+    }
+    main{
+      max-width:1100px;
+      margin:20px auto 40px;
+      padding:0 20px;
+    }
+    h1{
+      font-size:1.9rem;
+      margin-bottom:.4rem;
+      color:var(--primary-dark);
+    }
+    h2{
+      font-size:1.3rem;
+      margin-top:1.8rem;
+      color:#1b3557;
+    }
+    h3{
+      font-size:1.05rem;
+      margin-top:1.2rem;
+      color:#294766;
+    }
+    .pill{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      background:#e3f2fd;
+      color:#0d47a1;
+      font-size:.8rem;
+      margin-bottom:10px;
+    }
+    .lead{
+      font-size:.98rem;
+      color:#455a64;
+    }
+    .card{
+      background:#fff;
+      border-radius:12px;
+      padding:18px 20px;
+      margin:18px 0;
+      box-shadow:0 2px 8px rgba(15,35,52,.06);
+    }
+    .info{
+      font-size:.9rem;
+      color:#546e7a;
+    }
+    ul{
+      padding-left:20px;
+    }
+    .highlight{
+      background:#fff8e1;
+      border-left:4px solid #ffb300;
+      padding:10px 12px;
+      border-radius:8px;
+      font-size:.9rem;
+      margin-top:10px;
+    }
+    .note{
+      background:#e3f2fd;
+      border-left:4px solid #1976d2;
+      padding:10px 12px;
+      border-radius:8px;
+      font-size:.9rem;
+      margin-top:10px;
+    }
+    .table-wrap{
+      overflow-x:auto;
+      margin-top:8px;
+    }
+    table{
+      border-collapse:collapse;
+      width:100%;
+      background:#fff;
+      border-radius:8px;
+      overflow:hidden;
+      font-size:.9rem;
+    }
+    th,td{
+      padding:8px 10px;
+      border-bottom:1px solid #eceff1;
+      text-align:left;
+    }
+    th{
+      background:#e3f2fd;
+      font-weight:600;
+      white-space:nowrap;
+    }
+    footer{
+      font-size:.8rem;
+      color:#78909c;
+      text-align:center;
+      padding:24px 10px 30px;
+    }
+    @media(max-width:600px){
+      h1{font-size:1.55rem;}
+      main{padding:0 12px;}
+      .top-bar{padding:8px 12px;}
+    }
+
+  </style>
 </head>
 <body>
-<h1>Limited Şirket Kuruluşu</h1>
-<div class="card">
-<h2>Gerekli Belgeler</h2><ul><li>Ortak bilgileri</li><li>Sermaye tutarı</li></ul>
-</div>
+<header>
+  <div class="top-bar">
+    <div class="logo-text">SMMM Adem Yılmaz</div>
+    <div class="page-tag">Ümraniye Mali Müşavirlik &amp; Danışmanlık</div>
+  </div>
+</header>
+<main>
+
+  <span class="pill">Şirket Kuruluşu</span>
+  <h1>Limited Şirket Kuruluşu Adım Adım Rehber</h1>
+  <p class="lead">
+    Türkiye'de en çok tercih edilen şirket türlerinden biri limited şirkettir. Vergi yükü, sorumluluk ve
+    prestij açısından dengeli bir yapı sunar. Aşağıda limited şirket kurmadan önce bilmeniz gereken temel
+    başlıklar özetlenmiştir.
+  </p>
+
+  <div class="card">
+    <h2>Limited Şirketin Temel Özellikleri</h2>
+    <ul>
+      <li>En az 1, en çok 50 ortakla kurulabilir.</li>
+      <li>Ortaklar, koydukları sermaye ile sınırlı sorumludur.</li>
+      <li>Şirket unvanında mutlaka "<strong>LTD. ŞTİ.</strong>" ibaresi yer alır.</li>
+      <li>Ticaret siciline tescil ile tüzel kişilik kazanır.</li>
+    </ul>
+    <div class="highlight">
+      Esnaf / şahıs işletmesine göre daha kurumsal bir imaj sağlar; banka, tedarikçi ve kurumsal
+      müşterilere karşı güven verir.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Kuruluş Öncesi Hazırlık</h2>
+    <h3>1. Ortak ve Sermaye Yapısı</h3>
+    <ul>
+      <li>Ortak sayısı ve oranları netleştirilmelidir.</li>
+      <li>Sermaye tutarı belirlenir ve paylara bölünür.</li>
+      <li>Şirket müdürü veya müdürleri belirlenir.</li>
+    </ul>
+    <h3>2. Şirket Konusu ve NACE Kodları</h3>
+    <p>
+      Faaliyet konuları mümkün olduğunca sade ve gerçekçi seçilmeli, gereksiz geniş yazımlardan kaçınılmalıdır.
+      Yanlış seçilen NACE kodu; vergi, SGK ve teşvik süreçlerinde ileride sorun çıkarabilir.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Kuruluş Sürecinin Ana Adımları</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Aşama</th>
+            <th>Kısa Açıklama</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>MERSİS Taslak</td>
+            <td>Esas sözleşme bilgileri sisteme girilir.</td>
+          </tr>
+          <tr>
+            <td>Noter İşlemleri</td>
+            <td>İmza beyannamesi, vekalet vb. düzenlenir.</td>
+          </tr>
+          <tr>
+            <td>Ticaret Sicili</td>
+            <td>Şirket tescil edilir ve Türkiye Ticaret Sicili Gazetesi yayımlanır.</td>
+          </tr>
+          <tr>
+            <td>Vergi Dairesi</td>
+            <td>Vergi numarası ve yoklama işlemleri tamamlanır.</td>
+          </tr>
+          <tr>
+            <td>SGK ve Diğer</td>
+            <td>Gerekirse işyeri bildirgesi, oda kayıtları yapılır.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Kuruluştan Sonra Dikkat Edilmesi Gerekenler</h2>
+    <ul>
+      <li>Defter tasdiki, e-defter, e-fatura ve e-arşiv süreçlerinin zamanında açılması,</li>
+      <li>Ortaklar arası yazılı mutabakat (kar dağıtım politikası, müdür ücretleri vb.),</li>
+      <li>Şirket adresi, faaliyet konusu değişikliklerinde ticaret sicili işlemlerinin ihmal edilmemesi,</li>
+      <li>Ortakların kişisel ve şirket hesaplarının karıştırılmaması.</li>
+    </ul>
+    <div class="note">
+      Limited şirket kurmak, tek başına çözüm değildir. Asıl önemli olan, kuruluştan sonraki
+      <strong>muhasebe, vergi ve sözleşme</strong> disiplininin doğru kurulmasıdır.
+    </div>
+  </div>
+
+</main>
+<footer>
+  Bu sayfa genel bilgilendirme amaçlıdır. İşletmenize özel durumlar için mali müşavirinizden profesyonel destek almanız önerilir.
+</footer>
 </body>
 </html>
