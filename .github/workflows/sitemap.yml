@@ -1,38 +1,53 @@
 name: Generate Sitemap
 
 on:
-  workflow_dispatch:
-
-permissions:
-  contents: write
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 */12 * * *"   # 12 saatte bir otomatik çalışır
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Repo’yu çek
-        uses: actions/checkout@v3
+    - name: Checkout repo
+      uses: actions/checkout@v3
 
-      - name: NodeJS kur
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+    - name: Generate sitemap.xml
+      run: |
+        echo '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>' > sitemap.xml
+        echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' >> sitemap.xml
 
-      - name: Sitemap generator kur
-        run: npm install -g sitemap-generator-cli
+        # Ana sayfa
+        echo '  <url>' >> sitemap.xml
+        echo '    <loc>https://smmmyilmaz.com/</loc>' >> sitemap.xml
+        echo '    <lastmod>'$(date +%Y-%m-%d)'</lastmod>' >> sitemap.xml
+        echo '    <priority>1.00</priority>' >> sitemap.xml
+        echo '  </url>' >> sitemap.xml
 
-      - name: Sitemap oluştur
-        run: |
-          sitemap-generator https://smmmyilmaz.com \
-          --exclude /404.html \
-          --max-depth 5 \
-          --last-mod --output sitemap.xml
+        # Tüm HTML dosyalarını otomatik tarama
+        for file in *.html; do
+          if [ "$file" != "index.html" ]; then
+            echo '  <url>' >> sitemap.xml
+            echo '    <loc>https://smmmyilmaz.com/'"$file"'</loc>' >> sitemap.xml
+            echo '    <lastmod>'$(date +%Y-%m-%d)'</lastmod>' >> sitemap.xml
+            echo '    <priority>0.85</priority>' >> sitemap.xml
+            echo '  </url>' >> sitemap.xml
+          fi
+        done
 
-      - name: Commit & Push
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add sitemap.xml
-          git commit -m "Update sitemap.xml" || echo "No changes to commit"
-          git push
+        echo '</urlset>' >> sitemap.xml
+
+    - name: Commit and push if changed
+      run: |
+        git config --local user.email "actions@github.com"
+        git config --local user.name "GitHub Actions"
+        git add sitemap.xml
+        git commit -m "Auto-update sitemap" || echo "No changes to commit"
+        git push
+
+    - name: Ping Google
+      run: |
+        curl "https://www.google.com/ping?sitemap=https://smmmyilmaz.com/sitemap.xml"
