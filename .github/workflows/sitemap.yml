@@ -1,11 +1,14 @@
 name: Generate Sitemap
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
       - main
   schedule:
-    - cron: "0 */12 * * *"   # 12 saatte bir otomatik çalışır
+    - cron: "0 */12 * * *"
 
 jobs:
   build:
@@ -20,14 +23,12 @@ jobs:
         echo '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>' > sitemap.xml
         echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' >> sitemap.xml
 
-        # Ana sayfa
         echo '  <url>' >> sitemap.xml
         echo '    <loc>https://smmmyilmaz.com/</loc>' >> sitemap.xml
         echo '    <lastmod>'$(date +%Y-%m-%d)'</lastmod>' >> sitemap.xml
         echo '    <priority>1.00</priority>' >> sitemap.xml
         echo '  </url>' >> sitemap.xml
 
-        # Tüm HTML dosyalarını otomatik tarama
         for file in *.html; do
           if [ "$file" != "index.html" ]; then
             echo '  <url>' >> sitemap.xml
