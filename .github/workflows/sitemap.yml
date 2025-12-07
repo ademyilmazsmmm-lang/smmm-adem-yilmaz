@@ -1,5 +1,6 @@
 name: Generate Sitemap
 
+# GitHub Actions'ın repo üzerinde yazma izni
 permissions:
   contents: write
 
@@ -8,7 +9,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: "0 */12 * * *"
+    - cron: "0 */12 * * *"   # 12 saatte bir otomatik çalışır
 
 jobs:
   build:
@@ -18,19 +19,21 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v3
       with:
-      ref: main
+        ref: main
 
     - name: Generate sitemap.xml
       run: |
         echo '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>' > sitemap.xml
         echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' >> sitemap.xml
 
+        # Ana sayfa
         echo '  <url>' >> sitemap.xml
         echo '    <loc>https://smmmyilmaz.com/</loc>' >> sitemap.xml
         echo '    <lastmod>'$(date +%Y-%m-%d)'</lastmod>' >> sitemap.xml
         echo '    <priority>1.00</priority>' >> sitemap.xml
         echo '  </url>' >> sitemap.xml
 
+        # Tüm HTML dosyalarını tarama
         for file in *.html; do
           if [ "$file" != "index.html" ]; then
             echo '  <url>' >> sitemap.xml
