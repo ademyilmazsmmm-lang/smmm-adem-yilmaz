@@ -1,0 +1,37 @@
+name: Generate Sitemap
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # Her gün saat 03:00'te otomatik çalışır (TR için 06:00)
+  workflow_dispatch:       # Elle çalıştırabilirsin
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Repo’yu çek
+      uses: actions/checkout@v3
+
+    - name: NodeJS kur
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18
+
+    - name: Sitemap generator kur
+      run: npm install -g sitemap-generator-cli
+
+    - name: Sitemap oluştur
+      run: |
+        sitemap-generator https://smmmyilmaz.com \
+        --exclude /404.html \
+        --max-depth 5 \
+        --last-mod --output sitemap.xml
+
+    - name: Commit & Push
+      run: |
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git add sitemap.xml
+        git commit -m "Otomatik sitemap güncellendi" || echo "No changes"
+        git push
