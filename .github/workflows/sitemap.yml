@@ -1,59 +1,31 @@
 name: Generate Sitemap
 
-# GitHub Actions'ın repo üzerinde yazma izni
-permissions:
-  contents: write
-
 on:
+  schedule:
+    - cron: "0 3 * * *"   # Her gece 03:00
   push:
     branches:
       - main
-  schedule:
-    - cron: "0 */12 * * *"   # 12 saatte bir otomatik çalışır
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
+
+    - name: Python kur
+      uses: actions/setup-python@v4
       with:
-        ref: main
+        python-version: '3.11'
 
-    - name: Generate sitemap.xml
+    - name: sitemap oluştur
+      run: python sitemap_generator.py
+
+    - name: Commit & Push
       run: |
-        echo '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>' > sitemap.xml
-        echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' >> sitemap.xml
-
-        # Ana sayfa
-        echo '  <url>' >> sitemap.xml
-        echo '    <loc>https://smmmyilmaz.com/</loc>' >> sitemap.xml
-        echo '    <lastmod>'$(date +%Y-%m-%d)'</lastmod>' >> sitemap.xml
-        echo '    <priority>1.00</priority>' >> sitemap.xml
-        echo '  </url>' >> sitemap.xml
-
-        # Tüm HTML dosyalarını tarama
-        for file in *.html; do
-          if [ "$file" != "index.html" ]; then
-            echo '  <url>' >> sitemap.xml
-            echo '    <loc>https://smmmyilmaz.com/'"$file"'</loc>' >> sitemap.xml
-            echo '    <lastmod>'$(date +%Y-%m-%d)'</lastmod>' >> sitemap.xml
-            echo '    <priority>0.85</priority>' >> sitemap.xml
-            echo '  </url>' >> sitemap.xml
-          fi
-        done
-
-        echo '</urlset>' >> sitemap.xml
-
-    - name: Commit and push if changed
-      run: |
-        git config --local user.email "actions@github.com"
-        git config --local user.name "GitHub Actions"
+        git config --global user.name "github-actions"
+        git config --global user.email "actions@github.com"
         git add sitemap.xml
-        git commit -m "Auto-update sitemap" || echo "No changes to commit"
+        git commit -m "Auto-update sitemap"
         git push
-
-    - name: Ping Google
-      run: |
-        curl "https://www.google.com/ping?sitemap=https://smmmyilmaz.com/sitemap.xml"
