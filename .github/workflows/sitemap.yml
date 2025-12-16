@@ -32,8 +32,12 @@ jobs:
 
       - name: Commit & Push
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "ademyilmaz"
+          git config --global user.email "actions@github.com"
+
+          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/ademyilmazsmmm-lang/smmm-adem-yilmaz.git
+
           git add sitemap.xml
           git diff --cached --quiet || git commit -m "Auto-update sitemap"
           git push
+
