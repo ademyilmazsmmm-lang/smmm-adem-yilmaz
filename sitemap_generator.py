@@ -6,30 +6,34 @@ BASE_URL = "https://smmmyilmaz.com"
 
 def generate_sitemap():
     urls = []
+    today = datetime.date.today().isoformat()
 
     for root, dirs, files in os.walk("."):
         for file in files:
-            if file.endswith(".html"):
-                full_path = os.path.join(root, file)
-                url_path = full_path.replace(".\\", "").replace("\\", "/")
+            if not file.endswith(".html"):
+                continue
 
-                # Priority belirleme
-                if "index.html" in file:
-                    priority = "1.00"
-                else:
-                    priority = "0.85"
+            full_path = os.path.join(root, file)
 
-                # Tarih
-                lastmod = datetime.datetime.now().strftime("%Y-%m-%d")
+            # ./ ve \ temizliği (kritik)
+            url_path = os.path.relpath(full_path, ".")
+            url_path = url_path.replace("\\", "/")
 
-                urls.append((f"{BASE_URL}/{url_path}", lastmod, priority))
+            # index.html ana sayfa
+            if url_path == "index.html":
+                priority = "1.00"
+            else:
+                priority = "0.85"
 
-    # XML oluşturma
-    urlset = ET.Element("urlset", attrib={"xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9"})
+            urls.append((f"{BASE_URL}/{url_path}", today, priority))
+
+    urlset = ET.Element(
+        "urlset",
+        attrib={"xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+    )
 
     for url, lastmod, priority in urls:
         url_el = ET.SubElement(urlset, "url")
-
         ET.SubElement(url_el, "loc").text = url
         ET.SubElement(url_el, "lastmod").text = lastmod
         ET.SubElement(url_el, "priority").text = priority
@@ -37,8 +41,7 @@ def generate_sitemap():
     tree = ET.ElementTree(urlset)
     tree.write("sitemap.xml", encoding="utf-8", xml_declaration=True)
 
-    print("✔ sitemap.xml oluşturuldu")
-
+    print("✔ SEO-uyumlu sitemap.xml oluşturuldu")
 
 if __name__ == "__main__":
     generate_sitemap()
