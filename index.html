@@ -799,7 +799,9 @@
     if([1,4,7,10].includes(m)) add("3 Aylık Stopaj",26);
     if(m===3) add("Yıllık Gelir Vergisi",31);
     if(m===4) add("Kurumlar Vergisi",30);
-
+    if(m===1) add("MTV 1.Taksit",31);
+    if(m===7) add("MTV 2.taksit",31);
+   
     const wrap=document.getElementById("takvim");
     taxes.forEach(t=>{
       const div=document.createElement("div");
@@ -818,6 +820,7 @@
 
 </body>
 </html>
+
 
 
 
