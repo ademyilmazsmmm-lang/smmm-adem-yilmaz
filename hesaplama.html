@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mali Müşavir Hesaplama Araçları - smmmyilmaz.com</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            color: #1e293b;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .header .icon {
+            font-size: 2.5rem;
+        }
+
+        .header p {
+            color: #64748b;
+            font-size: 1.1rem;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-btn {
+            flex: 1;
+            min-width: 150px;
+            padding: 15px 20px;
+            border: none;
+            background: #f1f5f9;
+            color: #475569;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .tab-btn:hover {
+            background: #e2e8f0;
+        }
+
+        .tab-btn.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card-title {
+            font-size: 1.8rem;
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+
+        .card-description {
+            color: #64748b;
+            margin-bottom: 25px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #334155;
+            font-weight: 600;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: white;
+        }
+
+        .btn-blue { background: #3b82f6; }
+        .btn-blue:hover { background: #2563eb; }
+        .btn-green { background: #10b981; }
+        .btn-green:hover { background: #059669; }
+        .btn-purple { background: #8b5cf6; }
+        .btn-purple:hover { background: #7c3aed; }
+        .btn-orange { background: #f97316; }
+        .btn-orange:hover { background: #ea580c; }
+
+        .result {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f8fafc;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .result.show { display: block; }
+
+        .result h3 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #1e293b;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .result-row:last-child {
+            border-bottom: none;
+            padding-top: 15px;
+            margin-top: 10px;
+            border-top: 2px solid #cbd5e1;
+        }
+
+        .result-label { font-weight: 600; color: #475569; }
+        .result-value { font-weight: 600; text-align: right; }
+
+        .text-red { color: #ef4444; }
+        .text-green { color: #10b981; }
+        .text-blue { color: #3b82f6; }
+        .text-lg { font-size: 1.2rem; }
+
+        .info-box {
+            background: #dbeafe;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #1e40af;
+            line-height: 1.5;
+        }
+
+        .warning-box {
+            background: #fef3c7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #92400e;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #64748b;
+            font-size: 0.9rem;
+            padding-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-group input { flex: 1; }
+        .input-group select { width: 120px; }
+
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.8rem; }
+            .tabs { flex-direction: column; }
+            .tab-btn { min-width: 100%; }
+            .input-group { flex-direction: column; }
+            .input-group select { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><span class="icon">🧮</span> Mali Müşavir Hesaplama Araçları</h1>
+            <p>Profesyonel mali hesaplama araçları - smmmyilmaz.com</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="maas">💰 Maaş</button>
+            <button class="tab-btn" data-tab="vergi">📈 Vergi</button>
+            <button class="tab-btn" data-tab="kurumsal">💼 Kurumsal</button>
+            <button class="tab-btn" data-tab="isci">👥 İşçi Hakları</button>
+        </div>
+
+        <div id="maas" class="tab-content active">
+            <h2 class="card-title">Maaş Hesaplama</h2>
+            <p class="card-description">2025 güncel vergi dilimlerine göre Brüt-Net hesaplaması</p>
+
+            <div class="form-group">
+                <label>Hesaplama Türü</label>
+                <select id="maasHesaplamaTuru" onchange="toggleMaasInput()">
+                    <option value="brut-net">Brüt → Net</option>
+                    <option value="net-brut">Net → Brüt</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="brutMaasGroup">
+                <label>Brüt Maaş (₺)</label>
+                <input type="number" id="brutMaas" placeholder="Örn: 60000">
+            </div>
+
+            <div class="form-group" id="netMaasGroup" style="display:none;">
+                <label>Net Maaş (₺)</label>
+                <input type="number" id="netMaas" placeholder="Örn: 45000">
+            </div>
+
+            <div class="info-box">
+                <strong>Not:</strong> 2022 yılından itibaren AGİ kalkmıştır. Asgari ücret kadar olan kazançlar gelir ve damga vergisinden istisnadır. Hesaplamalar bu kurala göre yapılır.
+            </div>
+
+            <button class="btn btn-blue" style="margin-top:20px;" onclick="hesaplaMaas()">Hesapla</button>
+            <div id="maasSonuc" class="result"></div>
+        </div>
+
+        <div id="vergi" class="tab-content">
+            <h2 class="card-title">Vergi Hesaplama</h2>
+            <p class="card-description">Gelir Vergisi, KDV ve Stopaj hesaplaması</p>
+
+            <div class="form-group">
+                <label>Vergi Türü</label>
+                <select id="vergiTuru" onchange="toggleVergiInput()">
+                    <option value="gelir">Gelir Vergisi (Şahıs)</option>
+                    <option value="kdv">KDV Hesaplama</option>
+                    <option value="stopaj">Stopaj Hesaplama</option>
+                </select>
+            </div>
+
+            <div id="gelirVergiGroup">
+                <div class="form-group">
+                    <label>Yıllık Vergi Matrahı (₺)</label>
+                    <input type="number" id="gelirTutar" placeholder="Örn: 500000">
+                </div>
+            </div>
+
+            <div id="kdvGroup" style="display:none;">
+                <div class="form-group">
+                    <label>Tutar (₺)</label>
+                    <input type="number" id="kdvTutar" placeholder="Örn: 10000">
+                </div>
+                <div class="form-group">
+                    <label>KDV Oranı</label>
+                    <select id="kdvOrani">
+                        <option value="20">%20 (Genel)</option>
+                        <option value="10">%10 (Gıda/Tekstil)</option>
+                        <option value="1">%1 (Temel Gıda)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>İşlem Türü</label>
+                    <select id="kdvDurum">
+                        <option value="haric">KDV Hariçten Hesapla</option>
+                        <option value="dahil">KDV Dahilden Ayır</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="stopajGroup" style="display:none;">
+                <div class="form-group">
+                    <label>Brüt Tutar (₺)</label>
+                    <input type="number" id="stopajTutar" placeholder="Örn: 5000">
+                </div>
+                <div class="form-group">
+                    <label>Stopaj Oranı</label>
+                    <select id="stopajOrani">
+                        <option value="20">%20 (Kira / S. Meslek)</option>
+                        <option value="15">%15 (Ücret)</option>
+                        <option value="10">%10 (Diğer)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn btn-green" onclick="hesaplaVergi()">Hesapla</button>
+            <div id="vergiSonuc" class="result"></div>
+        </div>
+
+        <div id="kurumsal" class="tab-content">
+            <h2 class="card-title">Kurumsal Hesaplamalar</h2>
+            <p class="card-description">Kurumlar Vergisi ve Amortisman</p>
+
+            <div class="form-group">
+                <label>Hesaplama Türü</label>
+                <select id="kurumsalTuru" onchange="toggleKurumsalInput()">
+                    <option value="kurumlar">Kurumlar Vergisi</option>
+                    <option value="amortisman">Amortisman (Normal)</option>
+                </select>
+            </div>
+
+            <div id="kurumsalKarGroup">
+                <div class="form-group">
+                    <label>Vergi Öncesi Kar (₺)</label>
+                    <input type="number" id="karTutari" placeholder="Örn: 1000000">
+                </div>
+                <div class="info-box">2025 Kurumlar Vergisi oranı genel olarak %25 uygulanmaktadır.</div>
+            </div>
+
+            <div id="amortismanGroup" style="display:none;">
+                <div class="form-group">
+                    <label>Varlık Alış Tutarı (₺)</label>
+                    <input type="number" id="amortismanTutar" placeholder="Örn: 100000">
+                </div>
+                <div class="form-group">
+                    <label>Faydalı Ömür (Yıl)</label>
+                    <input type="number" id="amortismanSure" placeholder="Örn: 5">
+                </div>
+            </div>
+
+            <button class="btn btn-purple" onclick="hesaplaKurumsal()">Hesapla</button>
+            <div id="kurumsalSonuc" class="result"></div>
+        </div>
+
+        <div id="isci" class="tab-content">
+            <h2 class="card-title">İşçi Hakları</h2>
+            <p class="card-description">Kıdem ve İhbar Tazminatı</p>
+
+            <div class="form-group">
+                <label>Hesaplama Türü</label>
+                <select id="isciTuru" onchange="toggleIsciInput()">
+                    <option value="kidem">Kıdem Tazminatı</option>
+                    <option value="ihbar">İhbar Tazminatı</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Son Brüt Maaş (₺)</label>
+                <input type="number" id="isciBrutMaas" placeholder="Örn: 50000">
+            </div>
+
+            <div class="form-group">
+                <label>Toplam Çalışma Süresi (Yıl)</label>
+                <input type="number" id="calismaSuresiYil" placeholder="Yıl" step="1">
+                <input type="number" id="calismaSuresiAy" placeholder="Ay" step="1" style="margin-top:10px;">
+            </div>
+
+            <button class="btn btn-orange" onclick="hesaplaIsci()">Hesapla</button>
+            <div id="isciSonuc" class="result"></div>
+        </div>
+
+        <div class="footer">
+            <p>© 2026 smmmyilmaz.com - Tüm hesaplamalar bilgilendirme amaçlıdır.</p>
+            <p>Resmi işlemleriniz için mutlaka mali müşavirinize danışınız.</p>
+        </div>
+    </div>
+
+    <script>
+        // Tab Yönetimi
+        document.querySelectorAll('.tab-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const tabId = button.getAttribute('data-tab');
+                
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                
+                button.classList.add('active');
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+
+        // Görünürlük Kontrolleri
+        function toggleMaasInput() {
+            const tur = document.getElementById('maasHesaplamaTuru').value;
+            document.getElementById('brutMaasGroup').style.display = tur === 'brut-net' ? 'block' : 'none';
+            document.getElementById('netMaasGroup').style.display = tur === 'net-brut' ? 'block' : 'none';
+        }
+
+        function toggleVergiInput() {
+            const tur = document.getElementById('vergiTuru').value;
+            document.getElementById('gelirVergiGroup').style.display = tur === 'gelir' ? 'block' : 'none';
+            document.getElementById('kdvGroup').style.display = tur === 'kdv' ? 'block' : 'none';
+            document.getElementById('stopajGroup').style.display = tur === 'stopaj' ? 'block' : 'none';
+        }
+
+        function toggleKurumsalInput() {
+            const tur = document.getElementById('kurumsalTuru').value;
+            document.getElementById('kurumsalKarGroup').style.display = tur === 'kurumlar' ? 'block' : 'none';
+            document.getElementById('amortismanGroup').style.display = tur === 'amortisman' ? 'block' : 'none';
+        }
+
+        function toggleIsciInput() {
+            // İhtiyaç duyulursa buraya ekleme yapılabilir
+        }
+
+        // Yardımcı Fonksiyon: Para Formatı
+        function fNum(n) {
+            return parseFloat(n).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " ₺";
+        }
+
+        // --- HESAPLAMA MOTORLARI ---
+
+        function hesaplaMaas() {
+            const tur = document.getElementById('maasHesaplamaTuru').value;
+            let brut = 0;
+
+            if (tur === 'brut-net') {
+                brut = parseFloat(document.getElementById('brutMaas').value);
+                if(!brut) return alert("Lütfen brüt tutar giriniz.");
+            } else {
+                let netHedef = parseFloat(document.getElementById('netMaas').value);
+                if(!netHedef) return alert("Lütfen net tutar giriniz.");
+                // Basit iterasyon
+                brut = netHedef * 1.3; 
+                for(let i=0; i<20; i++) {
+                    let fark = netHedef - hesaplaNetten(brut);
+                    brut += fark * 1.4;
+                }
+            }
+
+            const net = hesaplaNetten(brut);
+            const sgk = brut * 0.14;
+            const issizlik = brut * 0.01;
+            const kesinti = brut - net;
+
+            document.getElementById('maasSonuc').innerHTML = `
+                <h3>Hesaplama Sonucu</h3>
+                <div class="result-row"><span>Brüt Maaş</span><span>${fNum(brut)}</span></div>
+                <div class="result-row"><span class="text-red">SGK İşçi Payı (%14)</span><span class="text-red">-${fNum(sgk)}</span></div>
+                <div class="result-row"><span class="text-red">İşsizlik Sigortası (%1)</span><span class="text-red">-${fNum(issizlik)}</span></div>
+                <div class="result-row"><span>Toplam Kesinti</span><span>${fNum(kesinti)}</span></div>
+                <div class="result-row"><span class="text-green text-lg">Net Ele Geçen</span><span class="text-green text-lg">${fNum(net)}</span></div>
+            `;
+            document.getElementById('maasSonuc').classList.add('show');
+        }
+
+        function hesaplaNetten(brut) {
+            const sgk = brut * 0.14;
+            const issizlik = brut * 0.01;
+            const matrah = brut - sgk - issizlik;
+            
+            // 2025 Tahmini Dilimler
+            let gv = 0;
+            if (matrah <= 110000) gv = matrah * 0.15;
+            else if (matrah <= 230000) gv = 16500 + (matrah - 110000) * 0.20;
+            else gv = 40500 + (matrah - 230000) * 0.27;
+
+            const dv = brut * 0.00759;
+            
+            // Basit asgari ücret istisnası (örnek asgari ücret: 20.000 TL varsayımı ile)
+            const istisna = 3000; // Gelir + Damga vergisi istisnası tahmini
+            const odenecekGvDv = Math.max(0, (gv + dv) - istisna);
+            
+            return brut - sgk - issizlik - odenecekGvDv;
+        }
+
+        function hesaplaVergi() {
+            const tur = document.getElementById('vergiTuru').value;
+            const res = document.getElementById('vergiSonuc');
+            res.classList.add('show');
+
+            if (tur === 'gelir') {
+                const m = parseFloat(document.getElementById('gelirTutar').value);
+                let v = 0;
+                if (m <= 110000) v = m * 0.15;
+                else if (m <= 230000) v = 16500 + (m-110000)*0.20;
+                else if (m <= 580000) v = 40500 + (m-230000)*0.27;
+                else v = 135000 + (m-580000)*0.35;
+
+                res.innerHTML = `<h3>Gelir Vergisi</h3><div class="result-row"><span>Ödenecek Vergi</span><span class="text-red">${fNum(v)}</span></div>`;
+            } else if (tur === 'kdv') {
+                const tutar = parseFloat(document.getElementById('kdvTutar').value);
+                const oran = parseFloat(document.getElementById('kdvOrani').value) / 100;
+                const durum = document.getElementById('kdvDurum').value;
+                
+                let kdv, matrah, toplam;
+                if(durum === 'haric') {
+                    matrah = tutar; kdv = tutar * oran; toplam = matrah + kdv;
+                } else {
+                    toplam = tutar; matrah = tutar / (1 + oran); kdv = toplam - matrah;
+                }
+                res.innerHTML = `<h3>KDV Sonucu</h3>
+                    <div class="result-row"><span>Matrah</span><span>${fNum(matrah)}</span></div>
+                    <div class="result-row"><span>KDV Tutarı</span><span>${fNum(kdv)}</span></div>
+                    <div class="result-row"><span>Genel Toplam</span><span>${fNum(toplam)}</span></div>`;
+            }
+        }
+
+        function hesaplaKurumsal() {
+            const tur = document.getElementById('kurumsalTuru').value;
+            const res = document.getElementById('kurumsalSonuc');
+            res.classList.add('show');
+
+            if (tur === 'kurumlar') {
+                const kar = parseFloat(document.getElementById('karTutari').value);
+                const vergi = kar * 0.25;
+                res.innerHTML = `<h3>Kurumlar Vergisi</h3><div class="result-row"><span>Vergi Tutarı (%25)</span><span class="text-red">${fNum(vergi)}</span></div>`;
+            } else {
+                const tutar = parseFloat(document.getElementById('amortismanTutar').value);
+                const yil = parseInt(document.getElementById('amortismanSure').value);
+                const yillik = tutar / yil;
+                res.innerHTML = `<h3>Amortisman</h3><div class="result-row"><span>Yıllık Amortisman Gideri</span><span>${fNum(yillik)}</span></div>`;
+            }
+        }
+
+        function hesaplaIsci() {
+            const brut = parseFloat(document.getElementById('isciBrutMaas').value);
+            const yil = parseInt(document.getElementById('calismaSuresiYil').value) || 0;
+            const ay = parseInt(document.getElementById('calismaSuresiAy').value) || 0;
+            const res = document.getElementById('isciSonuc');
+            res.classList.add('show');
+
+            const toplamYil = yil + (ay / 12);
+            const tavan = 55000; // 2025 Tahmini Kıdem Tavanı
+            const esasMaas = Math.min(brut, tavan);
+            const kidem = esasMaas * toplamYil;
+
+            res.innerHTML = `<h3>Tazminat Sonucu</h3>
+                <div class="result-row"><span>Kıdem Tazminatı (Brüt)</span><span class="text-green">${fNum(kidem)}</span></div>
+                <p style="font-size:0.8rem; color:gray; margin-top:10px;">* Sadece damga vergisi (%0.759) kesintisi yapılacaktır.</p>`;
+        }
+    </script>
+</body>
+</html>
