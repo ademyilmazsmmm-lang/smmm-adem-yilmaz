@@ -12,7 +12,7 @@
             background-color: #f4f6f9;
             color: #333;
         }
-        /* Mali Müşavirlik Kurumsal Renkleri (Lacivert & Gri & Gold Altın) */
+        /* SMMM Yılmaz Kurumsal Renkleri (Lacivert & Gold Altın) */
         .navbar-custom {
             background-color: #1e272c;
             padding: 15px 0;
@@ -88,11 +88,30 @@
             background-color: #1e272c;
             color: white;
             border: 1px solid #1e272c;
+            transition: all 0.3s ease;
         }
         .btn-custom:hover {
             background-color: #d4af37;
             color: #1e272c;
             border-color: #d4af37;
+        }
+        /* Google Harita Alanı Tasarımı */
+        .map-container {
+            position: relative;
+            padding-bottom: 450px; /* Harita yüksekliği */
+            height: 0;
+            overflow: hidden;
+            border-radius: 8px;
+            border: 2px solid #1e272c;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            margin-top: 20px;
+        }
+        .map-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
         }
         footer {
             background-color: #1e272c;
@@ -114,7 +133,6 @@
         </button>
         <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
             <ul class="navbar-nav">
-                <!-- Buradaki # işaretlerini ana sayfa ve iletişim linklerinizle değiştirin -->
                 <li class="nav-item">
                     <a class="nav-link" href="/">← Ana Sayfaya Dön</a>
                 </li>
@@ -139,7 +157,7 @@
 
             <!-- Giriş Metni -->
             <p>Türkiye’de kayıtlı diyetisyen sayısı son on yılda ikiye katlandı. Buna karşın bağımsız klinik açmak isteyenler, yıllarca belirsiz bir mevzuat ortamında ilerlemeye çalıştı: iller arasında farklı uygulamalar, tutarsız ruhsat süreçleri, uzaktan hizmet için geçerli bir statü yokluğu. Bu tablo <strong>29 Mart 2025</strong>‘te değişti.</p>
-            <p>O tarihte Resmî Gazete‘de yayımlanan <em>“Sağlık Meslek Mensuplarının Serbest Meslek İcrası Hakkında Yönetmelik”</em>, sektördeki uzun süreli gri alanı kapattı. Yasal dayanak netleşti. Fiziki şartlar tanımlandı. Ruhsat süreci standart bir çerçeveye oturdu.</p>
+            <p>O tarihte Resmî Gazete‘de yayımlanan <em>“Sağlık Meslek Mensuplarının Serbest Meslek İcrası Hakkında Yönetmelik”</em>, sektördeki uzun süreli gri alanı kapattı. Yasal dayanak netleşti. Fiziki şartlar tanımlandı. Ruhsat süreçleri standart bir çerçeveye oturdu.</p>
 
             <!-- Bölüm 1 -->
             <h2>Yasal Dayanak: 2025 Yönetmeliği Ne Değiştirdi?</h2>
@@ -249,7 +267,7 @@
 
             <!-- Bölüm 4 -->
             <h2>Fiziki Alan Şartları: Klinik Nasıl Olmalı?</h2>
-            <p>2026 yönetmeliği, diyetisyen klinikleri için minimum fiziksel standartları net biçimde ortaya koydu. Bu standartların altında kalan mekânlara ruhsat çıkmıyor. Esneklik yok.</p>
+            <p>2025 yönetmeliği, diyetisyen klinikleri için minimum fiziksel standartları net biçimde ortaya koydu. Bu standartların altında kalan mekânlara ruhsat çıkmıyor. Esneklik yok.</p>
 
             <h3>Zorunlu Fiziki Gereklilikler</h3>
             <ul>
@@ -260,7 +278,7 @@
                 <li><strong>Hijyen:</strong> Tüm alanlar steril tutulmalı. Yüzeyler kolay temizlenebilir malzemelerden oluşmalı.</li>
             </ul>
 
-            <p><strong>Birden Fazla Diyetisyen Ortak Açıyorsa:</strong> Her diyetisyen için ayrı uygulama odası şart. Bekleme alanı, lavabo ve diğer ortak mekânlar birlikte kullanılabilir. Bu modelde her diyetisyen adına ayrı ruhsat düzenleniyor; ortak ruhsat seçeneği geçerli değil.</p>
+            <p><strong>Birden Fazla Diyetisyen Ortak Açıyorsa:</strong> Her diyetisyen için ayrı uygulama odası şart. Bekleme alanı, lavabo ve dogma ortak mekânlar birlikte kullanılabilir. Bu modelde her diyetisyen adına ayrı ruhsat düzenleniyor; ortak ruhsat seçeneği geçerli değil.</p>
             <p><strong>Konum Seçimi:</strong> Yönetmelik, mekânın nerede olduğuna dair bir kısıtlama getirmiyor. Ama bu özgürlük, konum kararını önemsiz kılmıyor; tam tersine, seçim tamamen klinisyenin inisiyatifine kalıyor. Nüfus yoğunluğu yüksek, toplu taşımaya yakın ve park alanı olan lokasyonlar, danışan sayısını doğrudan etkileyen başlıca değişkenler arasında yer alıyor.</p>
 
             <!-- Bölüm 5: Adım Adım Süreç -->
@@ -324,7 +342,7 @@
             <p><strong>Personel Varsa SGK Bildirimi:</strong> Sekreter, asistan veya başka bir yardımcı personel çalıştırılacaksa, ilk iş gününden itibaren SGK bildirimi yapılması zorunlu. E-devlet üzerinden ya da SGK’ya bağlı ilgili birim aracılığıyla bu işlem tamamlanabilir. Bildirim gecikmesi, günlük idari para cezasına yol açar.</p>
 
             <!-- Düzenli Giderler Listesi -->
-            <div class="card card-mali mt-4">
+            <div class="card card-mali mt-4 mb-5">
                 <div class="card-header fs-5">
                     Aylık Düzenli Gider Kalemleri
                 </div>
@@ -335,6 +353,19 @@
                     <li class="list-group-item">Defter Tasdik Ücreti (Yıllık)</li>
                     <li class="list-group-item">Kira, Fatura, Sigorta gibi İşletme Giderleri</li>
                 </ul>
+            </div>
+
+            <!-- Google Harita Bölümü -->
+            <h2>Ofisimiz / Lokasyonumuz</h2>
+            <p class="text-muted">Şirket kurulumu, vergi levhası süreçleri ve ruhsat danışmanlığı için ofisimizde sizi ağırlamaktan mutluluk duyarız.</p>
+            <div class="map-container">
+                <!-- Ümraniye adresinize ait Google Maps yerleştirme kodu -->
+                <iframe 
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3010.518884947936!2d29.0907021!3d41.0238024!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14cac8f6109e9299%3A0x9875e46e2959a293!2sAtat%C3%BCrk%2C%20S%C3%BCt%C3%A7%C3%BC%20%C4%B0mam%20Cd.%20No%3A%20101%2F2%2C%2034764%20%C3%9Cmraniye%2F%C4%B0stanbul!5e0!3m2!1str!2str!4v1717620000000!5m2!1str!2str" 
+                    allowfullscreen="" 
+                    loading="lazy" 
+                    referrerpolicy="no-referrer-when-downgrade">
+                </iframe>
             </div>
 
             <!-- Alt Sayfa Navigasyon Butonları -->
