@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Diyetisyenlik Ruhsatı Nasıl Alınır? | SMMM Yılmaz</title>
-    <!-- Bootstrap 5 CSS (Mobil uyum ve modern görünüm için) -->
+    <title>Özel Sağlık Hizmet Birimi Ruhsatı Nasıl Alınır? | SMMM Yılmaz</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f4f6f9;
             color: #333;
+            line-height: 1.6;
         }
-        /* SMMM Yılmaz Kurumsal Renkleri (Lacivert & Gold Altın) */
+        /* Mali Müşavirlik Kurumsal Renkleri (Lacivert & Gri & Gold Altın) */
         .navbar-custom {
             background-color: #1e272c;
             padding: 15px 0;
@@ -76,42 +77,48 @@
             background-color: #1e272c;
             color: #ffffff;
         }
-        .card-mali {
-            border: 1px solid #1e272c;
+        .nace-badge {
+            background-color: #e2e8f0;
+            color: #1e272c;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-weight: 600;
+            display: inline-block;
+            margin: 5px;
+            border-left: 3px solid #d4af37;
         }
-        .card-mali .card-header {
-            background-color: #1e272c;
-            color: #ffffff;
-            font-weight: bold;
-        }
-        .btn-custom {
+        .contact-box {
             background-color: #1e272c;
             color: white;
-            border: 1px solid #1e272c;
+            padding: 30px;
+            border-radius: 8px;
+            margin-top: 40px;
+            text-align: center;
+            border-bottom: 4px solid #d4af37;
+        }
+        .btn-custom {
+            background-color: #d4af37;
+            color: #1e272c;
+            border: none;
+            font-weight: bold;
+            padding: 10px 25px;
             transition: all 0.3s ease;
         }
         .btn-custom:hover {
-            background-color: #d4af37;
+            background-color: #cda22d;
             color: #1e272c;
-            border-color: #d4af37;
+            transform: translateY(-2px);
         }
-        /* Google Harita Alanı Tasarımı */
-        .map-container {
-            position: relative;
-            padding-bottom: 450px; /* Harita yüksekliği */
-            height: 0;
-            overflow: hidden;
-            border-radius: 8px;
+        .btn-outline-custom {
+            background-color: transparent;
+            color: #1e272c;
             border: 2px solid #1e272c;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-            margin-top: 20px;
+            font-weight: bold;
+            padding: 10px 25px;
         }
-        .map-container iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+        .btn-outline-custom:hover {
+            background-color: #1e272c;
+            color: white;
         }
         footer {
             background-color: #1e272c;
@@ -124,7 +131,6 @@
 </head>
 <body>
 
-<!-- Üst Menü / Navigasyon -->
 <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
     <div class="container">
         <a class="navbar-brand fw-bold text-white" href="/">SMMM YILMAZ</a>
@@ -134,10 +140,7 @@
         <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
             <ul class="navbar-nav">
                 <li class="nav-item">
-                    <a class="nav-link" href="/">← Ana Sayfaya Dön</a>
-                </li>
-                <li class="nav-item ms-lg-3">
-                    <a class="nav-link" href="/iletisim">İletişim</a>
+                    <a class="nav-link" href="/"><i class="fas fa-home"></i> Ana Sayfaya Dön</a>
                 </li>
             </ul>
         </div>
@@ -148,245 +151,150 @@
     <div class="row justify-content-center">
         <div class="col-lg-10 article-container">
             
-            <!-- Makale Başlık Alanı -->
-            <header class="mb-5">
-                <h1>Diyetisyenlik Ruhsatı Nasıl Alınır? Adım Adım Rehber</h1>
-                <p class="text-muted fs-5">Mali Müşavirlik Gözüyle: Türkiye’de Diyetisyen Kliniklerinin Yeni Yasal Mevzuatı ve Mali Yükümlülükleri</p>
+            <header class="mb-5 text-center">
+                <h1>Özel Sağlık Hizmet Birimi Ruhsatı Nasıl Alınır?</h1>
+                <p class="text-muted fs-5">Diyetisyen, Psikolog, Fizyoterapist, Ergoterapist, Ebe ve Hemşireler İçin Güncel Ruhsat ve Evrak Rehberi</p>
                 <hr>
             </header>
 
-            <!-- Giriş Metni -->
-            <p>Türkiye’de kayıtlı diyetisyen sayısı son on yılda ikiye katlandı. Buna karşın bağımsız klinik açmak isteyenler, yıllarca belirsiz bir mevzuat ortamında ilerlemeye çalıştı: iller arasında farklı uygulamalar, tutarsız ruhsat süreçleri, uzaktan hizmet için geçerli bir statü yokluğu. Bu tablo <strong>29 Mart 2025</strong>‘te değişti.</p>
-            <p>O tarihte Resmî Gazete‘de yayımlanan <em>“Sağlık Meslek Mensuplarının Serbest Meslek İcrası Hakkında Yönetmelik”</em>, sektördeki uzun süreli gri alanı kapattı. Yasal dayanak netleşti. Fiziki şartlar tanımlandı. Ruhsat süreçleri standart bir çerçeveye oturdu.</p>
+            <p>Son yasal düzenlemelerle birlikte sağlık meslek mensuplarının serbest meslek icrası belirli standartlara bağlanmıştır. Diyetisyen, klinik psikolog, fizyoterapist, ergoterapist, ebe, hemşire ve dil-konuşma terapistleri artık mesleklerini <strong>"Özel Sağlık Hizmet Birimi (SMHB)"</strong> statüsünde, yönetmeliğin öngördüğü katı fiziki ve idari şartları sağlayarak icra edebilmektedir.</p>
+            <p>Aşağıda İlçe Sağlık Müdürlükleri tarafından istenen en güncel evrak listesini, dikkat edilmesi gereken teknik detayları ve mali yükümlülükleri sizin için derledik.</p>
 
-            <!-- Bölüm 1 -->
-            <h2>Yasal Dayanak: 2025 Yönetmeliği Ne Değiştirdi?</h2>
-            <p>2025 öncesinde diyetisyenlerin serbest meslek icrası ciddi bir muğlaklık içindeydi. Muayenehaneler yasal olarak “sağlık kuruluşu” statüsünde tanınmıyordu; bu nedenle ruhsat süreçleri ilden ile farklılık gösteriyor, kimi zaman tamamen çıkmaza giriyordu. Uzaktan hizmet vermek isteyenler ise mevzuatta karşılığı olmayan bir ofis yapısıyla çalışmak zorunda kalıyordu.</p>
-            <p>Mart 2025 yönetmeliği bu boşluğu doldurdu. Artık diyetisyenler mesleklerini yalnızca <strong>“Sağlık Meslek Hizmet Birimi (SMHB)”</strong> adıyla tanımlanan ve yönetmeliğin öngördüğü fiziki koşulları karşılayan özel sağlık kuruluşlarında icra edebiliyor. Yönetmelik kapsamına giren diğer meslek grupları şunlar: klinik psikolog, hemşire, hemşireliğe eşdeğer sağlık memuru, ebe, fizyoterapist, odyolog, dil ve konuşma terapisti, podolog ve ergoterapist.</p>
+            <h2>1. Doğru NACE Kodu ile Vergi Levhası Açılışı</h2>
+            <p>Ruhsat sürecinin ilk ve en kritik adımı, vergi dairesi açılışının alanınıza uygun NACE kodu ile yapılmasıdır. Ruhsat başvurusunda, vergi levhanızdaki faaliyet kodunun branşınızla birebir eşleşmesi zorunludur. Aksi halde başvurunuz reddedilir.</p>
+            
+            <div class="mb-4">
+                <span class="nace-badge">Psikolog: 869300</span>
+                <span class="nace-badge">Diyetisyen: 869999</span>
+                <span class="nace-badge">Fizyoterapist: 869500</span>
+                <span class="nace-badge">Ergoterapist: 869500</span>
+                <span class="nace-badge">Ebe: 869401</span>
+                <span class="nace-badge">Hemşire: 869402</span>
+                <span class="nace-badge">Dil ve Konuşma Terapisti: 855909</span>
+            </div>
+            
+            <div class="alert alert-warning">
+                <strong>Önemli Not:</strong> Vergi levhasında farklı bir branşa ait hizmet çıkarsa, o uygulamaları yapmayacağınıza dair ayrıca bir taahhütname vermeniz gerekmektedir.
+            </div>
 
-            <h3>Yönetmeliğin Getirdiği Temel Değişiklikler</h3>
+            <h2>2. İlçe Sağlık Müdürlüğü Gerekli Evrak Listesi</h2>
+            <p>Başvuru dosyası eksiksiz hazırlanmalıdır. Resmi Gazete Ek-1A formuna uygun bir dilekçeyle başlayan bu süreçte sizden istenen güncel belgeler şunlardır:</p>
+
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle border">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th style="width: 30%;">İstenen Belge</th>
+                            <th>Açıklama ve Dikkat Edilmesi Gerekenler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Başvuru Dilekçesi</strong></td>
+                            <td>Çalışma gün ve saatleri dilekçede doğru ve net olarak belirtilmelidir.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Diploma</strong></td>
+                            <td>Aslı ve A4 fotokopisi. (İlçe Sağlık "Aslı gibidir" onayı yapacaktır). Yüksek lisans varsa o da aynı şekilde sunulur. Yurtdışı mezunları denklik belgesinin iki taraflı örneğini vermelidir.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Adli Sicil Kaydı Beyanı</strong></td>
+                            <td>Güncel tarihli olmalı. Kurum türü "Resmi Kurumlar" seçilerek alınmalı ve belgede <strong>"Adli Sicil ve Adli Sicil Arşiv Kaydı yoktur"</strong> ibaresi net olarak görünmelidir.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tapu veya Kira Sözleşmesi</strong></td>
+                            <td>Müşterek çalışanlarda kira sözleşmesi tek kişi üzerineyse <strong>"alt kiraya verebilir"</strong> ibaresi şarttır. Mülk sahibi ise muvafakatname imzalanmalıdır.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Yapı Kullanım İzin Belgesi</strong></td>
+                            <td>"Aslı gibidir" onaylı olmalı ve belge üzerindeki mimarın ismi mutlaka okunur durumda olmalıdır.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Mahal Raporu ve Kroki</strong></td>
+                            <td>EK-5 normlarına uygun mahal raporu. Kroki 1/100 veya 1/50 ölçekli, mimar/mühendis tarafından "Mahaline Uygundur" şerhiyle imzalanmış olmalıdır. (Detaylar fiziki şartlar bölümünde).</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Yangın Raporu</strong></td>
+                            <td>Muayenehane adresine uygun, güncel ve "Olumlu" olmalıdır.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Üçlü İmza Sirküsü</strong></td>
+                            <td>Noter onaylı belgenin aslı teslim edilmelidir.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Harç Dekontu (3.577 TL)</strong></td>
+                            <td>Mal Müdürlüğünün IBAN'ına yatırılmalı. Açıklamaya: <em>"Özel Sağlık Hizmet Birimi [Unvan ve Ad-Soyad] ruhsat bedeli"</em> yazılmalıdır.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Branşlara Özel Ek Gereksinimler</h3>
             <ul>
-                <li><strong>Ruhsatsız hizmet kesin olarak yasak.</strong> İstisna yok.</li>
-                <li><strong>Tüzel kişiler bu birimleri açamıyor.</strong> Ruhsat yalnızca bireyler adına düzenleniyor.</li>
-                <li><strong>En fazla 3 diyetisyen ortak çalışabilir.</strong> Ancak her biri için ayrı ruhsat ve ayrı uygulama odası zorunlu.</li>
-                <li><strong>Ortak alanlardan müşterek sorumluluk doğuyor.</strong> Ortaklar bu alanlar için birlikte sorumlu tutuluyor.</li>
-                <li><strong>Ruhsat alındıktan sonra 6 ay içinde faaliyete geçilmeli.</strong> Bu süre aşılırsa ruhsat kendiliğinden iptal ediliyor.</li>
-                <li><strong>Eksik başvurularda 30 iş günü düzeltme süresi tanınıyor.</strong> Süre geçince dosya işlemden kaldırılıyor.</li>
+                <li><strong>Taahhütname:</strong> Herkes için geçerlidir. "Sadece alanına giren uygulamaları yapacağına ve başka sağlık kuruluşunda çalışmadığına" dair verilir.</li>
+                <li><strong>Asgari Tıbbi Cihaz ve Malzeme Listesi:</strong> Ek-4'te belirtilen ünvana ait liste imzalanır. Liste dışı cihaz varsa ÜTS kaydı ve ne amaçla kullanıldığı yazılmalıdır. <em>(Dikkat: Diyetisyenler ems body pro, vacu activ, rollshape vb. cihazları bulunduramaz ve kullanamaz.)</em></li>
+                <li><strong>Tıbbi Atık Sözleşmesi:</strong> Hemşire, Sağlık Memuru, Ebe ve Podologlar için zorunludur. Kişi adına, cari yıla ait olmalı ve krokide tıbbi atık kutusu gösterilmelidir.</li>
+                <li><strong>Acil İlaç Listesi:</strong> Sadece Hemşire ve Ebeler için zorunludur.</li>
             </ul>
 
-            <!-- Bölüm 2 -->
-            <h2>Kimler Diyetisyen Kliniği Açabilir?</h2>
-            <p>Klinik açma hakkı herkese tanınmıyor. Mesleki yeterlilik ve vatandaşlık şartını birlikte karşılamak gerekiyor.</p>
-            
+            <h2>3. Fiziki Şartlar ve Kroki Çizim Standartları</h2>
+            <p>İş yeri krokisi mimar veya mühendis tarafından onaylanmalıdır ve aşağıdaki standartları eksiksiz taşımak zorundadır:</p>
+
             <div class="row my-4">
                 <div class="col-md-6 mb-3">
                     <div class="card h-100 border-start border-secondary border-3">
                         <div class="card-body">
-                            <h5 class="card-title fw-bold text-dark">Eğitim Şartı</h5>
-                            <p class="card-text">Bir üniversitenin <strong>Beslenme ve Diyetetik</strong> lisans bölümünden mezun olmak zorunlu. Bu bölüm, Sağlık Bilimleri Fakültesi veya Yüksekokulu çatısı altında açılır. Yüksek lisans ya da doktora yasal bir gereklilik değildir; ama klinik uzmanlık alanında danışan güvenini doğrudan etkiler.</p>
+                            <h5 class="card-title fw-bold text-dark">Odalar ve Kapılar</h5>
+                            <p class="card-text">Bütün odaların ölçüleri eksiksiz girilmeli ve ne için kullanıldığı krokide belirtilmelidir. Uygulama odaları en az <strong>10 metrekare</strong> olmalıdır. Kapı genişlikleri krokide (85-90 cm) olarak belirtilmelidir.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <div class="card h-100 border-start border-dark border-3">
                         <div class="card-body">
-                            <h5 class="card-title fw-bold text-dark">Vatandaşlık Şartı</h5>
-                            <p class="card-text">Yönetmelik, Sağlık Meslek Hizmet Birimi açma yetkisini yalnızca <strong>T.C. vatandaşı</strong> sağlık meslek mensuplarına tanıyor. Yabancı uyruklu diyetisyenler bu kapsamın dışında kalıyor.</p>
+                            <h5 class="card-title fw-bold text-dark">Bekleme Alanı ve WC</h5>
+                            <p class="card-text">Bekleme salonu tek uygulayıcı için en az <strong>8 metrekare</strong> olmalı, artan her kişi için +5 metrekare eklenmelidir. Engelli WC bulunması zorunludur (içinde çağrı zili, tutunma barı, eğimli ayna olacak ve krokide gösterilecek).</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <p><strong>Meslek Kuruluşu Kaydı:</strong> Türkiye Diyetisyenler Derneği’ne (TDD) üyelik yasal bir zorunluluk değil. Ama dernek, mevzuat değişikliklerini izlemek, mesleki dayanışma kurmak ve ruhsat sürecinde yönlendirme almak açısından işlevsel bir kaynak. Özellikle yeni mezunlar için deneyimli meslektaşlara ulaşmanın en pratik kanalı burası; bu da başvuru sürecini kayda değer ölçüde kısaltabiliyor.</p>
+            <p><strong>Ortak Kullanım:</strong> Aynı meslek grubundan en fazla 3 kişi ayrı ruhsatlarla aynı yerde çalışabilir. Ancak her birinin en az 10 metrekarelik kendine ait uygulama odası olmak zorundadır. Krokide bu odalar <em>"FZT/DYT - ŞAHIS İSMİ - UYGULAMA ODASI 1-2"</em> şeklinde net olarak isimlendirilmelidir. Ayrıca kurumda sadece bir adet arşiv odası/dolabı bulunmalı ve bu da krokide çizilmelidir.</p>
 
-            <!-- Bölüm 3: Tablo -->
-            <h2>Diyetisyen Kliniği Açmak İçin Gerekli Belgeler</h2>
-            <p>İl Sağlık Müdürlüğü başvurusu belge yoğun bir süreç. Eksik dosyayla başvuru yapılabiliyor; ancak 30 iş günü içinde tamamlanmayan evrak, başvurunun reddedilmesiyle sonuçlanıyor.</p>
-
-            <div class="table-responsive">
-                <table class="table table-striped table-hover align-middle border">
-                    <thead class="thead-dark">
-                        <tr>
-                            <th style="width: 35%;">Belge</th>
-                            <th>Açıklama</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><strong>Diploma / Geçici Mezuniyet Belgesi</strong></td>
-                            <td>Beslenme ve Diyetetik lisans mezuniyeti</td>
-                        </tr>
-                        <tr>
-                            <td><strong>T.C. Kimlik Belgesi Fotokopisi</strong></td>
-                            <td>Güncel nüfus cüzdanı</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Adli Sicil Kaydı</strong></td>
-                            <td>Son 3 ay içinde alınmış olmalı</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Vesikalık Fotoğraf</strong></td>
-                            <td>Güncel, son 6 ay içinde çekilmiş</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Kira Kontratı veya Tapu Fotokopisi</strong></td>
-                            <td>Kliniğin adresini kanıtlayan belge</td>
-                        </tr>
-                        <tr>
-                            <td><strong>İş Yeri Krokisi</strong></td>
-                            <td>Oda boyutlarını ve düzeni gösteren teknik çizim</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Yangın Raporu (İtfaiye Onayı)</strong></td>
-                            <td>Belediye itfaiyesinden alınır</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Atık Yönetimi Sözleşmesi</strong></td>
-                            <td>Lisanslı firma veya belediye ile imzalanır</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Vergi Levhası</strong></td>
-                            <td>Serbest meslek mükellefiyet belgesi</td>
-                        </tr>
-                        <tr>
-                            <td><strong>İl Sağlık Müdürlüğü Başvuru Dilekçesi</strong></td>
-                            <td>EK-2 formu ve ekler yönetmelikle belirlendi</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="alert-custom">
-                <h5>Süreç Yönetimi Notları:</h5>
-                <ul>
-                    <li><strong>Yangın raporu</strong> bazı belediyelerde haftalar alıyor. Diğer belgeler hazır olsa bile itfaiye randevusu gecikmesi tüm süreci durdurabilir; bu nedenle randevuyu en erken aşamada almak mantıklı.</li>
-                    <li><strong>Atık yönetimi sözleşmesi</strong> için belediyenin çevre birimi ya da lisanslı özel firmalar devreye giriyor. Küçük ofisler zaman zaman belediyeyle doğrudan sözleşme yapabiliyor; ama bu seçeneğin geçerli olup olmadığı ilçeden ilçeye değişiyor.</li>
-                    <li><strong>İş yeri krokisi</strong> için mimar veya teknik ressam desteği alınabilir. Bununla birlikte ölçekli ve okunaklı bir el krokisi de çoğu durumda yeterli görülüyor.</li>
-                </ul>
-            </div>
-
-            <!-- Bölüm 4 -->
-            <h2>Fiziki Alan Şartları: Klinik Nasıl Olmalı?</h2>
-            <p>2025 yönetmeliği, diyetisyen klinikleri için minimum fiziksel standartları net biçimde ortaya koydu. Bu standartların altında kalan mekânlara ruhsat çıkmıyor. Esneklik yok.</p>
-
-            <h3>Zorunlu Fiziki Gereklilikler</h3>
-            <ul>
-                <li><strong>Uygulama Odası:</strong> En az 10 m² kullanım alanına sahip, aydınlık ve bağımsız bir danışma odası zorunlu. Oda, danışanın mahremiyetini koruyan nitelikte olmalı; cam kapı veya bölme duvar gibi yapılarla tam izolasyon sağlanmalı.</li>
-                <li><strong>Bekleme Alanı:</strong> Danışanların bekleyebileceği ayrı bir alan bulunmalı. Bu alan klinikle aynı mekânda olabileceği gibi ortak kullanım koridoru biçiminde de düzenlenebilir.</li>
-                <li><strong>Lavabo:</strong> Bağımsız ya da ortak kullanılan lavabo imkânı olmalı.</li>
-                <li><strong>Engelli Erişimi:</strong> Engelli bireyler için uygun erişim ve tuvalet zorunlu.</li>
-                <li><strong>Hijyen:</strong> Tüm alanlar steril tutulmalı. Yüzeyler kolay temizlenebilir malzemelerden oluşmalı.</li>
-            </ul>
-
-            <p><strong>Birden Fazla Diyetisyen Ortak Açıyorsa:</strong> Her diyetisyen için ayrı uygulama odası şart. Bekleme alanı, lavabo ve dogma ortak mekânlar birlikte kullanılabilir. Bu modelde her diyetisyen adına ayrı ruhsat düzenleniyor; ortak ruhsat seçeneği geçerli değil.</p>
-            <p><strong>Konum Seçimi:</strong> Yönetmelik, mekânın nerede olduğuna dair bir kısıtlama getirmiyor. Ama bu özgürlük, konum kararını önemsiz kılmıyor; tam tersine, seçim tamamen klinisyenin inisiyatifine kalıyor. Nüfus yoğunluğu yüksek, toplu taşımaya yakın ve park alanı olan lokasyonlar, danışan sayısını doğrudan etkileyen başlıca değişkenler arasında yer alıyor.</p>
-
-            <!-- Bölüm 5: Adım Adım Süreç -->
-            <h2>Ruhsat Başvurusu: Adım Adım Süreç</h2>
-            <p>Ruhsat süreci, adımlar doğru sırayla atıldığında beklenenden çok daha düzenli ilerler. Karmaşık görünen prosedürün büyük bölümü aslında belge toplama ve bekleme süresinden ibarettir.</p>
-
-            <div class="step-card">
-                <p class="mb-1"><span class="step-number">Adım 1:</span> <strong>Mekânı Hazırla ve Sözleşmeleri İmzala</strong></p>
-                <small class="text-muted">Yönetmeliğin fiziki koşullarını karşılayan mekânı belirle. Kira kontratı ya da tapu belgesi başvuru dosyasının temel taşıdır. Atık yönetimi sözleşmesini de bu aşamada imzalamak, ilerleyen adımlarda doğabilecek gecikmeleri engeller.</small>
-            </div>
-
-            <div class="step-card">
-                <p class="mb-1"><span class="step-number">Adım 2:</span> <strong>Yangın Raporunu Al</strong></p>
-                <small class="text-muted">Belediye itfaiyesine başvurarak işyeri güvenlik denetimi talep et. Denetim süresi şehirden şehire ciddi farklılıklar gösteriyor. Büyükşehirlerde randevu bekleme süresi birkaç haftayı bulabiliyor; bu nedenle bu adımı sürecin en başında başlatmak mantıklıdır.</small>
-            </div>
-
-            <div class="step-card">
-                <p class="mb-1"><span class="step-number">Adım 3:</span> <strong>Vergi Dairesi Kaydı (Mali Müşavirlik Adımı)</strong></p>
-                <small class="text-muted">Serbest meslek mükellefi olarak vergi dairesine kayıt yaptır ve vergi levhasını al. Bir mali müşavirle çalışmak bu noktada iki ayrı fayda sağlar: hem bürokratik işlemler hızlanır hem de ilerleyen dönemdeki vergi yükümlülükleri baştan netleşir.</small>
-            </div>
-
-            <div class="step-card">
-                <p class="mb-1"><span class="step-number">Adım 4:</span> <strong>Belgeleri Derle</strong></p>
-                <small class="text-muted">Belge listesini eksiksiz tamamla. Burada dikkat edilmesi gereken tek kritik tarih kısıtlaması adli sicil kaydına aittir: başvuru tarihinden en fazla 3 ay önce alınmış olması şart. Daha eski bir belge dosyayı doğrudan reddettiriyor.</small>
-            </div>
-
-            <div class="step-card">
-                <p class="mb-1"><span class="step-number">Adım 5:</span> <strong>İl Sağlık Müdürlüğü’ne Başvur</strong></p>
-                <small class="text-muted">Tüm belgeler hazır olduğunda bulunduğun ildeki İl Sağlık Müdürlüğü’ne başvur. Bazı illerde bu süreç ilçe sağlık müdürlükleri üzerinden yürütülüyor. Başvurmadan önce hangi birimin yetkili olduğunu teyit etmek, gereksiz gidip-gelmeyi önler.</small>
-            </div>
-
-            <div class="step-card">
-                <p class="mb-1"><span class="step-number">Adım 6:</span> <strong>Komisyon Denetimi</strong></p>
-                <small class="text-muted">Başvuru eksiksizse komisyon yerinde inceleme yapar. Fiziki koşullar yönetmeliğe uygunsa EK-2 formuna uygun ruhsat belgesi düzenlenir. Eksiklik tespit edilirse ek süre tanınıyor; ancak bu durum süreci en az birkaç hafta uzatıyor.</small>
-            </div>
-
-            <div class="step-card bg-light">
-                <p class="mb-1"><span class="step-number text-danger">Adım 7:</span> <strong>Faaliyete Geç</strong></p>
-                <small class="text-muted">Ruhsat alındıktan sonra en geç 6 ay içinde klinik faaliyete geçmek zorunlu. Bu süre aşılırsa ruhsat iptal ediliyor. Süreç sıfırlanıyor. Yeniden başlamak demek, harç dahil tüm adımları tekrar tamamlamak demek.</small>
-            </div>
-
-            <p class="mt-3"><strong>Ruhsat Harcı:</strong> 2025 itibarıyla il sağlık müdürlüklerinin belirlediği ortalama harç tutarı 3.000 ile 6.000 TL arasında değişiyor. Büyükşehirlerde bu rakam belirgin biçimde daha yüksek seyredebiliyor.</p>
-
-            <!-- Bölüm 6: Mali Yükümlülükler -->
-            <h2>Vergi, SGK ve Mali Yükümlülükler</h2>
-            <p>Diyetisyen klinikleri serbest meslek mükellefi olarak çalışır. Bu statünün getirdiği mali yükümlülükleri kurulum aşamasında kavramak, sonraki dönemlerde beklenmedik borç ve ceza tablolarıyla karşılaşmamayı sağlar.</p>
-
-            <h3>Vergi Yükümlülükleri</h3>
-            <ul>
-                <li><strong>Gelir Vergisi:</strong> Serbest meslek kazancı beyan esasına göre vergilendirilir. Her yıl Mart ayında yıllık beyanname vermek zorunlu.</li>
-                <li><strong>Geçici Vergi:</strong> Üçer aylık dönemler hâlinde ödenir. Yılda dört kez gündeme gelir.</li>
-                <li><strong>Serbest Meslek Makbuzu:</strong> Klinikte fatura kesilmez. Bunun yerine serbest meslek makbuzu düzenlenir; gider pusulası bu kapsamın dışında kalır.</li>
-                <li><strong>Defter Tasdiki:</strong> Serbest meslek kazanç defteri tutulur ve her yılın başında noterde tasdik ettirilmesi gerekir.</li>
-            </ul>
-
-            <h3>KDV Durumu</h3>
-            <p>2025 itibarıyla diyetisyenlik hizmetlerinde KDV uygulaması tek tip değil. Sağlık Bakanlığı ruhsatına sahip bir SMHB çatısı altında sunulan hizmetler, belirli koşullar sağlandığında KDV’den muaf tutulabiliyor. Ama aynı içeriği “koçluk”, “genel beslenme danışmanlığı” veya “bilgi paylaşımı” başlığıyla sunan kliniklerde KDV devreye giriyor. İki yaklaşım arasındaki fark, yalnızca etiket değil; vergi yükü açısından ciddi bir ayrışma. Bu nedenle mali müşavirden güncel ve klinik durumuna özgü bilgi almak kritik.</p>
-
-            <h3>Sigorta (Bağ-Kur) ve Personel SGK Bildirimi</h3>
-            <p>Kendi adına çalışan diyetisyenler, SGK’nın 4/B (Bağ-Kur) kapsamında sigortalı sayılır. Kaydın zamanında yapılmaması durumunda geriye dönük prim borcu ve cezai yaptırım söz konusu olabiliyor. Ertelemeye değmez.</p>
-            <p><strong>Personel Varsa SGK Bildirimi:</strong> Sekreter, asistan veya başka bir yardımcı personel çalıştırılacaksa, ilk iş gününden itibaren SGK bildirimi yapılması zorunlu. E-devlet üzerinden ya da SGK’ya bağlı ilgili birim aracılığıyla bu işlem tamamlanabilir. Bildirim gecikmesi, günlük idari para cezasına yol açar.</p>
-
-            <!-- Düzenli Giderler Listesi -->
-            <div class="card card-mali mt-4 mb-5">
-                <div class="card-header fs-5">
-                    Aylık Düzenli Gider Kalemleri
+            <div class="contact-box mt-5">
+                <h3 class="text-white mb-3">Sürecinizi Birlikte Yönetelim</h3>
+                <p class="mb-4">Doğru NACE kodu seçimi, vergi açılışları, kira sözleşmelerinin mali boyutları ve beyanname süreçleri hakkında profesyonel mali müşavirlik desteği almak için hemen iletişime geçin. Eksiksiz bir başlangıç, sizi gelecekteki olası ceza ve gecikmelerden korur.</p>
+                
+                <div class="row text-start justify-content-center mb-4">
+                    <div class="col-md-8">
+                        <p class="fs-5 mb-2"><i class="fas fa-user-tie text-warning me-2"></i> <strong>Adem YILMAZ</strong> - Serbest Muhasebeci Mali Müşavir</p>
+                        <p class="fs-5 mb-2"><i class="fas fa-phone-alt text-warning me-2"></i> 0553 619 41 34</p>
+                        <p class="fs-5 mb-2"><i class="fas fa-envelope text-warning me-2"></i> adem@smmmyilmaz.com</p>
+                        <p class="fs-5 mb-0"><i class="fas fa-map-marker-alt text-warning me-2"></i> Atatürk Mh. Sütçü Cd. Ümraniye / İstanbul</p>
+                    </div>
                 </div>
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item">Mali Müşavir Ücreti</li>
-                    <li class="list-group-item">Meslek Odası veya Dernek Aidatı</li>
-                    <li class="list-group-item">Bağ-Kur Primi</li>
-                    <li class="list-group-item">Defter Tasdik Ücreti (Yıllık)</li>
-                    <li class="list-group-item">Kira, Fatura, Sigorta gibi İşletme Giderleri</li>
-                </ul>
-            </div>
 
-            <!-- Google Harita Bölümü -->
-            <h2>Ofisimiz / Lokasyonumuz</h2>
-            <p class="text-muted">Şirket kurulumu, vergi levhası süreçleri ve ruhsat danışmanlığı için ofisimizde sizi ağırlamaktan mutluluk duyarız.</p>
-            <div class="map-container">
-                <!-- Ümraniye adresinize ait Google Maps yerleştirme kodu -->
-                <iframe 
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3010.518884947936!2d29.0907021!3d41.0238024!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14cac8f6109e9299%3A0x9875e46e2959a293!2sAtat%C3%BCrk%2C%20S%C3%BCt%C3%A7%C3%BC%20%C4%B0mam%20Cd.%20No%3A%20101%2F2%2C%2034764%20%C3%9Cmraniye%2F%C4%B0stanbul!5e0!3m2!1str!2str!4v1717620000000!5m2!1str!2str" 
-                    allowfullscreen="" 
-                    loading="lazy" 
-                    referrerpolicy="no-referrer-when-downgrade">
-                </iframe>
-            </div>
-
-            <!-- Alt Sayfa Navigasyon Butonları -->
-            <div class="d-flex justify-content-between mt-5 pt-3 border-top">
-                <a href="/" class="btn btn-custom">← Ana Sayfaya Dön</a>
-                <a href="/iletisim" class="btn btn-custom">Bizimle İletişime Geçin →</a>
+                <div class="d-flex justify-content-center gap-3 flex-wrap">
+                    <a href="https://wa.me/905536194134" target="_blank" class="btn btn-custom btn-lg">
+                        <i class="fab fa-whatsapp me-2"></i> WhatsApp'tan Danışın
+                    </a>
+                    <a href="/" class="btn btn-light btn-lg text-dark fw-bold border">
+                        <i class="fas fa-home me-2"></i> Ana Sayfaya Dön
+                    </a>
+                </div>
             </div>
 
         </div>
     </div>
 </div>
 
-<!-- SMMM Kurumsal Alt Bilgi (Footer) -->
 <footer class="text-center">
     <div class="container">
-        <p class="mb-1">© 2026 smmmyilmaz.com - Tüm Hakları Saklıdır.</p>
-        <small class="text-muted">Kaynak: <a href="https://vergimerkezi.com.tr/diyetisyenlik-ruhsati-nasil-alinir-adim-adim-rehber/" target="_blank" rel="noopener" class="text-white-50">Vergi Merkezi</a></small>
+        <p class="mb-1">© 2026 smmmyilmaz.com - Adem Yılmaz | Serbest Muhasebeci Mali Müşavir</p>
+        <small class="text-white-50">Tüm Hakları Saklıdır.</small>
     </div>
 </footer>
 
-<!-- Bootstrap 5 JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
