@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Şirket Ortaklarında Sigortalılık Statüsü</title>
+    <style>
+        :root {
+            --primary-color: #1e3a8a;
+            --secondary-color: #3b82f6;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --text-color: #1f2937;
+            --bg-color: #f3f4f6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 950px;
+            margin: 40px auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 3px solid var(--primary-color);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin: 0 0 10px 0;
+            font-size: 26px;
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            font-size: 20px;
+            margin-top: 25px;
+            border-left: 4px solid var(--secondary-color);
+            padding-left: 10px;
+        }
+
+        .status-box {
+            background-color: #eff6ff;
+            border: 1px solid var(--secondary-color);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+
+        .status-title {
+            color: var(--primary-color);
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .law-section {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .badge-success {
+            background-color: var(--success-color);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .badge-danger {
+            background-color: var(--danger-color);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 14px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: #f9fafb;
+            color: var(--primary-color);
+            font-size: 15px;
+        }
+
+        td {
+            font-size: 14px;
+        }
+
+        blockquote {
+            background-color: #fffbeb;
+            border-left: 4px solid var(--warning-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-size: 15px;
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 40px;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 20px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #172554;
+        }
+
+        .btn-secondary {
+            background-color: #fff;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #f0f4f8;
+        }
+
+        @media (max-width: 600px) {
+            .nav-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .btn {
+                text-align: center;
+            }
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Şirket Ortaklarında Sigortalılık Statüsü Raporu</h1>
+        <p>A.Ş., Ltd. Şti. ve Şahıs Şirketleri İçin SGK (5510 S.K.) Değerlendirmesi</p>
+    </header>
+
+    <div class="status-box">
+        <div class="status-title">ℹ️ TEMEL KURAL: KENDİ ŞİRKETİNDE SİGORTALILIK YASAĞI</div>
+        <p>5510 Sayılı Kanun’un 53. maddesine göre; yasal olarak <strong>4/b (Bağ-Kur) kapsamında zorunlu sigortalı sayılan şirket ortakları</strong>, kendilerine ait veya ortak oldukları iş yerlerinden <strong>4/a (SSK) kapsamında sigortalı bildirilemezler.</strong> (1 Ekim 2008 öncesi başlayan kesintisiz haklar hariç).</p>
+    </div>
+
+    <h2>Şirket Türlerine Göre Mevzuat Analizi</h2>
+    
+    <div class="law-section">
+        <h3>1. Anonim Şirketler (A.Ş.)</h3>
+        <p>Anonim şirketlerde Bağ-Kur (4/b) zorunluluğu sadece <strong>Yönetim Kurulu Üyesi olan ortakları</strong> kapsar. Yönetim kurulunda görev almayan ve <strong>sadece pay sahibi olan ortakların</strong> Bağ-Kur'lu olma zorunluluğu yoktur. Bu nedenle yönetim kurulunda olmayan anonim şirket ortakları, kendi şirketlerinde 4/a (SSK) kapsamında hizmet akdiyle çalışabilirler.</p>
+    </div>
+
+    <div class="law-section">
+        <h3>2. Limited Şirketler (Ltd. Şti.)</h3>
+        <p>Limited şirketlerde <strong>tüm ortaklar kanunen 4/b (Bağ-Kur) kapsamındadır.</strong> SGK'nın 2019/9 sayılı Genelgesi gereği, limited şirket ortağı olan bir kişinin kendi şirketinde 4/a (SSK) kapsamında sigortalı olarak çalışması kesinlikle yasaktır. Çalışana sonradan şirket hissesi devredilirse mevcut 4/a sigortası iptal edilir.</p>
+    </div>
+
+    <div class="law-section">
+        <h3>3. Kollektif, Şahıs ve Adi Komandit Şirketler</h3>
+        <p>Kollektif şirketlerin ve adi şirketlerin tüm ortakları ile komandit şirketlerin komandite ortakları doğrudan 4/b (Bağ-Kur) kapsamına tabidir. Tıpkı limited şirketlerde olduğu gibi, bu şirketlerin ortakları da kendi iş yerlerinde 4/a (SSK) statüsünde işçi olarak bildirilemezler.</p>
+    </div>
+
+    <h2>Karşılaştırmalı Durum Tablosu</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Şirket Türü ve Ortaklık Yapısı</th>
+                <th>Kanuni Sigorta Statüsü</th>
+                <th>Kendi Şirketinde 4/a (SSK) Olabilir mi?</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Anonim Şirket:</strong> Sadece Ortak <br><em>(Yönetim Kurulunda Değil)</em></td>
+                <td>Bağ-Kur Zorunluluğu Yok</td>
+                <td><span class="badge-success">EVET Olabilir</span><br><small>4/a Sigortalılığı yasal olarak devam edebilir.</small></td>
+            </tr>
+            <tr>
+                <td><strong>Anonim Şirket:</strong> Hem Ortak <br>Hem Yönetim Kurulu Üyesi</td>
+                <td><span class="badge-danger">Zorunlu 4/b (Bağ-Kur)</span></td>
+                <td><span class="badge-danger">HAYIR Olamaz</span><br><small>Hisse/görev devri itibarıyla 4/a iptal olur.</small></td>
+            </tr>
+            <tr>
+                <td><strong>Limited Şirket:</strong> Ortak <br><em>(Müdür olsun ya da olmasın)</em></td>
+                <td><span class="badge-danger">Zorunlu 4/b (Bağ-Kur)</span></td>
+                <td><span class="badge-danger">HAYIR Olamaz</span><br><small>1 Ekim 2008'den sonraki ortaklıklar için yasaktır.</small></td>
+            </tr>
+            <tr>
+                <td><strong>Kollektif / Adi Şirket:</strong> Ortak</td>
+                <td><span class="badge-danger">Zorunlu 4/b (Bağ-Kur)</span></td>
+                <td><span class="badge-danger">HAYIR Olamaz</span><br><small>Ortağın kendi işçisi olması hukuken mümkün değildir.</small></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <blockquote>
+        <strong>⚠️ Mali Müşavir Uyarısı:</strong> SGK denetimlerinde veya emeklilik başvurusu aşamasında yapılan geriye dönük incelemelerde, mevzuata aykırı şekilde kendi şirketinde 4/a (SSK) bildirilmiş kişilerin sigortalılık süreleri <strong>iptal edilmekte</strong> ve ödenen primler emeklilik hesabına dahil edilmemektedir. Şirket hissesi almadan veya yönetim kuruluna girmeden önce mutlaka müşavirliğimize danışınız.
+    </blockquote>
+
+    <!-- TÜRMOB Yönlendirme ve İletişim Butonları -->
+    <div class="nav-buttons">
+        <a href="https://www.smmmyilmaz.com" class="btn btn-secondary">Ana Sayfaya Dön</a>
+        <a href="https://www.smmmyilmaz.com/iletisim" class="btn btn-primary">İletişime Geç</a>
+    </div>
+</div>
+
+</body>
+</html>
