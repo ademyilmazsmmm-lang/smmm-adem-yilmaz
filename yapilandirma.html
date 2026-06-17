@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vergi Borçları Yapılandırma Rehberi | SMMM Adem Yılmaz</title>
+    <style>
+        :root {
+            --primary-color: #1a365d;
+            --secondary-color: #2b6cb0;
+            --accent-color: #e2e8f0;
+            --text-color: #2d3748;
+            --bg-color: #f7fafc;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .nav-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-decoration: none;
+            color: white;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            margin-left: 20px;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: #cbd5e0;
+        }
+
+        .hero {
+            background-color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            border-bottom: 5px solid var(--secondary-color);
+        }
+
+        .hero h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .hero p {
+            font-size: 1.1rem;
+            color: #4a5568;
+        }
+
+        .content-section {
+            background: white;
+            padding: 2rem;
+            margin: 2rem auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .content-section h2 {
+            color: var(--secondary-color);
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        .highlight-box {
+            background-color: #ebf8ff;
+            border-left: 4px solid var(--secondary-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--accent-color);
+        }
+
+        th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        .contact-section {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 3rem 0;
+            margin-top: 3rem;
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .contact-info h3 {
+            color: #ebf8ff;
+            margin-top: 0;
+        }
+
+        footer {
+            text-align: center;
+            padding: 1.5rem;
+            background-color: #112240;
+            color: #a0aec0;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .contact-grid {
+                grid-template-columns: 1fr;
+            }
+            .nav-bar {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .nav-links {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 15px;
+            }
+            .nav-links a {
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="container nav-bar">
+            <a href="https://smmmyilmaz.com" class="logo">SMMM Adem Yılmaz</a>
+            <nav class="nav-links">
+                <a href="#ana-sayfa">Ana Sayfa</a>
+                <a href="#detaylar">Tebliğ Detayları</a>
+                <a href="#iletisim">İletişim</a>
+            </nav>
+        </div>
+    </header>
+
+    <main id="ana-sayfa">
+        <div class="hero container">
+            <h1>Vergi Borçlarının Tecil ve Taksitlendirilmesine İlişkin Yeni Düzenleme</h1>
+            <p>16 Haziran 2026 tarihli Tahsilat Genel Tebliği (Seri:B Sıra No:20) Kapsamında Mükelleflerimize Sağlanan Kolaylıklar</p>
+        </div>
+
+        <div class="container content-section" id="detaylar">
+            <h2>Önemli Tarihler ve Avantajlar</h2>
+            <div class="highlight-box">
+                <strong>Son Başvuru Tarihi:</strong> 31 Ağustos 2026 <br>
+                <strong>İndirimli Faiz Oranı:</strong> Yıllık %29 (Mevcut %39 yerine) <br>
+                <strong>İlk Taksit Ödemesi:</strong> Eylül 2026
+            </div>
+
+            <h2>Kapsama Giren Borçlar</h2>
+            <p>5 Haziran 2026 tarihi itibarıyla (bu tarih dahil) vadesi geldiği halde ödenmemiş olan ve Hazine ve Maliye Bakanlığına bağlı vergi dairelerince takip edilen amme alacakları bu kapsamdadır.</p>
+            <p><em>Not: Özel tüketim vergisi, 2026 yılı geçici vergisi ve bunlara bağlı cezalar ile beyanname damga vergileri kapsam dışındadır.</em></p>
+
+            <h2>Taksitlendirme Seçenekleri (Likidite Oranına Göre)</h2>
+            <p>Faal mükellefiyeti bulunan ve bilanço/işletme hesabı esasına göre defter tutan mükelleflerimiz için mali durumlarına (likidite oranlarına) göre aşağıdaki taksit imkanları sunulmaktadır:</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Likidite Oranı</th>
+                        <th>Azami Taksit Sayısı</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>0,50 ve üzeri</td>
+                        <td>36 Taksit</td>
+                    </tr>
+                    <tr>
+                        <td>0,30'dan büyük, 0,50'den küçük</td>
+                        <td>48 Taksit</td>
+                    </tr>
+                    <tr>
+                        <td>0,30 ve altı</td>
+                        <td>72 Taksit</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>Dikkat Edilmesi Gereken Diğer Hususlar</h2>
+            <ul>
+                <li><strong>Özel Sınırlama:</strong> KDV (Katma Değer Vergisi) ve BSMV (Banka ve Sigorta Muameleleri Vergisi) borçları <strong>en fazla 12 eşit taksitte</strong> ödenebilecektir.</li>
+                <li><strong>Teminat Durumu:</strong> 10 Milyon TL'nin altındaki borçlar için teminat aranmayacaktır. Aşması durumunda sadece aşan kısmın yarısı kadar teminat gösterilmesi yeterlidir.</li>
+                <li><strong>İhlal Şartı:</strong> Bir takvim yılında en fazla iki taksitin süresinde ödenmemesi veya eksik ödenmesi ihlal sayılmayacaktır (gecikme zammı ile sonradan ödenmesi şartıyla).</li>
+                <li><strong>Borcu Yoktur Yazısı:</strong> Tecil edilen borçların borcu yoktur yazılarında yer almaması için toplam tutarın en az %10'unun ödenmiş olması gerekmektedir.</li>
+            </ul>
+        </div>
+    </main>
+
+    <div class="contact-section" id="iletisim">
+        <div class="container contact-grid">
+            <div class="contact-info">
+                <h3>İletişim Bilgileri</h3>
+                <p>Mali danışmanlık, muhasebe süreçleriniz ve yapılandırma başvurularınız için ofisimizle iletişime geçebilirsiniz.</p>
+                <p><strong>Adres:</strong><br>
+                Atatürk Mah. Sütçüimam Cad.<br>
+                No:101/5 Ümraniye / İstanbul</p>
+            </div>
+            <div class="contact-info">
+                <h3>Çalışma Saatleri</h3>
+                <p>Pazartesi - Cuma: 09:00 - 18:00</p>
+                <p><strong>Web:</strong> smmmyilmaz.com</p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            &copy; 2026 SMMM Adem Yılmaz. Tüm Hakları Saklıdır. Bilgilendirme amaçlıdır.
+        </div>
+    </footer>
+
+</body>
+</html>
