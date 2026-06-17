@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mükellef Bilgilendirme Rehberi | SMMM Adem Yılmaz</title>
+    <style>
+        /* Genel Stiller */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            background-color: #f8f9fa;
+            color: #343a40;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        
+        /* Üst Menü / Navigasyon */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #0056b3;
+            margin-bottom: 30px;
+        }
+        .navbar .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0056b3;
+            text-decoration: none;
+            letter-spacing: 0.5px;
+        }
+        .navbar .nav-links a {
+            margin-left: 20px;
+            text-decoration: none;
+            color: #495057;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+        .navbar .nav-links a:hover {
+            color: #0056b3;
+        }
+
+        /* Başlık */
+        h1 {
+            color: #212529;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .intro-text {
+            text-align: center;
+            color: #6c757d;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        /* Ana Sekmeler (Mükellef Türleri) */
+        .tab-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            flex: 1;
+            background-color: #e9ecef;
+            color: #495057;
+            border: 2px solid transparent;
+            padding: 15px 10px;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        .tab-btn:hover {
+            background-color: #dee2e6;
+        }
+        .tab-btn.active {
+            background-color: #0056b3;
+            color: #fff;
+            border-color: #004494;
+            box-shadow: 0 4px 6px rgba(0, 86, 179, 0.2);
+        }
+
+        /* İçerik Kutuları */
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* İçerik İçi Tasarım */
+        .content-section {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .content-section h3 {
+            color: #0056b3;
+            margin-top: 0;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 8px;
+        }
+        ul {
+            padding-left: 20px;
+            margin-bottom: 0;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+        .alert-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            color: #856404;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .invoice-example {
+            background: #e9ecef;
+            padding: 15px;
+            border-left: 4px solid #6c757d;
+            font-family: monospace;
+            font-size: 14px;
+            border-radius: 4px;
+        }
+
+        /* İletişim / Footer */
+        .footer-section {
+            margin-top: 40px;
+            padding: 30px;
+            background-color: #212529;
+            color: #f8f9fa;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .footer-section h2 {
+            margin-top: 0;
+            color: #fff;
+        }
+        .contact-info {
+            margin: 20px 0;
+            font-size: 16px;
+        }
+        .contact-info p {
+            margin: 5px 0;
+        }
+        
+        /* Mobil Uyumluluk */
+        @media (max-width: 768px) {
+            .tab-container {
+                flex-direction: column;
+            }
+            .navbar {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Üst Menü -->
+    <div class="navbar">
+        <a href="/" class="logo">smmmyilmaz.com</a>
+        <div class="nav-links">
+            <a href="/">Ana Sayfaya Dön</a>
+            <a href="#iletisim">İletişim</a>
+        </div>
+    </div>
+
+    <!-- Başlık -->
+    <h1>Yeni Mükellef Bilgilendirme Rehberi</h1>
+    <p class="intro-text">İşletmenizin türüne uygun olan sekmeyi seçerek yasal süreçler, fatura düzeni ve vergi avantajları hakkında detaylı bilgi alabilirsiniz.</p>
+
+    <!-- Ana Sekmeler -->
+    <div class="tab-container">
+        <button class="tab-btn active" onclick="openTaxpayerTab(event, 'SerbestMeslek')">Şahıs Firması<br><small>(Serbest Meslek Kazancı)</small></button>
+        <button class="tab-btn" onclick="openTaxpayerTab(event, 'TicariIsletme')">Şahıs Firması<br><small>(Ticari / Alım-Satım)</small></button>
+        <button class="tab-btn" onclick="openTaxpayerTab(event, 'Kurumlar')">Tüzel Kişi<br><small>(Limited & Anonim Şirket)</small></button>
+    </div>
+
+    <!-- 1. SERBEST MESLEK İÇERİĞİ -->
+    <div id="SerbestMeslek" class="tab-content active">
+        <div class="content-section">
+            <h2 style="color:#212529; margin-top:0; border-bottom:1px solid #ccc; padding-bottom:10px;">Serbest Meslek Kazancı (Diyetisyen, Doktor, Avukat, Mali Müşavir, Veteriner, Yazılım vb.)</h2>
+            <h3>1. Faturalandırma ve Belge Düzeni</h3>
+            <ul>
+                <li><strong>Hizmet Bedelleri:</strong> Danışmanlık ve hizmet karşılığı tahsilatlarınız için <strong>e-SMM (Elektronik Serbest Meslek Makbuzu)</strong> düzenlemeniz gerekmektedir.</li>
+                <li><strong>Yazar Kasa (ÖKC) Durumu:</strong> Sadece hizmet verdiğiniz sürece yazar kasa alma zorunluluğunuz yoktur. Banka POS cihazı kullanabilirsiniz.</li>
+                <li><strong>Stopaj (Tevkifat):</strong> Vergi mükellefi olan şahıslara (diğer şahıs firmalarına) ve kurumlara (şirketlere) kestiğiniz makbuzlarda gelir vergisi stopajı uygulanır. Nihai tüketicilere (vergi mükellefi olmayan sade vatandaşlara) kesilen makbuzlarda stopaj olmaz, sadece KDV hesaplanır.</li>
+            </ul>
+        </div>
+        <div class="content-section">
+            <h3>2. Fatura Alırken Dikkat Edilmesi Gerekenler</h3>
+            <div class="alert-box">
+                <strong>Önemli Kural:</strong> Tüm gider faturalarınızın Vergi Kimlik Numarası (VKN) yerine, mutlaka <strong>T.C. Kimlik Numaranıza</strong> düzenlenmesi gerekmektedir.
+            </div>
+            <div class="invoice-example">
+                <strong>Ad Soyad:</strong> ADINIZ SOYADINIZ<br>
+                <strong>T.C. No:</strong> 11111111111<br>
+                <strong>Vergi Dairesi:</strong> Bağlı Olduğunuz Vergi Dairesi<br>
+                <strong>Adres:</strong> Resmi Ofis Adresiniz
+            </div>
+        </div>
+        <div class="content-section">
+            <h3>3. İndirilecek Giderler ve Aylık Yükümlülükler</h3>
+            <ul>
+                <li><strong>Ofis Giderleri:</strong> Ofis kiranız (stopajlı veya e-fatura ile), elektrik, su, doğalgaz, internet faturaları ve ofis mutfak/temizlik harcamaları.</li>
+                <li><strong>Demirbaşlar:</strong> Mesleki faaliyetinizde kullandığınız cihazlar, bilgisayar, yazıcı, ofis mobilyası ve telefon alımları.</li>
+                <li><strong>Temsil ve Ulaşım:</strong> İşinizle ilgili araç kiralama, akaryakıt, taksi fişleri, şehir dışı seyahat/konaklama giderleri ve iş görüşmeleri için cafe/restoranlarda yaptığınız ağırlama (temsil) harcamaları.</li>
+                <li><strong>Bağ-Kur (4/B) Primi:</strong> Eğer başka bir işyerinde sigortalı (4/A - SSK) olarak çalışmıyorsanız, firmanızın açılışıyla birlikte her ay düzenli Bağ-Kur primi ödemeniz tahakkuk edecektir.</li>
+                <li><strong>Vergi Ödemeleri:</strong> İşletmenizin hiç geliri veya faturası olmasa dahi; KDV, Muhtasar (Stopaj), Geçici Vergi ve Yıllık Gelir Vergisi beyannamelerinden kaynaklı sabit damga vergileri nedeniyle aylık ortalama <strong>2.000 TL - 3.000 TL</strong> bandında vergi ödemeniz doğacaktır.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 2. TİCARİ İŞLETME İÇERİĞİ -->
+    <div id="TicariIsletme" class="tab-content">
+        <div class="content-section">
+            <h3>1. Faturalandırma ve Belge Düzeni</h3>
+            <ul>
+                <li><strong>Satış Faturaları:</strong> Ürün satışı ve ticari faaliyetleriniz için <strong>e-Arşiv Fatura</strong> veya şartları sağlıyorsanız <strong>e-Fatura</strong> düzenlemeniz gerekmektedir.</li>
+                <li><strong>Yazar Kasa (ÖKC) Zorunluluğu:</strong> Fiziksel bir mağaza/ofis ortamında perakende ürün satışı yapıyorsanız açılıştan itibaren 30 gün içinde Yeni Nesil Ödeme Kaydedici Cihaz (Yazar Kasa POS) almanız yasal bir zorunluluktur.</li>
+                <li><strong>Banka Kuralı:</strong> <strong>30.000 TL ve üzeri</strong> tüm ticari tahsilat ve ödemelerin mutlaka banka hesapları üzerinden (havale/EFT) yapılması yasal zorunluluktur.</li>
+            </ul>
+        </div>
+        <div class="content-section">
+            <h3>2. Fatura Alırken Dikkat Edilmesi Gerekenler</h3>
+            <div class="alert-box">
+                <strong>Önemli Kural:</strong> Şahıs firması olduğunuz için, aldığınız tüm ürün ve gider faturalarının unvan kısmında adınız soyadınız yazmalı ve <strong>T.C. Kimlik Numaranıza</strong> kesilmelidir.
+            </div>
+            <div class="invoice-example">
+                <strong>Ad Soyad:</strong> ADINIZ SOYADINIZ<br>
+                <strong>T.C. No:</strong> 11111111111<br>
+                <strong>Vergi Dairesi:</strong> Bağlı Olduğunuz Vergi Dairesi<br>
+                <strong>Adres:</strong> İşyeri Adresiniz
+            </div>
+        </div>
+        <div class="content-section">
+            <h3>3. İndirilecek Giderler ve Aylık Yükümlülükler</h3>
+            <ul>
+                <li>Satmak amacıyla aldığınız tüm ticari malların (emtia) alış faturaları.</li>
+                <li>İşyerine ait kira, faturalar (elektrik, su, internet), araç kiralama, yakıt ve kargo bedelleri.</li>
+                <li>Müşteri görüşmeleri (cafe/restoran vb.) ile reklam giderleri (Meta, Google vb.).</li>
+                <li>Eğer başka bir yerde SSK (4/A) lı değilseniz, her ay düzenli Bağ-Kur prim yükümlülüğünüz doğacaktır.</li>
+                <li>Hiç faaliyetiniz olmasa bile aylık KDV, Stopaj ve Geçici Vergi beyannameleri gereği aylık ortalama 2.000 - 3.000 TL sabit vergi masrafınız oluşacaktır.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 3. KURUMLAR VERGİSİ (LTD/A.Ş.) İÇERİĞİ -->
+    <div id="Kurumlar" class="tab-content">
+        <div class="content-section">
+            <h3>1. Faturalandırma ve Belge Düzeni</h3>
+            <ul>
+                <li><strong>E-Fatura Süreci:</strong> Şirketiniz, türüne ve faaliyetine göre <strong>e-Fatura / e-Arşiv</strong> sistemine dahil olmalıdır. Karşı taraf da e-fatura mükellefiyse e-Fatura, değilse e-Arşiv fatura kesilir.</li>
+                <li><strong>Tahsilat ve Ödemeler:</strong> Şirket kasası (100 Kasa) ve banka (102 Bankalar) hesapları resmi muhasebe kayıtlarına birebir işlenir. <strong>30.000 TL ve üzeri</strong> tüm tahsilat ve ödemelerin şirket banka hesabından yapılması zorunludur. Nakit işlem yapılamaz.</li>
+            </ul>
+        </div>
+        <div class="content-section">
+            <h3>2. Fatura Alırken Dikkat Edilmesi Gerekenler</h3>
+            <div class="alert-box">
+                <strong>Hayati Kural:</strong> Tüzel kişiliklerde şahıs ismi KULLANILAMAZ. Tüm alış ve gider faturaları şirketinizin <strong>Tam Ticari Unvanına</strong> ve <strong>Vergi Kimlik Numarasına (VKN)</strong> düzenlenmek ZORUNDADIR. Aksi halde fatura gider yazılamaz ve KDV'si indirim konusu yapılamaz.
+            </div>
+            <div class="invoice-example">
+                <strong>Ticari Unvan:</strong> ÖRNEK TİCARET VE DANIŞMANLIK LİMİTED ŞİRKETİ<br>
+                <strong>Vergi Kimlik No (VKN):</strong> 9999999999<br>
+                <strong>Vergi Dairesi:</strong> Bağlı Olduğunuz Vergi Dairesi<br>
+                <strong>Adres:</strong> Ticaret Siciline Kayıtlı Şirket Merkez Adresi
+            </div>
+        </div>
+        <div class="content-section">
+            <h3>3. Şirket Harcamaları ve Aylık Yükümlülükler</h3>
+            <ul>
+                <li>Şirket banka hesaplarından veya şirket kredi kartlarından, <strong>şirket faaliyeti dışındaki şahsi harcamalar (market, şahsi tatil vb.) kesinlikle yapılmamalıdır.</strong></li>
+                <li>Şirket adına alınan tüm araç, araç kiralama, demirbaş, cafe/temsil ve hizmetlerin faturaları şirketin VKN'sine kesilmelidir.</li>
+                <li>Ortakların Bağ-Kur (4/B) veya SSK (4/A) durumları şirketteki hisse yapılarına ve çalışma durumlarına göre tescil edilir (Başka yerde SSK'lı değillerse Bağ-Kur başlar).</li>
+                <li>Hiç fatura kesilmese/gelir olmasa bile her ay verilecek KDV, Muhtasar, Kurumlar Geçici Vergi gibi beyannamelerin tahakkuk eden damga vergileri nedeniyle aylık ortalama 2.000 - 3.000 TL asgari sabit gider oluşacaktır.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Footer / İletişim -->
+    <div id="iletisim" class="footer-section">
+        <h2>SMMM Adem Yılmaz</h2>
+        <p>Açılış işlemleri, güncel müşavirlik ücretleri ve detaylı vergi planlaması için iletişime geçebilirsiniz.</p>
+        <div class="contact-info">
+            <p>📍 Atatürk Mah. Sütçüimam Cad. No:101/5 Ümraniye / İstanbul</p>
+            <p>📧 info@smmmyilmaz.com</p>
+        </div>
+        <p style="font-size: 14px; color: #adb5bd; margin-top: 20px;">© 2026 smmmyilmaz.com - Tüm Hakları Saklıdır.</p>
+    </div>
+</div>
+
+<!-- Sekme (Tab) JavaScript Kodları -->
+<script>
+    function openTaxpayerTab(evt, tabId) {
+        // Tüm içerikleri gizle
+        let contents = document.querySelectorAll('.tab-content');
+        contents.forEach(content => {
+            content.classList.remove('active');
+        });
+
+        // Tüm butonlardan aktif sınıfını kaldır
+        let buttons = document.querySelectorAll('.tab-btn');
+        buttons.forEach(button => {
+            button.classList.remove('active');
+        });
+
+        // Tıklanan sekmeyi aktif yap ve içeriği göster
+        document.getElementById(tabId).classList.add('active');
+        evt.currentTarget.classList.add('active');
+    }
+</script>
+
+</body>
+</html>
