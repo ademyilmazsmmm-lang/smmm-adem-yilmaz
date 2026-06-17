@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adem Yılmaz | Serbest Muhasebeci Mali Müşavir (SMMM)</title>
+    <style>
+        /* Genel Ayarlar */
+        html {
+            scroll-behavior: smooth; /* Menüye tıklayınca yumuşak kaydırma */
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            background-color: #fcfcfc;
+            line-height: 1.6;
+        }
+        
+        /* Menü (Navbar) */
+        .navbar {
+            background-color: #1a365d;
+            padding: 15px 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            box-sizing: border-box;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .navbar .logo {
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        .navbar .logo span {
+            color: #ffc107; /* SMMM yazısı için altın sarısı */
+        }
+        .nav-links {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+        }
+        .nav-links li {
+            margin-left: 20px;
+        }
+        .nav-links a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover {
+            color: #ffc107;
+        }
+
+        /* Bölüm Ayarları */
+        section {
+            padding: 100px 20px 60px 20px; /* Üstten boşluk navbar için */
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        /* Ana Sayfa / Hero Bölümü */
+        .hero {
+            text-align: center;
+            background: linear-gradient(135deg, #eef5ff 0%, #fcfcfc 100%);
+            padding: 120px 20px 80px 20px;
+            border-bottom: 1px solid #eaeaea;
+        }
+        .hero h1 {
+            color: #1a365d;
+            font-size: 2.8rem;
+            margin-bottom: 20px;
+        }
+        .hero p {
+            font-size: 1.2rem;
+            color: #555;
+            max-width: 700px;
+            margin: 0 auto 30px auto;
+        }
+        .btn {
+            background-color: #0056b3;
+            color: #fff;
+            padding: 15px 30px;
+            text-decoration: none;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 5px;
+            display: inline-block;
+            transition: background 0.3s;
+        }
+        .btn:hover { background-color: #004494; }
+
+        /* Hizmetler Bölümü */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+        .service-card {
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            text-align: center;
+            border-top: 4px solid #1a365d;
+        }
+        .service-card h3 { color: #1a365d; }
+
+        /* E-Ticaret Rehberi (Önceki Tasarımınız) */
+        .roadmap-header { text-align: center; margin-bottom: 40px; }
+        .roadmap-header h2 { color: #1a365d; font-size: 2.2rem; margin-bottom: 10px; }
+        .step-container {
+            display: flex;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            overflow: hidden;
+            border-left: 5px solid #0056b3;
+        }
+        .step-number {
+            background: #f8f9fa;
+            color: #0056b3;
+            font-size: 2rem;
+            font-weight: bold;
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-right: 1px solid #eee;
+            min-width: 50px;
+        }
+        .step-content { padding: 20px 30px; }
+        .step-content h3 { margin-top: 0; color: #1a365d; margin-bottom: 10px; }
+        .step-content p { margin: 0; color: #555; }
+        
+        .costs-section { background: #f8f9fa; padding: 40px; border-radius: 12px; margin-top: 40px; }
+        .costs-section h3 { color: #1a365d; text-align: center; margin-top: 0; margin-bottom: 25px; }
+        .cost-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .cost-table th, .cost-table td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        .cost-table th { background-color: #1a365d; color: #fff; }
+        .highlight-row { background-color: #eef5ff; font-weight: bold; }
+        .info-box { background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-top: 20px; color: #856404; border-radius: 4px; }
+
+        /* İletişim & Footer */
+        .contact-section {
+            background-color: #1a365d;
+            color: #fff;
+            padding: 60px 20px;
+            text-align: center;
+            margin-top: 60px;
+        }
+        .contact-section h2 { margin-top: 0; color: #ffc107; }
+        .contact-info {
+            max-width: 600px;
+            margin: 30px auto;
+            font-size: 1.1rem;
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 8px;
+        }
+        .contact-info a { color: #fff; font-weight: bold; }
+        footer {
+            background-color: #0f223b;
+            color: #aaa;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.9rem;
+        }
+
+        /* Mobil Uyumluluk */
+        @media (max-width: 768px) {
+            .navbar { flex-direction: column; padding: 15px; }
+            .nav-links { margin-top: 15px; flex-wrap: wrap; justify-content: center; }
+            .nav-links li { margin: 5px 10px; }
+            .step-container { flex-direction: column; }
+            .step-number { border-right: none; border-bottom: 1px solid #eee; }
+            .cost-table th, .cost-table td { padding: 10px; font-size: 0.9rem; }
+            .hero h1 { font-size: 2rem; }
+            section { padding-top: 140px; } /* Mobil menü yüksekliği için ekstra boşluk */
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="#anasayfa" class="logo">Adem Yılmaz <span>SMMM</span></a>
+        <ul class="nav-links">
+            <li><a href="#anasayfa">Ana Sayfa</a></li>
+            <li><a href="#hizmetler">Hizmetlerimiz</a></li>
+            <li><a href="#e-ticaret">E-Ticaret Rehberi</a></li>
+            <li><a href="#iletisim">İletişim</a></li>
+        </ul>
+    </nav>
+
+    <div id="anasayfa" class="hero">
+        <h1>İşletmeniz İçin Güvenilir ve Şeffaf Mali Müşavirlik</h1>
+        <p>Şirket kuruluşundan e-dönüşüm süreçlerine, e-ticaret muhasebesinden vergi danışmanlığına kadar tüm finansal süreçlerinizi sıfır hata prensibiyle yönetiyoruz.</p>
+        <a href="#iletisim" class="btn">Hemen İletişime Geçin</a>
+    </div>
+
+    <section id="hizmetler">
+        <div class="roadmap-header">
+            <h2>Neler Yapıyoruz?</h2>
+            <p>İşletmenizin büyümesine odaklanın, karmaşık mali süreçleri bize bırakın.</p>
+        </div>
+        <div class="services-grid">
+            <div class="service-card">
+                <h3>Şirket Kuruluşu</h3>
+                <p>Şahıs, Limited veya Anonim şirketinizin kuruluş işlemlerini hızlı ve eksiksiz bir şekilde tamamlıyoruz.</p>
+            </div>
+            <div class="service-card">
+                <h3>E-Ticaret Muhasebesi</h3>
+                <p>Pazaryeri (Trendyol, Hepsiburada vb.) satışlarınızı, komisyon ve kargo faturalarınızı sistemli şekilde işliyoruz.</p>
+            </div>
+            <div class="service-card">
+                <h3>Vergi ve Beyanname</h3>
+                <p>KDV, Muhtasar, Geçici ve Yıllık Gelir Vergisi beyannamelerinizi yasal sürelere uygun olarak hazırlıyoruz.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="e-ticaret">
+        <div class="roadmap-header">
+            <h2>Trendyol'da Satışa Başlama Rehberi</h2>
+            <p>E-ticaret yapmak isteyen mükelleflerimiz için adım adım süreçler ve ortalama maliyetler.</p>
+        </div>
+
+        <div class="step-container">
+            <div class="step-number">1</div>
+            <div class="step-content">
+                <h3>Şirket Kuruluşu (Mali Müşavir Tarafından Yapılır)</h3>
+                <p>Trendyol'da satış yapabilmeniz için öncelikle vergi mükellefi olmanız zorunludur. Vergi açılış işlemleriniz için <strong>kimlik ve adres bilgileriniz</strong> bizim için yeterlidir. Süreci hızlıca başlatıp vergi levhanızı oluşturuyoruz.</p>
+            </div>
+        </div>
+
+        <div class="step-container">
+            <div class="step-number">2</div>
+            <div class="step-content">
+                <h3>Trendyol Kaydı ve KEP Adresi (Sizin Tarafınızdan Yapılır)</h3>
+                <p>Vergi levhanız çıktıktan sonra Trendyol satıcı kayıt sürecini başlatıyorsunuz. Kayıt aşamasında Trendyol sizden resmi yazışmalar için PTT üzerinden bir <strong>KEP (Kayıtlı Elektronik Posta)</strong> adresi almanızı talep edecektir.</p>
+            </div>
+        </div>
+
+        <div class="step-container">
+            <div class="step-number">3</div>
+            <div class="step-content">
+                <h3>E-Fatura Geçişi ve Mali Mühür</h3>
+                <p>Şirketinizi e-faturaya entegre edebilmek için <strong>Mali Mühür</strong> almanız gerekmektedir. E-faturaya geçtikten sonra faturalarınızı Trendyol portalından veya entegratör firmalar aracılığıyla otomatik kesebilirsiniz.</p>
+            </div>
+        </div>
+
+        <div class="step-container">
+            <div class="step-number">4</div>
+            <div class="step-content">
+                <h3>Aylık Muhasebe ve Beyanname Yönetimi</h3>
+                <p>Satışlar başladığında biz devreye giriyoruz. İşletmenizin kestiği ve aldığı tüm faturaların muhasebe kayıtlarını yönetiyor; beyannamelerinizi yasal sürelere uygun şekilde onaylıyoruz.</p>
+            </div>
+        </div>
+
+        <div class="costs-section">
+            <h3>Kuruluş ve İşletme Maliyetleri Tablosu</h3>
+            <table class="cost-table">
+                <thead>
+                    <tr>
+                        <th>Gider Kalemi</th>
+                        <th>Açıklama</th>
+                        <th>Ortalama Maliyet *</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>KEP Adresi</strong></td>
+                        <td>Trendyol kaydı için PTT'den alınması zorunludur (Yıllık)</td>
+                        <td>150 - 200 TL</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Mali Mühür</strong></td>
+                        <td>E-fatura sistemine geçiş için gereklidir (3 Yıllık)</td>
+                        <td>~2.000 TL</td>
+                    </tr>
+                    <tr>
+                        <td><strong>İmza Beyannamesi</strong></td>
+                        <td>Banka hesabı açılışında bazı bankalar talep edebilir</td>
+                        <td>1.000 - 1.500 TL</td>
+                    </tr>
+                    <tr class="highlight-row">
+                        <td><strong>Mali Müşavirlik Ücreti</strong></td>
+                        <td>Aylık defter tutma, beyanname ve danışmanlık hizmet bedeli</td>
+                        <td>3.500 TL / Ay **</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Sabit Vergi / Damga Vergisi</strong></td>
+                        <td>Satış olmasa dahi verilen zorunlu beyannamelerin vergileri</td>
+                        <td>1.000 - 2.000 TL / Ay</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="info-box">
+                <strong>* Not:</strong> Tablodaki tutarlar piyasa ortalamaları olup, resmi kurum harçlarına göre değişiklik gösterebilir.<br>
+                <strong>** Mali Müşavirlik Ücreti:</strong> Başlangıç içindir. İş yoğunluğunun artması, çalışan istihdam edilmesi durumunda güncellenmektedir.
+            </div>
+        </div>
+    </section>
+
+    <div id="iletisim" class="contact-section">
+        <h2>Bizimle İletişime Geçin</h2>
+        <p>İşletmenize özel muhasebe ve danışmanlık çözümleri için yanınızdayız.</p>
+        
+        <div class="contact-info">
+            <h3>Adem Yılmaz - SMMM</h3>
+            <p>📍 Atatürk Mah. Sütçüimam Cad. No:101/5 Ümraniye / İstanbul</p>
+            <p>✉️ <a href="mailto:iletisim@smmmyilmaz.com">iletisim@smmmyilmaz.com</a></p>
+            </div>
+    </div>
+
+    <footer>
+        &copy; 2024 Adem Yılmaz - Serbest Muhasebeci Mali Müşavir. Tüm Hakları Saklıdır.
+    </footer>
+
+</body>
+</html>
