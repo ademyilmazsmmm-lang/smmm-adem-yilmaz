@@ -3,59 +3,162 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mali Rehber & Makaleler | SMMM Adem Yılmaz</title>
-  
+  <meta name="description" content="2026'da %100'e çıkarılan hizmet ihracatı kazanç indirimi: kimler faydalanabilir, KDV istisnası nasıl işler, asgari kurumlar vergisi ne anlama gelir? SMMM Adem Yılmaz'dan güncel rehber.">
+  <title>Yurt Dışına Hizmet Verenler İçin %100 Vergi Avantajı (2026 Güncel) | SMMM Adem Yılmaz</title>
+
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
-  
   <link rel="stylesheet" href="style.css">
+  <style>
+    .site-header{ border-bottom: 1px solid rgba(212,175,90,0.18); }
+    .site-header .header-inner{ display: flex; align-items: center; justify-content: space-between; padding: 14px 0; }
+    .brand-mark{ display: flex; align-items: center; gap: 12px; text-decoration: none; line-height: 1.15; }
+    .brand-mark .monogram{ flex-shrink: 0; width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(155deg, var(--gold-light), var(--gold-dark)); display: flex; align-items: center; justify-content: center; font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: 1.15rem; color: var(--navy); letter-spacing: 0.01em; }
+    .brand-mark .brand-text{ display: flex; flex-direction: column; }
+    .brand-mark .brand-name{ font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 0.98rem; color: var(--white); letter-spacing: 0.01em; }
+    .brand-mark .brand-tag{ font-family: 'DM Sans', sans-serif; font-weight: 400; font-size: 0.72rem; color: var(--gold-light); letter-spacing: 0.02em; margin-top: 2px; }
+    .site-nav{ display: flex; align-items: center; gap: 26px; }
+    .site-nav a{ font-family: 'DM Sans', sans-serif; font-size: 0.86rem; font-weight: 500; letter-spacing: 0.02em; color: rgba(255,255,255,0.78); text-decoration: none; position: relative; padding: 4px 0; transition: color 0.2s ease; }
+    .site-nav a::after{ content: ""; position: absolute; left: 0; right: 100%; bottom: -2px; height: 1px; background: var(--gold-light); transition: right 0.25s ease; }
+    .site-nav a:hover{ color: var(--white); }
+    .site-nav a:hover::after{ right: 0; }
+    .site-nav a.active{ color: var(--gold-light); }
+    .site-nav a.active::after{ right: 0; background: var(--gold-light); }
+    .site-nav a.nav-cta{ color: var(--navy); background: var(--gold-light); padding: 9px 20px; border-radius: 999px; font-weight: 600; }
+    .site-nav a.nav-cta::after{ display: none; }
+    .site-nav a.nav-cta:hover{ color: var(--navy); filter: brightness(1.06); }
+    @media (max-width: 860px){
+      .site-nav{ gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+      .brand-mark .brand-tag{ display: none; }
+    }
+  </style>
 </head>
 <body>
 
-  <header class="header" id="header" style="background: var(--navy);">
+  <!-- ── ÜST MENÜ ── -->
+  <header class="header site-header" id="header" style="background: var(--navy);">
     <div class="container header-inner">
-      <a href="index.html" class="logo">
-        <img src="image_887dcb.png" alt="SMMM Adem Yılmaz Logo" style="height: 55px; width: auto; object-fit: contain;">
+      <a href="/" class="logo brand-mark" aria-label="SMMM Adem Yılmaz — Ana Sayfa">
+        <span class="monogram">AY</span>
+        <span class="brand-text">
+          <span class="brand-name">SMMM Adem Yılmaz</span>
+          <span class="brand-tag">Serbest Muhasebeci Mali Müşavir</span>
+        </span>
       </a>
-      <nav class="nav" id="mainNav">
-        <a href="index.html">Ana Sayfa</a>
-        <a href="index.html#kurumsal">Kurumsal</a>
-        <a href="index.html#hizmetler">Hizmetlerimiz</a>
-        <a href="rehber.html" style="color: var(--gold-light);">Mali Rehber</a>
-        <a href="index.html#iletisim" class="nav-cta">İletişim</a>
+      <nav class="nav site-nav" id="mainNav">
+        <a href="/#kurumsal">Kurumsal</a>
+        <a href="/#hizmetler">Hizmetlerimiz</a>
+        <a href="/#pratik-bilgiler" class="active">Pratik Bilgiler</a>
+        <a href="/hesaplama.html">Hesaplamalar</a>
+        <a href="/#sss">S.S.S.</a>
+        <a href="/#iletisim" class="nav-cta">İletişim</a>
       </nav>
     </div>
   </header>
 
-  <section class="section section-alt" style="padding-top: 160px; min-height: 80vh;">
-    <div class="container">
-      
-      <div class="section-head center">
-        <h2>Mali Rehber & Duyurular</h2>
-        <p class="subtitle">İşletmenizi büyütürken ihtiyacınız olan güncel ve anlaşılır finansal bilgiler.</p>
-        <div class="gold-rule"></div>
+  <!-- ── MAKALE İÇERİĞİ ── -->
+  <section class="section section-white" style="padding-top: 140px; min-height: 80vh;">
+    <div class="container" style="max-width: 800px; margin: 0 auto;">
+
+      <div style="margin-bottom: 40px;">
+        <span style="display: inline-block; background: rgba(212,175,90,0.15); color: var(--gold-dark); font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 6px 14px; border-radius: 6px; margin-bottom: 16px;">Vergi Teşvikleri &amp; Mevzuat · Güncellendi: Haziran 2026</span>
+        <h1 style="color: var(--navy); font-size: 2.4rem; margin-bottom: 20px; line-height: 1.2;">Yurt Dışına Hizmet Verenler İçin %100 Vergi Avantajı Rehberi</h1>
+        <p style="color: var(--gray-600); font-size: 1.05rem; margin-bottom: 18px;">30 Nisan 2026 tarihli Cumhurbaşkanı Kararı ile yazılım, mühendislik, tasarım ve veri analizi gibi hizmet ihracatından elde edilen kazançlarda indirim oranı <strong>%100'e</strong> çıkarıldı. Bu rehberde kimlerin faydalanabileceğini, hangi şartların arandığını ve sık yapılan hataları sade bir dille anlatıyoruz.</p>
+        <div style="display: flex; align-items: center; gap: 12px; color: var(--gray-600); font-size: 0.9rem; border-bottom: 1px solid var(--gray-200); padding-bottom: 20px;">
+          <strong>Yazar:</strong> SMMM Adem Yılmaz | <strong>Güncelleme:</strong> Haziran 2026 | <strong>Okuma süresi:</strong> ~7 dakika
+        </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 40px;">
-        
-        <div style="background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 35px; box-shadow: var(--shadow-sm); transition: transform 0.3s;">
-          <span style="color: var(--gold-dark); font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Şirket Kuruluşu</span>
-          <h3 style="color: var(--navy); margin: 15px 0; font-family: 'DM Sans', sans-serif; font-size: 1.3rem;">2026 Yılında Şahıs Şirketi Kurmanın Maliyeti Ne Kadar?</h3>
-          <p style="color: var(--gray-600); font-size: 0.95rem; line-height: 1.6;">Yeni bir işe başlarken en çok merak edilen konulardan biri açılış masraflarıdır. Noter, vergi dairesi ve oda kayıt ücretlerini sizin için esnaf diliyle, tek tek ve net bir şekilde hesapladık...</p>
-          <a href="#" style="color: var(--navy); font-weight: 700; font-size: 0.9rem; display: inline-block; margin-top: 20px; border-bottom: 2px solid var(--gold); padding-bottom: 3px;">Devamını Oku →</a>
+      <!-- İçindekiler -->
+      <nav aria-label="İçindekiler" style="background: var(--gray-50, #f7f7f5); border: 1px solid var(--gray-200); border-radius: 12px; padding: 22px 26px; margin-bottom: 40px;">
+        <p style="margin: 0 0 12px; font-weight: 700; color: var(--navy); font-family: 'DM Sans', sans-serif; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">Bu rehberde</p>
+        <ol style="margin: 0; padding-left: 20px; color: var(--text); font-size: 0.95rem; line-height: 1.9;">
+          <li><a href="#guncelleme" style="color: var(--navy);">2026 güncellemesi: oran %100'e nasıl çıktı?</a></li>
+          <li><a href="#kimler" style="color: var(--navy);">Kimler %100 kazanç indiriminden faydalanabilir?</a></li>
+          <li><a href="#sartlar" style="color: var(--navy);">İndirimden faydalanma şartları</a></li>
+          <li><a href="#asgari-vergi" style="color: var(--navy);">Önemli istisna: Asgari kurumlar vergisi</a></li>
+          <li><a href="#kdv" style="color: var(--navy);">KDV durumu ve iade hakkı</a></li>
+          <li><a href="#hatalar" style="color: var(--navy);">Sık yapılan hatalar ve risk alanları</a></li>
+          <li><a href="#sss" style="color: var(--navy);">Sıkça sorulan sorular</a></li>
+        </ol>
+      </nav>
+
+      <div style="color: var(--text); font-size: 1.05rem; line-height: 1.8;">
+
+        <p>Küreselleşen dijital dünyada, Türkiye'den yurt dışına yazılım, tasarım, veri analizi veya mühendislik hizmeti sunan kişi ve kurumların sayısı her geçen gün artıyor. Özellikle Upwork, Fiverr, Toptal gibi platformlar üzerinden veya doğrudan yabancı firmalara hizmet verenler için mevzuatımızda çok ciddi vergi teşvikleri bulunuyor.</p>
+
+        <h3 id="guncelleme" style="color: var(--navy); font-family: 'DM Sans', sans-serif; font-size: 1.4rem; margin: 40px 0 20px;">2026 Güncellemesi: Oran %100'e Nasıl Çıktı?</h3>
+        <p>30 Nisan 2026 tarihli ve 33239 sayılı Resmî Gazete'de yayımlanan <strong>11257 sayılı Cumhurbaşkanı Kararı</strong> ile, daha önce %80 olarak uygulanan hizmet ihracatı kazanç indirimi oranı %100'e yükseltildi. Düzenleme, Gelir Vergisi Kanunu'nun 89. maddesinin 13. fıkrası ile Kurumlar Vergisi Kanunu'nun 10. maddesinin (ğ) bendinde yer alıyor ve <strong>1 Ocak 2026'dan itibaren</strong> elde edilen kazançlara uygulanıyor.</p>
+        <p>Pratikte bu, şartları sağlayan bir mükellefin yurt dışına verdiği hizmetten elde ettiği kazancın tamamını beyannamesinde indirim olarak gösterebilmesi anlamına geliyor. Daha önce kazancın %80'i indirilip %20'si üzerinden vergi hesaplanırken, artık şartlar sağlandığında bu kazanç üzerinden gelir veya kurumlar vergisi matrahı oluşmuyor.</p>
+
+        <h3 id="kimler" style="color: var(--navy); font-family: 'DM Sans', sans-serif; font-size: 1.4rem; margin: 40px 0 20px;">Kimler %100 Kazanç İndiriminden Faydalanabilir?</h3>
+        <p>Türkiye'de ikamet ediyor (şahıs şirketi veya sermaye şirketi sahibi) ve aşağıdaki hizmetlerden birini yurt dışındaki (Türkiye'de yerleşik olmayan) kişi veya kurumlara veriyorsanız bu kapsama girersiniz:</p>
+        <ul style="margin-bottom: 24px; padding-left: 20px;">
+          <li style="margin-bottom: 10px;">Yazılım ve uygulama geliştirme (bilgisayar programlama)</li>
+          <li style="margin-bottom: 10px;">Mimarlık, mühendislik ve tasarım (grafik, web, ürün vb.)</li>
+          <li style="margin-bottom: 10px;">Veri işleme, veri analizi ve veri saklama</li>
+          <li style="margin-bottom: 10px;">Muhasebe kayıtlarının tutulması ve çağrı merkezi hizmetleri</li>
+          <li style="margin-bottom: 10px;">Tıbbi raporlama, ürün testi ve sertifikasyon hizmetleri</li>
+          <li style="margin-bottom: 10px;">İlgili bakanlığın izni ve denetimine tabi olmak kaydıyla eğitim ve sağlık hizmetleri</li>
+        </ul>
+        <p style="font-size: 0.95rem; color: var(--gray-600);">Hem gelir vergisi mükellefi şahıs işletmeleri hem de kurumlar vergisi mükellefi limited/anonim şirketler bu haktan yararlanabilir; şirketin yeni kurulmuş olması bir engel değildir.</p>
+
+        <h3 id="sartlar" style="color: var(--navy); font-family: 'DM Sans', sans-serif; font-size: 1.4rem; margin: 40px 0 20px;">İndirimden Faydalanma Şartları</h3>
+        <ul style="margin-bottom: 24px; padding-left: 20px;">
+          <li style="margin-bottom: 10px;"><strong>Yurt dışı müşteri şartı:</strong> Hizmet, Türkiye'de yerleşik olmayan kişi veya kurumlara verilmelidir.</li>
+          <li style="margin-bottom: 10px;"><strong>Münhasıran yurt dışında yararlanma:</strong> Hizmetten yalnızca yurt dışında yararlanılmalıdır; aynı hizmetin Türkiye'de de kullanılması bu şartı bozar (eğitim ve sağlık hizmetlerinde bu şart aranmaz).</li>
+          <li style="margin-bottom: 10px;"><strong>Faturalandırma:</strong> Hizmet faturası yurt dışındaki müşteri adına düzenlenmelidir.</li>
+          <li style="margin-bottom: 10px;"><strong>Kazancın ayrıştırılması:</strong> İhracat faaliyetine ait hasılat ve maliyetler, muhasebe kayıtlarında diğer faaliyetlerden ayrı takip edilmelidir.</li>
+        </ul>
+
+        <div style="background: var(--navy-light); color: var(--white); padding: 24px 30px; border-radius: 12px; border-left: 4px solid var(--gold); margin: 30px 0;">
+          <h4 style="color: var(--gold-light); margin-bottom: 10px; font-family: 'DM Sans', sans-serif;">En Kritik Şart: Paranın Türkiye'ye Getirilmesi</h4>
+          <p style="margin: 0; font-size: 0.95rem; color: rgba(255,255,255,0.9);">%100 oranındaki indirimden faydalanabilmenin en temel kuralı, hizmetten elde edilen döviz cinsi kazancın, ilgili yılın <strong>yıllık beyanname verme süresi sonuna kadar</strong> Türkiye'deki banka hesaplarına transfer edilmesidir. Para yurt dışı hesaplarda (Payoneer, Wise, yabancı banka vb.) tutulup süresinde Türkiye'ye resmî olarak getirilmezse, indirim hakkı tamamen kaybedilir.</p>
         </div>
 
-        <div style="background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 35px; box-shadow: var(--shadow-sm); transition: transform 0.3s;">
-          <span style="color: var(--gold-dark); font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Vergi Teşvikleri</span>
-          <h3 style="color: var(--navy); margin: 15px 0; font-family: 'DM Sans', sans-serif; font-size: 1.3rem;">Genç Girişimci Desteği Şartları ve Avantajları Nelerdir?</h3>
-          <p style="color: var(--gray-600); font-size: 0.95rem; line-height: 1.6;">29 yaşından küçük girişimciler için sağlanan 3 yıllık gelir vergisi muafiyeti ve 1 yıllık Bağ-Kur prim desteğinden faydalanmak için taşımanız gereken şartları bu yazıda derledik.</p>
-          <a href="#" style="color: var(--navy); font-weight: 700; font-size: 0.9rem; display: inline-block; margin-top: 20px; border-bottom: 2px solid var(--gold); padding-bottom: 3px;">Devamını Oku →</a>
-        </div>
+        <h3 id="asgari-vergi" style="color: var(--navy); font-family: 'DM Sans', sans-serif; font-size: 1.4rem; margin: 40px 0 20px;">Önemli İstisna: Asgari Kurumlar Vergisi</h3>
+        <p>%100 indirim, "vergi sıfırlanıyor" demek olmayabilir — özellikle <strong>kurumlar vergisi mükellefi</strong> (limited/anonim) şirketler için. 2025'ten itibaren uygulanan <strong>yurt içi asgari kurumlar vergisi</strong> düzenlemesi (KVK m.32/C), indirim ve istisnalar düşülmeden önceki kurum kazancının belirli bir oranının altında vergi ödenmesine izin vermiyor. Hizmet ihracatı istisnası bu asgari vergi matrahından düşülemediği için, %100 indirimden yararlanan bir şirket dahi kurum kazancı üzerinden bir miktar asgari kurumlar vergisi ödemek zorunda kalabilir.</p>
+        <p>Buna karşılık, <strong>gelir vergisi mükellefi şahıs işletmeleri ve serbest çalışanlar</strong> bu asgari vergi uygulamasına tabi değildir; onlar için şartlar sağlandığında kazanç fiilen vergi dışı kalabilir. Şirket türünüzün bu teşvikten ne ölçüde faydalanacağını netleştirmek için profesyonel bir ön hesaplama yapılması önemlidir.</p>
 
+        <h3 id="kdv" style="color: var(--navy); font-family: 'DM Sans', sans-serif; font-size: 1.4rem; margin: 40px 0 20px;">KDV (Katma Değer Vergisi) Durumu Nedir?</h3>
+        <p>Yurt dışına verilen ve yurt dışında faydalanılan hizmetler, KDV Kanunu'nun 11/1-a maddesi gereğince <strong>hizmet ihracı</strong> sayılır ve KDV'den istisnadır. Kestiğiniz faturada KDV oranını %0 olarak göstermeniz gerekir.</p>
+        <p>Bu durum sadece KDV ödememenizi sağlamakla kalmaz; aynı zamanda işinizle ilgili yaptığınız harcamalarda (bilgisayar alımı, ofis giderleri, yazılım lisansları vb.) ödediğiniz KDV'yi de vergi dairesinden <strong>iade olarak talep edebilmenize</strong> olanak tanır. KDV istisnası ile gelir/kurumlar vergisi indirimi farklı şartlara bağlıdır: KDV iadesi için dövizin Türkiye'ye getirilmiş olması belgelenmelidir, ancak kazancın matrahtan indirilebilmesi ayrıca ve özellikle paranın süresinde transfer edilmesine bağlıdır.</p>
+        <p style="font-size: 0.95rem; color: var(--gray-600);">Ek olarak, hizmet ihracatından elde edilen kazançlara Kurumlar Vergisi Kanunu'nun 32. maddesi gereği <strong>5 puanlık</strong> ayrı bir kurumlar vergisi oranı indirimi de uygulanabilmektedir; bu, asgari vergi nedeniyle matrah oluşan durumlarda ek bir avantaj sağlar.</p>
+
+        <h3 id="hatalar" style="color: var(--navy); font-family: 'DM Sans', sans-serif; font-size: 1.4rem; margin: 40px 0 20px;">Sık Yapılan Hatalar ve Risk Alanları</h3>
+        <ul style="margin-bottom: 24px; padding-left: 20px;">
+          <li style="margin-bottom: 10px;"><strong>Süre aşımı:</strong> Dövizin beyanname verme tarihinden sonra Türkiye'ye getirilmesi indirim hakkını kaybettirir.</li>
+          <li style="margin-bottom: 10px;"><strong>Münhasıranlık kaybı:</strong> Yurt içi kullanıcılara da açık bir üründen/hizmetten gelir elde edilmesi, "yalnızca yurt dışında yararlanma" şartını zedeleyebilir.</li>
+          <li style="margin-bottom: 10px;"><strong>İspat eksikliği:</strong> Sözleşmelerin, faturaların ve iş çıktılarının (kod blokları, proje teslimleri, analiz raporları) saklanmaması, vergi denetiminde sorun yaratır.</li>
+          <li style="margin-bottom: 10px;"><strong>Tasdik raporu:</strong> Tam tasdik kapsamındaki mükellefler için YMM tasdik raporunun süresinde verilmemesi, indirim hakkının kaybına veya özel usulsüzlük cezasına yol açabilir.</li>
+        </ul>
+
+        <h3 id="sss" style="color: var(--navy); font-family: 'DM Sans', sans-serif; font-size: 1.4rem; margin: 40px 0 20px;">Sıkça Sorulan Sorular</h3>
+
+        <p><strong>Yeni kurulan bir şirket de bu indirimden yararlanabilir mi?</strong><br>
+        Evet. Faaliyet konusu uygunsa ve döviz transfer şartı sağlanıyorsa, ilk vergilendirme döneminden itibaren kullanılabilir.</p>
+
+        <p><strong>Hem şahıs şirketi hem de limited/anonim şirket bu haktan faydalanabilir mi?</strong><br>
+        Evet, her iki yapı da yararlanabilir; ancak yukarıda anlatıldığı gibi kurumlar vergisi mükellefleri için asgari kurumlar vergisi sınırlaması söz konusu olabilir.</p>
+
+        <p><strong>Kazancı yurda getirmezsem hiçbir avantajı kaybeder miyim?</strong><br>
+        Hizmet ihracı şartlarını sağlıyorsanız KDV istisnasından yararlanmaya devam edersiniz; ancak gelir/kurumlar vergisi matrahından %100 indirim hakkını, kazancın tamamı süresinde transfer edilmediği için kaybedersiniz.</p>
+
+        <h3 style="color: var(--navy); font-family: 'DM Sans', sans-serif; font-size: 1.4rem; margin: 40px 0 20px;">Sonuç Olarak</h3>
+        <p>Yurt dışına döviz kazandırıcı hizmet sunuyorsanız, doğru bir vergi planlaması ve profesyonel bir muhasebe altyapısıyla elde ettiğiniz gelirin büyük bölümünü, hatta şahıs işletmeleri için tamamını vergi dışı bırakmanız yasal olarak mümkündür. Yanlış fatura kesimleri, münhasıranlık şartının ihlali veya paranın Türkiye'ye getirilmesindeki usul hataları ileride ciddi vergi cezalarına yol açabilir; şirket türünüze özgü asgari vergi etkisinin de önceden hesaplanması gerekir.</p>
+
+        <p><em>İşletmenizi kurarken ve faaliyetlerinizi yürütürken bu teşviklerden eksiksiz ve hatasız faydalanmak için Ümraniye'deki mali müşavirlik ofisimizle doğrudan iletişime geçebilirsiniz.</em></p>
+
+        <p style="font-size: 0.85rem; color: var(--gray-600); border-top: 1px solid var(--gray-200); padding-top: 16px; margin-top: 36px;">Bu içerik genel bilgilendirme amaçlıdır ve kişiye/şirkete özel mali müşavirlik hizmeti yerine geçmez. Güncel mevzuat ve özelgeler dikkate alınarak hazırlanmıştır; uygulamadan önce durumunuzu bir SMMM ile değerlendirmenizi öneririz.</p>
+      </div>
+
+      <div style="margin-top: 50px; text-align: center;">
+        <a href="/#iletisim" class="btn btn-gold" style="padding: 16px 36px; font-size: 1.05rem;">Profesyonel Danışmanlık İçin Bize Ulaşın</a>
       </div>
 
     </div>
   </section>
 
+  <!-- ── ALT BİLGİ (Footer) ── -->
   <footer class="footer" style="padding: 30px 0; text-align: center;">
     <div class="container">
       <p class="footer-copy" style="margin: 0;">© 2026 <strong>Adem Yılmaz</strong> — Serbest Muhasebeci Mali Müşavir · Tüm Hakları Saklıdır.</p>
