@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="MacFit ve benzeri spor kulüplerinde bireysel çalışan antrenör, spor eğitmeni, hakem, zaman tutucu ve atletler için mükellefiyet ve mali müşavirlik hizmetleri. SMMM Adem Yılmaz — Ümraniye.">
+<meta name="keywords" content="antrenör mükellef, spor eğitmeni vergi, hakem mükellefiyet, macfit antrenör fatura, bireysel sporcu vergi, serbest meslek sporcu, SMMM Adem Yılmaz">
+<meta name="robots" content="index, follow">
+<title>Sporcu, Antrenör ve Hakemler İçin Mükellefiyet & Mali Müşavirlik | SMMM Adem Yılmaz</title>
+<link rel="canonical" href="https://smmmyilmaz.com/sporcu-danismanlik.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #081222;
+    --navy-light: #0f1e35;
+    --navy-mid: #1a3052;
+    --gold: #d4af5a;
+    --gold-light: #f0dfa8;
+    --gold-dark: #b8943f;
+    --gold-glow: rgba(212, 175, 90, 0.35);
+    --white: #ffffff;
+    --off-white: #f6f7f9;
+    --gray-100: #eef1f5;
+    --gray-200: #d8dee8;
+    --gray-600: #5a6478;
+    --text: #2a3344;
+    --success: #1a7f5a;
+    --shadow-sm: 0 2px 12px rgba(8, 18, 34, 0.06);
+    --shadow-md: 0 12px 40px rgba(8, 18, 34, 0.10);
+    --shadow-lg: 0 24px 70px rgba(8, 18, 34, 0.14);
+    --shadow-gold: 0 8px 32px rgba(212, 175, 90, 0.22);
+    --radius: 14px;
+    --radius-lg: 22px;
+    --transition: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  ::selection { background: rgba(212, 175, 90, 0.25); color: var(--navy); }
+
+  body { font-family: 'DM Sans', sans-serif; color: var(--text); background: var(--off-white); line-height: 1.6; overflow-x: hidden; }
+  a { text-decoration: none; color: inherit; }
+  h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; font-weight: 600; line-height: 1.2; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  @keyframes fadeUp { from { opacity:0; transform: translateY(24px); } to { opacity:1; transform: translateY(0); } }
+  @keyframes orbDrift { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(20px,-15px) scale(1.05); } }
+  .reveal { opacity:0; transform: translateY(28px); transition: opacity .7s ease, transform .7s cubic-bezier(.22,1,.36,1); }
+  .reveal.visible { opacity:1; transform: translateY(0); }
+
+  /* ── Üst Şerit / Mini Header ── */
+  .mini-header {
+    position: fixed; top:0; left:0; right:0; z-index: 1000;
+    background: rgba(8,18,34,0.92); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(212,175,90,0.12);
+  }
+  .mini-header-inner { display:flex; align-items:center; justify-content:space-between; height:72px; }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .brand-icon {
+    width:40px; height:40px; border-radius:10px;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark));
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Cormorant Garamond',serif; font-size:1.1rem; font-weight:700; color: var(--navy);
+    box-shadow: var(--shadow-gold); flex-shrink:0;
+  }
+  .brand-text { display:flex; flex-direction:column; }
+  .brand-text span:first-child { font-family:'Cormorant Garamond',serif; font-size:1.05rem; font-weight:700; color: var(--white); }
+  .brand-text span:last-child { font-size:0.62rem; color: var(--gold-light); letter-spacing:0.12em; text-transform:uppercase; opacity:0.9; }
+  .mini-nav { display:flex; align-items:center; gap:10px; }
+  .mini-nav a {
+    font-size:0.86rem; font-weight:600; color: rgba(255,255,255,0.8);
+    padding:9px 16px; border-radius:8px; transition: var(--transition);
+  }
+  .mini-nav a:hover { color: var(--gold-light); }
+  .mini-nav .cta {
+    background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark));
+    color: var(--navy) !important; padding:10px 20px; border-radius:9px; font-weight:700;
+    box-shadow: 0 4px 16px rgba(212,175,90,0.25);
+  }
+  .mini-nav .cta:hover { transform: translateY(-2px); box-shadow: var(--shadow-gold); }
+  .mini-nav a.hide-mobile { }
+
+  /* ── Hero ── */
+  .hero {
+    position: relative; padding: 150px 0 90px; overflow: hidden;
+    background: linear-gradient(155deg, var(--navy) 0%, var(--navy-light) 45%, var(--navy-mid) 100%);
+  }
+  .hero::before {
+    content:''; position:absolute; inset:0;
+    background: radial-gradient(ellipse 70% 55% at 80% 20%, rgba(212,175,90,0.13) 0%, transparent 55%);
+  }
+  .hero-orb { position:absolute; border-radius:50%; filter: blur(80px); pointer-events:none; animation: orbDrift 13s ease-in-out infinite; }
+  .hero-orb-1 { width:380px; height:380px; background: rgba(212,175,90,0.14); top:-12%; right:6%; }
+  .hero-orb-2 { width:280px; height:280px; background: rgba(26,80,140,0.2); bottom:-10%; left:-6%; animation-delay:-5s; }
+
+  .hero-inner { position:relative; z-index:2; text-align:center; max-width: 760px; margin:0 auto; }
+  .hero-badge {
+    display:inline-flex; align-items:center; gap:10px;
+    background: rgba(212,175,90,0.1); border:1px solid rgba(212,175,90,0.28);
+    color: var(--gold-light); padding:9px 18px; border-radius:50px;
+    font-size:0.76rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:26px;
+  }
+  .hero-badge::before { content:''; width:7px; height:7px; background: var(--gold); border-radius:50%; box-shadow: 0 0 10px var(--gold-glow); }
+  .hero h1 { font-size: clamp(2.1rem, 4.6vw, 3.3rem); color: var(--white); margin-bottom:20px; letter-spacing:-0.02em; }
+  .hero h1 em { font-style: italic; background: linear-gradient(135deg, var(--gold-light), var(--gold)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .hero p { color: rgba(255,255,255,0.75); font-size:1.06rem; line-height:1.75; margin-bottom:36px; }
+  .hero-actions { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+
+  .btn { display:inline-flex; align-items:center; gap:10px; padding:15px 28px; border-radius:12px; font-size:0.96rem; font-weight:700; cursor:pointer; border:none; transition: var(--transition); font-family:'DM Sans',sans-serif; }
+  .btn-gold { background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); background-size:200% auto; color: var(--navy); box-shadow: var(--shadow-gold); }
+  .btn-gold:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(212,175,90,0.45); background-position: right center; }
+  .btn-outline { background: rgba(255,255,255,0.04); color: var(--white); border:1.5px solid rgba(255,255,255,0.25); backdrop-filter: blur(8px); }
+  .btn-outline:hover { border-color: var(--gold); color: var(--gold-light); background: rgba(212,175,90,0.1); }
+
+  .hero-tags { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:40px; }
+  .hero-tag {
+    font-size:0.82rem; font-weight:600; color: rgba(255,255,255,0.85);
+    background: rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+    padding:8px 16px; border-radius:50px;
+  }
+
+  /* ── Sections ── */
+  .section { padding: 80px 0; position: relative; }
+  .section-white { background: var(--white); }
+  .section-alt { background: linear-gradient(180deg, var(--off-white) 0%, var(--white) 100%); }
+  .section-head { margin-bottom: 44px; text-align:center; }
+  .section-head h2 { font-size: clamp(1.8rem, 3.4vw, 2.3rem); color: var(--navy); margin-bottom:10px; letter-spacing:-0.02em; }
+  .section-head p { color: var(--gray-600); font-size:1rem; max-width:600px; margin: 0 auto; }
+  .gold-rule { width:50px; height:3px; background: linear-gradient(90deg, var(--gold-dark), var(--gold-light)); margin: 14px auto 0; border-radius:3px; }
+
+  /* Kimler bölümü */
+  .profile-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:20px; }
+  .profile-card {
+    background: var(--white); border:1px solid var(--gray-200); border-radius: var(--radius-lg);
+    padding: 30px 22px; text-align:center; box-shadow: var(--shadow-sm); transition: var(--transition);
+    position:relative; overflow:hidden;
+  }
+  .profile-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg, var(--gold), var(--gold-light)); transform: scaleX(0); transform-origin:left; transition: transform .4s ease; }
+  .profile-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); border-color: rgba(212,175,90,0.35); }
+  .profile-card:hover::before { transform: scaleX(1); }
+  .profile-icon {
+    width:60px; height:60px; margin:0 auto 16px; border-radius:16px;
+    background: linear-gradient(135deg, rgba(212,175,90,0.14), rgba(212,175,90,0.05));
+    border:1px solid rgba(212,175,90,0.22);
+    display:flex; align-items:center; justify-content:center; font-size:1.6rem;
+  }
+  .profile-card h4 { font-family:'DM Sans',sans-serif; font-size:1rem; color: var(--navy); font-weight:700; margin-bottom:6px; }
+  .profile-card p { font-size:0.84rem; color: var(--gray-600); line-height:1.55; }
+
+  /* Neden mükellef olmalı - uyarı kartı */
+  .why-box {
+    background: linear-gradient(145deg, var(--navy) 0%, var(--navy-mid) 100%);
+    border:1px solid rgba(212,175,90,0.35); border-radius: var(--radius-lg);
+    padding: 44px; box-shadow: var(--shadow-md), 0 0 40px rgba(212,175,90,0.08);
+    position:relative; overflow:hidden;
+  }
+  .why-box::before { content:'!'; position:absolute; right:-10px; bottom:-50px; font-size:13rem; color: rgba(212,175,90,0.05); font-weight:900; line-height:1; pointer-events:none; }
+  .why-box h3 { color: var(--gold-light); font-size:1.4rem; margin-bottom:18px; position:relative; z-index:2; }
+  .why-box p { color: rgba(255,255,255,0.82); font-size:0.96rem; line-height:1.75; position:relative; z-index:2; margin-bottom:14px; }
+  .why-box p:last-child { margin-bottom:0; }
+  .why-box strong { color: var(--gold-light); }
+  .why-list { list-style:none; position:relative; z-index:2; margin-top:18px; display:flex; flex-direction:column; gap:12px; }
+  .why-list li { display:flex; gap:12px; align-items:flex-start; color: rgba(255,255,255,0.85); font-size:0.92rem; line-height:1.6; }
+  .why-list li::before { content:''; width:7px; height:7px; border-radius:50%; background: var(--gold); margin-top:7px; flex-shrink:0; }
+
+  /* Hizmetler */
+  .service-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .service-box {
+    background: var(--white); border:1px solid var(--gray-200); border-radius: var(--radius);
+    padding: 30px; transition: var(--transition); position:relative; overflow:hidden;
+  }
+  .service-box::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg, var(--gold), var(--gold-light)); transform: scaleX(0); transform-origin:left; transition: transform .4s ease; }
+  .service-box:hover { border-color: rgba(212,175,90,0.4); box-shadow: var(--shadow-md); transform: translateY(-4px); }
+  .service-box:hover::before { transform: scaleX(1); }
+  .service-box .num { font-family:'Cormorant Garamond',serif; font-size:1.8rem; color: var(--gold); font-weight:700; margin-bottom:10px; display:block; }
+  .service-box h4 { font-family:'DM Sans',sans-serif; font-size:1.04rem; color: var(--navy); font-weight:700; margin-bottom:10px; }
+  .service-box p { font-size:0.9rem; color: var(--gray-600); line-height:1.65; margin:0; }
+
+  /* Süreç */
+  .steps { display:flex; flex-direction:column; gap:0; max-width:700px; margin:0 auto; }
+  .step { display:flex; gap:22px; padding: 22px 0; border-bottom:1px solid var(--gray-200); }
+  .step:last-child { border-bottom:none; }
+  .step-num {
+    width:42px; height:42px; border-radius:50%; flex-shrink:0;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark));
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Cormorant Garamond',serif; font-weight:700; color: var(--navy); font-size:1.1rem;
+  }
+  .step-text h4 { font-family:'DM Sans',sans-serif; font-size:1rem; color: var(--navy); font-weight:700; margin-bottom:5px; }
+  .step-text p { font-size:0.9rem; color: var(--gray-600); line-height:1.6; }
+
+  /* FAQ */
+  .faq-wrap { display:flex; flex-direction:column; gap:14px; max-width: 800px; margin:0 auto; }
+  .faq-wrap details { background: var(--white); border:1px solid var(--gray-200); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow:hidden; transition: var(--transition); }
+  .faq-wrap details[open] { border-color: rgba(212,175,90,0.45); box-shadow: var(--shadow-md); background: linear-gradient(180deg, var(--white), rgba(212,175,90,0.03)); }
+  .faq-wrap summary { padding: 19px 24px; font-weight:600; color: var(--navy); cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-size:0.94rem; list-style:none; user-select:none; gap:16px; }
+  .faq-wrap summary::-webkit-details-marker { display:none; }
+  .faq-wrap summary::after { content:"+"; color: var(--gold); font-size:1.3rem; font-weight:500; }
+  .faq-wrap details[open] summary::after { content:"−"; }
+  .faq-wrap details p { padding: 0 24px 20px; color: var(--gray-600); font-size:0.92rem; line-height:1.65; }
+
+  /* CTA Final */
+  .cta-final {
+    background: linear-gradient(145deg, var(--navy) 0%, var(--navy-mid) 100%);
+    border-radius: var(--radius-lg); padding: 56px 40px; text-align:center;
+    border:1px solid rgba(212,175,90,0.25); box-shadow: var(--shadow-lg);
+    position:relative; overflow:hidden;
+  }
+  .cta-final::before { content:''; position:absolute; top:-50%; right:-15%; width:340px; height:340px; background: radial-gradient(circle, rgba(212,175,90,0.1), transparent 70%); pointer-events:none; }
+  .cta-final h2 { color: var(--white); font-size: clamp(1.6rem, 3.2vw, 2.1rem); margin-bottom:14px; position:relative; z-index:2; }
+  .cta-final p { color: rgba(255,255,255,0.72); font-size:0.98rem; margin-bottom:30px; position:relative; z-index:2; max-width:520px; margin-left:auto; margin-right:auto; }
+  .cta-final .hero-actions { position:relative; z-index:2; }
+
+  /* Footer */
+  .site-footer { background: var(--navy); padding: 36px 0; text-align:center; color: rgba(255,255,255,0.5); font-size:0.85rem; border-top:3px solid transparent; border-image: linear-gradient(90deg, transparent, var(--gold), transparent) 1; }
+  .site-footer strong { color: var(--gold); }
+  .site-footer a { color: rgba(255,255,255,0.6); transition: color .2s; }
+  .site-footer a:hover { color: var(--gold-light); }
+
+  .whatsapp-fab {
+    position: fixed; right: 24px; bottom: 24px; width: 56px; height: 56px;
+    border-radius: 50%; background: #25d366; display:flex; align-items:center; justify-content:center;
+    color:#fff; box-shadow: 0 8px 28px rgba(37,211,102,0.45); z-index: 999; transition: var(--transition);
+  }
+  .whatsapp-fab:hover { transform: scale(1.08); }
+  .whatsapp-fab svg { width:26px; height:26px; fill:currentColor; }
+
+  @media (max-width: 880px) {
+    .profile-grid { grid-template-columns: repeat(2, 1fr); }
+    .service-grid { grid-template-columns: 1fr; }
+    .mini-nav a:not(.cta) { display:none; }
+  }
+  @media (max-width: 560px) {
+    .profile-grid { grid-template-columns: 1fr; }
+    .hero { padding: 130px 0 70px; }
+    .cta-final { padding: 40px 24px; }
+  }
+</style>
+</head>
+<body>
+
+  <header class="mini-header">
+    <div class="container mini-header-inner">
+      <a href="https://smmmyilmaz.com" class="brand">
+        <div class="brand-icon">AY</div>
+        <div class="brand-text">
+          <span>SMMM Adem Yılmaz</span>
+          <span>Serbest Muhasebeci Mali Müşavir</span>
+        </div>
+      </a>
+      <nav class="mini-nav">
+        <a href="https://smmmyilmaz.com">Ana Sayfa</a>
+        <a href="https://smmmyilmaz.com#iletisim" class="cta">İletişime Geç</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-orb hero-orb-1"></div>
+    <div class="hero-orb hero-orb-2"></div>
+    <div class="container hero-inner">
+      <div class="hero-badge">Spor Sektörüne Özel Danışmanlık</div>
+      <h1>Antrenör, Hakem ve Sporcular İçin <em>Mükellefiyet</em> Rehberliği</h1>
+      <p>MacFit ve benzeri spor kulüplerinde bireysel olarak hizmet veren atlet, hakem, zaman tutucu, antrenör ve spor eğitmenlerinin mükellefiyet açılışından fatura düzenlemesine kadar tüm sürecini sizin yerinize yönetiyoruz.</p>
+      <div class="hero-actions">
+        <a href="https://smmmyilmaz.com#iletisim" class="btn btn-gold">
+          İletişime Geç
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+        <a href="https://smmmyilmaz.com" class="btn btn-outline">Ana Sayfaya Dön</a>
+      </div>
+      <div class="hero-tags">
+        <span class="hero-tag">🏋️ Antrenör / Spor Eğitmeni</span>
+        <span class="hero-tag">🏃 Bireysel Çalışan Atlet</span>
+        <span class="hero-tag">🏁 Hakem & Zaman Tutucu</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-white">
+    <div class="container">
+      <div class="section-head reveal">
+        <h2>Bu Hizmet Kimler İçin?</h2>
+        <p>Bir spor kulübü veya tesisi bünyesinde, bağımlı bir işçi statüsünde olmadan kendi nam ve hesabına hizmet veren herkes mükellefiyet kapsamına girebilir.</p>
+        <div class="gold-rule"></div>
+      </div>
+      <div class="profile-grid">
+        <div class="profile-card reveal">
+          <div class="profile-icon">🏋️‍♂️</div>
+          <h4>Antrenör & Spor Eğitmeni</h4>
+          <p>MacFit, spor salonu veya stüdyolarda bireysel ders/seans veren eğitmenler</p>
+        </div>
+        <div class="profile-card reveal">
+          <div class="profile-icon">🏃</div>
+          <h4>Bireysel Çalışan Atlet</h4>
+          <p>Sponsorluk, ödül veya etkinlik geliri elde eden serbest sporcular</p>
+        </div>
+        <div class="profile-card reveal">
+          <div class="profile-icon">🏁</div>
+          <h4>Hakem</h4>
+          <p>Federasyon veya organizasyonlara hakemlik hizmeti veren kişiler</p>
+        </div>
+        <div class="profile-card reveal">
+          <div class="profile-icon">⏱️</div>
+          <h4>Zaman Tutucu</h4>
+          <p>Müsabaka ve organizasyonlarda görevli zaman tutucu / teknik görevliler</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-alt">
+    <div class="container">
+      <div class="section-head reveal">
+        <h2>Neden Mükellef Olmanız Gerekiyor?</h2>
+        <p>Bir işverene bağlı olmadan, kendi adınıza düzenli veya tekrarlı şekilde hizmet gelirleri elde ediyorsanız, vergi mevzuatı bu faaliyeti ticari/serbest meslek kazancı olarak değerlendirir.</p>
+        <div class="gold-rule"></div>
+      </div>
+      <div class="why-box reveal">
+        <h3>MacFit ve Benzeri Kurumlarda Çalışma Modeli</h3>
+        <p>Birçok spor kulübü, antrenör ve eğitmenlerle <strong>bağımsız hizmet sağlayıcı</strong> olarak çalışır; yani sizi SGK'lı bir personel olarak bordrolamaz. Bu durumda seans, paket veya saat üzerinden elde ettiğiniz gelir için kuruma fatura veya serbest meslek makbuzu düzenlemeniz gerekir — bu da ancak vergi dairesinde mükellefiyet açtırarak mümkündür.</p>
+        <ul class="why-list">
+          <li>Mükellefiyetiniz olmadan kuruma fatura/makbuz düzenleyemezsiniz, bu da ödemenizin gecikmesine veya kesilmesine yol açabilir.</li>
+          <li>Kayıt dışı çalışma, geriye dönük vergi cezası ve gecikme faizi riski taşır.</li>
+          <li>Mükellefiyet sonrası SGK (Bağkur) kaydınız da otomatik olarak takip edilir, emeklilik gün sayınız kesintisiz birikir.</li>
+          <li>Genç girişimci kazanç istisnası ve basit usul gibi avantajlardan, şartları taşıyorsanız faydalanabilirsiniz.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-white">
+    <div class="container">
+      <div class="section-head reveal">
+        <h2>Sunduğumuz Hizmetler</h2>
+        <p>Mükellefiyet açılışından düzenli beyannamelere kadar uçtan uca takip.</p>
+        <div class="gold-rule"></div>
+      </div>
+      <div class="service-grid">
+        <div class="service-box reveal">
+          <span class="num">01</span>
+          <h4>Mükellefiyet Açılışı</h4>
+          <p>Vergi dairesi kaydınızın açılması, faaliyet kodunuzun doğru seçilmesi ve usul (basit/gerçek) belirlemesi.</p>
+        </div>
+        <div class="service-box reveal">
+          <span class="num">02</span>
+          <h4>Fatura & E-Fatura Süreci</h4>
+          <p>Kurumlara (MacFit vb.) keseceğiniz fatura veya serbest meslek makbuzunun düzenli ve mevzuata uygun hazırlanması.</p>
+        </div>
+        <div class="service-box reveal">
+          <span class="num">03</span>
+          <h4>Gelir Vergisi & KDV</h4>
+          <p>Dönemsel KDV ve yıllık gelir vergisi beyannamelerinizin hazırlanması ve zamanında verilmesi.</p>
+        </div>
+        <div class="service-box reveal">
+          <span class="num">04</span>
+          <h4>SGK / Bağkur Takibi</h4>
+          <p>Bağkur kaydınızın açılması, prim takibi ve emeklilik gün sayınızın doğru işlenmesi.</p>
+        </div>
+        <div class="service-box reveal">
+          <span class="num">05</span>
+          <h4>Teşvik & İstisna Danışmanlığı</h4>
+          <p>Genç girişimci kazanç istisnası ve diğer vergisel avantajlardan faydalanma şartlarının değerlendirilmesi.</p>
+        </div>
+        <div class="service-box reveal">
+          <span class="num">06</span>
+          <h4>Defter & Kayıt Tutma</h4>
+          <p>Gelir-gider defterinizin düzenli tutulması ve yıl sonu mali tablolarının hazırlanması.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-alt">
+    <div class="container">
+      <div class="section-head reveal">
+        <h2>Süreç Nasıl İşliyor?</h2>
+        <p>İlk görüşmeden mükellefiyetinizin aktif hale gelmesine kadar 4 basit adım.</p>
+        <div class="gold-rule"></div>
+      </div>
+      <div class="steps reveal">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text">
+            <h4>Ön Görüşme</h4>
+            <p>Çalıştığınız kurum, gelir modeliniz ve ihtiyaçlarınızı birlikte değerlendiriyoruz.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text">
+            <h4>Mükellefiyet Açılışı</h4>
+            <p>Vergi dairesi ve gerekiyorsa Bağkur kaydınızı sizin adınıza başlatıyoruz.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text">
+            <h4>E-Fatura/Makbuz Kurulumu</h4>
+            <p>Kurumlara kesintisiz fatura düzenleyebilmeniz için sistemsel altyapınızı hazırlıyoruz.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-text">
+            <h4>Sürekli Takip</h4>
+            <p>Aylık/dönemsel beyannameleriniz ve SGK primleriniz tarafımızca düzenli takip edilir.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-white">
+    <div class="container">
+      <div class="section-head reveal">
+        <h2>Sık Sorulan Sorular</h2>
+        <div class="gold-rule"></div>
+      </div>
+      <div class="faq-wrap reveal">
+        <details>
+          <summary>MacFit'te eğitmenlik yapıyorum, gerçekten mükellef olmam şart mı?</summary>
+          <p>Kurumla bordrolu (SGK'lı personel) olarak değil, bağımsız hizmet sağlayıcı olarak çalışıyorsanız evet — elde ettiğiniz geliri yasal olarak faturalandırmanız için mükellefiyet açmanız gerekir.</p>
+        </details>
+        <details>
+          <summary>Basit usul mü, serbest meslek mi seçmeliyim?</summary>
+          <p>Bu, faaliyetinizin niteliğine ve gelir düzeyinize göre değişir. Görüşme sırasında durumunuzu değerlendirip size en uygun usulü birlikte belirliyoruz.</p>
+        </details>
+        <details>
+          <summary>Hem maaşlı bir işte çalışıp hem de mükellef olabilir miyim?</summary>
+          <p>Evet, bir işte SGK'lı çalışırken ek olarak bağımsız sporcu/eğitmenlik geliriniz için de mükellefiyet açmanız mümkündür. Bu durumda sigorta kollarınız ayrıca değerlendirilir.</p>
+        </details>
+        <details>
+          <summary>Genç girişimci istisnasından faydalanabilir miyim?</summary>
+          <p>29 yaşını doldurmamış olmak ve mevzuatta belirtilen diğer şartları taşımak kaydıyla belirli bir tutara kadar kazancınız gelir vergisinden istisna olabilir. Uygunluğunuzu birlikte değerlendiriyoruz.</p>
+        </details>
+        <details>
+          <summary>Mükellefiyet açılışı ne kadar sürer?</summary>
+          <p>Gerekli evraklar tamamlandığında genellikle 1-2 iş günü içinde vergi dairesi kaydınız aktif hale gelir.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-alt">
+    <div class="container">
+      <div class="cta-final reveal">
+        <h2>Mükellefiyetinizi Doğru Adımlarla Açtırın</h2>
+        <p>Spor sektöründeki çalışma modelinize uygun, mevzuata tam uyumlu bir başlangıç için bizimle iletişime geçin.</p>
+        <div class="hero-actions">
+          <a href="https://smmmyilmaz.com#iletisim" class="btn btn-gold">
+            İletişime Geç
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+          <a href="https://smmmyilmaz.com" class="btn btn-outline">Ana Sayfaya Dön</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <p>© 2026 <strong>Adem Yılmaz</strong> — Serbest Muhasebeci Mali Müşavir · <a href="https://smmmyilmaz.com">smmmyilmaz.com</a></p>
+  </footer>
+
+  <a class="whatsapp-fab" href="https://wa.me/905536194134" target="_blank" rel="noopener" aria-label="WhatsApp ile iletişim">
+    <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+  </a>
+
+  <script>
+    const revealEls = document.querySelectorAll('.reveal');
+    if ('IntersectionObserver' in window) {
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+      }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+      revealEls.forEach(el => obs.observe(el));
+    } else {
+      revealEls.forEach(el => el.classList.add('visible'));
+    }
+
+    document.querySelectorAll('.faq-wrap details').forEach(detail => {
+      detail.addEventListener('toggle', () => {
+        if (detail.open) {
+          document.querySelectorAll('.faq-wrap details[open]').forEach(other => { if (other !== detail) other.open = false; });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
