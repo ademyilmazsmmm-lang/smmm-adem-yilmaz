@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="index, follow">
   <meta name="author" content="Adem Yılmaz">
-  <title>Mali Müşavir Hesaplama Araçları | SMMM Adem Yılmaz</title>
-  <meta name="description" content="Ücretsiz mali müşavir hesaplama araçları: brüt-net maaş, gelir vergisi, KDV, stopaj, kurumlar vergisi, amortisman, kıdem ve ihbar tazminatı hesaplama. 2025 güncel.">
-  <meta name="keywords" content="maaş hesaplama, brüt net maaş, gelir vergisi hesaplama, kdv hesaplama, kıdem tazminatı, kurumlar vergisi">
+  <title>Mali Müşavir Hesaplama Araçları 2026 | SMMM Adem Yılmaz</title>
+  <meta name="description" content="Ücretsiz mali müşavir hesaplama araçları: brüt-net maaş, gelir vergisi, KDV, stopaj, tevkifat, damga vergisi, kurumlar vergisi, kıdem ve ihbar tazminatı. 2026 güncel.">
+  <meta name="keywords" content="maaş hesaplama, brüt net maaş, gelir vergisi, kdv hesaplama, kıdem tazminatı, damga vergisi, tevkifat">
   <link rel="canonical" href="https://smmmyilmaz.com/hesaplama.html">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://smmmyilmaz.com/hesaplama.html">
@@ -92,7 +92,6 @@
       width: 0%; transition: width 0.1s linear;
       box-shadow: 0 0 12px var(--gold-glow);
     }
-    /* Header */
     .header {
       position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
       background: rgba(8, 18, 34, 0.88);
@@ -131,7 +130,6 @@
     .menu-toggle.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 6px); }
     .menu-toggle.open span:nth-child(2) { opacity: 0; }
     .menu-toggle.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -6px); }
-    /* Page Hero */
     .page-hero {
       position: relative; padding: 140px 0 64px;
       background: var(--navy); overflow: hidden;
@@ -165,7 +163,6 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
     .page-hero-desc { color: rgba(255,255,255,0.72); font-size: 1rem; max-width: 560px; }
-    /* Trust strip */
     .trust-strip {
       background: var(--navy-light); border-bottom: 1px solid rgba(212,175,90,0.12);
       padding: 16px 0;
@@ -177,10 +174,8 @@
     }
     .trust-item i { color: var(--gold); }
     .trust-item strong { color: var(--gold-light); }
-    /* Main layout */
     .calc-section { padding: 56px 0 80px; }
     .calc-grid { display: grid; grid-template-columns: 1fr 280px; gap: 32px; align-items: start; }
-    /* Tabs */
     .tabs {
       display: flex; gap: 6px; margin-bottom: 24px;
       background: var(--white); padding: 8px;
@@ -189,16 +184,15 @@
       overflow-x: auto;
     }
     .tab-btn {
-      flex: 1; min-width: 110px;
+      flex: 1; min-width: 100px;
       padding: 12px 10px; border: none; background: transparent;
       border-radius: 10px; cursor: pointer; font-weight: 600;
       color: var(--navy); transition: var(--transition);
-      font-family: 'DM Sans', sans-serif; font-size: 0.84rem;
+      font-family: 'DM Sans', sans-serif; font-size: 0.82rem;
       white-space: nowrap;
     }
     .tab-btn:hover { background: var(--off-white); }
     .tab-btn.active { background: var(--navy); color: var(--gold-light); }
-    /* Calculator card */
     .calc-card {
       background: var(--white);
       border-radius: var(--radius-lg);
@@ -210,17 +204,10 @@
       content: ''; display: block; height: 4px;
       background: linear-gradient(90deg, var(--gold-dark), var(--gold-light), var(--gold-dark));
     }
-    .tab-content {
-      display: none; padding: 36px;
-    }
+    .tab-content { display: none; padding: 36px; }
     .tab-content.active { display: block; }
-    .card-title {
-      font-size: 1.5rem; margin-bottom: 6px;
-    }
-    .card-description {
-      color: var(--gray-600); font-size: 0.92rem; margin-bottom: 28px;
-    }
-    .form-group { margin-bottom: 4px; }
+    .card-title { font-size: 1.5rem; margin-bottom: 6px; }
+    .card-description { color: var(--gray-600); font-size: 0.92rem; margin-bottom: 28px; }
     label {
       display: block; font-weight: 600; margin-bottom: 8px;
       color: var(--navy); font-size: 0.9rem;
@@ -245,19 +232,31 @@
       line-height: 1.55;
     }
     .info-box strong { color: var(--navy); }
+    .btn-row { display: flex; gap: 10px; margin-top: 4px; }
     .btn-calc {
-      width: 100%; padding: 15px; border: none; border-radius: 12px;
+      flex: 1; padding: 15px; border: none; border-radius: 12px;
       background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark));
       color: var(--navy); font-weight: 700; font-size: 0.95rem;
       cursor: pointer; transition: var(--transition);
       font-family: 'DM Sans', sans-serif;
       display: flex; align-items: center; justify-content: center; gap: 10px;
     }
-    .btn-calc:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-gold);
+    .btn-calc:hover { transform: translateY(-2px); box-shadow: var(--shadow-gold); }
+    .btn-clear {
+      width: 52px; padding: 15px; border: none; border-radius: 12px;
+      background: var(--gray-100); color: var(--navy);
+      cursor: pointer; transition: var(--transition); font-size: 1rem;
     }
-    /* Results */
+    .btn-clear:hover { background: var(--gray-200); }
+    .btn-copy {
+      width: 100%; margin-top: 14px; padding: 10px;
+      border: 1px solid var(--gray-200); border-radius: 10px;
+      background: var(--off-white); color: var(--navy);
+      font-weight: 600; font-size: 0.85rem; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; transition: var(--transition);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-copy:hover { border-color: var(--gold); background: rgba(212,175,90,0.08); }
     .result {
       margin-top: 28px; padding: 24px;
       background: #fefcf7;
@@ -267,7 +266,7 @@
       display: none;
     }
     .result.show { display: block; animation: fadeIn 0.4s ease; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     .result h3 {
       font-size: 1.2rem; margin-bottom: 16px;
       font-family: 'DM Sans', sans-serif; font-weight: 700;
@@ -277,7 +276,7 @@
       padding: 10px 0; font-weight: 600; font-size: 0.92rem;
       border-bottom: 1px solid rgba(212,175,90,0.15);
     }
-    .result-row:last-child { border-bottom: none; }
+    .result-row:last-of-type { border-bottom: none; }
     .text-red { color: var(--danger); }
     .text-green { color: var(--success); }
     .text-lg { font-size: 1.1rem; }
@@ -287,7 +286,6 @@
       border: 1px solid var(--gray-200);
       font-size: 0.82rem; color: var(--gray-600); text-align: center;
     }
-    /* Sidebar */
     .sidebar { position: sticky; top: 100px; }
     .sidebar-card {
       background: var(--navy); color: var(--white);
@@ -331,7 +329,6 @@
     }
     .sidebar-mini a:hover { color: var(--gold-dark); }
     .sidebar-mini a:last-child { border-bottom: none; }
-    /* Footer */
     .footer {
       background: var(--navy); padding: 48px 0 32px;
       border-top: 3px solid transparent;
@@ -414,14 +411,14 @@
         <span>/</span>
         <span style="color: var(--gold-light);">Hesaplama Araçları</span>
       </nav>
-      <div class="page-badge"><i class="fas fa-calculator"></i> Ücretsiz · 2025 Güncel</div>
+      <div class="page-badge"><i class="fas fa-calculator"></i> Ücretsiz · 2026 Güncel · 5 Kategori</div>
       <h1>Mali Müşavir <em>Hesaplama</em> Araçları</h1>
-      <p class="page-hero-desc">Maaş, vergi, kurumsal ve işçi hakları hesaplamalarını hızlı ve kolay yapın. Sonuçlar bilgilendirme amaçlıdır.</p>
+      <p class="page-hero-desc">Maaş, vergi, kurumsal, işçi hakları ve hızlı hesaplamalar. Sonuçlar bilgilendirme amaçlıdır.</p>
     </div>
   </section>
   <div class="trust-strip">
     <div class="container trust-inner">
-      <div class="trust-item"><i class="fas fa-calculator"></i> <strong>4</strong> Hesaplama Kategorisi</div>
+      <div class="trust-item"><i class="fas fa-calculator"></i> <strong>5</strong> Hesaplama Kategorisi</div>
       <div class="trust-item"><i class="fas fa-award"></i> <strong>TÜRMOB</strong> Üyesi</div>
       <div class="trust-item"><i class="fas fa-shield-alt"></i> Ücretsiz Kullanım</div>
       <div class="trust-item"><i class="fas fa-clock"></i> <strong>18+</strong> Yıl Deneyim</div>
@@ -435,154 +432,159 @@
             <button class="tab-btn active" data-tab="maas"><i class="fas fa-money-bill-wave"></i> Maaş</button>
             <button class="tab-btn" data-tab="vergi"><i class="fas fa-chart-line"></i> Vergi</button>
             <button class="tab-btn" data-tab="kurumsal"><i class="fas fa-building"></i> Kurumsal</button>
-            <button class="tab-btn" data-tab="isci"><i class="fas fa-users"></i> İşçi Hakları</button>
+            <button class="tab-btn" data-tab="isci"><i class="fas fa-users"></i> İşçi</button>
+            <button class="tab-btn" data-tab="diger"><i class="fas fa-bolt"></i> Diğer</button>
           </div>
           <div class="calc-card">
             <!-- MAAŞ -->
             <div id="maas" class="tab-content active">
               <h2 class="card-title">Maaş Hesaplama</h2>
-              <p class="card-description">2025 güncel vergi dilimlerine göre Brüt ↔ Net hesaplama</p>
-              <div class="form-group">
-                <label>Hesaplama Türü</label>
-                <select id="maasHesaplamaTuru" onchange="toggleMaasInput()">
-                  <option value="brut-net">Brüt → Net</option>
-                  <option value="net-brut">Net → Brüt</option>
-                </select>
-              </div>
-              <div class="form-group" id="brutMaasGroup">
+              <p class="card-description">2026 güncel vergi dilimlerine göre Brüt ↔ Net hesaplama</p>
+              <label>Hesaplama Türü</label>
+              <select id="maasHesaplamaTuru" onchange="toggleMaasInput()">
+                <option value="brut-net">Brüt → Net</option>
+                <option value="net-brut">Net → Brüt</option>
+              </select>
+              <div id="brutMaasGroup">
                 <label>Brüt Maaş (₺)</label>
                 <input type="number" id="brutMaas" placeholder="Örn: 60000">
               </div>
-              <div class="form-group" id="netMaasGroup" style="display:none;">
+              <div id="netMaasGroup" style="display:none;">
                 <label>Net Maaş (₺)</label>
                 <input type="number" id="netMaas" placeholder="Örn: 45000">
               </div>
               <div class="info-box">
-                <strong>Not:</strong> 2022 yılından itibaren AGİ kalkmıştır. Asgari ücret kadar olan kazançlar gelir ve damga vergisinden istisnadır.
+                <strong>Not:</strong> AGİ kalkmıştır. Asgari ücret kadar kazançlar gelir ve damga vergisinden istisnadır.
               </div>
-              <button class="btn-calc" onclick="hesaplaMaas()">
-                <i class="fas fa-calculator"></i> Hesapla
-              </button>
+              <div class="btn-row">
+                <button class="btn-calc" onclick="hesaplaMaas()"><i class="fas fa-calculator"></i> Hesapla</button>
+                <button class="btn-clear" onclick="temizleTab('maas')" title="Temizle"><i class="fas fa-eraser"></i></button>
+              </div>
               <div id="maasSonuc" class="result"></div>
             </div>
             <!-- VERGİ -->
             <div id="vergi" class="tab-content">
               <h2 class="card-title">Vergi Hesaplama</h2>
               <p class="card-description">Gelir Vergisi, KDV ve Stopaj hesaplama</p>
-              <div class="form-group">
-                <label>Vergi Türü</label>
-                <select id="vergiTuru" onchange="toggleVergiInput()">
-                  <option value="gelir">Gelir Vergisi (Şahıs)</option>
-                  <option value="kdv">KDV Hesaplama</option>
-                  <option value="stopaj">Stopaj Hesaplama</option>
-                </select>
-              </div>
+              <label>Vergi Türü</label>
+              <select id="vergiTuru" onchange="toggleVergiInput()">
+                <option value="gelir">Gelir Vergisi (Şahıs)</option>
+                <option value="kdv">KDV Hesaplama</option>
+                <option value="stopaj">Stopaj Hesaplama</option>
+              </select>
               <div id="gelirVergiGroup">
-                <div class="form-group">
-                  <label>Yıllık Vergi Matrahı (₺)</label>
-                  <input type="number" id="gelirTutar" placeholder="Örn: 500000">
-                </div>
+                <label>Yıllık Vergi Matrahı (₺)</label>
+                <input type="number" id="gelirTutar" placeholder="Örn: 500000">
               </div>
               <div id="kdvGroup" style="display:none;">
-                <div class="form-group">
-                  <label>Tutar (₺)</label>
-                  <input type="number" id="kdvTutar" placeholder="Örn: 10000">
-                </div>
-                <div class="form-group">
-                  <label>KDV Oranı</label>
-                  <select id="kdvOrani">
-                    <option value="20">%20 (Genel)</option>
-                    <option value="10">%10 (Gıda/Tekstil)</option>
-                    <option value="1">%1 (Temel Gıda)</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>İşlem Türü</label>
-                  <select id="kdvDurum">
-                    <option value="haric">KDV Hariçten Hesapla</option>
-                    <option value="dahil">KDV Dahilden Ayır</option>
-                  </select>
-                </div>
+                <label>Tutar (₺)</label>
+                <input type="number" id="kdvTutar" placeholder="Örn: 10000">
+                <label>KDV Oranı</label>
+                <select id="kdvOrani">
+                  <option value="20">%20 (Genel)</option>
+                  <option value="10">%10 (Gıda/Tekstil)</option>
+                  <option value="1">%1 (Temel Gıda)</option>
+                </select>
+                <label>İşlem Türü</label>
+                <select id="kdvDurum">
+                  <option value="haric">KDV Hariçten Hesapla</option>
+                  <option value="dahil">KDV Dahilden Ayır</option>
+                </select>
               </div>
               <div id="stopajGroup" style="display:none;">
-                <div class="form-group">
-                  <label>Brüt Tutar (₺)</label>
-                  <input type="number" id="stopajTutar" placeholder="Örn: 5000">
-                </div>
-                <div class="form-group">
-                  <label>Stopaj Oranı</label>
-                  <select id="stopajOrani">
-                    <option value="20">%20 (Kira / Serbest Meslek)</option>
-                    <option value="15">%15 (Ücret)</option>
-                    <option value="10">%10 (Diğer)</option>
-                  </select>
-                </div>
+                <label>Brüt Tutar (₺)</label>
+                <input type="number" id="stopajTutar" placeholder="Örn: 5000">
+                <label>Stopaj Oranı</label>
+                <select id="stopajOrani">
+                  <option value="20">%20 (Kira / Serbest Meslek)</option>
+                  <option value="15">%15 (Ücret)</option>
+                  <option value="10">%10 (Diğer)</option>
+                </select>
               </div>
-              <button class="btn-calc" onclick="hesaplaVergi()">
-                <i class="fas fa-calculator"></i> Hesapla
-              </button>
+              <div class="btn-row">
+                <button class="btn-calc" onclick="hesaplaVergi()"><i class="fas fa-calculator"></i> Hesapla</button>
+                <button class="btn-clear" onclick="temizleTab('vergi')" title="Temizle"><i class="fas fa-eraser"></i></button>
+              </div>
               <div id="vergiSonuc" class="result"></div>
             </div>
             <!-- KURUMSAL -->
             <div id="kurumsal" class="tab-content">
               <h2 class="card-title">Kurumsal Hesaplamalar</h2>
               <p class="card-description">Kurumlar Vergisi ve Amortisman</p>
-              <div class="form-group">
-                <label>Hesaplama Türü</label>
-                <select id="kurumsalTuru" onchange="toggleKurumsalInput()">
-                  <option value="kurumlar">Kurumlar Vergisi</option>
-                  <option value="amortisman">Amortisman (Normal)</option>
-                </select>
-              </div>
+              <label>Hesaplama Türü</label>
+              <select id="kurumsalTuru" onchange="toggleKurumsalInput()">
+                <option value="kurumlar">Kurumlar Vergisi</option>
+                <option value="amortisman">Amortisman (Normal)</option>
+              </select>
               <div id="kurumsalKarGroup">
-                <div class="form-group">
-                  <label>Vergi Öncesi Kar (₺)</label>
-                  <input type="number" id="karTutari" placeholder="Örn: 1000000">
-                </div>
-                <div class="info-box">2025 Kurumlar Vergisi oranı genel olarak <strong>%25</strong> uygulanmaktadır.</div>
+                <label>Vergi Öncesi Kar (₺)</label>
+                <input type="number" id="karTutari" placeholder="Örn: 1000000">
+                <div class="info-box">2026 Kurumlar Vergisi oranı genel olarak <strong>%25</strong> uygulanmaktadır.</div>
               </div>
               <div id="amortismanGroup" style="display:none;">
-                <div class="form-group">
-                  <label>Varlık Alış Tutarı (₺)</label>
-                  <input type="number" id="amortismanTutar" placeholder="Örn: 100000">
-                </div>
-                <div class="form-group">
-                  <label>Faydalı Ömür (Yıl)</label>
-                  <input type="number" id="amortismanSure" placeholder="Örn: 5">
-                </div>
+                <label>Varlık Alış Tutarı (₺)</label>
+                <input type="number" id="amortismanTutar" placeholder="Örn: 100000">
+                <label>Faydalı Ömür (Yıl)</label>
+                <input type="number" id="amortismanSure" placeholder="Örn: 5">
               </div>
-              <button class="btn-calc" onclick="hesaplaKurumsal()">
-                <i class="fas fa-calculator"></i> Hesapla
-              </button>
+              <div class="btn-row">
+                <button class="btn-calc" onclick="hesaplaKurumsal()"><i class="fas fa-calculator"></i> Hesapla</button>
+                <button class="btn-clear" onclick="temizleTab('kurumsal')" title="Temizle"><i class="fas fa-eraser"></i></button>
+              </div>
               <div id="kurumsalSonuc" class="result"></div>
             </div>
             <!-- İŞÇİ -->
             <div id="isci" class="tab-content">
               <h2 class="card-title">İşçi Hakları</h2>
               <p class="card-description">Kıdem ve İhbar Tazminatı hesaplama</p>
-              <div class="form-group">
-                <label>Hesaplama Türü</label>
-                <select id="isciTuru" onchange="toggleIsciInput()">
-                  <option value="kidem">Kıdem Tazminatı</option>
-                  <option value="ihbar">İhbar Tazminatı</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Son Brüt Maaş (₺)</label>
-                <input type="number" id="isciBrutMaas" placeholder="Örn: 50000">
-              </div>
-              <div class="form-group">
-                <label>Toplam Çalışma Süresi</label>
-                <input type="number" id="calismaSuresiYil" placeholder="Yıl" step="1" min="0">
-                <input type="number" id="calismaSuresiAy" placeholder="Ay" step="1" min="0" max="11">
-              </div>
+              <label>Hesaplama Türü</label>
+              <select id="isciTuru" onchange="toggleIsciInput()">
+                <option value="kidem">Kıdem Tazminatı</option>
+                <option value="ihbar">İhbar Tazminatı</option>
+              </select>
+              <label>Son Brüt Maaş (₺)</label>
+              <input type="number" id="isciBrutMaas" placeholder="Örn: 50000">
+              <label>Çalışma Süresi (Yıl)</label>
+              <input type="number" id="calismaSuresiYil" placeholder="Yıl" step="1" min="0">
+              <label>Çalışma Süresi (Ay)</label>
+              <input type="number" id="calismaSuresiAy" placeholder="Ay" step="1" min="0" max="11">
               <div id="ihbarInfo" class="info-box" style="display:none;">
                 İhbar süresi: 0–6 ay → 2 hafta, 6–18 ay → 4 hafta, 18–36 ay → 6 hafta, 36+ ay → 8 hafta ücreti.
               </div>
-              <button class="btn-calc" onclick="hesaplaIsci()">
-                <i class="fas fa-calculator"></i> Hesapla
-              </button>
+              <div class="btn-row">
+                <button class="btn-calc" onclick="hesaplaIsci()"><i class="fas fa-calculator"></i> Hesapla</button>
+                <button class="btn-clear" onclick="temizleTab('isci')" title="Temizle"><i class="fas fa-eraser"></i></button>
+              </div>
               <div id="isciSonuc" class="result"></div>
+            </div>
+            <!-- DİĞER -->
+            <div id="diger" class="tab-content">
+              <h2 class="card-title">Hızlı Hesaplamalar</h2>
+              <p class="card-description">Damga vergisi, geçici vergi ve tevkifat</p>
+              <label>Hesaplama Türü</label>
+              <select id="digerTuru" onchange="toggleDigerInput()">
+                <option value="damga">Damga Vergisi (%0,759)</option>
+                <option value="gecici">Geçici Vergi Tahmini (%25)</option>
+                <option value="tevkifat">Tevkifat Hesaplama</option>
+              </select>
+              <div id="digerTutarGroup">
+                <label>Tutar (₺)</label>
+                <input type="number" id="digerTutar" placeholder="Örn: 50000">
+              </div>
+              <div id="tevkifatOranGroup" style="display:none;">
+                <label>Tevkifat Oranı</label>
+                <select id="tevkifatOrani">
+                  <option value="20">%20</option>
+                  <option value="10">%10</option>
+                  <option value="5">%5</option>
+                  <option value="1">%1</option>
+                </select>
+              </div>
+              <div class="btn-row">
+                <button class="btn-calc" onclick="hesaplaDiger()"><i class="fas fa-calculator"></i> Hesapla</button>
+                <button class="btn-clear" onclick="temizleTab('diger')" title="Temizle"><i class="fas fa-eraser"></i></button>
+              </div>
+              <div id="digerSonuc" class="result"></div>
             </div>
           </div>
           <div class="calc-disclaimer">
@@ -609,8 +611,8 @@
           <div class="sidebar-mini">
             <h4>Pratik Bilgiler</h4>
             <a href="/konut-kdv-oranlari.html">Konut KDV Oranları</a>
+            <a href="/emeklilik.html">Emeklilik Rehberi</a>
             <a href="/diyetisyen">SMHB Ruhsat Rehberi</a>
-            <a href="/#pratik-bilgiler">Tüm Pratik Bilgiler</a>
             <a href="/">Ana Sayfaya Dön</a>
           </div>
         </aside>
@@ -683,8 +685,37 @@
       const tur = document.getElementById('isciTuru').value;
       document.getElementById('ihbarInfo').style.display = tur === 'ihbar' ? 'block' : 'none';
     }
+    function toggleDigerInput() {
+      const tur = document.getElementById('digerTuru').value;
+      document.getElementById('tevkifatOranGroup').style.display = tur === 'tevkifat' ? 'block' : 'none';
+    }
     function fNum(n) {
       return parseFloat(n).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
+    }
+    function temizleTab(tabId) {
+      const tab = document.getElementById(tabId);
+      tab.querySelectorAll('input').forEach(i => i.value = '');
+      tab.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+      tab.querySelectorAll('.result').forEach(r => { r.innerHTML = ''; r.classList.remove('show'); });
+      if (tabId === 'maas') toggleMaasInput();
+      if (tabId === 'vergi') toggleVergiInput();
+      if (tabId === 'kurumsal') toggleKurumsalInput();
+      if (tabId === 'isci') toggleIsciInput();
+      if (tabId === 'diger') toggleDigerInput();
+    }
+    function kopyalaSonuc(id) {
+      const el = document.getElementById(id);
+      if (!el || !el.textContent.trim()) return;
+      navigator.clipboard.writeText(el.innerText).then(() => alert('Sonuç kopyalandı!'));
+    }
+    function gosterSonuc(id, baslik, satirlar) {
+      document.getElementById(id).innerHTML = `
+        <h3>${baslik}</h3>
+        ${satirlar}
+        <button class="btn-copy" onclick="kopyalaSonuc('${id}')">
+          <i class="fas fa-copy"></i> Sonucu Kopyala
+        </button>`;
+      document.getElementById(id).classList.add('show');
     }
     function hesaplaNetten(brut) {
       const sgk = brut * 0.14;
@@ -697,7 +728,7 @@
       const dv = brut * 0.00759;
       const istisna = 3000;
       const odenecekGvDv = Math.max(0, (gv + dv) - istisna);
-      return brut - sgk - issizlik - odenecekGvDv;
+      return { net: brut - sgk - issizlik - odenecekGvDv, sgk, issizlik, gv, dv, odenecekGvDv };
     }
     function hesaplaMaas() {
       const tur = document.getElementById('maasHesaplamaTuru').value;
@@ -709,28 +740,21 @@
         const netHedef = parseFloat(document.getElementById('netMaas').value);
         if (!netHedef) return alert('Lütfen net tutar giriniz.');
         brut = netHedef * 1.3;
-        for (let i = 0; i < 20; i++) {
-          brut += (netHedef - hesaplaNetten(brut)) * 1.4;
-        }
+        for (let i = 0; i < 20; i++) brut += (netHedef - hesaplaNetten(brut).net) * 1.4;
       }
-      const net = hesaplaNetten(brut);
-      const sgk = brut * 0.14;
-      const issizlik = brut * 0.01;
-      const kesinti = brut - net;
-      document.getElementById('maasSonuc').innerHTML = `
-        <h3>Hesaplama Sonucu</h3>
+      const r = hesaplaNetten(brut);
+      const kesinti = brut - r.net;
+      gosterSonuc('maasSonuc', 'Maaş Hesaplama Sonucu', `
         <div class="result-row"><span>Brüt Maaş</span><span>${fNum(brut)}</span></div>
-        <div class="result-row"><span class="text-red">SGK İşçi Payı (%14)</span><span class="text-red">-${fNum(sgk)}</span></div>
-        <div class="result-row"><span class="text-red">İşsizlik Sigortası (%1)</span><span class="text-red">-${fNum(issizlik)}</span></div>
+        <div class="result-row"><span class="text-red">SGK İşçi (%14)</span><span class="text-red">-${fNum(r.sgk)}</span></div>
+        <div class="result-row"><span class="text-red">İşsizlik (%1)</span><span class="text-red">-${fNum(r.issizlik)}</span></div>
+        <div class="result-row"><span class="text-red">Gelir Vergisi</span><span class="text-red">-${fNum(r.odenecekGvDv > r.dv ? r.odenecekGvDv - r.dv : r.odenecekGvDv)}</span></div>
+        <div class="result-row"><span class="text-red">Damga Vergisi</span><span class="text-red">-${fNum(r.dv)}</span></div>
         <div class="result-row"><span>Toplam Kesinti</span><span>${fNum(kesinti)}</span></div>
-        <div class="result-row"><span class="text-green text-lg">Net Ele Geçen</span><span class="text-green text-lg">${fNum(net)}</span></div>
-      `;
-      document.getElementById('maasSonuc').classList.add('show');
+        <div class="result-row"><span class="text-green text-lg">Net Ele Geçen</span><span class="text-green text-lg">${fNum(r.net)}</span></div>`);
     }
     function hesaplaVergi() {
       const tur = document.getElementById('vergiTuru').value;
-      const res = document.getElementById('vergiSonuc');
-      res.classList.add('show');
       if (tur === 'gelir') {
         const m = parseFloat(document.getElementById('gelirTutar').value);
         if (!m) return alert('Lütfen matrah giriniz.');
@@ -738,58 +762,53 @@
         if (m <= 110000) v = m * 0.15;
         else if (m <= 230000) v = 16500 + (m - 110000) * 0.20;
         else if (m <= 580000) v = 40500 + (m - 230000) * 0.27;
-        else v = 135000 + (m - 580000) * 0.35;
-        res.innerHTML = `<h3>Gelir Vergisi</h3>
+        else if (m <= 3000000) v = 135000 + (m - 580000) * 0.35;
+        else v = 982000 + (m - 3000000) * 0.40;
+        gosterSonuc('vergiSonuc', 'Gelir Vergisi', `
           <div class="result-row"><span>Yıllık Matrah</span><span>${fNum(m)}</span></div>
-          <div class="result-row"><span class="text-red">Ödenecek Vergi</span><span class="text-red">${fNum(v)}</span></div>`;
+          <div class="result-row"><span class="text-red">Ödenecek Vergi</span><span class="text-red">${fNum(v)}</span></div>`);
       } else if (tur === 'kdv') {
         const tutar = parseFloat(document.getElementById('kdvTutar').value);
         if (!tutar) return alert('Lütfen tutar giriniz.');
         const oran = parseFloat(document.getElementById('kdvOrani').value) / 100;
         const durum = document.getElementById('kdvDurum').value;
         let kdv, matrah, toplam;
-        if (durum === 'haric') {
-          matrah = tutar; kdv = tutar * oran; toplam = matrah + kdv;
-        } else {
-          toplam = tutar; matrah = tutar / (1 + oran); kdv = toplam - matrah;
-        }
-        res.innerHTML = `<h3>KDV Sonucu</h3>
+        if (durum === 'haric') { matrah = tutar; kdv = tutar * oran; toplam = matrah + kdv; }
+        else { toplam = tutar; matrah = tutar / (1 + oran); kdv = toplam - matrah; }
+        gosterSonuc('vergiSonuc', 'KDV Sonucu', `
           <div class="result-row"><span>Matrah</span><span>${fNum(matrah)}</span></div>
           <div class="result-row"><span>KDV Tutarı</span><span>${fNum(kdv)}</span></div>
-          <div class="result-row"><span class="text-green">Genel Toplam</span><span class="text-green">${fNum(toplam)}</span></div>`;
-      } else if (tur === 'stopaj') {
+          <div class="result-row"><span class="text-green">Genel Toplam</span><span class="text-green">${fNum(toplam)}</span></div>`);
+      } else {
         const tutar = parseFloat(document.getElementById('stopajTutar').value);
         if (!tutar) return alert('Lütfen tutar giriniz.');
         const oran = parseFloat(document.getElementById('stopajOrani').value) / 100;
         const stopaj = tutar * oran;
-        const net = tutar - stopaj;
-        res.innerHTML = `<h3>Stopaj Sonucu</h3>
+        gosterSonuc('vergiSonuc', 'Stopaj Sonucu', `
           <div class="result-row"><span>Brüt Tutar</span><span>${fNum(tutar)}</span></div>
           <div class="result-row"><span class="text-red">Stopaj Kesintisi</span><span class="text-red">-${fNum(stopaj)}</span></div>
-          <div class="result-row"><span class="text-green">Net Ödenecek</span><span class="text-green">${fNum(net)}</span></div>`;
+          <div class="result-row"><span class="text-green">Net Ödenecek</span><span class="text-green">${fNum(tutar - stopaj)}</span></div>`);
       }
     }
     function hesaplaKurumsal() {
       const tur = document.getElementById('kurumsalTuru').value;
-      const res = document.getElementById('kurumsalSonuc');
-      res.classList.add('show');
       if (tur === 'kurumlar') {
         const kar = parseFloat(document.getElementById('karTutari').value);
         if (!kar) return alert('Lütfen kar tutarı giriniz.');
         const vergi = kar * 0.25;
-        res.innerHTML = `<h3>Kurumlar Vergisi</h3>
+        gosterSonuc('kurumsalSonuc', 'Kurumlar Vergisi', `
           <div class="result-row"><span>Vergi Öncesi Kar</span><span>${fNum(kar)}</span></div>
-          <div class="result-row"><span class="text-red">Vergi Tutarı (%25)</span><span class="text-red">${fNum(vergi)}</span></div>
-          <div class="result-row"><span class="text-green">Net Kar</span><span class="text-green">${fNum(kar - vergi)}</span></div>`;
+          <div class="result-row"><span class="text-red">Vergi (%25)</span><span class="text-red">${fNum(vergi)}</span></div>
+          <div class="result-row"><span class="text-green">Net Kar</span><span class="text-green">${fNum(kar - vergi)}</span></div>`);
       } else {
         const tutar = parseFloat(document.getElementById('amortismanTutar').value);
         const yil = parseInt(document.getElementById('amortismanSure').value);
         if (!tutar || !yil) return alert('Lütfen tutar ve süre giriniz.');
         const yillik = tutar / yil;
-        res.innerHTML = `<h3>Amortisman</h3>
+        gosterSonuc('kurumsalSonuc', 'Amortisman', `
           <div class="result-row"><span>Varlık Tutarı</span><span>${fNum(tutar)}</span></div>
           <div class="result-row"><span>Faydalı Ömür</span><span>${yil} yıl</span></div>
-          <div class="result-row"><span class="text-green">Yıllık Amortisman</span><span class="text-green">${fNum(yillik)}</span></div>`;
+          <div class="result-row"><span class="text-green">Yıllık Amortisman</span><span class="text-green">${fNum(yillik)}</span></div>`);
       }
     }
     function hesaplaIsci() {
@@ -797,32 +816,53 @@
       const brut = parseFloat(document.getElementById('isciBrutMaas').value);
       const yil = parseInt(document.getElementById('calismaSuresiYil').value) || 0;
       const ay = parseInt(document.getElementById('calismaSuresiAy').value) || 0;
-      const res = document.getElementById('isciSonuc');
       if (!brut) return alert('Lütfen brüt maaş giriniz.');
       const toplamAy = yil * 12 + ay;
-      const toplamYil = toplamAy / 12;
-      res.classList.add('show');
       if (tur === 'kidem') {
+        const toplamYil = yil + ay / 12;
         const tavan = 55000;
         const esasMaas = Math.min(brut, tavan);
         const kidem = esasMaas * toplamYil;
-        res.innerHTML = `<h3>Kıdem Tazminatı</h3>
+        gosterSonuc('isciSonuc', 'Kıdem Tazminatı', `
           <div class="result-row"><span>Çalışma Süresi</span><span>${yil} yıl ${ay} ay</span></div>
           <div class="result-row"><span class="text-green">Kıdem Tazminatı (Brüt)</span><span class="text-green">${fNum(kidem)}</span></div>
-          <p style="font-size:0.8rem;color:var(--gray-600);margin-top:10px;">* Sadece damga vergisi (%0.759) kesintisi yapılacaktır.</p>`;
+          <p style="font-size:0.8rem;color:var(--gray-600);margin-top:10px;">* Sadece damga vergisi (%0,759) kesintisi yapılacaktır.</p>`);
       } else {
         let ihbarHafta = 2;
         if (toplamAy >= 36) ihbarHafta = 8;
         else if (toplamAy >= 18) ihbarHafta = 6;
         else if (toplamAy >= 6) ihbarHafta = 4;
         const ihbar = (brut / 30) * (ihbarHafta * 7);
-        res.innerHTML = `<h3>İhbar Tazminatı</h3>
+        gosterSonuc('isciSonuc', 'İhbar Tazminatı', `
           <div class="result-row"><span>Çalışma Süresi</span><span>${yil} yıl ${ay} ay</span></div>
           <div class="result-row"><span>İhbar Süresi</span><span>${ihbarHafta} hafta</span></div>
-          <div class="result-row"><span class="text-green">İhbar Tazminatı (Brüt)</span><span class="text-green">${fNum(ihbar)}</span></div>`;
+          <div class="result-row"><span class="text-green">İhbar Tazminatı (Brüt)</span><span class="text-green">${fNum(ihbar)}</span></div>`);
       }
     }
-    // UI helpers
+    function hesaplaDiger() {
+      const tur = document.getElementById('digerTuru').value;
+      const tutar = parseFloat(document.getElementById('digerTutar').value);
+      if (!tutar) return alert('Lütfen tutar giriniz.');
+      if (tur === 'damga') {
+        const v = tutar * 0.00759;
+        gosterSonuc('digerSonuc', 'Damga Vergisi', `
+          <div class="result-row"><span>Matrah</span><span>${fNum(tutar)}</span></div>
+          <div class="result-row"><span class="text-red">Damga Vergisi</span><span class="text-red">${fNum(v)}</span></div>`);
+      } else if (tur === 'gecici') {
+        const v = tutar * 0.25;
+        gosterSonuc('digerSonuc', 'Geçici Vergi Tahmini', `
+          <div class="result-row"><span>3 Aylık Kar Tahmini</span><span>${fNum(tutar)}</span></div>
+          <div class="result-row"><span class="text-red">Geçici Vergi (%25)</span><span class="text-red">${fNum(v)}</span></div>`);
+      } else {
+        const oran = parseFloat(document.getElementById('tevkifatOrani').value) / 100;
+        const tevkifat = tutar * oran;
+        gosterSonuc('digerSonuc', 'Tevkifat', `
+          <div class="result-row"><span>Brüt Tutar</span><span>${fNum(tutar)}</span></div>
+          <div class="result-row"><span class="text-red">Tevkifat</span><span class="text-red">-${fNum(tevkifat)}</span></div>
+          <div class="result-row"><span class="text-green">Net Ödenecek</span><span class="text-green">${fNum(tutar - tevkifat)}</span></div>`);
+      }
+    }
+    // UI
     const navToggle = document.getElementById('navToggle');
     const mainNav = document.getElementById('mainNav');
     navToggle?.addEventListener('click', () => {
