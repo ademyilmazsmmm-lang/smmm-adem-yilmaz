@@ -2,172 +2,297 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>Ümraniye Mali Müşavir | Tüm Mahalleler ve İstanbul İlçelerinde Hizmet</title>
-  <meta name="description" content="SMMM Adem Yılmaz olarak Ümraniye'nin tüm mahallelerinde ve İstanbul'un 39 ilçesinde muhasebe, vergi ve danışmanlık hizmeti sunuyorum. Ümraniye mali müşavir arayanlar için profesyonel destek.">
-  <meta name="keywords" content="Ümraniye mali müşavir, Ümraniye muhasebeci, Ümraniye vergi danışmanı, Adem Yılmaz, İstanbul mali müşavir, Ümraniye mahalleleri, İstanbul ilçeleri">
-
+  <title>Ümraniye Mali Müşavir | SMMM Adem Yılmaz - Tüm Mahalleler ve İstanbul İlçelerinde Hizmet</title>
+  <meta name="description" content="SMMM Adem Yılmaz olarak Ümraniye'nin tüm mahallelerinde ve İstanbul'un 39 ilçesinde muhasebe, vergi ve mali müşavirlik hizmeti sunuyorum. E-fatura, e-defter, şirket kuruluşu ve vergi danışmanlığı için hemen iletişime geçin.">
+  <meta name="keywords" content="Ümraniye mali müşavir, Ümraniye muhasebeci, Ümraniye vergi danışmanı, Adem Yılmaz, İstanbul mali müşavir, Ümraniye mahalleleri, İstanbul ilçeleri, e-fatura, SMMM">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
     :root{
-      --primary:#1565c0;
-      --primary-dark:#0d47a1;
+      --navy-950:#0b1523;
+      --navy-900:#0f2137;
+      --navy-800:#15304d;
+      --navy-700:#1c3f63;
+      --gold:#c9a227;
+      --gold-light:#e8c85a;
       --bg:#f4f6fb;
+      --ink:#1b2a3b;
+      --muted:#5c7086;
     }
     *{box-sizing:border-box;}
     body{
       margin:0;
-      font-family:Arial,Helvetica,sans-serif;
+      font-family:'Segoe UI',Arial,Helvetica,sans-serif;
       background:var(--bg);
-      color:#243447;
-      line-height:1.6;
+      color:var(--ink);
+      line-height:1.65;
     }
+    a{color:inherit;}
+
+    /* HEADER — anasayfayla aynı gezinme mantığı */
     header{
       background:#fff;
-      box-shadow:0 2px 6px rgba(0,0,0,.06);
+      box-shadow:0 2px 10px rgba(15,33,55,.08);
       position:sticky;
       top:0;
-      z-index:10;
+      z-index:20;
     }
     .top-bar{
-      max-width:1100px;
+      max-width:1140px;
       margin:0 auto;
-      padding:10px 20px;
+      padding:14px 20px;
       display:flex;
       align-items:center;
       justify-content:space-between;
+      gap:16px;
+      flex-wrap:wrap;
     }
     .logo{
+      display:flex;
+      align-items:center;
+      gap:10px;
       font-weight:700;
-      font-size:1.2rem;
-      color:var(--primary-dark);
+      font-size:1.05rem;
+      color:var(--navy-900);
+      text-decoration:none;
     }
-    .tagline{
-      font-size:.9rem;
-      color:#607d8b;
+    .logo-badge{
+      width:36px;height:36px;border-radius:10px;
+      background:linear-gradient(135deg,var(--navy-800),var(--navy-950));
+      color:var(--gold-light);
+      display:flex;align-items:center;justify-content:center;
+      font-weight:800;font-size:.85rem;letter-spacing:.5px;
     }
+    nav.main-links{display:flex;gap:18px;flex-wrap:wrap;}
+    nav.main-links a{
+      text-decoration:none;color:var(--muted);font-weight:600;font-size:.85rem;
+    }
+    .cta-nav{
+      text-decoration:none;
+      background:linear-gradient(135deg,var(--navy-800),var(--navy-950));
+      color:#fff;
+      padding:9px 16px;
+      border-radius:8px;
+      font-weight:700;
+      font-size:.85rem;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      box-shadow:0 2px 6px rgba(15,33,55,.25);
+    }
+
+    /* HERO — anasayfadaki koyu degrade + rozetler */
+    .hero{
+      background:radial-gradient(circle at 15% 20%, var(--navy-700), var(--navy-950) 70%);
+      color:#fff;
+      padding:48px 20px 40px;
+    }
+    .hero-inner{
+      max-width:1140px;
+      margin:0 auto;
+    }
+    .badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+    .gold-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:rgba(201,162,39,.15);
+      border:1px solid rgba(201,162,39,.4);
+      color:var(--gold-light);
+      font-size:.78rem;
+      font-weight:700;
+    }
+    .hero h1{
+      font-size:2rem;
+      margin:0 0 12px;
+      max-width:820px;
+      color:#fff;
+    }
+    .hero p.lead{
+      font-size:1rem;
+      color:#c9d6e6;
+      max-width:700px;
+      margin:0 0 22px;
+    }
+    .hero-stats{
+      display:flex;
+      gap:28px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+    .hero-stats div{font-size:.82rem;color:#9fb2c8;}
+    .hero-stats strong{
+      display:block;font-size:1.3rem;color:var(--gold-light);font-weight:800;
+    }
+
     main{
-      max-width:1100px;
-      margin:20px auto 40px;
+      max-width:1140px;
+      margin:0 auto 40px;
       padding:0 20px;
     }
-    h1{
-      font-size:1.9rem;
-      margin-bottom:.3rem;
-      color:var(--primary-dark);
-    }
     h2{
-      font-size:1.4rem;
-      margin-top:2rem;
-      color:#1b3557;
+      font-size:1.35rem;
+      margin-top:0;
+      color:var(--navy-900);
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    h2::before{
+      content:"";
+      width:6px;height:22px;border-radius:4px;
+      background:linear-gradient(180deg,var(--gold),var(--navy-800));
+      display:inline-block;
     }
     h3{
-      font-size:1.05rem;
-      margin-top:1.2rem;
-      color:#294766;
+      font-size:1.02rem;
+      margin-top:1.1rem;
+      color:var(--navy-800);
     }
-    .lead{
-      font-size:.98rem;
-      color:#455a64;
-    }
-    .pill{
-      display:inline-block;
-      padding:4px 10px;
-      border-radius:999px;
-      background:#e3f2fd;
-      color:var(--primary-dark);
-      font-size:.8rem;
-      margin-bottom:10px;
-    }
+    .section-lead{font-size:.92rem;color:var(--muted);margin-top:-4px;}
+
     .card{
       background:#fff;
-      border-radius:12px;
-      padding:18px 20px;
-      margin:18px 0;
-      box-shadow:0 2px 8px rgba(15,35,52,.06);
+      border-radius:14px;
+      padding:22px 24px;
+      margin:22px 0;
+      box-shadow:0 4px 16px rgba(15,33,55,.06);
+      border:1px solid #eef1f6;
     }
-    .info{
-      font-size:.9rem;
-      color:#546e7a;
-    }
-    .grid-2{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:14px 30px;
-    }
-    .grid-3{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px 20px;
-    }
-    @media(max-width:800px){
-      .grid-3{grid-template-columns:repeat(2,minmax(0,1fr));}
-    }
+    .info{font-size:.9rem;color:var(--muted);}
+
+    .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 30px;}
+    .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 20px;}
+    @media(max-width:800px){.grid-3{grid-template-columns:repeat(2,minmax(0,1fr));}}
     @media(max-width:600px){
       main{padding:0 12px;}
-      h1{font-size:1.55rem;}
+      .hero h1{font-size:1.5rem;}
       .grid-2,.grid-3{grid-template-columns:1fr;}
+      nav.main-links{display:none;}
     }
-    ul{
-      list-style:none;
-      padding-left:0;
-      margin:0;
-      font-size:.9rem;
-    }
+
+    ul{list-style:none;padding-left:0;margin:0;font-size:.9rem;}
     li{margin-bottom:4px;}
     .badge{
       display:inline-block;
-      background:#eef4ff;
-      color:#1a3e72;
-      padding:3px 8px;
+      background:#eef3fb;
+      color:var(--navy-800);
+      padding:4px 10px;
       border-radius:999px;
       font-size:.8rem;
       margin:2px 4px 2px 0;
       white-space:nowrap;
+      border:1px solid #e0e9f5;
     }
+
     .highlight{
-      background:#fff8e1;
-      border-left:4px solid #ffb300;
-      padding:10px 12px;
+      background:#fdf6e3;
+      border-left:4px solid var(--gold);
+      padding:12px 14px;
       border-radius:8px;
       font-size:.9rem;
-      margin-top:10px;
+      margin-top:12px;
     }
     .note{
-      background:#e3f2fd;
-      border-left:4px solid #1976d2;
-      padding:10px 12px;
+      background:#eef5ff;
+      border-left:4px solid var(--navy-700);
+      padding:12px 14px;
       border-radius:8px;
       font-size:.9rem;
-      margin-top:10px;
+      margin-top:12px;
+    }
+
+    .service-list{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px 20px;
+      font-size:.92rem;
+    }
+    @media(max-width:600px){.service-list{grid-template-columns:1fr;}}
+    .service-list li::before{content:"✓ ";color:var(--navy-800);font-weight:700;}
+
+    .anchor-links{
+      max-width:1140px;margin:0 auto;padding:16px 20px 0;
+      display:flex;gap:18px;flex-wrap:wrap;
     }
     .anchor-links a{
-      font-size:.86rem;
-      margin-right:10px;
-      text-decoration:none;
-      color:#1565c0;
+      font-size:.85rem;text-decoration:none;color:var(--navy-800);font-weight:600;
     }
+
+    /* İLETİŞİM — anasayfa stiliyle uyumlu */
+    .contact-section{
+      background:linear-gradient(135deg,var(--navy-900),var(--navy-950));
+      color:#fff;
+      border-radius:16px;
+      padding:32px 28px;
+      margin-top:30px;
+    }
+    .contact-section h2{color:#fff;}
+    .contact-section h2::before{background:linear-gradient(180deg,var(--gold),var(--gold-light));}
+    .contact-section .section-lead{color:#c9d6e6;}
+
+    .contact-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:16px;
+      margin-top:20px;
+    }
+    @media(max-width:800px){.contact-grid{grid-template-columns:1fr;}}
+    .contact-card{
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:12px;
+      padding:16px 18px;
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+    }
+    .contact-icon{font-size:1.3rem;line-height:1;}
+    .contact-card strong{display:block;font-size:.78rem;color:var(--gold-light);margin-bottom:4px;letter-spacing:.3px;}
+    .contact-card a, .contact-card span{color:#fff;font-size:.92rem;text-decoration:none;}
+
+    .cta-buttons{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px;}
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;
+      text-decoration:none;padding:11px 18px;border-radius:9px;
+      font-weight:700;font-size:.9rem;
+    }
+    .btn-whatsapp{background:#25d366;color:#0b1523;}
+    .btn-outline{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4);}
+
+    .map-embed{
+      margin-top:20px;border-radius:12px;overflow:hidden;
+      border:1px solid rgba(255,255,255,.15);
+    }
+    .map-embed iframe{width:100%;height:260px;border:0;display:block;}
+
     footer{
       font-size:.8rem;
-      color:#78909c;
+      color:#8298ad;
       text-align:center;
       padding:24px 10px 30px;
+      background:var(--navy-950);
     }
   </style>
 
-  <!-- Yerel işletme için temel JSON-LD (LocalBusiness) -->
+  <!-- Yerel işletme için JSON-LD (LocalBusiness / AccountingService) -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "AccountingService",
     "name": "SMMM Adem Yılmaz",
-    "description": "Ümraniye ve İstanbul genelinde mali müşavirlik, muhasebe ve vergi danışmanlığı.",
+    "description": "Ümraniye ve İstanbul genelinde mali müşavirlik, muhasebe, e-fatura/e-defter ve vergi danışmanlığı.",
     "address": {
       "@type": "PostalAddress",
+      "streetAddress": "Atatürk Mh. Sütçü Cd.",
       "addressLocality": "Ümraniye",
       "addressRegion": "İstanbul",
       "addressCountry": "TR"
     },
+    "telephone": "+905536194134",
+    "email": "adem@smmmyilmaz.com",
     "areaServed": [
       "Ümraniye",
       "İstanbul"
@@ -180,53 +305,88 @@
 
 <header>
   <div class="top-bar">
-    <div class="logo">
-      <a href="https://smmmyilmaz.com/" style="text-decoration: none; color: inherit;">SMMM Adem Yılmaz</a>
-    </div>
-    
-    <div style="display: flex; gap: 10px; align-items: center;">
-      <a href="https://smmmyilmaz.com/" style="text-decoration: none; color: #546e7a; font-weight: 600; font-size: 0.85rem;">
-        Ana Sayfa
-      </a>
+    <a class="logo" href="https://smmmyilmaz.com/">
+      <span class="logo-badge">AY</span>
+      SMMM Adem Yılmaz
+    </a>
 
-      <a href="https://smmmyilmaz.com/#contact" style="
-        text-decoration: none; 
-        background-color: #2e7d32; 
-        color: white; 
-        padding: 8px 14px; 
-        border-radius: 6px; 
-        font-weight: bold; 
-        font-size: 0.85rem; 
-        display: flex; 
-        align-items: center; 
-        gap: 6px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l2.28-2.28a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-        İLETİŞİME GEÇ
-      </a>
-    </div>
+    <nav class="main-links">
+      <a href="https://smmmyilmaz.com/#kurumsal">Kurumsal</a>
+      <a href="https://smmmyilmaz.com/#hizmetler">Hizmetlerimiz</a>
+      <a href="https://smmmyilmaz.com/#pratik-bilgiler">Pratik Bilgiler</a>
+      <a href="https://smmmyilmaz.com/hesaplama.html">Hesaplamalar</a>
+      <a href="https://smmmyilmaz.com/#sss">S.S.S.</a>
+    </nav>
+
+    <a href="#iletisim" class="cta-nav">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l2.28-2.28a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      İLETİŞİME GEÇ
+    </a>
   </div>
 </header>
 
-<main>
-  <span class="pill">Ümraniye &amp; İstanbul’da Mali Müşavir</span>
-  <h1>Ümraniye’nin Tüm Mahallelerinde ve İstanbul’un 39 İlçesinde Mali Müşavirlik</h1>
-  <p class="lead">
-    Ümraniye merkezli bir mali müşavir olarak; <strong>Ümraniye’nin tüm mahallelerinde</strong> ve 
-    <strong>İstanbul’un 39 ilçesinin tamamında</strong> şirket kuruluşu, muhasebe, beyanname, SGK ve vergi danışmanlığı hizmeti sunuyorum.
-    Ofise gelmenize gerek kalmadan, çoğu işlemi <b>online</b> olarak da tamamlayabiliyoruz.
-  </p>
-
-  <div class="anchor-links">
-    <a href="#umraniye-mahalleleri">Ümraniye Mahalleleri</a>
-    <a href="#istanbul-ilceleri">İstanbul İlçeleri</a>
+<section class="hero">
+  <div class="hero-inner">
+    <div class="badge-row">
+      <span class="gold-pill">★ TÜRMOB Üyesi</span>
+      <span class="gold-pill">3568 Sayılı Kanun</span>
+      <span class="gold-pill">Ümraniye / İstanbul</span>
+    </div>
+    <h1>Ümraniye'nin Tüm Mahallelerinde ve İstanbul'un 39 İlçesinde Mali Müşavirlik</h1>
+    <p class="lead">
+      Ümraniye merkezli bir Serbest Muhasebeci Mali Müşavir (SMMM) olarak; <strong>Ümraniye'nin tüm mahallelerinde</strong>
+      ve <strong>İstanbul'un 39 ilçesinin tamamında</strong> şirket kuruluşu, defter tutma, beyanname hazırlama,
+      SGK bordrolama ve vergi danışmanlığı hizmeti sunuyorum. Ofise gelmenize gerek kalmadan e-fatura, e-defter
+      ve e-arşiv süreçleri dahil çoğu işlemi tamamen <b>online</b> olarak da yürütebiliyoruz.
+    </p>
+    <div class="hero-stats">
+      <div><strong>18+</strong>Yıllık Sektörel Deneyim</div>
+      <div><strong>39</strong>İlçede Online Hizmet</div>
+      <div><strong>%100</strong>Gizlilik Garantisi</div>
+    </div>
   </div>
+</section>
+
+<div class="anchor-links">
+  <a href="#hizmetler">Hizmetlerim</a>
+  <a href="#umraniye-mahalleleri">Ümraniye Mahalleleri</a>
+  <a href="#istanbul-ilceleri">İstanbul İlçeleri</a>
+  <a href="#iletisim">İletişim</a>
+</div>
+
+<main>
+  <!-- HİZMETLER -->
+  <section id="hizmetler" class="card">
+    <h2>Sunduğum Mali Müşavirlik ve Muhasebe Hizmetleri</h2>
+    <p class="section-lead">
+      Şahıs işletmelerinden limited ve anonim şirketlere, e-ticaret girişimlerinden KOBİ'lere kadar farklı
+      ölçekteki mükelleflere aşağıdaki alanlarda uçtan uca destek sağlıyorum:
+    </p>
+    <ul class="service-list">
+      <li>Şirket ve şahıs işletmesi kuruluş işlemleri</li>
+      <li>Aylık defter tutma ve muhasebe kaydı</li>
+      <li>KDV, muhtasar, geçici ve yıllık gelir/kurumlar vergisi beyannameleri</li>
+      <li>SGK işe giriş-çıkış, bordro ve teşvik takibi</li>
+      <li>E-fatura, e-arşiv, e-defter ve e-irsaliye entegrasyonu</li>
+      <li>Vergi dairesi ve ticaret sicil süreçlerinin takibi</li>
+      <li>Mali müşavirlik ve karlılık/bütçe danışmanlığı</li>
+      <li>E-ticaret işletmeleri için özel muhasebe çözümleri</li>
+    </ul>
+
+    <div class="note">
+      <strong>Güncel gelişme:</strong> Gelir İdaresi Başkanlığı'nın yürürlüğe koyduğu düzenlemelerle e-fatura ve
+      e-arşiv kapsamı giderek genişliyor; 2025 hesap döneminde belirlenen ciro sınırını aşan mükellefler
+      1 Temmuz 2026'ya kadar e-fatura sistemine geçmek zorunda, e-ticaret ve gayrimenkul/motorlu taşıt sektöründe
+      ise çok daha düşük ciro eşikleri uygulanıyor. Hangi kapsama girdiğinizi analiz ederek geçiş sürecini sizin
+      adınıza yönetiyorum.
+    </div>
+  </section>
 
   <!-- ÜMRANİYE MAHALLELERİ -->
   <section id="umraniye-mahalleleri" class="card">
-    <h2>Ümraniye’nin Tüm Mahallelerinde Hizmet</h2>
-    <p class="info">
-      Aşağıdaki liste, Ümraniye’ye bağlı mahalle ve yerleşimlerin tamamını kapsayacak şekilde hazırlanmıştır. 
+    <h2>Ümraniye'nin Tüm Mahallelerinde Hizmet</h2>
+    <p class="section-lead">
+      Aşağıdaki liste, Ümraniye'ye bağlı mahalle ve yerleşimlerin tamamını kapsayacak şekilde hazırlanmıştır.
       <b>Her mahalle için mali müşavirlik, vergi ve muhasebe desteği</b> veriyorum.
     </p>
 
@@ -247,7 +407,6 @@
         <li><span class="badge">Esenkent Mahallesi</span></li>
         <li><span class="badge">Esenşehir Mahallesi</span></li>
       </ul>
-
       <ul>
         <li><span class="badge">Fatih Sultan Mehmet Mahallesi</span></li>
         <li><span class="badge">Finanskent Mahallesi</span></li>
@@ -264,7 +423,6 @@
         <li><span class="badge">Parseller Mahallesi</span></li>
         <li><span class="badge">Site Mahallesi</span></li>
       </ul>
-
       <ul>
         <li><span class="badge">Şerifali Mahallesi</span></li>
         <li><span class="badge">Tantavi Mahallesi</span></li>
@@ -280,18 +438,18 @@
     </div>
 
     <div class="highlight">
-      <strong>Örnek aramalar:</strong> “Ümraniye <b>Çakmak mahallesi mali müşavir</b>”, 
-      “Ümraniye <b>Şerifali muhasebeci</b>” veya “Ümraniye <b>Yukarıdudullu vergi danışmanı</b>” 
-      gibi tüm aramalar için konumunuza uygun hizmet sunabilirim.
+      <strong>Örnek aramalar:</strong> "Ümraniye <b>Çakmak mahallesi mali müşavir</b>",
+      "Ümraniye <b>Şerifali muhasebeci</b>" veya "Ümraniye <b>Yukarıdudullu vergi danışmanı</b>"
+      gibi tüm aramalar için konumunuza uygun, yerinde bilgi sahibi bir mali müşavirlik hizmeti sunabilirim.
     </div>
   </section>
 
   <!-- İSTANBUL İLÇELERİ -->
   <section id="istanbul-ilceleri" class="card">
-    <h2>İstanbul’un 39 İlçesinin Tamamında Online Destek</h2>
-    <p class="info">
-      Fiziksel ofisim Ümraniye’de olsa da, <strong>İstanbul’un tüm ilçelerine</strong> 
-      e-mail, telefon, uzaktan bağlantı ve e-dönüşüm sistemleri üzerinden muhasebe ve mali müşavirlik hizmeti verebiliyorum.
+    <h2>İstanbul'un 39 İlçesinin Tamamında Online Destek</h2>
+    <p class="section-lead">
+      Fiziksel ofisim Ümraniye'de olsa da, <strong>İstanbul'un tüm ilçelerine</strong> e-posta, telefon,
+      uzaktan bağlantı ve e-dönüşüm sistemleri üzerinden muhasebe ve mali müşavirlik hizmeti verebiliyorum.
     </p>
 
     <h3>İstanbul İlçeleri (Alfabetik)</h3>
@@ -318,7 +476,6 @@
         <li><span class="badge">Eyüpsultan</span></li>
         <li><span class="badge">Fatih</span></li>
       </ul>
-
       <ul>
         <li><span class="badge">Gaziosmanpaşa</span></li>
         <li><span class="badge">Güngören</span></li>
@@ -343,26 +500,78 @@
     </div>
 
     <div class="note">
-      <strong>Örnek Google aramaları:</strong> “Ataşehir mali müşavir”, “Üsküdar muhasebeci”, 
-      “Bağcılar vergi danışmanı”, “E-ticaret şirketi için İstanbul muhasebeci” gibi 
-      terimlerle arama yapan mükelleflere de uzaktan hizmet verebilmekteyim.
+      <strong>Örnek Google aramaları:</strong> "Ataşehir mali müşavir", "Üsküdar muhasebeci",
+      "Bağcılar vergi danışmanı", "E-ticaret şirketi için İstanbul muhasebeci" gibi terimlerle arama yapan
+      mükelleflere de tamamen uzaktan hizmet verebilmekteyim.
     </div>
   </section>
 
   <section class="card">
     <h2>Neden Ümraniye Merkezli Bir Mali Müşavirle Çalışmalısınız?</h2>
-    <ul>
-      <li>Ümraniye ve çevre ilçelerin ticari yapısını ve sektörlerini yakından bilirim.</li>
-      <li>Vergi dairesi, SGK, ticaret sicil ve belediye süreçlerinde pratik tecrübe.</li>
-      <li>E-fatura, e-defter, e-arşiv, e-irsaliye gibi süreçleri tamamen dijital yürütme imkânı.</li>
-      <li>Küçük esnaf, KOBİ, şahıs işletmesi ve sermaye şirketleri için farklı çözümler.</li>
+    <ul class="service-list">
+      <li>Ümraniye ve çevre ilçelerin ticari yapısını, sektörlerini ve esnaf dinamiklerini yakından bilirim</li>
+      <li>Vergi dairesi, SGK, ticaret sicil ve belediye süreçlerinde uygulamalı tecrübe</li>
+      <li>E-fatura, e-defter, e-arşiv, e-irsaliye gibi süreçleri tamamen dijital yürütme imkânı</li>
+      <li>Küçük esnaf, KOBİ, şahıs işletmesi ve sermaye şirketleri için ölçeğe uygun çözümler</li>
+      <li>Güncel mevzuat takibiyle ceza riskine karşı proaktif bilgilendirme</li>
+      <li>Şeffaf ücretlendirme ve düzenli raporlama</li>
     </ul>
+  </section>
+
+  <!-- İLETİŞİM -->
+  <section id="iletisim" class="contact-section">
+    <h2>Danışmanlık Alın</h2>
+    <p class="section-lead">
+      Ümraniye'de veya İstanbul'un herhangi bir ilçesinde ister yeni bir işletme kuruyor olun, ister mevcut
+      muhasebe sürecinizi daha güvenilir bir mali müşavire devretmek isteyin — durumunuzu birlikte
+      değerlendirip size özel bir yol haritası çıkaralım.
+    </p>
+
+    <div class="contact-grid">
+      <div class="contact-card">
+        <span class="contact-icon">📍</span>
+        <div>
+          <strong>Adres</strong>
+          <span>Atatürk Mh. Sütçü Cd.<br>Ümraniye / İstanbul</span>
+        </div>
+      </div>
+      <div class="contact-card">
+        <span class="contact-icon">📞</span>
+        <div>
+          <strong>Telefon</strong>
+          <a href="tel:905536194134">0553 619 41 34</a>
+        </div>
+      </div>
+      <div class="contact-card">
+        <span class="contact-icon">✉️</span>
+        <div>
+          <strong>E-posta</strong>
+          <a href="mailto:adem@smmmyilmaz.com">adem@smmmyilmaz.com</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="cta-buttons">
+      <a href="https://wa.me/905536194134" class="btn btn-whatsapp">
+        WhatsApp ile Yazın
+      </a>
+      <a href="https://maps.app.goo.gl/7JbYMK2JuFgPtxPL8" class="btn btn-outline">
+        Konuma Git
+      </a>
+      <a href="mailto:adem@smmmyilmaz.com" class="btn btn-outline">
+        E-posta Gönder
+      </a>
+    </div>
+
+    <div class="map-embed">
+      <iframe src="https://maps.google.com/maps?q=41.023735,29.093180&z=16&output=embed" loading="lazy" title="Ofis konumu"></iframe>
+    </div>
   </section>
 </main>
 
 <footer>
-  Bu sayfa, Ümraniye’nin tüm mahalleleri ile İstanbul’un 39 ilçesinde verilen mali müşavirlik hizmetlerinin
-  hangi bölgelere hitap ettiğini belirtmek amacıyla hazırlanmıştır.
+  Bu sayfa, Ümraniye'nin tüm mahalleleri ile İstanbul'un 39 ilçesinde verilen mali müşavirlik hizmetlerinin
+  hangi bölgelere hitap ettiğini belirtmek amacıyla hazırlanmıştır. © 2026 Adem Yılmaz — Serbest Muhasebeci Mali Müşavir.
 </footer>
 
 </body>
