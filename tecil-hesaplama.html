@@ -6,253 +6,86 @@
 <title>Tecil ve Taksitlendirme Ödeme Planı — SMMM Adem Yılmaz</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
-    --ink:#1B2A41;
-    --ink-soft:#3F5170;
-    --slate:#5C6B7A;
-    --paper:#FAF8F3;
-    --paper-line:#E4DFD3;
-    --gold:#A9812F;
-    --gold-soft:#F1E6C8;
-    --ok:#2F6B4F;
-    --warn:#9A4A2E;
+    --ink:#1B2A41; --ink-soft:#3F5170; --slate:#5C6B7A;
+    --paper:#FAF8F3; --paper-line:#E4DFD3;
+    --gold:#A9812F; --gold-soft:#F1E6C8;
+    --ok:#2F6B4F; --ok-soft:#e7f1ec;
+    --warn:#9A4A2E; --warn-soft:#f5e8e3;
     --white:#fff;
   }
   *{box-sizing:border-box;}
-  body{
-    margin:0;
-    background:#EDE9DF;
-    font-family:'Inter',system-ui,sans-serif;
-    color:var(--ink);
-    padding:32px 16px 80px;
-  }
-  .sheet{
-    max-width:880px;
-    margin:0 auto;
-    background:var(--paper);
-    border:1px solid var(--paper-line);
-    box-shadow:0 1px 3px rgba(27,42,65,0.08), 0 12px 32px rgba(27,42,65,0.10);
-  }
-  .letterhead{
-    padding:36px 44px 24px;
-    border-bottom:3px double var(--ink);
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-end;
-    gap:16px;
-  }
-  .letterhead h1{
-    font-family:'Source Serif 4',Georgia,serif;
-    font-weight:700;
-    font-size:24px;
-    margin:0 0 4px;
-    letter-spacing:0.2px;
-  }
-  .letterhead .role{
-    font-size:12.5px;
-    color:var(--slate);
-    letter-spacing:0.4px;
-    text-transform:uppercase;
-  }
-  .seal{
-    width:64px;height:64px;
-    border:2px solid var(--gold);
-    border-radius:50%;
-    display:flex;align-items:center;justify-content:center;
-    font-family:'Source Serif 4',serif;
-    font-size:11px;
-    color:var(--gold);
-    text-align:center;
-    line-height:1.15;
-    flex-shrink:0;
-    transform:rotate(-8deg);
-  }
-  .doc-title{
-    padding:20px 44px 4px;
-  }
-  .doc-title h2{
-    font-family:'Source Serif 4',Georgia,serif;
-    font-size:19px;
-    margin:0 0 2px;
-    color:var(--ink);
-  }
-  .doc-title p{
-    margin:0;
-    font-size:13px;
-    color:var(--slate);
-  }
-  .section{
-    padding:20px 44px;
-  }
-  .section + .section{
-    border-top:1px solid var(--paper-line);
-  }
-  .section h3{
-    font-family:'Source Serif 4',Georgia,serif;
-    font-size:14.5px;
-    text-transform:uppercase;
-    letter-spacing:0.6px;
-    color:var(--ink-soft);
-    margin:0 0 16px;
-    display:flex;
-    align-items:center;
-    gap:10px;
-  }
-  .section h3::after{
-    content:"";
-    flex:1;
-    height:1px;
-    background:var(--paper-line);
-  }
-  .grid{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:16px 20px;
-  }
+  body{margin:0;background:#EDE9DF;font-family:'Inter',system-ui,sans-serif;color:var(--ink);padding:32px 16px 80px;}
+  .sheet{max-width:960px;margin:0 auto;background:var(--paper);border:1px solid var(--paper-line);box-shadow:0 1px 3px rgba(27,42,65,.08),0 12px 32px rgba(27,42,65,.1);}
+  .letterhead{padding:36px 44px 24px;border-bottom:3px double var(--ink);display:flex;justify-content:space-between;align-items:flex-end;gap:16px;}
+  .letterhead h1{font-family:'Source Serif 4',Georgia,serif;font-weight:700;font-size:24px;margin:0 0 4px;}
+  .letterhead .role{font-size:12.5px;color:var(--slate);letter-spacing:.4px;text-transform:uppercase;}
+  .seal{width:64px;height:64px;border:2px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Source Serif 4',serif;font-size:11px;color:var(--gold);text-align:center;line-height:1.15;flex-shrink:0;transform:rotate(-8deg);}
+  .doc-title{padding:20px 44px 4px;}
+  .doc-title h2{font-family:'Source Serif 4',Georgia,serif;font-size:19px;margin:0 0 2px;}
+  .doc-title p{margin:0;font-size:13px;color:var(--slate);}
+  .section{padding:20px 44px;}
+  .section + .section{border-top:1px solid var(--paper-line);}
+  .section h3{font-family:'Source Serif 4',Georgia,serif;font-size:14.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-soft);margin:0 0 16px;display:flex;align-items:center;gap:10px;}
+  .section h3::after{content:"";flex:1;height:1px;background:var(--paper-line);}
+  .subhead{font-family:'Source Serif 4',serif;font-size:14px;color:var(--ink);margin:18px 0 10px;}
+  .subhead:first-child{margin-top:0;}
+  .group-block{border:1px solid var(--paper-line);padding:16px 18px;margin-bottom:14px;background:#FDFCF9;}
+  .group-block .tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:3px 8px;border-radius:2px;margin-bottom:10px;}
+  .tag.kdv{background:var(--gold-soft);color:#5a4718;}
+  .tag.vergi{background:#dfe6ee;color:var(--ink-soft);}
+  .tag.sgk{background:#e4e0f0;color:#4a3f6b;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 20px;}
   .field{display:flex;flex-direction:column;gap:6px;}
-  .field.full{grid-column:1 / -1;}
+  .field.full{grid-column:1/-1;}
   label{font-size:12.5px;font-weight:600;color:var(--ink-soft);}
   .hint{font-size:11.5px;color:var(--slate);font-weight:400;}
-  input, select{
-    font-family:'Inter',sans-serif;
-    font-size:14.5px;
-    padding:10px 12px;
-    border:1px solid #C9C2AE;
-    background:var(--white);
-    color:var(--ink);
-    border-radius:2px;
-  }
-  input:focus, select:focus{
-    outline:none;
-    border-color:var(--gold);
-    box-shadow:0 0 0 3px var(--gold-soft);
-  }
+  input, select{font-family:'Inter',sans-serif;font-size:14.5px;padding:10px 12px;border:1px solid #C9C2AE;background:var(--white);color:var(--ink);border-radius:2px;width:100%;}
+  input:focus, select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft);}
   .radio-row{display:flex;gap:18px;padding-top:2px;}
   .radio-row label{display:flex;align-items:center;gap:6px;font-weight:500;font-size:14px;color:var(--ink);}
   .radio-row input{width:auto;padding:0;}
   .rate-quick{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;}
-  .rate-btn{
-    font-family:'Inter',sans-serif;
-    font-size:12px;
-    padding:5px 10px;
-    border:1px solid #C9C2AE;
-    background:var(--white);
-    color:var(--ink-soft);
-    border-radius:20px;
-    cursor:pointer;
-  }
+  .rate-btn{font-family:'Inter',sans-serif;font-size:12px;padding:5px 10px;border:1px solid #C9C2AE;background:var(--white);color:var(--ink-soft);border-radius:20px;cursor:pointer;}
   .rate-btn:hover{border-color:var(--gold);color:var(--gold);}
-  .actions{
-    display:flex;
-    gap:12px;
-    padding:22px 44px 28px;
-    align-items:center;
-  }
-  button.primary{
-    font-family:'Inter',sans-serif;
-    font-weight:600;
-    font-size:14.5px;
-    padding:12px 26px;
-    background:var(--ink);
-    color:var(--paper);
-    border:none;
-    cursor:pointer;
-    letter-spacing:0.3px;
-  }
+  .actions{display:flex;gap:12px;padding:22px 44px 28px;align-items:center;}
+  button.primary{font-family:'Inter',sans-serif;font-weight:600;font-size:14.5px;padding:12px 26px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;}
   button.primary:hover{background:var(--ink-soft);}
-  button.secondary{
-    font-family:'Inter',sans-serif;
-    font-weight:600;
-    font-size:14px;
-    padding:12px 22px;
-    background:transparent;
-    color:var(--ink-soft);
-    border:1px solid #C9C2AE;
-    cursor:pointer;
-  }
+  button.secondary{font-family:'Inter',sans-serif;font-weight:600;font-size:14px;padding:12px 22px;background:transparent;color:var(--ink-soft);border:1px solid #C9C2AE;cursor:pointer;}
   button.secondary:hover{border-color:var(--ink);color:var(--ink);}
+  button.tiny{font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;padding:8px 14px;background:var(--ink-soft);color:#fff;border:none;cursor:pointer;}
+  button.tiny:hover{background:var(--ink);}
   #result{display:none;}
-  .summary-cards{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:1px;
-    background:var(--paper-line);
-    border:1px solid var(--paper-line);
-    margin-bottom:20px;
-  }
-  .card{
-    background:var(--white);
-    padding:14px 16px;
-  }
-  .card .label{font-size:11px;color:var(--slate);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;}
-  .card .value{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;color:var(--ink);}
-  .flag{
-    display:inline-block;
-    margin-top:20px;
-    padding:12px 16px;
-    font-size:13px;
-    border-left:3px solid var(--gold);
-    background:var(--gold-soft);
-    color:#5a4718;
-    width:100%;
-  }
-  .flag.ok{border-color:var(--ok);background:#e7f1ec;color:var(--ok);}
-  .flag.warn{border-color:var(--warn);background:#f5e8e3;color:var(--warn);}
-  table{
-    width:100%;
-    border-collapse:collapse;
-    margin-top:8px;
-    font-size:13.5px;
-  }
-  thead th{
-    text-align:right;
-    font-family:'Inter',sans-serif;
-    font-weight:600;
-    font-size:11px;
-    text-transform:uppercase;
-    letter-spacing:0.3px;
-    color:var(--paper);
-    background:var(--ink);
-    padding:10px 12px;
-  }
+  .summary-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--paper-line);border:1px solid var(--paper-line);margin-bottom:16px;}
+  .card{background:var(--white);padding:14px 16px;}
+  .card .label{font-size:11px;color:var(--slate);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+  .card .value{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;}
+  .flag{display:block;margin-top:10px;padding:12px 16px;font-size:13px;border-left:3px solid var(--gold);background:var(--gold-soft);color:#5a4718;}
+  .flag.ok{border-color:var(--ok);background:var(--ok-soft);color:var(--ok);}
+  .flag.warn{border-color:var(--warn);background:var(--warn-soft);color:var(--warn);}
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13.5px;}
+  thead th{text-align:right;font-family:'Inter',sans-serif;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--paper);background:var(--ink);padding:10px 12px;}
   thead th:first-child, tbody td:first-child{text-align:left;}
-  tbody td{
-    font-family:'IBM Plex Mono',monospace;
-    text-align:right;
-    padding:8px 12px;
-    border-bottom:1px solid var(--paper-line);
-  }
+  tbody td{font-family:'IBM Plex Mono',monospace;text-align:right;padding:8px 12px;border-bottom:1px solid var(--paper-line);}
   tbody tr:nth-child(even){background:#F4F1E9;}
-  tfoot td{
-    font-family:'IBM Plex Mono',monospace;
-    font-weight:600;
-    text-align:right;
-    padding:10px 12px;
-    border-top:2px solid var(--ink);
-    background:var(--gold-soft);
-  }
-  .notes{
-    font-size:13px;
-    line-height:1.65;
-    color:var(--ink-soft);
-  }
-  .notes h4{
-    font-family:'Source Serif 4',serif;
-    font-size:13.5px;
-    color:var(--ink);
-    margin:16px 0 4px;
-  }
+  tfoot td{font-family:'IBM Plex Mono',monospace;font-weight:600;text-align:right;padding:10px 12px;border-top:2px solid var(--ink);background:var(--gold-soft);}
+  .plan-title{font-family:'Source Serif 4',serif;font-size:14.5px;margin:22px 0 4px;}
+  .plan-title:first-child{margin-top:0;}
+  .notes{font-size:13px;line-height:1.65;color:var(--ink-soft);}
+  .notes h4{font-family:'Source Serif 4',serif;font-size:13.5px;color:var(--ink);margin:16px 0 4px;}
   .notes h4:first-child{margin-top:0;}
   .notes ul{margin:4px 0 0;padding-left:18px;}
   .notes li{margin-bottom:5px;}
+  .notes table.rate-table{margin:8px 0 4px;font-size:12.5px;}
+  .notes table.rate-table th{background:var(--ink-soft);}
+  .notes table.rate-table td{font-family:'Inter',sans-serif;text-align:left;}
   .src{font-size:11px;color:var(--slate);margin-top:14px;}
-  footer{
-    padding:16px 44px 30px;
-    font-size:11px;
-    color:var(--slate);
-    text-align:center;
-  }
+  footer{padding:16px 44px 30px;font-size:11px;color:var(--slate);text-align:center;}
+  .likidite-box{background:#fff;border:1px dashed #C9C2AE;padding:16px;margin-top:6px;}
+  .likidite-result{margin-top:12px;font-size:13.5px;}
+  .likidite-result strong{font-family:'IBM Plex Mono',monospace;}
   @media (max-width:640px){
     .grid, .summary-cards{grid-template-columns:1fr;}
     .letterhead{flex-direction:column;align-items:flex-start;}
@@ -261,14 +94,13 @@
   @media print{
     body{background:#fff;padding:0;}
     .sheet{border:none;box-shadow:none;max-width:100%;}
-    .actions{display:none;}
+    .actions, .no-print{display:none !important;}
     input, select{border:1px solid #999;}
     .card, thead th{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
 </style>
 </head>
 <body>
-
 <div class="sheet">
 
   <div class="letterhead">
@@ -281,46 +113,104 @@
 
   <div class="doc-title">
     <h2>Vergi ve SGK Borcu Tecil / Taksitlendirme Ödeme Planı</h2>
-    <p>6183 sayılı Kanun m.48 kapsamındaki kampanya ve genel tecil hükümlerine göre hesaplama</p>
+    <p>6183 sayılı Kanun m.48 ve Seri:B Sıra No:20 Tahsilat Genel Tebliği'ne göre borç türüne özel taksit sınırları ile hesaplama</p>
   </div>
 
   <div class="section">
-    <h3>Borç Bilgileri</h3>
+    <h3>Genel Bilgiler</h3>
     <div class="grid">
       <div class="field">
         <label>Müşteri / Mükellef Adı</label>
         <input type="text" id="musteri" placeholder="Örn. ABC Ticaret Ltd. Şti.">
-        <span class="hint">Ödeme planı çıktısında görünür, hesaplamayı etkilemez.</span>
-      </div>
-      <div class="field">
-        <label>Borç Türü</label>
-        <div class="radio-row" style="padding-top:10px;">
-          <label><input type="radio" name="borcTuru" value="vergi" checked> Vergi Dairesi</label>
-          <label><input type="radio" name="borcTuru" value="sgk"> SGK</label>
-        </div>
-      </div>
-      <div class="field">
-        <label>Toplam Borç (gecikme zammı/faizi dahil) — TL</label>
-        <input type="number" id="toplamBorc" placeholder="Örn. 850000" min="0" step="0.01">
-        <span class="hint">Vade tarihinden tecil talep tarihine kadar hesaplanan gecikme zammı dahil toplam tutar.</span>
       </div>
       <div class="field">
         <label>Tecil Talep (Başvuru) Tarihi</label>
         <input type="date" id="tecilTarihi">
       </div>
-      <div class="field">
-        <label>Taksit Sayısı</label>
-        <input type="number" id="taksitSayisi" min="1" max="72" value="24">
-        <span class="hint">Azami 72 taksit (çok zor durum derecesine göre kurum tarafından belirlenir).</span>
-      </div>
-      <div class="field">
+      <div class="field full">
         <label>Yıllık Tecil Faizi Oranı (%)</label>
-        <input type="number" id="tecilOrani" value="29" step="0.1" min="0">
+        <input type="number" id="tecilOrani" value="29" step="0.1" min="0" style="max-width:160px;">
         <div class="rate-quick">
           <button type="button" class="rate-btn" onclick="setRate(29)">%29 — Kampanya (31.08.2026'ya kadar başvuru)</button>
           <button type="button" class="rate-btn" onclick="setRate(39)">%39 — Standart oran</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Borç Kalemleri</h3>
+
+    <div class="group-block">
+      <span class="tag kdv">Vergi Dairesi — KDV / BSMV</span>
+      <div class="grid">
+        <div class="field">
+          <label>KDV ve BSMV Borcu (gecikme zammı dahil) — TL</label>
+          <input type="number" id="borcKdv" min="0" step="0.01" placeholder="0">
+          <span class="hint">KDV, BSMV ve bunlara bağlı vergi ziyaı cezası, gecikme faizi/zammı, damga vergisi dahil.</span>
+        </div>
+        <div class="field">
+          <label>Taksit Sayısı</label>
+          <select id="taksitKdv"></select>
+          <span class="hint">Azami 12 taksit — likidite oranından bağımsız, sabit sınırdır.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="group-block">
+      <span class="tag vergi">Vergi Dairesi — Diğer Vergi Borçları</span>
+      <div class="grid">
+        <div class="field">
+          <label>Diğer Vergi Borcu (gecikme zammı dahil) — TL</label>
+          <input type="number" id="borcDigerVergi" min="0" step="0.01" placeholder="0">
+          <span class="hint">Gelir/kurumlar vergisi, stopaj, damga vergisi (KDV/BSMV hariç) vb.</span>
+        </div>
+        <div class="field">
+          <label>Taksit Sayısı</label>
+          <select id="taksitDigerVergi"></select>
+          <span class="hint" id="hintDigerVergi">Bilanço girilmeden azami 36 taksit seçilebilir.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="group-block">
+      <span class="tag sgk">SGK</span>
+      <div class="grid">
+        <div class="field">
+          <label>SGK Prim / İdari Para Cezası Borcu — TL</label>
+          <input type="number" id="borcSgk" min="0" step="0.01" placeholder="0">
+        </div>
+        <div class="field">
+          <label>Taksit Sayısı</label>
+          <select id="taksitSgk"></select>
+          <span class="hint" id="hintSgk">Bilanço girilmeden azami 36 taksit seçilebilir.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Likidite Oranı (36 Taksitten Fazlası İçin Gerekli)</h3>
+    <p class="hint" style="margin:-8px 0 12px;">"Diğer Vergi Borçları" veya "SGK" için 36'dan fazla taksit (48 veya 72) seçmek istiyorsanız, likidite oranının bilançodan hesaplanması gerekir. Bilanço dosyanızı (xlsx/xls/csv) yükleyin veya tutarları elle girin.</p>
+    <div class="likidite-box">
+      <div class="grid">
+        <div class="field">
+          <label>Bilanço Dosyası Yükle (xlsx / xls / csv)</label>
+          <input type="file" id="bilancoDosya" accept=".xlsx,.xls,.csv" onchange="bilancoOku(this)">
+          <span class="hint">"Dönen Varlıklar" ve "Kısa Vadeli Yabancı Kaynaklar/Borçlar" satırları otomatik aranır; bulunamazsa aşağıya elle girin.</span>
+        </div>
+        <div></div>
+        <div class="field">
+          <label>Dönen Varlıklar Toplamı — TL</label>
+          <input type="number" id="donenVarliklar" min="0" step="0.01">
+        </div>
+        <div class="field">
+          <label>Kısa Vadeli Yabancı Kaynaklar (K.V. Borçlar) — TL</label>
+          <input type="number" id="kvYabanciKaynak" min="0" step="0.01">
+        </div>
+      </div>
+      <button type="button" class="tiny" style="margin-top:14px;" onclick="likiditeHesapla()">Likidite Oranını Hesapla ve Taksit Sınırlarını Güncelle</button>
+      <div class="likidite-result" id="likiditeSonuc"></div>
     </div>
   </div>
 
@@ -334,25 +224,16 @@
       <h3>Özet</h3>
       <div class="summary-cards">
         <div class="card"><div class="label">Toplam Borç</div><div class="value" id="ozetBorc">—</div></div>
-        <div class="card"><div class="label">Taksit Sayısı</div><div class="value" id="ozetTaksit">—</div></div>
         <div class="card"><div class="label">Toplam Tecil Faizi</div><div class="value" id="ozetFaiz">—</div></div>
         <div class="card"><div class="label">Genel Toplam Ödenecek</div><div class="value" id="ozetToplam">—</div></div>
+        <div class="card"><div class="label">Likidite Oranı</div><div class="value" id="ozetLikidite">—</div></div>
       </div>
-      <div id="teminatFlag"></div>
-      <div id="raporFlag"></div>
+      <div id="flagsBox"></div>
     </div>
 
-    <div class="section">
-      <h3>Ödeme Planı</h3>
-      <table>
-        <thead>
-          <tr><th>Taksit No</th><th>Vade Tarihi</th><th>Anapara (TL)</th><th>Tecil Faizi (TL)</th><th>Ödenecek Tutar (TL)</th></tr>
-        </thead>
-        <tbody id="planBody"></tbody>
-        <tfoot>
-          <tr><td colspan="2">TOPLAM</td><td id="tfAnapara"></td><td id="tfFaiz"></td><td id="tfToplam"></td></tr>
-        </tfoot>
-      </table>
+    <div class="section" id="planlarBox">
+      <h3>Ödeme Planları</h3>
+      <div id="planlarIcerik"></div>
     </div>
   </div>
 
@@ -361,137 +242,275 @@
     <div class="notes">
       <h4>Yasal dayanak</h4>
       <ul>
-        <li>4 Haziran 2026 tarihli 7852 sayılı Kanun ile 6183 sayılı Amme Alacaklarının Tahsil Usulü Hakkında Kanun'un 48. maddesindeki azami tecil/taksitlendirme süresi 36 aydan 72 aya çıkarılmış, teminatsız tecil tutarı 50.000 TL'den 1.000.000 TL'ye yükseltilmiştir.</li>
-        <li>13 Haziran 2026 tarihli 11414 sayılı Cumhurbaşkanı Kararı ile teminatsız tecil sınırı 1.000.000 TL'den 10.000.000 TL'ye yükseltilmiştir.</li>
-        <li>16 Haziran 2026 tarihli ve 33282 sayılı Resmî Gazete'de yayımlanan Tahsilat Genel Tebliği (Seri: B Sıra No: 20) ile vergi dairelerince takip edilen borçlara ilişkin uygulama usul ve esasları belirlenmiştir.</li>
-        <li>SGK tarafında aynı doğrultuda 2026/15 sayılı SGK Genelgesi ile prim borçları ve idari para cezaları için 72 aya kadar taksit ve teminatsız tecilde 10.000.000 TL sınırı uygulamaya konmuştur.</li>
+        <li>4 Haziran 2026 tarihli 7852 sayılı Kanun ile 6183 sayılı Kanun'un 48. maddesindeki azami tecil/taksitlendirme süresi 36 aydan 72 aya çıkarılmış, teminatsız tecil tutarı 50.000 TL'den 1.000.000 TL'ye yükseltilmiştir; 13 Haziran 2026 tarihli 11414 sayılı Cumhurbaşkanı Kararı ile bu sınır 10.000.000 TL'ye çıkarılmıştır.</li>
+        <li>16 Haziran 2026 tarihli 33282 sayılı Resmî Gazete'de yayımlanan Tahsilat Genel Tebliği (Seri: B Sıra No: 20) uygulama usul ve esaslarını belirlemiştir. SGK tarafında paralel düzenleme 2026/15 sayılı SGK Genelgesi ile yürürlüğe girmiştir.</li>
       </ul>
 
-      <h4>Kapsam ve tarihler</h4>
-      <ul>
-        <li>Kapsam: 5 Haziran 2026 itibarıyla (dahil) vadesi geldiği hâlde 16 Haziran 2026'ya kadar ödenmemiş, vergi dairelerince/SGK'ca takip edilen amme alacakları. ÖTV ve 2026 yılına ait mahsuben ödenecek geçici vergi kapsam dışıdır.</li>
-        <li>Son başvuru tarihi: 31 Ağustos 2026 (bu tarihe kadar başvuru ve ilk taksit ödemesi gerekir).</li>
-        <li>İlk taksit Eylül 2026'dan itibaren başlamak üzere aylık eşit taksitler hâlinde ödenir.</li>
-      </ul>
+      <h4>Taksit sayısı borç türüne göre farklıdır</h4>
+      <table class="rate-table">
+        <thead><tr><th>Borç Türü</th><th>Azami Taksit</th></tr></thead>
+        <tbody style="background:#fff;">
+          <tr><td style="padding:6px 12px;border-bottom:1px solid var(--paper-line);">KDV ve BSMV (bağlı ceza, gecikme zammı/faizi, damga vergisi dahil)</td><td style="padding:6px 12px;border-bottom:1px solid var(--paper-line);text-align:right;">12 ay — likidite oranından bağımsız sabit sınır</td></tr>
+          <tr><td style="padding:6px 12px;border-bottom:1px solid var(--paper-line);">Likidite oranı ≥ 0,50 olan diğer vergi/SGK borçları</td><td style="padding:6px 12px;border-bottom:1px solid var(--paper-line);text-align:right;">36 ay</td></tr>
+          <tr><td style="padding:6px 12px;border-bottom:1px solid var(--paper-line);">Likidite oranı 0,30 – 0,50 arası</td><td style="padding:6px 12px;border-bottom:1px solid var(--paper-line);text-align:right;">48 ay</td></tr>
+          <tr><td style="padding:6px 12px;">Likidite oranı ≤ 0,30 veya bilanço/mizan sunmayan mükellef</td><td style="padding:6px 12px;text-align:right;">72 ay</td></tr>
+        </tbody>
+      </table>
+      <p class="hint">Likidite oranı = Dönen Varlıklar / Kısa Vadeli Yabancı Kaynaklar (Kısa Vadeli Borçlar). Bilanço veya mizan sunmayan ya da faal mükellefiyeti bulunmayan borçlular için azami süre 48 aydır.</p>
 
       <h4>Tecil faizi oranı</h4>
       <ul>
         <li>6183 sayılı Kanun m.48 kapsamında genel/daimi tecil faizi 13 Kasım 2025'ten itibaren yıllık %39'dur.</li>
-        <li>31 Ağustos 2026'ya kadar yapılan ve süresinde ilk taksiti ödenen başvurularda indirimli oran olan yıllık %29 tecil faizi uygulanır. Bu tarihten sonraki başvurularda standart %39 oranı geçerlidir.</li>
+        <li>31 Ağustos 2026'ya kadar başvurup ilk taksiti süresinde ödeyenlere indirimli yıllık %29 tecil faizi uygulanır; bu tarihten sonraki başvurularda %39 geçerlidir.</li>
       </ul>
 
       <h4>Teminat gerekmeyen borç tutarı</h4>
       <ul>
-        <li>10.000.000 TL'ye kadar (bu tutar dahil) olan borçlarda teminat aranmaz.</li>
-        <li>10.000.000 TL'yi aşan borçlarda, aşan kısmın yarısı tutarında teminat (banka teminat mektubu, gayrimenkul ipoteği vb.) istenir.</li>
-        <li>Bu sınır kampanya kapsamındaki geçici düzenlemedir; kampanya dışında kalan genel/daimi tecillerde (6183 m.48/A vergiye uyumlu mükellef tecili) teminatsız sınır 500.000 TL'dir.</li>
+        <li>Vergi dairesi ve SGK için ayrı ayrı değerlendirilmek üzere, 10.000.000 TL'ye kadar (dahil) teminat aranmaz; aşan kısmın yarısı kadar teminat istenir.</li>
+        <li>Bu sınır kampanya kapsamındaki geçici düzenlemedir; kampanya dışı genel/daimi tecillerde teminatsız sınır 500.000 TL'dir.</li>
       </ul>
 
-      <h4>Mali tablo ve rasyo (likidite oranı) ne zaman gerekir</h4>
+      <h4>Mali tablo ve rasyo (SMMM/YMM raporu) ne zaman gerekir</h4>
       <ul>
-        <li><strong>Vergi dairesi borçları:</strong> Borç türü bazında 100.000 TL'yi aşmayan borçlarda "çok zor durum" hâli Mali Durum Bildirim Formu'ndaki beyanla değerlendirilir. 100.000 TL üzerindeki borçlarda, çok zor durum tespiti 3568 sayılı Kanun'a göre ruhsatlı SMMM/YMM tarafından düzenlenen rapor ile (bilanço, mizan, likidite ve kaldıraç rasyoları) belgelendirilmelidir.</li>
-        <li><strong>SGK borçları:</strong> Borç türü bazında 500.000 TL'yi aşmayan borçlarda tespit Mali Durum Bildirim Formu ile Kurum tarafından yapılır. 500.000 TL üzerinde SMMM/YMM raporu ve mali tablolar zorunludur.</li>
-        <li>Likidite oranı (dönen varlıklar / kısa vadeli borçlar esaslı hesap) 0,50 ve altında ise azami 72 aya kadar taksit hakkı doğar; oran yükseldikçe azami taksit süresi kısalır.</li>
+        <li><strong>Vergi dairesi borçları:</strong> Borç türü bazında 100.000 TL'yi aşmayan borçlarda Mali Durum Bildirim Formu yeterlidir; üzerindeki borçlarda 3568 sayılı Kanun'a göre ruhsatlı SMMM/YMM raporu (bilanço, mizan, likidite ve kaldıraç rasyoları) zorunludur.</li>
+        <li><strong>SGK borçları:</strong> 500.000 TL'yi aşmayan borçlarda Mali Durum Bildirim Formu, üzerinde SMMM/YMM raporu ve mali tablolar zorunludur.</li>
+        <li>36 aydan fazla taksit talebinde likidite oranı zaten bilançoya dayandığından, bu durumda SMMM/YMM raporu fiilen her hâlükârda gerekir.</li>
       </ul>
 
       <h4>Diğer önemli hususlar</h4>
       <ul>
-        <li>Bir takvim yılında en fazla iki taksitin süresinde ödenmemesi/eksik ödenmesi tek başına tecili ihlal saymaz; ancak gecikilen tutar takip eden taksitle birlikte, ödeme tarihine göre hesaplanacak tecil faiziyle ödenmelidir.</li>
-        <li>Borcu yoktur yazısında borcun görünmemesi için tecil edilen tutarın en az %10'unun ödenmiş olması gerekir.</li>
+        <li>Bir takvim yılında en fazla iki taksitin süresinde ödenmemesi/eksik ödenmesi tek başına tecili ihlal saymaz; gecikilen tutar, takip eden taksitle birlikte ödeme tarihine göre hesaplanacak tecil faiziyle ödenmelidir.</li>
+        <li>"Borcu yoktur" yazısında borcun görünmemesi için tecil edilen tutarın en az %10'unun ödenmiş olması gerekir.</li>
         <li>Bu düzenleme bir vergi affı değildir; borç aslı silinmez, sadece vade uzatılır ve tecil faizi uygulanır.</li>
       </ul>
 
-      <div class="src">Kaynaklar: EY Türkiye (ey.com/tr_tr, 19 Haz 2026), KPMG Vergi, Vergide Gündem/EY Sirküleri, TÜRMOB e-kütüphane, SGK 2026/15 sayılı Genelge özetleri. Mevzuat sık değişebildiğinden başvuru öncesi güncel tebliğ/genelge metninin teyit edilmesi önerilir.</div>
+      <div class="src">Kaynaklar: EY Türkiye, KPMG Vergi, PKF İstanbul, TÜRMOB e-kütüphane, Vergi Denetim Danışmanlık ve YMM A.Ş., SGK 2026/15 sayılı Genelge özetleri. Mevzuat sık değişebildiğinden başvuru öncesi güncel tebliğ/genelge metninin teyit edilmesi önerilir.</div>
     </div>
   </div>
 
-  <footer>
-    Bu araç bilgilendirme amaçlıdır; nihai tecil kararı ilgili vergi dairesi/SGK ünitesine aittir. — SMMM Adem Yılmaz
-  </footer>
-
+  <footer>Bu araç bilgilendirme amaçlıdır; nihai tecil kararı ilgili vergi dairesi/SGK ünitesine aittir. — SMMM Adem Yılmaz</footer>
 </div>
 
 <script>
+var likiditeOrani = null; // null = hesaplanmadı
+var tierMax = 36; // bilanço yoksa varsayılan azami
+
 document.getElementById('tecilTarihi').valueAsDate = new Date();
 
 function setRate(r){ document.getElementById('tecilOrani').value = r; }
 
-function fmt(n){
-  return n.toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2});
+function fmt(n){ return n.toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+function fillSelect(id, max, def){
+  var sel = document.getElementById(id);
+  var current = sel.value ? parseInt(sel.value) : def;
+  sel.innerHTML = '';
+  for(var i=1;i<=max;i++){
+    var opt = document.createElement('option');
+    opt.value = i; opt.textContent = i + ' taksit';
+    sel.appendChild(opt);
+  }
+  sel.value = Math.min(current || def, max);
+}
+
+function refreshSelects(){
+  fillSelect('taksitKdv', 12, 12);
+  fillSelect('taksitDigerVergi', tierMax, tierMax);
+  fillSelect('taksitSgk', tierMax, tierMax);
+}
+refreshSelects();
+
+function parseTRNumber(v){
+  if(v === null || v === undefined || v === '') return null;
+  if(typeof v === 'number') return v;
+  var s = String(v).trim();
+  s = s.replace(/[^0-9.,-]/g,'');
+  if(s.indexOf(',') > -1 && s.indexOf('.') > -1){
+    s = s.replace(/\./g,'').replace(',', '.');
+  } else if(s.indexOf(',') > -1){
+    s = s.replace(',', '.');
+  }
+  var n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+
+function normalize(s){
+  return String(s).toLocaleUpperCase('tr-TR')
+    .replace(/İ/g,'I').replace(/I/g,'I').replace(/Ü/g,'U').replace(/Ö/g,'O').replace(/Ş/g,'S').replace(/Ç/g,'C').replace(/Ğ/g,'G');
+}
+
+function bilancoOku(input){
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var data = new Uint8Array(e.target.result);
+      var wb = XLSX.read(data, {type:'array'});
+      var sheet = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+
+      var donenVarliklar = null, kvYabanci = null;
+
+      rows.forEach(function(row){
+        var rowText = row.map(function(c){return c===null||c===undefined?'':String(c);}).join(' ');
+        var norm = normalize(rowText);
+        var nums = row.map(parseTRNumber).filter(function(n){return n !== null;});
+        var lastNum = nums.length ? nums[nums.length-1] : null;
+
+        if(donenVarliklar === null && norm.indexOf('DONEN VARLIK') > -1 && lastNum !== null){
+          donenVarliklar = lastNum;
+        }
+        if(kvYabanci === null && (norm.indexOf('KISA VADELI YABANCI KAYNAK') > -1 || norm.indexOf('KISA VADELI BORC') > -1) && lastNum !== null){
+          kvYabanci = lastNum;
+        }
+      });
+
+      var msg = '';
+      if(donenVarliklar !== null){ document.getElementById('donenVarliklar').value = donenVarliklar; msg += 'Dönen Varlıklar: ' + fmt(donenVarliklar) + ' TL bulundu. '; }
+      else { msg += 'Dönen Varlıklar satırı otomatik bulunamadı, lütfen elle girin. '; }
+      if(kvYabanci !== null){ document.getElementById('kvYabanciKaynak').value = kvYabanci; msg += 'Kısa Vadeli Yabancı Kaynaklar: ' + fmt(kvYabanci) + ' TL bulundu.'; }
+      else { msg += 'Kısa Vadeli Yabancı Kaynaklar satırı otomatik bulunamadı, lütfen elle girin.'; }
+
+      document.getElementById('likiditeSonuc').innerHTML = '<div class="flag">' + msg + ' Değerleri kontrol edip "Likidite Oranını Hesapla" butonuna basın.</div>';
+    } catch(err){
+      document.getElementById('likiditeSonuc').innerHTML = '<div class="flag warn">Dosya otomatik okunamadı. Lütfen Dönen Varlıklar ve Kısa Vadeli Yabancı Kaynaklar tutarlarını elle girip hesaplayın.</div>';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function likiditeHesapla(){
+  var dv = parseFloat(document.getElementById('donenVarliklar').value);
+  var kv = parseFloat(document.getElementById('kvYabanciKaynak').value);
+  if(!dv || !kv || kv <= 0){
+    document.getElementById('likiditeSonuc').innerHTML = '<div class="flag warn">Likidite oranı hesaplanamadı — Dönen Varlıklar ve Kısa Vadeli Yabancı Kaynaklar tutarlarını giriniz.</div>';
+    return;
+  }
+  likiditeOrani = dv / kv;
+  if(likiditeOrani >= 0.50){ tierMax = 36; }
+  else if(likiditeOrani >= 0.30){ tierMax = 48; }
+  else { tierMax = 72; }
+
+  refreshSelects();
+  document.getElementById('hintDigerVergi').textContent = 'Likidite oranına göre azami ' + tierMax + ' taksit seçilebilir.';
+  document.getElementById('hintSgk').textContent = 'Likidite oranına göre azami ' + tierMax + ' taksit seçilebilir.';
+  document.getElementById('likiditeSonuc').innerHTML = '<div class="flag ok">Likidite Oranı = ' + likiditeOrani.toFixed(2) + ' → Azami taksit sayısı: ' + tierMax + ' ay olarak güncellendi.</div>';
+}
+
+function buildPlanRows(borc, n, oran, tecilTarihi){
+  var anaparaTaksit = Math.floor((borc / n) * 100) / 100;
+  var kalan = Math.round((borc - anaparaTaksit * n) * 100) / 100;
+  var rows = [], toplamAnapara = 0, toplamFaiz = 0, toplamOdenecek = 0;
+  for(var i=1;i<=n;i++){
+    var anapara = anaparaTaksit + (i===1 ? kalan : 0);
+    var faiz = anapara * (oran/100/12) * i;
+    var odenecek = anapara + faiz;
+    var vade = new Date(tecilTarihi);
+    vade.setMonth(vade.getMonth() + i);
+    toplamAnapara += anapara; toplamFaiz += faiz; toplamOdenecek += odenecek;
+    rows.push({no:i, vade:vade.toLocaleDateString('tr-TR'), anapara:anapara, faiz:faiz, odenecek:odenecek});
+  }
+  return {rows:rows, toplamAnapara:toplamAnapara, toplamFaiz:toplamFaiz, toplamOdenecek:toplamOdenecek};
+}
+
+function planHTML(title, plan){
+  var html = '<div class="plan-title">' + title + '</div><table><thead><tr><th>Taksit No</th><th>Vade Tarihi</th><th>Anapara (TL)</th><th>Tecil Faizi (TL)</th><th>Ödenecek Tutar (TL)</th></tr></thead><tbody>';
+  plan.rows.forEach(function(r){
+    html += '<tr><td>'+r.no+'</td><td>'+r.vade+'</td><td>'+fmt(r.anapara)+'</td><td>'+fmt(r.faiz)+'</td><td>'+fmt(r.odenecek)+'</td></tr>';
+  });
+  html += '</tbody><tfoot><tr><td colspan="2">TOPLAM</td><td>'+fmt(plan.toplamAnapara)+'</td><td>'+fmt(plan.toplamFaiz)+'</td><td>'+fmt(plan.toplamOdenecek)+'</td></tr></tfoot></table>';
+  return html;
 }
 
 function hesapla(){
-  var toplamBorc = parseFloat(document.getElementById('toplamBorc').value);
-  var n = parseInt(document.getElementById('taksitSayisi').value);
   var oran = parseFloat(document.getElementById('tecilOrani').value);
-  var borcTuru = document.querySelector('input[name="borcTuru"]:checked').value;
   var tecilTarihiStr = document.getElementById('tecilTarihi').value;
+  if(!tecilTarihiStr || isNaN(oran)){ alert('Lütfen tecil talep tarihini ve tecil faizi oranını giriniz.'); return; }
+  var tecilTarihi = new Date(tecilTarihiStr);
 
-  if(!toplamBorc || toplamBorc <= 0 || !n || n < 1 || n > 72 || !tecilTarihiStr || isNaN(oran)){
-    alert('Lütfen toplam borç, tecil tarihi, taksit sayısı (1-72) ve tecil faizi oranını doğru giriniz.');
+  var borcKdv = parseFloat(document.getElementById('borcKdv').value) || 0;
+  var borcDigerVergi = parseFloat(document.getElementById('borcDigerVergi').value) || 0;
+  var borcSgk = parseFloat(document.getElementById('borcSgk').value) || 0;
+
+  if(borcKdv <= 0 && borcDigerVergi <= 0 && borcSgk <= 0){
+    alert('Lütfen en az bir borç kalemine tutar giriniz.');
     return;
   }
 
-  var tecilTarihi = new Date(tecilTarihiStr);
-  var anaparaTaksit = Math.floor((toplamBorc / n) * 100) / 100;
-  var kalan = Math.round((toplamBorc - anaparaTaksit * n) * 100) / 100;
+  var taksitKdv = parseInt(document.getElementById('taksitKdv').value) || 1;
+  var taksitDigerVergi = parseInt(document.getElementById('taksitDigerVergi').value) || 1;
+  var taksitSgk = parseInt(document.getElementById('taksitSgk').value) || 1;
 
-  var rows = [];
-  var toplamAnapara = 0, toplamFaiz = 0, toplamOdenecek = 0;
-
-  for(var i = 1; i <= n; i++){
-    var anapara = anaparaTaksit + (i === 1 ? kalan : 0);
-    var faiz = anapara * (oran / 100 / 12) * i;
-    var odenecek = anapara + faiz;
-
-    var vade = new Date(tecilTarihi);
-    vade.setMonth(vade.getMonth() + i);
-
-    toplamAnapara += anapara;
-    toplamFaiz += faiz;
-    toplamOdenecek += odenecek;
-
-    rows.push({no:i, vade:vade.toLocaleDateString('tr-TR'), anapara:anapara, faiz:faiz, odenecek:odenecek});
+  // 36'dan fazla taksit için likidite oranı zorunlu kontrolü
+  if((taksitDigerVergi > 36 || taksitSgk > 36) && likiditeOrani === null){
+    alert('36 taksitten fazlasını seçtiniz. Önce bilançodan/elle likidite oranını hesaplamanız gerekir.');
+    return;
   }
 
-  var tbody = document.getElementById('planBody');
-  tbody.innerHTML = '';
-  rows.forEach(function(r){
-    var tr = document.createElement('tr');
-    tr.innerHTML = '<td>' + r.no + '</td><td>' + r.vade + '</td><td>' + fmt(r.anapara) + '</td><td>' + fmt(r.faiz) + '</td><td>' + fmt(r.odenecek) + '</td>';
-    tbody.appendChild(tr);
-  });
+  var planlarHtml = '';
+  var toplamBorc = 0, toplamFaizGenel = 0, toplamOdenecekGenel = 0;
+  var vergiToplam = 0, sgkToplam = 0;
 
-  document.getElementById('tfAnapara').textContent = fmt(toplamAnapara);
-  document.getElementById('tfFaiz').textContent = fmt(toplamFaiz);
-  document.getElementById('tfToplam').textContent = fmt(toplamOdenecek);
+  if(borcKdv > 0){
+    var p1 = buildPlanRows(borcKdv, taksitKdv, oran, tecilTarihi);
+    planlarHtml += planHTML('1) Vergi Dairesi — KDV / BSMV Ödeme Planı (' + taksitKdv + ' Taksit)', p1);
+    toplamBorc += borcKdv; toplamFaizGenel += p1.toplamFaiz; toplamOdenecekGenel += p1.toplamOdenecek; vergiToplam += borcKdv;
+  }
+  if(borcDigerVergi > 0){
+    var p2 = buildPlanRows(borcDigerVergi, taksitDigerVergi, oran, tecilTarihi);
+    planlarHtml += planHTML('2) Vergi Dairesi — Diğer Vergi Borçları Ödeme Planı (' + taksitDigerVergi + ' Taksit)', p2);
+    toplamBorc += borcDigerVergi; toplamFaizGenel += p2.toplamFaiz; toplamOdenecekGenel += p2.toplamOdenecek; vergiToplam += borcDigerVergi;
+  }
+  if(borcSgk > 0){
+    var p3 = buildPlanRows(borcSgk, taksitSgk, oran, tecilTarihi);
+    planlarHtml += planHTML('3) SGK Ödeme Planı (' + taksitSgk + ' Taksit)', p3);
+    toplamBorc += borcSgk; toplamFaizGenel += p3.toplamFaiz; toplamOdenecekGenel += p3.toplamOdenecek; sgkToplam += borcSgk;
+  }
 
+  document.getElementById('planlarIcerik').innerHTML = planlarHtml;
   document.getElementById('ozetBorc').textContent = fmt(toplamBorc) + ' TL';
-  document.getElementById('ozetTaksit').textContent = n + ' Ay';
-  document.getElementById('ozetFaiz').textContent = fmt(toplamFaiz) + ' TL';
-  document.getElementById('ozetToplam').textContent = fmt(toplamOdenecek) + ' TL';
+  document.getElementById('ozetFaiz').textContent = fmt(toplamFaizGenel) + ' TL';
+  document.getElementById('ozetToplam').textContent = fmt(toplamOdenecekGenel) + ' TL';
+  document.getElementById('ozetLikidite').textContent = likiditeOrani !== null ? likiditeOrani.toFixed(2) : 'Girilmedi';
 
-  var teminatDiv = document.getElementById('teminatFlag');
-  if(toplamBorc <= 10000000){
-    teminatDiv.innerHTML = '<div class="flag ok">Teminat gerekmez — Toplam borç 10.000.000 TL sınırının altında (kampanya kapsamı).</div>';
-  } else {
-    var teminatTutari = (toplamBorc - 10000000) / 2;
-    teminatDiv.innerHTML = '<div class="flag warn">Teminat gerekir — 10.000.000 TL\'yi aşan ' + fmt(toplamBorc - 10000000) + ' TL\'lik kısmın yarısı olan yaklaşık ' + fmt(teminatTutari) + ' TL tutarında teminat gösterilmesi gerekir.</div>';
+  var flags = '';
+  // Teminat — vergi dairesi toplamı
+  if(vergiToplam > 0){
+    if(vergiToplam <= 10000000){
+      flags += '<div class="flag ok">Vergi dairesi: Teminat gerekmez (toplam ' + fmt(vergiToplam) + ' TL, 10.000.000 TL sınırının altında).</div>';
+    } else {
+      flags += '<div class="flag warn">Vergi dairesi: 10.000.000 TL\'yi aşan ' + fmt(vergiToplam - 10000000) + ' TL\'nin yarısı olan yaklaşık ' + fmt((vergiToplam-10000000)/2) + ' TL teminat gerekir.</div>';
+    }
+    var esikVergi = 100000;
+    if(vergiToplam <= esikVergi){
+      flags += '<div class="flag ok">Vergi dairesi: Mali Durum Bildirim Formu yeterli (borç ' + fmt(esikVergi) + ' TL eşiğinin altında).</div>';
+    } else {
+      flags += '<div class="flag">Vergi dairesi: Borç ' + fmt(esikVergi) + ' TL eşiğini aştığından SMMM/YMM çok zor durum raporu ve mali tablolar gereklidir.</div>';
+    }
+  }
+  // Teminat — SGK toplamı
+  if(sgkToplam > 0){
+    if(sgkToplam <= 10000000){
+      flags += '<div class="flag ok">SGK: Teminat gerekmez (toplam ' + fmt(sgkToplam) + ' TL, 10.000.000 TL sınırının altında).</div>';
+    } else {
+      flags += '<div class="flag warn">SGK: 10.000.000 TL\'yi aşan ' + fmt(sgkToplam - 10000000) + ' TL\'nin yarısı olan yaklaşık ' + fmt((sgkToplam-10000000)/2) + ' TL teminat gerekir.</div>';
+    }
+    var esikSgk = 500000;
+    if(sgkToplam <= esikSgk){
+      flags += '<div class="flag ok">SGK: Mali Durum Bildirim Formu yeterli (borç ' + fmt(esikSgk) + ' TL eşiğinin altında).</div>';
+    } else {
+      flags += '<div class="flag">SGK: Borç ' + fmt(esikSgk) + ' TL eşiğini aştığından SMMM/YMM çok zor durum raporu ve mali tablolar gereklidir.</div>';
+    }
+  }
+  if(taksitKdv > 12){
+    flags += '<div class="flag warn">Uyarı: KDV/BSMV için 12 aydan fazla taksit mevzuata aykırıdır, lütfen düzeltin.</div>';
   }
 
-  var raporDiv = document.getElementById('raporFlag');
-  var esik = (borcTuru === 'vergi') ? 100000 : 500000;
-  var kurum = (borcTuru === 'vergi') ? 'vergi dairesi' : 'SGK';
-  if(toplamBorc <= esik){
-    raporDiv.innerHTML = '<div class="flag ok">Mali Durum Bildirim Formu yeterli — Borç, ' + kurum + ' için ' + fmt(esik) + ' TL eşiğinin altında olduğundan SMMM/YMM raporu ve mali tablo ibrazı zorunlu değildir.</div>';
-  } else {
-    raporDiv.innerHTML = '<div class="flag">SMMM/YMM raporu ve mali tablolar gerekir — Borç, ' + kurum + ' için ' + fmt(esik) + ' TL eşiğini aştığından çok zor durum tespiti; bilanço, mizan ile likidite ve kaldıraç rasyolarını içeren SMMM/YMM raporu ile belgelendirilmelidir.</div>';
-  }
-
+  document.getElementById('flagsBox').innerHTML = flags;
   document.getElementById('result').style.display = 'block';
   document.getElementById('result').scrollIntoView({behavior:'smooth'});
 }
 </script>
-
 </body>
 </html>
