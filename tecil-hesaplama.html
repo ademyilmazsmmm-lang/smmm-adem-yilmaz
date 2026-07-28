@@ -404,10 +404,11 @@ function buildPlanRows(borc, n, oran, tecilTarihi){
   var rows = [], toplamAnapara = 0, toplamFaiz = 0, toplamOdenecek = 0;
   for(var i=1;i<=n;i++){
     var anapara = anaparaTaksit + (i===1 ? kalan : 0);
-    var faiz = anapara * (oran/100/12) * i;
+    var vade = new Date(2026, 8 + i, 0); // her taksit için ilgili ayın son günü (Kanun: "ayın son günü itibarıyla"); i=1 → 30 Eylül 2026
+    var farkGun = Math.round((vade - tecilTarihi) / 86400000); // tecil talep tarihi ile taksit vadesi arasındaki gün farkı
+    var ayFarki = farkGun / 30.44; // ortalama ay uzunluğuna göre ay farkı
+    var faiz = anapara * (oran/100/12) * ayFarki;
     var odenecek = anapara + faiz;
-    var vade = new Date(tecilTarihi);
-    vade.setMonth(vade.getMonth() + i);
     toplamAnapara += anapara; toplamFaiz += faiz; toplamOdenecek += odenecek;
     rows.push({no:i, vade:vade.toLocaleDateString('tr-TR'), anapara:anapara, faiz:faiz, odenecek:odenecek});
   }
