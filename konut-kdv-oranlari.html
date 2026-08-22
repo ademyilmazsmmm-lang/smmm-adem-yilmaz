@@ -38,7 +38,7 @@
         "author": { "@type": "Person", "name": "Adem Yılmaz", "jobTitle": "Serbest Muhasebeci Mali Müşavir" },
         "publisher": { "@type": "Organization", "name": "SMMM Adem Yılmaz", "url": "https://smmmyilmaz.com" },
         "datePublished": "2025-01-01",
-        "dateModified": "2026-06-25",
+        "dateModified": "2026-08-22",
         "mainEntityOfPage": "https://smmmyilmaz.com/konut-kdv-oranlari.html"
       }
     ]
@@ -254,6 +254,10 @@
       font-size: 0.84rem;
     }
     td strong { color: var(--navy); font-size: 0.95rem; }
+    td .cond {
+      display: block; margin-top: 4px; font-size: 0.74rem; font-weight: 500;
+      color: var(--gray-600); line-height: 1.4;
+    }
   /* Legend pills */
     .legend-row {
       display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px;
@@ -279,6 +283,7 @@
       font-size: 0.9rem; color: var(--text);
     }
     .note-box i { color: var(--info-border); margin-right: 6px; }
+    .note-box + .note-box { margin-top: 14px; }
     /* Sidebar */
     .sidebar { position: sticky; top: 100px; }
     .sidebar-card {
@@ -470,7 +475,7 @@
                 </tr>
                 <!-- 2013 – 2016 -->
                 <tr>
-                  <td rowspan="4" class="sub">01.01.2013 – 31.12.2016</td>
+                  <td rowspan="5" class="sub">01.01.2013 – 31.12.2016</td>
                   <td rowspan="2">Büyükşehir Harici</td>
                   <td>150 m² altı</td>
                   <td>—</td>
@@ -482,24 +487,24 @@
                   <td><strong>%20</strong></td>
                 </tr>
                 <tr>
-                  <td rowspan="2">Büyükşehir</td>
-                  <td>150 m² altı</td>
-                  <td>500 TL'ye kadar</td>
+                  <td rowspan="3">Büyükşehir</td>
+                  <td>150 m² altı<span class="cond">(lüks veya 1. sınıf inşaat değilse)</span></td>
+                  <td>—</td>
                   <td><strong>%1</strong></td>
                 </tr>
                 <tr>
-                  <td>150 m² altı</td>
-                  <td>500 – 999,99 TL</td>
-                  <td><strong>%10</strong></td>
+                  <td>150 m² altı<span class="cond">(lüks veya 1. sınıf inşaat ise)</span></td>
+                  <td>500 TL'ye kadar: %1<br>500 – 999,99 TL: %10</td>
+                  <td><strong>%1 / %10</strong></td>
                 </tr>
                 <tr>
-                  <td colspan="3"></td>
+                  <td>150 m² altı<span class="cond">(lüks veya 1. sınıf inşaat ise)</span></td>
                   <td>1.000 TL ve üzeri</td>
                   <td><strong>%20</strong></td>
                 </tr>
                 <!-- 2017 – 2022 -->
                 <tr>
-                  <td rowspan="4" class="sub">01.01.2017 – 31.03.2022</td>
+                  <td rowspan="5" class="sub">01.01.2017 – 31.03.2022</td>
                   <td rowspan="2">Büyükşehir Harici</td>
                   <td>150 m² altı</td>
                   <td>—</td>
@@ -511,18 +516,18 @@
                   <td><strong>%20</strong></td>
                 </tr>
                 <tr>
-                  <td rowspan="2">Büyükşehir</td>
-                  <td>150 m² altı</td>
-                  <td>1.000 TL'ye kadar</td>
+                  <td rowspan="3">Büyükşehir</td>
+                  <td>150 m² altı<span class="cond">(lüks veya 1. sınıf inşaat değilse)</span></td>
+                  <td>—</td>
                   <td><strong>%1</strong></td>
                 </tr>
                 <tr>
-                  <td>150 m² altı</td>
-                  <td>1.000 – 1.999,99 TL</td>
-                  <td><strong>%10</strong></td>
+                  <td>150 m² altı<span class="cond">(lüks veya 1. sınıf inşaat ise)</span></td>
+                  <td>1.000 TL'ye kadar: %1<br>1.000 – 1.999,99 TL: %10</td>
+                  <td><strong>%1 / %10</strong></td>
                 </tr>
                 <tr>
-                  <td colspan="3"></td>
+                  <td>150 m² altı<span class="cond">(lüks veya 1. sınıf inşaat ise)</span></td>
                   <td>2.000 TL ve üzeri</td>
                   <td><strong>%20</strong></td>
                 </tr>
@@ -569,6 +574,13 @@
             <i class="fas fa-gavel"></i>
             Bu tablo <strong>3065 sayılı KDV Kanunu</strong>, ilgili BKK ve Cumhurbaşkanı kararları çerçevesinde hazırlanmıştır.
             Konut teslimi KDV hesaplaması proje bazında değişebilir; kesin sonuç için profesyonel danışmanlık almanız önerilir.
+          </div>
+          <div class="note-box">
+            <i class="fas fa-triangle-exclamation"></i>
+            <strong>Önemli:</strong> 01.01.2013 – 31.03.2022 döneminde, büyükşehirlerde arsa birim m² vergi değerine göre
+            uygulanan kademeli oran (%10/%20), yalnızca <strong>lüks veya birinci sınıf inşaat</strong> olarak
+            ruhsatlandırılan (ruhsatın sonradan revize edilip inşaat kalitesinin yükseltildiği haller dahil) konutlar
+            için geçerlidir. Bu niteliği taşımayan konutlarda, arsa değeri ne olursa olsun, 150 m² altı oran %1 olarak kalır.
           </div>
           <div class="cta-band">
             <h3>Konut KDV Hesaplamasında Destek Alın</h3>
@@ -684,3 +696,4 @@
   </script>
 </body>
 </html>
+
