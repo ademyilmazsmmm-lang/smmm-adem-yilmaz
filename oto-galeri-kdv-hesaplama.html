@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2. El Araç KDV Hesaplama | SMMM Adem Yılmaz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#ECE6D6;
+    --paper-panel:#F5F1E6;
+    --ink:#232017;
+    --ink-soft:#5B5644;
+    --navy:#1B2A22;
+    --navy-2:#233327;
+    --brass:#9C7A3C;
+    --brass-dark:#7A5E2C;
+    --line:#C9BFA1;
+    --stamp:#7A3A2E;
+    --good:#3E6B4F;
+    --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    background-image:
+      repeating-linear-gradient(0deg, rgba(0,0,0,0.015) 0px, rgba(0,0,0,0.015) 1px, transparent 1px, transparent 3px);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.55;
+    font-variant-numeric:tabular-nums;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:0 20px 80px;}
+
+  .topbar{
+    height:5px;
+    width:100%;
+    background:linear-gradient(90deg, var(--navy) 0%, var(--navy) 62%, var(--brass) 62%, var(--brass) 100%);
+  }
+
+  header.masthead{
+    padding:34px 0 20px;
+    border-bottom:2px solid var(--ink);
+    margin-bottom:34px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .masthead-left{max-width:480px;}
+  .firm{
+    font-family:'Source Serif 4', serif;
+    font-weight:700;
+    font-size:1.5rem;
+    letter-spacing:0.005em;
+    color:var(--navy);
+    margin:0 0 3px;
+  }
+  .firm span{color:var(--brass-dark);}
+  .firm-tag{
+    font-size:0.82rem;
+    color:var(--ink-soft);
+    margin:0;
+  }
+  .masthead-right{
+    text-align:right;
+    font-size:0.82rem;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace;
+    line-height:1.7;
+  }
+  .masthead-right a{
+    color:var(--navy);
+    text-decoration:none;
+    border-bottom:1px solid var(--brass);
+    padding-bottom:1px;
+  }
+  .masthead-right a:hover{color:var(--brass-dark);}
+
+  h1.title{
+    font-family:'Source Serif 4', serif;
+    font-weight:600;
+    font-size:2.05rem;
+    line-height:1.18;
+    color:var(--navy);
+    margin:0 0 10px;
+  }
+  p.subtitle{
+    color:var(--ink-soft);
+    font-size:1rem;
+    max-width:58ch;
+    margin:0 0 40px;
+  }
+  .law-ref{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.74rem;
+    color:var(--brass-dark);
+    background:rgba(156,122,60,0.1);
+    border:1px solid rgba(156,122,60,0.35);
+    padding:4px 10px;
+    border-radius:20px;
+    margin-bottom:22px;
+  }
+
+  .panel{
+    background:var(--paper-panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:30px 30px 32px;
+    margin-bottom:24px;
+    position:relative;
+    box-shadow:0 1px 0 rgba(35,32,23,0.04), 0 8px 20px -14px rgba(35,32,23,0.25);
+  }
+  .panel-title{
+    font-family:'Source Serif 4', serif;
+    font-weight:600;
+    font-size:1.12rem;
+    color:var(--navy);
+    margin:0 0 22px;
+    padding-bottom:13px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+  }
+  .panel-title .step{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.72rem;
+    color:var(--ink-soft);
+    font-weight:400;
+  }
+
+  .field{margin-bottom:22px;}
+  .field:last-child{margin-bottom:0;}
+  .field-label{
+    display:block;
+    font-size:0.92rem;
+    font-weight:500;
+    color:var(--ink);
+    margin-bottom:9px;
+  }
+  .field-hint{
+    font-size:0.8rem;
+    color:var(--ink-soft);
+    margin-top:6px;
+  }
+
+  .seg{
+    display:flex;
+    border:1px solid var(--navy);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .seg button{
+    flex:1;
+    padding:12px 10px;
+    background:var(--paper-panel);
+    border:none;
+    border-right:1px solid var(--navy);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-weight:500;
+    font-size:0.9rem;
+    color:var(--navy);
+    cursor:pointer;
+    transition:background 0.15s ease, color 0.15s ease;
+  }
+  .seg button:last-child{border-right:none;}
+  .seg button:hover:not(.active){background:#E4DCC3;}
+  .seg button.active{background:var(--navy); color:var(--paper-panel);}
+  .seg button:focus-visible, select:focus-visible, input:focus-visible{
+    outline:2px solid var(--brass); outline-offset:1px;
+  }
+
+  select.method{
+    width:100%;
+    padding:12px 40px 12px 14px;
+    background-color:var(--paper-panel);
+    border:1px solid var(--navy);
+    border-radius:var(--radius);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:0.92rem;
+    color:var(--ink);
+    appearance:none;
+    cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%231B2A22' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+  }
+  select.method:hover{background-color:#F0EBDA;}
+
+  .money{
+    position:relative;
+  }
+  .money::before{
+    content:"₺";
+    position:absolute;
+    left:14px; top:50%; transform:translateY(-50%);
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .money input{
+    width:100%;
+    padding:12px 14px 12px 32px;
+    background:var(--paper-panel);
+    border:1px solid var(--navy);
+    border-radius:var(--radius);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.98rem;
+    color:var(--ink);
+  }
+
+  /* results */
+  .panel.results{
+    background:var(--navy);
+    border-color:var(--navy-2);
+    color:#EFE9D8;
+    box-shadow:0 1px 0 rgba(0,0,0,0.2), 0 14px 30px -18px rgba(0,0,0,0.55);
+  }
+  .panel.results .panel-title{color:#EFE9D8; border-bottom-color:rgba(239,233,216,0.22);}
+  .headline-rate{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    flex-wrap:wrap; gap:10px;
+    margin-bottom:26px;
+    padding-bottom:22px;
+    border-bottom:1px solid rgba(239,233,216,0.14);
+  }
+  .headline-rate .label{
+    font-size:0.78rem;
+    color:#B9B192;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    margin-bottom:6px;
+  }
+  .headline-rate .value{
+    font-family:'Source Serif 4', serif;
+    font-weight:700;
+    font-size:2.75rem;
+    line-height:1;
+    color:#E7C77E;
+  }
+  .basis-tag{
+    display:inline-block;
+    font-size:0.76rem;
+    padding:5px 12px;
+    border:1px solid rgba(239,233,216,0.35);
+    border-radius:20px;
+    color:#EFE9D8;
+    margin-top:10px;
+  }
+
+  .kv{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:12px 16px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.94rem;
+  }
+  .kv .k{color:#C9C2A6;}
+  .kv .v{text-align:right; color:#EFE9D8;}
+  .kv .row{display:contents;}
+  .kv .row.total .k, .kv .row.total .v{
+    font-weight:600; color:#E7C77E; font-size:1.05rem;
+    padding-top:12px; border-top:1px solid rgba(239,233,216,0.25); margin-top:4px;
+  }
+  .kv .row.net .k, .kv .row.net .v{ color:#F0B96E; }
+
+  /* invoice table */
+  table.invoice{
+    width:100%;
+    border-collapse:collapse;
+    font-size:0.86rem;
+    margin-top:6px;
+  }
+  table.invoice caption{
+    text-align:left;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.76rem;
+    letter-spacing:0.04em;
+    color:var(--brass-dark);
+    margin-bottom:10px;
+  }
+  table.invoice th, table.invoice td{
+    border:1px solid var(--line);
+    padding:9px 10px;
+    text-align:left;
+  }
+  table.invoice thead th{
+    background:#E4DCC3;
+    font-weight:600;
+    color:var(--navy);
+  }
+  table.invoice td.num, table.invoice th.num{
+    text-align:right;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  table.invoice tfoot td{
+    font-weight:600;
+    background:#F0EBDA;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .invoice-note{
+    font-size:0.8rem;
+    color:var(--ink-soft);
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px dashed var(--line);
+  }
+  .notary-line{
+    font-size:0.78rem;
+    font-family:'IBM Plex Mono', monospace;
+    color:var(--ink-soft);
+    margin-top:14px;
+    letter-spacing:0.01em;
+  }
+  .print-header{display:none;}
+
+  .actions{display:flex; gap:12px; margin-top:6px;}
+  button.primary{
+    background:var(--brass-dark);
+    color:#F5F1E6;
+    border:none;
+    padding:12px 20px;
+    font-family:'IBM Plex Sans', sans-serif;
+    font-weight:500;
+    font-size:0.92rem;
+    border-radius:var(--radius);
+    cursor:pointer;
+  }
+  button.primary:hover{background:var(--brass);}
+
+  /* reference table */
+  table.ref{
+    width:100%;
+    border-collapse:collapse;
+    font-size:0.82rem;
+  }
+  table.ref th, table.ref td{
+    padding:9px 10px;
+    border:1px solid var(--line);
+    text-align:left;
+  }
+  table.ref thead th{background:#E4DCC3; color:var(--navy); font-weight:600;}
+  table.ref td.rate{font-family:'IBM Plex Mono', monospace; text-align:center; font-weight:600; color:var(--brass-dark);}
+  table.ref tbody tr:nth-child(even){background:rgba(156,122,60,0.06);}
+
+  footer{
+    text-align:center;
+    font-size:0.78rem;
+    color:var(--ink-soft);
+    margin-top:44px;
+    padding-top:22px;
+    border-top:1px solid var(--line);
+  }
+
+  @media print{
+    body{background:#fff;}
+    .no-print{display:none !important;}
+    .wrap{max-width:100%; padding:0 8px;}
+    .panel{border:none; box-shadow:none; padding:0; margin-bottom:0;}
+    .panel-title{border-bottom:2px solid #000; color:#000;}
+    .panel-title .step{display:none;}
+    .print-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      font-family:'IBM Plex Mono', monospace;
+      font-size:0.78rem;
+      color:#000;
+      border-bottom:1px solid #999;
+      padding-bottom:10px;
+      margin-bottom:16px;
+    }
+    table.invoice th, table.invoice td{border-color:#999;}
+    table.invoice thead th, table.invoice tfoot td{background:#eee !important; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  }
+  @media (max-width:520px){
+    h1.title{font-size:1.55rem;}
+    .headline-rate .value{font-size:2rem;}
+  }
+</style>
+</head>
+<body>
+<div class="topbar no-print"></div>
+<div class="wrap">
+
+  <header class="masthead no-print">
+    <div class="masthead-left">
+      <p class="firm">SMMM <span>Adem Yılmaz</span></p>
+      <p class="firm-tag">Mali Müşavirlik ve Vergi Danışmanlığı</p>
+    </div>
+    <div class="masthead-right">
+      smmmyilmaz.com<br>
+      <a href="https://smmmyilmaz.com">iletişim</a>
+    </div>
+  </header>
+
+  <h1 class="title no-print">2. El Araç KDV &amp; Fatura Hesaplama</h1>
+  <p class="subtitle no-print">Oto galericiler ve yetkili ikinci el araç satıcıları için özel matrah ve tam bedel esasına göre KDV hesaplama paneli. Araç cinsini ve alış şeklini seçin, tutarları girin.</p>
+  <div class="law-ref no-print">KDV Kanunu Md. 23/f · 5359 Sayılı Cumhurbaşkanı Kararı</div>
+
+  <!-- INPUT PANEL -->
+  <section class="panel no-print">
+    <h2 class="panel-title">İşlem Bilgileri <span class="step">01</span></h2>
+
+    <div class="field">
+      <span class="field-label">Araç cinsi</span>
+      <div class="seg" id="seg-vehicle">
+        <button type="button" class="active" data-value="binek">2. El Binek Araç</button>
+        <button type="button" data-value="ticari">Ticari Araç</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Araç alış şekli (fatura / kaynak)</span>
+      <select class="method" id="method"></select>
+      <p class="field-hint" id="method-hint"></p>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Araç alış bedeli</span>
+      <div class="money"><input type="text" inputmode="decimal" id="alis" value="900.000"></div>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Araç satış bedeli</span>
+      <div class="money"><input type="text" inputmode="decimal" id="satis" value="910.000"></div>
+    </div>
+  </section>
+
+  <!-- RESULTS PANEL -->
+  <section class="panel results no-print">
+    <h2 class="panel-title">KDV &amp; Vergi Özeti <span class="step" style="color:#C9C2A6;">02</span></h2>
+    <div class="headline-rate">
+      <div>
+        <div class="label">Uygulanacak KDV Oranı</div>
+        <div class="value" id="out-rate">%20</div>
+      </div>
+      <div class="basis-tag" id="out-basis">Özel Matrah (Kâr Farkı)</div>
+    </div>
+    <div class="kv">
+      <div class="row"><div class="k">KDV'ye esas matrah</div><div class="v" id="out-matrah">₺0,00</div></div>
+      <div class="row"><div class="k">Alışta indirilen KDV</div><div class="v" id="out-alis-kdv">₺0,00</div></div>
+      <div class="row"><div class="k">Satışta hesaplanan KDV</div><div class="v" id="out-satis-kdv">₺0,00</div></div>
+      <div class="row net"><div class="k">Ödenecek / net KDV yükü</div><div class="v" id="out-net-kdv">₺0,00</div></div>
+      <div class="row total"><div class="k">Vergi sonrası net kâr</div><div class="v" id="out-net-kar">₺0,00</div></div>
+    </div>
+  </section>
+
+  <!-- INVOICE DRAFT -->
+  <section class="panel">
+    <h2 class="panel-title">Fatura Taslağı <span class="step">03</span></h2>
+    <div class="print-header">
+      <div class="print-firm">SMMM Adem Yılmaz — Mali Müşavirlik ve Vergi Danışmanlığı</div>
+      <div class="print-date" id="print-date"></div>
+    </div>
+    <table class="invoice">
+      <caption id="invoice-caption">ÖZEL MATRAH (812 KODLU)</caption>
+      <thead>
+        <tr>
+          <th>S.No</th>
+          <th>Açıklama</th>
+          <th class="num">Miktar</th>
+          <th class="num">Birim Fiyat</th>
+          <th class="num">KDV Oranı</th>
+          <th class="num">KDV Tutarı</th>
+          <th class="num">Toplam</th>
+        </tr>
+      </thead>
+      <tbody id="invoice-body"></tbody>
+      <tfoot>
+        <tr><td colspan="6">Ara toplam (matrah)</td><td class="num" id="foot-matrah">₺0,00</td></tr>
+        <tr><td colspan="6">Hesaplanan KDV</td><td class="num" id="foot-kdv">₺0,00</td></tr>
+        <tr><td colspan="6">Ödenecek tutar</td><td class="num" id="foot-total">₺0,00</td></tr>
+      </tfoot>
+    </table>
+    <p class="invoice-note" id="invoice-note"></p>
+    <p class="notary-line">T.C. ...... NOTERLİĞİ ...../...../.......... TARİH VE .............. YEVMİYE NOLU ARAÇ SATIŞ SÖZLEŞMESİNE İSTİNADEN DÜZENLENMİŞTİR.</p>
+    <div class="actions no-print" style="margin-top:20px;">
+      <button class="primary" onclick="window.print()">Taslağı yazdır / kaydet</button>
+    </div>
+  </section>
+
+  <!-- REFERENCE TABLE -->
+  <section class="panel no-print">
+    <h2 class="panel-title">Yetkili Satıcılar İçin KDV Oran Tablosu</h2>
+    <table class="ref">
+      <thead>
+        <tr><th>Araç türü</th><th>Alış şekli</th><th>Satış KDV oranı</th><th>Matrah esası</th></tr>
+      </thead>
+      <tbody id="ref-body"></tbody>
+    </table>
+  </section>
+
+  <footer class="no-print">
+    SMMM Adem Yılmaz — Mali Müşavirlik ve Vergi Danışmanlığı · smmmyilmaz.com<br>
+    Bu araç bilgilendirme amaçlıdır, resmi beyan öncesi mevzuattaki güncel oranların teyit edilmesi önerilir.
+  </footer>
+
+</div>
+
+<script>
+const GENERAL_RATE = 0.20; // güncel genel KDV oranı
+const REDUCED_RATE = 0.01; // kullanılmış binek otomobil indirimli oran
+
+// method definitions per vehicle type
+// basis: 'ozel' (özel matrah - kâr farkı) or 'tam' (tam bedel esası)
+// rate: KDV oranı uygulanacak
+// deduct: alışta ödenen KDV indirilebilir mi (tam bedel esasında alış faturasındaki KDV oranı ile)
+const METHODS = {
+  binek: [
+    { id:'sahis', label:'KDV Mükellefi Olmayandan Alınırsa (Şahıs – Gider Pusulası)', basis:'ozel', rate:GENERAL_RATE, deductRate:0,
+      hint:'Şahıstan gider pusulası ile alımlarda özel matrah (kâr üzerinden) KDV uygulanır.' },
+    { id:'mukellef1', label:'KDV Mükellefinden %1 Faturalı Alım', basis:'tam', rate:REDUCED_RATE, deductRate:REDUCED_RATE,
+      hint:'Alış %1 KDV\'li faturayla yapılmışsa satışta da satış bedelinin tamamı üzerinden %1 KDV hesaplanır.' },
+    { id:'mukellef20', label:'KDV Mükellefinden %20 Faturalı Alım', basis:'tam', rate:GENERAL_RATE, deductRate:GENERAL_RATE,
+      hint:'Alış genel orandan (%20) faturalıysa satışta da satış bedelinin tamamı üzerinden %20 KDV hesaplanır.' },
+    { id:'ozelmatrahdan', label:'Başka Yetkili Satıcıdan Özel Matrah ile Alım', basis:'tam', rate:REDUCED_RATE, deductRate:0,
+      hint:'Bir başka galericiden özel matrahla (KDV\'siz) alınan binek araç, satışta tam bedel üzerinden %1 KDV\'ye tabidir.' },
+  ],
+  ticari: [
+    { id:'sahis', label:'KDV Mükellefi Olmayandan Alınırsa (Şahıs – Gider Pusulası)', basis:'ozel', rate:GENERAL_RATE, deductRate:0,
+      hint:'Şahıstan gider pusulası ile alımlarda özel matrah (kâr üzerinden) KDV uygulanır.' },
+    { id:'ozelmatrahdan', label:'Başka Yetkili Satıcıdan Özel Matrah ile Alım', basis:'tam', rate:GENERAL_RATE, deductRate:0,
+      hint:'Ticari araçlarda %1 indirimli oran uygulanmaz; özel matrahla alınan araç satışta tam bedel üzerinden %20 KDV\'ye tabidir.' },
+    { id:'mukellef', label:'KDV Mükellefinden Faturalı Alım', basis:'tam', rate:GENERAL_RATE, deductRate:GENERAL_RATE,
+      hint:'Ticari araç alım satımında indirimli oran bulunmadığından satışta tam bedel üzerinden %20 KDV hesaplanır.' },
+  ]
+};
+
+const REF_ROWS = [
+  ['2. El Binek Araç', 'KDV Mükellefi Olmayandan (Şahıs – Gider Pusulası)', '%20', 'Özel Matrah (Satış – Alış Kârı)'],
+  ['2. El Binek Araç', 'KDV Mükellefinden %1 Faturalı Alım', '%1', 'Satış Bedelinin Tamamı'],
+  ['2. El Binek Araç', 'KDV Mükellefinden %20 Faturalı Alım', '%20', 'Satış Bedelinin Tamamı'],
+  ['2. El Binek Araç', 'Başka Yetkili Satıcıdan Özel Matrah ile Alım', '%1', 'Satış Bedelinin Tamamı'],
+  ['Ticari Araç', 'KDV Mükellefi Olmayandan (Şahıs)', '%20', 'Özel Matrah (Satış – Alış Kârı)'],
+  ['Ticari Araç', 'Başka Yetkili Satıcıdan Özel Matrah ile Alım', '%20', 'Satış Bedelinin Tamamı'],
+  ['Ticari Araç', 'KDV Mükellefinden Faturalı Alım', '%20', 'Satış Bedelinin Tamamı'],
+];
+
+let state = { vehicle:'binek', methodId:'sahis' };
+
+const $ = (id) => document.getElementById(id);
+
+function toNumber(str){
+  if(!str) return 0;
+  const cleaned = String(str).replace(/\./g,'').replace(/,/g,'.').replace(/[^\d.-]/g,'');
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+}
+function fmt(n){
+  return n.toLocaleString('tr-TR', { style:'currency', currency:'TRY', minimumFractionDigits:2, maximumFractionDigits:2 });
+}
+function pct(r){
+  const p = r*100;
+  return '%' + (Number.isInteger(p) ? p : p.toFixed(1));
+}
+
+function populateMethods(){
+  const sel = $('method');
+  sel.innerHTML = '';
+  METHODS[state.vehicle].forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.label;
+    sel.appendChild(opt);
+  });
+  state.methodId = METHODS[state.vehicle][0].id;
+  sel.value = state.methodId;
+}
+
+function populateRefTable(){
+  const body = $('ref-body');
+  body.innerHTML = REF_ROWS.map(r =>
+    `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="rate">${r[2]}</td><td>${r[3]}</td></tr>`
+  ).join('');
+}
+
+function currentMethod(){
+  return METHODS[state.vehicle].find(m => m.id === state.methodId);
+}
+
+function calculate(){
+  const method = currentMethod();
+  const alis = toNumber($('alis').value);
+  const satis = toNumber($('satis').value);
+  const rate = method.rate;
+
+  let matrah, alisKdv, satisKdv, netKdv, netKar, matrahLabel;
+
+  if(method.basis === 'ozel'){
+    // Özel matrah: KDV dahil fark üzerinden iç yüzde ile hesaplanır
+    const fark = Math.max(satis - alis, 0);
+    matrah = fark / (1 + rate);
+    satisKdv = fark - matrah;
+    alisKdv = 0;
+    netKdv = satisKdv;
+    netKar = matrah;
+    matrahLabel = 'Özel Matrah (Kâr Farkı)';
+  } else {
+    // Tam bedel esası: satış bedelinin tamamı KDV dahil kabul edilir
+    matrah = satis / (1 + rate);
+    satisKdv = satis - matrah;
+    alisKdv = method.deductRate > 0 ? (alis - alis/(1+method.deductRate)) : 0;
+    netKdv = satisKdv - alisKdv;
+    netKar = satis - alis - satisKdv; // satış - alış - hesaplanan KDV yükü
+    matrahLabel = 'Satış Bedelinin Tamamı';
+  }
+
+  // --- results panel ---
+  $('out-rate').textContent = pct(rate);
+  $('out-basis').textContent = matrahLabel;
+  $('out-matrah').textContent = fmt(matrah);
+  $('out-alis-kdv').textContent = fmt(alisKdv);
+  $('out-satis-kdv').textContent = fmt(satisKdv);
+  $('out-net-kdv').textContent = fmt(netKdv);
+  $('out-net-kar').textContent = fmt(netKar);
+
+  // --- invoice draft ---
+  const caption = method.basis === 'ozel' ? 'ÖZEL MATRAH (812 KODLU)' : 'TAM BEDEL ESASI';
+  $('invoice-caption').textContent = caption;
+
+  let rows = '';
+  let footMatrah, footKdv, footTotal;
+
+  if(method.basis === 'ozel'){
+    rows += `<tr><td>1</td><td>İkinci El Araç Satış Bedeli (Alış Maliyeti – 812 Kodlu Özel Matrah İstisnası)</td><td class="num">1 Adet</td><td class="num">${fmt(alis)}</td><td class="num">%0</td><td class="num">${fmt(0)}</td><td class="num">${fmt(alis)}</td></tr>`;
+    rows += `<tr><td>2</td><td>İkinci El Araç Satış Kârı (Özel Matrah – ${pct(rate)} KDV Dahil Fark)</td><td class="num">1 Adet</td><td class="num">${fmt(matrah)}</td><td class="num">${pct(rate)}</td><td class="num">${fmt(satisKdv)}</td><td class="num">${fmt(matrah+satisKdv)}</td></tr>`;
+    footMatrah = alis + matrah;
+    footKdv = satisKdv;
+    footTotal = alis + matrah + satisKdv;
+    $('invoice-note').innerHTML = '<strong>Özel matrah açıklaması:</strong> 812 – İkinci el motorlu kara taşıtı ticaretiyle iştigal eden mükelleflerce, KDV mükellefi olmayanlardan alınarak vasfında esaslı değişiklik yapılmaksızın teslim edilen ikinci el motorlu kara taşıtı için özel matrah usulü uygulanır.';
+  } else {
+    rows += `<tr><td>1</td><td>İkinci El Araç Satış Bedeli (Tam Bedel Esası)</td><td class="num">1 Adet</td><td class="num">${fmt(matrah)}</td><td class="num">${pct(rate)}</td><td class="num">${fmt(satisKdv)}</td><td class="num">${fmt(satis)}</td></tr>`;
+    footMatrah = matrah;
+    footKdv = satisKdv;
+    footTotal = satis;
+    $('invoice-note').innerHTML = `<strong>Not:</strong> Satış bedelinin tamamı üzerinden ${pct(rate)} oranında KDV hesaplanır. Alışta ödenen ve indirim konusu yapılan KDV: ${fmt(alisKdv)}.`;
+  }
+
+  $('invoice-body').innerHTML = rows;
+  $('foot-matrah').textContent = fmt(footMatrah);
+  $('foot-kdv').textContent = fmt(footKdv);
+  $('foot-total').textContent = fmt(footTotal);
+}
+
+function updateHint(){
+  const method = currentMethod();
+  $('method-hint').textContent = method.hint;
+}
+
+// events
+document.querySelectorAll('#seg-vehicle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#seg-vehicle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.vehicle = btn.dataset.value;
+    populateMethods();
+    updateHint();
+    calculate();
+  });
+});
+$('method').addEventListener('change', (e) => {
+  state.methodId = e.target.value;
+  updateHint();
+  calculate();
+});
+$('alis').addEventListener('input', calculate);
+$('satis').addEventListener('input', calculate);
+
+// init
+populateMethods();
+populateRefTable();
+updateHint();
+calculate();
+$('print-date').textContent = new Date().toLocaleDateString('tr-TR', { day:'2-digit', month:'2-digit', year:'numeric' });
+</script>
+</body>
+</html>
