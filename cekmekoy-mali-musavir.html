@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Çekmeköy Mali Müşavir | SMMM Adem Yılmaz - Yeni Kurulan İşletmeler için Muhasebe</title>
+  <meta name="description" content="Çekmeköy'de mali müşavirlik, yeni şirket kuruluşu ve muhasebe hizmeti. Hızla büyüyen Çekmeköy'deki KOBİ ve aile işletmelerine online destek.">
+  <meta name="keywords" content="Çekmeköy mali müşavir, Çekmeköy muhasebeci, Çekmeköy vergi danışmanı, Çekmeköy şirket kuruluşu, Çekmeköy SMMM">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="canonical" href="https://smmmyilmaz.com/%C3%A7ekmek%C3%B6y-mali-musavir.html">
+  <style>
+    :root{
+      --navy-950:#0b1523;
+      --navy-900:#0f2137;
+      --navy-800:#15304d;
+      --navy-700:#1c3f63;
+      --gold:#c9a227;
+      --gold-light:#e8c85a;
+      --bg:#f4f6fb;
+      --ink:#1b2a3b;
+      --muted:#5c7086;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      font-family:'Segoe UI',Arial,Helvetica,sans-serif;
+      background:var(--bg);
+      color:var(--ink);
+      line-height:1.65;
+    }
+    a{color:inherit;}
+    header{
+      background:#fff;
+      box-shadow:0 2px 10px rgba(15,33,55,.08);
+      position:sticky;
+      top:0;
+      z-index:20;
+    }
+    .top-bar{
+      max-width:1140px;
+      margin:0 auto;
+      padding:14px 20px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+    .logo{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-weight:700;
+      font-size:1.05rem;
+      color:var(--navy-900);
+      text-decoration:none;
+    }
+    .logo-badge{
+      width:36px;height:36px;border-radius:10px;
+      background:linear-gradient(135deg,var(--navy-800),var(--navy-950));
+      color:var(--gold-light);
+      display:flex;align-items:center;justify-content:center;
+      font-weight:800;font-size:.85rem;letter-spacing:.5px;
+    }
+    nav.main-links{display:flex;gap:18px;flex-wrap:wrap;}
+    nav.main-links a{
+      text-decoration:none;color:var(--muted);font-weight:600;font-size:.85rem;
+    }
+    .cta-nav{
+      text-decoration:none;
+      background:linear-gradient(135deg,var(--navy-800),var(--navy-950));
+      color:#fff;
+      padding:9px 16px;
+      border-radius:8px;
+      font-weight:700;
+      font-size:.85rem;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      box-shadow:0 2px 6px rgba(15,33,55,.25);
+    }
+    .hero{
+      background:radial-gradient(circle at 15% 20%, var(--navy-700), var(--navy-950) 70%);
+      color:#fff;
+      padding:48px 20px 40px;
+    }
+    .hero-inner{
+      max-width:1140px;
+      margin:0 auto;
+    }
+    .badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+    .gold-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:rgba(201,162,39,.15);
+      border:1px solid rgba(201,162,39,.4);
+      color:var(--gold-light);
+      font-size:.78rem;
+      font-weight:700;
+    }
+    .hero h1{
+      font-size:2rem;
+      margin:0 0 12px;
+      max-width:820px;
+      color:#fff;
+    }
+    .hero p.lead{
+      font-size:1rem;
+      color:#c9d6e6;
+      max-width:700px;
+      margin:0 0 22px;
+    }
+    .hero-stats{
+      display:flex;
+      gap:28px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+    .hero-stats div{font-size:.82rem;color:#9fb2c8;}
+    .hero-stats strong{
+      display:block;font-size:1.3rem;color:var(--gold-light);font-weight:800;
+    }
+    main{
+      max-width:1140px;
+      margin:0 auto 40px;
+      padding:0 20px;
+    }
+    h2{
+      font-size:1.35rem;
+      margin-top:0;
+      color:var(--navy-900);
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    h2::before{
+      content:"";
+      width:6px;height:22px;border-radius:4px;
+      background:linear-gradient(180deg,var(--gold),var(--navy-800));
+      display:inline-block;
+    }
+    h3{
+      font-size:1.02rem;
+      margin-top:1.1rem;
+      color:var(--navy-800);
+    }
+    .section-lead{font-size:.92rem;color:var(--muted);margin-top:-4px;}
+    .card{
+      background:#fff;
+      border-radius:14px;
+      padding:22px 24px;
+      margin:22px 0;
+      box-shadow:0 4px 16px rgba(15,33,55,.06);
+      border:1px solid #eef1f6;
+    }
+    .info{font-size:.9rem;color:var(--muted);}
+    .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 30px;}
+    .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 20px;}
+    @media(max-width:800px){.grid-3{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media(max-width:600px){
+      main{padding:0 12px;}
+      .hero h1{font-size:1.5rem;}
+      .grid-2,.grid-3{grid-template-columns:1fr;}
+      nav.main-links{display:none;}
+    }
+    ul{list-style:none;padding-left:0;margin:0;font-size:.9rem;}
+    li{margin-bottom:4px;}
+    .badge{
+      display:inline-block;
+      background:#eef3fb;
+      color:var(--navy-800);
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:.8rem;
+      margin:2px 4px 2px 0;
+      white-space:nowrap;
+      border:1px solid #e0e9f5;
+    }
+    .highlight{
+      background:#fdf6e3;
+      border-left:4px solid var(--gold);
+      padding:12px 14px;
+      border-radius:8px;
+      font-size:.9rem;
+      margin-top:12px;
+    }
+    .note{
+      background:#eef5ff;
+      border-left:4px solid var(--navy-700);
+      padding:12px 14px;
+      border-radius:8px;
+      font-size:.9rem;
+      margin-top:12px;
+    }
+    .service-list{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px 20px;
+      font-size:.92rem;
+    }
+    @media(max-width:600px){.service-list{grid-template-columns:1fr;}}
+    .service-list li::before{content:"✓ ";color:var(--navy-800);font-weight:700;}
+    .anchor-links{
+      max-width:1140px;margin:0 auto;padding:16px 20px 0;
+      display:flex;gap:18px;flex-wrap:wrap;
+    }
+    .anchor-links a{
+      font-size:.85rem;text-decoration:none;color:var(--navy-800);font-weight:600;
+    }
+    .contact-section{
+      background:linear-gradient(135deg,var(--navy-900),var(--navy-950));
+      color:#fff;
+      border-radius:16px;
+      padding:32px 28px;
+      margin-top:30px;
+    }
+    .contact-section h2{color:#fff;}
+    .contact-section h2::before{background:linear-gradient(180deg,var(--gold),var(--gold-light));}
+    .contact-section .section-lead{color:#c9d6e6;}
+    .contact-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:16px;
+      margin-top:20px;
+    }
+    @media(max-width:800px){.contact-grid{grid-template-columns:1fr;}}
+    .contact-card{
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:12px;
+      padding:16px 18px;
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+    }
+    .contact-icon{font-size:1.3rem;line-height:1;}
+    .contact-card strong{display:block;font-size:.78rem;color:var(--gold-light);margin-bottom:4px;letter-spacing:.3px;}
+    .contact-card a, .contact-card span{color:#fff;font-size:.92rem;text-decoration:none;}
+    .cta-buttons{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px;}
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;
+      text-decoration:none;padding:11px 18px;border-radius:9px;
+      font-weight:700;font-size:.9rem;
+    }
+    .btn-whatsapp{background:#25d366;color:#0b1523;}
+    .btn-outline{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4);}
+    .map-embed{
+      margin-top:20px;border-radius:12px;overflow:hidden;
+      border:1px solid rgba(255,255,255,.15);
+    }
+    .map-embed iframe{width:100%;height:260px;border:0;display:block;}
+    footer{
+      font-size:.8rem;
+      color:#8298ad;
+      text-align:center;
+      padding:24px 10px 30px;
+      background:var(--navy-950);
+    }
+</style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "AccountingService",
+    "name": "SMMM Adem Yılmaz",
+    "description": "Çekmeköy'de yeni kurulan işletmeler ve KOBİ'lere mali müşavirlik ve muhasebe hizmeti.",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Atatürk Mh. Sütçü Cd.",
+      "addressLocality": "Ümraniye",
+      "addressRegion": "İstanbul",
+      "addressCountry": "TR"
+    },
+    "telephone": "+905536194134",
+    "email": "adem@smmmyilmaz.com",
+    "areaServed": ["Çekmeköy", "İstanbul"],
+    "url": "https://smmmyilmaz.com/%C3%A7ekmek%C3%B6y-mali-musavir.html"
+  }
+  </script>
+</head>
+<body>
+
+<header>
+  <div class="top-bar">
+    <a class="logo" href="https://smmmyilmaz.com/">
+      <span class="logo-badge">AY</span>
+      SMMM Adem Yılmaz
+    </a>
+    <nav class="main-links">
+      <a href="https://smmmyilmaz.com/#kurumsal">Kurumsal</a>
+      <a href="https://smmmyilmaz.com/#hizmetler">Hizmetlerimiz</a>
+      <a href="https://smmmyilmaz.com/il.html">Hizmet Bölgeleri</a>
+      <a href="https://smmmyilmaz.com/hesaplama.html">Hesaplamalar</a>
+    </nav>
+    <a href="#iletisim" class="cta-nav">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l2.28-2.28a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      İLETİŞİME GEÇ
+    </a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-inner">
+    <div class="badge-row">
+      <span class="gold-pill">★ TÜRMOB Üyesi</span>
+      <span class="gold-pill">3568 Sayılı Kanun</span>
+      <span class="gold-pill">Çekmeköy'e Online Hizmet</span>
+    </div>
+    <h1>Çekmeköy'de Yeni Kurulan İşletmeler için Mali Müşavirlik</h1>
+    <p class="lead">Çekmeköy, son yıllarda hızla gelişen konut ve iş alanlarıyla birlikte pek çok yeni şahıs işletmesi ve aile şirketinin kurulduğu bir bölge haline geldi. Ümraniye'ye komşu bu ilçede, özellikle yeni kuruluş aşamasındaki işletmelere doğru başlangıç yapmaları için adım adım rehberlik ediyorum.</p>
+    <div class="hero-stats">
+      <div><strong>18+</strong>Yıllık Sektörel Deneyim</div>
+      <div><strong>21</strong>Çekmeköy Mahallesine Hizmet</div>
+      <div><strong>%100</strong>Online Süreç İmkânı</div>
+    </div>
+  </div>
+</section>
+
+<div class="anchor-links">
+  <a href="#hizmetler">Hizmetlerim</a>
+  <a href="#neden">Neden Bizi Tercih Etmelisiniz</a>
+  <a href="#mahalleler">Çekmeköy Mahalleleri</a>
+  <a href="#iletisim">İletişim</a>
+</div>
+
+<main>
+  <section id="hizmetler" class="card">
+    <h2>Çekmeköy'te Sunduğum Mali Müşavirlik Hizmetleri</h2>
+    <p class="section-lead">
+      Çekmeköy'de yeni kurulan ve büyümekte olan işletmelerin ihtiyaç duyduğu başlıca alanlarda destek veriyorum:
+    </p>
+    <ul class="service-list">
+      <li>Şirket ve şahıs işletmesi kuruluş işlemleri</li>
+      <li>Aylık defter tutma ve muhasebe kaydı</li>
+      <li>KDV, muhtasar, geçici ve yıllık gelir/kurumlar vergisi beyannameleri</li>
+      <li>SGK işe giriş-çıkış, bordro ve teşvik takibi</li>
+      <li>E-fatura, e-arşiv, e-defter ve e-irsaliye entegrasyonu</li>
+      <li>Vergi dairesi ve ticaret sicil süreçlerinin takibi</li>
+      <li>Mali müşavirlik ve karlılık/bütçe danışmanlığı</li>
+      <li>Yeni kuruluşlar için ilk yıl vergi takvimi ve yükümlülük planlaması</li>
+    </ul>
+  </section>
+
+  <section id="neden" class="card">
+    <h2>Neden Çekmeköy'te Ümraniye Merkezli Bir Mali Müşavirle Çalışmalısınız?</h2>
+    <p class="section-lead">Çekmeköy'de yeni iş kuran pek çok girişimci, hangi vergi rejimini seçeceği ve hangi belgeleri ne zaman hazırlaması gerektiği konusunda destek arıyor; kuruluş öncesinden itibaren yanınızda olup süreci baştan doğru kurguluyorum.</p>
+    <div class="note"><strong>Bölgeye özgü not:</strong> Yeni açılan şahıs işletmeleri için genç girişimci kazanç istisnası gibi teşviklerden yararlanma şartlarını, kuruluş sırasında değerlendirip uygun olan mükellefleri baştan bu avantajlardan faydalandırıyorum.</div>
+  </section>
+
+  <section id="mahalleler" class="card">
+    <h2>Çekmeköy'in Öne Çıkan Mahallelerinde Hizmet</h2>
+    <p class="section-lead">
+      Çekmeköy'e bağlı <b>21 mahallenin tamamında</b> mali müşavirlik ve muhasebe desteği veriyorum. Aşağıda
+      bölgenin bilinen bazı mahalleleri yer alıyor:
+    </p>
+    <div class="grid-3">
+      <ul>
+        <li><span class="badge">Merkez Mahallesi</span></li>
+        <li><span class="badge">Alemdağ Mahallesi</span></li>
+        <li><span class="badge">Hamidiye Mahallesi</span></li>
+        <li><span class="badge">Taşdelen Mahallesi</span></li>
+        <li><span class="badge">Ömerli Mahallesi</span></li>
+        <li><span class="badge">Ekşioğlu Mahallesi</span></li>
+        <li><span class="badge">Sultançiftliği Mahallesi</span></li>
+        <li><span class="badge">Nişantepe Mahallesi</span></li>
+        <li><span class="badge">Aydınlar Mahallesi</span></li>
+        <li><span class="badge">Cumhuriyet Mahallesi</span></li>
+        <li><span class="badge">Kirazlıdere Mahallesi</span></li>
+        <li><span class="badge">Mimar Sinan Mahallesi</span></li>
+      </ul>
+    </div>
+    <div class="highlight">
+      <strong>Örnek aramalar:</strong> "Çekmeköy mali müşavir", "Çekmeköy muhasebeci", "Çekmeköy vergi danışmanı"
+      gibi aramalarla bana ulaşan Çekmeköy sakinlerine ve işletmelerine, Ümraniye'deki ofisimden tamamen dijital
+      süreçlerle hizmet verebiliyorum.
+    </div>
+  </section>
+
+  <section id="iletisim" class="contact-section">
+    <h2>Danışmanlık Alın</h2>
+    <p class="section-lead">
+      Çekmeköy'te ister yeni bir işletme kuruyor olun, ister mevcut muhasebe sürecinizi daha güvenilir bir mali
+      müşavire devretmek isteyin — durumunuzu birlikte değerlendirip size özel bir yol haritası çıkaralım.
+    </p>
+    <div class="contact-grid">
+      <div class="contact-card">
+        <span class="contact-icon">📍</span>
+        <div><strong>Ofis</strong><span>Atatürk Mh. Sütçü Cd.<br>Ümraniye / İstanbul</span></div>
+      </div>
+      <div class="contact-card">
+        <span class="contact-icon">📞</span>
+        <div><strong>Telefon</strong><a href="tel:905536194134">0553 619 41 34</a></div>
+      </div>
+      <div class="contact-card">
+        <span class="contact-icon">✉️</span>
+        <div><strong>E-posta</strong><a href="mailto:adem@smmmyilmaz.com">adem@smmmyilmaz.com</a></div>
+      </div>
+    </div>
+    <div class="cta-buttons">
+      <a href="https://wa.me/905536194134" class="btn btn-whatsapp">WhatsApp ile Yazın</a>
+      <a href="https://maps.app.goo.gl/7JbYMK2JuFgPtxPL8" class="btn btn-outline">Konuma Git</a>
+      <a href="mailto:adem@smmmyilmaz.com" class="btn btn-outline">E-posta Gönder</a>
+    </div>
+    <div class="map-embed">
+      <iframe src="https://maps.google.com/maps?q=41.023735,29.093180&z=16&output=embed" loading="lazy" title="Ofis konumu"></iframe>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Bu sayfa, Çekmeköy ilçesinde verilen mali müşavirlik hizmetlerini tanıtmak amacıyla hazırlanmıştır.
+  © 2026 Adem Yılmaz — Serbest Muhasebeci Mali Müşavir.
+</footer>
+
+</body>
+</html>
