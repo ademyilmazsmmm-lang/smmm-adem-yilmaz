@@ -73,7 +73,7 @@ def fetch_series_values(api_key: str, codes: list[str], days: int = 10) -> dict:
     series_param = "-".join(codes)
 
     url = (
-        "https://evds2.tcmb.gov.tr/service/evds/"
+        "https://evds3.tcmb.gov.tr/igmevdsms-dis/"
         f"series={series_param}&startDate={start.strftime('%d-%m-%Y')}"
         f"&endDate={end.strftime('%d-%m-%Y')}&type=json"
     )
@@ -113,7 +113,7 @@ def discover_gold_series(api_key: str):
     """bie_mkaltytl veri grubundaki seriler arasından 'gram altın'
     alış/satış kodlarını isimlerine bakarak bulmaya çalışır."""
     url = (
-        "https://evds2.tcmb.gov.tr/service/evds/serieList/"
+        "https://evds3.tcmb.gov.tr/igmevdsms-dis/serieList/"
         f"type=json&code={GOLD_DATAGROUP}"
     )
     entries = _get_json(url, api_key)
