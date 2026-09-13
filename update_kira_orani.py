@@ -52,7 +52,7 @@ def _get_json(url: str, api_key: str):
 
 def fetch_series(api_key: str) -> list[tuple[date, float]]:
     end = date.today()
-    start = end - timedelta(days=30 * 30)  # ~30 ay geriye, güvenli pay
+    start = end - timedelta(days=45 * 30)  # ~45 ay geriye, veri boşluklarına karşı bol pay
 
     url = (
         "https://evds3.tcmb.gov.tr/igmevdsms-dis/"
