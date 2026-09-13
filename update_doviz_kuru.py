@@ -42,7 +42,27 @@ BOUNDS = {
 
 
 def _headers(api_key: str) -> dict:
-    return {"key": api_key}
+    return {
+        "key": api_key,
+        "User-Agent": "Mozilla/5.0 (compatible; smmm-adem-yilmaz-site/1.0)",
+        "Accept": "application/json",
+    }
+
+
+def _get_json(url: str, api_key: str):
+    resp = requests.get(url, headers=_headers(api_key), timeout=30)
+    if resp.status_code != 200 or not resp.text.strip():
+        raise RuntimeError(
+            f"EVDS isteği başarısız: status={resp.status_code}, "
+            f"body_ilk_300={resp.text[:300]!r}, url={url}"
+        )
+    try:
+        return resp.json()
+    except ValueError as exc:
+        raise RuntimeError(
+            f"EVDS cevabı JSON değil: status={resp.status_code}, "
+            f"body_ilk_300={resp.text[:300]!r}, url={url}"
+        ) from exc
 
 
 def fetch_series_values(api_key: str, codes: list[str], days: int = 10) -> dict:
@@ -57,9 +77,7 @@ def fetch_series_values(api_key: str, codes: list[str], days: int = 10) -> dict:
         f"series={series_param}&startDate={start.strftime('%d-%m-%Y')}"
         f"&endDate={end.strftime('%d-%m-%Y')}&type=json"
     )
-    resp = requests.get(url, headers=_headers(api_key), timeout=30)
-    resp.raise_for_status()
-    data = resp.json()
+    data = _get_json(url, api_key)
     items = data.get("items", [])
 
     result: dict = {code: [] for code in codes}
@@ -98,9 +116,7 @@ def discover_gold_series(api_key: str):
         "https://evds2.tcmb.gov.tr/service/evds/serieList/"
         f"type=json&code={GOLD_DATAGROUP}"
     )
-    resp = requests.get(url, headers=_headers(api_key), timeout=30)
-    resp.raise_for_status()
-    entries = resp.json()
+    entries = _get_json(url, api_key)
     if isinstance(entries, dict):
         entries = entries.get("items", [])
 
