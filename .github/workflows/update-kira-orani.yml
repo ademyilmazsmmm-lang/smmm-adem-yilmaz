@@ -1,0 +1,39 @@
+name: Kira Artış Oranını Güncelle
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: "0 7 1-7 * *"   # Her ayın 1-7. günleri 07:00 UTC (10:00 TR)
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Bağımlılıkları kur
+        run: pip install requests
+
+      - name: Kira artış oranını TCMB EVDS'den çek ve güncelle
+        env:
+          TCMB_EVDS_API_KEY: ${{ secrets.TCMB_EVDS_API_KEY }}
+        run: python update_kira_orani.py
+
+      - name: Commit & Push
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+
+          git add index.html
+          git diff --cached --quiet || git commit -m "Kira artış oranını güncelle (TCMB EVDS)"
+          git push
