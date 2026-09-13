@@ -933,7 +933,7 @@
   background: linear-gradient(145deg, var(--navy) 0%, var(--navy-mid) 100%);
   border: 1px solid rgba(212,175,90,0.35);
   border-radius: var(--radius-lg);
-  padding: 32px 28px;
+  padding: 30px 26px;
   box-shadow: var(--shadow-md), 0 0 40px rgba(212,175,90,0.08);
   position: relative;
   overflow: hidden;
@@ -944,23 +944,57 @@
   font-size: 8rem; opacity: 0.05;
   pointer-events: none; line-height: 1;
 }
+.duyuru-card-panel-eko::before { content: '💱'; }
 .duyuru-title-main {
   color: var(--gold-light);
   border-bottom: 2px solid var(--gold);
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+  position: relative; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.duyuru-sub-tag {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 999px; padding: 3px 10px; white-space: nowrap;
+}
+.duyuru-grid-wrapper {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
   position: relative; z-index: 2;
 }
-.duyuru-item-row {
+.duyuru-chip {
+  display: flex; align-items: center; gap: 10px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
-  color: var(--white);
-  position: relative; z-index: 2;
+  border-radius: 12px;
+  padding: 10px 12px;
+  transition: var(--transition);
 }
-.duyuru-item-row:hover {
+.duyuru-chip:hover {
   border-color: var(--gold);
   background: rgba(212,175,90,0.1);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
 }
-.duyuru-line-icon { background: var(--gold); }
-.duyuru-item-row span:last-child { color: var(--gold); }
+.duyuru-chip-badge {
+  flex-shrink: 0;
+  min-width: 34px; height: 26px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 6px;
+  background: linear-gradient(135deg, rgba(212,175,90,0.22), rgba(212,175,90,0.06));
+  border: 1px solid rgba(212,175,90,0.25);
+  color: var(--gold-light);
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.01em; white-space: nowrap;
+  transition: var(--transition);
+}
+.duyuru-chip:hover .duyuru-chip-badge {
+  background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+  border-color: transparent; color: var(--navy);
+}
+.duyuru-chip-text {
+  color: var(--white); font-size: 0.82rem; font-weight: 600; line-height: 1.25;
+}
+.duyuru-chip:hover .duyuru-chip-text { color: var(--gold-light); }
 
 
 
@@ -1363,6 +1397,8 @@
       .pratik-grid { grid-template-columns: 1fr; }
 
       .grid-two-col-list { grid-template-columns: 1fr; gap: 0; }
+
+      .duyuru-grid-wrapper { grid-template-columns: 1fr 1fr; }
 
       .trust-inner { gap: 20px; }
 
@@ -1950,38 +1986,65 @@
 
           <div class="duyuru-card-panel">
 
-            <h3 class="duyuru-title-main">Resmi Duyurular</h3>
+            <h3 class="duyuru-title-main">Resmi Duyurular <span class="duyuru-sub-tag">Güncel Kaynaklar</span></h3>
 
-            <div class="duyuru-list-wrapper">
+            <div class="duyuru-grid-wrapper">
 
-              <a class="duyuru-item-row" href="https://dijital.gib.gov.tr/duyurular" target="_blank">
-
-                <div class="duyuru-line-icon"></div>
-
-                GİB Duyuruları
-
-                <span>→</span>
-
+              <a class="duyuru-chip" href="https://dijital.gib.gov.tr/duyurular" target="_blank" rel="noopener">
+                <span class="duyuru-chip-badge">GİB</span>
+                <span class="duyuru-chip-text">GİB Duyuruları</span>
               </a>
 
-              <a class="duyuru-item-row" href="https://www.sgk.gov.tr/Duyuru" target="_blank">
-
-                <div class="duyuru-line-icon"></div>
-
-                SGK Duyuruları
-
-                <span>→</span>
-
+              <a class="duyuru-chip" href="https://www.sgk.gov.tr/Duyuru" target="_blank" rel="noopener">
+                <span class="duyuru-chip-badge">SGK</span>
+                <span class="duyuru-chip-text">SGK Duyuruları</span>
               </a>
 
-              <a class="duyuru-item-row" href="https://www.turmob.org.tr/Haberler" target="_blank">
+              <a class="duyuru-chip" href="https://www.turmob.org.tr/Haberler" target="_blank" rel="noopener">
+                <span class="duyuru-chip-badge">TM</span>
+                <span class="duyuru-chip-text">TÜRMOB Haberleri</span>
+              </a>
 
-                <div class="duyuru-line-icon"></div>
+              <a class="duyuru-chip" href="https://www.iskur.gov.tr/duyurular/" target="_blank" rel="noopener">
+                <span class="duyuru-chip-badge">İŞK</span>
+                <span class="duyuru-chip-text">İŞKUR Duyuruları</span>
+              </a>
 
-                TÜRMOB Haberleri
+              <a class="duyuru-chip" href="https://ticaret.gov.tr/duyurular" target="_blank" rel="noopener">
+                <span class="duyuru-chip-badge">TB</span>
+                <span class="duyuru-chip-text">Ticaret Bakanlığı</span>
+              </a>
 
-                <span>→</span>
+              <a class="duyuru-chip" href="https://www.ticaretsicil.gov.tr/" target="_blank" rel="noopener">
+                <span class="duyuru-chip-badge">TSG</span>
+                <span class="duyuru-chip-text">Ticaret Sicili Gazetesi</span>
+              </a>
 
+              <a class="duyuru-chip" href="https://www.resmigazete.gov.tr/" target="_blank" rel="noopener">
+                <span class="duyuru-chip-badge">RG</span>
+                <span class="duyuru-chip-text">Resmi Gazete</span>
+              </a>
+
+            </div>
+
+          </div>
+
+
+
+          <div class="duyuru-card-panel duyuru-card-panel-eko">
+
+            <h3 class="duyuru-title-main">Kur & Enflasyon <span class="duyuru-sub-tag">Güncel Veriler</span></h3>
+
+            <div class="duyuru-grid-wrapper">
+
+              <a class="duyuru-chip" href="https://www.tcmb.gov.tr/kurlar/kurlar_tr.html" target="_blank" rel="noopener">
+                <span class="duyuru-chip-badge">TCMB</span>
+                <span class="duyuru-chip-text">Döviz Alış / Satış Kuru</span>
+              </a>
+
+              <a class="duyuru-chip" href="https://data.tuik.gov.tr/Kategori/GetKategori?p=enflasyon-ve-fiyat-106" target="_blank" rel="noopener">
+                <span class="duyuru-chip-badge">TÜFE</span>
+                <span class="duyuru-chip-text">Enflasyon (TÜFE/ÜFE) & Kira Artış Oranı</span>
               </a>
 
             </div>
