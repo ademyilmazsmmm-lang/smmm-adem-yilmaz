@@ -1,18 +1,11 @@
 """
-TCMB EVDS API'sinden günlük USD/EUR alış-satış kurlarını ve TCMB'nin
-yayınladığı külçe altın (gram) fiyatını çekip index.html'deki
-"Kur & Enflasyon" kartındaki döviz/altın tablosunu günceller.
+TCMB EVDS API'sinden günlük USD/EUR/GBP alış-satış kurlarını çekip
+index.html'deki "Kur & Enflasyon" kartındaki döviz tablosunu günceller.
 
 Döviz serileri günlük ve alış/satış ayrımıyla yayınlanır:
   TP.DK.USD.A.YTL / TP.DK.USD.S.YTL  -> USD alış / satış
   TP.DK.EUR.A.YTL / TP.DK.EUR.S.YTL  -> EUR alış / satış
-
-Gram altın için TCMB EVDS'de ayrı bir alış/satış serisi YOK — yalnızca
-TP.MK.KUL.YTL (Külçe Altın Satış Fiyatı, TL/gr) aylık ortalama olarak
-yayınlanıyor (bie_mkaltytl veri grubu). Bu yüzden sayfada yalnızca
-"Satış" hücresi güncellenir, "Alış" hücresi sabit "—" olarak kalır.
-Bu adım başarısız olursa altın alanı GÜNCELLENMEDEN atlanır, USD/EUR
-güncellemesi yine de yapılır (script tamamen durmaz).
+  TP.DK.GBP.A.YTL / TP.DK.GBP.S.YTL  -> GBP alış / satış
 
 Gerekli ortam değişkeni: TCMB_EVDS_API_KEY
 """
@@ -25,25 +18,21 @@ from datetime import date, timedelta
 import requests
 
 INDEX_HTML = "index.html"
-GOLD_SERIES = "TP.MK.KUL.YTL"  # Külçe Altın Satış Fiyatı (TL/gr), aylık ortalama
-
-AY_ADLARI = [
-    "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
-    "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
-]
 
 FX_SERIES = {
     "doviz-usd-alis": "TP.DK.USD.A.YTL",
     "doviz-usd-satis": "TP.DK.USD.S.YTL",
     "doviz-eur-alis": "TP.DK.EUR.A.YTL",
     "doviz-eur-satis": "TP.DK.EUR.S.YTL",
+    "doviz-gbp-alis": "TP.DK.GBP.A.YTL",
+    "doviz-gbp-satis": "TP.DK.GBP.S.YTL",
 }
 
 # (min, max) mantık kontrolü sınırları — açıkça hatalı veriyi ayıklamak için
 BOUNDS = {
     "doviz-usd-alis": (5, 500), "doviz-usd-satis": (5, 500),
     "doviz-eur-alis": (5, 500), "doviz-eur-satis": (5, 500),
-    "doviz-altin-satis": (500, 100000),
+    "doviz-gbp-alis": (5, 500), "doviz-gbp-satis": (5, 500),
 }
 
 
@@ -123,23 +112,6 @@ def latest_value(series_map: dict, code: str):
     return points[-1] if points else None
 
 
-def fetch_gold(api_key: str):
-    """TCMB EVDS'de gram altın için ayrı alış/satış serisi yok; yalnızca
-    TP.MK.KUL.YTL (Külçe Altın Satış Fiyatı, TL/gr) aylık ortalama olarak
-    yayınlanıyor (bie_mkaltytl veri grubu, 2026-09-13 tarihli keşifle
-    doğrulandı). Bu yüzden yalnızca "satış" hücresi güncellenir."""
-    series_map = fetch_series_values(api_key, [GOLD_SERIES], days=400)
-    satis = latest_value(series_map, GOLD_SERIES)
-    if not satis:
-        print("UYARI: Gram altın (külçe) verisi çekilemedi, altın alanı atlanıyor.")
-        return None
-
-    return {
-        "doviz-altin-satis": satis[1],
-        "tarih": satis[0],
-    }
-
-
 def format_tr_number(value: float, decimals: int = 2) -> str:
     s = f"{value:,.{decimals}f}"
     return s.replace(",", "X").replace(".", ",").replace("X", ".")
@@ -150,7 +122,7 @@ def valid(field: str, value: float) -> bool:
     return lo <= value <= hi
 
 
-def update_html(values: dict, tarih_label: str, altin_tarih_label: str = "") -> set:
+def update_html(values: dict, tarih_label: str) -> set:
     with open(INDEX_HTML, "r", encoding="utf-8") as f:
         html = f.read()
 
@@ -174,17 +146,6 @@ def update_html(values: dict, tarih_label: str, altin_tarih_label: str = "") -> 
         if count:
             html = new_html
             changed.add("tarih")
-
-    if altin_tarih_label:
-        new_html, count = re.subn(
-            r'(<span class="doviz-altin-tarih">)[^<]*(</span>)',
-            rf"\g<1>{altin_tarih_label}\g<2>",
-            html,
-            count=1,
-        )
-        if count:
-            html = new_html
-            changed.add("altin-tarih")
 
     if changed:
         with open(INDEX_HTML, "w", encoding="utf-8") as f:
@@ -216,31 +177,12 @@ def main() -> None:
         values[field] = v
         latest_date = d if latest_date is None else max(latest_date, d)
 
-    try:
-        gold = fetch_gold(api_key)
-    except Exception as exc:  # noqa: BLE001 - altın adımı opsiyonel, sağlam devam etsin
-        print(f"UYARI: Altın verisi çekilirken hata oluştu: {exc}", file=sys.stderr)
-        gold = None
-
-    altin_tarih_label = ""
-    if gold:
-        v = gold["doviz-altin-satis"]
-        if valid("doviz-altin-satis", v):
-            values["doviz-altin-satis"] = v
-            gold_d = gold["tarih"]
-            altin_tarih_label = f"{AY_ADLARI[gold_d.month - 1]} {gold_d.year} Ort."
-        else:
-            print(f"UYARI: doviz-altin-satis değeri mantık dışı ({v}), atlanıyor.", file=sys.stderr)
-
     if not values:
         print("HATA: Hiçbir geçerli değer çekilemedi, index.html güncellenmedi.", file=sys.stderr)
         sys.exit(1)
 
-    # Üstteki genel tarih rozeti yalnızca günlük döviz kurunu yansıtır;
-    # altın ayrı (ve genelde daha eski) bir aya ait olduğundan kendi
-    # etiketiyle gösterilir, genel tarihle karıştırılmaz.
     tarih_label = latest_date.strftime("%d.%m.%Y") if latest_date else ""
-    changed = update_html(values, tarih_label, altin_tarih_label)
+    changed = update_html(values, tarih_label)
 
     if changed:
         print(f"Güncellendi ({tarih_label}): {sorted(changed)}")
