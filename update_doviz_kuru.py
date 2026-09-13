@@ -27,6 +27,11 @@ import requests
 INDEX_HTML = "index.html"
 GOLD_SERIES = "TP.MK.KUL.YTL"  # Külçe Altın Satış Fiyatı (TL/gr), aylık ortalama
 
+AY_ADLARI = [
+    "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+    "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
+]
+
 FX_SERIES = {
     "doviz-usd-alis": "TP.DK.USD.A.YTL",
     "doviz-usd-satis": "TP.DK.USD.S.YTL",
@@ -123,7 +128,7 @@ def fetch_gold(api_key: str):
     TP.MK.KUL.YTL (Külçe Altın Satış Fiyatı, TL/gr) aylık ortalama olarak
     yayınlanıyor (bie_mkaltytl veri grubu, 2026-09-13 tarihli keşifle
     doğrulandı). Bu yüzden yalnızca "satış" hücresi güncellenir."""
-    series_map = fetch_series_values(api_key, [GOLD_SERIES], days=60)
+    series_map = fetch_series_values(api_key, [GOLD_SERIES], days=400)
     satis = latest_value(series_map, GOLD_SERIES)
     if not satis:
         print("UYARI: Gram altın (külçe) verisi çekilemedi, altın alanı atlanıyor.")
@@ -145,7 +150,7 @@ def valid(field: str, value: float) -> bool:
     return lo <= value <= hi
 
 
-def update_html(values: dict, tarih_label: str) -> set:
+def update_html(values: dict, tarih_label: str, altin_tarih_label: str = "") -> set:
     with open(INDEX_HTML, "r", encoding="utf-8") as f:
         html = f.read()
 
@@ -169,6 +174,17 @@ def update_html(values: dict, tarih_label: str) -> set:
         if count:
             html = new_html
             changed.add("tarih")
+
+    if altin_tarih_label:
+        new_html, count = re.subn(
+            r'(<span class="doviz-altin-tarih">)[^<]*(</span>)',
+            rf"\g<1>{altin_tarih_label}\g<2>",
+            html,
+            count=1,
+        )
+        if count:
+            html = new_html
+            changed.add("altin-tarih")
 
     if changed:
         with open(INDEX_HTML, "w", encoding="utf-8") as f:
@@ -206,21 +222,25 @@ def main() -> None:
         print(f"UYARI: Altın verisi çekilirken hata oluştu: {exc}", file=sys.stderr)
         gold = None
 
+    altin_tarih_label = ""
     if gold:
-        for field in ("doviz-altin-satis",):
-            v = gold[field]
-            if valid(field, v):
-                values[field] = v
-                latest_date = gold["tarih"] if latest_date is None else max(latest_date, gold["tarih"])
-            else:
-                print(f"UYARI: {field} değeri mantık dışı ({v}), atlanıyor.", file=sys.stderr)
+        v = gold["doviz-altin-satis"]
+        if valid("doviz-altin-satis", v):
+            values["doviz-altin-satis"] = v
+            gold_d = gold["tarih"]
+            altin_tarih_label = f"{AY_ADLARI[gold_d.month - 1]} {gold_d.year} Ort."
+        else:
+            print(f"UYARI: doviz-altin-satis değeri mantık dışı ({v}), atlanıyor.", file=sys.stderr)
 
     if not values:
         print("HATA: Hiçbir geçerli değer çekilemedi, index.html güncellenmedi.", file=sys.stderr)
         sys.exit(1)
 
+    # Üstteki genel tarih rozeti yalnızca günlük döviz kurunu yansıtır;
+    # altın ayrı (ve genelde daha eski) bir aya ait olduğundan kendi
+    # etiketiyle gösterilir, genel tarihle karıştırılmaz.
     tarih_label = latest_date.strftime("%d.%m.%Y") if latest_date else ""
-    changed = update_html(values, tarih_label)
+    changed = update_html(values, tarih_label, altin_tarih_label)
 
     if changed:
         print(f"Güncellendi ({tarih_label}): {sorted(changed)}")
