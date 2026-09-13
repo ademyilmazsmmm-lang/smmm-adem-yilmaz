@@ -1,17 +1,18 @@
 """
-TCMB EVDS API'sinden günlük USD/EUR alış-satış kurlarını ve (bulunabilirse)
-gram altın alış-satış fiyatını çekip index.html'deki "Kur & Enflasyon"
-kartındaki döviz/altın tablosunu günceller.
+TCMB EVDS API'sinden günlük USD/EUR alış-satış kurlarını ve TCMB'nin
+yayınladığı külçe altın (gram) fiyatını çekip index.html'deki
+"Kur & Enflasyon" kartındaki döviz/altın tablosunu günceller.
 
-Döviz serileri sabit ve resmi olarak doğrulanmıştır:
+Döviz serileri günlük ve alış/satış ayrımıyla yayınlanır:
   TP.DK.USD.A.YTL / TP.DK.USD.S.YTL  -> USD alış / satış
   TP.DK.EUR.A.YTL / TP.DK.EUR.S.YTL  -> EUR alış / satış
 
-Gram altın için TCMB'nin standart döviz serileri gibi sabit, herkesçe
-doğrulanmış tek bir seri kodu bulunamadığından; "Kıymetli Madenler"
-veri grubu (bie_mkaltytl) EVDS metadata servisinden her çalıştırmada
-otomatik keşfedilir. Bu adım başarısız olursa altın alanı GÜNCELLENMEDEN
-atlanır, USD/EUR güncellemesi yine de yapılır (script tamamen durmaz).
+Gram altın için TCMB EVDS'de ayrı bir alış/satış serisi YOK — yalnızca
+TP.MK.KUL.YTL (Külçe Altın Satış Fiyatı, TL/gr) aylık ortalama olarak
+yayınlanıyor (bie_mkaltytl veri grubu). Bu yüzden sayfada yalnızca
+"Satış" hücresi güncellenir, "Alış" hücresi sabit "—" olarak kalır.
+Bu adım başarısız olursa altın alanı GÜNCELLENMEDEN atlanır, USD/EUR
+güncellemesi yine de yapılır (script tamamen durmaz).
 
 Gerekli ortam değişkeni: TCMB_EVDS_API_KEY
 """
@@ -24,7 +25,7 @@ from datetime import date, timedelta
 import requests
 
 INDEX_HTML = "index.html"
-GOLD_DATAGROUP = "bie_mkaltytl"
+GOLD_SERIES = "TP.MK.KUL.YTL"  # Külçe Altın Satış Fiyatı (TL/gr), aylık ortalama
 
 FX_SERIES = {
     "doviz-usd-alis": "TP.DK.USD.A.YTL",
@@ -37,7 +38,7 @@ FX_SERIES = {
 BOUNDS = {
     "doviz-usd-alis": (5, 500), "doviz-usd-satis": (5, 500),
     "doviz-eur-alis": (5, 500), "doviz-eur-satis": (5, 500),
-    "doviz-altin-alis": (500, 100000), "doviz-altin-satis": (500, 100000),
+    "doviz-altin-satis": (500, 100000),
 }
 
 
@@ -86,7 +87,15 @@ def fetch_series_values(api_key: str, codes: list[str], days: int = 10) -> dict:
         if not raw_tarih:
             continue
         try:
-            d = date(*[int(p) for p in reversed(raw_tarih.split("-"))])
+            parts = [int(p) for p in raw_tarih.split("-")]
+            if len(parts) == 2:
+                year, month = parts  # aylık seri: "YYYY-MM"
+                d = date(year, month, 1)
+            elif len(parts) == 3:
+                day, month, year = parts  # günlük seri: "DD-MM-YYYY"
+                d = date(year, month, day)
+            else:
+                continue
         except ValueError:
             continue
         for code in codes:
@@ -109,51 +118,20 @@ def latest_value(series_map: dict, code: str):
     return points[-1] if points else None
 
 
-def discover_gold_series(api_key: str):
-    """bie_mkaltytl veri grubundaki seriler arasından 'gram altın'
-    alış/satış kodlarını isimlerine bakarak bulmaya çalışır."""
-    url = (
-        "https://evds3.tcmb.gov.tr/igmevdsms-dis/serieList/"
-        f"type=json&code={GOLD_DATAGROUP}"
-    )
-    entries = _get_json(url, api_key)
-    if isinstance(entries, dict):
-        entries = entries.get("items", [])
-
-    print(f"TEŞHİS: serieList({GOLD_DATAGROUP}) -> {len(entries)} kayıt: {entries[:5]}")
-
-    alis_code = satis_code = None
-    for entry in entries:
-        code = entry.get("SERIE_CODE")
-        name = (entry.get("SERIE_NAME") or "").lower()
-        if not code:
-            continue
-        is_gram = "gram" in name or "995" in name
-        if "alış" in name and (is_gram or alis_code is None):
-            alis_code = code
-        if "satış" in name and (is_gram or satis_code is None):
-            satis_code = code
-
-    return alis_code, satis_code
-
-
 def fetch_gold(api_key: str):
-    alis_code, satis_code = discover_gold_series(api_key)
-    if not alis_code or not satis_code:
-        print("UYARI: Gram altın seri kodu bulunamadı, altın alanı atlanıyor.")
-        return None
-
-    series_map = fetch_series_values(api_key, [alis_code, satis_code])
-    alis = latest_value(series_map, alis_code)
-    satis = latest_value(series_map, satis_code)
-    if not alis or not satis:
-        print("UYARI: Gram altın verisi çekilemedi, altın alanı atlanıyor.")
+    """TCMB EVDS'de gram altın için ayrı alış/satış serisi yok; yalnızca
+    TP.MK.KUL.YTL (Külçe Altın Satış Fiyatı, TL/gr) aylık ortalama olarak
+    yayınlanıyor (bie_mkaltytl veri grubu, 2026-09-13 tarihli keşifle
+    doğrulandı). Bu yüzden yalnızca "satış" hücresi güncellenir."""
+    series_map = fetch_series_values(api_key, [GOLD_SERIES], days=60)
+    satis = latest_value(series_map, GOLD_SERIES)
+    if not satis:
+        print("UYARI: Gram altın (külçe) verisi çekilemedi, altın alanı atlanıyor.")
         return None
 
     return {
-        "doviz-altin-alis": alis[1],
         "doviz-altin-satis": satis[1],
-        "tarih": max(alis[0], satis[0]),
+        "tarih": satis[0],
     }
 
 
@@ -229,7 +207,7 @@ def main() -> None:
         gold = None
 
     if gold:
-        for field in ("doviz-altin-alis", "doviz-altin-satis"):
+        for field in ("doviz-altin-satis",):
             v = gold[field]
             if valid(field, v):
                 values[field] = v
