@@ -72,9 +72,16 @@ def fetch_series(api_key: str) -> list[tuple[date, float]]:
             continue
         if not raw_tarih:
             continue
-        month_str, year_str = raw_tarih.split("-")
-        d = date(int(year_str), int(month_str), 1)
         try:
+            parts = [int(p) for p in raw_tarih.split("-")]
+            if len(parts) == 2:
+                year, month = parts  # aylık seri: "YYYY-MM"
+                d = date(year, month, 1)
+            elif len(parts) == 3:
+                day, month, year = parts  # günlük seri: "DD-MM-YYYY"
+                d = date(year, month, day)
+            else:
+                continue
             points.append((d, float(raw_val)))
         except ValueError:
             continue
