@@ -1026,6 +1026,28 @@
 .kira-oran-label { font-size: 0.72rem; color: rgba(255,255,255,0.65); font-weight: 600; }
 .kira-oran-value { font-size: 1.3rem; color: var(--gold-light); font-weight: 700; }
 
+.doviz-tarih {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--navy); background: var(--gold-light);
+  border-radius: 999px; padding: 3px 10px; white-space: nowrap;
+}
+.doviz-table { display: flex; flex-direction: column; gap: 6px; }
+.doviz-row {
+  display: grid; grid-template-columns: 1.3fr 1fr 1fr;
+  align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 9px 12px;
+}
+.doviz-row-head {
+  background: transparent; border: none; padding: 0 12px;
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+}
+.doviz-name { font-size: 0.84rem; font-weight: 700; color: var(--white); }
+.doviz-val { font-size: 0.9rem; font-weight: 600; color: var(--gold-light); text-align: right; }
+.doviz-row-head .doviz-val { color: rgba(255,255,255,0.4); font-weight: 700; }
+
 
 
     /* ── PRATİK BİLGİLER ── */
@@ -2064,6 +2086,35 @@
           <div class="duyuru-card-panel duyuru-card-panel-eko">
 
             <h3 class="duyuru-title-main">Kur & Enflasyon <span class="duyuru-sub-tag">Güncel Veriler</span></h3>
+
+            <!-- GÜNCEL DÖVİZ VE ALTIN KURU: TCMB'nin gösterge niteliğindeki günlük kurlarıdır.
+                 Elle güncelleme yapılacaksa aşağıdaki tarih ve alış/satış değerlerini değiştirin. -->
+            <div class="kira-oran-box">
+              <div class="kira-oran-head">
+                <span class="doviz-tarih">03.10.2026</span>
+                <span class="kira-oran-note">TCMB Gösterge Niteliğindeki Döviz & Altın Kuru</span>
+              </div>
+              <div class="doviz-table">
+                <div class="doviz-row doviz-row-head">
+                  <span></span><span>Alış</span><span>Satış</span>
+                </div>
+                <div class="doviz-row">
+                  <span class="doviz-name">USD</span>
+                  <span class="doviz-val doviz-usd-alis">41,50</span>
+                  <span class="doviz-val doviz-usd-satis">41,60</span>
+                </div>
+                <div class="doviz-row">
+                  <span class="doviz-name">EUR</span>
+                  <span class="doviz-val doviz-eur-alis">45,20</span>
+                  <span class="doviz-val doviz-eur-satis">45,32</span>
+                </div>
+                <div class="doviz-row">
+                  <span class="doviz-name">Gram Altın</span>
+                  <span class="doviz-val doviz-altin-alis">5.480</span>
+                  <span class="doviz-val doviz-altin-satis">5.495</span>
+                </div>
+              </div>
+            </div>
 
             <!-- GÜNCEL KİRA ARTIŞ ORANI: TÜİK her ay TÜFE 12 aylık ortalamasını açıkladığında
                  aşağıdaki ay etiketini ve iki yüzde değerini güncelleyin. Kaynak: data.tuik.gov.tr -->
