@@ -996,6 +996,36 @@
 }
 .duyuru-chip:hover .duyuru-chip-text { color: var(--gold-light); }
 
+.kira-oran-box {
+  position: relative; z-index: 2;
+  background: rgba(212,175,90,0.07);
+  border: 1px solid rgba(212,175,90,0.3);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+.kira-oran-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 12px; flex-wrap: wrap;
+}
+.kira-oran-ay {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--navy); background: var(--gold-light);
+  border-radius: 999px; padding: 3px 10px; white-space: nowrap;
+}
+.kira-oran-note {
+  font-size: 0.72rem; color: rgba(255,255,255,0.55); line-height: 1.3;
+}
+.kira-oran-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.kira-oran-item {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.kira-oran-label { font-size: 0.72rem; color: rgba(255,255,255,0.65); font-weight: 600; }
+.kira-oran-value { font-size: 1.3rem; color: var(--gold-light); font-weight: 700; }
+
 
 
     /* ── PRATİK BİLGİLER ── */
@@ -2034,6 +2064,25 @@
           <div class="duyuru-card-panel duyuru-card-panel-eko">
 
             <h3 class="duyuru-title-main">Kur & Enflasyon <span class="duyuru-sub-tag">Güncel Veriler</span></h3>
+
+            <!-- GÜNCEL KİRA ARTIŞ ORANI: TÜİK her ay TÜFE 12 aylık ortalamasını açıkladığında
+                 aşağıdaki ay etiketini ve iki yüzde değerini güncelleyin. Kaynak: data.tuik.gov.tr -->
+            <div class="kira-oran-box">
+              <div class="kira-oran-head">
+                <span class="kira-oran-ay">Eylül 2026</span>
+                <span class="kira-oran-note">TÜFE 12 Aylık Ortalama · Yasal Kira Artış Tavanı</span>
+              </div>
+              <div class="kira-oran-grid">
+                <div class="kira-oran-item">
+                  <span class="kira-oran-label">Konut (Ev) Kirası</span>
+                  <span class="kira-oran-value">%31,79</span>
+                </div>
+                <div class="kira-oran-item">
+                  <span class="kira-oran-label">İşyeri Kirası</span>
+                  <span class="kira-oran-value">%31,79</span>
+                </div>
+              </div>
+            </div>
 
             <div class="duyuru-grid-wrapper">
 
