@@ -30,5 +30,9 @@ jobs:
           git config --global user.email "actions@github.com"
 
           git add -A
-          git diff --cached --quiet || git commit -m "Auto-sync contact info from index.html"
-          git push
+          if git diff --cached --quiet; then
+            echo "Senkronize edilecek bir değişiklik yok, push atlanıyor."
+          else
+            git commit -m "Auto-sync contact info from index.html"
+            git push
+          fi
