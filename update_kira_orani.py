@@ -7,7 +7,7 @@ Kur & Enflasyon kartını günceller.
 Oran = (son 12 ayın TÜFE ortalaması / önceki 12 ayın TÜFE ortalaması - 1) * 100
 
 Gerekli ortam değişkeni: TCMB_EVDS_API_KEY
-(https://evds2.tcmb.gov.tr adresinden ücretsiz alınır)
+(https://evds3.tcmb.gov.tr adresinden ücretsiz alınır)
 """
 
 import os
@@ -55,7 +55,7 @@ def fetch_series(api_key: str) -> list[tuple[date, float]]:
     start = end - timedelta(days=30 * 30)  # ~30 ay geriye, güvenli pay
 
     url = (
-        "https://evds2.tcmb.gov.tr/service/evds/"
+        "https://evds3.tcmb.gov.tr/igmevdsms-dis/"
         f"series={SERIES}&startDate={start.strftime('%d-%m-%Y')}"
         f"&endDate={end.strftime('%d-%m-%Y')}&type=json"
     )
