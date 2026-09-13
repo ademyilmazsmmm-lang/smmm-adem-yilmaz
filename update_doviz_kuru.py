@@ -1,17 +1,18 @@
 """
-TCMB EVDS API'sinden günlük USD/EUR alış-satış kurlarını ve (bulunabilirse)
-gram altın alış-satış fiyatını çekip index.html'deki "Kur & Enflasyon"
-kartındaki döviz/altın tablosunu günceller.
+TCMB EVDS API'sinden günlük USD/EUR alış-satış kurlarını ve TCMB'nin
+yayınladığı külçe altın (gram) fiyatını çekip index.html'deki
+"Kur & Enflasyon" kartındaki döviz/altın tablosunu günceller.
 
-Döviz serileri sabit ve resmi olarak doğrulanmıştır:
+Döviz serileri günlük ve alış/satış ayrımıyla yayınlanır:
   TP.DK.USD.A.YTL / TP.DK.USD.S.YTL  -> USD alış / satış
   TP.DK.EUR.A.YTL / TP.DK.EUR.S.YTL  -> EUR alış / satış
 
-Gram altın için TCMB'nin standart döviz serileri gibi sabit, herkesçe
-doğrulanmış tek bir seri kodu bulunamadığından; "Kıymetli Madenler"
-veri grubu (bie_mkaltytl) EVDS metadata servisinden her çalıştırmada
-otomatik keşfedilir. Bu adım başarısız olursa altın alanı GÜNCELLENMEDEN
-atlanır, USD/EUR güncellemesi yine de yapılır (script tamamen durmaz).
+Gram altın için TCMB EVDS'de ayrı bir alış/satış serisi YOK — yalnızca
+TP.MK.KUL.YTL (Külçe Altın Satış Fiyatı, TL/gr) aylık ortalama olarak
+yayınlanıyor (bie_mkaltytl veri grubu). Bu yüzden sayfada yalnızca
+"Satış" hücresi güncellenir, "Alış" hücresi sabit "—" olarak kalır.
+Bu adım başarısız olursa altın alanı GÜNCELLENMEDEN atlanır, USD/EUR
+güncellemesi yine de yapılır (script tamamen durmaz).
 
 Gerekli ortam değişkeni: TCMB_EVDS_API_KEY
 """
@@ -24,7 +25,12 @@ from datetime import date, timedelta
 import requests
 
 INDEX_HTML = "index.html"
-GOLD_DATAGROUP = "bie_mkaltytl"
+GOLD_SERIES = "TP.MK.KUL.YTL"  # Külçe Altın Satış Fiyatı (TL/gr), aylık ortalama
+
+AY_ADLARI = [
+    "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+    "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
+]
 
 FX_SERIES = {
     "doviz-usd-alis": "TP.DK.USD.A.YTL",
@@ -37,12 +43,32 @@ FX_SERIES = {
 BOUNDS = {
     "doviz-usd-alis": (5, 500), "doviz-usd-satis": (5, 500),
     "doviz-eur-alis": (5, 500), "doviz-eur-satis": (5, 500),
-    "doviz-altin-alis": (500, 100000), "doviz-altin-satis": (500, 100000),
+    "doviz-altin-satis": (500, 100000),
 }
 
 
 def _headers(api_key: str) -> dict:
-    return {"key": api_key}
+    return {
+        "key": api_key,
+        "User-Agent": "Mozilla/5.0 (compatible; smmm-adem-yilmaz-site/1.0)",
+        "Accept": "application/json",
+    }
+
+
+def _get_json(url: str, api_key: str):
+    resp = requests.get(url, headers=_headers(api_key), timeout=30)
+    if resp.status_code != 200 or not resp.text.strip():
+        raise RuntimeError(
+            f"EVDS isteği başarısız: status={resp.status_code}, "
+            f"body_ilk_300={resp.text[:300]!r}, url={url}"
+        )
+    try:
+        return resp.json()
+    except ValueError as exc:
+        raise RuntimeError(
+            f"EVDS cevabı JSON değil: status={resp.status_code}, "
+            f"body_ilk_300={resp.text[:300]!r}, url={url}"
+        ) from exc
 
 
 def fetch_series_values(api_key: str, codes: list[str], days: int = 10) -> dict:
@@ -53,13 +79,11 @@ def fetch_series_values(api_key: str, codes: list[str], days: int = 10) -> dict:
     series_param = "-".join(codes)
 
     url = (
-        "https://evds2.tcmb.gov.tr/service/evds/"
+        "https://evds3.tcmb.gov.tr/igmevdsms-dis/"
         f"series={series_param}&startDate={start.strftime('%d-%m-%Y')}"
         f"&endDate={end.strftime('%d-%m-%Y')}&type=json"
     )
-    resp = requests.get(url, headers=_headers(api_key), timeout=30)
-    resp.raise_for_status()
-    data = resp.json()
+    data = _get_json(url, api_key)
     items = data.get("items", [])
 
     result: dict = {code: [] for code in codes}
@@ -68,7 +92,15 @@ def fetch_series_values(api_key: str, codes: list[str], days: int = 10) -> dict:
         if not raw_tarih:
             continue
         try:
-            d = date(*[int(p) for p in reversed(raw_tarih.split("-"))])
+            parts = [int(p) for p in raw_tarih.split("-")]
+            if len(parts) == 2:
+                year, month = parts  # aylık seri: "YYYY-MM"
+                d = date(year, month, 1)
+            elif len(parts) == 3:
+                day, month, year = parts  # günlük seri: "DD-MM-YYYY"
+                d = date(year, month, day)
+            else:
+                continue
         except ValueError:
             continue
         for code in codes:
@@ -91,51 +123,20 @@ def latest_value(series_map: dict, code: str):
     return points[-1] if points else None
 
 
-def discover_gold_series(api_key: str):
-    """bie_mkaltytl veri grubundaki seriler arasından 'gram altın'
-    alış/satış kodlarını isimlerine bakarak bulmaya çalışır."""
-    url = (
-        "https://evds2.tcmb.gov.tr/service/evds/serieList/"
-        f"type=json&code={GOLD_DATAGROUP}"
-    )
-    resp = requests.get(url, headers=_headers(api_key), timeout=30)
-    resp.raise_for_status()
-    entries = resp.json()
-    if isinstance(entries, dict):
-        entries = entries.get("items", [])
-
-    alis_code = satis_code = None
-    for entry in entries:
-        code = entry.get("SERIE_CODE")
-        name = (entry.get("SERIE_NAME") or "").lower()
-        if not code:
-            continue
-        is_gram = "gram" in name or "995" in name
-        if "alış" in name and (is_gram or alis_code is None):
-            alis_code = code
-        if "satış" in name and (is_gram or satis_code is None):
-            satis_code = code
-
-    return alis_code, satis_code
-
-
 def fetch_gold(api_key: str):
-    alis_code, satis_code = discover_gold_series(api_key)
-    if not alis_code or not satis_code:
-        print("UYARI: Gram altın seri kodu bulunamadı, altın alanı atlanıyor.")
-        return None
-
-    series_map = fetch_series_values(api_key, [alis_code, satis_code])
-    alis = latest_value(series_map, alis_code)
-    satis = latest_value(series_map, satis_code)
-    if not alis or not satis:
-        print("UYARI: Gram altın verisi çekilemedi, altın alanı atlanıyor.")
+    """TCMB EVDS'de gram altın için ayrı alış/satış serisi yok; yalnızca
+    TP.MK.KUL.YTL (Külçe Altın Satış Fiyatı, TL/gr) aylık ortalama olarak
+    yayınlanıyor (bie_mkaltytl veri grubu, 2026-09-13 tarihli keşifle
+    doğrulandı). Bu yüzden yalnızca "satış" hücresi güncellenir."""
+    series_map = fetch_series_values(api_key, [GOLD_SERIES], days=400)
+    satis = latest_value(series_map, GOLD_SERIES)
+    if not satis:
+        print("UYARI: Gram altın (külçe) verisi çekilemedi, altın alanı atlanıyor.")
         return None
 
     return {
-        "doviz-altin-alis": alis[1],
         "doviz-altin-satis": satis[1],
-        "tarih": max(alis[0], satis[0]),
+        "tarih": satis[0],
     }
 
 
@@ -149,7 +150,7 @@ def valid(field: str, value: float) -> bool:
     return lo <= value <= hi
 
 
-def update_html(values: dict, tarih_label: str) -> set:
+def update_html(values: dict, tarih_label: str, altin_tarih_label: str = "") -> set:
     with open(INDEX_HTML, "r", encoding="utf-8") as f:
         html = f.read()
 
@@ -173,6 +174,17 @@ def update_html(values: dict, tarih_label: str) -> set:
         if count:
             html = new_html
             changed.add("tarih")
+
+    if altin_tarih_label:
+        new_html, count = re.subn(
+            r'(<span class="doviz-altin-tarih">)[^<]*(</span>)',
+            rf"\g<1>{altin_tarih_label}\g<2>",
+            html,
+            count=1,
+        )
+        if count:
+            html = new_html
+            changed.add("altin-tarih")
 
     if changed:
         with open(INDEX_HTML, "w", encoding="utf-8") as f:
@@ -210,21 +222,25 @@ def main() -> None:
         print(f"UYARI: Altın verisi çekilirken hata oluştu: {exc}", file=sys.stderr)
         gold = None
 
+    altin_tarih_label = ""
     if gold:
-        for field in ("doviz-altin-alis", "doviz-altin-satis"):
-            v = gold[field]
-            if valid(field, v):
-                values[field] = v
-                latest_date = gold["tarih"] if latest_date is None else max(latest_date, gold["tarih"])
-            else:
-                print(f"UYARI: {field} değeri mantık dışı ({v}), atlanıyor.", file=sys.stderr)
+        v = gold["doviz-altin-satis"]
+        if valid("doviz-altin-satis", v):
+            values["doviz-altin-satis"] = v
+            gold_d = gold["tarih"]
+            altin_tarih_label = f"{AY_ADLARI[gold_d.month - 1]} {gold_d.year} Ort."
+        else:
+            print(f"UYARI: doviz-altin-satis değeri mantık dışı ({v}), atlanıyor.", file=sys.stderr)
 
     if not values:
         print("HATA: Hiçbir geçerli değer çekilemedi, index.html güncellenmedi.", file=sys.stderr)
         sys.exit(1)
 
+    # Üstteki genel tarih rozeti yalnızca günlük döviz kurunu yansıtır;
+    # altın ayrı (ve genelde daha eski) bir aya ait olduğundan kendi
+    # etiketiyle gösterilir, genel tarihle karıştırılmaz.
     tarih_label = latest_date.strftime("%d.%m.%Y") if latest_date else ""
-    changed = update_html(values, tarih_label)
+    changed = update_html(values, tarih_label, altin_tarih_label)
 
     if changed:
         print(f"Güncellendi ({tarih_label}): {sorted(changed)}")

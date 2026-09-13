@@ -7,7 +7,7 @@ Kur & Enflasyon kartını günceller.
 Oran = (son 12 ayın TÜFE ortalaması / önceki 12 ayın TÜFE ortalaması - 1) * 100
 
 Gerekli ortam değişkeni: TCMB_EVDS_API_KEY
-(https://evds2.tcmb.gov.tr adresinden ücretsiz alınır)
+(https://evds3.tcmb.gov.tr adresinden ücretsiz alınır)
 """
 
 import os
@@ -26,18 +26,40 @@ AY_ADLARI = [
 ]
 
 
+def _headers(api_key: str) -> dict:
+    return {
+        "key": api_key,
+        "User-Agent": "Mozilla/5.0 (compatible; smmm-adem-yilmaz-site/1.0)",
+        "Accept": "application/json",
+    }
+
+
+def _get_json(url: str, api_key: str):
+    resp = requests.get(url, headers=_headers(api_key), timeout=30)
+    if resp.status_code != 200 or not resp.text.strip():
+        raise RuntimeError(
+            f"EVDS isteği başarısız: status={resp.status_code}, "
+            f"body_ilk_300={resp.text[:300]!r}, url={url}"
+        )
+    try:
+        return resp.json()
+    except ValueError as exc:
+        raise RuntimeError(
+            f"EVDS cevabı JSON değil: status={resp.status_code}, "
+            f"body_ilk_300={resp.text[:300]!r}, url={url}"
+        ) from exc
+
+
 def fetch_series(api_key: str) -> list[tuple[date, float]]:
     end = date.today()
-    start = end - timedelta(days=30 * 30)  # ~30 ay geriye, güvenli pay
+    start = end - timedelta(days=45 * 30)  # ~45 ay geriye, veri boşluklarına karşı bol pay
 
     url = (
-        "https://evds2.tcmb.gov.tr/service/evds/"
+        "https://evds3.tcmb.gov.tr/igmevdsms-dis/"
         f"series={SERIES}&startDate={start.strftime('%d-%m-%Y')}"
         f"&endDate={end.strftime('%d-%m-%Y')}&type=json"
     )
-    resp = requests.get(url, headers={"key": api_key}, timeout=30)
-    resp.raise_for_status()
-    data = resp.json()
+    data = _get_json(url, api_key)
 
     items = data.get("items", [])
     series_key = SERIES.replace(".", "_")
@@ -50,9 +72,16 @@ def fetch_series(api_key: str) -> list[tuple[date, float]]:
             continue
         if not raw_tarih:
             continue
-        month_str, year_str = raw_tarih.split("-")
-        d = date(int(year_str), int(month_str), 1)
         try:
+            parts = [int(p) for p in raw_tarih.split("-")]
+            if len(parts) == 2:
+                year, month = parts  # aylık seri: "YYYY-MM"
+                d = date(year, month, 1)
+            elif len(parts) == 3:
+                day, month, year = parts  # günlük seri: "DD-MM-YYYY"
+                d = date(year, month, day)
+            else:
+                continue
             points.append((d, float(raw_val)))
         except ValueError:
             continue
