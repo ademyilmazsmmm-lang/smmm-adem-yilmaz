@@ -8,15 +8,66 @@
   
 <meta name="description" content="Yurt dışına yazılım, tasarım, veri analizi veya mühendislik hizmeti sunan kişi ve kurumlar için gelir/kurumlar vergisinde %100 vergi avantajı rehberi.">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <style>
+:root {
+  --navy: #081222;
+  --navy-light: #0f1e35;
+  --navy-mid: #1a3052;
+  --gold: #d4af5a;
+  --gold-light: #f0dfa8;
+  --gold-dark: #b8943f;
+  --gold-glow: rgba(212, 175, 90, 0.35);
+  --white: #ffffff;
+  --off-white: #f6f7f9;
+  --gray-100: #eef1f5;
+  --gray-200: #d8dee8;
+  --gray-600: #5a6478;
+  --text: #2a3344;
+  --shadow-gold: 0 8px 32px rgba(212, 175, 90, 0.22);
+  --radius: 14px;
+  --transition: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'DM Sans', sans-serif; color: var(--text); background: var(--off-white); line-height: 1.6; overflow-x: hidden; }
+.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(8, 18, 34, 0.97); border-bottom: 1px solid rgba(212, 175, 90, 0.12); }
+.header-inner { display: flex; align-items: center; justify-content: space-between; height: 80px; }
+.logo { display: flex; align-items: center; gap: 14px; text-decoration: none; }
+.logo-icon, .monogram { width: 46px; height: 46px; background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; font-weight: 700; color: var(--navy); box-shadow: var(--shadow-gold); flex-shrink: 0; }
+.logo-text, .brand-text { display: flex; flex-direction: column; }
+.logo-text span:first-child, .brand-name { font-family: 'Cormorant Garamond', serif; font-size: 1.28rem; font-weight: 700; color: var(--white); letter-spacing: 0.01em; }
+.logo-text span:last-child, .brand-tag { font-size: 0.68rem; color: var(--gold-light); letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.9; }
+.nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nav a { color: rgba(255, 255, 255, 0.82); font-size: 0.88rem; font-weight: 500; text-decoration: none; padding: 8px 14px; border-radius: 8px; transition: var(--transition); }
+.nav a:not(.nav-cta):hover { color: var(--gold-light); }
+.nav-cta { background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); color: var(--navy) !important; padding: 11px 24px !important; border-radius: 10px; font-weight: 700 !important; margin-left: 8px; box-shadow: 0 4px 16px rgba(212, 175, 90, 0.25); }
+.nav-cta:hover { transform: translateY(-2px); box-shadow: var(--shadow-gold); }
+.section { padding: 96px 0; position: relative; }
+.section-white { background: var(--white); }
+h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; font-weight: 600; }
+.btn { display: inline-flex; align-items: center; gap: 10px; padding: 15px 30px; border-radius: 12px; font-size: 0.96rem; font-weight: 600; cursor: pointer; border: none; text-decoration: none; transition: var(--transition); font-family: 'DM Sans', sans-serif; }
+.btn-gold { background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); background-size: 200% auto; color: var(--navy); box-shadow: var(--shadow-gold); }
+.btn-gold:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(212, 175, 90, 0.45); background-position: right center; }
+.footer { background: var(--navy); padding: 48px 0 32px; border-top: 3px solid transparent; border-image: linear-gradient(90deg, transparent, var(--gold), transparent) 1; color: rgba(255,255,255,0.55); font-size: 0.88rem; }
+.footer-copy { text-align: center; }
+.footer-copy strong { color: var(--gold); }
+@media (max-width: 860px) {
+  .nav { gap: 14px; justify-content: flex-end; }
+  .header-inner { flex-wrap: wrap; height: auto; padding: 12px 0; }
+}
+</style>
 </head>
 <body>
 
   <!-- ── ÜST MENÜ ── -->
   <header class="header" id="header" style="background: var(--navy);">
     <div class="container header-inner">
-      <a href="/" class="logo">
-        <img src="image_887dcb.png" alt="SMMM Adem Yılmaz Logo" style="height: 55px; width: auto; object-fit: contain;">
+      <a href="/" class="logo" aria-label="SMMM Adem Yılmaz — Ana Sayfa">
+        <span class="logo-icon">AY</span>
+        <span class="logo-text">
+          <span>SMMM Adem Yılmaz</span>
+          <span>Serbest Muhasebeci Mali Müşavir</span>
+        </span>
       </a>
       <nav class="nav" id="mainNav">
         <a href="/">Ana Sayfa</a>
@@ -83,6 +134,5 @@
     </div>
   </footer>
 
-  <script src="script.js"></script>
 </body>
 </html>

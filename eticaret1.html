@@ -6,13 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Adem Yılmaz | Serbest Muhasebeci Mali Müşavir (SMMM)</title>
 <meta name="description" content="Şirket kuruluşundan e-dönüşüm süreçlerine, e-ticaret muhasebesinden vergi danışmanlığına kadar güvenilir ve şeffaf mali müşavirlik hizmeti. Ümraniye SMMM Adem Yılmaz.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
     <style>
+        h1,h2,h3,.navbar .logo{font-family:'Cormorant Garamond',serif;font-weight:600;}
         /* Genel Ayarlar */
         html {
             scroll-behavior: smooth; /* Menüye tıklayınca yumuşak kaydırma */
         }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'DM Sans', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
             color: #333;
@@ -22,7 +26,7 @@
         
         /* Menü (Navbar) */
         .navbar {
-            background-color: #1a365d;
+            background-color: #081222;
             padding: 15px 50px;
             display: flex;
             justify-content: space-between;
@@ -41,7 +45,7 @@
             text-decoration: none;
         }
         .navbar .logo span {
-            color: #ffc107; /* SMMM yazısı için altın sarısı */
+            color: #d4af5a; /* SMMM yazısı için altın sarısı */
         }
         .nav-links {
             list-style: none;
@@ -59,7 +63,7 @@
             transition: color 0.3s;
         }
         .nav-links a:hover {
-            color: #ffc107;
+            color: #d4af5a;
         }
 
         /* Bölüm Ayarları */
@@ -77,7 +81,7 @@
             border-bottom: 1px solid #eaeaea;
         }
         .hero h1 {
-            color: #1a365d;
+            color: #1a3052;
             font-size: 2.8rem;
             margin-bottom: 20px;
         }
@@ -88,8 +92,8 @@
             margin: 0 auto 30px auto;
         }
         .btn {
-            background-color: #0056b3;
-            color: #fff;
+            background-color: #d4af5a;
+            color: #081222;
             padding: 15px 30px;
             text-decoration: none;
             font-size: 1.1rem;
@@ -98,7 +102,7 @@
             display: inline-block;
             transition: background 0.3s;
         }
-        .btn:hover { background-color: #004494; }
+        .btn:hover { background-color: #b8943f; }
 
         /* Hizmetler Bölümü */
         .services-grid {
@@ -113,13 +117,13 @@
             border-radius: 8px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.05);
             text-align: center;
-            border-top: 4px solid #1a365d;
+            border-top: 4px solid #1a3052;
         }
-        .service-card h3 { color: #1a365d; }
+        .service-card h3 { color: #1a3052; }
 
         /* E-Ticaret Rehberi (Önceki Tasarımınız) */
         .roadmap-header { text-align: center; margin-bottom: 40px; }
-        .roadmap-header h2 { color: #1a365d; font-size: 2.2rem; margin-bottom: 10px; }
+        .roadmap-header h2 { color: #1a3052; font-size: 2.2rem; margin-bottom: 10px; }
         .step-container {
             display: flex;
             background: #fff;
@@ -127,11 +131,11 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.05);
             margin-bottom: 20px;
             overflow: hidden;
-            border-left: 5px solid #0056b3;
+            border-left: 5px solid #d4af5a;
         }
         .step-number {
             background: #f8f9fa;
-            color: #0056b3;
+            color: #1a3052;
             font-size: 2rem;
             font-weight: bold;
             padding: 20px 30px;
@@ -142,26 +146,26 @@
             min-width: 50px;
         }
         .step-content { padding: 20px 30px; }
-        .step-content h3 { margin-top: 0; color: #1a365d; margin-bottom: 10px; }
+        .step-content h3 { margin-top: 0; color: #1a3052; margin-bottom: 10px; }
         .step-content p { margin: 0; color: #555; }
         
         .costs-section { background: #f8f9fa; padding: 40px; border-radius: 12px; margin-top: 40px; }
-        .costs-section h3 { color: #1a365d; text-align: center; margin-top: 0; margin-bottom: 25px; }
+        .costs-section h3 { color: #1a3052; text-align: center; margin-top: 0; margin-bottom: 25px; }
         .cost-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .cost-table th, .cost-table td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
-        .cost-table th { background-color: #1a365d; color: #fff; }
+        .cost-table th { background-color: #1a3052; color: #fff; }
         .highlight-row { background-color: #eef5ff; font-weight: bold; }
-        .info-box { background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-top: 20px; color: #856404; border-radius: 4px; }
+        .info-box { background-color: #fff3cd; border-left: 4px solid #d4af5a; padding: 15px; margin-top: 20px; color: #856404; border-radius: 4px; }
 
         /* İletişim & Footer */
         .contact-section {
-            background-color: #1a365d;
+            background-color: #081222;
             color: #fff;
             padding: 60px 20px;
             text-align: center;
             margin-top: 60px;
         }
-        .contact-section h2 { margin-top: 0; color: #ffc107; }
+        .contact-section h2 { margin-top: 0; color: #d4af5a; }
         .contact-info {
             max-width: 600px;
             margin: 30px auto;
@@ -172,7 +176,7 @@
         }
         .contact-info a { color: #fff; font-weight: bold; }
         footer {
-            background-color: #0f223b;
+            background-color: #081222;
             color: #aaa;
             text-align: center;
             padding: 20px;
@@ -321,12 +325,12 @@
         <div class="contact-info">
             <h3>Adem Yılmaz - SMMM</h3>
             <p>📍 Atatürk Mah. Sütçüimam Cad. No:101/5 Ümraniye / İstanbul</p>
-            <p>✉️ <a href="mailto:iletisim@smmmyilmaz.com">iletisim@smmmyilmaz.com</a></p>
+            <p>✉️ <a href="mailto:adem@smmmyilmaz.com">adem@smmmyilmaz.com</a></p>
             </div>
     </div>
 
     <footer>
-        &copy; 2024 Adem Yılmaz - Serbest Muhasebeci Mali Müşavir. Tüm Hakları Saklıdır.
+        &copy; 2026 Adem Yılmaz - Serbest Muhasebeci Mali Müşavir. Tüm Hakları Saklıdır.
     </footer>
 
 </body>
