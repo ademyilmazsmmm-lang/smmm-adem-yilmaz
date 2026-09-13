@@ -120,6 +120,8 @@ def discover_gold_series(api_key: str):
     if isinstance(entries, dict):
         entries = entries.get("items", [])
 
+    print(f"TEŞHİS: serieList({GOLD_DATAGROUP}) -> {len(entries)} kayıt: {entries[:5]}")
+
     alis_code = satis_code = None
     for entry in entries:
         code = entry.get("SERIE_CODE")
