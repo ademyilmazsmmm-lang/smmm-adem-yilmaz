@@ -1,0 +1,39 @@
+name: Döviz & Altın Kurunu Güncelle
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: "30 14 * * 1-5"   # Hafta içi her gün 14:30 UTC (17:30 TR) — TCMB 15:30 TR kur ilanından sonra
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Bağımlılıkları kur
+        run: pip install requests
+
+      - name: Döviz ve altın kurunu TCMB EVDS'den çek ve güncelle
+        env:
+          TCMB_EVDS_API_KEY: ${{ secrets.TCMB_EVDS_API_KEY }}
+        run: python update_doviz_kuru.py
+
+      - name: Commit & Push
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+
+          git add index.html
+          git diff --cached --quiet || git commit -m "Döviz ve altın kurunu güncelle (TCMB EVDS)"
+          git push
