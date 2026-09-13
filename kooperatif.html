@@ -7,11 +7,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Konut, işyeri, üretim ve işletme kooperatiflerinin kuruluş süreci, ortaklık yapısı, sermaye, vergi ve muhasebe yükümlülükleri hakkında pratik rehber. Ümraniye Mali Müşavir Adem Yılmaz.">
   <meta name="keywords" content="kooperatif kuruluşu, konut yapı kooperatifi, işletme kooperatifi, üretim kooperatifi, kooperatif ana sözleşmesi, kooperatif muhasebesi, Ümraniye mali müşavir">
+  <meta name="robots" content="index, follow">
+  <meta name="author" content="Adem Yılmaz">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://smmmyilmaz.com/kooperatif.html">
+  <meta property="og:title" content="Kooperatif Kuruluşu | Konut, İşletme ve Üretim Kooperatifleri">
+  <meta property="og:description" content="Konut, işyeri, üretim ve işletme kooperatiflerinin kuruluş süreci, ortaklık yapısı, sermaye, vergi ve muhasebe yükümlülükleri hakkında pratik rehber.">
+  <meta property="og:locale" content="tr_TR">
+  <meta property="og:site_name" content="SMMM Adem Yılmaz">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Ana Sayfa", "item": "https://smmmyilmaz.com/" },
+          { "@type": "ListItem", "position": 2, "name": "Pratik Bilgiler", "item": "https://smmmyilmaz.com/#pratik-bilgiler" },
+          { "@type": "ListItem", "position": 3, "name": "Kooperatif Kuruluşu", "item": "https://smmmyilmaz.com/kooperatif.html" }
+        ]
+      },
+      {
+        "@type": "Article",
+        "headline": "Kooperatif Kuruluşu | Konut, İşletme ve Üretim Kooperatifleri",
+        "description": "Konut, işyeri, üretim ve işletme kooperatiflerinin kuruluş süreci, ortaklık yapısı, sermaye, vergi ve muhasebe yükümlülükleri hakkında pratik rehber.",
+        "author": { "@type": "Person", "name": "Adem Yılmaz", "jobTitle": "Serbest Muhasebeci Mali Müşavir" },
+        "publisher": { "@type": "Organization", "name": "SMMM Adem Yılmaz", "url": "https://smmmyilmaz.com" },
+        "datePublished": "2026-09-13",
+        "dateModified": "2026-09-13",
+        "mainEntityOfPage": "https://smmmyilmaz.com/kooperatif.html"
+      }
+    ]
+  }
+  </script>
   <style>
+    :root{
+      --navy-950:#081222; --navy-900:#0f1e35; --navy-800:#1a3052; --navy-700:#1c3f63;
+      --gold:#d4af5a; --gold-light:#f0dfa8; --bg:#f4f6fb; --ink:#1b2a3b; --muted:#5c7086;
+    }
+    *{box-sizing:border-box;}
+    a{color:#081222;text-decoration:none;}
+    a:hover{text-decoration:underline;}
     h1,h2,h3{font-family:'Cormorant Garamond',serif;font-weight:600;}
     body{
       font-family: 'DM Sans', Arial, Helvetica, sans-serif;
@@ -20,25 +61,64 @@
       color:#243447;
       line-height:1.6;
     }
-    header{
-      background:#081222;
-      color:#fff;
-      padding:24px 16px;
-      text-align:center;
+    .container{max-width:1200px;margin:0 auto;padding:0 24px;}
+
+    .scroll-progress{position:fixed;top:0;left:0;height:3px;z-index:1001;background:linear-gradient(90deg,var(--navy-700),var(--gold));width:0%;transition:width .1s linear;}
+
+    .header{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(8,18,34,.88);backdrop-filter:blur(20px);border-bottom:1px solid rgba(212,175,90,.12);transition:.35s cubic-bezier(0.4,0,0.2,1);}
+    .header.scrolled{background:rgba(8,18,34,.97);box-shadow:0 8px 32px rgba(0,0,0,.25);}
+    .header-inner{display:flex;align-items:center;justify-content:space-between;height:80px;}
+    .logo{display:flex;align-items:center;gap:14px;text-decoration:none;}
+    .logo-icon{width:46px;height:46px;background:linear-gradient(135deg,var(--gold-light),var(--gold),var(--navy-800));border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:700;color:var(--navy-950);box-shadow:0 8px 32px rgba(212,175,90,.22);}
+    .logo-text{display:flex;flex-direction:column;}
+    .logo-text span:first-child{font-family:'Cormorant Garamond',serif;font-size:1.15rem;font-weight:700;color:#fff;}
+    .logo-text span:last-child{font-size:.65rem;color:var(--gold-light);letter-spacing:.12em;text-transform:uppercase;}
+    .nav{display:flex;align-items:center;gap:6px;}
+    .nav a{color:rgba(255,255,255,.82);font-size:.86rem;font-weight:500;padding:8px 12px;border-radius:8px;transition:.35s cubic-bezier(0.4,0,0.2,1);text-decoration:none;}
+    .nav a:not(.nav-cta):hover{color:var(--gold-light);}
+    .nav-cta{background:linear-gradient(135deg,var(--gold-light),var(--gold),var(--navy-800));color:var(--navy-950) !important;padding:10px 20px !important;border-radius:10px;font-weight:700 !important;margin-left:6px;box-shadow:0 4px 16px rgba(212,175,90,.25);}
+    .nav-cta:hover{transform:translateY(-2px);}
+    .menu-toggle{display:none;flex-direction:column;gap:6px;background:none;border:none;cursor:pointer;padding:8px;}
+    .menu-toggle span{display:block;width:26px;height:2px;background:#fff;border-radius:2px;transition:.35s cubic-bezier(0.4,0,0.2,1);}
+    .menu-toggle.open span:nth-child(1){transform:rotate(45deg) translate(5px,6px);}
+    .menu-toggle.open span:nth-child(2){opacity:0;}
+    .menu-toggle.open span:nth-child(3){transform:rotate(-45deg) translate(5px,-6px);}
+    @media(max-width:960px){
+      .nav{display:none;position:absolute;top:80px;left:0;right:0;flex-direction:column;background:var(--navy-950);padding:24px;gap:6px;border-bottom:1px solid rgba(212,175,90,.15);}
+      .nav.open{display:flex;}
+      .menu-toggle{display:flex;}
     }
-    header h1{
-      margin:0;
-      font-size:26px;
-    }
-    header p{
-      margin:8px 0 0;
-      font-size:14px;
-      opacity:0.95;
-    }
+
+    .page-hero{position:relative;padding:140px 0 60px;background:var(--navy-950);overflow:hidden;}
+    .page-hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 80% 30%, rgba(212,175,90,.12) 0%, transparent 55%),linear-gradient(155deg, var(--navy-950) 0%, var(--navy-900) 50%, var(--navy-800) 100%);}
+    .page-hero-content{position:relative;z-index:2;max-width:780px;}
+    .breadcrumb{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:20px;}
+    .breadcrumb a{color:rgba(255,255,255,.65);transition:color .2s;text-decoration:none;}
+    .breadcrumb a:hover{color:var(--gold-light);}
+    .breadcrumb span{color:rgba(255,255,255,.35);}
+    .page-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(212,175,90,.1);border:1px solid rgba(212,175,90,.28);color:var(--gold-light);padding:8px 16px;border-radius:50px;font-size:.75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:20px;}
+    .page-hero h1{font-size:clamp(2rem,4.5vw,3rem);color:#fff;margin:0 0 16px;max-width:820px;}
+    .page-hero h1 em{font-style:italic;background:linear-gradient(135deg,var(--gold-light),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+    .page-hero-desc{color:rgba(255,255,255,.72);font-size:1.05rem;max-width:640px;margin:0 0 28px;}
+    .hero-cta-row{display:flex;gap:14px;flex-wrap:wrap;}
+    .btn{display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:12px;font-size:.94rem;font-weight:600;cursor:pointer;border:none;transition:.35s cubic-bezier(0.4,0,0.2,1);font-family:'DM Sans',sans-serif;text-decoration:none;}
+    .btn-gold{background:linear-gradient(135deg,var(--gold-light),var(--gold),var(--navy-800));color:var(--navy-950);box-shadow:0 8px 32px rgba(212,175,90,.22);}
+    .btn-gold:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(212,175,90,.45);}
+    .btn-outline-light{background:rgba(255,255,255,.05);color:#fff;border:1.5px solid rgba(255,255,255,.25);}
+    .btn-outline-light:hover{border-color:var(--gold);color:var(--gold-light);background:rgba(212,175,90,.1);}
+
+    .trust-strip{background:var(--navy-900);border-bottom:1px solid rgba(212,175,90,.12);padding:18px 0;}
+    .trust-inner{display:flex;align-items:center;justify-content:center;gap:36px;flex-wrap:wrap;max-width:1140px;margin:0 auto;padding:0 20px;}
+    .trust-item{display:flex;align-items:center;gap:10px;color:rgba(255,255,255,.7);font-size:.84rem;font-weight:500;}
+    .trust-item i{color:var(--gold);font-size:1rem;}
+    .trust-item strong{color:var(--gold-light);}
+    .reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease, transform .6s ease;}
+    .reveal.visible{opacity:1;transform:translateY(0);}
+
     main{
       max-width:960px;
-      margin:24px auto;
-      padding:0 16px 40px;
+      margin:0 auto;
+      padding:40px 16px 40px;
     }
     .card{
       background:#fff;
@@ -134,10 +214,63 @@
 </head>
 <body>
 
-<header>
-  <h1>Kooperatif Kuruluşu Rehberi</h1>
-  <p>Konut, işyeri, üretim ve işletme kooperatifleri için özet kuruluş ve vergi rehberi</p>
+<div class="scroll-progress" id="scrollProgress"></div>
+<header class="header" id="header">
+  <div class="container header-inner">
+    <a href="/" class="logo">
+      <div class="logo-icon">AY</div>
+      <div class="logo-text">
+        <span>SMMM Adem Yılmaz</span>
+        <span>Serbest Muhasebeci Mali Müşavir</span>
+      </div>
+    </a>
+    <nav class="nav" id="mainNav">
+      <a href="/#kurumsal">Kurumsal</a>
+      <a href="/#hizmetler">Hizmetlerimiz</a>
+      <a href="/#pratik-bilgiler">Pratik Bilgiler</a>
+      <a href="/hesaplama.html">Hesaplamalar</a>
+      <a href="#site-iletisim" class="nav-cta">İletişim</a>
+    </nav>
+    <button class="menu-toggle" id="navToggle" aria-label="Menü">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
 </header>
+
+<section class="page-hero">
+  <div class="page-hero-bg"></div>
+  <div class="container page-hero-content reveal">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/">Ana Sayfa</a>
+      <span>/</span>
+      <a href="/#pratik-bilgiler">Pratik Bilgiler</a>
+      <span>/</span>
+      <span style="color: var(--gold-light);">Kooperatif Kuruluşu</span>
+    </nav>
+    <div class="page-badge"><i class="fas fa-building-columns"></i> 1163 Sayılı Kooperatifler Kanunu</div>
+    <h1>Kooperatif Kuruluşu <em>Rehberi</em></h1>
+    <p class="page-hero-desc">
+      Konut, işyeri, üretim ve işletme kooperatifleri için kuruluş süreci, ortaklık yapısı, sermaye
+      payları ve vergi/muhasebe yükümlülükleri hakkında güncel özet rehber.
+    </p>
+    <div class="hero-cta-row">
+      <a href="https://wa.me/905536194134?text=Kooperatif%20kuruluşu%20hakkında%20danışmanlık%20almak%20istiyorum" class="btn btn-gold" target="_blank" rel="noopener">
+        <i class="fab fa-whatsapp"></i> Danışmanlık Alın
+      </a>
+      <a href="#site-iletisim" class="btn btn-outline-light">
+        İletişime Geçin <i class="fas fa-arrow-down"></i>
+      </a>
+    </div>
+  </div>
+</section>
+<div class="trust-strip">
+  <div class="trust-inner">
+    <div class="trust-item"><i class="fas fa-scale-balanced"></i> <strong>1163</strong> Sayılı Kooperatifler Kanunu</div>
+    <div class="trust-item"><i class="fas fa-users"></i> <strong>7</strong> Kurucu Ortak Şartı</div>
+    <div class="trust-item"><i class="fas fa-clock"></i> <strong>18+</strong> Yıl Deneyim</div>
+    <div class="trust-item"><i class="fas fa-map-marker-alt"></i> Ümraniye / İstanbul</div>
+  </div>
+</div>
 
 <main>
 
@@ -182,6 +315,11 @@
       <li>Merkez adresi ve mümkünse ilerideki proje adresi.</li>
       <li>Yönetim kurulu ve denetim kurulu yapısı, görev süreleri.</li>
     </ul>
+    <div class="highlight">
+      1163 sayılı Kanun'a göre; yönetim kurulunun yıllık faaliyet raporu, bilanço, gelir-gider hesapları
+      ve denetim kurulu raporları, olağan genel kurul toplantısından <strong>en az 15 gün önce</strong>
+      ortakların incelemesine açık tutulmalıdır.
+    </div>
   </section>
 
   <section class="card">
@@ -222,15 +360,31 @@
     <h2>5. Kooperatiflerde Vergi ve Muhasebe Yükümlülükleri</h2>
     <p>
       Kooperatif türüne, faaliyet alanına ve sağlanan muafiyetlere göre vergi durumu değişebilir.
-      Özellikle konut yapı kooperatifleri için belirli şartlar sağlandığında kurumlar vergisi istisnası
-      gibi avantajlar söz konusu olabilir.
+      Kurumlar Vergisi Kanunu madde 4/1-(k) uyarınca; <strong>tüketim ve taşımacılık kooperatifleri
+      hariç</strong> olmak üzere, aşağıdaki şartları taşıyan kooperatifler kurumlar vergisinden muaftır.
     </p>
+
+    <h3>Kurumlar Vergisi Muafiyetinin 3 Şartı</h3>
+    <ul>
+      <li><strong>Ortak dışı işlem yapmama:</strong> Sadece ortaklarla iş yapılmalıdır. 01.01.2018'den
+      itibaren ortak dışı işlemler, kooperatife bağlı ayrı bir <strong>iktisadi işletme</strong> nezdinde
+      kurumlar vergisine tabi tutulur.</li>
+      <li><strong>Yedek akçelerin dağıtılmaması:</strong> Ana sözleşmede yedek akçelerin ortaklara
+      dağıtılmayacağına dair hüküm bulunmalı ve bu hüküm fiilen uygulanmalıdır.</li>
+      <li><strong>Sermaye üzerinden kazanç dağıtılmaması:</strong> Yönetim kurulu üyelerine kazançtan
+      pay verilmemeli, sermaye üzerinden faiz/kazanç dağıtılmamalıdır.</li>
+    </ul>
+    <div class="highlight">
+      Konut yapı kooperatiflerinde, 03.07.2009 tarihinden önce yapı ruhsatı alınmış projelerde
+      üyelere yapılan konut teslimleri KDV Kanunu geçici 28. madde kapsamında <strong>KDV'den istisna</strong>
+      olabilir. Bu tarihten sonra ruhsat alınan projelerde istisna uygulanmaz.
+    </div>
 
     <h3>Genel Yükümlülükler</h3>
     <ul>
       <li>Defter tutma ve dönemsel finansal rapor hazırlama.</li>
       <li>İlgili ise KDV, stopaj ve muhtasar beyanlar.</li>
-      <li>Yıllık kurumlar vergisi veya ilgili vergi beyannameleri.</li>
+      <li>Muafiyet şartları kaybedilirse yıllık kurumlar vergisi beyannamesi verilmesi.</li>
       <li>Ortaklara yapılan iadeler, arsa/değer artışı gibi işlemlerin doğru muhasebeleştirilmesi.</li>
     </ul>
 
@@ -251,8 +405,8 @@
     </ul>
     <p>
       <strong>Daha detaylı bilgi için:</strong><br>
-      <a href="https://smmmyilmaz.com/kurulus.html">Şirket Kuruluş Hizmetleri</a> sayfamızı inceleyebilir veya
-      <a href="https://smmmyilmaz.com/#iletisim">iletişim bölümünden</a> doğrudan ulaşabilirsiniz.
+      <a href="kurulus.html">Şirket Kuruluş Hizmetleri</a> sayfamızı inceleyebilir veya
+      <a href="#site-iletisim">iletişim bölümünden</a> doğrudan ulaşabilirsiniz.
     </p>
     <p class="disclaimer">
       Bu sayfa genel bilgilendirme amaçlıdır; her kooperatifin şartları ve ihtiyaçları farklı olabilir.
@@ -262,6 +416,39 @@
 
 </main>
 
+<script>
+  const navToggle = document.getElementById('navToggle');
+  const mainNav = document.getElementById('mainNav');
+  navToggle?.addEventListener('click', () => {
+    mainNav.classList.toggle('open');
+    navToggle.classList.toggle('open');
+  });
+  mainNav?.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => {
+      mainNav.classList.remove('open');
+      navToggle?.classList.remove('open');
+    });
+  });
+  const header = document.getElementById('header');
+  const scrollProgress = document.getElementById('scrollProgress');
+  function onScroll() {
+    const y = window.scrollY;
+    const docH = document.documentElement.scrollHeight - window.innerHeight;
+    if (scrollProgress) scrollProgress.style.width = (docH > 0 ? (y / docH) * 100 : 0) + '%';
+    header?.classList.toggle('scrolled', y > 40);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+  const reveals = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window) {
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+    }, { threshold: 0.1 });
+    reveals.forEach(el => obs.observe(el));
+  } else {
+    reveals.forEach(el => el.classList.add('visible'));
+  }
+</script>
 
 <section class="site-contact-section" id="site-iletisim">
   <div class="container">
