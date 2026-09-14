@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="index, follow">
   <meta name="author" content="Adem Yılmaz">
-  <title>Maaş Hesaplama: Brüt Net Maaş Hesaplama 2026 | SMMM Adem Yılmaz</title>
-  <meta name="description" content="2026 güncel vergi dilimlerine göre brüt-net maaş hesaplama aracı. SGK tavanı, kümülatif gelir vergisi matrahı ve işveren maliyeti dahil profesyonel hesaplama.">
-  <meta name="keywords" content="maaş hesaplama, brüt net maaş, net brüt maaş hesaplama, 2026 maaş hesaplama, işveren maliyeti hesaplama, sgk tavanı, kümülatif vergi matrahı">
-  <link rel="canonical" href="https://smmmyilmaz.com/maas-hesaplama.html">
+  <title>Ticari Temerrüt Faizi Hesaplama | SMMM Adem Yılmaz</title>
+  <meta name="description" content="İşletmeler arası fatura ödemelerinde vadesinde ödenmeyen alacaklar için ticari temerrüt faizi hesaplama aracı. 3095 sayılı Kanun ve TTK'ya göre.">
+  <meta name="keywords" content="ticari temerrüt faizi hesaplama, vade farkı hesaplama, geciken fatura faizi, b2b alacak faizi hesaplama">
+  <link rel="canonical" href="https://smmmyilmaz.com/ticari-temerrut-faizi-hesaplama.html">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://smmmyilmaz.com/maas-hesaplama.html">
-  <meta property="og:title" content="Maaş Hesaplama Aracı">
-  <meta property="og:description" content="2026 güncel vergi dilimlerine göre brüt-net maaş hesaplama.">
+  <meta property="og:url" content="https://smmmyilmaz.com/ticari-temerrut-faizi-hesaplama.html">
+  <meta property="og:title" content="Ticari Temerrüt Faizi Hesaplama Aracı">
+  <meta property="og:description" content="İşletmeler arası geciken fatura ödemeleri için temerrüt faizi hesaplama.">
   <meta property="og:locale" content="tr_TR">
   <meta property="og:site_name" content="SMMM Adem Yılmaz">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -41,16 +41,16 @@
         {
           "@type": "ListItem",
           "position": 3,
-          "name": "Maaş Hesaplama",
-          "item": "https://smmmyilmaz.com/maas-hesaplama.html"
+          "name": "Ticari Temerrüt Faizi Hesaplama",
+          "item": "https://smmmyilmaz.com/ticari-temerrut-faizi-hesaplama.html"
         }
       ]
     },
     {
       "@type": "WebApplication",
-      "name": "Maaş Hesaplama",
-      "description": "2026 güncel vergi dilimlerine göre brüt-net maaş hesaplama.",
-      "url": "https://smmmyilmaz.com/maas-hesaplama.html",
+      "name": "Ticari Temerrüt Faizi Hesaplama",
+      "description": "İşletmeler arası geciken fatura ödemeleri için temerrüt faizi hesaplama.",
+      "url": "https://smmmyilmaz.com/ticari-temerrut-faizi-hesaplama.html",
       "applicationCategory": "FinanceApplication",
       "operatingSystem": "Any",
       "offers": {
@@ -239,16 +239,16 @@
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href="/">Ana Sayfa</a><span>/</span>
         <a href="/hesaplama.html">Hesaplama Araçları</a><span>/</span>
-        <span style="color: var(--gold-light);">Maaş Hesaplama</span>
+        <span style="color: var(--gold-light);">Ticari Temerrüt Faizi</span>
       </nav>
       <div class="page-badge"><i class="fas fa-calculator"></i> Ücretsiz · 2026 Güncel</div>
-      <h1>Brüt ↔ Net <em>Maaş</em> Hesaplama</h1>
-      <p class="page-hero-desc">2026 güncel SGK ve vergi oranlarına göre brüt-net maaş, SGK tavanı ve işveren maliyetinizi hesaplayın.</p>
+      <h1>Ticari <em>Temerrüt Faizi</em> Hesaplama</h1>
+      <p class="page-hero-desc">İşletmeler arası geciken fatura ödemeleri için temerrüt faizinizi hesaplayın.</p>
     </div>
   </section>
   <div class="trust-strip">
     <div class="container trust-inner">
-      <div class="trust-item"><i class="fas fa-calculator"></i> <strong>2026</strong> Güncel Oranlar</div>
+      <div class="trust-item"><i class="fas fa-calculator"></i> <strong>TTK</strong> ve 3095 Sayılı Kanun</div>
       <div class="trust-item"><i class="fas fa-award"></i> <strong>TÜRMOB</strong> Üyesi</div>
       <div class="trust-item"><i class="fas fa-shield-alt"></i> Ücretsiz Kullanım</div>
       <div class="trust-item"><i class="fas fa-clock"></i> <strong>18+</strong> Yıl Deneyim</div>
@@ -258,52 +258,35 @@
     <div class="container calc-grid">
       <div class="reveal">
         <div class="calc-card">
-          <div id="maas" class="tab-content" style="display:block;">
-            <h2 class="card-title">Maaş Hesaplama</h2>
-            <p class="card-description">2026 güncel vergi dilimlerine göre Brüt ↔ Net hesaplama — kümülatif matrah ve SGK tavanı desteğiyle</p>
-            <label>Hesaplama Türü</label>
-            <select id="maasHesaplamaTuru" onchange="toggleMaasInput()">
-              <option value="brut-net">Brüt → Net</option>
-              <option value="net-brut">Net → Brüt</option>
-            </select>
-            <div id="brutMaasGroup">
-              <label>Brüt Maaş (₺)</label>
-              <input type="number" id="brutMaas" placeholder="Örn: 60000">
-            </div>
-            <div id="netMaasGroup" style="display:none;">
-              <label>Net Maaş (₺)</label>
-              <input type="number" id="netMaas" placeholder="Örn: 45000">
-            </div>
+          <div id="temerrut" class="tab-content" style="display:block;">
+            <h2 class="card-title">Ticari Temerrüt Faizi Hesaplama</h2>
+            <p class="card-description">İşletmeler arası (B2B) fatura ödemelerinde vadesinde ödenmeyen alacaklar için temerrüt faizi hesaplayın</p>
+            <label>Alacak Tutarı (₺)</label>
+            <input type="number" id="temerrutTutar" placeholder="Örn: 100000">
             <div class="input-row-2">
               <div>
-                <label>Yılbaşından Bu Aya Kadarki Kümülatif Vergi Matrahı (₺)</label>
-                <input type="number" id="kumulatifMatrah" placeholder="Yılın ilk ayıysa boş bırakın" value="0">
+                <label>Vade Tarihi</label>
+                <input type="date" id="temerrutVadeTarihi">
               </div>
               <div>
-                <label>Brüt Asgari Ücret (₺) — SGK Tavanı İçin</label>
-                <input type="number" id="asgariUcret" placeholder="Örn: 26005">
+                <label>Ödeme Tarihi (veya Bugün)</label>
+                <input type="date" id="temerrutOdemeTarihi">
               </div>
             </div>
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:0.88rem;color:var(--navy);margin-bottom:14px;">
-              <input type="checkbox" id="isverenMaliyetiGoster" style="width:auto;margin:0;">
-              İşveren maliyetini de göster
-            </label>
-            <div id="teşvikGroup" style="display:none;">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:0.88rem;color:var(--navy);">
-                <input type="checkbox" id="besPuanTesvik" style="width:auto;margin:0;">
-                5 puanlık SGK prim teşvikinden yararlanıyorum
-              </label>
-            </div>
+            <label>Yıllık Temerrüt Faiz Oranı (%)</label>
+            <input type="number" id="temerrutOran" step="0.01" placeholder="Güncel oranı giriniz, örn: 45">
             <div class="info-box">
-              <strong>Not:</strong> AGİ kalkmıştır; asgari ücret kadar kazançlar gelir ve damga vergisinden istisnadır.
-              Kümülatif matrah alanı, yıl içinde dilim atlamalarının doğru yansıtılması için kullanılır —
-              yılın ilk ayı için 0 bırakabilirsiniz. SGK tavanı, girdiğiniz asgari ücretin 7,5 katı olarak hesaplanır.
+              <strong>Not:</strong> 3095 sayılı Kanun ve 6102 sayılı Türk Ticaret Kanunu gereği, ticari işlerde
+              (iki tarafın da tacir olduğu işlemlerde) uygulanacak temerrüt faiz oranı her yıl Hazine ve Maliye
+              Bakanlığı/Ticaret Bakanlığı tarafından ayrıca ilan edilir ve adi işlerdeki yasal faiz oranından
+              farklı (genellikle daha yüksek) olabilir. Hesaplamadan önce güncel oranı teyit ediniz.
+              Bu hesaplama, kanunda öngörülen basit faiz yöntemiyle yapılır.
             </div>
             <div class="btn-row">
-              <button class="btn-calc" onclick="hesaplaMaas()"><i class="fas fa-calculator"></i> Hesapla</button>
-              <button class="btn-clear" onclick="temizleTab('maas')" title="Temizle"><i class="fas fa-eraser"></i></button>
+              <button class="btn-calc" onclick="hesaplaTemerrut()"><i class="fas fa-calculator"></i> Hesapla</button>
+              <button class="btn-clear" onclick="temizleTab('temerrut')" title="Temizle"><i class="fas fa-eraser"></i></button>
             </div>
-            <div id="maasSonuc" class="result"></div>
+            <div id="temerrutSonuc" class="result"></div>
           </div>
         </div>
         <div class="calc-disclaimer">
@@ -320,7 +303,7 @@
             <p><i class="fas fa-phone"></i> 0553 619 41 34</p>
             <p><i class="fas fa-envelope"></i> adem@smmmyilmaz.com</p>
           </div>
-          <a href="https://wa.me/905536194134?text=Maa%C5%9F%20hesaplama%20sonu%C3%A7lar%C4%B1%20hakk%C4%B1nda%20dan%C4%B1%C5%9Fmanl%C4%B1k%20almak%20istiyorum" class="btn-side btn-wa" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> WhatsApp'tan Yazın</a>
+          <a href="https://wa.me/905536194134?text=Ticari%20temerr%C3%BCt%20faizi%20hesaplama%20sonu%C3%A7lar%C4%B1%20hakk%C4%B1nda%20dan%C4%B1%C5%9Fmanl%C4%B1k%20almak%20istiyorum" class="btn-side btn-wa" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> WhatsApp'tan Yazın</a>
           <a href="tel:905536194134" class="btn-side btn-gold-side"><i class="fas fa-phone"></i> Hemen Arayın</a>
         </div>
         <div class="sidebar-mini">
@@ -394,85 +377,29 @@
   </script>
   <script>
 
-    function toggleMaasInput() {
-      const tur = document.getElementById('maasHesaplamaTuru').value;
-      document.getElementById('brutMaasGroup').style.display = tur === 'brut-net' ? 'block' : 'none';
-      document.getElementById('netMaasGroup').style.display = tur === 'net-brut' ? 'block' : 'none';
-    }
-    document.getElementById('isverenMaliyetiGoster').addEventListener('change', function() {
-      document.getElementById('teşvikGroup').style.display = this.checked ? 'block' : 'none';
-    });
     function temizleTab(tabId) {
       const tab = document.getElementById(tabId);
-      tab.querySelectorAll('input[type="number"]').forEach(i => i.value = '');
-      tab.querySelectorAll('input[type="checkbox"]').forEach(i => i.checked = false);
-      tab.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+      tab.querySelectorAll('input').forEach(i => i.value = '');
       tab.querySelectorAll('.result').forEach(r => { r.innerHTML = ''; r.classList.remove('show'); });
-      document.getElementById('kumulatifMatrah').value = 0;
-      document.getElementById('teşvikGroup').style.display = 'none';
-      toggleMaasInput();
     }
-    function kademeliGelirVergisi(m) {
-      if (m <= 0) return 0;
-      if (m <= 110000) return m * 0.15;
-      if (m <= 230000) return 16500 + (m - 110000) * 0.20;
-      if (m <= 580000) return 40500 + (m - 230000) * 0.27;
-      if (m <= 3000000) return 135000 + (m - 580000) * 0.35;
-      return 982000 + (m - 3000000) * 0.40;
+    function gunFarki(t1, t2) {
+      const d1 = new Date(t1), d2 = new Date(t2);
+      return Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
     }
-    function hesaplaNetten(brut, tavan, kumulatifOnceki) {
-      const sgkMatrah = tavan ? Math.min(brut, tavan) : brut;
-      const sgk = sgkMatrah * 0.14;
-      const issizlik = sgkMatrah * 0.01;
-      const buAyMatrah = brut - sgk - issizlik;
-      const kumulatifSonrasi = kumulatifOnceki + buAyMatrah;
-      const gv = kademeliGelirVergisi(kumulatifSonrasi) - kademeliGelirVergisi(kumulatifOnceki);
-      const dv = brut * 0.00759;
-      const istisna = 3000;
-      const odenecekGvDv = Math.max(0, (gv + dv) - istisna);
-      return { net: brut - sgk - issizlik - odenecekGvDv, sgk, issizlik, gv, dv, odenecekGvDv, sgkMatrah, kumulatifSonrasi };
-    }
-    function hesaplaMaas() {
-      const tur = document.getElementById('maasHesaplamaTuru').value;
-      const asgariUcret = parseFloat(document.getElementById('asgariUcret').value) || 0;
-      const tavan = asgariUcret ? asgariUcret * 7.5 : 0;
-      const kumulatifOnceki = parseFloat(document.getElementById('kumulatifMatrah').value) || 0;
-      let brut = 0;
-      if (tur === 'brut-net') {
-        brut = parseFloat(document.getElementById('brutMaas').value);
-        if (!brut) return alert('Lütfen brüt tutar giriniz.');
-      } else {
-        const netHedef = parseFloat(document.getElementById('netMaas').value);
-        if (!netHedef) return alert('Lütfen net tutar giriniz.');
-        brut = netHedef * 1.3;
-        for (let i = 0; i < 20; i++) brut += (netHedef - hesaplaNetten(brut, tavan, kumulatifOnceki).net) * 1.4;
-      }
-      const r = hesaplaNetten(brut, tavan, kumulatifOnceki);
-      const kesinti = brut - r.net;
-      let satirlar = `
-        <div class="result-row"><span>Brüt Maaş</span><span>${fNum(brut)}</span></div>
-        <div class="result-row"><span class="text-red">SGK İşçi (%14)</span><span class="text-red">-${fNum(r.sgk)}</span></div>
-        <div class="result-row"><span class="text-red">İşsizlik (%1)</span><span class="text-red">-${fNum(r.issizlik)}</span></div>
-        <div class="result-row"><span class="text-red">Gelir Vergisi</span><span class="text-red">-${fNum(r.odenecekGvDv > r.dv ? r.odenecekGvDv - r.dv : r.odenecekGvDv)}</span></div>
-        <div class="result-row"><span class="text-red">Damga Vergisi</span><span class="text-red">-${fNum(r.dv)}</span></div>
-        <div class="result-row"><span>Toplam Kesinti</span><span>${fNum(kesinti)}</span></div>
-        <div class="result-row"><span class="text-green text-lg">Net Ele Geçen</span><span class="text-green text-lg">${fNum(r.net)}</span></div>`;
-      if (tavan) {
-        satirlar += `<div class="result-row"><span style="font-size:0.8rem;color:var(--gray-600);">SGK Primine Esas Tavan</span><span style="font-size:0.8rem;color:var(--gray-600);">${fNum(tavan)}</span></div>`;
-      }
-      if (document.getElementById('isverenMaliyetiGoster').checked) {
-        const tesvik = document.getElementById('besPuanTesvik').checked;
-        const isverenSgkOran = tesvik ? 0.155 : 0.205;
-        const isverenSgk = r.sgkMatrah * isverenSgkOran;
-        const isverenIssizlik = r.sgkMatrah * 0.02;
-        const toplamMaliyet = brut + isverenSgk + isverenIssizlik;
-        satirlar += `
-        <div class="result-row" style="margin-top:12px;padding-top:16px;border-top:2px solid rgba(212,175,90,0.3);"><span style="font-weight:800;color:var(--navy);">İşveren Maliyeti</span><span></span></div>
-        <div class="result-row"><span>İşveren SGK Payı (${tesvik ? '%15,5 teşvikli' : '%20,5'})</span><span>${fNum(isverenSgk)}</span></div>
-        <div class="result-row"><span>İşveren İşsizlik Payı (%2)</span><span>${fNum(isverenIssizlik)}</span></div>
-        <div class="result-row"><span class="text-red text-lg">Toplam İşveren Maliyeti</span><span class="text-red text-lg">${fNum(toplamMaliyet)}</span></div>`;
-      }
-      gosterSonuc('maasSonuc', 'Maaş Hesaplama Sonucu', satirlar);
+    function hesaplaTemerrut() {
+      const tutar = parseFloat(document.getElementById('temerrutTutar').value);
+      const vade = document.getElementById('temerrutVadeTarihi').value;
+      const odeme = document.getElementById('temerrutOdemeTarihi').value;
+      const oran = parseFloat(document.getElementById('temerrutOran').value);
+      if (!tutar || !vade || !odeme || !oran) return alert('Lütfen tüm alanları doldurun.');
+      const gun = gunFarki(vade, odeme);
+      if (gun <= 0) return alert('Ödeme tarihi, vade tarihinden sonra olmalıdır.');
+      const faiz = tutar * (oran / 100) * (gun / 365);
+      gosterSonuc('temerrutSonuc', 'Ticari Temerrüt Faizi Sonucu', `
+        <div class="result-row"><span>Gecikme Süresi</span><span>${gun} gün</span></div>
+        <div class="result-row"><span>Alacak Tutarı</span><span>${fNum(tutar)}</span></div>
+        <div class="result-row"><span class="text-red">Temerrüt Faizi</span><span class="text-red">${fNum(faiz)}</span></div>
+        <div class="result-row text-lg"><span class="text-green">Toplam Alacak</span><span class="text-green">${fNum(tutar + faiz)}</span></div>`);
     }
   </script>
 

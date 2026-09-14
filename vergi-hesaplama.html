@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="index, follow">
   <meta name="author" content="Adem Yılmaz">
-  <title>Vergi Hesaplama: Gelir Vergisi, KDV ve Stopaj Hesaplama | SMMM Adem Yılmaz</title>
-  <meta name="description" content="Gelir vergisi, KDV ve stopaj hesaplama araçları. 2026 güncel vergi dilimleri ve oranlarıyla anında hesaplama yapın.">
-  <meta name="keywords" content="gelir vergisi hesaplama, kdv hesaplama, stopaj hesaplama, vergi dilimleri 2026">
+  <title>Vergi Hesaplama: Gelir Vergisi, KDV, KDV Tevkifatı ve Stopaj | SMMM Adem Yılmaz</title>
+  <meta name="description" content="Gelir vergisi (dilim dilim döküm ile), KDV, KDV tevkifatı (kısmi tevkifat) ve stopaj hesaplama araçları. 2026 güncel vergi dilimleri ve oranlarıyla anında hesaplama.">
+  <meta name="keywords" content="gelir vergisi hesaplama, kdv hesaplama, kdv tevkifatı hesaplama, kısmi tevkifat oranları, stopaj hesaplama, vergi dilimleri 2026">
   <link rel="canonical" href="https://smmmyilmaz.com/vergi-hesaplama.html">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://smmmyilmaz.com/vergi-hesaplama.html">
@@ -243,7 +243,7 @@
       </nav>
       <div class="page-badge"><i class="fas fa-calculator"></i> Ücretsiz · 2026 Güncel</div>
       <h1>Gelir Vergisi, KDV ve <em>Stopaj</em> Hesaplama</h1>
-      <p class="page-hero-desc">2026 güncel vergi dilimleri ve oranlarına göre hesaplama yapın.</p>
+      <p class="page-hero-desc">2026 güncel vergi dilimleri ve oranlarına göre gelir vergisi, KDV, KDV tevkifatı ve stopaj hesaplaması yapın.</p>
     </div>
   </section>
   <div class="trust-strip">
@@ -265,11 +265,16 @@
             <select id="vergiTuru" onchange="toggleVergiInput()">
               <option value="gelir">Gelir Vergisi (Şahıs)</option>
               <option value="kdv">KDV Hesaplama</option>
+              <option value="tevkifat">KDV Tevkifatı (Kısmi Tevkifat)</option>
               <option value="stopaj">Stopaj Hesaplama</option>
             </select>
             <div id="gelirVergiGroup">
               <label>Yıllık Vergi Matrahı (₺)</label>
               <input type="number" id="gelirTutar" placeholder="Örn: 500000">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:0.88rem;">
+                <input type="checkbox" id="gelirDilimGoster" style="width:auto;margin:0;" checked>
+                Dilim dilim döküm göster
+              </label>
             </div>
             <div id="kdvGroup" style="display:none;">
               <label>Tutar (₺)</label>
@@ -286,14 +291,35 @@
                 <option value="dahil">KDV Dahilden Ayır</option>
               </select>
             </div>
+            <div id="tevkifatKdvGroup" style="display:none;">
+              <label>Fatura Tutarı (KDV Hariç) (₺)</label>
+              <input type="number" id="tevkifatKdvTutar" placeholder="Örn: 100000">
+              <label>Genel KDV Oranı</label>
+              <select id="tevkifatKdvOrani">
+                <option value="20">%20</option>
+                <option value="10">%10</option>
+                <option value="1">%1</option>
+              </select>
+              <label>Tevkifat Oranı (Hizmet Türüne Göre)</label>
+              <select id="tevkifatKesri">
+                <option value="0.3333">2/6 — Yapı Denetim Hizmetleri</option>
+                <option value="0.2">2/10 — Danışmanlık, Denetim, Müşavirlik</option>
+                <option value="0.5">5/10 — Temizlik, Bahçe/Çevre Bakım, Özel Güvenlik, İşgücü Temini</option>
+                <option value="0.7">7/10 — Yemek Servisi, Organizasyon Hizmetleri</option>
+                <option value="0.9">9/10 — Reklam Verme Hizmetleri</option>
+              </select>
+              <div class="info-box"><strong>Not:</strong> Tevkifat oranları hizmet türüne ve alıcının KDV Genel Uygulama Tebliği'nde sayılan mükellef grubunda olup olmamasına göre değişir; işleminize uygun oranı teyit ediniz.</div>
+            </div>
             <div id="stopajGroup" style="display:none;">
               <label>Brüt Tutar (₺)</label>
               <input type="number" id="stopajTutar" placeholder="Örn: 5000">
               <label>Stopaj Oranı</label>
               <select id="stopajOrani">
                 <option value="20">%20 (Kira / Serbest Meslek)</option>
+                <option value="17">%17 (Telif Hakkı / Sınai Mülkiyet Devri)</option>
                 <option value="15">%15 (Ücret)</option>
                 <option value="10">%10 (Diğer)</option>
+                <option value="5">%5 (Yıllara Yaygın İnşaat ve Onarım İşleri)</option>
               </select>
             </div>
             <div class="btn-row">
@@ -395,29 +421,47 @@
       const tur = document.getElementById('vergiTuru').value;
       document.getElementById('gelirVergiGroup').style.display = tur === 'gelir' ? 'block' : 'none';
       document.getElementById('kdvGroup').style.display = tur === 'kdv' ? 'block' : 'none';
+      document.getElementById('tevkifatKdvGroup').style.display = tur === 'tevkifat' ? 'block' : 'none';
       document.getElementById('stopajGroup').style.display = tur === 'stopaj' ? 'block' : 'none';
     }
     function temizleTab(tabId) {
       const tab = document.getElementById(tabId);
-      tab.querySelectorAll('input').forEach(i => i.value = '');
+      tab.querySelectorAll('input[type="number"]').forEach(i => i.value = '');
       tab.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
       tab.querySelectorAll('.result').forEach(r => { r.innerHTML = ''; r.classList.remove('show'); });
       toggleVergiInput();
+    }
+    function kademeliGelirVergisiDokum(m) {
+      const dilimler = [
+        { sinir: 110000, oran: 0.15 },
+        { sinir: 230000, oran: 0.20 },
+        { sinir: 580000, oran: 0.27 },
+        { sinir: 3000000, oran: 0.35 },
+        { sinir: Infinity, oran: 0.40 },
+      ];
+      let kalan = m, oncekiSinir = 0, toplam = 0, satirlar = '';
+      for (const d of dilimler) {
+        if (kalan <= 0) break;
+        const buDilim = Math.min(kalan, d.sinir - oncekiSinir);
+        const vergi = buDilim * d.oran;
+        toplam += vergi;
+        satirlar += `<div class="result-row"><span>%${d.oran * 100} dilimi (${fNum(buDilim)})</span><span>${fNum(vergi)}</span></div>`;
+        kalan -= buDilim;
+        oncekiSinir = d.sinir;
+      }
+      return { toplam, satirlar };
     }
     function hesaplaVergi() {
       const tur = document.getElementById('vergiTuru').value;
       if (tur === 'gelir') {
         const m = parseFloat(document.getElementById('gelirTutar').value);
         if (!m) return alert('Lütfen matrah giriniz.');
-        let v = 0;
-        if (m <= 110000) v = m * 0.15;
-        else if (m <= 230000) v = 16500 + (m - 110000) * 0.20;
-        else if (m <= 580000) v = 40500 + (m - 230000) * 0.27;
-        else if (m <= 3000000) v = 135000 + (m - 580000) * 0.35;
-        else v = 982000 + (m - 3000000) * 0.40;
+        const dokumGoster = document.getElementById('gelirDilimGoster').checked;
+        const { toplam: v, satirlar: dilimSatirlari } = kademeliGelirVergisiDokum(m);
         gosterSonuc('vergiSonuc', 'Gelir Vergisi', `
           <div class="result-row"><span>Yıllık Matrah</span><span>${fNum(m)}</span></div>
-          <div class="result-row"><span class="text-red">Ödenecek Vergi</span><span class="text-red">${fNum(v)}</span></div>`);
+          ${dokumGoster ? dilimSatirlari : ''}
+          <div class="result-row"><span class="text-red text-lg">Ödenecek Vergi</span><span class="text-red text-lg">${fNum(v)}</span></div>`);
       } else if (tur === 'kdv') {
         const tutar = parseFloat(document.getElementById('kdvTutar').value);
         if (!tutar) return alert('Lütfen tutar giriniz.');
@@ -430,6 +474,21 @@
           <div class="result-row"><span>Matrah</span><span>${fNum(matrah)}</span></div>
           <div class="result-row"><span>KDV Tutarı</span><span>${fNum(kdv)}</span></div>
           <div class="result-row"><span class="text-green">Genel Toplam</span><span class="text-green">${fNum(toplam)}</span></div>`);
+      } else if (tur === 'tevkifat') {
+        const matrah = parseFloat(document.getElementById('tevkifatKdvTutar').value);
+        if (!matrah) return alert('Lütfen fatura tutarını giriniz.');
+        const kdvOrani = parseFloat(document.getElementById('tevkifatKdvOrani').value) / 100;
+        const kesir = parseFloat(document.getElementById('tevkifatKesri').value);
+        const toplamKdv = matrah * kdvOrani;
+        const aliciTevkifati = toplamKdv * kesir;
+        const saticiyaOdenenKdv = toplamKdv - aliciTevkifati;
+        const toplamFatura = matrah + toplamKdv;
+        gosterSonuc('vergiSonuc', 'KDV Tevkifatı Sonucu', `
+          <div class="result-row"><span>Fatura Tutarı (KDV Hariç)</span><span>${fNum(matrah)}</span></div>
+          <div class="result-row"><span>Hesaplanan KDV</span><span>${fNum(toplamKdv)}</span></div>
+          <div class="result-row"><span class="text-red">Alıcının Sorumlu Sıfatıyla Beyan Edeceği (Tevkif Edilen) KDV</span><span class="text-red">${fNum(aliciTevkifati)}</span></div>
+          <div class="result-row"><span class="text-green">Satıcıya Ödenecek KDV</span><span class="text-green">${fNum(saticiyaOdenenKdv)}</span></div>
+          <div class="result-row text-lg"><span>Toplam Fatura Bedeli</span><span>${fNum(toplamFatura)}</span></div>`);
       } else {
         const tutar = parseFloat(document.getElementById('stopajTutar').value);
         if (!tutar) return alert('Lütfen tutar giriniz.');

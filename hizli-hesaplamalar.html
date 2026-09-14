@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="index, follow">
   <meta name="author" content="Adem Yılmaz">
-  <title>Hızlı Hesaplamalar: Damga Vergisi, Geçici Vergi, Tevkifat | SMMM Adem Yılmaz</title>
-  <meta name="description" content="Damga vergisi, geçici vergi ve tevkifat hesaplama araçları. Ücretsiz ve 2026 güncel oranlarla anında hesaplama.">
-  <meta name="keywords" content="damga vergisi hesaplama, geçici vergi hesaplama, tevkifat hesaplama">
+  <title>Hızlı Hesaplamalar: Damga Vergisi, Geçici Vergi, Stopaj, KDV Tevkifatı | SMMM Adem Yılmaz</title>
+  <meta name="description" content="Damga vergisi (belge türüne göre), geçici vergi, gelir vergisi stopajı ve KDV tevkifatı hesaplama araçları. Ücretsiz ve 2026 güncel oranlarla anında hesaplama.">
+  <meta name="keywords" content="damga vergisi hesaplama, geçici vergi hesaplama, gelir vergisi stopajı hesaplama, kdv tevkifatı hesaplama, kısmi tevkifat">
   <link rel="canonical" href="https://smmmyilmaz.com/hizli-hesaplamalar.html">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://smmmyilmaz.com/hizli-hesaplamalar.html">
@@ -243,12 +243,12 @@
       </nav>
       <div class="page-badge"><i class="fas fa-calculator"></i> Ücretsiz · 2026 Güncel</div>
       <h1>Damga Vergisi, Geçici Vergi ve <em>Tevkifat</em> Hesaplama</h1>
-      <p class="page-hero-desc">Sık ihtiyaç duyulan üç hesaplamayı tek sayfada, saniyeler içinde yapın.</p>
+      <p class="page-hero-desc">Sık ihtiyaç duyulan dört hesaplamayı tek sayfada, saniyeler içinde yapın.</p>
     </div>
   </section>
   <div class="trust-strip">
     <div class="container trust-inner">
-      <div class="trust-item"><i class="fas fa-calculator"></i> <strong>3</strong> Hızlı Araç</div>
+      <div class="trust-item"><i class="fas fa-calculator"></i> <strong>4</strong> Hızlı Araç</div>
       <div class="trust-item"><i class="fas fa-award"></i> <strong>TÜRMOB</strong> Üyesi</div>
       <div class="trust-item"><i class="fas fa-shield-alt"></i> Ücretsiz Kullanım</div>
       <div class="trust-item"><i class="fas fa-clock"></i> <strong>18+</strong> Yıl Deneyim</div>
@@ -263,21 +263,47 @@
             <p class="card-description">Damga vergisi, geçici vergi ve tevkifat hesaplama</p>
             <label>Hesaplama Türü</label>
             <select id="digerTuru" onchange="toggleDigerInput()">
-              <option value="damga">Damga Vergisi (%0,759)</option>
+              <option value="damga">Damga Vergisi</option>
               <option value="gecici">Geçici Vergi Tahmini (%25)</option>
-              <option value="tevkifat">Tevkifat Hesaplama</option>
+              <option value="tevkifat">Gelir Vergisi Stopajı</option>
+              <option value="kdvtevkifat">KDV Tevkifatı (Kısmi Tevkifat)</option>
             </select>
             <div id="digerTutarGroup">
               <label>Tutar (₺)</label>
               <input type="number" id="digerTutar" placeholder="Örn: 50000">
             </div>
+            <div id="damgaOranGroup" style="display:none;">
+              <label>Belge Türü</label>
+              <select id="damgaOrani">
+                <option value="0.759">Maaş Bordrosu (%0,759)</option>
+                <option value="0.948">Sözleşmeler (%0,948)</option>
+                <option value="0.189">Kira Sözleşmesi / Bilanço-Gelir Tablosu (%0,189)</option>
+              </select>
+            </div>
             <div id="tevkifatOranGroup" style="display:none;">
-              <label>Tevkifat Oranı</label>
+              <label>Stopaj Oranı</label>
               <select id="tevkifatOrani">
                 <option value="20">%20</option>
+                <option value="15">%15</option>
                 <option value="10">%10</option>
                 <option value="5">%5</option>
                 <option value="1">%1</option>
+              </select>
+            </div>
+            <div id="kdvTevkifatGroup" style="display:none;">
+              <label>KDV Oranı</label>
+              <select id="digerKdvOrani">
+                <option value="20">%20</option>
+                <option value="10">%10</option>
+                <option value="1">%1</option>
+              </select>
+              <label>Tevkifat Kesri</label>
+              <select id="digerTevkifatKesri">
+                <option value="0.3333">2/6</option>
+                <option value="0.2">2/10</option>
+                <option value="0.5">5/10</option>
+                <option value="0.7">7/10</option>
+                <option value="0.9">9/10</option>
               </select>
             </div>
             <div class="btn-row">
@@ -377,7 +403,10 @@
 
     function toggleDigerInput() {
       const tur = document.getElementById('digerTuru').value;
+      document.getElementById('damgaOranGroup').style.display = tur === 'damga' ? 'block' : 'none';
       document.getElementById('tevkifatOranGroup').style.display = tur === 'tevkifat' ? 'block' : 'none';
+      document.getElementById('kdvTevkifatGroup').style.display = tur === 'kdvtevkifat' ? 'block' : 'none';
+      document.getElementById('digerTutarGroup').querySelector('label').textContent = tur === 'kdvtevkifat' ? 'Fatura Tutarı (KDV Hariç) (₺)' : 'Tutar (₺)';
     }
     function temizleTab(tabId) {
       const tab = document.getElementById(tabId);
@@ -391,22 +420,35 @@
       const tutar = parseFloat(document.getElementById('digerTutar').value);
       if (!tutar) return alert('Lütfen tutar giriniz.');
       if (tur === 'damga') {
-        const damga = tutar * 0.00759;
+        const oran = parseFloat(document.getElementById('damgaOrani').value) / 100;
+        const damga = tutar * oran;
         gosterSonuc('digerSonuc', 'Damga Vergisi', `
           <div class="result-row"><span>Tutar</span><span>${fNum(tutar)}</span></div>
-          <div class="result-row"><span class="text-red">Damga Vergisi (%0,759)</span><span class="text-red">${fNum(damga)}</span></div>`);
+          <div class="result-row"><span class="text-red">Damga Vergisi (%${document.getElementById('damgaOrani').value.replace('.', ',')})</span><span class="text-red">${fNum(damga)}</span></div>`);
       } else if (tur === 'gecici') {
         const gecici = tutar * 0.25;
         gosterSonuc('digerSonuc', 'Geçici Vergi Tahmini', `
           <div class="result-row"><span>Kar Tutarı</span><span>${fNum(tutar)}</span></div>
           <div class="result-row"><span class="text-red">Geçici Vergi (%25)</span><span class="text-red">${fNum(gecici)}</span></div>`);
-      } else {
+      } else if (tur === 'tevkifat') {
         const oran = parseFloat(document.getElementById('tevkifatOrani').value) / 100;
         const tevkifat = tutar * oran;
-        gosterSonuc('digerSonuc', 'Tevkifat', `
+        gosterSonuc('digerSonuc', 'Gelir Vergisi Stopajı', `
           <div class="result-row"><span>Brüt Tutar</span><span>${fNum(tutar)}</span></div>
-          <div class="result-row"><span class="text-red">Tevkifat</span><span class="text-red">-${fNum(tevkifat)}</span></div>
+          <div class="result-row"><span class="text-red">Stopaj</span><span class="text-red">-${fNum(tevkifat)}</span></div>
           <div class="result-row"><span class="text-green">Net Ödenecek</span><span class="text-green">${fNum(tutar - tevkifat)}</span></div>`);
+      } else {
+        const kdvOrani = parseFloat(document.getElementById('digerKdvOrani').value) / 100;
+        const kesir = parseFloat(document.getElementById('digerTevkifatKesri').value);
+        const toplamKdv = tutar * kdvOrani;
+        const aliciTevkifati = toplamKdv * kesir;
+        const saticiyaOdenenKdv = toplamKdv - aliciTevkifati;
+        gosterSonuc('digerSonuc', 'KDV Tevkifatı Sonucu', `
+          <div class="result-row"><span>Fatura Tutarı (KDV Hariç)</span><span>${fNum(tutar)}</span></div>
+          <div class="result-row"><span>Hesaplanan KDV</span><span>${fNum(toplamKdv)}</span></div>
+          <div class="result-row"><span class="text-red">Alıcının Beyan Edeceği (Tevkif Edilen) KDV</span><span class="text-red">${fNum(aliciTevkifati)}</span></div>
+          <div class="result-row"><span class="text-green">Satıcıya Ödenecek KDV</span><span class="text-green">${fNum(saticiyaOdenenKdv)}</span></div>
+          <div class="result-row text-lg"><span>Toplam Fatura Bedeli</span><span>${fNum(tutar + toplamKdv)}</span></div>`);
       }
     }
   </script>

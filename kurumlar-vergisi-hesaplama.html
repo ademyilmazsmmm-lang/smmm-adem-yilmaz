@@ -6,8 +6,8 @@
   <meta name="robots" content="index, follow">
   <meta name="author" content="Adem Yılmaz">
   <title>Kurumlar Vergisi Hesaplama 2026 | SMMM Adem Yılmaz</title>
-  <meta name="description" content="Şirketinizin vergi öncesi karına göre 2026 güncel oranla kurumlar vergisi hesaplayın. Ücretsiz ve anında sonuç.">
-  <meta name="keywords" content="kurumlar vergisi hesaplama, 2026 kurumlar vergisi oranı, şirket vergisi hesaplama">
+  <meta name="description" content="Şirketinizin vergi öncesi karına göre 2026 güncel oranla kurumlar vergisi hesaplayın. İhracat ve üretim kazançlarına uygulanan 1 puanlık indirimli oranı da hesaba katar.">
+  <meta name="keywords" content="kurumlar vergisi hesaplama, 2026 kurumlar vergisi oranı, şirket vergisi hesaplama, ihracat kazancı indirimli kurumlar vergisi, üretim kazancı indirimi">
   <link rel="canonical" href="https://smmmyilmaz.com/kurumlar-vergisi-hesaplama.html">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://smmmyilmaz.com/kurumlar-vergisi-hesaplama.html">
@@ -243,7 +243,7 @@
       </nav>
       <div class="page-badge"><i class="fas fa-calculator"></i> Ücretsiz · 2026 Güncel</div>
       <h1><em>Kurumlar Vergisi</em> Hesaplama</h1>
-      <p class="page-hero-desc">2026 güncel %25 oranına göre kurumlar vergisi ve net karınızı hesaplayın.</p>
+      <p class="page-hero-desc">2026 güncel %25 oranına, ihracat ve üretim kazançları için indirimli %24 orana göre kurumlar vergisi ve net karınızı hesaplayın.</p>
     </div>
   </section>
   <div class="trust-strip">
@@ -260,10 +260,24 @@
         <div class="calc-card">
           <div id="kurumsal" class="tab-content" style="display:block;">
             <h2 class="card-title">Kurumlar Vergisi Hesaplama</h2>
-            <p class="card-description">Şirketinizin vergi öncesi karına göre kurumlar vergisi hesaplayın</p>
-            <label>Vergi Öncesi Kar (₺)</label>
+            <p class="card-description">Şirketinizin vergi öncesi karına göre, ihracat ve üretim indirimleri dahil kurumlar vergisi hesaplayın</p>
+            <label>Toplam Vergi Öncesi Kar (₺)</label>
             <input type="number" id="karTutari" placeholder="Örn: 1000000">
-            <div class="info-box">2026 Kurumlar Vergisi oranı genel olarak <strong>%25</strong> uygulanmaktadır.</div>
+            <div class="input-row-2">
+              <div>
+                <label>İhracattan Elde Edilen Kazanç (₺)</label>
+                <input type="number" id="ihracatKazanci" placeholder="Yoksa boş bırakın" value="0">
+              </div>
+              <div>
+                <label>Üretim (İmalat) Faaliyeti Kazancı (₺)</label>
+                <input type="number" id="uretimKazanci" placeholder="Yoksa boş bırakın" value="0">
+              </div>
+            </div>
+            <div class="info-box">
+              2026 Kurumlar Vergisi genel oranı <strong>%25</strong>'tir. KVK m.32/7 gereği ihracat kazançlarına,
+              m.32/8 gereği sanayi sicil belgeli üretim faaliyeti kazançlarına <strong>1 puan indirimli (%24)</strong>
+              oran uygulanır. İki tutarın toplamı, toplam kardan fazla olamaz.
+            </div>
             <div class="btn-row">
               <button class="btn-calc" onclick="hesaplaKurumsal()"><i class="fas fa-calculator"></i> Hesapla</button>
               <button class="btn-clear" onclick="temizleTab('kurumsal')" title="Temizle"><i class="fas fa-eraser"></i></button>
@@ -367,11 +381,22 @@
     function hesaplaKurumsal() {
       const kar = parseFloat(document.getElementById('karTutari').value);
       if (!kar) return alert('Lütfen kar tutarı giriniz.');
-      const vergi = kar * 0.25;
-      gosterSonuc('kurumsalSonuc', 'Kurumlar Vergisi', `
-        <div class="result-row"><span>Vergi Öncesi Kar</span><span>${fNum(kar)}</span></div>
-        <div class="result-row"><span class="text-red">Vergi (%25)</span><span class="text-red">${fNum(vergi)}</span></div>
-        <div class="result-row"><span class="text-green">Net Kar</span><span class="text-green">${fNum(kar - vergi)}</span></div>`);
+      const ihracatKazanci = parseFloat(document.getElementById('ihracatKazanci').value) || 0;
+      const uretimKazanci = parseFloat(document.getElementById('uretimKazanci').value) || 0;
+      if (ihracatKazanci + uretimKazanci > kar) return alert('İhracat ve üretim kazançları toplamı, toplam kardan fazla olamaz.');
+      const digerKazanc = kar - ihracatKazanci - uretimKazanci;
+      const vergiDiger = digerKazanc * 0.25;
+      const vergiIhracat = ihracatKazanci * 0.24;
+      const vergiUretim = uretimKazanci * 0.24;
+      const toplamVergi = vergiDiger + vergiIhracat + vergiUretim;
+      let satirlar = `<div class="result-row"><span>Toplam Vergi Öncesi Kar</span><span>${fNum(kar)}</span></div>`;
+      if (ihracatKazanci > 0) satirlar += `<div class="result-row"><span>İhracat Kazancı (%24)</span><span>${fNum(vergiIhracat)}</span></div>`;
+      if (uretimKazanci > 0) satirlar += `<div class="result-row"><span>Üretim Kazancı (%24)</span><span>${fNum(vergiUretim)}</span></div>`;
+      satirlar += `
+        <div class="result-row"><span>Diğer Kazançlar (%25)</span><span>${fNum(vergiDiger)}</span></div>
+        <div class="result-row"><span class="text-red text-lg">Toplam Kurumlar Vergisi</span><span class="text-red text-lg">${fNum(toplamVergi)}</span></div>
+        <div class="result-row"><span class="text-green text-lg">Net Kar</span><span class="text-green text-lg">${fNum(kar - toplamVergi)}</span></div>`;
+      gosterSonuc('kurumsalSonuc', 'Kurumlar Vergisi Sonucu', satirlar);
     }
   </script>
 

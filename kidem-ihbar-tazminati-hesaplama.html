@@ -6,8 +6,8 @@
   <meta name="robots" content="index, follow">
   <meta name="author" content="Adem Yılmaz">
   <title>Kıdem ve İhbar Tazminatı Hesaplama 2026 | SMMM Adem Yılmaz</title>
-  <meta name="description" content="Çalışma süreniz ve son brüt maaşınıza göre kıdem ve ihbar tazminatınızı ücretsiz hesaplayın. 2026 güncel tavan tutarı.">
-  <meta name="keywords" content="kıdem tazminatı hesaplama, ihbar tazminatı hesaplama, 2026 kıdem tazminatı tavanı">
+  <meta name="description" content="Çalışma süreniz ve son brüt maaşınıza göre net kıdem ve ihbar tazminatınızı (damga vergisi ve gelir vergisi kesintileri dahil) ücretsiz hesaplayın. 2026 güncel tavan tutarı.">
+  <meta name="keywords" content="kıdem tazminatı hesaplama, ihbar tazminatı hesaplama, net kıdem tazminatı, 2026 kıdem tazminatı tavanı, kıdem ihbar birlikte hesaplama">
   <link rel="canonical" href="https://smmmyilmaz.com/kidem-ihbar-tazminati-hesaplama.html">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://smmmyilmaz.com/kidem-ihbar-tazminati-hesaplama.html">
@@ -243,7 +243,7 @@
       </nav>
       <div class="page-badge"><i class="fas fa-calculator"></i> Ücretsiz · 2026 Güncel</div>
       <h1>Kıdem ve <em>İhbar Tazminatı</em> Hesaplama</h1>
-      <p class="page-hero-desc">Çalışma süreniz ve son brüt maaşınıza göre tazminat tutarınızı hesaplayın.</p>
+      <p class="page-hero-desc">Çalışma süreniz ve son brüt maaşınıza göre vergi kesintileri dahil net tazminat tutarınızı hesaplayın.</p>
     </div>
   </section>
   <div class="trust-strip">
@@ -265,6 +265,7 @@
             <select id="isciTuru" onchange="toggleIsciInput()">
               <option value="kidem">Kıdem Tazminatı</option>
               <option value="ihbar">İhbar Tazminatı</option>
+              <option value="birlikte">Kıdem + İhbar Birlikte</option>
             </select>
             <label>Son Brüt Maaş (₺)</label>
             <input type="number" id="isciBrutMaas" placeholder="Örn: 50000">
@@ -274,6 +275,7 @@
             <input type="number" id="calismaSuresiAy" placeholder="Ay" step="1" min="0" max="11">
             <div id="ihbarInfo" class="info-box" style="display:none;">
               İhbar süresi: 0–6 ay → 2 hafta, 6–18 ay → 4 hafta, 18–36 ay → 6 hafta, 36+ ay → 8 hafta ücreti.
+              İhbar tazminatı gelir vergisi ve damga vergisine tabidir; kıdem tazminatı ise yalnızca damga vergisi keser.
             </div>
             <div class="btn-row">
               <button class="btn-calc" onclick="hesaplaIsci()"><i class="fas fa-calculator"></i> Hesapla</button>
@@ -372,7 +374,7 @@
 
     function toggleIsciInput() {
       const tur = document.getElementById('isciTuru').value;
-      document.getElementById('ihbarInfo').style.display = tur === 'ihbar' ? 'block' : 'none';
+      document.getElementById('ihbarInfo').style.display = (tur === 'ihbar' || tur === 'birlikte') ? 'block' : 'none';
     }
     function temizleTab(tabId) {
       const tab = document.getElementById(tabId);
@@ -380,6 +382,32 @@
       tab.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
       tab.querySelectorAll('.result').forEach(r => { r.innerHTML = ''; r.classList.remove('show'); });
       toggleIsciInput();
+    }
+    function kademeliGelirVergisi(m) {
+      if (m <= 0) return 0;
+      if (m <= 110000) return m * 0.15;
+      if (m <= 230000) return 16500 + (m - 110000) * 0.20;
+      if (m <= 580000) return 40500 + (m - 230000) * 0.27;
+      if (m <= 3000000) return 135000 + (m - 580000) * 0.35;
+      return 982000 + (m - 3000000) * 0.40;
+    }
+    function hesaplaKidemTutari(brut, yil, ay) {
+      const toplamYil = yil + ay / 12;
+      const tavan = 55000;
+      const esasMaas = Math.min(brut, tavan);
+      const brutKidem = esasMaas * toplamYil;
+      const damga = brutKidem * 0.00759;
+      return { brutKidem, damga, netKidem: brutKidem - damga };
+    }
+    function hesaplaIhbarTutari(brut, toplamAy) {
+      let ihbarHafta = 2;
+      if (toplamAy >= 36) ihbarHafta = 8;
+      else if (toplamAy >= 18) ihbarHafta = 6;
+      else if (toplamAy >= 6) ihbarHafta = 4;
+      const brutIhbar = (brut / 30) * (ihbarHafta * 7);
+      const gelirVergisi = kademeliGelirVergisi(brutIhbar);
+      const damga = brutIhbar * 0.00759;
+      return { ihbarHafta, brutIhbar, gelirVergisi, damga, netIhbar: brutIhbar - gelirVergisi - damga };
     }
     function hesaplaIsci() {
       const tur = document.getElementById('isciTuru').value;
@@ -389,24 +417,31 @@
       if (!brut) return alert('Lütfen brüt maaş giriniz.');
       const toplamAy = yil * 12 + ay;
       if (tur === 'kidem') {
-        const toplamYil = yil + ay / 12;
-        const tavan = 55000;
-        const esasMaas = Math.min(brut, tavan);
-        const kidem = esasMaas * toplamYil;
+        const k = hesaplaKidemTutari(brut, yil, ay);
         gosterSonuc('isciSonuc', 'Kıdem Tazminatı', `
           <div class="result-row"><span>Çalışma Süresi</span><span>${yil} yıl ${ay} ay</span></div>
-          <div class="result-row"><span class="text-green">Kıdem Tazminatı (Brüt)</span><span class="text-green">${fNum(kidem)}</span></div>
-          <p style="font-size:0.8rem;color:var(--gray-600);margin-top:10px;">* Sadece damga vergisi (%0,759) kesintisi yapılacaktır.</p>`);
-      } else {
-        let ihbarHafta = 2;
-        if (toplamAy >= 36) ihbarHafta = 8;
-        else if (toplamAy >= 18) ihbarHafta = 6;
-        else if (toplamAy >= 6) ihbarHafta = 4;
-        const ihbar = (brut / 30) * (ihbarHafta * 7);
+          <div class="result-row"><span>Kıdem Tazminatı (Brüt)</span><span>${fNum(k.brutKidem)}</span></div>
+          <div class="result-row"><span class="text-red">Damga Vergisi (%0,759)</span><span class="text-red">-${fNum(k.damga)}</span></div>
+          <div class="result-row"><span class="text-green text-lg">Net Kıdem Tazminatı</span><span class="text-green text-lg">${fNum(k.netKidem)}</span></div>`);
+      } else if (tur === 'ihbar') {
+        const i = hesaplaIhbarTutari(brut, toplamAy);
         gosterSonuc('isciSonuc', 'İhbar Tazminatı', `
           <div class="result-row"><span>Çalışma Süresi</span><span>${yil} yıl ${ay} ay</span></div>
-          <div class="result-row"><span>İhbar Süresi</span><span>${ihbarHafta} hafta</span></div>
-          <div class="result-row"><span class="text-green">İhbar Tazminatı (Brüt)</span><span class="text-green">${fNum(ihbar)}</span></div>`);
+          <div class="result-row"><span>İhbar Süresi</span><span>${i.ihbarHafta} hafta</span></div>
+          <div class="result-row"><span>İhbar Tazminatı (Brüt)</span><span>${fNum(i.brutIhbar)}</span></div>
+          <div class="result-row"><span class="text-red">Gelir Vergisi</span><span class="text-red">-${fNum(i.gelirVergisi)}</span></div>
+          <div class="result-row"><span class="text-red">Damga Vergisi (%0,759)</span><span class="text-red">-${fNum(i.damga)}</span></div>
+          <div class="result-row"><span class="text-green text-lg">Net İhbar Tazminatı</span><span class="text-green text-lg">${fNum(i.netIhbar)}</span></div>
+          <p style="font-size:0.8rem;color:var(--gray-600);margin-top:10px;">* Gelir vergisi, ihbar tazminatının tek başına vergilendirildiği varsayılarak hesaplanmıştır; aynı ay içindeki diğer ücret gelirlerinizle birleşerek kümülatif matrahınıza göre değişebilir.</p>`);
+      } else {
+        const k = hesaplaKidemTutari(brut, yil, ay);
+        const i = hesaplaIhbarTutari(brut, toplamAy);
+        const toplamNet = k.netKidem + i.netIhbar;
+        gosterSonuc('isciSonuc', 'Kıdem + İhbar Tazminatı (Birlikte)', `
+          <div class="result-row"><span>Çalışma Süresi</span><span>${yil} yıl ${ay} ay</span></div>
+          <div class="result-row"><span>Kıdem Tazminatı (Net)</span><span>${fNum(k.netKidem)}</span></div>
+          <div class="result-row"><span>İhbar Tazminatı (Net)</span><span>${fNum(i.netIhbar)}</span></div>
+          <div class="result-row"><span class="text-green text-lg">Toplam Net Tazminat</span><span class="text-green text-lg">${fNum(toplamNet)}</span></div>`);
       }
     }
   </script>
