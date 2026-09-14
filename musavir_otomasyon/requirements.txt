@@ -1,3 +1,0 @@
-Flask>=3.0
-pyautogui>=0.9.54
-pyperclip>=1.8.2
