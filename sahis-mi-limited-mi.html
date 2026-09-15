@@ -238,6 +238,29 @@
 
     /* Uzun URL gibi bosluksuz metinler mobilde sayfayi yatay tasirmasin. */
     body { overflow-wrap: break-word; }
+
+    /* Sikca Sorulan Sorular - kendi kendine yeten blok (sayfa sablonundan bagimsiz) */
+    .sss-section{background:#f4f6fb;padding:64px 0;scroll-margin-top:96px;}
+    .sss-wrap{max-width:900px;margin:0 auto;padding:0 24px;}
+    .sss-head{text-align:center;margin-bottom:34px;}
+    .sss-head h2{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:clamp(1.9rem,3.6vw,2.4rem);color:#0f1e35;margin:0 0 10px;}
+    .sss-head p{color:#5c7086;font-size:1rem;margin:0 0 14px;}
+    .sss-rule{width:52px;height:3px;background:linear-gradient(90deg,#b8943f,#f0dfa8);margin:0 auto;border-radius:3px;}
+    .sss-item{background:#fff;border:1px solid #e3e8f0;border-radius:14px;margin-bottom:12px;transition:border-color .25s,box-shadow .25s;}
+    .sss-item[open]{border-color:#d4af5a;box-shadow:0 8px 26px rgba(8,18,34,.08);}
+    .sss-item summary{cursor:pointer;list-style:none;padding:18px 54px 18px 22px;font-weight:600;font-size:1rem;color:#0f1e35;position:relative;line-height:1.45;}
+    .sss-item summary::-webkit-details-marker{display:none;}
+    .sss-item summary::after{content:'';position:absolute;right:22px;top:50%;width:9px;height:9px;margin-top:-7px;border-right:2px solid #b8943f;border-bottom:2px solid #b8943f;transform:rotate(45deg);transition:transform .25s;}
+    .sss-item[open] summary::after{transform:rotate(-135deg);margin-top:-2px;}
+    .sss-item summary:hover{color:#b8943f;}
+    .sss-a{padding:0 22px 20px;color:#5c7086;font-size:.97rem;line-height:1.75;}
+    .sss-a p{margin:0;}
+    @media(max-width:620px){
+      .sss-section{padding:48px 0;}
+      .sss-wrap{padding:0 16px;}
+      .sss-item summary{padding:16px 46px 16px 16px;font-size:.96rem;}
+      .sss-a{padding:0 16px 18px;}
+    }
 </style>
 
   <script type="application/ld+json">
@@ -270,6 +293,54 @@
   },
   "datePublished": "2026-09-13",
   "dateModified": "2026-09-13"
+}
+  </script>
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Şahıs mı limited mi? Tek bir doğru cevap var mı?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Hayır. Doğru cevap beklediğiniz ciroya, ortak sayınıza, risk profilinize ve büyüme planınıza göre değişir; herkese uyan tek bir formül yoktur."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Sorumluluk açısından fark nedir?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Şahıs işletmesinde işletme sahibi, işletme borçlarından tüm mal varlığıyla sınırsız sorumludur; işletme ile şahsın mal varlığı hukuken ayrışmaz. Limited şirkette ise ortaklar şirket borçlarından yalnızca koydukları sermaye tutarı kadar sorumludur (vergi ve SGK borçlarında ortak/müdür sorumluluğuna ilişkin yasal istisnalar saklı kalmak kaydıyla)."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Vergi yükü hangisinde daha düşük?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Kazanç arttıkça denklem değişir. Şahıs işletmesinde artan oranlı gelir vergisi tarifesi (%15-%40 dilimleri) uygulanır; ilk dilimler genelde kurumlar vergisi oranının altında kalır ancak dilim yükseldikçe efektif yük hızla artar. Limited şirkette oran sabittir ve kâr şirkette tutulursa genelde daha avantajlıdır; ancak kâr payı dağıtıldığında ayrıca stopaj doğar."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Kuruluş ve kapanış süreçleri nasıl farklılaşıyor?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Şahıs şirketi genellikle 1 gün içinde ve düşük maliyetle açılır, kapanışı da nispeten hızlı ve basittir. Limited şirkette MERSİS, esas sözleşme, noter ve ticaret sicili tescil ücreti gibi ek adımlar vardır; kapanışta ise tasfiye süreci ek süre ve maliyet gerektirir."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Muhasebe yükü açısından fark var mı?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Her ikisi de defter tutar ve beyanname verir. Limited şirkette ayrıca yasal defter tasdiki, ortaklar kurulu kararları ve kâr dağıtım muhasebesi gibi ek işlemler bulunur."
+      }
+    }
+  ]
 }
   </script>
 </head>
@@ -505,6 +576,37 @@
   </section>
 
 </main>
+
+<section class="sss-section" id="sss">
+  <div class="sss-wrap">
+    <div class="sss-head">
+      <h2>Sıkça Sorulan Sorular</h2>
+      <div class="sss-rule"></div>
+    </div>
+    <div class="sss-list">
+        <details class="sss-item">
+          <summary>Şahıs mı limited mi? Tek bir doğru cevap var mı?</summary>
+          <div class="sss-a"><p>Hayır. Doğru cevap beklediğiniz ciroya, ortak sayınıza, risk profilinize ve büyüme planınıza göre değişir; herkese uyan tek bir formül yoktur.</p></div>
+        </details>
+        <details class="sss-item">
+          <summary>Sorumluluk açısından fark nedir?</summary>
+          <div class="sss-a"><p>Şahıs işletmesinde işletme sahibi, işletme borçlarından tüm mal varlığıyla sınırsız sorumludur; işletme ile şahsın mal varlığı hukuken ayrışmaz. Limited şirkette ise ortaklar şirket borçlarından yalnızca koydukları sermaye tutarı kadar sorumludur (vergi ve SGK borçlarında ortak/müdür sorumluluğuna ilişkin yasal istisnalar saklı kalmak kaydıyla).</p></div>
+        </details>
+        <details class="sss-item">
+          <summary>Vergi yükü hangisinde daha düşük?</summary>
+          <div class="sss-a"><p>Kazanç arttıkça denklem değişir. Şahıs işletmesinde artan oranlı gelir vergisi tarifesi (%15-%40 dilimleri) uygulanır; ilk dilimler genelde kurumlar vergisi oranının altında kalır ancak dilim yükseldikçe efektif yük hızla artar. Limited şirkette oran sabittir ve kâr şirkette tutulursa genelde daha avantajlıdır; ancak kâr payı dağıtıldığında ayrıca stopaj doğar.</p></div>
+        </details>
+        <details class="sss-item">
+          <summary>Kuruluş ve kapanış süreçleri nasıl farklılaşıyor?</summary>
+          <div class="sss-a"><p>Şahıs şirketi genellikle 1 gün içinde ve düşük maliyetle açılır, kapanışı da nispeten hızlı ve basittir. Limited şirkette MERSİS, esas sözleşme, noter ve ticaret sicili tescil ücreti gibi ek adımlar vardır; kapanışta ise tasfiye süreci ek süre ve maliyet gerektirir.</p></div>
+        </details>
+        <details class="sss-item">
+          <summary>Muhasebe yükü açısından fark var mı?</summary>
+          <div class="sss-a"><p>Her ikisi de defter tutar ve beyanname verir. Limited şirkette ayrıca yasal defter tasdiki, ortaklar kurulu kararları ve kâr dağıtım muhasebesi gibi ek işlemler bulunur.</p></div>
+        </details>
+    </div>
+  </div>
+</section>
 
 <footer>
   Bu sayfa genel bilgilendirme amaçlıdır. İşletmenize özel durumlar için mali müşavirinizden profesyonel destek almanız önerilir. © 2026 Adem Yılmaz — Serbest Muhasebeci Mali Müşavir.

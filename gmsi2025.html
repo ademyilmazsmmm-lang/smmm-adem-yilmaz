@@ -124,6 +124,29 @@
 
     /* Uzun URL gibi bosluksuz metinler mobilde sayfayi yatay tasirmasin. */
     body { overflow-wrap: break-word; }
+
+    /* Sikca Sorulan Sorular - kendi kendine yeten blok (sayfa sablonundan bagimsiz) */
+    .sss-section{background:#f4f6fb;padding:64px 0;scroll-margin-top:96px;}
+    .sss-wrap{max-width:900px;margin:0 auto;padding:0 24px;}
+    .sss-head{text-align:center;margin-bottom:34px;}
+    .sss-head h2{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:clamp(1.9rem,3.6vw,2.4rem);color:#0f1e35;margin:0 0 10px;}
+    .sss-head p{color:#5c7086;font-size:1rem;margin:0 0 14px;}
+    .sss-rule{width:52px;height:3px;background:linear-gradient(90deg,#b8943f,#f0dfa8);margin:0 auto;border-radius:3px;}
+    .sss-item{background:#fff;border:1px solid #e3e8f0;border-radius:14px;margin-bottom:12px;transition:border-color .25s,box-shadow .25s;}
+    .sss-item[open]{border-color:#d4af5a;box-shadow:0 8px 26px rgba(8,18,34,.08);}
+    .sss-item summary{cursor:pointer;list-style:none;padding:18px 54px 18px 22px;font-weight:600;font-size:1rem;color:#0f1e35;position:relative;line-height:1.45;}
+    .sss-item summary::-webkit-details-marker{display:none;}
+    .sss-item summary::after{content:'';position:absolute;right:22px;top:50%;width:9px;height:9px;margin-top:-7px;border-right:2px solid #b8943f;border-bottom:2px solid #b8943f;transform:rotate(45deg);transition:transform .25s;}
+    .sss-item[open] summary::after{transform:rotate(-135deg);margin-top:-2px;}
+    .sss-item summary:hover{color:#b8943f;}
+    .sss-a{padding:0 22px 20px;color:#5c7086;font-size:.97rem;line-height:1.75;}
+    .sss-a p{margin:0;}
+    @media(max-width:620px){
+      .sss-section{padding:48px 0;}
+      .sss-wrap{padding:0 16px;}
+      .sss-item summary{padding:16px 46px 16px 16px;font-size:.96rem;}
+      .sss-a{padding:0 16px 18px;}
+    }
 </style>
 
   <script type="application/ld+json">
@@ -156,6 +179,62 @@
   },
   "datePublished": "2026-09-07",
   "dateModified": "2026-09-13"
+}
+  </script>
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Konut kira gelirim için beyanname vermem gerekir mi?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "2025 yılı içinde toplam 47.000 TL ve üzerinde konut kira geliri elde eden mükellefler beyanname vermek zorundadır. Bu tutarın altındaki gelirler beyan edilmez."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "İşyeri kira gelirinde beyan sınırı nedir?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yıl içinde stopaj yoluyla vergilendirilmiş işyeri kira gelirlerinin brüt toplamı 330.000 TL'yi aşarsa beyanname verilmesi gerekir."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Daire sattım, vergi öder miyim?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Satın alınan bir gayrimenkulün iktisap tarihinden itibaren 5 yıl içinde satılması durumunda elde edilen kâr \"değer artış kazancı\" olarak vergiye tabidir. 2025 yılı satışlarında uygulanan kazanç istisnası 120.000 TL'dir. Hesaplamada alış bedeli, satışın yapıldığı aydan önceki Yİ-ÜFE oranlarına göre güncellenir; böylece sadece gerçek kâr vergilendirilir."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Hisse senedi ve temettü gelirleri beyan edilir mi?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Borsa İstanbul'da işlem gören hisselerin alım-satım kazançları genellikle %0 stopaja tabi olduğundan yıllık beyanname ile beyan edilmez. Şirketlerden elde edilen temettü (kâr payı) gelirlerinin yarısı vergiden istisnadır; kalan yarısı 330.000 TL'yi aşarsa beyan edilir."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Eurobond faiz geliri nasıl beyan edilir?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Eurobond'dan elde edilen faiz (kupon) gelirleri toplamı 2025 yılı için 330.000 TL beyan sınırını aşıyorsa beyannameye dâhil edilmelidir. Yurt dışı ihraçlı Eurobond faizleri döviz cinsinden olduğundan kur farkı geliri vergiye tabi değildir."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Maaşlı çalışan beyanname verir mi?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Genellikle vergi işveren tarafından stopajla kesilir. Ancak tek veya birden fazla işverenden alınan ücretlerin toplamı 4.300.000 TL'yi aşanlar ile birden fazla işverenden ücret alanlarda birinci işveren hariç diğer işverenlerden alınan ücretlerin toplamı 158.000 TL'yi aşanlar beyanname vermek zorundadır."
+      }
+    }
+  ]
 }
   </script>
 </head>
@@ -264,7 +343,42 @@
 
   <hr style="border: 0; border-top: 1px solid #cce5ff; margin: 30px 0;">
 
-  <footer style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e9ecef; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+  <section class="sss-section" id="sss">
+  <div class="sss-wrap">
+    <div class="sss-head">
+      <h2>Sıkça Sorulan Sorular</h2>
+      <div class="sss-rule"></div>
+    </div>
+    <div class="sss-list">
+        <details class="sss-item">
+          <summary>Konut kira gelirim için beyanname vermem gerekir mi?</summary>
+          <div class="sss-a"><p>2025 yılı içinde toplam 47.000 TL ve üzerinde konut kira geliri elde eden mükellefler beyanname vermek zorundadır. Bu tutarın altındaki gelirler beyan edilmez.</p></div>
+        </details>
+        <details class="sss-item">
+          <summary>İşyeri kira gelirinde beyan sınırı nedir?</summary>
+          <div class="sss-a"><p>Yıl içinde stopaj yoluyla vergilendirilmiş işyeri kira gelirlerinin brüt toplamı 330.000 TL&#x27;yi aşarsa beyanname verilmesi gerekir.</p></div>
+        </details>
+        <details class="sss-item">
+          <summary>Daire sattım, vergi öder miyim?</summary>
+          <div class="sss-a"><p>Satın alınan bir gayrimenkulün iktisap tarihinden itibaren 5 yıl içinde satılması durumunda elde edilen kâr &quot;değer artış kazancı&quot; olarak vergiye tabidir. 2025 yılı satışlarında uygulanan kazanç istisnası 120.000 TL&#x27;dir. Hesaplamada alış bedeli, satışın yapıldığı aydan önceki Yİ-ÜFE oranlarına göre güncellenir; böylece sadece gerçek kâr vergilendirilir.</p></div>
+        </details>
+        <details class="sss-item">
+          <summary>Hisse senedi ve temettü gelirleri beyan edilir mi?</summary>
+          <div class="sss-a"><p>Borsa İstanbul&#x27;da işlem gören hisselerin alım-satım kazançları genellikle %0 stopaja tabi olduğundan yıllık beyanname ile beyan edilmez. Şirketlerden elde edilen temettü (kâr payı) gelirlerinin yarısı vergiden istisnadır; kalan yarısı 330.000 TL&#x27;yi aşarsa beyan edilir.</p></div>
+        </details>
+        <details class="sss-item">
+          <summary>Eurobond faiz geliri nasıl beyan edilir?</summary>
+          <div class="sss-a"><p>Eurobond&#x27;dan elde edilen faiz (kupon) gelirleri toplamı 2025 yılı için 330.000 TL beyan sınırını aşıyorsa beyannameye dâhil edilmelidir. Yurt dışı ihraçlı Eurobond faizleri döviz cinsinden olduğundan kur farkı geliri vergiye tabi değildir.</p></div>
+        </details>
+        <details class="sss-item">
+          <summary>Maaşlı çalışan beyanname verir mi?</summary>
+          <div class="sss-a"><p>Genellikle vergi işveren tarafından stopajla kesilir. Ancak tek veya birden fazla işverenden alınan ücretlerin toplamı 4.300.000 TL&#x27;yi aşanlar ile birden fazla işverenden ücret alanlarda birinci işveren hariç diğer işverenlerden alınan ücretlerin toplamı 158.000 TL&#x27;yi aşanlar beyanname vermek zorundadır.</p></div>
+        </details>
+    </div>
+  </div>
+</section>
+
+<footer style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e9ecef; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
     <h3 style="margin-top: 0; color: #1a3052; font-size: 18px; text-align: center;">Mali Süreçlerinizde Profesyonel Destek İçin İletişime Geçin</h3>
     <p style="text-align: center; color: #555; font-size: 14px; margin-bottom: 20px;">Beyanname hazırlığı, indirim ve istisnaların doğru hesaplanması gibi konularda cezai işleme maruz kalmamak için uzman desteği alın.</p>
     

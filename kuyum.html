@@ -238,6 +238,29 @@
 
     /* Uzun URL gibi bosluksuz metinler mobilde sayfayi yatay tasirmasin. */
     body { overflow-wrap: break-word; }
+
+    /* Sikca Sorulan Sorular - kendi kendine yeten blok (sayfa sablonundan bagimsiz) */
+    .sss-section{background:#f4f6fb;padding:64px 0;scroll-margin-top:96px;}
+    .sss-wrap{max-width:900px;margin:0 auto;padding:0 24px;}
+    .sss-head{text-align:center;margin-bottom:34px;}
+    .sss-head h2{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:clamp(1.9rem,3.6vw,2.4rem);color:#0f1e35;margin:0 0 10px;}
+    .sss-head p{color:#5c7086;font-size:1rem;margin:0 0 14px;}
+    .sss-rule{width:52px;height:3px;background:linear-gradient(90deg,#b8943f,#f0dfa8);margin:0 auto;border-radius:3px;}
+    .sss-item{background:#fff;border:1px solid #e3e8f0;border-radius:14px;margin-bottom:12px;transition:border-color .25s,box-shadow .25s;}
+    .sss-item[open]{border-color:#d4af5a;box-shadow:0 8px 26px rgba(8,18,34,.08);}
+    .sss-item summary{cursor:pointer;list-style:none;padding:18px 54px 18px 22px;font-weight:600;font-size:1rem;color:#0f1e35;position:relative;line-height:1.45;}
+    .sss-item summary::-webkit-details-marker{display:none;}
+    .sss-item summary::after{content:'';position:absolute;right:22px;top:50%;width:9px;height:9px;margin-top:-7px;border-right:2px solid #b8943f;border-bottom:2px solid #b8943f;transform:rotate(45deg);transition:transform .25s;}
+    .sss-item[open] summary::after{transform:rotate(-135deg);margin-top:-2px;}
+    .sss-item summary:hover{color:#b8943f;}
+    .sss-a{padding:0 22px 20px;color:#5c7086;font-size:.97rem;line-height:1.75;}
+    .sss-a p{margin:0;}
+    @media(max-width:620px){
+      .sss-section{padding:48px 0;}
+      .sss-wrap{padding:0 16px;}
+      .sss-item summary{padding:16px 46px 16px 16px;font-size:.96rem;}
+      .sss-a{padding:0 16px 18px;}
+    }
 </style>
 
   <script type="application/ld+json">
@@ -270,6 +293,38 @@
   },
   "datePublished": "2026-09-07",
   "dateModified": "2026-09-13"
+}
+  </script>
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Kuyumcudan nakitle altın alınabilecek mi?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yeni dönemde kuyumculardan nakit para ile altın veya bilezik satın alınamayacaktır. Alışverişlerin tamamı kredi kartı veya IBAN kullanılarak bankalar aracılığıyla gerçekleştirilecektir."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Uygulama ne zaman yürürlüğe giriyor?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yeni uygulama Nisan ayı itibarıyla yürürlüğe girmektedir. Nakit işlem yapılabilecek tutar yalnızca yasal sınırlar dahilindedir."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Altınımı bozdurup bankaya yatırırsam sorun olur mu?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Banka paranın kaynağını sorgulayacaktır. Örneğin ev almak amacıyla 2 milyon TL tutarındaki altınını bozdurup bankaya yatırmak isteyen bir vatandaş, \"Altınımı veya aracımı sattım\" şeklinde resmî beyan ve belge sunarsa işlem kabul edilecektir. Aksi takdirde bankacılık işlemleri gerçekleştirilemeyecektir."
+      }
+    }
+  ]
 }
   </script>
 </head>
@@ -392,6 +447,29 @@
 
 </div>
 
+
+<section class="sss-section" id="sss">
+  <div class="sss-wrap">
+    <div class="sss-head">
+      <h2>Sıkça Sorulan Sorular</h2>
+      <div class="sss-rule"></div>
+    </div>
+    <div class="sss-list">
+        <details class="sss-item">
+          <summary>Kuyumcudan nakitle altın alınabilecek mi?</summary>
+          <div class="sss-a"><p>Yeni dönemde kuyumculardan nakit para ile altın veya bilezik satın alınamayacaktır. Alışverişlerin tamamı kredi kartı veya IBAN kullanılarak bankalar aracılığıyla gerçekleştirilecektir.</p></div>
+        </details>
+        <details class="sss-item">
+          <summary>Uygulama ne zaman yürürlüğe giriyor?</summary>
+          <div class="sss-a"><p>Yeni uygulama Nisan ayı itibarıyla yürürlüğe girmektedir. Nakit işlem yapılabilecek tutar yalnızca yasal sınırlar dahilindedir.</p></div>
+        </details>
+        <details class="sss-item">
+          <summary>Altınımı bozdurup bankaya yatırırsam sorun olur mu?</summary>
+          <div class="sss-a"><p>Banka paranın kaynağını sorgulayacaktır. Örneğin ev almak amacıyla 2 milyon TL tutarındaki altınını bozdurup bankaya yatırmak isteyen bir vatandaş, &quot;Altınımı veya aracımı sattım&quot; şeklinde resmî beyan ve belge sunarsa işlem kabul edilecektir. Aksi takdirde bankacılık işlemleri gerçekleştirilemeyecektir.</p></div>
+        </details>
+    </div>
+  </div>
+</section>
 
 <section class="site-contact-section" id="site-iletisim">
   <div class="container">

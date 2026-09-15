@@ -228,6 +228,29 @@
 
     /* Uzun URL gibi bosluksuz metinler mobilde sayfayi yatay tasirmasin. */
     body { overflow-wrap: break-word; }
+
+    /* Sikca Sorulan Sorular - kendi kendine yeten blok (sayfa sablonundan bagimsiz) */
+    .sss-section{background:#f4f6fb;padding:64px 0;scroll-margin-top:96px;}
+    .sss-wrap{max-width:900px;margin:0 auto;padding:0 24px;}
+    .sss-head{text-align:center;margin-bottom:34px;}
+    .sss-head h2{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:clamp(1.9rem,3.6vw,2.4rem);color:#0f1e35;margin:0 0 10px;}
+    .sss-head p{color:#5c7086;font-size:1rem;margin:0 0 14px;}
+    .sss-rule{width:52px;height:3px;background:linear-gradient(90deg,#b8943f,#f0dfa8);margin:0 auto;border-radius:3px;}
+    .sss-item{background:#fff;border:1px solid #e3e8f0;border-radius:14px;margin-bottom:12px;transition:border-color .25s,box-shadow .25s;}
+    .sss-item[open]{border-color:#d4af5a;box-shadow:0 8px 26px rgba(8,18,34,.08);}
+    .sss-item summary{cursor:pointer;list-style:none;padding:18px 54px 18px 22px;font-weight:600;font-size:1rem;color:#0f1e35;position:relative;line-height:1.45;}
+    .sss-item summary::-webkit-details-marker{display:none;}
+    .sss-item summary::after{content:'';position:absolute;right:22px;top:50%;width:9px;height:9px;margin-top:-7px;border-right:2px solid #b8943f;border-bottom:2px solid #b8943f;transform:rotate(45deg);transition:transform .25s;}
+    .sss-item[open] summary::after{transform:rotate(-135deg);margin-top:-2px;}
+    .sss-item summary:hover{color:#b8943f;}
+    .sss-a{padding:0 22px 20px;color:#5c7086;font-size:.97rem;line-height:1.75;}
+    .sss-a p{margin:0;}
+    @media(max-width:620px){
+      .sss-section{padding:48px 0;}
+      .sss-wrap{padding:0 16px;}
+      .sss-item summary{padding:16px 46px 16px 16px;font-size:.96rem;}
+      .sss-a{padding:0 16px 18px;}
+    }
 </style>
 
   <script type="application/ld+json">
@@ -260,6 +283,38 @@
   },
   "datePublished": "2026-09-07",
   "dateModified": "2026-09-13"
+}
+  </script>
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Bu indekste hangi konu başlıkları var?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "İSMMMO tarafından yayımlanan Pratik Bilgiler (Vergi Uygulamaları) dokümanının tüm konu başlıkları bu sayfada indekslenmiştir: gelir vergisi tarifesi ve netten brüte formüller, damga vergisi ve stopaj oranları, harçlar, gecikme zammı ve tecil faizi, usulsüzlük cezaları, GVK istisnaları, beyanname süreleri ve KDV tevkifat listesi."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Güncel oran ve tutar tablolarına nereden ulaşabilirim?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Bu sayfa konu başlıklarının indeksidir. Güncel oran ve tutar tabloları için 2025 Pratik Bilgiler sayfasına, resmî kaynak için ise İSMMMO'nun yayımladığı dokümana bakabilirsiniz."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Gecikme zammı ve usulsüzlük cezaları hangi başlıkta yer alıyor?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Aylık gecikme faizi ve gecikme zammı oranları, yıllık tecil faizi oranları ile VUK md.352 usulsüzlük, VUK md.353 ve Mükerrer md.355 özel usulsüzlük cezaları ve vergi ziyaı cezaları \"Gecikme Zammı, Tecil Faizi ve Usulsüzlük Cezaları\" başlığı altında özetlenmiştir."
+      }
+    }
+  ]
 }
   </script>
 </head>
@@ -564,6 +619,29 @@
   </div>
 
 </div><!-- .article-container -->
+
+<section class="sss-section" id="sss">
+  <div class="sss-wrap">
+    <div class="sss-head">
+      <h2>Sıkça Sorulan Sorular</h2>
+      <div class="sss-rule"></div>
+    </div>
+    <div class="sss-list">
+        <details class="sss-item">
+          <summary>Bu indekste hangi konu başlıkları var?</summary>
+          <div class="sss-a"><p>İSMMMO tarafından yayımlanan Pratik Bilgiler (Vergi Uygulamaları) dokümanının tüm konu başlıkları bu sayfada indekslenmiştir: gelir vergisi tarifesi ve netten brüte formüller, damga vergisi ve stopaj oranları, harçlar, gecikme zammı ve tecil faizi, usulsüzlük cezaları, GVK istisnaları, beyanname süreleri ve KDV tevkifat listesi.</p></div>
+        </details>
+        <details class="sss-item">
+          <summary>Güncel oran ve tutar tablolarına nereden ulaşabilirim?</summary>
+          <div class="sss-a"><p>Bu sayfa konu başlıklarının indeksidir. Güncel oran ve tutar tabloları için 2025 Pratik Bilgiler sayfasına, resmî kaynak için ise İSMMMO&#x27;nun yayımladığı dokümana bakabilirsiniz.</p></div>
+        </details>
+        <details class="sss-item">
+          <summary>Gecikme zammı ve usulsüzlük cezaları hangi başlıkta yer alıyor?</summary>
+          <div class="sss-a"><p>Aylık gecikme faizi ve gecikme zammı oranları, yıllık tecil faizi oranları ile VUK md.352 usulsüzlük, VUK md.353 ve Mükerrer md.355 özel usulsüzlük cezaları ve vergi ziyaı cezaları &quot;Gecikme Zammı, Tecil Faizi ve Usulsüzlük Cezaları&quot; başlığı altında özetlenmiştir.</p></div>
+        </details>
+    </div>
+  </div>
+</section>
 
 <footer>
   Kaynak: İSMMMO - Pratik Bilgiler (Vergi Uygulamaları). Bu sayfa yalnızca bilgilendirme ve hızlı başlık erişimi amacıyla hazırlanmıştır.
