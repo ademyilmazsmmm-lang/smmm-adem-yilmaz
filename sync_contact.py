@@ -167,6 +167,11 @@ def main():
     for path in sorted(glob.glob("*.html")):
         if path == SOURCE_FILE:
             continue
+        # Eski URL'leri yeni adreslerine tasiyan noindex yonlendirme sayfalari
+        # sade kalmali; iletisim blogu eklenmez.
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            if re.search(r'name=["\']robots["\'][^>]*noindex', fh.read(4000), re.I):
+                continue
         if sync_file(path, full_block, section_only, fab_only):
             changed.append(path)
 

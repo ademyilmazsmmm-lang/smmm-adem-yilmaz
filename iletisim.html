@@ -66,6 +66,9 @@
             margin: 8px 0;
             border: 1px solid #ccc;
             border-radius: 4px;
+            /* 16px altinda kalirsa iOS alana dokunuldugunda sayfayi buyutur */
+            font-size: 16px;
+            font-family: inherit;
         }
         button {
             background: #d4af5a;
@@ -172,6 +175,9 @@
   .trust-item strong{color:var(--gold-light);}
   .reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease, transform .6s ease;}
   .reveal.visible{opacity:1;transform:translateY(0);}
+
+    /* Uzun URL gibi bosluksuz metinler mobilde sayfayi yatay tasirmasin. */
+    body { overflow-wrap: break-word; }
 </style>
 
 </head>
@@ -191,6 +197,7 @@
       <a href="/#kurumsal">Kurumsal</a>
       <a href="/#hizmetler">Hizmetlerimiz</a>
       <a href="/#pratik-bilgiler">Pratik Bilgiler</a>
+      <a href="/rehberler.html">Rehberler</a>
       <a href="/hesaplama.html">Hesaplamalar</a>
       <a href="#site-iletisim" class="nav-cta">İletişim</a>
     </nav>
@@ -232,7 +239,7 @@
 </div>
 
 <div class="report-container">
-    <h1>İletişim</h1>
+    <h2>İletişim</h2>
 
     <div class="info-box">
         <h2>Bizimle İletişime Geçin</h2>

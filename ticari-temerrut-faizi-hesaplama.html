@@ -213,7 +213,20 @@
     .site-whatsapp-fab:hover{transform:scale(1.08);box-shadow:0 12px 36px rgba(37,211,102,.5);}
     .site-whatsapp-fab svg{width:28px;height:28px;fill:currentColor;position:relative;z-index:1;}
     @keyframes sitePulseRing{0%{transform:scale(1);opacity:.6;}100%{transform:scale(1.5);opacity:0;}}
-  </style>
+  
+    /* iOS Safari, font-size 16px altindaki form alanlarina dokunuldugunda
+       sayfayi otomatik buyutur; mobilde bunu engelliyoruz. */
+    @media (max-width: 768px) {
+      input, select, textarea { font-size: 16px !important; }
+    }
+
+    /* Uzun URL gibi bosluksuz metinler mobilde sayfayi yatay tasirmasin. */
+    body { overflow-wrap: break-word; }
+
+    /* Grid hucreleri varsayilan min-width:auto yuzunden icerikten kuculemez;
+       bu da sekme satirinin kendi overflow-x'i yerine sayfayi genisletmesine yol acar. */
+    .calc-grid > * { min-width: 0; }
+</style>
 </head>
 <body>
   <div class="scroll-progress" id="scrollProgress"></div>
@@ -227,6 +240,7 @@
         <a href="/#kurumsal">Kurumsal</a>
         <a href="/#hizmetler">Hizmetlerimiz</a>
         <a href="/#pratik-bilgiler">Pratik Bilgiler</a>
+        <a href="/rehberler.html">Rehberler</a>
         <a href="/hesaplama.html" style="color:var(--gold-light)">Hesaplamalar</a>
         <a href="/#iletisim" class="nav-cta">İletişim</a>
       </nav>

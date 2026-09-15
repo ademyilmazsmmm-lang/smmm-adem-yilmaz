@@ -216,8 +216,54 @@
 .trust-item strong{color:var(--gold-light);}
 .reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease, transform .6s ease;}
 .reveal.visible{opacity:1;transform:translateY(0);}
+
+    /* iOS Safari, font-size 16px altindaki form alanlarina dokunuldugunda
+       sayfayi otomatik buyutur; mobilde bunu engelliyoruz. */
+    @media (max-width: 768px) {
+      input, select, textarea { font-size: 16px !important; }
+    }
+
+    /* Genis tablolar mobilde sayfayi yatay kaydirmasin; tablo kendi icinde kaysin. */
+    @media (max-width: 768px) {
+      table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    }
+
+    /* Uzun URL gibi bosluksuz metinler mobilde sayfayi yatay tasirmasin. */
+    body { overflow-wrap: break-word; }
 </style>
 
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Tecil ve Taksitlendirme Ödeme Planı — SMMM Adem Yılmaz",
+  "description": "Vergi borçlarınız için tecil ve taksitlendirme ödeme planınızı hesaplayın. Gecikme faizi ve taksit tutarlarını Ümraniye SMMM Adem Yılmaz ile planlayın.",
+  "inLanguage": "tr-TR",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://smmmyilmaz.com/tecil-hesaplama.html"
+  },
+  "author": {
+    "@type": "Person",
+    "@id": "https://smmmyilmaz.com/#adem-yilmaz",
+    "name": "Adem Yılmaz",
+    "jobTitle": "Serbest Muhasebeci Mali Müşavir (SMMM)",
+    "url": "https://smmmyilmaz.com/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "@id": "https://smmmyilmaz.com/#business",
+    "name": "SMMM Adem Yılmaz",
+    "url": "https://smmmyilmaz.com/",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://smmmyilmaz.com/logo.png"
+    }
+  },
+  "datePublished": "2026-09-07",
+  "dateModified": "2026-09-13"
+}
+  </script>
 </head>
 <body>
 <div class="scroll-progress" id="scrollProgress"></div>
@@ -234,6 +280,7 @@
       <a href="/#kurumsal">Kurumsal</a>
       <a href="/#hizmetler">Hizmetlerimiz</a>
       <a href="/#pratik-bilgiler">Pratik Bilgiler</a>
+      <a href="/rehberler.html">Rehberler</a>
       <a href="/hesaplama.html">Hesaplamalar</a>
       <a href="#site-iletisim" class="nav-cta">İletişim</a>
     </nav>
@@ -281,7 +328,7 @@
 
   <div class="letterhead">
     <div>
-      <h1>SMMM Adem Yılmaz</h1>
+      <h2>SMMM Adem Yılmaz</h2>
       <div class="role">Serbest Muhasebeci Mali Müşavir · smmmyilmaz.com</div>
     </div>
     <div class="seal">TECİL<br>HESAP<br>ARACI</div>
