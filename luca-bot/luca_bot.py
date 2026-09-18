@@ -192,9 +192,60 @@ def firma_secici(page):
     raise LookupError("Firma listesi ayirt edilemedi")
 
 
+def acik_pencere(page):
+    """Luca diyaloglari kapanmazsa arkadaki butonlar tiklanamiyor (pointer events engelleniyor)."""
+    for fr in cerceveler(page):
+        try:
+            loc = fr.locator(".luca-open-window")
+            if loc.count() and loc.first.is_visible():
+                return fr, loc.first
+        except Exception:
+            continue
+    return None, None
+
+
+def acik_pencereleri_kapat(page, log=None):
+    for deneme in range(4):
+        fr, pencere = acik_pencere(page)
+        if pencere is None:
+            return True
+        if deneme == 0 and log:
+            yaz("    Acik Luca penceresi kapatiliyor", log)
+        if varsa_tikla(page, ["Kapat"], sure=1500):
+            page.wait_for_timeout(600)
+            continue
+        kapandi = False
+        for secici in ("[class*='close']", "[class*='kapat']", "[onclick*='close']", "[onclick*='Kapat']"):
+            try:
+                dugme = fr.locator(f".luca-open-window {secici}").first
+                if dugme.count() and dugme.is_visible():
+                    dugme.click(timeout=3000)
+                    kapandi = True
+                    break
+            except Exception:
+                continue
+        if not kapandi:
+            try:
+                page.keyboard.press("Escape")
+            except Exception:
+                pass
+        page.wait_for_timeout(700)
+    return acik_pencere(page)[1] is None
+
+
 def firma_sec(page, firma_adi):
-    _, sec, _ = firma_secici(page)
-    sec.select_option(label=firma_adi)
+    """Firmanin bulundugu listeyi dogrudan adiyla secer; secim 'Tamam' ile onaylaniyor."""
+    hedef = None
+    for _, sec, secenekler in firma_adaylari(page):
+        if firma_adi in secenekler:
+            hedef = sec
+            break
+    if hedef is None:
+        raise LookupError(f"'{firma_adi}' acik listelerin hicbirinde bulunamadi")
+
+    hedef.select_option(label=firma_adi, timeout=15000)
+    page.wait_for_timeout(800)
+    varsa_tikla(page, ["Tamam"], sure=4000)
     page.wait_for_timeout(2500)
     try:
         page.wait_for_load_state("networkidle", timeout=15000)
@@ -395,6 +446,7 @@ def islem_takibini_bekle(page, log, azami_saniye=900):
 
 def gibden_getir(page, baslangic, bitis, log):
     yaz(f"    GİB'den Getir aciliyor ({baslangic} - {bitis})", log)
+    acik_pencereleri_kapat(page, log)  # onceki sorgudan kalan pencere tiklamayi engelliyor
     _, dugme = metinle_bul(page, "GİB'den Getir")
     dugme.click()
     page.wait_for_timeout(2500)
@@ -416,6 +468,7 @@ def gibden_getir(page, baslangic, bitis, log):
     yaz(f"    '{tiklanan}' tiklandi, sorgu basladi", log)
 
     basarisiz = islem_takibini_bekle(page, log)
+    acik_pencereleri_kapat(page, log)
 
     yaz("    Liste yenileniyor", log)
     varsa_tikla(page, ["Yenile"], sure=5000)  # sorgu sonrasi liste kendiliginden tazelenmiyor
@@ -499,6 +552,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     klasor = cikti_kok / dosya_adi_yap(firma) / belge_tipi
     klasor.mkdir(parents=True, exist_ok=True)
 
+    acik_pencereleri_kapat(page, log)
     yaz("    Firma seciliyor", log)
     firma_sec(page, firma)
     yaz("    Menuye gidiliyor", log)
@@ -674,13 +728,13 @@ def sayfayi_toparla(page):
     Sayfa yeniden YUKLENMEZ: Luca uygulama adresine dogrudan gidilince oturumu
     reddedip "LUCA HATA" veriyor ve sonraki tum firmalar basarisiz oluyordu.
     """
-    for _ in range(3):
+    acik_pencereleri_kapat(page)
+    for _ in range(2):
         try:
             page.keyboard.press("Escape")
             page.wait_for_timeout(300)
         except Exception:
             break
-    varsa_tikla(page, ["Kapat"], sure=1500)
 
 
 def hata_kaydet(page, klasor, firma):
