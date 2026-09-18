@@ -41,7 +41,16 @@ def yaz(mesaj, log_dosyasi=None):
             f.write(f"{time.strftime('%H:%M:%S')} {mesaj}\n")
 
 
+def sadelestir(metin):
+    """Turkce karakter ve buyuk/kucuk harf farkini yok sayarak karsilastirma icin."""
+    metin = metin.replace("ı", "i").replace("İ", "i")
+    metin = unicodedata.normalize("NFKD", metin)
+    metin = "".join(c for c in metin if not unicodedata.combining(c))
+    return re.sub(r"\s+", " ", metin).strip().upper()
+
+
 def dosya_adi_yap(metin):
+    metin = metin.replace("ı", "i").replace("İ", "I")
     metin = unicodedata.normalize("NFKD", metin)
     metin = "".join(c for c in metin if not unicodedata.combining(c))
     metin = re.sub(r"[^A-Za-z0-9._ -]", "_", metin).strip()
@@ -403,10 +412,15 @@ def main():
             return
 
         if args.firma:
-            istenen = {f.strip().upper() for f in args.firma}
-            firmalar = [f for f in firmalar if f.strip().upper() in istenen]
-        atlanacak = {a.strip().upper() for a in ayarlar.get("atlanacak_firmalar", [])}
-        firmalar = [f for f in firmalar if f.strip().upper() not in atlanacak]
+            aranan = [sadelestir(f) for f in args.firma if f.strip()]
+            firmalar = [f for f in firmalar if any(a in sadelestir(f) for a in aranan)]
+            if not firmalar:
+                yaz(f"'{', '.join(args.firma)}' ile eslesen firma yok. Adlari gormek icin: firmalari-listele.bat", log)
+                ctx.close()
+                return
+            yaz(f"Eslesen firma(lar): {', '.join(firmalar)}", log)
+        atlanacak = [sadelestir(a) for a in ayarlar.get("atlanacak_firmalar", []) if a.strip()]
+        firmalar = [f for f in firmalar if sadelestir(f) not in atlanacak]
         if args.limit:
             firmalar = firmalar[: args.limit]
 
