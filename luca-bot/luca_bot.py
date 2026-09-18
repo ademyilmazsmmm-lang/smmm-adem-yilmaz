@@ -129,7 +129,23 @@ def bul(page, kurucu, sure=15000, gorunur=True):
 
 
 def metinle_bul(page, metin, sure=15000):
-    return bul(page, lambda f: f.get_by_text(metin, exact=False), sure=sure)
+    """Once butonun kendisi, sonra tam metin, en son kapsayici aranir.
+
+    'Tamam' ve 'Vazgec' ayni kapsayicida oldugu icin kapsayiciya tiklamak
+    yanlislikla Vazgec'e denk gelip secimi iptal ediyordu.
+    """
+    pay = max(1500, sure // 3)
+    son_hata = None
+    for kurucu, kurucu_sure in (
+        (lambda f: f.get_by_role("button", name=metin, exact=True), pay),
+        (lambda f: f.get_by_text(metin, exact=True), pay),
+        (lambda f: f.get_by_text(metin, exact=False), sure),
+    ):
+        try:
+            return bul(page, kurucu, sure=kurucu_sure)
+        except LookupError as e:
+            son_hata = e
+    raise son_hata
 
 
 def varsa_tikla(page, metinler, sure=1500):
@@ -282,7 +298,8 @@ def firma_sec(page, firma_adi, log=None):
         varsa_tikla(page, KAPAT_METINLERI, sure=1200)
         acik_pencereleri_kapat(page)
     else:
-        yaz(f"    UYARI: '{firma_adi}' secimi dogrulanamadi, yine de devam ediliyor", log)
+        # dogrulanmadan devam edilirse baska firmanin faturalari cekilir; bu firmayi atla
+        raise LookupError(f"'{firma_adi}' secimi onaylanamadi (Tamam gecmedi), firma atlandi")
 
     try:
         page.wait_for_load_state("networkidle", timeout=15000)
@@ -359,23 +376,30 @@ def menu_metinleri(page, sinir=40):
 def menuye_git(page, belge_tipi):
     hedef = BELGE_TIPLERI[belge_tipi]
     ust_gorunur = lambda: gorunur_mu(page, UST_MENU, sure=1200)
+    hedef_gorunur = lambda: gorunur_mu(page, hedef, sure=1200)
 
-    if not ust_gorunur():
-        acildi = False
-        for modul in MODUL_ADAYLARI:
-            if menu_ogesini_ac(page, modul, sure=1200, dogrula=ust_gorunur):
-                acildi = True
-                break
-        if not acildi:
-            raise LookupError(
-                f"'{UST_MENU}' menusu acilamadi. Sayfada gorunen menuler: {menu_metinleri(page)}"
-            )
+    alt = None
+    for deneme in range(3):  # menu kimi zaman hover'da acilip hemen kapaniyor
+        if not ust_gorunur():
+            for modul in MODUL_ADAYLARI:
+                if menu_ogesini_ac(page, modul, sure=1200, dogrula=ust_gorunur):
+                    break
+            else:
+                if deneme == 2:
+                    raise LookupError(
+                        f"'{UST_MENU}' menusu acilamadi. Sayfada gorunen menuler: {menu_metinleri(page)}"
+                    )
+                page.wait_for_timeout(1000)
+                continue
 
-    menu_ogesini_ac(page, UST_MENU, sure=6000, dogrula=lambda: gorunur_mu(page, hedef, sure=1200))
+        menu_ogesini_ac(page, UST_MENU, sure=6000, dogrula=hedef_gorunur)
+        try:
+            _, alt = metinle_bul(page, hedef, sure=4000)
+            break
+        except LookupError:
+            page.wait_for_timeout(1000)
 
-    try:
-        _, alt = metinle_bul(page, hedef, sure=8000)
-    except LookupError:
+    if alt is None:
         raise LookupError(f"'{hedef}' menu maddesi bulunamadi. Gorunen menuler: {menu_metinleri(page)}")
     alt.click()
     page.wait_for_timeout(2500)
