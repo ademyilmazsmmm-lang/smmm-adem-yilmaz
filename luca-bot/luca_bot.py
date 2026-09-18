@@ -347,11 +347,29 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log):
 
 
 def duraklamalari_engelle(ctx, page):
-    """Luca sayfalarindaki 'debugger' duraklamalari otomasyonu dondurdugu icin atlanir."""
+    """Luca sayfalarindaki 'debugger' duraklamalari sekmeyi dondurdugu icin atlanir."""
     try:
         cdp = ctx.new_cdp_session(page)
-        cdp.send("Debugger.enable")
-        cdp.send("Debugger.setSkipAllPauses", {"skip": True})
+    except Exception:
+        return
+
+    def devam_et(_=None):
+        try:
+            cdp.send("Debugger.resume")
+        except Exception:
+            pass
+
+    for komut, parametre in (
+        ("Debugger.enable", None),
+        ("Debugger.setSkipAllPauses", {"skip": True}),
+        ("Debugger.resume", None),  # sayfa zaten duraklamissa serbest birak
+    ):
+        try:
+            cdp.send(komut, parametre) if parametre else cdp.send(komut)
+        except Exception:
+            continue
+    try:
+        cdp.on("Debugger.paused", devam_et)
     except Exception:
         pass
 
@@ -364,7 +382,7 @@ def tarayici_ac(pw, profil, log):
         try:
             ctx = pw.chromium.launch_persistent_context(
                 str(profil), headless=False, accept_downloads=True,
-                args=["--start-maximized", "--disable-blink-features=AutomationControlled"],
+                args=["--start-maximized"],
                 ignore_default_args=["--enable-automation"],
                 chromium_sandbox=True, no_viewport=True, **secenekler
             )
