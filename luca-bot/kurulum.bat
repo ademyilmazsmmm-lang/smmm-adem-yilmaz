@@ -14,17 +14,9 @@ echo Bulunan Python:
 %PY% --version
 echo.
 
-echo Gerekli paketler kuruluyor...
-%PY% -m pip install --upgrade pip
-%PY% -m pip install -r requirements.txt
+call "%~dp0_hazirlik.bat"
 if errorlevel 1 goto hata
 
-echo.
-echo Tarayici indiriliyor (birkac dakika surebilir)...
-%PY% -m playwright install chromium
-if errorlevel 1 goto hata
-
-echo.
 echo ============================================
 echo   Kurulum tamamlandi.
 echo   Sirada: firmalari-listele.bat
