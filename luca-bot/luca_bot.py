@@ -21,6 +21,8 @@ ORNEK_AYAR = KOK / "ayarlar.ornek.json"
 GIRIS_URL = "https://www.luca.com.tr"  # uygulama adresine dogrudan gidilince "LUCA HATA" veriyor
 UYGULAMA_PARCASI = "/Luca/"
 UST_MENU = "Akıllı Entegrasyon Noktası"
+MODUL_ADAYLARI = ["İşletme Defteri", "Ser.Mes.Defteri", "Serbest Meslek Defteri",
+                  "Genel Muhasebe", "Bilanço Defteri", "Muhasebe", "Defter"]
 
 BELGE_TIPLERI = {
     "e-arsiv-alis": "e-Arşiv Alış Faturaları",
@@ -197,17 +199,74 @@ def firma_sec(page, firma_adi):
     varsa_tikla(page, KAPAT_METINLERI)
 
 
+def gorunur_mu(page, metin, sure=1500):
+    try:
+        metinle_bul(page, metin, sure=sure)
+        return True
+    except LookupError:
+        return False
+
+
+def menu_ogesini_ac(page, metin, sure=4000, dogrula=None):
+    """Eski Luca menuleri kimi yerde hover, kimi yerde tiklama ile aciliyor."""
+    try:
+        _, oge = metinle_bul(page, metin, sure=sure)
+    except LookupError:
+        return False
+    for eylem in ("hover", "click"):
+        try:
+            getattr(oge, eylem)()
+        except Exception:
+            continue
+        page.wait_for_timeout(700)
+        if dogrula is None or dogrula():
+            return True
+    return bool(dogrula()) if dogrula else True
+
+
+def menu_metinleri(page, sinir=40):
+    bulunan = []
+    for fr in cerceveler(page):
+        try:
+            ogeler = fr.locator("a, td, span")
+            for i in range(min(ogeler.count(), 200)):
+                oge = ogeler.nth(i)
+                try:
+                    if not oge.is_visible():
+                        continue
+                    metin = (oge.inner_text() or "").strip()
+                except Exception:
+                    continue
+                if 3 <= len(metin) <= 40 and metin not in bulunan:
+                    bulunan.append(metin)
+                    if len(bulunan) >= sinir:
+                        return bulunan
+        except Exception:
+            continue
+    return bulunan
+
+
 def menuye_git(page, belge_tipi):
     hedef = BELGE_TIPLERI[belge_tipi]
-    _, ust = metinle_bul(page, UST_MENU)
-    ust.hover()
-    page.wait_for_timeout(600)
+    ust_gorunur = lambda: gorunur_mu(page, UST_MENU, sure=1200)
+
+    if not ust_gorunur():
+        acildi = False
+        for modul in MODUL_ADAYLARI:
+            if menu_ogesini_ac(page, modul, sure=1200, dogrula=ust_gorunur):
+                acildi = True
+                break
+        if not acildi:
+            raise LookupError(
+                f"'{UST_MENU}' menusu acilamadi. Sayfada gorunen menuler: {menu_metinleri(page)}"
+            )
+
+    menu_ogesini_ac(page, UST_MENU, sure=6000, dogrula=lambda: gorunur_mu(page, hedef, sure=1200))
+
     try:
-        ust.click()
-        page.wait_for_timeout(600)
-    except Exception:
-        pass
-    _, alt = metinle_bul(page, hedef, sure=8000)
+        _, alt = metinle_bul(page, hedef, sure=8000)
+    except LookupError:
+        raise LookupError(f"'{hedef}' menu maddesi bulunamadi. Gorunen menuler: {menu_metinleri(page)}")
     alt.click()
     page.wait_for_timeout(2500)
     try:
