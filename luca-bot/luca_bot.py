@@ -36,6 +36,7 @@ DIYALOG_ONAY = ["Belgeleri Getir", "Sorgula", "Onayla", "Uygula"]
 INDIRME_ONAY = ["Belgeleri İndir", "Dosyaları İndir", "Onayla"]
 ISLEM_BITTI = "sona erdi"
 INDIRILEMEDI = "indirilemedi"
+ISLEM_ISARETLERI = ["İşlem Takip", "sorgulandı", "belge kaydı bulundu", "Otomatik aşağı kaydır"]
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
@@ -375,11 +376,14 @@ def islem_takibini_bekle(page, log, azami_saniye=900):
             page.wait_for_timeout(1500)
             return basarisiz
 
-        if not pencere_goruldu and metin_iceren_sayfa(page, "İşlem Takip"):
-            pencere_goruldu = True
-            yaz("    İşlem Takip penceresi acildi, sorgu suruyor...", log)
+        if not pencere_goruldu:
+            for isaret in ISLEM_ISARETLERI:
+                if metin_iceren_sayfa(page, isaret):
+                    pencere_goruldu = True
+                    yaz(f"    Sorgu suruyor ('{isaret}' gorundu)...", log)
+                    break
 
-        if not pencere_goruldu and gecen > 45:
+        if not pencere_goruldu and gecen > 75:
             yaz("    İşlem Takip penceresi gorunmedi, devam ediliyor", log)
             return 0
 
@@ -411,7 +415,7 @@ def gibden_getir(page, baslangic, bitis, log):
         raise LookupError(f"'Belgeleri Getir' butonu bulunamadi. Gorunen ogeler: {menu_metinleri(page, 20)}")
     yaz(f"    '{tiklanan}' tiklandi, sorgu basladi", log)
 
-    islem_takibini_bekle(page, log)
+    basarisiz = islem_takibini_bekle(page, log)
 
     yaz("    Liste yenileniyor", log)
     varsa_tikla(page, ["Yenile"], sure=5000)  # sorgu sonrasi liste kendiliginden tazelenmiyor
@@ -420,6 +424,7 @@ def gibden_getir(page, baslangic, bitis, log):
         page.wait_for_load_state("networkidle", timeout=60000)
     except Exception:
         pass
+    return basarisiz
 
 
 def tabloyu_oku(page):
@@ -663,6 +668,21 @@ def sayfalari_ozetle(ctx):
     return "\n".join(satirlar) or "  (acik sayfa yok)"
 
 
+def sayfayi_toparla(page):
+    """Hata sonrasi acik kalan diyaloglari kapatir.
+
+    Sayfa yeniden YUKLENMEZ: Luca uygulama adresine dogrudan gidilince oturumu
+    reddedip "LUCA HATA" veriyor ve sonraki tum firmalar basarisiz oluyordu.
+    """
+    for _ in range(3):
+        try:
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+        except Exception:
+            break
+    varsa_tikla(page, ["Kapat"], sure=1500)
+
+
 def hata_kaydet(page, klasor, firma):
     klasor.mkdir(parents=True, exist_ok=True)
     ad = dosya_adi_yap(firma)
@@ -789,6 +809,7 @@ def main():
         yaz(f"Tarih araligi: {araliklar[0][0]} - {araliklar[-1][1]} ({len(araliklar)} sorgu/firma)\n", log)
 
         sonuclar = []
+        ardisik_hata = 0
         for i, firma in enumerate(firmalar, 1):
             yaz(f"[{i}/{len(firmalar)}] {firma}", log)
             try:
@@ -798,11 +819,14 @@ def main():
                 hata_kaydet(page, calisma / "hatalar", firma)
                 sonuclar.append({"firma": firma, "belge_tipi": args.belge_tipi, "fatura_sayisi": 0,
                                  "durum": f"hata: {type(e).__name__}", "dosyalar": [], "indirilemeyen": 0})
-                try:
-                    page.goto(uygulama_url)
-                    page.wait_for_timeout(2000)
-                except Exception:
-                    yaz("    Sayfa geri yuklenemedi, oturum dusmus olabilir", log)
+                sayfayi_toparla(page)
+                ardisik_hata += 1
+                if ardisik_hata >= 3:
+                    yaz("\nUst uste 3 firma basarisiz oldu; Luca oturumu bozulmus olabilir.", log)
+                    yaz("Islem durduruldu. Tarayicidan Luca'ya tekrar girip yeniden calistirin.", log)
+                    break
+            else:
+                ardisik_hata = 0
 
         ozet = calisma / "ozet.csv"
         with open(ozet, "w", encoding="utf-8-sig", newline="") as f:
