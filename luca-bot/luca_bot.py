@@ -17,7 +17,8 @@ KOK = Path(__file__).resolve().parent
 AYAR_DOSYASI = KOK / "ayarlar.json"
 ORNEK_AYAR = KOK / "ayarlar.ornek.json"
 
-LUCA_URL = "https://auygs.luca.com.tr/Luca/luca.do"
+GIRIS_URL = "https://www.luca.com.tr"  # uygulama adresine dogrudan gidilince "LUCA HATA" veriyor
+UYGULAMA_PARCASI = "/Luca/"
 UST_MENU = "Akıllı Entegrasyon Noktası"
 
 BELGE_TIPLERI = {
@@ -366,6 +367,24 @@ def tarayici_ac(pw, profil, log):
     )
 
 
+def uygulama_sayfasi_bul(ctx):
+    """Giris sonrasi Luca uygulamasi yeni sekmede acilabiliyor; firma listesi olan sayfayi sec."""
+    acik = [p for p in ctx.pages if not p.is_closed()]
+    for p in acik:
+        try:
+            firma_secici(p)
+            return p
+        except Exception:
+            continue
+    for p in acik:
+        try:
+            if UYGULAMA_PARCASI in p.url and "giris" not in p.url.lower():
+                return p
+        except Exception:
+            continue
+    return acik[-1] if acik else None
+
+
 def hata_kaydet(page, klasor, firma):
     klasor.mkdir(parents=True, exist_ok=True)
     ad = dosya_adi_yap(firma)
@@ -414,11 +433,22 @@ def main():
     with sync_playwright() as pw:
         ctx = tarayici_ac(pw, profil, log)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        page.on("dialog", lambda d: d.accept())
-        page.goto(LUCA_URL)
+        page.goto(GIRIS_URL)
 
-        yaz("\n>>> Tarayici acildi. Luca'ya giris yapip firma ekrani gelince buraya donun.", log)
+        yaz("\n>>> Tarayicida Luca'ya giris yapin (gerekirse yeni sekmede acilir).", log)
+        yaz(">>> Firma ekrani geldiginde buraya donun.", log)
         input(">>> Giris tamamlandiysa ENTER'a basin: ")
+
+        uygulama = uygulama_sayfasi_bul(ctx)
+        if uygulama is None:
+            yaz("Acik sayfa bulunamadi.", log)
+            ctx.close()
+            return
+        page = uygulama
+        page.bring_to_front()
+        page.on("dialog", lambda d: d.accept())
+        uygulama_url = page.url
+        yaz(f"Calisilan sayfa: {uygulama_url}", log)
 
         varsa_tikla(page, KAPAT_METINLERI)
         _, _, firmalar = firma_secici(page)
@@ -456,8 +486,11 @@ def main():
                 hata_kaydet(page, calisma / "hatalar", firma)
                 sonuclar.append({"firma": firma, "belge_tipi": args.belge_tipi, "fatura_sayisi": 0,
                                  "durum": f"hata: {type(e).__name__}", "dosyalar": []})
-                page.goto(LUCA_URL)
-                page.wait_for_timeout(2000)
+                try:
+                    page.goto(uygulama_url)
+                    page.wait_for_timeout(2000)
+                except Exception:
+                    yaz("    Sayfa geri yuklenemedi, oturum dusmus olabilir", log)
 
         ozet = calisma / "ozet.csv"
         with open(ozet, "w", encoding="utf-8-sig", newline="") as f:
