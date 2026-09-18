@@ -6,6 +6,7 @@ import csv
 import json
 import re
 import sys
+import threading
 import time
 import unicodedata
 from datetime import date, datetime, timedelta
@@ -346,8 +347,14 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log):
     return sonuc
 
 
+_duraklama_islenen = set()
+
+
 def duraklamalari_engelle(ctx, page):
     """Luca sayfalarindaki 'debugger' duraklamalari sekmeyi dondurdugu icin atlanir."""
+    if page is None or page in _duraklama_islenen:
+        return
+    _duraklama_islenen.add(page)
     try:
         cdp = ctx.new_cdp_session(page)
     except Exception:
@@ -372,6 +379,30 @@ def duraklamalari_engelle(ctx, page):
         cdp.on("Debugger.paused", devam_et)
     except Exception:
         pass
+
+
+def kullanici_bekle(ctx, mesaj):
+    """Duz input() Playwright olaylarini dondurur; beklerken sayfa olaylari islenmeye devam etmeli."""
+    hazir = threading.Event()
+
+    def oku():
+        try:
+            input(mesaj)
+        finally:
+            hazir.set()
+
+    threading.Thread(target=oku, daemon=True).start()
+    while not hazir.is_set():
+        acik = [p for p in ctx.pages if not p.is_closed()]
+        for p in acik:
+            duraklamalari_engelle(ctx, p)
+        if acik:
+            try:
+                acik[0].wait_for_timeout(250)
+                continue
+            except Exception:
+                pass
+        time.sleep(0.25)
 
 
 def tarayici_ac(pw, profil, log):
@@ -496,7 +527,7 @@ def main():
 
         yaz("\n>>> Tarayicida Luca'ya giris yapin.", log)
         yaz(">>> Girisden sonra MUHASEBE EKRANINI acin (sag ustte firma listesi gorunen ekran).", log)
-        input(">>> O ekran acikken ENTER'a basin: ")
+        kullanici_bekle(ctx, ">>> O ekran acikken ENTER'a basin: ")
 
         uygulama = None
         for deneme in range(1, 6):
@@ -505,8 +536,17 @@ def main():
                 break
             yaz(f"\nFirma listesi olan ekran bulunamadi ({deneme}/5). Acik pencereler:", log)
             yaz(sayfalari_ozetle(ctx), log)
+            tani = calisma / "tani"
+            tani.mkdir(parents=True, exist_ok=True)
+            for sira, p in enumerate([x for x in ctx.pages if not x.is_closed()], 1):
+                try:
+                    p.screenshot(path=str(tani / f"deneme{deneme}-sayfa{sira}.png"))
+                    (tani / f"deneme{deneme}-sayfa{sira}.html").write_text(p.content(), encoding="utf-8")
+                except Exception:
+                    pass
+            yaz(f"Ekran goruntuleri kaydedildi: {tani}", log)
             yaz("\nLuca'da muhasebe modulunu acip firma listesinin gorundugu ekrana gelin.", log)
-            input(">>> Hazir oldugunuzda ENTER'a basin (vazgecmek icin pencereyi kapatin): ")
+            kullanici_bekle(ctx, ">>> Hazir oldugunuzda ENTER'a basin (vazgecmek icin pencereyi kapatin): ")
 
         if uygulama is None:
             yaz("\nMuhasebe ekrani bulunamadi, islem durduruldu.", log)
