@@ -38,6 +38,14 @@ ISLEM_BITTI = "sona erdi"
 INDIRILEMEDI = "indirilemedi"
 ISLEM_ISARETLERI = ["İşlem Takip", "sorgulandı", "belge kaydı bulundu", "Otomatik aşağı kaydır"]
 
+KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engellenirse kullanilir)
+    "GİB'den Getir": "Alt+g",
+    "Seçilenleri İndir": "Alt+z",
+    "Yenile": "Alt+l",
+    "Excel": "Alt+e",
+    "Belge Seç": "Alt+b",
+}
+
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
 
@@ -279,6 +287,25 @@ def menu_ogesini_ac(page, metin, sure=4000, dogrula=None):
     return bool(dogrula()) if dogrula else True
 
 
+def dugmeye_bas(page, metin, sure=8000):
+    """Once butona tiklar; tiklama engellenirse butonun kendi klavye kisayolunu dener."""
+    try:
+        _, dugme = metinle_bul(page, metin, sure=sure)
+        dugme.click(timeout=8000)
+        return True
+    except Exception:
+        pass
+    kisayol = KISAYOLLAR.get(metin)
+    if kisayol:
+        try:
+            page.keyboard.press(kisayol)
+            page.wait_for_timeout(600)
+            return True
+        except Exception:
+            pass
+    return False
+
+
 def menu_metinleri(page, sinir=40):
     bulunan = []
     for fr in cerceveler(page):
@@ -448,8 +475,8 @@ def islem_takibini_bekle(page, log, azami_saniye=900, en_az_saniye=4):
 def gibden_getir(page, baslangic, bitis, log):
     yaz(f"    GİB'den Getir aciliyor ({baslangic} - {bitis})", log)
     acik_pencereleri_kapat(page, log)  # onceki sorgudan kalan pencere tiklamayi engelliyor
-    _, dugme = metinle_bul(page, "GİB'den Getir")
-    dugme.click()
+    if not dugmeye_bas(page, "GİB'den Getir"):
+        raise LookupError("'GİB'den Getir' butonuna basilamadi")
     page.wait_for_timeout(2500)
 
     kutular = tarih_kutulari(page)
@@ -472,7 +499,7 @@ def gibden_getir(page, baslangic, bitis, log):
     acik_pencereleri_kapat(page, log)
 
     yaz("    Liste yenileniyor", log)
-    varsa_tikla(page, ["Yenile"], sure=5000)  # sorgu sonrasi liste kendiliginden tazelenmiyor
+    dugmeye_bas(page, "Yenile", sure=5000)  # sorgu sonrasi liste kendiliginden tazelenmiyor
     page.wait_for_timeout(3000)
     try:
         page.wait_for_load_state("networkidle", timeout=60000)
@@ -507,40 +534,84 @@ def tabloyu_oku(page):
     return en_iyi
 
 
-def hepsini_sec(page, fr):
-    kutular = fr.locator("input[type=checkbox]")
-    sayi = kutular.count()
-    if sayi == 0:
-        return 0
+def isaretli_sayisi(kutular, sayi):
     try:
-        kutular.first.check()
-        page.wait_for_timeout(800)
-        if sum(1 for i in range(sayi) if kutular.nth(i).is_checked()) > 1:
-            return sayi
+        return sum(1 for i in range(sayi) if kutular.nth(i).is_checked())
     except Exception:
-        pass
-    secilen = 0
-    for i in range(sayi):
-        try:
-            kutu = kutular.nth(i)
-            if kutu.is_visible() and not kutu.is_checked():
-                kutu.check()
-                secilen += 1
+        return 0
+
+
+def hepsini_sec(page, fr, satir_sayisi=0):
+    kutular = fr.locator("input[type=checkbox]")
+    try:
+        sayi = kutular.count()
+    except Exception:
+        sayi = 0
+
+    if sayi:
+        try:  # baslik satirindaki kutu genelde hepsini isaretler
+            kutular.first.check(timeout=5000)
+            page.wait_for_timeout(800)
+            isaretli = isaretli_sayisi(kutular, sayi)
+            if isaretli > 1:
+                return isaretli
         except Exception:
-            continue
-    page.wait_for_timeout(500)
-    return secilen
+            pass
+        secilen = 0
+        for i in range(sayi):
+            try:
+                kutu = kutular.nth(i)
+                if kutu.is_visible() and not kutu.is_checked():
+                    kutu.check(timeout=3000)
+                    secilen += 1
+            except Exception:
+                continue
+        if secilen:
+            page.wait_for_timeout(500)
+            return secilen
+
+    if dugmeye_bas(page, "Belge Seç", sure=3000):  # Alt+B ile toplu secim
+        page.wait_for_timeout(800)
+        isaretli = isaretli_sayisi(kutular, sayi)
+        if isaretli:
+            return isaretli
+
+    # son care: tabloda bosluk tusu satir seciyor (ekrandaki ipucu)
+    try:
+        satirlar = fr.locator("tr")
+        satirlar.nth(min(1, satirlar.count() - 1)).click(timeout=3000)
+        for _ in range(max(satir_sayisi, 1)):
+            page.keyboard.press("Space")
+            page.wait_for_timeout(120)
+            page.keyboard.press("ArrowDown")
+            page.wait_for_timeout(120)
+        return isaretli_sayisi(kutular, sayi) or satir_sayisi
+    except Exception:
+        return 0
 
 
 def indir(page, dugme_metni, hedef_klasor, on_ek, log):
+    kisayol = KISAYOLLAR.get(dugme_metni)
     try:
         _, dugme = metinle_bul(page, dugme_metni, sure=8000)
     except LookupError:
+        dugme = None
+    if dugme is None and not kisayol:
         yaz(f"    '{dugme_metni}' butonu bulunamadi, atlandi", log)
         return None
+
     try:
+        # tiklama/kisayol expect_download blogunun icinde kalmali, erken return edilmemeli
         with page.expect_download(timeout=240000) as bilgi:
-            dugme.click()
+            tiklandi = False
+            if dugme is not None:
+                try:
+                    dugme.click(timeout=8000)
+                    tiklandi = True
+                except Exception:
+                    pass
+            if not tiklandi and kisayol:
+                page.keyboard.press(kisayol)
             page.wait_for_timeout(2500)
             varsa_tikla(page, INDIRME_ONAY, sure=2500)  # araya onay diyalogu girebiliyor
         dosya = bilgi.value
@@ -600,7 +671,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             csv.writer(f).writerows(satirlar)
 
     if fr is not None and satirlar:
-        secilen = hepsini_sec(page, fr)
+        secilen = hepsini_sec(page, fr, len(satirlar))
         yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
         for dugme, on_ek in (("Seçilenleri İndir", "belgeler"), ("Excel", "liste")):
             yol = indir(page, dugme, klasor, on_ek, log)
