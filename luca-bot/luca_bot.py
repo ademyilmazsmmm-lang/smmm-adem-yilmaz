@@ -346,6 +346,16 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log):
     return sonuc
 
 
+def duraklamalari_engelle(ctx, page):
+    """Luca sayfalarindaki 'debugger' duraklamalari otomasyonu dondurdugu icin atlanir."""
+    try:
+        cdp = ctx.new_cdp_session(page)
+        cdp.send("Debugger.enable")
+        cdp.send("Debugger.setSkipAllPauses", {"skip": True})
+    except Exception:
+        pass
+
+
 def tarayici_ac(pw, profil, log):
     """Once bilgisayarda kurulu Chrome/Edge denenir; Playwright'in kendi tarayicisi son care."""
     hatalar = []
@@ -354,9 +364,14 @@ def tarayici_ac(pw, profil, log):
         try:
             ctx = pw.chromium.launch_persistent_context(
                 str(profil), headless=False, accept_downloads=True,
-                args=["--start-maximized"], no_viewport=True, **secenekler
+                args=["--start-maximized", "--disable-blink-features=AutomationControlled"],
+                ignore_default_args=["--enable-automation"],
+                chromium_sandbox=True, no_viewport=True, **secenekler
             )
             yaz(f"Tarayici: {ad}", log)
+            ctx.on("page", lambda p: duraklamalari_engelle(ctx, p))
+            for p in ctx.pages:
+                duraklamalari_engelle(ctx, p)
             return ctx
         except Exception as e:
             hatalar.append(f"  {ad}: {str(e).splitlines()[0][:120]}")
@@ -483,6 +498,7 @@ def main():
             return
 
         page = uygulama
+        duraklamalari_engelle(ctx, page)
         page.bring_to_front()
         page.on("dialog", lambda d: d.accept())
         uygulama_url = page.url
