@@ -405,7 +405,7 @@ def indirilemeyen_sayisi(sayfa):
     return 0
 
 
-def islem_takibini_bekle(page, log, azami_saniye=900):
+def islem_takibini_bekle(page, log, azami_saniye=900, en_az_saniye=4):
     """Sorgu bitene kadar bekler; indirilemeyen fatura sayisini dondurur (-1: tamamlanmadi)."""
     basla = time.time()
     pencere_goruldu = False
@@ -418,7 +418,8 @@ def islem_takibini_bekle(page, log, azami_saniye=900):
             varsa_tikla(page, ["Kapat"], sure=3000)
             return -1
 
-        bitti = metin_iceren_sayfa(page, ISLEM_BITTI)
+        # onceki sorgunun "sona erdi" yazisi ekranda kalmis olabilir; ilk saniyeler yok sayilir
+        bitti = metin_iceren_sayfa(page, ISLEM_BITTI) if gecen >= en_az_saniye else None
         if bitti:
             basarisiz = indirilemeyen_sayisi(bitti)
             yaz(f"    GİB sorgusu tamamlandi ({int(gecen)} sn)"
@@ -480,23 +481,30 @@ def gibden_getir(page, baslangic, bitis, log):
     return basarisiz
 
 
+TARIH_DESENI = re.compile(r"\d{2}[./]\d{2}[./]\d{4}")
+
+
 def tabloyu_oku(page):
+    """Baslik ve veri satirlari ayri cercevelerde olabildigi icin tum tr'ler taranir;
+    fatura satiri, en az 4 hucresi olan ve icinde belge tarihi gecen satirdir."""
+    en_iyi = (None, [])
     for fr in cerceveler(page):
         try:
-            if fr.get_by_text("Belge Numarası", exact=False).count() == 0:
-                continue
-            satirlar = fr.locator("table tr")
-            veriler = []
-            for i in range(satirlar.count()):
-                hucreler = satirlar.nth(i).locator("td").all_inner_texts()
-                temiz = [h.strip() for h in hucreler if h.strip()]
-                if len(temiz) >= 4:
-                    veriler.append(temiz)
-            if veriler:
-                return fr, veriler
+            satirlar = fr.locator("tr")
+            adet = min(satirlar.count(), 500)
         except Exception:
             continue
-    return None, []
+        veriler = []
+        for i in range(adet):
+            try:
+                hucreler = [h.strip() for h in satirlar.nth(i).locator("td").all_inner_texts() if h.strip()]
+            except Exception:
+                continue
+            if len(hucreler) >= 4 and any(TARIH_DESENI.search(h) for h in hucreler):
+                veriler.append(hucreler)
+        if len(veriler) > len(en_iyi[1]):
+            en_iyi = (fr, veriler)
+    return en_iyi
 
 
 def hepsini_sec(page, fr):
@@ -574,6 +582,16 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
 
     yaz("    Tablo okunuyor", log)
     fr, satirlar = tabloyu_oku(page)
+    if not satirlar:
+        tani = cikti_kok / "tani"
+        tani.mkdir(parents=True, exist_ok=True)
+        ad = dosya_adi_yap(firma)
+        try:
+            page.screenshot(path=str(tani / f"{ad}-bos-liste.png"), full_page=True)
+            (tani / f"{ad}-bos-liste.html").write_text(page.content(), encoding="utf-8")
+            yaz(f"    Liste bos gorundu, ekran kaydi: {tani}", log)
+        except Exception:
+            pass
     sonuc["fatura_sayisi"] = len(satirlar)
     yaz(f"    {len(satirlar)} satir listelendi", log)
 
