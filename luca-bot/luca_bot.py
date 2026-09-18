@@ -241,8 +241,26 @@ def acik_pencereleri_kapat(page, log=None):
     return acik_pencere(page)[1] is None
 
 
-def firma_sec(page, firma_adi):
-    """Firmanin bulundugu listeyi dogrudan adiyla secer; secim 'Tamam' ile onaylaniyor."""
+def firma_dogrula(page, firma_adi, sure=8000):
+    """Secim gerceklesti mi: sekme basligi secili firmanin adini tasiyor (orn. 'DENTAL [ 2026 ]')."""
+    hedef = sadelestir(firma_adi)
+    bitis = time.time() + sure / 1000
+    while time.time() < bitis:
+        try:
+            if hedef and hedef in sadelestir(page.title()):
+                return True
+        except Exception:
+            pass
+        page.wait_for_timeout(500)
+    return False
+
+
+def firma_sec(page, firma_adi, log=None):
+    """Firmanin bulundugu listeyi adiyla secer; secim 'Tamam' ile onaylanip dogrulanir."""
+    # giris sonrasi acik kalan bilgi penceresi Tamam'a basilmasini engelliyordu
+    varsa_tikla(page, KAPAT_METINLERI, sure=1500)
+    acik_pencereleri_kapat(page)
+
     hedef = None
     for _, sec, secenekler in firma_adaylari(page):
         if firma_adi in secenekler:
@@ -251,15 +269,25 @@ def firma_sec(page, firma_adi):
     if hedef is None:
         raise LookupError(f"'{firma_adi}' acik listelerin hicbirinde bulunamadi")
 
-    hedef.select_option(label=firma_adi, timeout=15000)
-    page.wait_for_timeout(800)
-    varsa_tikla(page, ["Tamam"], sure=4000)
-    page.wait_for_timeout(2500)
+    for _ in range(3):
+        try:
+            hedef.select_option(label=firma_adi, timeout=15000)
+        except Exception:
+            pass
+        page.wait_for_timeout(600)
+        varsa_tikla(page, ["Tamam"], sure=3000)
+        page.wait_for_timeout(1500)
+        if firma_dogrula(page, firma_adi):
+            break
+        varsa_tikla(page, KAPAT_METINLERI, sure=1200)
+        acik_pencereleri_kapat(page)
+    else:
+        yaz(f"    UYARI: '{firma_adi}' secimi dogrulanamadi, yine de devam ediliyor", log)
+
     try:
         page.wait_for_load_state("networkidle", timeout=15000)
     except Exception:
         pass
-    varsa_tikla(page, KAPAT_METINLERI)
 
 
 def gorunur_mu(page, metin, sure=1500):
@@ -633,7 +661,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
 
     acik_pencereleri_kapat(page, log)
     yaz("    Firma seciliyor", log)
-    firma_sec(page, firma)
+    firma_sec(page, firma, log)
     yaz("    Menuye gidiliyor", log)
     menuye_git(page, belge_tipi)
 
