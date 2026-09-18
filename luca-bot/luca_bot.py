@@ -130,9 +130,17 @@ def varsa_tikla(page, metinler, sure=1500):
     return None
 
 
-def firma_secici(page):
-    """Sag ustteki firma listesi: en cok secenege sahip select."""
-    en_iyi = None
+MENU_KELIMELERI = ("ISLEMLERI", "ISLEMLER", "BEYANNAME", "RAPOR", "LISTESI", "HESAP PLANI",
+                   "MAKBUZ", "DEFTER", "HIZLI ERISIM", "SORGULAMA", "FATURALARI")
+
+
+def menu_listesi_mi(secenekler):
+    isabet = sum(1 for s in secenekler if any(k in sadelestir(s) for k in MENU_KELIMELERI))
+    return isabet >= 3
+
+
+def firma_adaylari(page):
+    adaylar = []
     for fr in cerceveler(page):
         try:
             secimler = fr.locator("select")
@@ -140,19 +148,42 @@ def firma_secici(page):
                 sec = secimler.nth(i)
                 if not sec.is_visible():
                     continue
-                secenekler = sec.locator("option").all_inner_texts()
-                temiz = [s.strip() for s in secenekler if s.strip()]
+                temiz = [s.strip() for s in sec.locator("option").all_inner_texts() if s.strip()]
                 if len(temiz) < 5:
                     continue
-                if any("HIZLI ERİŞİM" in s.upper() for s in temiz):
-                    continue
-                if en_iyi is None or len(temiz) > len(en_iyi[2]):
-                    en_iyi = (fr, sec, temiz)
+                adaylar.append((fr, sec, temiz))
         except Exception:
             continue
-    if en_iyi is None:
+    return adaylar
+
+
+def secili_metin(sec):
+    try:
+        return sec.evaluate("el => el.selectedIndex >= 0 ? el.options[el.selectedIndex].text : ''") or ""
+    except Exception:
+        return ""
+
+
+def firma_secici(page):
+    """Firma listesi, secili degeri sayfa basliginda gecen liste (baslik ornegi: 'AKIN COBAN [ 2026 ]')."""
+    adaylar = firma_adaylari(page)
+    if not adaylar:
         raise LookupError("Firma listesi (select) bulunamadi")
-    return en_iyi
+
+    try:
+        baslik = sadelestir(page.title())
+    except Exception:
+        baslik = ""
+    if baslik:
+        for aday in adaylar:
+            secili = sadelestir(secili_metin(aday[1]))
+            if len(secili) >= 3 and secili in baslik:
+                return aday
+
+    firma_gibi = [a for a in adaylar if not menu_listesi_mi(a[2])]
+    if firma_gibi:
+        return max(firma_gibi, key=lambda a: len(a[2]))
+    raise LookupError("Firma listesi ayirt edilemedi")
 
 
 def firma_sec(page, firma_adi):
@@ -564,6 +595,7 @@ def main():
 
         varsa_tikla(page, KAPAT_METINLERI)
         _, _, firmalar = firma_secici(page)
+        tumu = list(firmalar)
         yaz(f"{len(firmalar)} firma bulundu", log)
 
         if args.listele:
@@ -576,7 +608,12 @@ def main():
             aranan = [sadelestir(f) for f in args.firma if f.strip()]
             firmalar = [f for f in firmalar if any(a in sadelestir(f) for a in aranan)]
             if not firmalar:
-                yaz(f"'{', '.join(args.firma)}' ile eslesen firma yok. Adlari gormek icin: firmalari-listele.bat", log)
+                yaz(f"\n'{', '.join(args.firma)}' ile eslesen firma yok.", log)
+                yaz("Listedeki ilk 30 kayit:", log)
+                for ad in tumu[:30]:
+                    yaz(f"  - {ad}", log)
+                yaz("\nNot: Luca adlari kisaltarak gosterebiliyor, adin bas kismini yazin.", log)
+                kullanici_bekle(ctx, ">>> Kapatmak icin ENTER: ")
                 ctx.close()
                 return
             yaz(f"Eslesen firma(lar): {', '.join(firmalar)}", log)
