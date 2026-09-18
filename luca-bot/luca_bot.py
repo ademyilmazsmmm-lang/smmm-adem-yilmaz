@@ -368,7 +368,7 @@ def tarayici_ac(pw, profil, log):
 
 
 def uygulama_sayfasi_bul(ctx):
-    """Giris sonrasi Luca uygulamasi yeni sekmede acilabiliyor; firma listesi olan sayfayi sec."""
+    """Giris sonrasi Luca birkac pencere aciyor; firma listesini iceren sayfayi sec."""
     acik = [p for p in ctx.pages if not p.is_closed()]
     for p in acik:
         try:
@@ -382,7 +382,33 @@ def uygulama_sayfasi_bul(ctx):
                 return p
         except Exception:
             continue
-    return acik[-1] if acik else None
+    return None
+
+
+def sayfalari_ozetle(ctx):
+    satirlar = []
+    for p in ctx.pages:
+        if p.is_closed():
+            continue
+        try:
+            secenekler = []
+            for fr in p.frames:
+                try:
+                    kutular = fr.locator("select")
+                    for i in range(min(kutular.count(), 6)):
+                        adet = kutular.nth(i).locator("option").count()
+                        if adet:
+                            secenekler.append(str(adet))
+                except Exception:
+                    continue
+            satirlar.append(
+                f"  - {p.url}\n"
+                f"      baslik: {p.title()[:60]} | frame: {len(p.frames)}"
+                f" | liste secenek sayilari: {', '.join(secenekler) or 'yok'}"
+            )
+        except Exception as e:
+            satirlar.append(f"  - (sayfa okunamadi: {type(e).__name__})")
+    return "\n".join(satirlar) or "  (acik sayfa yok)"
 
 
 def hata_kaydet(page, klasor, firma):
@@ -435,15 +461,27 @@ def main():
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.goto(GIRIS_URL)
 
-        yaz("\n>>> Tarayicida Luca'ya giris yapin (gerekirse yeni sekmede acilir).", log)
-        yaz(">>> Firma ekrani geldiginde buraya donun.", log)
-        input(">>> Giris tamamlandiysa ENTER'a basin: ")
+        yaz("\n>>> Tarayicida Luca'ya giris yapin.", log)
+        yaz(">>> Girisden sonra MUHASEBE EKRANINI acin (sag ustte firma listesi gorunen ekran).", log)
+        input(">>> O ekran acikken ENTER'a basin: ")
 
-        uygulama = uygulama_sayfasi_bul(ctx)
+        uygulama = None
+        for deneme in range(1, 6):
+            uygulama = uygulama_sayfasi_bul(ctx)
+            if uygulama:
+                break
+            yaz(f"\nFirma listesi olan ekran bulunamadi ({deneme}/5). Acik pencereler:", log)
+            yaz(sayfalari_ozetle(ctx), log)
+            yaz("\nLuca'da muhasebe modulunu acip firma listesinin gorundugu ekrana gelin.", log)
+            input(">>> Hazir oldugunuzda ENTER'a basin (vazgecmek icin pencereyi kapatin): ")
+
         if uygulama is None:
-            yaz("Acik sayfa bulunamadi.", log)
+            yaz("\nMuhasebe ekrani bulunamadi, islem durduruldu.", log)
+            yaz("Yukaridaki pencere listesini gonderirseniz duzeltirim.", log)
+            input(">>> Kapatmak icin ENTER: ")
             ctx.close()
             return
+
         page = uygulama
         page.bring_to_front()
         page.on("dialog", lambda d: d.accept())
