@@ -5,14 +5,20 @@ echo ============================================
 echo   Luca Bot - Kurulum (sadece bir kez)
 echo ============================================
 echo.
-python --version >nul 2>&1
+echo Python kontrol ediliyor...
+echo (Ilk calistirmada Python indirilebilir, birkac dakika surebilir - bekleyin)
+echo.
+python --version
 if errorlevel 1 (
+  echo.
   echo HATA: Python bulunamadi.
   echo python.org/downloads adresinden kurun ve kurulumda
   echo "Add python.exe to PATH" kutusunu isaretleyin.
+  echo Kurduysaniz bilgisayari yeniden baslatip tekrar deneyin.
   pause
   exit /b 1
 )
+echo.
 echo Gerekli paketler kuruluyor...
 python -m pip install -r requirements.txt
 if errorlevel 1 goto hata
