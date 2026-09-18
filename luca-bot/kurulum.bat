@@ -5,37 +5,48 @@ echo ============================================
 echo   Luca Bot - Kurulum (sadece bir kez)
 echo ============================================
 echo.
-echo Python kontrol ediliyor...
-echo (Ilk calistirmada Python indirilebilir, birkac dakika surebilir - bekleyin)
+echo Python aranıyor...
+
+call "%~dp0_python-bul.bat"
+if errorlevel 1 goto pythonyok
+
+echo Bulunan Python:
+%PY% --version
 echo.
-python --version
-if errorlevel 1 (
-  echo.
-  echo HATA: Python bulunamadi.
-  echo python.org/downloads adresinden kurun ve kurulumda
-  echo "Add python.exe to PATH" kutusunu isaretleyin.
-  echo Kurduysaniz bilgisayari yeniden baslatip tekrar deneyin.
-  pause
-  exit /b 1
-)
-echo.
+
 echo Gerekli paketler kuruluyor...
-python -m pip install -r requirements.txt
+%PY% -m pip install --upgrade pip
+%PY% -m pip install -r requirements.txt
 if errorlevel 1 goto hata
+
 echo.
-echo Tarayici indiriliyor (birkac dakika surebilir)...
-python -m playwright install chromium
+echo Tarayıcı indiriliyor (birkaç dakika sürebilir)...
+%PY% -m playwright install chromium
 if errorlevel 1 goto hata
+
 echo.
 echo ============================================
-echo   Kurulum tamamlandi. Artik calistir.bat
-echo   dosyasini calistirabilirsiniz.
+echo   Kurulum tamamlandı.
+echo   Sırada: firmalari-listele.bat
 echo ============================================
 pause
 exit /b 0
 
+:pythonyok
+echo.
+echo HATA: Python bulunamadı.
+echo.
+echo Komut istemine su komutu yazip deneyin:
+echo     py install
+echo.
+echo Yine olmazsa python.org/downloads adresinden
+echo klasik "Windows installer (64-bit)" dosyasini kurun
+echo ve kurulumda "Add python.exe to PATH" kutusunu isaretleyin.
+pause
+exit /b 1
+
 :hata
 echo.
-echo Kurulum sirasinda hata olustu. Ekrani bana gonderin.
+echo Kurulum sırasında hata oluştu. Bu ekranın görüntüsünü gönderin.
 pause
 exit /b 1

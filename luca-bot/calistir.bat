@@ -5,6 +5,10 @@ echo ============================================
 echo   Luca Bot - Fatura Cekme
 echo ============================================
 echo.
+
+call "%~dp0_python-bul.bat"
+if errorlevel 1 goto pythonyok
+
 set "bas="
 set "bit="
 set "firma="
@@ -16,9 +20,15 @@ echo TUM firmalar icin bos birakip ENTER'a basin.
 set /p firma="Firma adi: "
 echo.
 if "%firma%"=="" (
-  python luca_bot.py --baslangic "%bas%" --bitis "%bit%"
+  %PY% luca_bot.py --baslangic "%bas%" --bitis "%bit%"
 ) else (
-  python luca_bot.py --baslangic "%bas%" --bitis "%bit%" --firma "%firma%"
+  %PY% luca_bot.py --baslangic "%bas%" --bitis "%bit%" --firma "%firma%"
 )
 echo.
 pause
+exit /b 0
+
+:pythonyok
+echo HATA: Python bulunamadi. Once kurulum.bat dosyasini calistirin.
+pause
+exit /b 1
