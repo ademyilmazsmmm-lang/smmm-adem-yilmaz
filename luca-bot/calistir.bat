@@ -18,7 +18,8 @@ set "firma="
 set /p bas="Baslangic tarihi (ornek 01/08/2026): "
 set /p bit="Bitis tarihi     (ornek 31/08/2026): "
 echo.
-echo Tek firma ile denemek isterseniz firma adinin bir kismini yazin.
+echo Belirli firmalar icin adlarinin bir kismini yazin.
+echo Birden fazla firma icin virgulle ayirin. Ornek: DENTAL, EMRAH SEVE, AKIN
 echo TUM firmalar icin bos birakip ENTER'a basin.
 set /p firma="Firma adi: "
 echo.

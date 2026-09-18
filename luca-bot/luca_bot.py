@@ -615,7 +615,8 @@ def hata_kaydet(page, klasor, firma):
 def main():
     ayarlar = ayarlari_oku()
     p = argparse.ArgumentParser(description="Luca toplu e-fatura indirme botu")
-    p.add_argument("--firma", action="append", help="Sadece bu firma(lar) islensin")
+    p.add_argument("--firma", action="append",
+                   help="Sadece bu firma(lar) islensin; virgulle ayirarak birden fazla yazilabilir")
     p.add_argument("--belge-tipi", default=ayarlar.get("belge_tipi", "e-arsiv-alis"), choices=list(BELGE_TIPLERI))
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
@@ -702,7 +703,7 @@ def main():
             return
 
         if args.firma:
-            aranan = [sadelestir(f) for f in args.firma if f.strip()]
+            aranan = [sadelestir(p) for deger in args.firma for p in deger.split(",") if p.strip()]
             firmalar = [f for f in firmalar if any(a in sadelestir(f) for a in aranan)]
             if not firmalar:
                 yaz(f"\n'{', '.join(args.firma)}' ile eslesen firma yok.", log)
