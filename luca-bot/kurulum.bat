@@ -5,7 +5,7 @@ echo ============================================
 echo   Luca Bot - Kurulum (sadece bir kez)
 echo ============================================
 echo.
-echo Python aranıyor...
+echo Python araniyor...
 
 call "%~dp0_python-bul.bat"
 if errorlevel 1 goto pythonyok
@@ -20,21 +20,21 @@ echo Gerekli paketler kuruluyor...
 if errorlevel 1 goto hata
 
 echo.
-echo Tarayıcı indiriliyor (birkaç dakika sürebilir)...
+echo Tarayici indiriliyor (birkac dakika surebilir)...
 %PY% -m playwright install chromium
 if errorlevel 1 goto hata
 
 echo.
 echo ============================================
-echo   Kurulum tamamlandı.
-echo   Sırada: firmalari-listele.bat
+echo   Kurulum tamamlandi.
+echo   Sirada: firmalari-listele.bat
 echo ============================================
 pause
 exit /b 0
 
 :pythonyok
 echo.
-echo HATA: Python bulunamadı.
+echo HATA: Python bulunamadi.
 echo.
 echo Komut istemine su komutu yazip deneyin:
 echo     py install
@@ -47,6 +47,6 @@ exit /b 1
 
 :hata
 echo.
-echo Kurulum sırasında hata oluştu. Bu ekranın görüntüsünü gönderin.
+echo Kurulum sirasinda hata olustu. Bu ekranin goruntusunu gonderin.
 pause
 exit /b 1
