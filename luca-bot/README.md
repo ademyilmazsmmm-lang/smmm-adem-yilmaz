@@ -7,15 +7,24 @@ tüm firmalar için sırayla otomatik yapar. İndirilen dosyaları ve fatura lis
 
 ## Kurulum (tek seferlik)
 
-1. **Python kurun:** https://www.python.org/downloads/ — kurulumda **"Add python.exe to PATH"** kutusunu işaretleyin.
-2. Bu klasörde komut istemini açın (klasör yolunu tıklayıp `cmd` yazıp Enter) ve şunları çalıştırın:
+1. **Python kurun:** https://www.python.org/downloads/ — kurulum ekranındaki
+   **"Add python.exe to PATH"** kutusunu mutlaka işaretleyin, sonra "Install Now".
+2. **`kurulum.bat`** dosyasına çift tıklayın. Gerekli her şeyi kendisi kurar (birkaç dakika sürer).
+
+Komutla yapmayı tercih ederseniz, bu klasörde komut istemi açıp:
 
 ```
 pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
-3. `ayarlar.ornek.json` dosyasını kopyalayıp adını `ayarlar.json` yapın ve sorgulamak istediğiniz tarih aralığını yazın.
+## Çalıştırma (çift tıklayarak)
+
+| Dosya | Ne yapar |
+| --- | --- |
+| `kurulum.bat` | Tek seferlik kurulum |
+| `firmalari-listele.bat` | Luca'daki firma adlarını listeler (test için doğru adı öğrenmek üzere) |
+| `calistir.bat` | Tarih aralığını sorar, faturaları çeker. Firma adı sorulduğunda boş bırakırsanız tüm firmalar işlenir |
 
 ## Tarih aralığı (30 gün sınırı)
 
@@ -30,7 +39,7 @@ python luca_bot.py --baslangic 01/08/2026 --bitis 31/12/2026
 Bu komut her firma için 6 ayrı GİB sorgusu çalıştırır, hepsi bittikten sonra listenin tamamını indirir.
 Tarih vermezseniz içinde bulunulan ay sorgulanır.
 
-## Kullanım
+## Kullanım (komut satırı)
 
 **İlk deneme — önce tek firma ile test edin:**
 
