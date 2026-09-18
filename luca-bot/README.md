@@ -15,7 +15,20 @@ pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
-3. `ayarlar.ornek.json` dosyasını kopyalayıp adını `ayarlar.json` yapın (isterseniz tarih aralığı yazabilirsiniz, boş bırakırsanız Luca'nın varsayılanı kullanılır).
+3. `ayarlar.ornek.json` dosyasını kopyalayıp adını `ayarlar.json` yapın ve sorgulamak istediğiniz tarih aralığını yazın.
+
+## Tarih aralığı (30 gün sınırı)
+
+GİB sorgusu tek seferde en fazla 30 gün kabul ettiği için, siz elle nasıl ay ay sorguluyorsanız
+(01/08/2026-31/08/2026 → 31/08/2026-30/09/2026 → ...) bot da aynı şekilde otomatik bölüyor.
+Siz sadece geniş aralığı veriyorsunuz, parçalamayı bot yapıyor:
+
+```
+python luca_bot.py --baslangic 01/08/2026 --bitis 31/12/2026
+```
+
+Bu komut her firma için 6 ayrı GİB sorgusu çalıştırır, hepsi bittikten sonra listenin tamamını indirir.
+Tarih vermezseniz içinde bulunulan ay sorgulanır.
 
 ## Kullanım
 
@@ -52,7 +65,8 @@ python luca_bot.py --belge-tipi e-fatura-satis
 1. Bot Chromium tarayıcısını açar ve Luca giriş sayfasına gider.
 2. Siz giriş yaparsınız, firma ekranı gelince komut istemine dönüp **ENTER**'a basarsınız.
 3. Bot sağ üstteki listeden firmaları sırayla seçer; her firma için menüden ilgili ekrana gider,
-   **GİB'den Getir** der, gelen faturaların hepsini seçer, **Seçilenleri İndir** ve **Excel** dosyalarını indirir.
+   **GİB'den Getir** der (tarih aralığını 30 günlük parçalar hâlinde sırayla sorgular),
+   gelen faturaların hepsini seçer, **Seçilenleri İndir** ve **Excel** dosyalarını indirir.
 4. Biten her firma için ekrana durum yazar; sonunda özet çıkarır.
 
 ## Dosyalar nereye iniyor
@@ -81,6 +95,7 @@ Bir firmada hata olursa bot durmaz, o firmayı `ozet.csv`'ye "hata" olarak yazı
 | `Ogeye ulasilamadi` | Menü adı o firmada farklı olabilir (İşletme Defteri / Serbest Meslek Defteri). `hatalar/` içindeki ekran görüntüsünü paylaşın. |
 | `Seçilenleri İndir butonu bulunamadi` | O firmada hiç fatura gelmemiş olabilir; `ozet.csv`'de "fatura yok" görünür. |
 | Tarayıcı her seferinde giriş istiyor | `.tarayici-profili` klasörü oturumu hatırlar, silmeyin. |
+| `UYARI: tarih kutulari bulunamadi` | GİB tarih penceresi tanınmamış; `hatalar/` ekran görüntüsünü paylaşın, alan adlarını düzeltirim. |
 
 ## Notlar
 

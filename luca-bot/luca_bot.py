@@ -8,7 +8,7 @@ import re
 import sys
 import time
 import unicodedata
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -28,7 +28,10 @@ BELGE_TIPLERI = {
 }
 
 KAPAT_METINLERI = ["Bir daha gösterme", "Kapat", "Tamam"]
-ONAY_METINLERI = ["Sorgula", "Getir", "Tamam", "Uygula"]
+ONAY_METINLERI = ["Sorgula", "GİB'den Getir", "Getir", "Onayla", "Tamam", "Uygula"]
+
+TARIH_BICIMI = "%d/%m/%Y"
+AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
 
 
 def yaz(mesaj, log_dosyasi=None):
@@ -43,6 +46,32 @@ def dosya_adi_yap(metin):
     metin = "".join(c for c in metin if not unicodedata.combining(c))
     metin = re.sub(r"[^A-Za-z0-9._ -]", "_", metin).strip()
     return re.sub(r"\s+", " ", metin) or "isimsiz"
+
+
+def tarih_cozumle(metin):
+    return datetime.strptime(metin.strip(), TARIH_BICIMI).date()
+
+
+def tarih_araliklari(baslangic, bitis, gun=AZAMI_GUN):
+    """30 gunluk parcalara boler; her parca bir oncekinin bitis tarihinden basliyor."""
+    if bitis < baslangic:
+        raise ValueError("Bitis tarihi baslangictan once olamaz")
+    araliklar = []
+    su_an = baslangic
+    while su_an < bitis:
+        son = min(su_an + timedelta(days=gun), bitis)
+        araliklar.append((su_an.strftime(TARIH_BICIMI), son.strftime(TARIH_BICIMI)))
+        su_an = son
+    if not araliklar:
+        araliklar.append((baslangic.strftime(TARIH_BICIMI), bitis.strftime(TARIH_BICIMI)))
+    return araliklar
+
+
+def icinde_bulunulan_ay():
+    bugun = date.today()
+    bas = bugun.replace(day=1)
+    bit = (bas + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+    return bas, bit
 
 
 def ayarlari_oku():
@@ -145,32 +174,72 @@ def menuye_git(page, belge_tipi):
         pass
 
 
+def tarih_kutulari(page):
+    adaylar = []
+    for fr in cerceveler(page):
+        try:
+            kutular = fr.locator("input[type=text], input:not([type])")
+            for i in range(kutular.count()):
+                kutu = kutular.nth(i)
+                if not kutu.is_visible():
+                    continue
+                deger = kutu.input_value() or ""
+                nitelik = " ".join(
+                    x for x in (kutu.get_attribute("name"), kutu.get_attribute("id"), kutu.get_attribute("class")) if x
+                ).lower()
+                if re.search(r"\d{2}[./]\d{2}[./]\d{4}", deger) or re.search(r"tarih|date", nitelik):
+                    adaylar.append(kutu)
+        except Exception:
+            continue
+    return adaylar
+
+
+def kutuya_yaz(kutu, deger):
+    try:
+        kutu.fill(deger)
+        if (kutu.input_value() or "").strip() == deger:
+            return True
+    except Exception:
+        pass
+    try:
+        kutu.click()
+        kutu.press("Control+a")
+        kutu.type(deger, delay=40)
+        if (kutu.input_value() or "").strip() == deger:
+            return True
+    except Exception:
+        pass
+    try:  # salt okunur / datepicker bagli alanlar icin son care
+        kutu.evaluate(
+            "(el, v) => { el.removeAttribute('readonly'); el.value = v;"
+            " el.dispatchEvent(new Event('input', {bubbles:true}));"
+            " el.dispatchEvent(new Event('change', {bubbles:true})); }",
+            deger,
+        )
+        return (kutu.input_value() or "").strip() == deger
+    except Exception:
+        return False
+
+
 def gibden_getir(page, baslangic, bitis, log):
     _, dugme = metinle_bul(page, "GİB'den Getir")
     dugme.click()
-    page.wait_for_timeout(1500)
+    page.wait_for_timeout(2000)
 
-    for deger, anahtar in ((baslangic, "baslangic"), (bitis, "bitis")):
-        if not deger:
-            continue
-        try:
-            fr, _ = bul(page, lambda f: f.locator("input[type=text]"), sure=1500)
-            kutular = fr.locator("input[type=text]")
-            idx = 0 if anahtar == "baslangic" else 1
-            if kutular.count() > idx:
-                hedef = kutular.nth(idx)
-                if hedef.is_visible() and re.search(r"\d{2}[./]\d{2}[./]\d{4}", hedef.input_value() or ""):
-                    hedef.fill(deger)
-        except Exception:
-            pass
+    kutular = tarih_kutulari(page)
+    if len(kutular) < 2:
+        yaz(f"    UYARI: tarih kutulari bulunamadi ({len(kutular)} adet), Luca varsayilani kullanilacak", log)
+    else:
+        if not kutuya_yaz(kutular[0], baslangic) or not kutuya_yaz(kutular[1], bitis):
+            yaz("    UYARI: tarih alanlari doldurulamadi", log)
 
-    varsa_tikla(page, ONAY_METINLERI, sure=1200)
+    varsa_tikla(page, ONAY_METINLERI, sure=1500)
     page.wait_for_timeout(4000)
     try:
-        page.wait_for_load_state("networkidle", timeout=60000)
+        page.wait_for_load_state("networkidle", timeout=120000)
     except Exception:
         pass
-    yaz("    GİB'den Getir tamamlandi", log)
+    yaz(f"    GİB'den Getir tamam: {baslangic} - {bitis}", log)
 
 
 def tabloyu_oku(page):
@@ -237,14 +306,15 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log):
         return None
 
 
-def firma_isle(page, firma, belge_tipi, ayarlar, cikti_kok, log):
+def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log):
     sonuc = {"firma": firma, "belge_tipi": belge_tipi, "fatura_sayisi": 0, "durum": "", "dosyalar": []}
     klasor = cikti_kok / dosya_adi_yap(firma) / belge_tipi
     klasor.mkdir(parents=True, exist_ok=True)
 
     firma_sec(page, firma)
     menuye_git(page, belge_tipi)
-    gibden_getir(page, ayarlar.get("baslangic_tarihi"), ayarlar.get("bitis_tarihi"), log)
+    for bas, bit in araliklar:
+        gibden_getir(page, bas, bit, log)
 
     fr, satirlar = tabloyu_oku(page)
     sonuc["fatura_sayisi"] = len(satirlar)
@@ -285,8 +355,23 @@ def main():
     p.add_argument("--firma", action="append", help="Sadece bu firma(lar) islensin")
     p.add_argument("--belge-tipi", default=ayarlar.get("belge_tipi", "e-arsiv-alis"), choices=list(BELGE_TIPLERI))
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
+    p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
+    p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--listele", action="store_true", help="Sadece firma listesini yazdir, islem yapma")
     args = p.parse_args()
+
+    bas_metin = args.baslangic or ayarlar.get("baslangic_tarihi")
+    bit_metin = args.bitis or ayarlar.get("bitis_tarihi")
+    if bas_metin and bit_metin:
+        try:
+            baslangic, bitis = tarih_cozumle(bas_metin), tarih_cozumle(bit_metin)
+        except ValueError:
+            p.error("Tarihler GG/AA/YYYY biciminde olmali, orn: 01/08/2026")
+        if bitis < baslangic:
+            p.error("Bitis tarihi baslangictan once olamaz")
+    else:
+        baslangic, bitis = icinde_bulunulan_ay()
+    araliklar = tarih_araliklari(baslangic, bitis)
 
     cikti_kok = Path(ayarlar.get("indirme_klasoru") or "indirilenler").expanduser()
     if not cikti_kok.is_absolute():
@@ -325,13 +410,14 @@ def main():
         if args.limit:
             firmalar = firmalar[: args.limit]
 
-        yaz(f"Islenecek firma sayisi: {len(firmalar)} | belge tipi: {args.belge_tipi}\n", log)
+        yaz(f"Islenecek firma sayisi: {len(firmalar)} | belge tipi: {args.belge_tipi}", log)
+        yaz(f"Tarih araligi: {araliklar[0][0]} - {araliklar[-1][1]} ({len(araliklar)} sorgu/firma)\n", log)
 
         sonuclar = []
         for i, firma in enumerate(firmalar, 1):
             yaz(f"[{i}/{len(firmalar)}] {firma}", log)
             try:
-                sonuclar.append(firma_isle(page, firma, args.belge_tipi, ayarlar, calisma, log))
+                sonuclar.append(firma_isle(page, firma, args.belge_tipi, araliklar, calisma, log))
             except Exception as e:
                 yaz(f"    HATA: {type(e).__name__}: {e}", log)
                 hata_kaydet(page, calisma / "hatalar", firma)
