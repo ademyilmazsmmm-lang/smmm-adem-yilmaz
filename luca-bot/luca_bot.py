@@ -601,6 +601,10 @@ def main():
         if args.listele:
             for f in firmalar:
                 print(" -", f)
+            dosya = calisma / "firmalar.txt"
+            dosya.write_text("\n".join(firmalar), encoding="utf-8")
+            yaz(f"\nListe dosyaya da yazildi: {dosya}", log)
+            kullanici_bekle(ctx, ">>> Kapatmak icin ENTER: ")
             ctx.close()
             return
 
