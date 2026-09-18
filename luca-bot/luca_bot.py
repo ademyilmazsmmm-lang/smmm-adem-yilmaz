@@ -324,29 +324,58 @@ def kutuya_yaz(kutu, deger):
         return False
 
 
+def metin_iceren_sayfa(page, metin, sure=800):
+    """Islem Takip penceresi ayri bir pencerede acilabildigi icin tum sayfalara bakilir."""
+    sayfalar = [page]
+    try:
+        sayfalar += [p for p in page.context.pages if p is not page and not p.is_closed()]
+    except Exception:
+        pass
+    for p in sayfalar:
+        try:
+            metinle_bul(p, metin, sure=sure)
+            return p
+        except LookupError:
+            continue
+    return None
+
+
 def islem_takibini_bekle(page, log, azami_saniye=900):
     """GIB sorgusu gun gun ilerliyor; 'Islem Takip' penceresi 'sona erdi' diyene kadar beklenir."""
     basla = time.time()
     pencere_goruldu = False
-    while time.time() - basla < azami_saniye:
-        if gorunur_mu(page, ISLEM_BITTI, sure=1000):
-            yaz("    GİB sorgusu tamamlandi", log)
-            varsa_tikla(page, ["Kapat"], sure=4000)
+    son_bildirim = 0
+
+    while True:
+        gecen = time.time() - basla
+        if gecen > azami_saniye:
+            yaz(f"    UYARI: GİB sorgusu {int(gecen)} sn sonra zaman asimina ugradi", log)
+            varsa_tikla(page, ["Kapat"], sure=3000)
+            return False
+
+        bitti = metin_iceren_sayfa(page, ISLEM_BITTI)
+        if bitti:
+            yaz(f"    GİB sorgusu tamamlandi ({int(gecen)} sn)", log)
+            varsa_tikla(bitti, ["Kapat"], sure=4000)
             page.wait_for_timeout(1500)
             return True
-        if not pencere_goruldu:
-            if gorunur_mu(page, "İşlem Takip", sure=1000):
-                pencere_goruldu = True
-                yaz("    GİB sorgusu suruyor, bekleniyor...", log)
-            elif time.time() - basla > 45:
-                return False  # islem penceresi hic acilmadi
-        page.wait_for_timeout(3000)
-    yaz("    UYARI: GİB sorgusu zaman asimina ugradi", log)
-    varsa_tikla(page, ["Kapat"], sure=3000)
-    return False
+
+        if not pencere_goruldu and metin_iceren_sayfa(page, "İşlem Takip"):
+            pencere_goruldu = True
+            yaz("    İşlem Takip penceresi acildi, sorgu suruyor...", log)
+
+        if not pencere_goruldu and gecen > 45:
+            yaz("    İşlem Takip penceresi gorunmedi, devam ediliyor", log)
+            return False
+
+        if gecen - son_bildirim >= 15:
+            son_bildirim = gecen
+            yaz(f"    ... bekleniyor ({int(gecen)} sn)", log)
+        page.wait_for_timeout(2000)
 
 
 def gibden_getir(page, baslangic, bitis, log):
+    yaz(f"    GİB'den Getir aciliyor ({baslangic} - {bitis})", log)
     _, dugme = metinle_bul(page, "GİB'den Getir")
     dugme.click()
     page.wait_for_timeout(2500)
@@ -362,11 +391,14 @@ def gibden_getir(page, baslangic, bitis, log):
         except Exception:
             pass
 
-    if not varsa_tikla(page, DIYALOG_ONAY, sure=5000):
+    tiklanan = varsa_tikla(page, DIYALOG_ONAY, sure=5000)
+    if not tiklanan:
         raise LookupError(f"'Belgeleri Getir' butonu bulunamadi. Gorunen ogeler: {menu_metinleri(page, 20)}")
+    yaz(f"    '{tiklanan}' tiklandi, sorgu basladi", log)
 
     islem_takibini_bekle(page, log)
 
+    yaz("    Liste yenileniyor", log)
     varsa_tikla(page, ["Yenile"], sure=5000)  # sorgu sonrasi liste kendiliginden tazelenmiyor
     page.wait_for_timeout(3000)
     try:
@@ -446,11 +478,14 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log):
     klasor = cikti_kok / dosya_adi_yap(firma) / belge_tipi
     klasor.mkdir(parents=True, exist_ok=True)
 
+    yaz("    Firma seciliyor", log)
     firma_sec(page, firma)
+    yaz("    Menuye gidiliyor", log)
     menuye_git(page, belge_tipi)
     for bas, bit in araliklar:
         gibden_getir(page, bas, bit, log)
 
+    yaz("    Tablo okunuyor", log)
     fr, satirlar = tabloyu_oku(page)
     sonuc["fatura_sayisi"] = len(satirlar)
     yaz(f"    {len(satirlar)} satir listelendi", log)
@@ -460,7 +495,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log):
             csv.writer(f).writerows(satirlar)
 
     if fr is not None and satirlar:
-        hepsini_sec(page, fr)
+        secilen = hepsini_sec(page, fr)
+        yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
         for dugme, on_ek in (("Seçilenleri İndir", "belgeler"), ("Excel", "liste")):
             yol = indir(page, dugme, klasor, on_ek, log)
             if yol:
