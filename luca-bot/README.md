@@ -1,0 +1,89 @@
+# Luca Toplu e-Fatura İndirme Botu
+
+Luca'da her firma için tek tek yaptığınız **Akıllı Entegrasyon Noktası → e-Arşiv Alış Faturaları → GİB'den Getir → Seçilenleri İndir** işlemini
+tüm firmalar için sırayla otomatik yapar. İndirilen dosyaları ve fatura listelerini bilgisayarınızda firma bazında klasörlere kaydeder.
+
+**Şifreniz hiçbir yerde saklanmaz.** Bot tarayıcıyı açar, Luca'ya girişi **siz elle** yaparsınız, sonrasındaki 50 firmalık tekrar eden işi bot devralır.
+
+## Kurulum (tek seferlik)
+
+1. **Python kurun:** https://www.python.org/downloads/ — kurulumda **"Add python.exe to PATH"** kutusunu işaretleyin.
+2. Bu klasörde komut istemini açın (klasör yolunu tıklayıp `cmd` yazıp Enter) ve şunları çalıştırın:
+
+```
+pip install -r requirements.txt
+python -m playwright install chromium
+```
+
+3. `ayarlar.ornek.json` dosyasını kopyalayıp adını `ayarlar.json` yapın (isterseniz tarih aralığı yazabilirsiniz, boş bırakırsanız Luca'nın varsayılanı kullanılır).
+
+## Kullanım
+
+**İlk deneme — önce tek firma ile test edin:**
+
+```
+python luca_bot.py --firma "AKIN ÇOBAN"
+```
+
+**Firma listesini görmek için:**
+
+```
+python luca_bot.py --listele
+```
+
+**Tüm firmalar için:**
+
+```
+python luca_bot.py
+```
+
+**Diğer belge tipleri:**
+
+```
+python luca_bot.py --belge-tipi e-fatura-alis
+python luca_bot.py --belge-tipi e-arsiv-satis
+python luca_bot.py --belge-tipi e-fatura-satis
+```
+
+İlk 3 firmayla denemek için `--limit 3` ekleyebilirsiniz.
+
+## Çalışırken ne oluyor
+
+1. Bot Chromium tarayıcısını açar ve Luca giriş sayfasına gider.
+2. Siz giriş yaparsınız, firma ekranı gelince komut istemine dönüp **ENTER**'a basarsınız.
+3. Bot sağ üstteki listeden firmaları sırayla seçer; her firma için menüden ilgili ekrana gider,
+   **GİB'den Getir** der, gelen faturaların hepsini seçer, **Seçilenleri İndir** ve **Excel** dosyalarını indirir.
+4. Biten her firma için ekrana durum yazar; sonunda özet çıkarır.
+
+## Dosyalar nereye iniyor
+
+```
+indirilenler/
+  2026-09-18/
+    AKIN COBAN/
+      e-arsiv-alis/
+        liste.csv              → ekrandaki fatura listesi
+        belgeler_....zip       → Seçilenleri İndir çıktısı
+        liste_....xls          → Luca'nın Excel çıktısı
+    ozet.csv                   → tüm firmaların özeti (kaç fatura, durum)
+    calisma.log                → çalışma kaydı
+    hatalar/                   → hata olursa ekran görüntüsü ve sayfa kaydı
+```
+
+Bir firmada hata olursa bot durmaz, o firmayı `ozet.csv`'ye "hata" olarak yazıp sıradakine geçer.
+`hatalar/` klasöründeki ekran görüntüsünü bana gönderirseniz o adımı düzeltirim.
+
+## Sık karşılaşılan durumlar
+
+| Durum | Ne yapmalı |
+| --- | --- |
+| `Firma listesi (select) bulunamadi` | Giriş tamamlanmadan ENTER'a basılmış olabilir; firma ekranı açıkken tekrar deneyin. |
+| `Ogeye ulasilamadi` | Menü adı o firmada farklı olabilir (İşletme Defteri / Serbest Meslek Defteri). `hatalar/` içindeki ekran görüntüsünü paylaşın. |
+| `Seçilenleri İndir butonu bulunamadi` | O firmada hiç fatura gelmemiş olabilir; `ozet.csv`'de "fatura yok" görünür. |
+| Tarayıcı her seferinde giriş istiyor | `.tarayici-profili` klasörü oturumu hatırlar, silmeyin. |
+
+## Notlar
+
+- Bot Luca arayüzünü kullanır; Luca ekranlarında değişiklik olursa buton/menü adlarının güncellenmesi gerekebilir.
+- Aynı anda Luca'ya başka yerden girmeyin, oturum düşebilir.
+- Tevkifatlı fatura uyarısı, Excel'den Luca'ya yükleme ve yapay zeka ile muhasebe kaydı sonraki adımlarda eklenecek.
