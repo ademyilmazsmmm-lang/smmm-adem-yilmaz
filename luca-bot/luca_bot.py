@@ -31,8 +31,10 @@ BELGE_TIPLERI = {
     "e-fatura-satis": "e-Fatura Satış Faturaları",
 }
 
-KAPAT_METINLERI = ["Bir daha gösterme", "Kapat", "Tamam"]
-ONAY_METINLERI = ["Sorgula", "GİB'den Getir", "Getir", "Onayla", "Tamam", "Uygula"]
+KAPAT_METINLERI = ["Bir daha gösterme"]  # sayfadaki "Tamam"/"Kapat" baska islevlere ait olabiliyor
+DIYALOG_ONAY = ["Belgeleri Getir", "Sorgula", "Onayla", "Uygula"]
+INDIRME_ONAY = ["Belgeleri İndir", "Dosyaları İndir", "Onayla"]
+ISLEM_BITTI = "sona erdi"
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
@@ -322,25 +324,55 @@ def kutuya_yaz(kutu, deger):
         return False
 
 
+def islem_takibini_bekle(page, log, azami_saniye=900):
+    """GIB sorgusu gun gun ilerliyor; 'Islem Takip' penceresi 'sona erdi' diyene kadar beklenir."""
+    basla = time.time()
+    pencere_goruldu = False
+    while time.time() - basla < azami_saniye:
+        if gorunur_mu(page, ISLEM_BITTI, sure=1000):
+            yaz("    GİB sorgusu tamamlandi", log)
+            varsa_tikla(page, ["Kapat"], sure=4000)
+            page.wait_for_timeout(1500)
+            return True
+        if not pencere_goruldu:
+            if gorunur_mu(page, "İşlem Takip", sure=1000):
+                pencere_goruldu = True
+                yaz("    GİB sorgusu suruyor, bekleniyor...", log)
+            elif time.time() - basla > 45:
+                return False  # islem penceresi hic acilmadi
+        page.wait_for_timeout(3000)
+    yaz("    UYARI: GİB sorgusu zaman asimina ugradi", log)
+    varsa_tikla(page, ["Kapat"], sure=3000)
+    return False
+
+
 def gibden_getir(page, baslangic, bitis, log):
     _, dugme = metinle_bul(page, "GİB'den Getir")
     dugme.click()
-    page.wait_for_timeout(2000)
+    page.wait_for_timeout(2500)
 
     kutular = tarih_kutulari(page)
     if len(kutular) < 2:
         yaz(f"    UYARI: tarih kutulari bulunamadi ({len(kutular)} adet), Luca varsayilani kullanilacak", log)
     else:
-        if not kutuya_yaz(kutular[0], baslangic) or not kutuya_yaz(kutular[1], bitis):
-            yaz("    UYARI: tarih alanlari doldurulamadi", log)
+        kutuya_yaz(kutular[0], baslangic)
+        kutuya_yaz(kutular[1], bitis)
+        try:
+            yaz(f"    Tarih araligi girildi: {kutular[0].input_value()} - {kutular[1].input_value()}", log)
+        except Exception:
+            pass
 
-    varsa_tikla(page, ONAY_METINLERI, sure=1500)
-    page.wait_for_timeout(4000)
+    if not varsa_tikla(page, DIYALOG_ONAY, sure=5000):
+        raise LookupError(f"'Belgeleri Getir' butonu bulunamadi. Gorunen ogeler: {menu_metinleri(page, 20)}")
+
+    islem_takibini_bekle(page, log)
+
+    varsa_tikla(page, ["Yenile"], sure=5000)  # sorgu sonrasi liste kendiliginden tazelenmiyor
+    page.wait_for_timeout(3000)
     try:
-        page.wait_for_load_state("networkidle", timeout=120000)
+        page.wait_for_load_state("networkidle", timeout=60000)
     except Exception:
         pass
-    yaz(f"    GİB'den Getir tamam: {baslangic} - {bitis}", log)
 
 
 def tabloyu_oku(page):
@@ -394,8 +426,10 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log):
         yaz(f"    '{dugme_metni}' butonu bulunamadi, atlandi", log)
         return None
     try:
-        with page.expect_download(timeout=180000) as bilgi:
+        with page.expect_download(timeout=240000) as bilgi:
             dugme.click()
+            page.wait_for_timeout(2500)
+            varsa_tikla(page, INDIRME_ONAY, sure=2500)  # araya onay diyalogu girebiliyor
         dosya = bilgi.value
         ad = f"{on_ek}_{dosya.suggested_filename}"
         yol = hedef_klasor / ad
@@ -403,7 +437,7 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log):
         yaz(f"    indirildi: {ad}", log)
         return yol
     except Exception as e:
-        yaz(f"    '{dugme_metni}' indirilemedi: {type(e).__name__}", log)
+        yaz(f"    '{dugme_metni}' indirilemedi ({type(e).__name__}). Ekranda gorunenler: {menu_metinleri(page, 15)}", log)
         return None
 
 
