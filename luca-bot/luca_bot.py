@@ -345,6 +345,27 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log):
     return sonuc
 
 
+def tarayici_ac(pw, profil, log):
+    """Once bilgisayarda kurulu Chrome/Edge denenir; Playwright'in kendi tarayicisi son care."""
+    hatalar = []
+    for kanal, ad in (("chrome", "Google Chrome"), ("msedge", "Microsoft Edge"), (None, "Playwright Chromium")):
+        secenekler = {"channel": kanal} if kanal else {}
+        try:
+            ctx = pw.chromium.launch_persistent_context(
+                str(profil), headless=False, accept_downloads=True,
+                args=["--start-maximized"], no_viewport=True, **secenekler
+            )
+            yaz(f"Tarayici: {ad}", log)
+            return ctx
+        except Exception as e:
+            hatalar.append(f"  {ad}: {str(e).splitlines()[0][:120]}")
+    raise RuntimeError(
+        "Hicbir tarayici acilamadi:\n" + "\n".join(hatalar)
+        + "\n\nCozum: Google Chrome kurun (google.com/chrome) veya"
+        " internet baglantisi duzelince tarayici-indir.bat dosyasini calistirin."
+    )
+
+
 def hata_kaydet(page, klasor, firma):
     klasor.mkdir(parents=True, exist_ok=True)
     ad = dosya_adi_yap(firma)
@@ -391,9 +412,7 @@ def main():
     profil = KOK / ".tarayici-profili"
 
     with sync_playwright() as pw:
-        ctx = pw.chromium.launch_persistent_context(
-            str(profil), headless=False, accept_downloads=True, args=["--start-maximized"], no_viewport=True
-        )
+        ctx = tarayici_ac(pw, profil, log)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.on("dialog", lambda d: d.accept())
         page.goto(LUCA_URL)

@@ -9,7 +9,10 @@ tüm firmalar için sırayla otomatik yapar. İndirilen dosyaları ve fatura lis
 
 1. **Python kurun:** https://www.python.org/downloads/ — kurulum ekranındaki
    **"Add python.exe to PATH"** kutusunu mutlaka işaretleyin, sonra "Install Now".
-2. **`kurulum.bat`** dosyasına çift tıklayın. Gerekli her şeyi kendisi kurar (birkaç dakika sürer).
+2. **`kurulum.bat`** dosyasına çift tıklayın. Gerekli her şeyi kendisi kurar.
+
+Tarayıcı olarak bilgisayarınızdaki **Google Chrome** kullanılır (yoksa Edge denenir),
+ayrıca tarayıcı indirmeye gerek yoktur.
 
 Komutla yapmayı tercih ederseniz, bu klasörde komut istemi açıp:
 
@@ -100,6 +103,7 @@ Bir firmada hata olursa bot durmaz, o firmayı `ozet.csv`'ye "hata" olarak yazı
 
 | Durum | Ne yapmalı |
 | --- | --- |
+| `cdn.playwright.dev ... timed out` | Tarayıcı indirmeye çalışıyor; gerekmiyor. Güncel sürümde bot bilgisayardaki Chrome'u kullanır. Chrome yoksa google.com/chrome adresinden kurun. |
 | `Python bulunamadı` | Yeni Python Install Manager kurulmuş ama Python sürümü inmemiş demektir. Komut istemine `py install` yazın, sonra `kurulum.bat`'ı tekrar çalıştırın. |
 | `Firma listesi (select) bulunamadi` | Giriş tamamlanmadan ENTER'a basılmış olabilir; firma ekranı açıkken tekrar deneyin. |
 | `Ogeye ulasilamadi` | Menü adı o firmada farklı olabilir (İşletme Defteri / Serbest Meslek Defteri). `hatalar/` içindeki ekran görüntüsünü paylaşın. |
