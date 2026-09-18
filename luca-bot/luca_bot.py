@@ -35,6 +35,7 @@ KAPAT_METINLERI = ["Bir daha gösterme"]  # sayfadaki "Tamam"/"Kapat" baska isle
 DIYALOG_ONAY = ["Belgeleri Getir", "Sorgula", "Onayla", "Uygula"]
 INDIRME_ONAY = ["Belgeleri İndir", "Dosyaları İndir", "Onayla"]
 ISLEM_BITTI = "sona erdi"
+INDIRILEMEDI = "indirilemedi"
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
@@ -340,8 +341,20 @@ def metin_iceren_sayfa(page, metin, sure=800):
     return None
 
 
+def indirilemeyen_sayisi(sayfa):
+    """Islem gunlugundeki \"url'li fatura indirilemedi\" satirlarini sayar."""
+    for fr in cerceveler(sayfa):
+        try:
+            if fr.get_by_text(ISLEM_BITTI, exact=False).count() == 0:
+                continue
+            return fr.locator("body").inner_text().lower().count(INDIRILEMEDI)
+        except Exception:
+            continue
+    return 0
+
+
 def islem_takibini_bekle(page, log, azami_saniye=900):
-    """GIB sorgusu gun gun ilerliyor; 'Islem Takip' penceresi 'sona erdi' diyene kadar beklenir."""
+    """Sorgu bitene kadar bekler; indirilemeyen fatura sayisini dondurur (-1: tamamlanmadi)."""
     basla = time.time()
     pencere_goruldu = False
     son_bildirim = 0
@@ -351,14 +364,16 @@ def islem_takibini_bekle(page, log, azami_saniye=900):
         if gecen > azami_saniye:
             yaz(f"    UYARI: GİB sorgusu {int(gecen)} sn sonra zaman asimina ugradi", log)
             varsa_tikla(page, ["Kapat"], sure=3000)
-            return False
+            return -1
 
         bitti = metin_iceren_sayfa(page, ISLEM_BITTI)
         if bitti:
-            yaz(f"    GİB sorgusu tamamlandi ({int(gecen)} sn)", log)
+            basarisiz = indirilemeyen_sayisi(bitti)
+            yaz(f"    GİB sorgusu tamamlandi ({int(gecen)} sn)"
+                + (f", {basarisiz} fatura indirilemedi" if basarisiz else ""), log)
             varsa_tikla(bitti, ["Kapat"], sure=4000)
             page.wait_for_timeout(1500)
-            return True
+            return basarisiz
 
         if not pencere_goruldu and metin_iceren_sayfa(page, "İşlem Takip"):
             pencere_goruldu = True
@@ -366,7 +381,7 @@ def islem_takibini_bekle(page, log, azami_saniye=900):
 
         if not pencere_goruldu and gecen > 45:
             yaz("    İşlem Takip penceresi gorunmedi, devam ediliyor", log)
-            return False
+            return 0
 
         if gecen - son_bildirim >= 15:
             son_bildirim = gecen
@@ -473,8 +488,9 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log):
         return None
 
 
-def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log):
-    sonuc = {"firma": firma, "belge_tipi": belge_tipi, "fatura_sayisi": 0, "durum": "", "dosyalar": []}
+def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=3):
+    sonuc = {"firma": firma, "belge_tipi": belge_tipi, "fatura_sayisi": 0,
+             "durum": "", "dosyalar": [], "indirilemeyen": 0}
     klasor = cikti_kok / dosya_adi_yap(firma) / belge_tipi
     klasor.mkdir(parents=True, exist_ok=True)
 
@@ -482,8 +498,20 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log):
     firma_sec(page, firma)
     yaz("    Menuye gidiliyor", log)
     menuye_git(page, belge_tipi)
+
+    kalan_hata = 0
     for bas, bit in araliklar:
-        gibden_getir(page, bas, bit, log)
+        for deneme in range(1, azami_deneme + 1):
+            basarisiz = gibden_getir(page, bas, bit, log)
+            if basarisiz <= 0:
+                break
+            if deneme == azami_deneme:
+                yaz(f"    {basarisiz} fatura {azami_deneme} denemede de indirilemedi", log)
+                kalan_hata += basarisiz
+                break
+            yaz(f"    Tekrar sorgulaniyor ({deneme + 1}/{azami_deneme})", log)
+            page.wait_for_timeout(5000)
+    sonuc["indirilemeyen"] = kalan_hata
 
     yaz("    Tablo okunuyor", log)
     fr, satirlar = tabloyu_oku(page)
@@ -672,6 +700,7 @@ def main():
     else:
         baslangic, bitis = icinde_bulunulan_ay()
     araliklar = tarih_araliklari(baslangic, bitis)
+    azami_deneme = max(1, int(ayarlar.get("tekrar_deneme", 3)))
 
     cikti_kok = Path(ayarlar.get("indirme_klasoru") or "indirilenler").expanduser()
     if not cikti_kok.is_absolute():
@@ -763,12 +792,12 @@ def main():
         for i, firma in enumerate(firmalar, 1):
             yaz(f"[{i}/{len(firmalar)}] {firma}", log)
             try:
-                sonuclar.append(firma_isle(page, firma, args.belge_tipi, araliklar, calisma, log))
+                sonuclar.append(firma_isle(page, firma, args.belge_tipi, araliklar, calisma, log, azami_deneme))
             except Exception as e:
                 yaz(f"    HATA: {type(e).__name__}: {e}", log)
                 hata_kaydet(page, calisma / "hatalar", firma)
                 sonuclar.append({"firma": firma, "belge_tipi": args.belge_tipi, "fatura_sayisi": 0,
-                                 "durum": f"hata: {type(e).__name__}", "dosyalar": []})
+                                 "durum": f"hata: {type(e).__name__}", "dosyalar": [], "indirilemeyen": 0})
                 try:
                     page.goto(uygulama_url)
                     page.wait_for_timeout(2000)
@@ -778,9 +807,10 @@ def main():
         ozet = calisma / "ozet.csv"
         with open(ozet, "w", encoding="utf-8-sig", newline="") as f:
             w = csv.writer(f)
-            w.writerow(["Firma", "Belge Tipi", "Fatura Sayisi", "Durum", "Dosyalar"])
+            w.writerow(["Firma", "Belge Tipi", "Fatura Sayisi", "Indirilemeyen", "Durum", "Dosyalar"])
             for s in sonuclar:
-                w.writerow([s["firma"], s["belge_tipi"], s["fatura_sayisi"], s["durum"], "; ".join(s["dosyalar"])])
+                w.writerow([s["firma"], s["belge_tipi"], s["fatura_sayisi"], s.get("indirilemeyen", 0),
+                            s["durum"], "; ".join(s["dosyalar"])])
 
         basarili = sum(1 for s in sonuclar if s["durum"] == "tamam")
         toplam_fatura = sum(s["fatura_sayisi"] for s in sonuclar)

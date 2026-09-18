@@ -1,7 +1,8 @@
 {
   "belge_tipi": "e-arsiv-alis",
   "baslangic_tarihi": "01/08/2026",
-  "bitis_tarihi": "31/12/2026",
+  "bitis_tarihi": "31/08/2026",
   "indirme_klasoru": "indirilenler",
+  "tekrar_deneme": 3,
   "atlanacak_firmalar": []
 }
