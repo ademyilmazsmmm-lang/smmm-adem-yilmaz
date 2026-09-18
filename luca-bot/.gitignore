@@ -2,3 +2,4 @@ ayarlar.json
 indirilenler/
 .tarayici-profili/
 *.log
+__pycache__/
