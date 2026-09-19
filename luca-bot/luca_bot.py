@@ -33,7 +33,7 @@ BELGE_TIPLERI = {
 
 KAPAT_METINLERI = ["Bir daha gösterme"]  # sayfadaki "Tamam"/"Kapat" baska islevlere ait olabiliyor
 DIYALOG_ONAY = ["Belgeleri Getir", "Sorgula", "Onayla", "Uygula"]
-INDIRME_ONAY = ["Belgeleri İndir", "Dosyaları İndir", "Onayla"]
+INDIRME_ONAY = ["Seçilenleri İndir", "Belgeleri İndir", "Dosyaları İndir", "İndir", "Onayla"]
 ISLEM_BITTI = "sona erdi"
 INDIRILEMEDI = "indirilemedi"
 ISLEM_ISARETLERI = ["İşlem Takip", "sorgulandı", "belge kaydı bulundu", "Otomatik aşağı kaydır"]
@@ -233,6 +233,30 @@ def acik_pencere(page):
         except Exception:
             continue
     return None, None
+
+
+def diyalogda_tikla(page, metinler, sure=4000):
+    """Butona acik diyalogun icinden basar.
+
+    Onay penceresindeki buton araç cubugundakiyle ayni adi tasiyabiliyor
+    ('Secilenleri Indir'); kapsamı daraltmazsak yanlis olanina basiliyor.
+    """
+    _, pencere = acik_pencere(page)
+    if pencere is None:
+        return None
+    for metin in metinler:
+        for kurucu in (lambda: pencere.get_by_role("button", name=metin, exact=True),
+                       lambda: pencere.get_by_text(metin, exact=True),
+                       lambda: pencere.get_by_text(metin, exact=False)):
+            try:
+                loc = kurucu()
+                if loc.count() and loc.first.is_visible():
+                    loc.first.click(timeout=sure)
+                    page.wait_for_timeout(600)
+                    return metin
+            except Exception:
+                continue
+    return None
 
 
 def acik_pencereleri_kapat(page, log=None):
@@ -759,7 +783,9 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=120):
             if not tiklandi and kisayol:
                 page.keyboard.press(kisayol)
             page.wait_for_timeout(2500)
-            varsa_tikla(page, INDIRME_ONAY, sure=2500)  # araya onay diyalogu girebiliyor
+            onay = diyalogda_tikla(page, INDIRME_ONAY)  # "Secilenleri Indir" onay penceresi aciyor
+            if onay:
+                yaz(f"    Onay penceresinde '{onay}' tiklandi", log)
         dosya = bilgi.value
         ad = f"{on_ek}_{dosya.suggested_filename}"
         yol = hedef_klasor / ad
