@@ -65,7 +65,7 @@ KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engelle
     "Belge Seç": "Alt+b",
 }
 
-AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True, "chrome_gunlugu": False}  # ayarlar.json ile degistirilebilir
+AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True, "chrome_gunlugu": False, "tarayici": None}  # ayarlar.json ile degistirilebilir
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
@@ -1578,10 +1578,21 @@ def profil_klasoru(log=None):
         return eski
 
 
+TARAYICILAR = [("chrome", "Google Chrome"), ("msedge", "Microsoft Edge"), (None, "Playwright Chromium")]
+
+
 def tarayici_ac(pw, profil, log, gunluk=False):
-    """Once bilgisayarda kurulu Chrome/Edge denenir; Playwright'in kendi tarayicisi son care."""
+    """Once bilgisayarda kurulu Chrome/Edge denenir; Playwright'in kendi tarayicisi son care.
+
+    Chrome bu makinede indirme sirasinda cokuyorsa --tarayici edge ile
+    digerine gecilebilir.
+    """
     hatalar = []
-    for kanal, ad in (("chrome", "Google Chrome"), ("msedge", "Microsoft Edge"), (None, "Playwright Chromium")):
+    tercih = AYAR.get("tarayici")
+    adaylar = [t for t in TARAYICILAR if t[0] == tercih] if tercih else TARAYICILAR
+    if tercih and not adaylar:
+        adaylar = TARAYICILAR
+    for kanal, ad in adaylar:
         secenekler = {"channel": kanal} if kanal else {}
         try:
             ctx = pw.chromium.launch_persistent_context(
@@ -1771,6 +1782,8 @@ def main():
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
+    p.add_argument("--tarayici", choices=["chrome", "edge", "chromium"],
+                   help="Hangi tarayici kullanilsin (Chrome cokuyorsa edge deneyin)")
     p.add_argument("--chrome-gunlugu", action="store_true",
                    help="Chrome cokerse sebebini yazmasi icin ayrintili gunluk tut")
     p.add_argument("--donem-degistirme", action="store_true",
@@ -1801,6 +1814,8 @@ def main():
     AYAR["iptal_itiraz"] = bool(ayarlar.get("iptal_itiraz_sorgula", True)) and not args.iptal_itiraz_atla
     AYAR["donem_degistir"] = bool(ayarlar.get("donem_degistir", True)) and not args.donem_degistirme
     AYAR["chrome_gunlugu"] = bool(args.chrome_gunlugu)
+    AYAR["tarayici"] = {"chrome": "chrome", "edge": "msedge", "chromium": None}.get(
+        args.tarayici or ayarlar.get("tarayici", "")) if (args.tarayici or ayarlar.get("tarayici")) else None
     hata_siniri = max(1, int(ayarlar.get("ardisik_hata_siniri", 5)))
 
     cikti_kok = Path(ayarlar.get("indirme_klasoru") or "indirilenler").expanduser()

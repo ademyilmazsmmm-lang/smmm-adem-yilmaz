@@ -29,6 +29,7 @@ python -m playwright install chromium
 | `firmalari-listele.bat` | Luca'daki firma adlarını listeler (test için doğru adı öğrenmek üzere) |
 | `calistir.bat` | Tarih aralığını sorar, faturaları çeker. Firma adı sorulduğunda boş bırakırsanız tüm firmalar işlenir |
 | `interaktif-earsiv.bat` | İnteraktif Vergi Dairesi ekranından e-Arşiv faturalarını sorgular (GİB Servis ile, 2 kez) |
+| `edge-ile-calistir.bat` | Chrome indirme sırasında çöküyorsa Edge ile çalıştırır |
 | `gece-calistir.bat` | Tüm firmalar için çalışır, iş bitince tarayıcıyı kendisi kapatır (gece bırakıp gitmek için) |
 
 ## Ayarlar (`ayarlar.json`)
@@ -160,7 +161,8 @@ Aksiyon sütununda çıkabilecekler: `HATA - tekrar calistir`, `KAYNAKTAN INMEDI
 | `Firma listesi (select) bulunamadi` | Giriş tamamlanmadan ENTER'a basılmış olabilir; firma ekranı açıkken tekrar deneyin. |
 | `Ogeye ulasilamadi` | Menü adı o firmada farklı olabilir (İşletme Defteri / Serbest Meslek Defteri). `hatalar/` içindeki ekran görüntüsünü paylaşın. |
 | `Seçilenleri İndir butonu bulunamadi` | O firmada hiç fatura gelmemiş olabilir; `ozet.csv`'de "fatura yok" görünür. |
-| Chrome indirme sırasında kapanıyor | Bot tarayıcıyı kendisi yeniden açar ve firmayı tekrar dener; profil oturumu taşıdığı için genelde yeniden giriş gerekmez. Devam ederse `calistir.bat` yerine komutla `python luca_bot.py --donem-degistirme` deneyin: dönem değiştirmeyi kapatır, eski dönemdeki firmaları atlar. |
+| Chrome indirme sırasında kapanıyor | Önce `edge-ile-calistir.bat` deneyin — çökme Chrome kurulumuna özgüyse Edge'de olmaz. |
+| (devamı) | Bot tarayıcıyı kendisi yeniden açar ve firmayı tekrar dener; profil oturumu taşıdığı için genelde yeniden giriş gerekmez. Devam ederse `calistir.bat` yerine komutla `python luca_bot.py --donem-degistirme` deneyin: dönem değiştirmeyi kapatır, eski dönemdeki firmaları atlar. |
 | `TargetClosedError` | Chrome penceresi kapanmış. Bot açık kalan Luca sekmesine geçip firmayı tekrar dener; hiç sekme kalmadıysa durur ve kalan firmaları `bekliyor` bırakır — yeniden çalıştırmanız yeterli. Sık oluyorsa klasörü OneDrive dışına alın (örn. `C:\luca-bot`) |
 | Tarayıcı her seferinde giriş istiyor | Oturum `%LOCALAPPDATA%\luca-bot\tarayici-profili` klasöründe tutulur, silmeyin. |
 | `UYARI: tarih kutulari bulunamadi` | GİB tarih penceresi tanınmamış; `hatalar/` ekran görüntüsünü paylaşın, alan adlarını düzeltirim. |
