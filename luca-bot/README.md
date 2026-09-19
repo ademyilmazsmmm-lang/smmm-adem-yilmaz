@@ -39,6 +39,7 @@ python -m playwright install chromium
 | --- | --- |
 | `sorgu_azami_dakika` | Bir GİB sorgusu için beklenecek en uzun süre (varsayılan 30) |
 | `durgunluk_dakika` | İşlem Takip penceresi bu kadar süre hiç ilerlemezse sorgu takılmış sayılır (varsayılan 3) |
+| `tarayici` | `chromium` / `chrome` / `edge`. HP Sure Click gibi güvenlik yazılımları Chrome ve Edge'e kanca takıp indirme anında tarayıcıyı çökertiyor; varsayılan `chromium` bu yüzden |
 | `iptal_itiraz_sorgula` | Faturalar indikten sonra GİB'den iptal/itiraz durumunu da sorgula (varsayılan açık) |
 | `tekrar_deneme` | İndirilemeyen fatura kalırsa sorgunun kaç kez tekrarlanacağı (varsayılan 3) |
 | `ardisik_hata_siniri` | Üst üste kaç firma hata verirse çalışma durdurulur (varsayılan 5) |

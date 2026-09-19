@@ -1480,8 +1480,14 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                 yaz(f"    Iptal/itiraz sorgusu yapilamadi ({type(e).__name__}: {e})", log)
                 acik_pencereleri_kapat(page, log)
 
-        # Excel, iptal/itiraz sonrasi alinir ki durumlar guncel olsun
-        if fr is not None:
+        # Excel, iptal/itiraz sonrasi alinir ki durumlar guncel olsun.
+        # Liste yenilendigi icin cerceve eskimis olabiliyor, bastan okunur;
+        # acik kalan islem penceresi de Excel'i engelliyor.
+        acik_pencereleri_kapat(page, log)
+        fatura_yok_penceresini_kapat(page)
+        kutular, kutu_sayisi, guncel_fr = secim_kutulari(page)
+        if guncel_fr is not None:
+            fr = guncel_fr
             hepsini_sec(page, fr, len(satirlar))
         yol = indir(page, "Excel", klasor, "liste", log, azami_saniye=AYAR["indirme_saniye"],
                     pencere_acilir=False)
