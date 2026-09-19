@@ -43,8 +43,11 @@ python -m playwright install chromium
 | `atlanacak_firmalar` | İşlenmeyecek firma adları (kapanmış firmalar). Luca adı kısaltarak gösterdiği için adın baş kısmını yazmanız yeterli |
 
 Kapanmış firmaların hazır listesi `kapali-firmalar.md` dosyasındadır; `ayarlar.ornek.json` içine işlenmiştir.
-Ayrıca firmanın Luca'daki çalışma dönemi istediğiniz tarihlerin dışındaysa bot sorguyu hiç başlatmaz,
-özete `dönem dışı` yazar.
+Firmanın Luca'daki çalışma dönemi istediğiniz tarihlerden eskiyse (Luca her firmada en son
+kullanılan dönemi hatırlar) bot dönem listesinden **istenen yılın dönemini seçer** ve devam eder.
+Yeni kurulan firmada `15/04/2026 - 31/12/2026`, eskisinde `01/01/2026 - 31/12/2026` olması fark etmez;
+eşleştirme yıla göre yapılır. O yıla ait dönem hiç yoksa (gerçekten kapanmış firma) sorgu
+çalıştırılmaz, özete `dönem dışı` yazılır.
 
 ## Tarih aralığı (30 gün sınırı)
 

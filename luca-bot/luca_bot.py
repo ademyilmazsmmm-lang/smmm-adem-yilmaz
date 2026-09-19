@@ -407,6 +407,102 @@ def calisma_donemi(page):
     return None, None
 
 
+def donem_secici(page):
+    """Calisma donemi listesi: secenekleri '01/01/2026 - 31/12/2026' bicimindeki select."""
+    for fr in cerceveler(page):
+        try:
+            kutular = fr.locator("select")
+            for i in range(min(kutular.count(), 12)):
+                sec = kutular.nth(i)
+                secenekler = [m.strip() for m in sec.locator("option").all_inner_texts()]
+                if any(DONEM_DESENI.search(m) for m in secenekler):
+                    return sec, secenekler
+        except Exception:
+            continue
+    return None, []
+
+
+def donem_araligi(metin):
+    eslesme = DONEM_DESENI.search(metin or "")
+    if not eslesme:
+        return None, None
+    return (tarih_cozumle(eslesme.group(1).replace(".", "/")),
+            tarih_cozumle(eslesme.group(2).replace(".", "/")))
+
+
+def donem_ortusuyor(bas, bit, istenen_bas, istenen_bit):
+    """Donem okunamadiysa (None) engel cikarilmaz, sorgu denenir."""
+    if bit and bit < istenen_bas:
+        return False
+    if bas and bas > istenen_bit:
+        return False
+    return True
+
+
+def uygun_donem(secenekler, istenen_bas, istenen_bit):
+    """Istenen yila ait donemi secer.
+
+    Ayni yil farkli firmalarda farkli basliyor: yeni kurulanda
+    '15/04/2026 - 31/12/2026', eskide '01/01/2026 - 31/12/2026'. Bu yuzden
+    once yil tutturulur, gun/ay onemli degil.
+    """
+    adaylar = []
+    for metin in secenekler:
+        bas, bit = donem_araligi(metin)
+        if bit and donem_ortusuyor(bas, bit, istenen_bas, istenen_bit):
+            adaylar.append((metin, bit))
+    if not adaylar:
+        return None
+    for yil in (istenen_bit.year, istenen_bas.year):
+        for metin, bit in adaylar:
+            if bit.year == yil:
+                return metin
+    return adaylar[0][0]
+
+
+def donem_ayarla(page, firma_adi, istenen_bas, istenen_bit, log=None):
+    """Firma eski donemde acilmissa uygun donemi secer; yoksa False doner.
+
+    Luca her firmada en son kullanilan donemi hatirliyor. Acik bir firma 2025
+    doneminde kalmis olabiliyor; bunlari atlamak yerine donemi degistirmek
+    gerekiyor. Gercekten kapanmis firmalarda uygun donem secenegi bulunmaz.
+    """
+    bas, bit = calisma_donemi(page)
+    if donem_ortusuyor(bas, bit, istenen_bas, istenen_bit):
+        return True
+
+    sec, secenekler = donem_secici(page)
+    if sec is None:
+        yaz("    Donem listesi bulunamadi, sorgu yine de denenecek", log)
+        return True
+
+    uygun = uygun_donem(secenekler, istenen_bas, istenen_bit)
+    if uygun is None:
+        yaz(f"    Firma donemi {bas:%d/%m/%Y}-{bit:%d/%m/%Y}, uygun donem secenegi yok", log)
+        return False
+
+    yaz(f"    Donem degistiriliyor: {uygun}", log)
+    for _ in range(2):
+        try:
+            sec.select_option(label=uygun, timeout=10000)
+        except Exception:
+            pass
+        page.wait_for_timeout(600)
+        varsa_tikla(page, ["Tamam"], sure=3000)
+        page.wait_for_timeout(2000)
+        if donem_ortusuyor(*calisma_donemi(page), istenen_bas, istenen_bit):
+            if firma_dogrula(page, firma_adi, sure=6000):
+                return True
+            yaz("    UYARI: donem degisti ama firma dogrulanamadi, atlandi", log)
+            return False
+        acik_pencereleri_kapat(page)
+        sec, _ = donem_secici(page)
+        if sec is None:
+            break
+    yaz("    UYARI: donem degistirilemedi", log)
+    return False
+
+
 def firma_sec(page, firma_adi, log=None):
     """Firmanin bulundugu listeyi adiyla secer; secim 'Tamam' ile onaylanip dogrulanir."""
     # giris sonrasi acik kalan bilgi penceresi Tamam'a basilmasini engelliyordu
@@ -962,7 +1058,7 @@ def uyari_metni(page):
     return None
 
 
-def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30):
+def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30, pencere_acilir=True):
     """Indirme akisi: arac cubugu butonu -> pencerede 'tum faturalar' -> pencerede indir.
 
     expect_download yerine olay dinleyip beklenir; boylece Luca "faturalari
@@ -977,7 +1073,9 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30):
             return None
         page.wait_for_timeout(2000)
 
-        _, pencere = indirme_diyalogu(page)
+        # Excel gibi pencere acmayan butonlarda onceki islemden kalan pencere
+        # yanlislikla onay penceresi sanilip bekleme suresi kisaltiliyordu
+        pencere = indirme_diyalogu(page)[1] if pencere_acilir else None
         diyalog_var = pencere is not None
         onay = None
         if diyalog_var:
@@ -1231,15 +1329,14 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     acik_pencereleri_kapat(page, log)
     yaz("    Firma seciliyor", log)
     firma_sec(page, firma, log)
+    istenen_bas = tarih_cozumle(araliklar[0][0])
+    istenen_bit = tarih_cozumle(araliklar[-1][1])
+    if not donem_ayarla(page, firma, istenen_bas, istenen_bit, log):
+        sonuc["durum"] = "donem disi"
+        return sonuc
     donem_bas, donem_bit = calisma_donemi(page)
     if donem_bas and donem_bit:
         sonuc["donem"] = f"{donem_bas:%d/%m/%Y}-{donem_bit:%d/%m/%Y}"
-    istenen_bas = tarih_cozumle(araliklar[0][0])
-    istenen_bit = tarih_cozumle(araliklar[-1][1])
-    if donem_bit and (donem_bit < istenen_bas or (donem_bas and donem_bas > istenen_bit)):
-        yaz(f"    Firma donemi {donem_bas:%d/%m/%Y}-{donem_bit:%d/%m/%Y}, istenen tarihlerin disinda", log)
-        sonuc["durum"] = "donem disi"
-        return sonuc
 
     yaz("    Menuye gidiliyor", log)
     menuye_git(page, belge_tipi)
@@ -1355,7 +1452,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         # Excel, iptal/itiraz sonrasi alinir ki durumlar guncel olsun
         if fr is not None:
             hepsini_sec(page, fr, len(satirlar))
-        yol = indir(page, "Excel", klasor, "liste", log, azami_saniye=AYAR["indirme_saniye"])
+        yol = indir(page, "Excel", klasor, "liste", log, azami_saniye=AYAR["indirme_saniye"],
+                    pencere_acilir=False)
         if yol:
             sonuc["dosyalar"].append(yol.name)
         sonuc["durum"] = "tamam"
