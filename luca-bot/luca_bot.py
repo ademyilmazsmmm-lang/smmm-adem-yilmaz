@@ -901,16 +901,21 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30):
             return None
         page.wait_for_timeout(2000)
 
-        if diyalogda_tumunu_sec(page):
-            yaz("    Onay penceresinde 'tum faturalar' secildi", log)
-        onay = diyalogda_tikla(page, INDIRME_ONAY)
-        if onay:
-            yaz(f"    Onay penceresinde '{onay}' tiklandi", log)
-        else:
-            yaz("    UYARI: onay penceresi bulunamadi/tiklanamadi", log)
+        _, pencere = indirme_diyalogu(page)
+        diyalog_var = pencere is not None
+        onay = None
+        if diyalog_var:
+            if diyalogda_tumunu_sec(page):
+                yaz("    Onay penceresinde 'tum faturalar' secildi", log)
+            onay = diyalogda_tikla(page, INDIRME_ONAY)
+            if onay:
+                yaz(f"    Onay penceresinde '{onay}' tiklandi", log)
+            else:
+                yaz("    UYARI: onay penceresi tiklanamadi", log)
 
-        # butona basilamadiysa dosya zaten gelmeyecek; uzun uzun beklenmez
-        sure = azami_saniye if onay else 5
+        # onay penceresi acilip tiklanamadiysa dosya gelmeyecek; Excel gibi
+        # pencere acmayan butonlarda ise normal sure beklenir
+        sure = 5 if (diyalog_var and not onay) else azami_saniye
         uyari = None
         bitis = time.time() + sure
         while time.time() < bitis and not indirilenler:
