@@ -46,7 +46,7 @@ KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engelle
     "Belge Seç": "Alt+b",
 }
 
-AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180}  # ayarlar.json ile degistirilebilir
+AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30}  # ayarlar.json ile degistirilebilir
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
@@ -816,7 +816,7 @@ def uyari_metni(page):
     return None
 
 
-def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=120):
+def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30):
     """Indirme akisi: arac cubugu butonu -> pencerede 'tum faturalar' -> pencerede indir.
 
     expect_download yerine olay dinleyip beklenir; boylece Luca "faturalari
@@ -839,8 +839,10 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=120):
         else:
             yaz("    UYARI: onay penceresi bulunamadi/tiklanamadi", log)
 
+        # butona basilamadiysa dosya zaten gelmeyecek; uzun uzun beklenmez
+        sure = azami_saniye if onay else 5
         uyari = None
-        bitis = time.time() + azami_saniye
+        bitis = time.time() + sure
         while time.time() < bitis and not indirilenler:
             uyari = uyari_metni(page)
             if uyari:
@@ -858,7 +860,7 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=120):
         if uyari:
             yaz(f"    Luca uyarisi: {uyari}", log)
         else:
-            yaz(f"    '{dugme_metni}' icin {azami_saniye} sn icinde dosya gelmedi", log)
+            yaz(f"    '{dugme_metni}' icin {int(sure)} sn icinde dosya gelmedi", log)
         return None
     except Exception as e:
         yaz(f"    '{dugme_metni}' indirilemedi ({type(e).__name__})", log)
@@ -922,9 +924,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
         else:
             yaz("    UYARI: hicbir kayit isaretlenemedi, indirme yine de denenecek", log)
-        sure = 120 if secilen else 45  # secim yapilamadiysa uzun uzun bekleme
         for dugme, on_ek in (("Seçilenleri İndir", "belgeler"), ("Excel", "liste")):
-            yol = indir(page, dugme, klasor, on_ek, log, azami_saniye=sure)
+            yol = indir(page, dugme, klasor, on_ek, log, azami_saniye=AYAR["indirme_saniye"])
             if yol:
                 sonuc["dosyalar"].append(yol.name)
         sonuc["durum"] = "tamam"
@@ -1118,6 +1119,7 @@ def main():
     azami_deneme = max(1, int(ayarlar.get("tekrar_deneme", 3)))
     AYAR["azami_saniye"] = max(60, int(float(ayarlar.get("sorgu_azami_dakika", 15)) * 60))
     AYAR["durgunluk_saniye"] = max(30, int(float(ayarlar.get("durgunluk_dakika", 3)) * 60))
+    AYAR["indirme_saniye"] = max(3, int(ayarlar.get("indirme_bekleme_saniye", 30)))
     hata_siniri = max(1, int(ayarlar.get("ardisik_hata_siniri", 5)))
 
     cikti_kok = Path(ayarlar.get("indirme_klasoru") or "indirilenler").expanduser()
