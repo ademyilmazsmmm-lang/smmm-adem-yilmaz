@@ -1378,7 +1378,8 @@ def interaktif_sorgula(page, araliklar, log):
                 return calisan
 
             islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
-                                 durgunluk_saniye=AYAR["durgunluk_saniye"])
+                                 durgunluk_saniye=AYAR["durgunluk_saniye"],
+                                 pencere_bekleme=10)
             acik_pencereleri_kapat(page, log)
             calisan += 1
             page.wait_for_timeout(1500)
@@ -1498,6 +1499,39 @@ def zipten_tevkifatlilar(zip_yolu):
     return bulunan
 
 
+def excelden_satirlar(yol):
+    """Inen Excel'den fatura satirlarini okur (ekrandaki liste okunamazsa)."""
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        return []
+    try:
+        wb = load_workbook(str(yol), read_only=True, data_only=True)
+    except Exception:
+        return []
+    satirlar = []
+    try:
+        for ws in wb.worksheets:
+            for ham in ws.iter_rows(values_only=True):
+                hucreler = []
+                for h in ham:
+                    if h is None or h == "":
+                        continue
+                    hucreler.append(h.strftime(TARIH_BICIMI) if isinstance(h, (datetime, date))
+                                    else str(h).strip())
+                if len(hucreler) >= 3 and (any(TARIH_DESENI.search(h) for h in hucreler)
+                                           or fatura_kimligi(hucreler)):
+                    satirlar.append(hucreler)
+    except Exception:
+        pass
+    finally:
+        try:
+            wb.close()
+        except Exception:
+            pass
+    return satirlar
+
+
 def tevkifatli_satirlar(satirlar):
     """Ekranda 'tevkifat' yazan satirlar (KDV2 icin isaret)."""
     return [s for s in satirlar if TEVKIFAT_DESENI.search(sadelestir(" ".join(s)))]
@@ -1579,6 +1613,19 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     sonuc["fatura_sayisi"] = len(satirlar)
     yaz(f"    {len(satirlar)} satir listelendi", log)
     tevkifatlilar, ekran_tevkifat = [], set()
+    excel_alindi = False
+
+    if not satirlar:
+        # ekrandaki liste okunamamis olabilir; Excel'i indirip oradan okuruz
+        yol = indirme_islevi()(page, "Excel", klasor, "liste", log,
+                               azami_saniye=AYAR["indirme_saniye"], pencere_acilir=False)
+        if yol:
+            excel_alindi = True
+            sonuc["dosyalar"].append(yol.name)
+            satirlar = excelden_satirlar(yol)
+            if satirlar:
+                yaz(f"    Excel'den {len(satirlar)} satir okundu", log)
+                sonuc["fatura_sayisi"] = len(satirlar)
 
     if satirlar:
         with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
@@ -1592,8 +1639,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                 csv.writer(f).writerows(tevkifatlilar)
             yaz(f"    DIKKAT: {len(tevkifatlilar)} tevkifatli fatura (KDV2)", log)
 
-    if fr is not None and satirlar:
-        secilen = hepsini_sec(page, fr, len(satirlar))
+    if satirlar:
+        secilen = hepsini_sec(page, fr, len(satirlar)) if fr is not None else 0
         if secilen:
             yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
         else:
@@ -1626,16 +1673,17 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         # Excel iptal/itiraz'dan ONCE alinir: o sorgudan sonra Luca'nin Excel
         # butonu dosya uretmiyor. Iptal/itiraz durumlari liste.csv ve
         # iptal-itiraz.csv dosyalarina zaten yaziliyor.
-        acik_pencereleri_kapat(page, log)
-        fatura_yok_penceresini_kapat(page)
-        kutular, kutu_sayisi, guncel_fr = secim_kutulari(page)
-        if guncel_fr is not None:
-            fr = guncel_fr
-            hepsini_sec(page, fr, len(satirlar))
-        yol = indirme_islevi()(page, "Excel", klasor, "liste", log,
-                               azami_saniye=AYAR["indirme_saniye"], pencere_acilir=False)
-        if yol:
-            sonuc["dosyalar"].append(yol.name)
+        if not excel_alindi:
+            acik_pencereleri_kapat(page, log)
+            fatura_yok_penceresini_kapat(page)
+            kutular, kutu_sayisi, guncel_fr = secim_kutulari(page)
+            if guncel_fr is not None:
+                fr = guncel_fr
+                hepsini_sec(page, fr, len(satirlar))
+            yol = indirme_islevi()(page, "Excel", klasor, "liste", log,
+                                   azami_saniye=AYAR["indirme_saniye"], pencere_acilir=False)
+            if yol:
+                sonuc["dosyalar"].append(yol.name)
         if AYAR["iptal_itiraz"]:
             try:
                 if iptal_itiraz_sorgula(page, araliklar, log):

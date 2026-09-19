@@ -59,12 +59,25 @@ def _en_yuksek(sozluk):
 
 
 def _fark(kayit):
-    """Iki e-arsiv ekraninin fatura sayisi farki (ikisi de calistiysa)."""
+    """Iki e-arsiv ekraninin fatura sayisi farki.
+
+    GIB tarafi (interaktif) Luca tarafinin ust kumesidir. Luca'da fatura
+    varken GIB tarafi bos gorunuyorsa liste okunamamis demektir; boyle bir
+    farki yazmak yaniltici olur, bos birakilir.
+    """
     a = kayit["sayilar"].get("e-arsiv-alis")
     b = kayit["sayilar"].get("e-arsiv-interaktif")
     if a is None or b is None:
         return ""
+    if b == 0 and a > 0:
+        return ""
     return b - a
+
+
+def _okunamadi(kayit):
+    a = kayit["sayilar"].get("e-arsiv-alis")
+    b = kayit["sayilar"].get("e-arsiv-interaktif")
+    return a is not None and b is not None and b == 0 and a > 0
 
 
 def _eksik_faturalar(kayit, sinir=12):
@@ -100,6 +113,8 @@ def _aksiyon(kayit):
     if sum(kayit["inmeyen"].values()):
         isler.append("KAYNAKTAN INMEDI - tekrar sorgula")
     fark = _fark(kayit)
+    if _okunamadi(kayit):
+        isler.append("KARSILASTIRILAMADI - interaktif V.D. listesi okunamadi")
     if isinstance(fark, int) and fark > 0:
         eksikler = _eksik_faturalar(kayit, sinir=4)
         isler.append(f"EKSIK - {fark} fatura" + (f": {eksikler}" if eksikler else ""))
