@@ -65,6 +65,11 @@ def sadelestir(metin):
     return re.sub(r"\s+", " ", metin).strip().upper()
 
 
+def karsilastir(metin):
+    """Arama icin: Turkce/buyuk-kucuk farki ve bosluklar yok sayilir ('yakups' -> 'YAKUP SÖĞÜ')."""
+    return sadelestir(metin).replace(" ", "")
+
+
 def dosya_adi_yap(metin):
     metin = metin.replace("ı", "i").replace("İ", "I")
     metin = unicodedata.normalize("NFKD", metin)
@@ -983,8 +988,11 @@ def main():
             return
 
         if args.firma:
-            aranan = [sadelestir(p) for deger in args.firma for p in deger.split(",") if p.strip()]
-            firmalar = [f for f in firmalar if any(a in sadelestir(f) for a in aranan)]
+            aranan = [(p.strip(), karsilastir(p)) for deger in args.firma for p in deger.split(",") if p.strip()]
+            bulunamayan = [ham for ham, a in aranan if not any(a in karsilastir(f) for f in firmalar)]
+            if bulunamayan:
+                yaz(f"Eslesmeyen arama: {', '.join(bulunamayan)}", log)
+            firmalar = [f for f in firmalar if any(a in karsilastir(f) for _, a in aranan)]
             if not firmalar:
                 yaz(f"\n'{', '.join(args.firma)}' ile eslesen firma yok.", log)
                 yaz("Listedeki ilk 30 kayit:", log)
@@ -995,8 +1003,8 @@ def main():
                 ctx.close()
                 return
             yaz(f"Eslesen firma(lar): {', '.join(firmalar)}", log)
-        atlanacak = [sadelestir(a) for a in ayarlar.get("atlanacak_firmalar", []) if a.strip()]
-        firmalar = [f for f in firmalar if sadelestir(f) not in atlanacak]
+        atlanacak = [karsilastir(a) for a in ayarlar.get("atlanacak_firmalar", []) if a.strip()]
+        firmalar = [f for f in firmalar if karsilastir(f) not in atlanacak]
         if args.limit:
             firmalar = firmalar[: args.limit]
 
