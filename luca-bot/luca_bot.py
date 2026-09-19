@@ -1064,11 +1064,23 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30, pencere_
     """Indirme akisi: arac cubugu butonu -> pencerede 'tum faturalar' -> pencerede indir.
 
     expect_download yerine olay dinleyip beklenir; boylece Luca "faturalari
-    seciniz" uyarisi verdiginde bos yere zaman asimi beklenmez.
+    seciniz" uyarisi verdiginde bos yere zaman asimi beklenmez. Luca indirme
+    sirasinda pencereyi kapatabildigi icin dinleyici tum sayfalara baglanir ve
+    calisilan sayfa kapansa bile dosya beklenmeye devam edilir.
     """
+    ctx = page.context
     indirilenler = []
     dinleyici = lambda d: indirilenler.append(d)
-    page.on("download", dinleyici)
+
+    def sayfaya_bagla(p):
+        try:
+            p.on("download", dinleyici)
+        except Exception:
+            pass
+
+    for p in list(ctx.pages):
+        sayfaya_bagla(p)
+    ctx.on("page", sayfaya_bagla)
     try:
         if not dugmeye_bas(page, dugme_metni, sure=8000):
             yaz(f"    '{dugme_metni}' butonuna basilamadi, atlandi", log)
@@ -1095,13 +1107,20 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30, pencere_
         uyari = None
         bitis = time.time() + sure
         while time.time() < bitis and not indirilenler:
-            if fatura_yok_penceresini_kapat(page):
-                uyari = "Luca: fatura bulunamadi"
+            if sayfa_canli(page):
+                if fatura_yok_penceresini_kapat(page):
+                    uyari = "Luca: fatura bulunamadi"
+                    break
+                uyari = uyari_metni(page)
+                if uyari:
+                    break
+                page.wait_for_timeout(500)
+                continue
+            # Luca pencereyi kapatmis olabilir; dosya yine de gelebilir
+            bekleyen = next((p for p in ctx.pages if sayfa_canli(p)), None)
+            if bekleyen is None:
                 break
-            uyari = uyari_metni(page)
-            if uyari:
-                break
-            page.wait_for_timeout(500)
+            bekleyen.wait_for_timeout(500)
 
         if indirilenler:
             dosya = indirilenler[0]
@@ -1121,10 +1140,16 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30, pencere_
         return None
     finally:
         try:
-            page.remove_listener("download", dinleyici)
+            ctx.remove_listener("page", sayfaya_bagla)
         except Exception:
             pass
-        acik_pencereleri_kapat(page)  # pencere acik kalirsa sonraki adimlar kilitleniyor
+        for p in list(ctx.pages):
+            try:
+                p.remove_listener("download", dinleyici)
+            except Exception:
+                pass
+        if sayfa_canli(page):
+            acik_pencereleri_kapat(page)  # pencere acik kalirsa sonraki adimlar kilitleniyor
 
 
 def radyo_sec(page, pencere, metin):
@@ -1735,6 +1760,16 @@ def main():
     with sync_playwright() as pw:
         ctx = tarayici_ac(pw, profil, log)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        # Luca indirme sirasinda kendi penceresini kapatabiliyor; son sekme de
+        # kapaninca Chrome tumden kapaniyordu. Bos sekme tarayiciyi ayakta tutar.
+        try:
+            bekci = ctx.new_page()
+            bekci.set_content("<title>luca-bot</title>"
+                              "<p style='font:16px sans-serif;padding:24px'>"
+                              "Bu sekme tarayicinin kapanmamasi icin acik tutuluyor. Kapatmayin.</p>")
+        except Exception:
+            pass
+        page.bring_to_front()
         page.goto(GIRIS_URL)
 
         yaz("\n>>> Tarayicida Luca'ya giris yapin.", log)
