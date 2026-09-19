@@ -1604,8 +1604,11 @@ def tarayici_ac(pw, profil, log, gunluk=False):
         kanal_yolu = kanal_profili(profil, kanal)
         try:
             kanal_yolu.mkdir(parents=True, exist_ok=True)
+            inme_yolu = kanal_yolu.parent / "indirme"
+            inme_yolu.mkdir(parents=True, exist_ok=True)
             ctx = pw.chromium.launch_persistent_context(
                 str(kanal_yolu), headless=False, accept_downloads=True,
+                downloads_path=str(inme_yolu),
                 args=["--start-maximized"] + (["--enable-logging", "--v=1"] if gunluk else []),
                 ignore_default_args=["--enable-automation"],
                 chromium_sandbox=True, no_viewport=True, **secenekler
@@ -1654,7 +1657,15 @@ def bekci_sekmesi_ac(ctx):
         pass
 
 
-def tarayiciyi_yeniden_baslat(pw, profil, eski_ctx, log, bekleme_saniye=90):
+def firma_sayisi(page):
+    """Sayfadaki firma listesinde kac firma var (liste yuklenmis mi kontrolu)."""
+    try:
+        return len(firma_secici(page)[2])
+    except Exception:
+        return 0
+
+
+def tarayiciyi_yeniden_baslat(pw, profil, eski_ctx, log, bekleme_saniye=90, asgari_firma=5):
     """Chrome cokerse yeniden acar; profil oturumu tasidigi icin genelde giris gerekmez.
 
     Luca ekranini kendiliginden bulursa (ctx, page) doner, bulamazsa (ctx, None).
@@ -1680,8 +1691,9 @@ def tarayiciyi_yeniden_baslat(pw, profil, eski_ctx, log, bekleme_saniye=90):
     bitis = time.time() + bekleme_saniye
     while time.time() < bitis:
         uygulama = uygulama_sayfasi_bul(ctx)
-        if uygulama is not None:
-            yaz("Luca ekrani bulundu, kaldigi yerden devam ediliyor.", log)
+        # liste yarim yuklendiyse firma bulunamiyor; dolmasini bekle
+        if uygulama is not None and firma_sayisi(uygulama) >= asgari_firma:
+            yaz(f"Luca ekrani bulundu ({firma_sayisi(uygulama)} firma), devam ediliyor.", log)
             return ctx, uygulama
         try:
             page.wait_for_timeout(2000)
