@@ -65,7 +65,7 @@ KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engelle
     "Belge Seç": "Alt+b",
 }
 
-AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True}  # ayarlar.json ile degistirilebilir
+AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True}  # ayarlar.json ile degistirilebilir
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
@@ -472,6 +472,10 @@ def donem_ayarla(page, firma_adi, istenen_bas, istenen_bit, log=None):
     bas, bit = calisma_donemi(page)
     if donem_ortusuyor(bas, bit, istenen_bas, istenen_bit):
         return True
+
+    if not AYAR["donem_degistir"]:
+        yaz(f"    Firma donemi {bas:%d/%m/%Y}-{bit:%d/%m/%Y}, donem degistirme kapali", log)
+        return False
 
     sec, secenekler = donem_secici(page)
     if sec is None:
@@ -1619,6 +1623,54 @@ def uygulama_sayfasi_bul(ctx):
     return None
 
 
+def bekci_sekmesi_ac(ctx):
+    """Luca kendi penceresini kapatirsa tarayici ayakta kalsin diye bos sekme."""
+    try:
+        bekci = ctx.new_page()
+        bekci.set_content("<title>luca-bot</title>"
+                          "<p style='font:16px sans-serif;padding:24px'>"
+                          "Bu sekme tarayicinin kapanmamasi icin acik tutuluyor. Kapatmayin.</p>")
+    except Exception:
+        pass
+
+
+def tarayiciyi_yeniden_baslat(pw, profil, eski_ctx, log, bekleme_saniye=90):
+    """Chrome cokerse yeniden acar; profil oturumu tasidigi icin genelde giris gerekmez.
+
+    Luca ekranini kendiliginden bulursa (ctx, page) doner, bulamazsa (ctx, None).
+    """
+    try:
+        if eski_ctx is not None:
+            eski_ctx.close()
+    except Exception:
+        pass
+    yaz("Tarayici yeniden aciliyor...", log)
+    try:
+        ctx = tarayici_ac(pw, profil, log)
+    except Exception as e:
+        yaz(f"Tarayici yeniden acilamadi: {type(e).__name__}: {e}", log)
+        return None, None
+    page = ctx.pages[0] if ctx.pages else ctx.new_page()
+    bekci_sekmesi_ac(ctx)
+    try:
+        page.bring_to_front()
+        page.goto(GIRIS_URL)
+    except Exception:
+        pass
+    bitis = time.time() + bekleme_saniye
+    while time.time() < bitis:
+        uygulama = uygulama_sayfasi_bul(ctx)
+        if uygulama is not None:
+            yaz("Luca ekrani bulundu, kaldigi yerden devam ediliyor.", log)
+            return ctx, uygulama
+        try:
+            page.wait_for_timeout(2000)
+        except Exception:
+            break
+    yaz("Yeniden girise ihtiyac var; Luca oturumu profilden acilmadi.", log)
+    return ctx, None
+
+
 def sayfa_canli(page):
     try:
         return page is not None and not page.is_closed()
@@ -1719,6 +1771,8 @@ def main():
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
+    p.add_argument("--donem-degistirme", action="store_true",
+                   help="Donemi degistirme; eski donemdeki firmalari atla (sorun cikarsa)")
     p.add_argument("--iptal-itiraz-atla", action="store_true",
                    help="Faturalari indir ama GIB iptal/itiraz sorgusunu yapma")
     p.add_argument("--listele", action="store_true", help="Sadece firma listesini yazdir, islem yapma")
@@ -1743,6 +1797,7 @@ def main():
     AYAR["durgunluk_saniye"] = max(30, int(float(ayarlar.get("durgunluk_dakika", 3)) * 60))
     AYAR["indirme_saniye"] = max(3, int(ayarlar.get("indirme_bekleme_saniye", 30)))
     AYAR["iptal_itiraz"] = bool(ayarlar.get("iptal_itiraz_sorgula", True)) and not args.iptal_itiraz_atla
+    AYAR["donem_degistir"] = bool(ayarlar.get("donem_degistir", True)) and not args.donem_degistirme
     hata_siniri = max(1, int(ayarlar.get("ardisik_hata_siniri", 5)))
 
     cikti_kok = Path(ayarlar.get("indirme_klasoru") or "indirilenler").expanduser()
@@ -1762,13 +1817,7 @@ def main():
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         # Luca indirme sirasinda kendi penceresini kapatabiliyor; son sekme de
         # kapaninca Chrome tumden kapaniyordu. Bos sekme tarayiciyi ayakta tutar.
-        try:
-            bekci = ctx.new_page()
-            bekci.set_content("<title>luca-bot</title>"
-                              "<p style='font:16px sans-serif;padding:24px'>"
-                              "Bu sekme tarayicinin kapanmamasi icin acik tutuluyor. Kapatmayin.</p>")
-        except Exception:
-            pass
+        bekci_sekmesi_ac(ctx)
         page.bring_to_front()
         page.goto(GIRIS_URL)
 
@@ -1882,12 +1931,23 @@ def main():
                              "indirilemeyen": 0, "iptal_itiraz": 0, "tevkifat": 0,
                              "donem": "", "not": str(e)[:120]})
 
+        def sayfa_hazirla(page, ctx):
+            """Sayfa olduyse once acik sekmeye gecer, o da yoksa tarayiciyi yeniden acar."""
+            if sayfa_canli(page):
+                return page, ctx
+            yeni_sayfa = sayfayi_kurtar(ctx, log)
+            if sayfa_canli(yeni_sayfa):
+                return yeni_sayfa, ctx
+            yeni_ctx, yeni_sayfa = tarayiciyi_yeniden_baslat(pw, profil, ctx, log)
+            if yeni_ctx is None or not sayfa_canli(yeni_sayfa):
+                return None, yeni_ctx if yeni_ctx is not None else ctx
+            return yeni_sayfa, yeni_ctx
+
         tarayici_gitti = False
         for i, firma in enumerate(firmalar, 1):
             yaz(f"[{i}/{len(firmalar)}] {firma}", log)
-            if not sayfa_canli(page):
-                page = sayfayi_kurtar(ctx, log) or page
-            if not sayfa_canli(page):
+            page, ctx = sayfa_hazirla(page, ctx)
+            if page is None:
                 tarayici_gitti = True
                 break
 
@@ -1896,10 +1956,10 @@ def main():
                 ardisik_hata = 0
             except Exception as e:
                 # sayfa kapandiysa hata firmanin degil tarayicinin; firmayi yakmadan
-                # acik sayfaya gecilip bir kez daha denenir
+                # tarayici toparlanip bir kez daha denenir
                 if not sayfa_canli(page):
-                    page = sayfayi_kurtar(ctx, log) or page
-                    if not sayfa_canli(page):
+                    page, ctx = sayfa_hazirla(page, ctx)
+                    if page is None:
                         tarayici_gitti = True
                         break
                     yaz(f"    {firma} yeniden deneniyor", log)
@@ -1909,7 +1969,8 @@ def main():
                         ardisik_hata = 0
                     except Exception as e2:
                         hatayi_yaz(firma, e2)
-                        sayfayi_toparla(page)
+                        if sayfa_canli(page):
+                            sayfayi_toparla(page)
                         ardisik_hata += 1
                 else:
                     hatayi_yaz(firma, e)
@@ -1927,7 +1988,7 @@ def main():
         if tarayici_gitti:
             islenen = len(sonuclar)
             durumu_kaydet(firmalar[islenen:])
-            yaz("\nTarayici kapandi (sayfa kapatilmis veya Chrome cokmus).", log)
+            yaz("\nTarayici kapandi ve yeniden acilamadi (Luca oturumu dustu).", log)
             yaz(f"Kalan {len(firmalar) - islenen} firma 'bekliyor' olarak birakildi, hata yazilmadi.", log)
             yaz("Tarayiciyi acip Luca'ya girin ve programi yeniden calistirin.", log)
 
