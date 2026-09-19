@@ -744,16 +744,22 @@ SECIM_SECICILERI = ("input[type=checkbox]", "[role=checkbox]",
 
 
 def secim_kutulari(page):
-    """Isaret kutulari her zaman input olmayabiliyor; tum cerceveler ve bicimler taranir."""
+    """En cok isaret kutusu olan cerceveyi secer.
+
+    Baslik ve veri satirlari ayri cercevelerde oldugu icin ilk bulunan
+    alinirsa yalnizca baslik kutusu (tek kayit) isaretleniyordu.
+    """
+    en_iyi = (None, 0)
     for fr in cerceveler(page):
         for secici in SECIM_SECICILERI:
             try:
                 loc = fr.locator(secici)
-                if loc.count() and loc.first.is_visible():
-                    return loc, loc.count()
+                adet = loc.count()
+                if adet > en_iyi[1] and loc.first.is_visible():
+                    en_iyi = (loc, adet)
             except Exception:
                 continue
-    return None, 0
+    return en_iyi
 
 
 def isaretli_sayisi(kutular, sayi):
@@ -1104,6 +1110,19 @@ def sayfayi_toparla(page):
             break
 
 
+def ozet_yaz(ozet_yolu, kalan_yolu, sonuclar, bekleyenler, belge_tipi):
+    """Ozeti her firmadan sonra yeniden yazar; islenmeyenler 'bekliyor' olarak gorunur."""
+    with open(ozet_yolu, "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["Firma", "Belge Tipi", "Fatura Sayisi", "Indirilemeyen", "Durum", "Dosyalar"])
+        for s in sonuclar:
+            w.writerow([s["firma"], s["belge_tipi"], s["fatura_sayisi"], s.get("indirilemeyen", 0),
+                        s["durum"], "; ".join(s["dosyalar"])])
+        for firma in bekleyenler:
+            w.writerow([firma, belge_tipi, "", "", "bekliyor", ""])
+    kalan_yolu.write_text(", ".join(bekleyenler), encoding="utf-8")
+
+
 def hata_kaydet(page, klasor, firma):
     klasor.mkdir(parents=True, exist_ok=True)
     ad = dosya_adi_yap(firma)
@@ -1240,6 +1259,10 @@ def main():
 
         sonuclar = []
         ardisik_hata = 0
+        ozet = calisma / "ozet.csv"
+        kalan_dosya = calisma / "kalan-firmalar.txt"
+        ozet_yaz(ozet, kalan_dosya, [], firmalar, args.belge_tipi)  # bastan yazilir ki yarida kalsa da dosya olsun
+
         for i, firma in enumerate(firmalar, 1):
             yaz(f"[{i}/{len(firmalar)}] {firma}", log)
             try:
@@ -1251,20 +1274,16 @@ def main():
                                  "durum": f"hata: {type(e).__name__}", "dosyalar": [], "indirilemeyen": 0})
                 sayfayi_toparla(page)
                 ardisik_hata += 1
-                if ardisik_hata >= hata_siniri:
-                    yaz(f"\nUst uste {hata_siniri} firma basarisiz oldu; Luca oturumu bozulmus olabilir.", log)
-                    yaz("Islem durduruldu. Tarayicidan Luca'ya tekrar girip yeniden calistirin.", log)
-                    break
             else:
                 ardisik_hata = 0
 
-        ozet = calisma / "ozet.csv"
-        with open(ozet, "w", encoding="utf-8-sig", newline="") as f:
-            w = csv.writer(f)
-            w.writerow(["Firma", "Belge Tipi", "Fatura Sayisi", "Indirilemeyen", "Durum", "Dosyalar"])
-            for s in sonuclar:
-                w.writerow([s["firma"], s["belge_tipi"], s["fatura_sayisi"], s.get("indirilemeyen", 0),
-                            s["durum"], "; ".join(s["dosyalar"])])
+            # her firmadan sonra guncellenir: gece yarida kalirsa sabah nerede kalindigi gorulur
+            ozet_yaz(ozet, kalan_dosya, sonuclar, firmalar[i:], args.belge_tipi)
+
+            if ardisik_hata >= hata_siniri:
+                yaz(f"\nUst uste {hata_siniri} firma basarisiz oldu; Luca oturumu bozulmus olabilir.", log)
+                yaz("Islem durduruldu. Tarayicidan Luca'ya tekrar girip yeniden calistirin.", log)
+                break
 
         basarili = sum(1 for s in sonuclar if s["durum"] == "tamam")
         toplam_fatura = sum(s["fatura_sayisi"] for s in sonuclar)

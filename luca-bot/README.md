@@ -102,8 +102,9 @@ indirilenler/
         liste.csv              → ekrandaki fatura listesi
         belgeler_....zip       → Seçilenleri İndir çıktısı
         liste_....xls          → Luca'nın Excel çıktısı
-    ozet.csv                   → tüm firmaların özeti (kaç fatura, durum)
-    calisma.log                → çalışma kaydı
+    ozet.csv                   → tüm firmaların durumu; her firmadan sonra güncellenir
+    kalan-firmalar.txt         → henüz işlenmemiş firmalar (kaldığı yerden devam için)
+    calisma.log                → zaman damgalı çalışma kaydı
     hatalar/                   → hata olursa ekran görüntüsü ve sayfa kaydı
 ```
 
