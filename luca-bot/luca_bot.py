@@ -716,24 +716,37 @@ def gibden_getir(page, baslangic, bitis, log):
 TARIH_DESENI = re.compile(r"\d{2}[./]\d{2}[./]\d{4}")
 
 
-def tabloyu_oku(page):
-    """Baslik ve veri satirlari ayri cercevelerde olabildigi icin tum tr'ler taranir;
-    fatura satiri, en az 4 hucresi olan ve icinde belge tarihi gecen satirdir."""
-    en_iyi = (None, [])
-    for fr in cerceveler(page):
+def cerceveden_satirlar(fr):
+    try:
+        satirlar = fr.locator("tr")
+        adet = min(satirlar.count(), 500)
+    except Exception:
+        return []
+    veriler = []
+    for i in range(adet):
         try:
-            satirlar = fr.locator("tr")
-            adet = min(satirlar.count(), 500)
+            hucreler = [h.strip() for h in satirlar.nth(i).locator("td").all_inner_texts() if h.strip()]
         except Exception:
             continue
-        veriler = []
-        for i in range(adet):
-            try:
-                hucreler = [h.strip() for h in satirlar.nth(i).locator("td").all_inner_texts() if h.strip()]
-            except Exception:
-                continue
-            if len(hucreler) >= 4 and any(TARIH_DESENI.search(h) for h in hucreler):
-                veriler.append(hucreler)
+        if len(hucreler) >= 4 and any(TARIH_DESENI.search(h) for h in hucreler):
+            veriler.append(hucreler)
+    return veriler
+
+
+def tabloyu_oku(page, tercih=None):
+    """Fatura tablosu, isaret kutulariyla ayni cerceveden okunur.
+
+    Tum cerceveler taranirsa baska ekranlardan kalan tablolar da fatura
+    sanilip olmayan satirlar listeleniyordu.
+    """
+    if tercih is not None:
+        veriler = cerceveden_satirlar(tercih)
+        if veriler:
+            return tercih, veriler
+
+    en_iyi = (None, [])
+    for fr in cerceveler(page):
+        veriler = cerceveden_satirlar(fr)
         if len(veriler) > len(en_iyi[1]):
             en_iyi = (fr, veriler)
     return en_iyi
@@ -749,14 +762,14 @@ def secim_kutulari(page):
     Baslik ve veri satirlari ayri cercevelerde oldugu icin ilk bulunan
     alinirsa yalnizca baslik kutusu (tek kayit) isaretleniyordu.
     """
-    en_iyi = (None, 0)
+    en_iyi = (None, 0, None)
     for fr in cerceveler(page):
         for secici in SECIM_SECICILERI:
             try:
                 loc = fr.locator(secici)
                 adet = loc.count()
                 if adet > en_iyi[1] and loc.first.is_visible():
-                    en_iyi = (loc, adet)
+                    en_iyi = (loc, adet, fr)
             except Exception:
                 continue
     return en_iyi
@@ -789,7 +802,7 @@ def veri_satir_indisleri(fr):
 
 
 def hepsini_sec(page, fr, satir_sayisi=0):
-    kutular, sayi = secim_kutulari(page)
+    kutular, sayi, _ = secim_kutulari(page)
 
     if sayi:
         try:  # baslik satirindaki kutu genelde hepsini isaretler
@@ -933,7 +946,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     sonuc["indirilemeyen"] = kalan_hata
 
     yaz("    Tablo okunuyor", log)
-    fr, satirlar = tabloyu_oku(page)
+    _, _, kutu_cercevesi = secim_kutulari(page)
+    fr, satirlar = tabloyu_oku(page, kutu_cercevesi)
     if not satirlar:
         tani = cikti_kok / "tani"
         tani.mkdir(parents=True, exist_ok=True)
