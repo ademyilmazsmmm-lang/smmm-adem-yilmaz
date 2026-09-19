@@ -56,6 +56,14 @@ INDIRME_ONAY = ["Seçilenleri İndir", "Belgeleri İndir", "Dosyaları İndir", 
 ISLEM_BITTI = "sona erdi"
 INDIRILEMEDI = "indirilemedi"
 ISLEM_ISARETLERI = ["İşlem Takip", "sorgulandı", "belge kaydı bulundu", "Otomatik aşağı kaydır"]
+# GIB'e ulasilamadiginda Luca bu uyariyi verip bekliyor; bosuna beklememek icin
+GIB_HATA_ISARETLERI = ["VERILER GETIRILIRKEN HATA", "GIB INTERNET SITESINDEN",
+                       "GIB INTERNET E-ARSIV", "ERISILEMEDI", "BAGLANTI KURULAMADI"]
+
+
+def gib_hatasi(metin):
+    duz = sadelestir(metin or "")
+    return any(isaret in duz for isaret in GIB_HATA_ISARETLERI)
 
 KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engellenirse kullanilir)
     "GİB'den Getir": "Alt+g",
@@ -742,6 +750,23 @@ def metin_iceren_sayfa(page, metin, sure=800):
     return None
 
 
+GIB_HATA_METINLERI = ["veriler getirilirken hata", "e-Arşiv sistemine giriş",
+                      "GİB internet sitesinden"]
+
+
+def ekranda_gib_hatasi(page):
+    """Islem Takip penceresi acilmadan ekrana dusen GIB hata uyarisi."""
+    for fr in cerceveler(page):
+        for metin in GIB_HATA_METINLERI:
+            try:
+                loc = fr.get_by_text(metin, exact=False)
+                if loc.count() and loc.first.is_visible():
+                    return True
+            except Exception:
+                continue
+    return False
+
+
 def islem_gunlugu(page):
     """Islem Takip penceresinin metni; pencere kapaliysa bos doner.
 
@@ -825,6 +850,13 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
                 page.wait_for_timeout(1000)
                 return basarisiz
 
+            if gib_hatasi(gunluk):
+                yaz(f"    GİB'e ulasilamadi ({int(gecen)} sn), bu sorgu atlaniyor", log)
+                varsa_tikla(page, ["Kapat", "Tamam"], sure=3000)
+                acik_pencereleri_kapat(page)
+                fatura_yok_penceresini_kapat(page)
+                return 0
+
             if time.time() - son_degisim > durgunluk_saniye:
                 sure_metni = (f"{int(durgunluk_saniye // 60)} dk" if durgunluk_saniye >= 60
                               else f"{int(durgunluk_saniye)} sn")
@@ -840,6 +872,12 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
             yaz(f"    GİB sorgusu tamamlandi ({int(gecen)} sn, pencere kapandi)"
                 + (f", {basarisiz} fatura indirilemedi" if basarisiz else ""), log)
             return basarisiz
+
+        elif ekranda_gib_hatasi(page):
+            yaz(f"    GİB'e ulasilamadi ({int(gecen)} sn), bu sorgu atlaniyor", log)
+            varsa_tikla(page, ["Kapat", "Tamam"], sure=3000)
+            acik_pencereleri_kapat(page)
+            return 0
 
         elif gecen > pencere_bekleme:
             yaz(f"    İşlem Takip penceresi {int(gecen)} sn icinde gorunmedi, devam ediliyor", log)
@@ -1618,6 +1656,18 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                         yaz(f"    DIKKAT: {len(iptaller)} faturada iptal/itiraz var", log)
                     else:
                         yaz("    Iptal/itiraz kaydi yok", log)
+
+                    if interaktif:
+                        # bu ekranda Excel iptal/itirazdan sonra da uretiliyor;
+                        # guncel durumlu ikinci bir kopya alinir
+                        kutular, kutu_sayisi, son_fr = secim_kutulari(page)
+                        if son_fr is not None:
+                            hepsini_sec(page, son_fr, len(satirlar))
+                        son_yol = indirme_islevi()(page, "Excel", klasor, "liste-son", log,
+                                                   azami_saniye=AYAR["indirme_saniye"],
+                                                   pencere_acilir=False)
+                        if son_yol:
+                            sonuc["dosyalar"].append(son_yol.name)
             except Exception as e:
                 yaz(f"    Iptal/itiraz sorgusu yapilamadi ({type(e).__name__}: {e})", log)
                 acik_pencereleri_kapat(page, log)
@@ -1935,7 +1985,10 @@ def main():
     p = argparse.ArgumentParser(description="Luca toplu e-fatura indirme botu")
     p.add_argument("--firma", action="append",
                    help="Sadece bu firma(lar) islensin; virgulle ayirarak birden fazla yazilabilir")
-    p.add_argument("--belge-tipi", default=ayarlar.get("belge_tipi", "e-arsiv-alis"), choices=list(BELGE_TIPLERI))
+    p.add_argument("--belge-tipi", action="append", choices=list(BELGE_TIPLERI),
+                   help="Birden fazla kez verilebilir; her firmada sirayla islenir")
+    p.add_argument("--karsilastir", action="store_true",
+                   help="Iki e-arsiv ekranini da calistir (Akilli Entegrasyon + Interaktif V.D.)")
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
@@ -1955,6 +2008,11 @@ def main():
     p.add_argument("--bitince-kapat", action="store_true",
                    help="Is bitince ENTER beklemeden tarayiciyi kapat (gece calistirma icin)")
     args = p.parse_args()
+    if args.karsilastir:
+        args.belge_tipi = ["e-arsiv-alis", "e-arsiv-interaktif"]
+    elif not args.belge_tipi:
+        varsayilan = ayarlar.get("belge_tipi", "e-arsiv-alis")
+        args.belge_tipi = varsayilan if isinstance(varsayilan, list) else [varsayilan]
 
     bas_metin = args.baslangic or ayarlar.get("baslangic_tarihi")
     bit_metin = args.bitis or ayarlar.get("bitis_tarihi")
@@ -2083,19 +2141,19 @@ def main():
         if args.limit:
             firmalar = firmalar[: args.limit]
 
-        yaz(f"Islenecek firma sayisi: {len(firmalar)} | belge tipi: {args.belge_tipi}", log)
+        yaz(f"Islenecek firma sayisi: {len(firmalar)} | belge tipi: {', '.join(args.belge_tipi)}", log)
         yaz(f"Tarih araligi: {araliklar[0][0]} - {araliklar[-1][1]} ({len(araliklar)} sorgu/firma)\n", log)
 
         sonuclar = []
         ardisik_hata = 0
         ozet = calisma / "ozet.csv"
         kalan_dosya = calisma / "kalan-firmalar.txt"
-        ozet_yaz(ozet, kalan_dosya, [], firmalar, args.belge_tipi)  # bastan yazilir ki yarida kalsa da dosya olsun
+        ozet_yaz(ozet, kalan_dosya, [], firmalar, args.belge_tipi[0])  # bastan yazilir ki yarida kalsa da dosya olsun
 
         def durumu_kaydet(kalanlar):
-            ozet_yaz(ozet, kalan_dosya, sonuclar, kalanlar, args.belge_tipi)
+            ozet_yaz(ozet, kalan_dosya, sonuclar, kalanlar, args.belge_tipi[0])
             try:
-                rapor.guncelle(calisma, sonuclar, kalanlar, args.belge_tipi)
+                rapor.guncelle(calisma, sonuclar, kalanlar, args.belge_tipi[0])
             except Exception as e:  # rapor yazilamazsa calisma durmasin
                 yaz(f"    UYARI: rapor guncellenemedi ({type(e).__name__}: {e})", log)
 
@@ -2103,7 +2161,7 @@ def main():
             yaz(f"    HATA: {type(e).__name__}: {e}", log)
             if sayfa_canli(page):
                 hata_kaydet(page, calisma / "hatalar", firma)
-            sonuclar.append({"firma": firma, "belge_tipi": args.belge_tipi, "fatura_sayisi": 0,
+            sonuclar.append({"firma": firma, "belge_tipi": args.belge_tipi[0], "fatura_sayisi": 0,
                              "durum": f"hata: {type(e).__name__}", "dosyalar": [],
                              "indirilemeyen": 0, "iptal_itiraz": 0, "tevkifat": 0,
                              "donem": "", "not": str(e)[:120]})
@@ -2129,7 +2187,10 @@ def main():
                 break
 
             try:
-                sonuclar.append(firma_isle(page, firma, args.belge_tipi, araliklar, calisma, log, azami_deneme))
+                for tip in args.belge_tipi:
+                    if len(args.belge_tipi) > 1:
+                        yaz(f"  -- {BELGE_TIPLERI[tip]}", log)
+                    sonuclar.append(firma_isle(page, firma, tip, araliklar, calisma, log, azami_deneme))
                 ardisik_hata = 0
             except Exception as e:
                 # sayfa kapandiysa hata firmanin degil tarayicinin; firmayi yakmadan
@@ -2143,8 +2204,9 @@ def main():
                             break
                         yaz(f"    {firma} yeniden deneniyor ({tur}/{COKME_DENEMESI})", log)
                         try:
-                            sonuclar.append(firma_isle(page, firma, args.belge_tipi, araliklar,
-                                                       calisma, log, azami_deneme))
+                            for tip in args.belge_tipi:
+                                sonuclar.append(firma_isle(page, firma, tip, araliklar,
+                                                           calisma, log, azami_deneme))
                             ardisik_hata = 0
                             break
                         except Exception as e2:
