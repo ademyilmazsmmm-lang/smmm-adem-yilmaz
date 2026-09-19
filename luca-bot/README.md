@@ -28,6 +28,7 @@ python -m playwright install chromium
 | `kurulum.bat` | Tek seferlik kurulum |
 | `firmalari-listele.bat` | Luca'daki firma adlarını listeler (test için doğru adı öğrenmek üzere) |
 | `calistir.bat` | Tarih aralığını sorar, faturaları çeker. Firma adı sorulduğunda boş bırakırsanız tüm firmalar işlenir |
+| `interaktif-earsiv.bat` | İnteraktif Vergi Dairesi ekranından e-Arşiv faturalarını sorgular (GİB Servis ile, 2 kez) |
 | `gece-calistir.bat` | Tüm firmalar için çalışır, iş bitince tarayıcıyı kendisi kapatır (gece bırakıp gitmek için) |
 
 ## Ayarlar (`ayarlar.json`)
@@ -84,7 +85,13 @@ python luca_bot.py
 python luca_bot.py --belge-tipi e-fatura-alis
 python luca_bot.py --belge-tipi e-arsiv-satis
 python luca_bot.py --belge-tipi e-fatura-satis
+python luca_bot.py --belge-tipi e-arsiv-interaktif
 ```
+
+`e-arsiv-interaktif`, **İşletme Defteri → E-Arşiv Faturaları Sorgulama** ekranını kullanır.
+Diğerlerinden farkı: Akıllı Entegrasyon Noktası'ndan değil doğrudan modül menüsünden açılır,
+belge indirme butonu yoktur. Akış: tarih aralığı → **İnteraktif V.D'sinden E-Arşiv Faturalarını Sorgula**
+→ **GİB Servis ile Sorgula** (iki kez) → tümünü seç → **GİB'den İptal/İtiraz Sorgula** → **Excel**.
 
 İlk 3 firmayla denemek için `--limit 3` ekleyebilirsiniz.
 

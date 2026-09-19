@@ -30,7 +30,19 @@ BELGE_TIPLERI = {
     "e-arsiv-satis": "e-Arşiv Satış Faturaları",
     "e-fatura-alis": "e-Fatura Alış Faturaları",
     "e-fatura-satis": "e-Fatura Satış Faturaları",
+    # Akilli Entegrasyon Noktasi altinda degil, modul menusunun kendisinde:
+    "e-arsiv-interaktif": "E-Arşiv Faturaları Sorgulama",
 }
+
+# menusu iki kademeli olan (Akilli Entegrasyon Noktasi araciligi olmayan) ekranlar
+IKI_KADEMELI = {"e-arsiv-interaktif"}
+
+# Interaktif Vergi Dairesi ekrani
+INTERAKTIF_SORGU = "İnteraktif V.D'sinden E-Arşiv Faturalarını Sorgula"
+INTERAKTIF_CAPASI = "Luca Proxy ile Sorgula"  # secenek penceresinin kendi yazisi
+INTERAKTIF_SERVIS = "GİB Servis ile Sorgula"
+INTERAKTIF_LISTELE = "Mevcut E-Arşiv Faturalarını Listele"
+INTERAKTIF_TEKRAR = 2  # Luca ilk sorguda hep getirmiyor, iki kez calistiriliyor
 
 KAPAT_METINLERI = ["Bir daha gösterme"]  # sayfadaki "Tamam"/"Kapat" baska islevlere ait olabiliyor
 DIYALOG_ONAY = ["Belgeleri Getir", "Sorgula", "Onayla", "Uygula"]
@@ -498,8 +510,33 @@ def menu_metinleri(page, sinir=40):
     return bulunan
 
 
+def modul_menusunden_git(page, hedef):
+    """Modul menusu (orn. Isletme Defteri) -> madde. Ara menu yok."""
+    hedef_gorunur = lambda: gorunur_mu(page, hedef, sure=1200)
+    for deneme in range(3):
+        if not hedef_gorunur():
+            for modul in MODUL_ADAYLARI:
+                if menu_ogesini_ac(page, modul, sure=1200, dogrula=hedef_gorunur):
+                    break
+        try:
+            _, madde = metinle_bul(page, hedef, sure=4000)
+        except LookupError:
+            page.wait_for_timeout(1000)
+            continue
+        madde.click()
+        page.wait_for_timeout(2500)
+        try:
+            page.wait_for_load_state("networkidle", timeout=15000)
+        except Exception:
+            pass
+        return
+    raise LookupError(f"'{hedef}' menu maddesi bulunamadi. Gorunen menuler: {menu_metinleri(page)}")
+
+
 def menuye_git(page, belge_tipi):
     hedef = BELGE_TIPLERI[belge_tipi]
+    if belge_tipi in IKI_KADEMELI:
+        return modul_menusunden_git(page, hedef)
     ust_gorunur = lambda: gorunur_mu(page, UST_MENU, sure=1200)
     hedef_gorunur = lambda: gorunur_mu(page, hedef, sure=1200)
 
@@ -985,6 +1022,82 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30):
         acik_pencereleri_kapat(page)  # pencere acik kalirsa sonraki adimlar kilitleniyor
 
 
+def radyo_sec(page, pencere, metin):
+    """Secenek penceresindeki radyo dugmesini yazisina gore isaretler."""
+    hedef = karsilastir(metin)
+    kapsam = pencere if pencere is not None else page
+    try:
+        radyolar = kapsam.locator("input[type=radio]")
+        for i in range(min(radyolar.count(), 10)):
+            r = radyolar.nth(i)
+            try:
+                cevre = r.evaluate(
+                    "el => { const s = el.closest('tr, li, label, div')"
+                    " || el.parentElement; return s ? s.innerText : ''; }") or ""
+            except Exception:
+                cevre = ""
+            if hedef in karsilastir(cevre):
+                try:
+                    r.check(timeout=4000)
+                except Exception:
+                    r.click(timeout=4000)
+                page.wait_for_timeout(400)
+                return True
+    except Exception:
+        pass
+    # radyo bulunamadiysa yazisina tiklamak da secimi yapar
+    return bool(pencerede_tikla(page, pencere, [metin], sure=3000))
+
+
+def interaktif_sorgula(page, araliklar, log):
+    """Interaktif Vergi Dairesi ekraninda e-arsiv faturalarini GIB servisinden ceker.
+
+    Akis: tarih araligi -> "İnteraktif V.D'sinden E-Arşiv Faturalarını Sorgula"
+    -> acilan pencerede "GİB Servis ile Sorgula" -> ayni isimli onay butonu.
+    Luca ilk sorguda listeyi her zaman doldurmadigi icin iki kez calistirilir.
+    """
+    calisan = 0
+    for bas, bit in araliklar:
+        for tur in range(1, INTERAKTIF_TEKRAR + 1):
+            acik_pencereleri_kapat(page, log)
+            fatura_yok_penceresini_kapat(page)
+
+            kutular = tarih_kutulari(page)
+            if len(kutular) >= 2:
+                kutuya_yaz(kutular[0], bas)
+                kutuya_yaz(kutular[1], bit)
+            else:
+                yaz("    UYARI: tarih kutulari bulunamadi, Luca varsayilani kullanilacak", log)
+            yaz(f"    Interaktif V.D. sorgusu ({bas} - {bit}) {tur}/{INTERAKTIF_TEKRAR}", log)
+
+            if not dugmeye_bas(page, INTERAKTIF_SORGU, sure=8000):
+                yaz(f"    '{INTERAKTIF_SORGU}' butonuna basilamadi", log)
+                return calisan
+            page.wait_for_timeout(2000)
+
+            _, pencere = metinli_diyalog(page, INTERAKTIF_CAPASI)
+            if pencere is None:
+                # pencere yoksa onay butonu da yok; arac cubugu butonuna tekrar
+                # basmamak icin burada durulur
+                yaz("    UYARI: 'GİB Servis ile Sorgula' penceresi acilmadi", log)
+                return calisan
+            if radyo_sec(page, pencere, INTERAKTIF_SERVIS):
+                yaz(f"    '{INTERAKTIF_SERVIS}' secildi", log)
+            else:
+                yaz(f"    UYARI: '{INTERAKTIF_SERVIS}' secenegi isaretlenemedi", log)
+            if not pencerede_tikla(page, pencere, [INTERAKTIF_SORGU], sure=5000):
+                yaz("    UYARI: pencerede sorgu butonu tiklanamadi", log)
+                acik_pencereleri_kapat(page, log)
+                return calisan
+
+            islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
+                                 durgunluk_saniye=AYAR["durgunluk_saniye"])
+            acik_pencereleri_kapat(page, log)
+            calisan += 1
+            page.wait_for_timeout(1500)
+    return calisan
+
+
 def iptal_itiraz_sorgula(page, araliklar, log):
     """Listedeki faturalar icin GIB'den iptal/itiraz durumunu sorgular.
 
@@ -1056,31 +1169,41 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     yaz("    Menuye gidiliyor", log)
     menuye_git(page, belge_tipi)
 
+    interaktif = belge_tipi in IKI_KADEMELI
     kalan_hata = 0
-    for bas, bit in araliklar:
-        onceki_hata = None
-        for deneme in range(1, azami_deneme + 1):
-            basarisiz = gibden_getir(page, bas, bit, log)
-            if basarisiz <= 0:
-                break
-            # sayi azalmiyorsa karsi sunucu yanit vermiyor demektir; tekrar denemek bos
-            if onceki_hata is not None and basarisiz >= onceki_hata:
-                yaz(f"    {basarisiz} fatura tekrarda da inmedi (kaynak sunucu yanit vermiyor)", log)
-                kalan_hata += basarisiz
-                break
-            if deneme == azami_deneme:
-                yaz(f"    {basarisiz} fatura {azami_deneme} denemede de indirilemedi", log)
-                kalan_hata += basarisiz
-                break
-            onceki_hata = basarisiz
-            yaz(f"    Tekrar sorgulaniyor ({deneme + 1}/{azami_deneme})", log)
-            page.wait_for_timeout(5000)
+    if interaktif:
+        interaktif_sorgula(page, araliklar, log)
+    else:
+        for bas, bit in araliklar:
+            onceki_hata = None
+            for deneme in range(1, azami_deneme + 1):
+                basarisiz = gibden_getir(page, bas, bit, log)
+                if basarisiz <= 0:
+                    break
+                # sayi azalmiyorsa karsi sunucu yanit vermiyor demektir; tekrar denemek bos
+                if onceki_hata is not None and basarisiz >= onceki_hata:
+                    yaz(f"    {basarisiz} fatura tekrarda da inmedi (kaynak sunucu yanit vermiyor)", log)
+                    kalan_hata += basarisiz
+                    break
+                if deneme == azami_deneme:
+                    yaz(f"    {basarisiz} fatura {azami_deneme} denemede de indirilemedi", log)
+                    kalan_hata += basarisiz
+                    break
+                onceki_hata = basarisiz
+                yaz(f"    Tekrar sorgulaniyor ({deneme + 1}/{azami_deneme})", log)
+                page.wait_for_timeout(5000)
     sonuc["indirilemeyen"] = kalan_hata
 
     yaz("    Tablo okunuyor", log)
     kutular, kutu_sayisi, kutu_cercevesi = secim_kutulari(page)
     satirlar = kutulardan_satirlar(kutular, kutu_sayisi)
     fr = kutu_cercevesi
+    if not satirlar and interaktif and dugmeye_bas(page, INTERAKTIF_LISTELE, sure=5000):
+        # sorgu listeyi kendiliginden doldurmadiysa kayitli faturalari listele
+        page.wait_for_timeout(3000)
+        kutular, kutu_sayisi, kutu_cercevesi = secim_kutulari(page)
+        satirlar = kutulardan_satirlar(kutular, kutu_sayisi)
+        fr = kutu_cercevesi
     if not satirlar:
         fr, satirlar = tabloyu_oku(page, kutu_cercevesi)
     if not satirlar:
@@ -1106,10 +1229,11 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
         else:
             yaz("    UYARI: hicbir kayit isaretlenemedi, indirme yine de denenecek", log)
-        yol = indir(page, "Seçilenleri İndir", klasor, "belgeler", log,
-                    azami_saniye=AYAR["indirme_saniye"])
-        if yol:
-            sonuc["dosyalar"].append(yol.name)
+        if not interaktif:  # interaktif V.D. ekraninda belge indirme butonu yok
+            yol = indir(page, "Seçilenleri İndir", klasor, "belgeler", log,
+                        azami_saniye=AYAR["indirme_saniye"])
+            if yol:
+                sonuc["dosyalar"].append(yol.name)
 
         if AYAR["iptal_itiraz"]:
             try:
