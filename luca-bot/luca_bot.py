@@ -238,10 +238,10 @@ def acik_pencere(page):
 def diyalogda_tikla(page, metinler, sure=4000):
     """Butona acik diyalogun icinden basar.
 
-    Onay penceresindeki buton araç cubugundakiyle ayni adi tasiyabiliyor
-    ('Secilenleri Indir'); kapsamı daraltmazsak yanlis olanina basiliyor.
+    Onay penceresindeki buton araç cubugundakiyle ayni adi tasiyor
+    ('Secilenleri Indir'); kapsam daraltilmazsa yanlis olanina basiliyor.
     """
-    _, pencere = acik_pencere(page)
+    _, pencere = indirme_diyalogu(page)
     if pencere is None:
         return None
     for metin in metinler:
@@ -250,13 +250,30 @@ def diyalogda_tikla(page, metinler, sure=4000):
                        lambda: pencere.get_by_text(metin, exact=False)):
             try:
                 loc = kurucu()
-                if loc.count() and loc.first.is_visible():
-                    loc.first.click(timeout=sure)
+                if loc.count() and loc.last.is_visible():
+                    loc.last.click(timeout=sure)
                     page.wait_for_timeout(600)
                     return metin
             except Exception:
                 continue
     return None
+
+
+DIYALOG_CAPASI = "Tüm faturaları seçmek için"
+
+
+def indirme_diyalogu(page):
+    """Indirme penceresini sinif adina degil, kendi yazisina bakarak bulur."""
+    for fr in cerceveler(page):
+        for secici in ("div", "table", "form"):
+            try:
+                loc = fr.locator(secici).filter(has_text=DIYALOG_CAPASI)
+                if loc.count() and loc.last.is_visible():
+                    return fr, loc.last
+            except Exception:
+                continue
+    _, pencere = acik_pencere(page)
+    return (None, pencere) if pencere is not None else (None, None)
 
 
 def diyalogda_tumunu_sec(page):
@@ -265,13 +282,14 @@ def diyalogda_tumunu_sec(page):
     Pencerede iki 'buraya' var; ilki tum faturalar, ikincisi yalnizca
     onaylanmis faturalar icin.
     """
-    _, pencere = acik_pencere(page)
+    _, pencere = indirme_diyalogu(page)
     if pencere is None:
         return False
     for kurucu in (
-        lambda: pencere.get_by_text("Tüm faturaları", exact=False).first.get_by_text("buraya", exact=False),
+        lambda: pencere.get_by_text(DIYALOG_CAPASI, exact=False).first.get_by_text("buraya", exact=False),
         lambda: pencere.get_by_role("link", name="buraya", exact=True),
         lambda: pencere.get_by_text("buraya", exact=True),
+        lambda: pencere.get_by_text("buraya", exact=False),
     ):
         try:
             loc = kurucu()
@@ -364,8 +382,9 @@ def firma_sec(page, firma_adi, log=None):
 
 
 def gorunur_mu(page, metin, sure=1500):
+    """Sadece varlik kontrolu; tiklama icin kullanilmadigindan tek (hizli) arama yeter."""
     try:
-        metinle_bul(page, metin, sure=sure)
+        bul(page, lambda f: f.get_by_text(metin, exact=False), sure=sure)
         return True
     except LookupError:
         return False
@@ -817,6 +836,8 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=120):
         onay = diyalogda_tikla(page, INDIRME_ONAY)
         if onay:
             yaz(f"    Onay penceresinde '{onay}' tiklandi", log)
+        else:
+            yaz("    UYARI: onay penceresi bulunamadi/tiklanamadi", log)
 
         uyari = None
         bitis = time.time() + azami_saniye
