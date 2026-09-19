@@ -1028,7 +1028,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                 sonuc["dosyalar"].append(yol.name)
         sonuc["durum"] = "tamam"
     else:
-        sonuc["durum"] = "fatura yok"
+        # GIB'de fatura vardi ama kaynak sunucudan inmedi: "fatura yok" demek yaniltici
+        sonuc["durum"] = "kaynaktan inmedi" if kalan_hata else "fatura yok"
     return sonuc
 
 
