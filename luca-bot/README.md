@@ -160,6 +160,7 @@ Aksiyon sütununda çıkabilecekler: `HATA - tekrar calistir`, `KAYNAKTAN INMEDI
 | `Firma listesi (select) bulunamadi` | Giriş tamamlanmadan ENTER'a basılmış olabilir; firma ekranı açıkken tekrar deneyin. |
 | `Ogeye ulasilamadi` | Menü adı o firmada farklı olabilir (İşletme Defteri / Serbest Meslek Defteri). `hatalar/` içindeki ekran görüntüsünü paylaşın. |
 | `Seçilenleri İndir butonu bulunamadi` | O firmada hiç fatura gelmemiş olabilir; `ozet.csv`'de "fatura yok" görünür. |
+| `TargetClosedError` | Chrome penceresi kapanmış. Bot açık kalan Luca sekmesine geçip firmayı tekrar dener; hiç sekme kalmadıysa durur ve kalan firmaları `bekliyor` bırakır — yeniden çalıştırmanız yeterli. Sık oluyorsa klasörü OneDrive dışına alın (örn. `C:\luca-bot`) |
 | Tarayıcı her seferinde giriş istiyor | `.tarayici-profili` klasörü oturumu hatırlar, silmeyin. |
 | `UYARI: tarih kutulari bulunamadi` | GİB tarih penceresi tanınmamış; `hatalar/` ekran görüntüsünü paylaşın, alan adlarını düzeltirim. |
 

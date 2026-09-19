@@ -1565,6 +1565,29 @@ def uygulama_sayfasi_bul(ctx):
     return None
 
 
+def sayfa_canli(page):
+    try:
+        return page is not None and not page.is_closed()
+    except Exception:
+        return False
+
+
+def sayfayi_kurtar(ctx, log=None):
+    """Calisilan sayfa kapanirsa tarayicida acik kalan Luca sayfasina gecer."""
+    try:
+        yeni = uygulama_sayfasi_bul(ctx)
+    except Exception:
+        yeni = None
+    if yeni is None:
+        return None
+    yaz("    Sayfa kapanmisti, acik Luca sayfasina gecildi", log)
+    try:
+        duraklamalari_engelle(ctx, yeni)
+    except Exception:
+        pass
+    return yeni
+
+
 def sayfalari_ozetle(ctx):
     satirlar = []
     for p in ctx.pages:
@@ -1775,33 +1798,70 @@ def main():
         kalan_dosya = calisma / "kalan-firmalar.txt"
         ozet_yaz(ozet, kalan_dosya, [], firmalar, args.belge_tipi)  # bastan yazilir ki yarida kalsa da dosya olsun
 
-        for i, firma in enumerate(firmalar, 1):
-            yaz(f"[{i}/{len(firmalar)}] {firma}", log)
+        def durumu_kaydet(kalanlar):
+            ozet_yaz(ozet, kalan_dosya, sonuclar, kalanlar, args.belge_tipi)
             try:
-                sonuclar.append(firma_isle(page, firma, args.belge_tipi, araliklar, calisma, log, azami_deneme))
-            except Exception as e:
-                yaz(f"    HATA: {type(e).__name__}: {e}", log)
-                hata_kaydet(page, calisma / "hatalar", firma)
-                sonuclar.append({"firma": firma, "belge_tipi": args.belge_tipi, "fatura_sayisi": 0,
-                                 "durum": f"hata: {type(e).__name__}", "dosyalar": [],
-                                 "indirilemeyen": 0, "iptal_itiraz": 0, "tevkifat": 0,
-                                 "donem": "", "not": str(e)[:120]})
-                sayfayi_toparla(page)
-                ardisik_hata += 1
-            else:
-                ardisik_hata = 0
-
-            # her firmadan sonra guncellenir: gece yarida kalirsa sabah nerede kalindigi gorulur
-            ozet_yaz(ozet, kalan_dosya, sonuclar, firmalar[i:], args.belge_tipi)
-            try:
-                rapor.guncelle(calisma, sonuclar, firmalar[i:], args.belge_tipi)
+                rapor.guncelle(calisma, sonuclar, kalanlar, args.belge_tipi)
             except Exception as e:  # rapor yazilamazsa calisma durmasin
                 yaz(f"    UYARI: rapor guncellenemedi ({type(e).__name__}: {e})", log)
+
+        def hatayi_yaz(firma, e):
+            yaz(f"    HATA: {type(e).__name__}: {e}", log)
+            if sayfa_canli(page):
+                hata_kaydet(page, calisma / "hatalar", firma)
+            sonuclar.append({"firma": firma, "belge_tipi": args.belge_tipi, "fatura_sayisi": 0,
+                             "durum": f"hata: {type(e).__name__}", "dosyalar": [],
+                             "indirilemeyen": 0, "iptal_itiraz": 0, "tevkifat": 0,
+                             "donem": "", "not": str(e)[:120]})
+
+        tarayici_gitti = False
+        for i, firma in enumerate(firmalar, 1):
+            yaz(f"[{i}/{len(firmalar)}] {firma}", log)
+            if not sayfa_canli(page):
+                page = sayfayi_kurtar(ctx, log) or page
+            if not sayfa_canli(page):
+                tarayici_gitti = True
+                break
+
+            try:
+                sonuclar.append(firma_isle(page, firma, args.belge_tipi, araliklar, calisma, log, azami_deneme))
+                ardisik_hata = 0
+            except Exception as e:
+                # sayfa kapandiysa hata firmanin degil tarayicinin; firmayi yakmadan
+                # acik sayfaya gecilip bir kez daha denenir
+                if not sayfa_canli(page):
+                    page = sayfayi_kurtar(ctx, log) or page
+                    if not sayfa_canli(page):
+                        tarayici_gitti = True
+                        break
+                    yaz(f"    {firma} yeniden deneniyor", log)
+                    try:
+                        sonuclar.append(firma_isle(page, firma, args.belge_tipi, araliklar,
+                                                   calisma, log, azami_deneme))
+                        ardisik_hata = 0
+                    except Exception as e2:
+                        hatayi_yaz(firma, e2)
+                        sayfayi_toparla(page)
+                        ardisik_hata += 1
+                else:
+                    hatayi_yaz(firma, e)
+                    sayfayi_toparla(page)
+                    ardisik_hata += 1
+
+            # her firmadan sonra guncellenir: gece yarida kalirsa sabah nerede kalindigi gorulur
+            durumu_kaydet(firmalar[i:])
 
             if ardisik_hata >= hata_siniri:
                 yaz(f"\nUst uste {hata_siniri} firma basarisiz oldu; Luca oturumu bozulmus olabilir.", log)
                 yaz("Islem durduruldu. Tarayicidan Luca'ya tekrar girip yeniden calistirin.", log)
                 break
+
+        if tarayici_gitti:
+            islenen = len(sonuclar)
+            durumu_kaydet(firmalar[islenen:])
+            yaz("\nTarayici kapandi (sayfa kapatilmis veya Chrome cokmus).", log)
+            yaz(f"Kalan {len(firmalar) - islenen} firma 'bekliyor' olarak birakildi, hata yazilmadi.", log)
+            yaz("Tarayiciyi acip Luca'ya girin ve programi yeniden calistirin.", log)
 
         basarili = sum(1 for s in sonuclar if s["durum"] == "tamam")
         toplam_fatura = sum(s["fatura_sayisi"] for s in sonuclar)
