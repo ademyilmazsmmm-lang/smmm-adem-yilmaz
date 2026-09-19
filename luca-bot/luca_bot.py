@@ -740,9 +740,9 @@ def tabloyu_oku(page, tercih=None):
     sanilip olmayan satirlar listeleniyordu.
     """
     if tercih is not None:
-        veriler = cerceveden_satirlar(tercih)
-        if veriler:
-            return tercih, veriler
+        # Bu cercevede satir yoksa liste gercekten bostur; genel taramaya
+        # dusulurse baska ekranlarda kalan tablolar fatura sanilıyor.
+        return tercih, cerceveden_satirlar(tercih)
 
     en_iyi = (None, [])
     for fr in cerceveler(page):
@@ -933,14 +933,21 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
 
     kalan_hata = 0
     for bas, bit in araliklar:
+        onceki_hata = None
         for deneme in range(1, azami_deneme + 1):
             basarisiz = gibden_getir(page, bas, bit, log)
             if basarisiz <= 0:
+                break
+            # sayi azalmiyorsa karsi sunucu yanit vermiyor demektir; tekrar denemek bos
+            if onceki_hata is not None and basarisiz >= onceki_hata:
+                yaz(f"    {basarisiz} fatura tekrarda da inmedi (kaynak sunucu yanit vermiyor)", log)
+                kalan_hata += basarisiz
                 break
             if deneme == azami_deneme:
                 yaz(f"    {basarisiz} fatura {azami_deneme} denemede de indirilemedi", log)
                 kalan_hata += basarisiz
                 break
+            onceki_hata = basarisiz
             yaz(f"    Tekrar sorgulaniyor ({deneme + 1}/{azami_deneme})", log)
             page.wait_for_timeout(5000)
     sonuc["indirilemeyen"] = kalan_hata
