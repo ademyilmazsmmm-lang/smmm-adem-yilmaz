@@ -785,44 +785,69 @@ def hepsini_sec(page, fr, satir_sayisi=0):
     return 0
 
 
-def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=120):
-    kisayol = KISAYOLLAR.get(dugme_metni)
-    try:
-        _, dugme = metinle_bul(page, dugme_metni, sure=8000)
-    except LookupError:
-        dugme = None
-    if dugme is None and not kisayol:
-        yaz(f"    '{dugme_metni}' butonu bulunamadi, atlandi", log)
-        return None
+def uyari_metni(page):
+    """Luca uyarisi (orn. 'Lutfen indirilecek faturalari seciniz') varsa metnini dondurur."""
+    for fr in cerceveler(page):
+        try:
+            loc = fr.get_by_text("Lütfen", exact=False)
+            if loc.count() and loc.first.is_visible():
+                return " ".join((loc.first.inner_text() or "").split())[:90]
+        except Exception:
+            continue
+    return None
 
+
+def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=120):
+    """Indirme akisi: arac cubugu butonu -> pencerede 'tum faturalar' -> pencerede indir.
+
+    expect_download yerine olay dinleyip beklenir; boylece Luca "faturalari
+    seciniz" uyarisi verdiginde bos yere zaman asimi beklenmez.
+    """
+    indirilenler = []
+    dinleyici = lambda d: indirilenler.append(d)
+    page.on("download", dinleyici)
     try:
-        # tiklama/kisayol expect_download blogunun icinde kalmali, erken return edilmemeli
-        with page.expect_download(timeout=azami_saniye * 1000) as bilgi:
-            tiklandi = False
-            if dugme is not None:
-                try:
-                    dugme.click(timeout=8000)
-                    tiklandi = True
-                except Exception:
-                    pass
-            if not tiklandi and kisayol:
-                page.keyboard.press(kisayol)
-            page.wait_for_timeout(2500)
-            # Onay penceresi: once "Tum faturalari secmek icin buraya", sonra indirme butonu
-            if diyalogda_tumunu_sec(page):
-                yaz("    Onay penceresinde 'tum faturalar' secildi", log)
-            onay = diyalogda_tikla(page, INDIRME_ONAY)
-            if onay:
-                yaz(f"    Onay penceresinde '{onay}' tiklandi", log)
-        dosya = bilgi.value
-        ad = f"{on_ek}_{dosya.suggested_filename}"
-        yol = hedef_klasor / ad
-        dosya.save_as(str(yol))
-        yaz(f"    indirildi: {ad}", log)
-        return yol
-    except Exception as e:
-        yaz(f"    '{dugme_metni}' indirilemedi ({type(e).__name__}). Ekranda gorunenler: {menu_metinleri(page, 15)}", log)
+        if not dugmeye_bas(page, dugme_metni, sure=8000):
+            yaz(f"    '{dugme_metni}' butonuna basilamadi, atlandi", log)
+            return None
+        page.wait_for_timeout(2000)
+
+        if diyalogda_tumunu_sec(page):
+            yaz("    Onay penceresinde 'tum faturalar' secildi", log)
+        onay = diyalogda_tikla(page, INDIRME_ONAY)
+        if onay:
+            yaz(f"    Onay penceresinde '{onay}' tiklandi", log)
+
+        uyari = None
+        bitis = time.time() + azami_saniye
+        while time.time() < bitis and not indirilenler:
+            uyari = uyari_metni(page)
+            if uyari:
+                break
+            page.wait_for_timeout(500)
+
+        if indirilenler:
+            dosya = indirilenler[0]
+            ad = f"{on_ek}_{dosya.suggested_filename}"
+            yol = hedef_klasor / ad
+            dosya.save_as(str(yol))
+            yaz(f"    indirildi: {ad}", log)
+            return yol
+
+        if uyari:
+            yaz(f"    Luca uyarisi: {uyari}", log)
+        else:
+            yaz(f"    '{dugme_metni}' icin {azami_saniye} sn icinde dosya gelmedi", log)
         return None
+    except Exception as e:
+        yaz(f"    '{dugme_metni}' indirilemedi ({type(e).__name__})", log)
+        return None
+    finally:
+        try:
+            page.remove_listener("download", dinleyici)
+        except Exception:
+            pass
+        acik_pencereleri_kapat(page)  # pencere acik kalirsa sonraki adimlar kilitleniyor
 
 
 def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=3):
