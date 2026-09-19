@@ -1444,6 +1444,10 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         if not interaktif:  # interaktif V.D. ekraninda belge indirme butonu yok
             yol = indir(page, "Seçilenleri İndir", klasor, "belgeler", log,
                         azami_saniye=AYAR["indirme_saniye"])
+            if not sayfa_canli(page):
+                # tarayici indirme sirasinda coktu: firmayi 'tamam' sayma,
+                # ana donguye birak, tarayici yeniden acilip firma tekrar denensin
+                raise RuntimeError("tarayici indirme sirasinda kapandi")
             if yol:
                 sonuc["dosyalar"].append(yol.name)
                 if yol.suffix.lower() == ".zip":
@@ -1493,7 +1497,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                     pencere_acilir=False)
         if yol:
             sonuc["dosyalar"].append(yol.name)
-        sonuc["durum"] = "tamam"
+        # belge paketi inmediyse firma tamamlanmis sayilmaz; ozette goze carpsin
+        sonuc["durum"] = "tamam" if (interaktif or sonuc["dosyalar"]) else "dosya inmedi"
     else:
         # GIB'de fatura vardi ama kaynak sunucudan inmedi: "fatura yok" demek yaniltici
         sonuc["durum"] = "kaynaktan inmedi" if kalan_hata else "fatura yok"

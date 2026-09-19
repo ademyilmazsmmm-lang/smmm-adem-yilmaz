@@ -21,7 +21,8 @@ SUTUNLAR = [
 ]
 
 # kotu durum once gelsin; firmanin genel durumu bunlarin en kotusudur
-DURUM_ONCELIGI = ["hata", "kaynaktan inmedi", "donem disi", "fatura yok", "tamam", "bekliyor"]
+DURUM_ONCELIGI = ["hata", "dosya inmedi", "kaynaktan inmedi", "donem disi", "fatura yok",
+                  "tamam", "bekliyor"]
 
 BASLIKLAR = (["Firma", "Dönem", "Durum", "Aksiyon"]
              + [ad for _, ad in SUTUNLAR]
@@ -92,6 +93,8 @@ def _aksiyon(kayit):
     durum = _genel_durum(kayit["durumlar"])
     if durum.startswith("hata"):
         isler.append("HATA - tekrar calistir")
+    if durum.startswith("dosya inmedi"):
+        isler.append("DOSYA INMEDI - tekrar calistir")
     if sum(kayit["inmeyen"].values()):
         isler.append("KAYNAKTAN INMEDI - tekrar sorgula")
     fark = _fark(kayit)

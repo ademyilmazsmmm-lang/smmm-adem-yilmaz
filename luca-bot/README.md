@@ -48,6 +48,7 @@ python -m playwright install chromium
 | `iptal_itiraz_sorgula` | Faturalar indikten sonra GİB'den iptal/itiraz durumunu da sorgula (varsayılan açık) |
 | `tekrar_deneme` | İndirilemeyen fatura kalırsa sorgunun kaç kez tekrarlanacağı (varsayılan 3) |
 | `ardisik_hata_siniri` | Üst üste kaç firma hata verirse çalışma durdurulur (varsayılan 5) |
+| `dosya inmedi` durumu | Tarayıcı indirme sırasında çöktü; bot firmayı yeniden dener, o da olmazsa raporda `DOSYA INMEDI - tekrar calistir` yazar. Programı tekrar çalıştırmak yeterli. |
 | `atlanacak_firmalar` | İşlenmeyecek firma adları (kapanmış firmalar). Luca adı kısaltarak gösterdiği için adın baş kısmını yazmanız yeterli |
 
 Kapanmış firmaların hazır listesi `kapali-firmalar.md` dosyasındadır; `ayarlar.ornek.json` içine işlenmiştir.
