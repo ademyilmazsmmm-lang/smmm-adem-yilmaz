@@ -735,6 +735,31 @@ def cerceveden_satirlar(fr):
     return veriler
 
 
+def kutulardan_satirlar(kutular, sayi):
+    """Satirlari isaret kutularindan cikarir.
+
+    Fatura izgarasi her zaman <tr>/<td> degil; kutunun en yakin satir
+    atasinin metni alinirsa yapidan bagimsiz calisir ve satir sayisi
+    isaretlenen kayit sayisiyla dogal olarak ayni olur.
+    """
+    if kutular is None:
+        return []
+    satirlar = []
+    for i in range(sayi):
+        try:
+            metin = kutular.nth(i).evaluate(
+                "el => { const s = el.closest('tr, [role=row], li')"
+                " || (el.parentElement && el.parentElement.parentElement);"
+                " return s ? s.innerText : ''; }"
+            ) or ""
+        except Exception:
+            continue
+        hucreler = [h.strip() for h in re.split(r"[\t\n]+", metin) if h.strip()]
+        if len(hucreler) >= 3 and any(TARIH_DESENI.search(h) for h in hucreler):
+            satirlar.append(hucreler)
+    return satirlar
+
+
 def tabloyu_oku(page, tercih=None):
     """Fatura tablosu, isaret kutulariyla ayni cerceveden okunur.
 
@@ -955,8 +980,11 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     sonuc["indirilemeyen"] = kalan_hata
 
     yaz("    Tablo okunuyor", log)
-    _, _, kutu_cercevesi = secim_kutulari(page)
-    fr, satirlar = tabloyu_oku(page, kutu_cercevesi)
+    kutular, kutu_sayisi, kutu_cercevesi = secim_kutulari(page)
+    satirlar = kutulardan_satirlar(kutular, kutu_sayisi)
+    fr = kutu_cercevesi
+    if not satirlar:
+        fr, satirlar = tabloyu_oku(page, kutu_cercevesi)
     if not satirlar:
         tani = cikti_kok / "tani"
         tani.mkdir(parents=True, exist_ok=True)
