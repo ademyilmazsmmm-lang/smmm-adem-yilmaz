@@ -4,7 +4,9 @@
 import argparse
 import csv
 import json
+import os
 import re
+import shutil
 import sys
 import zipfile
 import threading
@@ -1521,6 +1523,32 @@ def kullanici_bekle(ctx, mesaj):
         time.sleep(0.25)
 
 
+def profil_klasoru(log=None):
+    """Tarayici profilini OneDrive disina alir.
+
+    OneDrive profil dosyalarini esitlerken kilitledigi icin Chrome indirme
+    sirasinda cokebiliyor. Profil yerel klasore tasinir, oturum korunur.
+    """
+    eski = KOK / ".tarayici-profili"
+    yerel = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_CACHE_HOME")
+    if not yerel:
+        return eski
+    yeni = Path(yerel) / "luca-bot" / "tarayici-profili"
+    if yeni.exists():
+        return yeni
+    try:
+        yeni.parent.mkdir(parents=True, exist_ok=True)
+        if eski.exists():
+            shutil.move(str(eski), str(yeni))
+            yaz(f"Tarayici profili OneDrive disina tasindi: {yeni}", log)
+        else:
+            yeni.mkdir(parents=True, exist_ok=True)
+        return yeni
+    except Exception as e:
+        yaz(f"UYARI: profil tasinamadi ({type(e).__name__}), eski konum kullanilacak", log)
+        return eski
+
+
 def tarayici_ac(pw, profil, log):
     """Once bilgisayarda kurulu Chrome/Edge denenir; Playwright'in kendi tarayicisi son care."""
     hatalar = []
@@ -1535,6 +1563,7 @@ def tarayici_ac(pw, profil, log):
             )
             yaz(f"Tarayici: {ad}", log)
             ctx.on("page", lambda p: duraklamalari_engelle(ctx, p))
+            ctx.on("close", lambda _: yaz("UYARI: tarayici kapandi (Chrome cokmus olabilir)", log))
             for p in ctx.pages:
                 duraklamalari_engelle(ctx, p)
             return ctx
@@ -1697,7 +1726,11 @@ def main():
     calisma = cikti_kok / date.today().isoformat()
     calisma.mkdir(parents=True, exist_ok=True)
     log = calisma / "calisma.log"
-    profil = KOK / ".tarayici-profili"
+    profil = profil_klasoru(log)
+    if "onedrive" in str(KOK).lower():
+        yaz("UYARI: Program klasoru OneDrive icinde. OneDrive indirilen dosyalari", log)
+        yaz("       esitlerken Chrome cokebiliyor; klasoru C:\\luca-bot gibi bir yere", log)
+        yaz("       tasimaniz onerilir.", log)
 
     with sync_playwright() as pw:
         ctx = tarayici_ac(pw, profil, log)
