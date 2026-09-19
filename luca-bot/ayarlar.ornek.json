@@ -4,7 +4,7 @@
   "bitis_tarihi": "31/08/2026",
   "indirme_klasoru": "indirilenler",
   "tekrar_deneme": 3,
-  "sorgu_azami_dakika": 15,
+  "sorgu_azami_dakika": 30,
   "durgunluk_dakika": 3,
   "ardisik_hata_siniri": 5,
   "atlanacak_firmalar": [],

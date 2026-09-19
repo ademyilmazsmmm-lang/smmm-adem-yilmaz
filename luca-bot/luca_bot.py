@@ -1219,7 +1219,7 @@ def main():
         baslangic, bitis = icinde_bulunulan_ay()
     araliklar = tarih_araliklari(baslangic, bitis)
     azami_deneme = max(1, int(ayarlar.get("tekrar_deneme", 3)))
-    AYAR["azami_saniye"] = max(60, int(float(ayarlar.get("sorgu_azami_dakika", 15)) * 60))
+    AYAR["azami_saniye"] = max(60, int(float(ayarlar.get("sorgu_azami_dakika", 30)) * 60))
     AYAR["durgunluk_saniye"] = max(30, int(float(ayarlar.get("durgunluk_dakika", 3)) * 60))
     AYAR["indirme_saniye"] = max(3, int(ayarlar.get("indirme_bekleme_saniye", 30)))
     hata_siniri = max(1, int(ayarlar.get("ardisik_hata_siniri", 5)))
