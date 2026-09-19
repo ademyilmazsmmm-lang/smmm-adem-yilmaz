@@ -28,6 +28,17 @@ python -m playwright install chromium
 | `kurulum.bat` | Tek seferlik kurulum |
 | `firmalari-listele.bat` | Luca'daki firma adlarını listeler (test için doğru adı öğrenmek üzere) |
 | `calistir.bat` | Tarih aralığını sorar, faturaları çeker. Firma adı sorulduğunda boş bırakırsanız tüm firmalar işlenir |
+| `gece-calistir.bat` | Tüm firmalar için çalışır, iş bitince tarayıcıyı kendisi kapatır (gece bırakıp gitmek için) |
+
+## Ayarlar (`ayarlar.json`)
+
+| Ayar | Anlamı |
+| --- | --- |
+| `sorgu_azami_dakika` | Bir GİB sorgusu için beklenecek en uzun süre (varsayılan 15) |
+| `durgunluk_dakika` | İşlem Takip penceresi bu kadar süre hiç ilerlemezse sorgu takılmış sayılır (varsayılan 3) |
+| `tekrar_deneme` | İndirilemeyen fatura kalırsa sorgunun kaç kez tekrarlanacağı (varsayılan 3) |
+| `ardisik_hata_siniri` | Üst üste kaç firma hata verirse çalışma durdurulur (varsayılan 5) |
+| `atlanacak_firmalar` | İşlenmeyecek firma adları |
 
 ## Tarih aralığı (30 gün sınırı)
 

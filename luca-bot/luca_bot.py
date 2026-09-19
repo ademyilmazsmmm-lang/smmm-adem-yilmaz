@@ -46,6 +46,8 @@ KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engelle
     "Belge Seç": "Alt+b",
 }
 
+AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180}  # ayarlar.json ile degistirilebilir
+
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
 
@@ -477,8 +479,29 @@ def metin_iceren_sayfa(page, metin, sure=800):
     return None
 
 
+def islem_gunlugu(page):
+    """Acik Luca penceresinin (Islem Takip) metni; ilerleme takibi icin kullanilir."""
+    sayfalar = [page]
+    try:
+        sayfalar += [p for p in page.context.pages if p is not page and not p.is_closed()]
+    except Exception:
+        pass
+    for p in sayfalar:
+        for fr in cerceveler(p):
+            try:
+                loc = fr.locator(".luca-open-window")
+                if loc.count() and loc.first.is_visible():
+                    return loc.first.inner_text()
+            except Exception:
+                continue
+    return ""
+
+
 def indirilemeyen_sayisi(sayfa):
     """Islem gunlugundeki \"url'li fatura indirilemedi\" satirlarini sayar."""
+    gunluk = islem_gunlugu(sayfa)
+    if gunluk:
+        return gunluk.lower().count(INDIRILEMEDI)
     for fr in cerceveler(sayfa):
         try:
             if fr.get_by_text(ISLEM_BITTI, exact=False).count() == 0:
@@ -489,14 +512,36 @@ def indirilemeyen_sayisi(sayfa):
     return 0
 
 
-def islem_takibini_bekle(page, log, azami_saniye=900, en_az_saniye=4):
-    """Sorgu bitene kadar bekler; indirilemeyen fatura sayisini dondurur (-1: tamamlanmadi)."""
+def islem_takibini_bekle(page, log, azami_saniye=900, en_az_saniye=4, durgunluk_saniye=180):
+    """Sorgu bitene kadar bekler; indirilemeyen fatura sayisini dondurur (-1: tamamlanmadi).
+
+    Sabit sure yerine ilerlemeye bakilir: Islem Takip penceresindeki yazi
+    durgunluk_saniye boyunca hic degismezse sorgu takilmis sayilir.
+    """
     basla = time.time()
     pencere_goruldu = False
     son_bildirim = 0
+    son_kontrol = -99
+    son_degisim = time.time()
+    onceki_gunluk = None
 
     while True:
         gecen = time.time() - basla
+
+        if gecen - son_kontrol >= 10:
+            son_kontrol = gecen
+            gunluk = islem_gunlugu(page)
+            if gunluk and gunluk != onceki_gunluk:
+                onceki_gunluk = gunluk
+                son_degisim = time.time()
+            elif pencere_goruldu and onceki_gunluk and time.time() - son_degisim > durgunluk_saniye:
+                sure_metni = (f"{int(durgunluk_saniye // 60)} dk" if durgunluk_saniye >= 60
+                              else f"{int(durgunluk_saniye)} sn")
+                yaz(f"    Sorgu {sure_metni} boyunca ilerlemedi, takildi sayiliyor", log)
+                basarisiz = indirilemeyen_sayisi(page)
+                varsa_tikla(page, ["Kapat"], sure=3000)
+                return basarisiz
+
         if gecen > azami_saniye:
             yaz(f"    UYARI: GİB sorgusu {int(gecen)} sn sonra zaman asimina ugradi", log)
             varsa_tikla(page, ["Kapat"], sure=3000)
@@ -552,7 +597,8 @@ def gibden_getir(page, baslangic, bitis, log):
         raise LookupError(f"'Belgeleri Getir' butonu bulunamadi. Gorunen ogeler: {menu_metinleri(page, 20)}")
     yaz(f"    '{tiklanan}' tiklandi, sorgu basladi", log)
 
-    basarisiz = islem_takibini_bekle(page, log)
+    basarisiz = islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
+                                     durgunluk_saniye=AYAR["durgunluk_saniye"])
     acik_pencereleri_kapat(page, log)
 
     yaz("    Liste yenileniyor", log)
@@ -906,6 +952,8 @@ def main():
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--listele", action="store_true", help="Sadece firma listesini yazdir, islem yapma")
+    p.add_argument("--bitince-kapat", action="store_true",
+                   help="Is bitince ENTER beklemeden tarayiciyi kapat (gece calistirma icin)")
     args = p.parse_args()
 
     bas_metin = args.baslangic or ayarlar.get("baslangic_tarihi")
@@ -921,6 +969,9 @@ def main():
         baslangic, bitis = icinde_bulunulan_ay()
     araliklar = tarih_araliklari(baslangic, bitis)
     azami_deneme = max(1, int(ayarlar.get("tekrar_deneme", 3)))
+    AYAR["azami_saniye"] = max(60, int(float(ayarlar.get("sorgu_azami_dakika", 15)) * 60))
+    AYAR["durgunluk_saniye"] = max(30, int(float(ayarlar.get("durgunluk_dakika", 3)) * 60))
+    hata_siniri = max(1, int(ayarlar.get("ardisik_hata_siniri", 5)))
 
     cikti_kok = Path(ayarlar.get("indirme_klasoru") or "indirilenler").expanduser()
     if not cikti_kok.is_absolute():
@@ -1024,8 +1075,8 @@ def main():
                                  "durum": f"hata: {type(e).__name__}", "dosyalar": [], "indirilemeyen": 0})
                 sayfayi_toparla(page)
                 ardisik_hata += 1
-                if ardisik_hata >= 3:
-                    yaz("\nUst uste 3 firma basarisiz oldu; Luca oturumu bozulmus olabilir.", log)
+                if ardisik_hata >= hata_siniri:
+                    yaz(f"\nUst uste {hata_siniri} firma basarisiz oldu; Luca oturumu bozulmus olabilir.", log)
                     yaz("Islem durduruldu. Tarayicidan Luca'ya tekrar girip yeniden calistirin.", log)
                     break
             else:
@@ -1045,7 +1096,8 @@ def main():
         yaz(f"Dosyalar: {calisma}", log)
         yaz(f"Ozet: {ozet}", log)
 
-        input(">>> Tarayiciyi kapatmak icin ENTER'a basin: ")
+        if not args.bitince_kapat:
+            input(">>> Tarayiciyi kapatmak icin ENTER'a basin: ")
         ctx.close()
 
 
