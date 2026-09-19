@@ -6,6 +6,7 @@ import csv
 import json
 import re
 import sys
+import zipfile
 import threading
 import time
 import unicodedata
@@ -1153,6 +1154,62 @@ def iptal_itiraz_satirlari(satirlar):
     return [s for s in satirlar if IPTAL_DESENI.search(sadelestir(" ".join(s)))]
 
 
+# fatura numarasi: 3 harf + 4 haneli yil + 9 hane (orn. ABC2026000000123)
+FATURA_NO_DESENI = re.compile(r"\b([A-Za-zÇĞİÖŞÜçğıöşü]{3}\d{13})\b")
+# tevkifat isaretleri: ekran yazisi, UBL etiketi ve KDV tevkifat vergi kodu
+XML_TEVKIFAT = ("tevkifat", "withholdingtaxtotal", ">9015<", "kdvtevkifat")
+
+
+def fatura_kimligi(satir):
+    """Bir liste satirindan (unvan ilk kelimesi, fatura no) cikarir."""
+    no = ""
+    for hucre in satir:
+        eslesme = FATURA_NO_DESENI.search(hucre.replace(" ", ""))
+        if eslesme:
+            no = eslesme.group(1).upper()
+            break
+    if not no:
+        return None
+    unvan = ""
+    for hucre in satir:
+        metin = hucre.strip()
+        if metin.upper() == no or TARIH_DESENI.search(metin):
+            continue
+        harf = sum(1 for c in metin if c.isalpha())
+        if harf >= 3 and harf > sum(1 for c in unvan if c.isalpha()):
+            unvan = metin
+    ilk_kelime = (unvan.split() or [""])[0].strip(".,")
+    return ilk_kelime, no
+
+
+def fatura_kimlikleri(satirlar):
+    return [k for k in (fatura_kimligi(s) for s in satirlar) if k]
+
+
+def zipten_tevkifatlilar(zip_yolu):
+    """Inen belge paketindeki XML'lerde tevkifat arar; fatura numaralarini dondurur.
+
+    Ekranda tevkifat sutunu olmayabildigi gibi XML de bozuk inebiliyor;
+    bu yuzden iki kaynak birlikte kullanilir.
+    """
+    bulunan = set()
+    try:
+        with zipfile.ZipFile(zip_yolu) as z:
+            for ad in z.namelist():
+                if not ad.lower().endswith((".xml", ".html", ".htm")):
+                    continue
+                try:
+                    icerik = z.read(ad).decode("utf-8", "ignore").lower()
+                except Exception:
+                    continue
+                if any(isaret in icerik for isaret in XML_TEVKIFAT):
+                    eslesme = FATURA_NO_DESENI.search(ad.replace(" ", ""))
+                    bulunan.add(eslesme.group(1).upper() if eslesme else ad)
+    except Exception:
+        return set()
+    return bulunan
+
+
 def tevkifatli_satirlar(satirlar):
     """Ekranda 'tevkifat' yazan satirlar (KDV2 icin isaret)."""
     return [s for s in satirlar if TEVKIFAT_DESENI.search(sadelestir(" ".join(s)))]
@@ -1161,7 +1218,7 @@ def tevkifatli_satirlar(satirlar):
 def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=3):
     sonuc = {"firma": firma, "belge_tipi": belge_tipi, "fatura_sayisi": 0,
              "durum": "", "dosyalar": [], "indirilemeyen": 0, "iptal_itiraz": 0,
-             "tevkifat": 0, "donem": "", "not": ""}
+             "tevkifat": 0, "donem": "", "not": "", "faturalar": []}
     klasor = cikti_kok / dosya_adi_yap(firma) / belge_tipi
     klasor.mkdir(parents=True, exist_ok=True)
 
@@ -1230,11 +1287,14 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             pass
     sonuc["fatura_sayisi"] = len(satirlar)
     yaz(f"    {len(satirlar)} satir listelendi", log)
+    tevkifatlilar, ekran_tevkifat = [], set()
 
     if satirlar:
         with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
             csv.writer(f).writerows(satirlar)
+        sonuc["faturalar"] = [list(k) for k in fatura_kimlikleri(satirlar)]
         tevkifatlilar = tevkifatli_satirlar(satirlar)
+        ekran_tevkifat = {no for _, no in fatura_kimlikleri(tevkifatlilar)}
         sonuc["tevkifat"] = len(tevkifatlilar)
         if tevkifatlilar:
             with open(klasor / "tevkifatli.csv", "w", encoding="utf-8-sig", newline="") as f:
@@ -1252,6 +1312,15 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                         azami_saniye=AYAR["indirme_saniye"])
             if yol:
                 sonuc["dosyalar"].append(yol.name)
+                if yol.suffix.lower() == ".zip":
+                    # XML bozuk inebildigi gibi ekranda da sutun olmayabiliyor;
+                    # iki kaynagin birlesimi alinir
+                    xml_tevkifat = zipten_tevkifatlilar(yol)
+                    if xml_tevkifat:
+                        sonuc["tevkifat"] = max(len(ekran_tevkifat | xml_tevkifat),
+                                                len(tevkifatlilar), len(xml_tevkifat))
+                        yaz(f"    XML'de {len(xml_tevkifat)} tevkifatli fatura bulundu"
+                            f" (toplam {sonuc['tevkifat']})", log)
 
         if AYAR["iptal_itiraz"]:
             try:

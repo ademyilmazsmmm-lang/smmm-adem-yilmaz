@@ -25,12 +25,13 @@ DURUM_ONCELIGI = ["hata", "kaynaktan inmedi", "donem disi", "fatura yok", "tamam
 
 BASLIKLAR = (["Firma", "Dönem", "Durum", "Aksiyon"]
              + [ad for _, ad in SUTUNLAR]
-             + ["Fark", "İptal/İtiraz", "Tevkifatlı", "İnmeyen", "İnen Dosya", "Not", "Son İşlem"])
+             + ["Fark", "Eksik Faturalar", "İptal/İtiraz", "Tevkifatlı", "İnmeyen",
+                "İnen Dosya", "Not", "Son İşlem"])
 
 
 def _bos_kayit(firma):
     return {"firma": firma, "donem": "", "durumlar": {}, "sayilar": {}, "iptal": {},
-            "tevkifat": {}, "inmeyen": {}, "dosya": 0, "not": "", "son": ""}
+            "tevkifat": {}, "inmeyen": {}, "faturalar": {}, "dosya": 0, "not": "", "son": ""}
 
 
 def _oku(yol):
@@ -65,6 +66,27 @@ def _fark(kayit):
     return b - a
 
 
+def _eksik_faturalar(kayit, sinir=12):
+    """Interaktif listede olup Luca listesinde olmayan faturalar.
+
+    Cikti: "Unvanin ilk kelimesi + fatura numarasinin son 5 hanesi"
+    (orn. "TURKCELL 00554"), boylece firmaya donup bakmaya gerek kalmaz.
+    """
+    faturalar = kayit.get("faturalar", {})
+    luca = faturalar.get("e-arsiv-alis")
+    gib = faturalar.get("e-arsiv-interaktif")
+    if not gib or luca is None:
+        return ""
+    olanlar = {no for _, no in luca}
+    eksikler = [(unvan, no) for unvan, no in gib if no not in olanlar]
+    if not eksikler:
+        return ""
+    metin = ", ".join(f"{(unvan or '?')[:14]} {no[-5:]}" for unvan, no in eksikler[:sinir])
+    if len(eksikler) > sinir:
+        metin += f" ... (+{len(eksikler) - sinir})"
+    return metin
+
+
 def _aksiyon(kayit):
     isler = []
     durum = _genel_durum(kayit["durumlar"])
@@ -74,7 +96,8 @@ def _aksiyon(kayit):
         isler.append("KAYNAKTAN INMEDI - tekrar sorgula")
     fark = _fark(kayit)
     if isinstance(fark, int) and fark > 0:
-        isler.append(f"EKSIK - interaktifte {fark} fatura fazla")
+        eksikler = _eksik_faturalar(kayit, sinir=4)
+        isler.append(f"EKSIK - {fark} fatura" + (f": {eksikler}" if eksikler else ""))
     if _en_yuksek(kayit["iptal"]):
         isler.append(f"IPTAL/ITIRAZ - {_en_yuksek(kayit['iptal'])} fatura")
     if _en_yuksek(kayit["tevkifat"]):
@@ -86,6 +109,7 @@ def _satir(kayit):
     satir = [kayit["firma"], kayit["donem"], _genel_durum(kayit["durumlar"]), _aksiyon(kayit)]
     satir += [kayit["sayilar"].get(tip, "") for tip, _ in SUTUNLAR]
     satir += [_fark(kayit),
+              _eksik_faturalar(kayit),
               _en_yuksek(kayit["iptal"]) or "",
               _en_yuksek(kayit["tevkifat"]) or "",
               sum(kayit["inmeyen"].values()) or "",
@@ -108,6 +132,7 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
         kayit["iptal"][tip] = s.get("iptal_itiraz", 0)
         kayit["tevkifat"][tip] = s.get("tevkifat", 0)
         kayit["inmeyen"][tip] = s.get("indirilemeyen", 0)
+        kayit.setdefault("faturalar", {})[tip] = s.get("faturalar", [])
         kayit["dosya"] = kayit.get("dosya", 0) + len(s.get("dosyalar", []))
         if s.get("donem"):
             kayit["donem"] = s["donem"]
@@ -160,8 +185,10 @@ def _excel_yaz(yol, satirlar):
             dolgu = kirmizi if satir[3].startswith("HATA") else uyari
             for hucre in ws[ws.max_row]:
                 hucre.fill = dolgu
+        for hucre in ws[ws.max_row]:
+            hucre.alignment = Alignment(vertical="top", wrap_text=True)
 
-    genislik = [26, 22, 16, 42] + [13] * len(SUTUNLAR) + [8, 12, 12, 11, 11, 24, 16]
+    genislik = [26, 22, 16, 46] + [13] * len(SUTUNLAR) + [8, 46, 12, 12, 11, 11, 24, 16]
     for i, g in enumerate(genislik, 1):
         ws.column_dimensions[get_column_letter(i)].width = g
     ws.freeze_panes = "A2"

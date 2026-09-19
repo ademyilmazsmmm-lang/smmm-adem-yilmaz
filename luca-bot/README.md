@@ -139,8 +139,9 @@ Günün klasöründe her firma için **tek satır** tutar; aynı gün farklı be
 | e-Arşiv Alış | Akıllı Entegrasyon Noktası ekranından gelen fatura adedi |
 | İnteraktif V.D. | İnteraktif Vergi Dairesi ekranından gelen fatura adedi |
 | Fark | İnteraktif − Akıllı Entegrasyon. **Artı ise Luca'ya eksik fatura inmiş demektir** |
+| Eksik Faturalar | eksik kalanların listesi: ünvanın ilk kelimesi + fatura numarasının son 5 hanesi (`TURKCELL 56671, TRUGO 09988`) — firmaya dönüp bakmadan karar verirsiniz |
 | İptal/İtiraz | GİB'de iptal/itiraz edilmiş fatura adedi |
-| Tevkifatlı | ekranda tevkifat yazan fatura adedi (KDV2 kontrolü) |
+| Tevkifatlı | tevkifatlı fatura adedi. İki kaynaktan bakılır: ekrandaki belge türü sütunu **ve** inen ZIP içindeki XML (`WithholdingTaxTotal`, vergi kodu 9015). XML bozuk inerse ekran, ekranda sütun yoksa XML yakalar |
 | İnmeyen | GİB'de vardı ama kaynak sunucudan inmedi |
 | İnen Dosya | o firma için kaydedilen dosya sayısı |
 
