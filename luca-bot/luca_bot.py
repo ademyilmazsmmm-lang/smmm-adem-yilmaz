@@ -65,7 +65,7 @@ KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engelle
     "Belge Seç": "Alt+b",
 }
 
-AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True, "chrome_gunlugu": False, "tarayici": None, "profil_yerel": False}  # ayarlar.json ile degistirilebilir
+AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True, "chrome_gunlugu": False, "tarayici": None, "profil_yerel": False, "indirmeyi_yakala": False}  # ayarlar.json ile degistirilebilir
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
@@ -1065,6 +1065,112 @@ def uyari_metni(page):
     return None
 
 
+CD_DESENI = re.compile(r'filename\*?=(?:UTF-8'')?"?([^";]+)"?', re.I)
+INDIRME_TURLERI = ("application/zip", "application/octet-stream", "application/x-zip",
+                   "application/vnd.ms-excel", "application/vnd.openxmlformats",
+                   "application/force-download", "application/download")
+
+
+def yanit_dosya_mi(basliklar):
+    """Sunucu yaniti indirilecek bir dosya mi (ekran yerine dosya)."""
+    cd = (basliklar.get("content-disposition") or "").lower()
+    ct = (basliklar.get("content-type") or "").lower()
+    return "attachment" in cd or any(t in ct for t in INDIRME_TURLERI)
+
+
+def yanit_dosya_adi(basliklar, yedek):
+    eslesme = CD_DESENI.search(basliklar.get("content-disposition") or "")
+    ad = eslesme.group(1).strip() if eslesme else ""
+    return dosya_adi_yap(ad) if ad else yedek
+
+
+def indir_yakalayarak(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30,
+                      pencere_acilir=True):
+    """Dosyayi tarayiciya indirtmeden, istegi yakalayip kendimiz kaydederiz.
+
+    Chrome indirmeyi kaydettigi anda cokuyor (AddKeepAlive kDownloadInProgress).
+    Bu yolda istek route ile yakalanir, govde Python tarafinda alinir ve
+    tarayicinin indirme mekanizmasi hic devreye girmez.
+    """
+    ctx = page.context
+    alinan = {}
+
+    def yonlendir(route):
+        try:
+            yanit = route.fetch()
+        except Exception:
+            try:
+                route.continue_()
+            except Exception:
+                pass
+            return
+        try:
+            basliklar = {k.lower(): v for k, v in (yanit.headers or {}).items()}
+            if not alinan and yanit_dosya_mi(basliklar):
+                alinan["ad"] = yanit_dosya_adi(basliklar, f"{on_ek}.dat")
+                alinan["govde"] = yanit.body()
+                route.abort()  # tarayici indirme baslatmasin
+                return
+            route.fulfill(response=yanit)
+        except Exception:
+            try:
+                route.continue_()
+            except Exception:
+                pass
+
+    ctx.route("**/*", yonlendir)
+    try:
+        if not dugmeye_bas(page, dugme_metni, sure=8000):
+            yaz(f"    '{dugme_metni}' butonuna basilamadi, atlandi", log)
+            return None
+        page.wait_for_timeout(2000)
+
+        pencere = indirme_diyalogu(page)[1] if pencere_acilir else None
+        onay = None
+        if pencere is not None:
+            if diyalogda_tumunu_sec(page):
+                yaz("    Onay penceresinde 'tum faturalar' secildi", log)
+            onay = diyalogda_tikla(page, INDIRME_ONAY)
+            if onay:
+                yaz(f"    Onay penceresinde '{onay}' tiklandi", log)
+            else:
+                yaz("    UYARI: onay penceresi tiklanamadi", log)
+
+        sure = 5 if (pencere is not None and not onay) else azami_saniye
+        uyari = None
+        bitis = time.time() + sure
+        while time.time() < bitis and "govde" not in alinan:
+            if fatura_yok_penceresini_kapat(page):
+                uyari = "Luca: fatura bulunamadi"
+                break
+            uyari = uyari_metni(page)
+            if uyari:
+                break
+            page.wait_for_timeout(500)
+
+        if "govde" in alinan:
+            yol = hedef_klasor / f"{on_ek}_{alinan['ad']}"
+            yol.write_bytes(alinan["govde"])
+            yaz(f"    indirildi (yakalanarak): {yol.name}", log)
+            return yol
+
+        if uyari:
+            yaz(f"    Luca uyarisi: {uyari}", log)
+        else:
+            yaz(f"    '{dugme_metni}' icin {int(sure)} sn icinde dosya gelmedi", log)
+        return None
+    except Exception as e:
+        yaz(f"    '{dugme_metni}' indirilemedi ({type(e).__name__}: {e})", log)
+        return None
+    finally:
+        try:
+            ctx.unroute("**/*", yonlendir)
+        except Exception:
+            pass
+        if sayfa_canli(page):
+            acik_pencereleri_kapat(page)
+
+
 def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30, pencere_acilir=True):
     """Indirme akisi: arac cubugu butonu -> pencerede 'tum faturalar' -> pencerede indir.
 
@@ -1325,6 +1431,10 @@ def tevkifatli_satirlar(satirlar):
     return [s for s in satirlar if TEVKIFAT_DESENI.search(sadelestir(" ".join(s)))]
 
 
+def indirme_islevi():
+    return indir_yakalayarak if AYAR.get("indirmeyi_yakala") else indir
+
+
 def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=3):
     sonuc = {"firma": firma, "belge_tipi": belge_tipi, "fatura_sayisi": 0,
              "durum": "", "dosyalar": [], "indirilemeyen": 0, "iptal_itiraz": 0,
@@ -1417,8 +1527,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         else:
             yaz("    UYARI: hicbir kayit isaretlenemedi, indirme yine de denenecek", log)
         if not interaktif:  # interaktif V.D. ekraninda belge indirme butonu yok
-            yol = indir(page, "Seçilenleri İndir", klasor, "belgeler", log,
-                        azami_saniye=AYAR["indirme_saniye"])
+            yol = indirme_islevi()(page, "Seçilenleri İndir", klasor, "belgeler", log,
+                                   azami_saniye=AYAR["indirme_saniye"])
             if yol:
                 sonuc["dosyalar"].append(yol.name)
                 if yol.suffix.lower() == ".zip":
@@ -1474,8 +1584,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         if guncel_fr is not None:
             fr = guncel_fr
             hepsini_sec(page, fr, len(satirlar))
-        yol = indir(page, "Excel", klasor, "liste", log, azami_saniye=AYAR["indirme_saniye"],
-                    pencere_acilir=False)
+        yol = indirme_islevi()(page, "Excel", klasor, "liste", log,
+                               azami_saniye=AYAR["indirme_saniye"], pencere_acilir=False)
         if yol:
             sonuc["dosyalar"].append(yol.name)
         # belge paketi inmediyse firma tamamlanmis sayilmaz; ozette goze carpsin
@@ -1795,6 +1905,9 @@ def main():
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
+    p.add_argument("--indirmeyi-yakala", action="store_true",
+                   help="Dosyayi tarayiciya indirtme, istegi yakalayip kendin kaydet"
+                        " (tarayici indirmede cokuyorsa)")
     p.add_argument("--profil-yerel", action="store_true",
                    help="Tarayici profilini program klasoru yerine %LOCALAPPDATA% altinda tut")
     p.add_argument("--tarayici", choices=["chrome", "edge", "chromium"],
@@ -1830,6 +1943,7 @@ def main():
     AYAR["donem_degistir"] = bool(ayarlar.get("donem_degistir", True)) and not args.donem_degistirme
     AYAR["chrome_gunlugu"] = bool(args.chrome_gunlugu)
     AYAR["profil_yerel"] = bool(args.profil_yerel) or bool(ayarlar.get("profil_yerel", False))
+    AYAR["indirmeyi_yakala"] = bool(args.indirmeyi_yakala) or bool(ayarlar.get("indirmeyi_yakala", False))
     if AYAR["chrome_gunlugu"]:
         # Playwright'in tarayici cikis mesajlarini ekrana bassin; cokme sebebi
         # genelde burada yaziyor ("Target crashed", exit code, stderr)
