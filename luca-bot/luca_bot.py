@@ -65,7 +65,7 @@ KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engelle
     "Belge Seç": "Alt+b",
 }
 
-AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True, "chrome_gunlugu": False, "tarayici": None}  # ayarlar.json ile degistirilebilir
+AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True, "chrome_gunlugu": False, "tarayici": None, "profil_yerel": False}  # ayarlar.json ile degistirilebilir
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
@@ -1539,12 +1539,15 @@ def kullanici_bekle(ctx, mesaj):
 
 
 def profil_klasoru(log=None):
-    """Tarayici profilini OneDrive disina alir.
+    """Tarayici profilinin yeri.
 
-    OneDrive profil dosyalarini esitlerken kilitledigi icin Chrome indirme
-    sirasinda cokebiliyor. Profil yerel klasore tasinir, oturum korunur.
+    Varsayilan, calisan surumdeki gibi program klasorudur. OneDrive disina
+    almak icin --profil-yerel kullanilir (o kuram dogrulanmadi, secenek olarak
+    duruyor).
     """
     eski = KOK / ".tarayici-profili"
+    if not AYAR.get("profil_yerel"):
+        return eski
     yerel = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_CACHE_HOME")
     if not yerel:
         return eski
@@ -1786,6 +1789,8 @@ def main():
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
+    p.add_argument("--profil-yerel", action="store_true",
+                   help="Tarayici profilini program klasoru yerine %LOCALAPPDATA% altinda tut")
     p.add_argument("--tarayici", choices=["chrome", "edge", "chromium"],
                    help="Hangi tarayici kullanilsin (Chrome cokuyorsa edge deneyin)")
     p.add_argument("--chrome-gunlugu", action="store_true",
@@ -1818,6 +1823,7 @@ def main():
     AYAR["iptal_itiraz"] = bool(ayarlar.get("iptal_itiraz_sorgula", True)) and not args.iptal_itiraz_atla
     AYAR["donem_degistir"] = bool(ayarlar.get("donem_degistir", True)) and not args.donem_degistirme
     AYAR["chrome_gunlugu"] = bool(args.chrome_gunlugu)
+    AYAR["profil_yerel"] = bool(args.profil_yerel) or bool(ayarlar.get("profil_yerel", False))
     if AYAR["chrome_gunlugu"]:
         # Playwright'in tarayici cikis mesajlarini ekrana bassin; cokme sebebi
         # genelde burada yaziyor ("Target crashed", exit code, stderr)
@@ -1832,10 +1838,6 @@ def main():
     calisma.mkdir(parents=True, exist_ok=True)
     log = calisma / "calisma.log"
     profil = profil_klasoru(log)
-    if "onedrive" in str(KOK).lower():
-        yaz("NOT: Program klasoru OneDrive icinde. Tarayici profili zaten disari", log)
-        yaz("     alindi; yine de klasoru C:\\luca-bot gibi bir yere tasimak daha saglikli.", log)
-
     with sync_playwright() as pw:
         ctx = tarayici_ac(pw, profil, log, AYAR["chrome_gunlugu"])
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
