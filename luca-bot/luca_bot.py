@@ -1581,6 +1581,13 @@ def profil_klasoru(log=None):
 TARAYICILAR = [("chrome", "Google Chrome"), ("msedge", "Microsoft Edge"), (None, "Playwright Chromium")]
 
 
+def kanal_profili(profil, kanal):
+    """Her tarayicinin kendi profili olmali; Edge, Chrome'un profilini acamiyor."""
+    if kanal == "chrome":
+        return profil  # mevcut profil Chrome'a ait, oturum korunsun
+    return profil.parent / f"{profil.name}-{kanal or 'chromium'}"
+
+
 def tarayici_ac(pw, profil, log, gunluk=False):
     """Once bilgisayarda kurulu Chrome/Edge denenir; Playwright'in kendi tarayicisi son care.
 
@@ -1594,9 +1601,11 @@ def tarayici_ac(pw, profil, log, gunluk=False):
         adaylar = TARAYICILAR
     for kanal, ad in adaylar:
         secenekler = {"channel": kanal} if kanal else {}
+        kanal_yolu = kanal_profili(profil, kanal)
         try:
+            kanal_yolu.mkdir(parents=True, exist_ok=True)
             ctx = pw.chromium.launch_persistent_context(
-                str(profil), headless=False, accept_downloads=True,
+                str(kanal_yolu), headless=False, accept_downloads=True,
                 args=["--start-maximized"] + (["--enable-logging", "--v=1"] if gunluk else []),
                 ignore_default_args=["--enable-automation"],
                 chromium_sandbox=True, no_viewport=True, **secenekler
@@ -1826,9 +1835,8 @@ def main():
     log = calisma / "calisma.log"
     profil = profil_klasoru(log)
     if "onedrive" in str(KOK).lower():
-        yaz("UYARI: Program klasoru OneDrive icinde. OneDrive indirilen dosyalari", log)
-        yaz("       esitlerken Chrome cokebiliyor; klasoru C:\\luca-bot gibi bir yere", log)
-        yaz("       tasimaniz onerilir.", log)
+        yaz("NOT: Program klasoru OneDrive icinde. Tarayici profili zaten disari", log)
+        yaz("     alindi; yine de klasoru C:\\luca-bot gibi bir yere tasimak daha saglikli.", log)
 
     with sync_playwright() as pw:
         ctx = tarayici_ac(pw, profil, log, AYAR["chrome_gunlugu"])
