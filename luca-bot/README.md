@@ -38,7 +38,11 @@ python -m playwright install chromium
 | `durgunluk_dakika` | İşlem Takip penceresi bu kadar süre hiç ilerlemezse sorgu takılmış sayılır (varsayılan 3) |
 | `tekrar_deneme` | İndirilemeyen fatura kalırsa sorgunun kaç kez tekrarlanacağı (varsayılan 3) |
 | `ardisik_hata_siniri` | Üst üste kaç firma hata verirse çalışma durdurulur (varsayılan 5) |
-| `atlanacak_firmalar` | İşlenmeyecek firma adları |
+| `atlanacak_firmalar` | İşlenmeyecek firma adları (kapanmış firmalar). Luca adı kısaltarak gösterdiği için adın baş kısmını yazmanız yeterli |
+
+Kapanmış firmaların hazır listesi `kapali-firmalar.md` dosyasındadır; `ayarlar.ornek.json` içine işlenmiştir.
+Ayrıca firmanın Luca'daki çalışma dönemi istediğiniz tarihlerin dışındaysa bot sorguyu hiç başlatmaz,
+özete `dönem dışı` yazar.
 
 ## Tarih aralığı (30 gün sınırı)
 

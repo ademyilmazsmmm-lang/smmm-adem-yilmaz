@@ -1341,8 +1341,20 @@ def main():
                 ctx.close()
                 return
             yaz(f"Eslesen firma(lar): {', '.join(firmalar)}", log)
-        atlanacak = [karsilastir(a) for a in ayarlar.get("atlanacak_firmalar", []) if a.strip()]
-        firmalar = [f for f in firmalar if karsilastir(f) not in atlanacak]
+        atlama_adlari = [a for a in ayarlar.get("atlanacak_firmalar", []) if a.strip()]
+        if atlama_adlari:
+            def ayni_firma(ad, atlanan):
+                # Luca adlari kisaltarak gosterdigi icin bas kismi tutan ad da atlanir
+                k, a = karsilastir(ad), karsilastir(atlanan)
+                return bool(k) and bool(a) and (k.startswith(a) or a.startswith(k))
+
+            atlananlar = [f for f in firmalar if any(ayni_firma(f, a) for a in atlama_adlari)]
+            firmalar = [f for f in firmalar if f not in atlananlar]
+            if atlananlar:
+                yaz(f"Atlanan firma ({len(atlananlar)}): {', '.join(atlananlar)}", log)
+            eslesmeyen = [a for a in atlama_adlari if not any(ayni_firma(f, a) for f in atlananlar)]
+            if eslesmeyen:
+                yaz(f"UYARI: atlama listesinde eslesmeyen ad: {', '.join(eslesmeyen)}", log)
         if args.limit:
             firmalar = firmalar[: args.limit]
 

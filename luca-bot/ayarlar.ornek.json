@@ -7,6 +7,19 @@
   "sorgu_azami_dakika": 30,
   "durgunluk_dakika": 3,
   "ardisik_hata_siniri": 5,
-  "atlanacak_firmalar": [],
-  "indirme_bekleme_saniye": 30
+  "indirme_bekleme_saniye": 30,
+  "atlanacak_firmalar": [
+    "ALİ KAAN T",
+    "BERKAYYETİ",
+    "BURAK ÖZKA",
+    "EST TEDARİ",
+    "EVREN GÜNG",
+    "GÜLENBER S",
+    "MEHMET ŞEN",
+    "MERTEMİR",
+    "OĞUZHAN Bİ",
+    "ÖMÜR CAN T",
+    "RATATOUİLL",
+    "SERKANGENÇ"
+  ]
 }
