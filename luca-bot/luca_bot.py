@@ -609,7 +609,8 @@ def indirilemeyen_sayisi(sayfa):
     return 0
 
 
-def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180, pencere_bekleme=25):
+def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
+                         pencere_bekleme=25, en_az_saniye=3):
     """Sorgu bitene kadar bekler; indirilemeyen fatura sayisini dondurur (-1: tamamlanmadi).
 
     Bitis uc sekilde anlasilir: gunlukte "sona erdi" yazmasi, pencerenin
@@ -639,7 +640,8 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180, penc
                 son_gunluk = gunluk
                 son_degisim = time.time()
 
-            if ISLEM_BITTI in gunluk.lower():
+            # onceki sorgunun "sona erdi" yazisi ekranda kalmis olabilir
+            if ISLEM_BITTI in gunluk.lower() and gecen >= en_az_saniye:
                 basarisiz = gunluk.lower().count(INDIRILEMEDI)
                 yaz(f"    GİB sorgusu tamamlandi ({int(gecen)} sn)"
                     + (f", {basarisiz} fatura indirilemedi" if basarisiz else ""), log)
