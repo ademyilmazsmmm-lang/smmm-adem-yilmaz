@@ -1068,31 +1068,18 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30, pencere_
     """Indirme akisi: arac cubugu butonu -> pencerede 'tum faturalar' -> pencerede indir.
 
     expect_download yerine olay dinleyip beklenir; boylece Luca "faturalari
-    seciniz" uyarisi verdiginde bos yere zaman asimi beklenmez. Luca indirme
-    sirasinda pencereyi kapatabildigi icin dinleyici tum sayfalara baglanir ve
-    calisilan sayfa kapansa bile dosya beklenmeye devam edilir.
+    seciniz" uyarisi verdiginde bos yere zaman asimi beklenmez.
     """
-    ctx = page.context
     indirilenler = []
     dinleyici = lambda d: indirilenler.append(d)
-
-    def sayfaya_bagla(p):
-        try:
-            p.on("download", dinleyici)
-        except Exception:
-            pass
-
-    for p in list(ctx.pages):
-        sayfaya_bagla(p)
-    ctx.on("page", sayfaya_bagla)
+    page.on("download", dinleyici)
     try:
         if not dugmeye_bas(page, dugme_metni, sure=8000):
             yaz(f"    '{dugme_metni}' butonuna basilamadi, atlandi", log)
             return None
         page.wait_for_timeout(2000)
 
-        # Excel gibi pencere acmayan butonlarda onceki islemden kalan pencere
-        # yanlislikla onay penceresi sanilip bekleme suresi kisaltiliyordu
+        # Excel pencere acmaz; onceki islemden kalan pencere onay sanilmasin
         pencere = indirme_diyalogu(page)[1] if pencere_acilir else None
         diyalog_var = pencere is not None
         onay = None
@@ -1111,20 +1098,13 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30, pencere_
         uyari = None
         bitis = time.time() + sure
         while time.time() < bitis and not indirilenler:
-            if sayfa_canli(page):
-                if fatura_yok_penceresini_kapat(page):
-                    uyari = "Luca: fatura bulunamadi"
-                    break
-                uyari = uyari_metni(page)
-                if uyari:
-                    break
-                page.wait_for_timeout(500)
-                continue
-            # Luca pencereyi kapatmis olabilir; dosya yine de gelebilir
-            bekleyen = next((p for p in ctx.pages if sayfa_canli(p)), None)
-            if bekleyen is None:
+            if fatura_yok_penceresini_kapat(page):
+                uyari = "Luca: fatura bulunamadi"
                 break
-            bekleyen.wait_for_timeout(500)
+            uyari = uyari_metni(page)
+            if uyari:
+                break
+            page.wait_for_timeout(500)
 
         if indirilenler:
             dosya = indirilenler[0]
@@ -1144,16 +1124,10 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30, pencere_
         return None
     finally:
         try:
-            ctx.remove_listener("page", sayfaya_bagla)
+            page.remove_listener("download", dinleyici)
         except Exception:
             pass
-        for p in list(ctx.pages):
-            try:
-                p.remove_listener("download", dinleyici)
-            except Exception:
-                pass
-        if sayfa_canli(page):
-            acik_pencereleri_kapat(page)  # pencere acik kalirsa sonraki adimlar kilitleniyor
+        acik_pencereleri_kapat(page)  # pencere acik kalirsa sonraki adimlar kilitleniyor
 
 
 def radyo_sec(page, pencere, metin):
@@ -1589,10 +1563,8 @@ def profil_klasoru(log=None):
         return eski
 
 
-# Sira onemli: HP Sure Click gibi programlar sistemdeki Chrome/Edge'e kanca
-# takip indirme aninda tarayiciyi cokertiyor; paketli Chromium kancanin
-# disinda kaldigi icin once o denenir, yoksa kurulu tarayicilara dusulur.
-TARAYICILAR = [(None, "Playwright Chromium"), ("chrome", "Google Chrome"), ("msedge", "Microsoft Edge")]
+# Calisan surumdeki sira: once kurulu Chrome. --tarayici ile degistirilebilir.
+TARAYICILAR = [("chrome", "Google Chrome"), ("msedge", "Microsoft Edge"), (None, "Playwright Chromium")]
 
 
 def kanal_profili(profil, kanal):
@@ -1620,11 +1592,8 @@ def tarayici_ac(pw, profil, log, gunluk=False):
         kanal_yolu = kanal_profili(profil, kanal)
         try:
             kanal_yolu.mkdir(parents=True, exist_ok=True)
-            inme_yolu = kanal_yolu.parent / "indirme"
-            inme_yolu.mkdir(parents=True, exist_ok=True)
             ctx = pw.chromium.launch_persistent_context(
                 str(kanal_yolu), headless=False, accept_downloads=True,
-                downloads_path=str(inme_yolu),
                 args=["--start-maximized"] + (["--enable-logging", "--v=1"] if gunluk else []),
                 ignore_default_args=["--enable-automation"],
                 chromium_sandbox=True, no_viewport=True, **secenekler
@@ -1663,14 +1632,8 @@ def uygulama_sayfasi_bul(ctx):
 
 
 def bekci_sekmesi_ac(ctx):
-    """Luca kendi penceresini kapatirsa tarayici ayakta kalsin diye bos sekme."""
-    try:
-        bekci = ctx.new_page()
-        bekci.set_content("<title>luca-bot</title>"
-                          "<p style='font:16px sans-serif;padding:24px'>"
-                          "Bu sekme tarayicinin kapanmamasi icin acik tutuluyor. Kapatmayin.</p>")
-    except Exception:
-        pass
+    """Kapali: ikinci sekme acmak indirme sirasindaki cokmeyi tetikliyordu."""
+    return
 
 
 def firma_sayisi(page):
@@ -1872,9 +1835,6 @@ def main():
     with sync_playwright() as pw:
         ctx = tarayici_ac(pw, profil, log, AYAR["chrome_gunlugu"])
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        # Luca indirme sirasinda kendi penceresini kapatabiliyor; son sekme de
-        # kapaninca Chrome tumden kapaniyordu. Bos sekme tarayiciyi ayakta tutar.
-        bekci_sekmesi_ac(ctx)
         page.bring_to_front()
         page.goto(GIRIS_URL)
 
