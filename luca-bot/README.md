@@ -36,6 +36,7 @@ python -m playwright install chromium
 | --- | --- |
 | `sorgu_azami_dakika` | Bir GİB sorgusu için beklenecek en uzun süre (varsayılan 30) |
 | `durgunluk_dakika` | İşlem Takip penceresi bu kadar süre hiç ilerlemezse sorgu takılmış sayılır (varsayılan 3) |
+| `iptal_itiraz_sorgula` | Faturalar indikten sonra GİB'den iptal/itiraz durumunu da sorgula (varsayılan açık) |
 | `tekrar_deneme` | İndirilemeyen fatura kalırsa sorgunun kaç kez tekrarlanacağı (varsayılan 3) |
 | `ardisik_hata_siniri` | Üst üste kaç firma hata verirse çalışma durdurulur (varsayılan 5) |
 | `atlanacak_firmalar` | İşlenmeyecek firma adları (kapanmış firmalar). Luca adı kısaltarak gösterdiği için adın baş kısmını yazmanız yeterli |
@@ -93,7 +94,8 @@ python luca_bot.py --belge-tipi e-fatura-satis
 2. Siz giriş yaparsınız, firma ekranı gelince komut istemine dönüp **ENTER**'a basarsınız.
 3. Bot sağ üstteki listeden firmaları sırayla seçer; her firma için menüden ilgili ekrana gider,
    **GİB'den Getir** der (tarih aralığını 30 günlük parçalar hâlinde sırayla sorgular),
-   gelen faturaların hepsini seçer, **Seçilenleri İndir** ve **Excel** dosyalarını indirir.
+   gelen faturaların hepsini seçer, **Seçilenleri İndir** der, ardından **GİB'den İptal/İtiraz Sorgula**
+   ile iptal/itiraz durumunu çeker ve en son güncel listeyi **Excel** olarak indirir.
 4. Biten her firma için ekrana durum yazar; sonunda özet çıkarır.
 
 ## Dosyalar nereye iniyor
@@ -105,7 +107,8 @@ indirilenler/
       e-arsiv-alis/
         liste.csv              → ekrandaki fatura listesi
         belgeler_....zip       → Seçilenleri İndir çıktısı
-        liste_....xls          → Luca'nın Excel çıktısı
+        liste_....xls          → Luca'nın Excel çıktısı (iptal/itiraz sorgusundan sonraki hâli)
+        iptal-itiraz.csv       → sadece iptal/itiraz edilmiş faturalar (varsa)
     ozet.csv                   → tüm firmaların durumu; her firmadan sonra güncellenir
     kalan-firmalar.txt         → henüz işlenmemiş firmalar (kaldığı yerden devam için)
     calisma.log                → zaman damgalı çalışma kaydı

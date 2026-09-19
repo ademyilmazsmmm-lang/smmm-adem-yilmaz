@@ -47,10 +47,17 @@ KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engelle
     "Belge Seç": "Alt+b",
 }
 
-AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30}  # ayarlar.json ile degistirilebilir
+AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True}  # ayarlar.json ile degistirilebilir
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
+
+# GIB'den iptal/itiraz sorgulama (fatura listesi indikten sonra calisir)
+IPTAL_DUGME_ADAYLARI = ["GİB'den İptal/İtiraz Sorgula", "GİB'den iptal/itiraz Sorgula",
+                        "iptal/itiraz Sorgula", "İptal/İtiraz Sorgula"]
+IPTAL_ONAY = ["İptal/İtiraz Sorgula", "İptal/itiraz Sorgula", "İptal/İtiraz sorgula"]
+IPTAL_CAPASI = "Raporlanma Tarihi"  # diyalogun kendi aciklama yazisi
+IPTAL_DESENI = re.compile(r"IPTAL|ITIRAZ")
 
 
 def yaz(mesaj, log_dosyasi=None):
@@ -978,9 +985,60 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30):
         acik_pencereleri_kapat(page)  # pencere acik kalirsa sonraki adimlar kilitleniyor
 
 
+def iptal_itiraz_sorgula(page, araliklar, log):
+    """Listedeki faturalar icin GIB'den iptal/itiraz durumunu sorgular.
+
+    Luca akisi: faturalar isaretli iken arac cubugundan "GİB'den İptal/İtiraz
+    Sorgula" -> acilan pencerede tarih araligi -> "İptal/İtiraz Sorgula".
+    Buradaki tarih, faturanin GIB'e raporlanma tarihidir.
+    """
+    calisan = 0
+    for bas, bit in araliklar:
+        acik_pencereleri_kapat(page, log)
+        fatura_yok_penceresini_kapat(page)
+        if not varsa_tikla(page, IPTAL_DUGME_ADAYLARI, sure=4000):
+            yaz("    'GİB'den İptal/İtiraz Sorgula' butonu bulunamadi, atlandi", log)
+            return calisan
+        page.wait_for_timeout(2000)
+
+        _, pencere = metinli_diyalog(page, IPTAL_CAPASI)
+        kutular = tarih_kutulari(page)
+        if len(kutular) >= 2:
+            kutuya_yaz(kutular[0], bas)
+            kutuya_yaz(kutular[1], bit)
+            yaz(f"    Iptal/itiraz sorgusu ({bas} - {bit})", log)
+        else:
+            yaz("    UYARI: iptal/itiraz tarih kutulari bulunamadi, Luca varsayilani kullanilacak", log)
+
+        onay = pencerede_tikla(page, pencere, IPTAL_ONAY) if pencere is not None else None
+        if not onay:
+            # pencere taninmadiysa tam metinle ara; arac cubugu butonu farkli yazildigi
+            # icin tam eslesme yanlislikla ona denk gelmez
+            onay = varsa_tikla(page, IPTAL_ONAY, sure=4000)
+        if not onay:
+            yaz("    UYARI: iptal/itiraz sorgu butonu tiklanamadi", log)
+            acik_pencereleri_kapat(page, log)
+            return calisan
+
+        islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
+                             durgunluk_saniye=AYAR["durgunluk_saniye"])
+        acik_pencereleri_kapat(page, log)
+        calisan += 1
+
+    yaz("    Liste yenileniyor (iptal/itiraz sonrasi)", log)
+    dugmeye_bas(page, "Yenile", sure=5000)
+    page.wait_for_timeout(3000)
+    return calisan
+
+
+def iptal_itiraz_satirlari(satirlar):
+    """Durum sutununda iptal/itiraz gecen satirlar."""
+    return [s for s in satirlar if IPTAL_DESENI.search(sadelestir(" ".join(s)))]
+
+
 def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=3):
     sonuc = {"firma": firma, "belge_tipi": belge_tipi, "fatura_sayisi": 0,
-             "durum": "", "dosyalar": [], "indirilemeyen": 0}
+             "durum": "", "dosyalar": [], "indirilemeyen": 0, "iptal_itiraz": 0}
     klasor = cikti_kok / dosya_adi_yap(firma) / belge_tipi
     klasor.mkdir(parents=True, exist_ok=True)
 
@@ -1048,10 +1106,40 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
         else:
             yaz("    UYARI: hicbir kayit isaretlenemedi, indirme yine de denenecek", log)
-        for dugme, on_ek in (("Seçilenleri İndir", "belgeler"), ("Excel", "liste")):
-            yol = indir(page, dugme, klasor, on_ek, log, azami_saniye=AYAR["indirme_saniye"])
-            if yol:
-                sonuc["dosyalar"].append(yol.name)
+        yol = indir(page, "Seçilenleri İndir", klasor, "belgeler", log,
+                    azami_saniye=AYAR["indirme_saniye"])
+        if yol:
+            sonuc["dosyalar"].append(yol.name)
+
+        if AYAR["iptal_itiraz"]:
+            try:
+                if iptal_itiraz_sorgula(page, araliklar, log):
+                    # sorgu durum sutununu degistirir; liste yeniden okunur
+                    kutular, kutu_sayisi, yeni_fr = secim_kutulari(page)
+                    yeni_satirlar = kutulardan_satirlar(kutular, kutu_sayisi)
+                    if yeni_satirlar:
+                        satirlar, fr = yeni_satirlar, yeni_fr
+                        sonuc["fatura_sayisi"] = len(satirlar)
+                        with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
+                            csv.writer(f).writerows(satirlar)
+                    iptaller = iptal_itiraz_satirlari(satirlar)
+                    sonuc["iptal_itiraz"] = len(iptaller)
+                    if iptaller:
+                        with open(klasor / "iptal-itiraz.csv", "w", encoding="utf-8-sig", newline="") as f:
+                            csv.writer(f).writerows(iptaller)
+                        yaz(f"    DIKKAT: {len(iptaller)} faturada iptal/itiraz var", log)
+                    else:
+                        yaz("    Iptal/itiraz kaydi yok", log)
+            except Exception as e:
+                yaz(f"    Iptal/itiraz sorgusu yapilamadi ({type(e).__name__}: {e})", log)
+                acik_pencereleri_kapat(page, log)
+
+        # Excel, iptal/itiraz sonrasi alinir ki durumlar guncel olsun
+        if fr is not None:
+            hepsini_sec(page, fr, len(satirlar))
+        yol = indir(page, "Excel", klasor, "liste", log, azami_saniye=AYAR["indirme_saniye"])
+        if yol:
+            sonuc["dosyalar"].append(yol.name)
         sonuc["durum"] = "tamam"
     else:
         # GIB'de fatura vardi ama kaynak sunucudan inmedi: "fatura yok" demek yaniltici
@@ -1206,12 +1294,13 @@ def ozet_yaz(ozet_yolu, kalan_yolu, sonuclar, bekleyenler, belge_tipi):
     """Ozeti her firmadan sonra yeniden yazar; islenmeyenler 'bekliyor' olarak gorunur."""
     with open(ozet_yolu, "w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["Firma", "Belge Tipi", "Fatura Sayisi", "Indirilemeyen", "Durum", "Dosyalar"])
+        w.writerow(["Firma", "Belge Tipi", "Fatura Sayisi", "Indirilemeyen", "Iptal/Itiraz",
+                    "Durum", "Dosyalar"])
         for s in sonuclar:
             w.writerow([s["firma"], s["belge_tipi"], s["fatura_sayisi"], s.get("indirilemeyen", 0),
-                        s["durum"], "; ".join(s["dosyalar"])])
+                        s.get("iptal_itiraz", 0), s["durum"], "; ".join(s["dosyalar"])])
         for firma in bekleyenler:
-            w.writerow([firma, belge_tipi, "", "", "bekliyor", ""])
+            w.writerow([firma, belge_tipi, "", "", "", "bekliyor", ""])
     kalan_yolu.write_text(", ".join(bekleyenler), encoding="utf-8")
 
 
@@ -1237,6 +1326,8 @@ def main():
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
+    p.add_argument("--iptal-itiraz-atla", action="store_true",
+                   help="Faturalari indir ama GIB iptal/itiraz sorgusunu yapma")
     p.add_argument("--listele", action="store_true", help="Sadece firma listesini yazdir, islem yapma")
     p.add_argument("--bitince-kapat", action="store_true",
                    help="Is bitince ENTER beklemeden tarayiciyi kapat (gece calistirma icin)")
@@ -1258,6 +1349,7 @@ def main():
     AYAR["azami_saniye"] = max(60, int(float(ayarlar.get("sorgu_azami_dakika", 30)) * 60))
     AYAR["durgunluk_saniye"] = max(30, int(float(ayarlar.get("durgunluk_dakika", 3)) * 60))
     AYAR["indirme_saniye"] = max(3, int(ayarlar.get("indirme_bekleme_saniye", 30)))
+    AYAR["iptal_itiraz"] = bool(ayarlar.get("iptal_itiraz_sorgula", True)) and not args.iptal_itiraz_atla
     hata_siniri = max(1, int(ayarlar.get("ardisik_hata_siniri", 5)))
 
     cikti_kok = Path(ayarlar.get("indirme_klasoru") or "indirilenler").expanduser()
