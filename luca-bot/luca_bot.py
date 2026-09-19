@@ -69,6 +69,7 @@ AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "ipt
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
+COKME_DENEMESI = 3  # tarayici indirme sirasinda cokerse firma kac kez tekrar denensin
 
 # GIB'den iptal/itiraz sorgulama (fatura listesi indikten sonra calisir)
 IPTAL_DUGME_ADAYLARI = ["GİB'den İptal/İtiraz Sorgula", "GİB'den iptal/itiraz Sorgula",
@@ -1975,20 +1976,29 @@ def main():
                 # sayfa kapandiysa hata firmanin degil tarayicinin; firmayi yakmadan
                 # tarayici toparlanip bir kez daha denenir
                 if not sayfa_canli(page):
-                    page, ctx = sayfa_hazirla(page, ctx)
-                    if page is None:
-                        tarayici_gitti = True
+                    # cokme rastgele; tarayiciyi toparlayip firmayi birkac kez dene
+                    for tur in range(1, COKME_DENEMESI + 1):
+                        page, ctx = sayfa_hazirla(page, ctx)
+                        if page is None:
+                            tarayici_gitti = True
+                            break
+                        yaz(f"    {firma} yeniden deneniyor ({tur}/{COKME_DENEMESI})", log)
+                        try:
+                            sonuclar.append(firma_isle(page, firma, args.belge_tipi, araliklar,
+                                                       calisma, log, azami_deneme))
+                            ardisik_hata = 0
+                            break
+                        except Exception as e2:
+                            if sayfa_canli(page):  # cokme degil, gercek hata
+                                hatayi_yaz(firma, e2)
+                                sayfayi_toparla(page)
+                                ardisik_hata += 1
+                                break
+                            if tur == COKME_DENEMESI:
+                                hatayi_yaz(firma, e2)
+                                ardisik_hata += 1
+                    if tarayici_gitti:
                         break
-                    yaz(f"    {firma} yeniden deneniyor", log)
-                    try:
-                        sonuclar.append(firma_isle(page, firma, args.belge_tipi, araliklar,
-                                                   calisma, log, azami_deneme))
-                        ardisik_hata = 0
-                    except Exception as e2:
-                        hatayi_yaz(firma, e2)
-                        if sayfa_canli(page):
-                            sayfayi_toparla(page)
-                        ardisik_hata += 1
                 else:
                     hatayi_yaz(firma, e)
                     sayfayi_toparla(page)
