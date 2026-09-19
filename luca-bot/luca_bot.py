@@ -65,7 +65,7 @@ KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engelle
     "Belge Seç": "Alt+b",
 }
 
-AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True}  # ayarlar.json ile degistirilebilir
+AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True, "chrome_gunlugu": False}  # ayarlar.json ile degistirilebilir
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
@@ -1578,7 +1578,7 @@ def profil_klasoru(log=None):
         return eski
 
 
-def tarayici_ac(pw, profil, log):
+def tarayici_ac(pw, profil, log, gunluk=False):
     """Once bilgisayarda kurulu Chrome/Edge denenir; Playwright'in kendi tarayicisi son care."""
     hatalar = []
     for kanal, ad in (("chrome", "Google Chrome"), ("msedge", "Microsoft Edge"), (None, "Playwright Chromium")):
@@ -1586,7 +1586,7 @@ def tarayici_ac(pw, profil, log):
         try:
             ctx = pw.chromium.launch_persistent_context(
                 str(profil), headless=False, accept_downloads=True,
-                args=["--start-maximized"],
+                args=["--start-maximized"] + (["--enable-logging", "--v=1"] if gunluk else []),
                 ignore_default_args=["--enable-automation"],
                 chromium_sandbox=True, no_viewport=True, **secenekler
             )
@@ -1646,7 +1646,7 @@ def tarayiciyi_yeniden_baslat(pw, profil, eski_ctx, log, bekleme_saniye=90):
         pass
     yaz("Tarayici yeniden aciliyor...", log)
     try:
-        ctx = tarayici_ac(pw, profil, log)
+        ctx = tarayici_ac(pw, profil, log, AYAR.get("chrome_gunlugu", False))
     except Exception as e:
         yaz(f"Tarayici yeniden acilamadi: {type(e).__name__}: {e}", log)
         return None, None
@@ -1771,6 +1771,8 @@ def main():
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
+    p.add_argument("--chrome-gunlugu", action="store_true",
+                   help="Chrome cokerse sebebini yazmasi icin ayrintili gunluk tut")
     p.add_argument("--donem-degistirme", action="store_true",
                    help="Donemi degistirme; eski donemdeki firmalari atla (sorun cikarsa)")
     p.add_argument("--iptal-itiraz-atla", action="store_true",
@@ -1798,6 +1800,7 @@ def main():
     AYAR["indirme_saniye"] = max(3, int(ayarlar.get("indirme_bekleme_saniye", 30)))
     AYAR["iptal_itiraz"] = bool(ayarlar.get("iptal_itiraz_sorgula", True)) and not args.iptal_itiraz_atla
     AYAR["donem_degistir"] = bool(ayarlar.get("donem_degistir", True)) and not args.donem_degistirme
+    AYAR["chrome_gunlugu"] = bool(args.chrome_gunlugu)
     hata_siniri = max(1, int(ayarlar.get("ardisik_hata_siniri", 5)))
 
     cikti_kok = Path(ayarlar.get("indirme_klasoru") or "indirilenler").expanduser()
@@ -1813,7 +1816,7 @@ def main():
         yaz("       tasimaniz onerilir.", log)
 
     with sync_playwright() as pw:
-        ctx = tarayici_ac(pw, profil, log)
+        ctx = tarayici_ac(pw, profil, log, AYAR["chrome_gunlugu"])
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         # Luca indirme sirasinda kendi penceresini kapatabiliyor; son sekme de
         # kapaninca Chrome tumden kapaniyordu. Bos sekme tarayiciyi ayakta tutar.
