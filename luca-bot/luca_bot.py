@@ -1595,9 +1595,11 @@ def tarayici_ac(pw, profil, log, gunluk=False):
     digerine gecilebilir.
     """
     hatalar = []
-    tercih = AYAR.get("tarayici")
-    adaylar = [t for t in TARAYICILAR if t[0] == tercih] if tercih else TARAYICILAR
-    if tercih and not adaylar:
+    tercih = AYAR.get("tarayici")  # "chrome" / "edge" / "chromium" ya da None
+    kanallar = {"chrome": "chrome", "edge": "msedge", "chromium": None}
+    if tercih in kanallar:
+        adaylar = [t for t in TARAYICILAR if t[0] == kanallar[tercih]]
+    else:
         adaylar = TARAYICILAR
     for kanal, ad in adaylar:
         secenekler = {"channel": kanal} if kanal else {}
@@ -1835,8 +1837,7 @@ def main():
     AYAR["iptal_itiraz"] = bool(ayarlar.get("iptal_itiraz_sorgula", True)) and not args.iptal_itiraz_atla
     AYAR["donem_degistir"] = bool(ayarlar.get("donem_degistir", True)) and not args.donem_degistirme
     AYAR["chrome_gunlugu"] = bool(args.chrome_gunlugu)
-    AYAR["tarayici"] = {"chrome": "chrome", "edge": "msedge", "chromium": None}.get(
-        args.tarayici or ayarlar.get("tarayici", "")) if (args.tarayici or ayarlar.get("tarayici")) else None
+    AYAR["tarayici"] = args.tarayici or ayarlar.get("tarayici") or None
     hata_siniri = max(1, int(ayarlar.get("ardisik_hata_siniri", 5)))
 
     cikti_kok = Path(ayarlar.get("indirme_klasoru") or "indirilenler").expanduser()
