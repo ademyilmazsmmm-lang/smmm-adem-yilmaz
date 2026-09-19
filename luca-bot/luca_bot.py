@@ -1584,7 +1584,10 @@ def profil_klasoru(log=None):
         return eski
 
 
-TARAYICILAR = [("chrome", "Google Chrome"), ("msedge", "Microsoft Edge"), (None, "Playwright Chromium")]
+# Sira onemli: HP Sure Click gibi programlar sistemdeki Chrome/Edge'e kanca
+# takip indirme aninda tarayiciyi cokertiyor; paketli Chromium kancanin
+# disinda kaldigi icin once o denenir, yoksa kurulu tarayicilara dusulur.
+TARAYICILAR = [(None, "Playwright Chromium"), ("chrome", "Google Chrome"), ("msedge", "Microsoft Edge")]
 
 
 def kanal_profili(profil, kanal):

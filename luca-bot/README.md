@@ -11,8 +11,13 @@ tüm firmalar için sırayla otomatik yapar. İndirilen dosyaları ve fatura lis
    **"Add python.exe to PATH"** kutusunu mutlaka işaretleyin, sonra "Install Now".
 2. **`kurulum.bat`** dosyasına çift tıklayın. Gerekli her şeyi kendisi kurar.
 
-Tarayıcı olarak bilgisayarınızdaki **Google Chrome** kullanılır (yoksa Edge denenir),
-ayrıca tarayıcı indirmeye gerek yoktur.
+Tarayıcı olarak **Playwright'in kendi Chromium'u** kullanılır (`tarayici-indir.bat` ile bir kez inen tarayıcı).
+Bulunamazsa bilgisayardaki Chrome, sonra Edge denenir.
+
+**Neden kurulu Chrome değil:** HP Sure Click gibi güvenlik yazılımları sistemdeki Chrome ve Edge'e kanca
+takıp indirilen dosyayı izole ortamda açmaya çalışıyor ve tarayıcıyı indirme anında çökertiyor.
+Paketli Chromium bu kancanın dışında kalıyor. Makinenizde böyle bir yazılım yoksa `ayarlar.json`'a
+`"tarayici": "chrome"` yazarak kurulu Chrome'a dönebilirsiniz.
 
 Komutla yapmayı tercih ederseniz, bu klasörde komut istemi açıp:
 
