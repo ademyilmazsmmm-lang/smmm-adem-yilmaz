@@ -116,6 +116,8 @@ indirilenler/
         belgeler_....zip       → Seçilenleri İndir çıktısı
         liste_....xls          → Luca'nın Excel çıktısı (iptal/itiraz sorgusundan sonraki hâli)
         iptal-itiraz.csv       → sadece iptal/itiraz edilmiş faturalar (varsa)
+    rapor.xlsx                 → TOPLU RAPOR: her firma tek satır, aksiyon gerekenler en üstte
+    rapor.csv                  → aynı raporun CSV hâli
     ozet.csv                   → tüm firmaların durumu; her firmadan sonra güncellenir
     kalan-firmalar.txt         → henüz işlenmemiş firmalar (kaldığı yerden devam için)
     calisma.log                → zaman damgalı çalışma kaydı
@@ -124,6 +126,26 @@ indirilenler/
 
 Bir firmada hata olursa bot durmaz, o firmayı `ozet.csv`'ye "hata" olarak yazıp sıradakine geçer.
 `hatalar/` klasöründeki ekran görüntüsünü bana gönderirseniz o adımı düzeltirim.
+
+## Toplu rapor (`rapor.xlsx`)
+
+Günün klasöründe her firma için **tek satır** tutar; aynı gün farklı belge tipleriyle
+çalıştırdıkça aynı satır güncellenir. Aksiyon gereken firmalar en üste alınır ve renklendirilir.
+
+| Sütun | Anlamı |
+| --- | --- |
+| Firma / Dönem / Durum | firma, Luca çalışma dönemi, en kötü durum (hata > kaynaktan inmedi > dönem dışı > fatura yok > tamam) |
+| Aksiyon | ne yapmanız gerektiği; boşsa o firmada iş yok |
+| e-Arşiv Alış | Akıllı Entegrasyon Noktası ekranından gelen fatura adedi |
+| İnteraktif V.D. | İnteraktif Vergi Dairesi ekranından gelen fatura adedi |
+| Fark | İnteraktif − Akıllı Entegrasyon. **Artı ise Luca'ya eksik fatura inmiş demektir** |
+| İptal/İtiraz | GİB'de iptal/itiraz edilmiş fatura adedi |
+| Tevkifatlı | ekranda tevkifat yazan fatura adedi (KDV2 kontrolü) |
+| İnmeyen | GİB'de vardı ama kaynak sunucudan inmedi |
+| İnen Dosya | o firma için kaydedilen dosya sayısı |
+
+Aksiyon sütununda çıkabilecekler: `HATA - tekrar calistir`, `KAYNAKTAN INMEDI - tekrar sorgula`,
+`EKSIK - interaktifte N fatura fazla`, `IPTAL/ITIRAZ - N fatura`, `TEVKIFAT - N fatura, KDV2 kontrol`.
 
 ## Sık karşılaşılan durumlar
 

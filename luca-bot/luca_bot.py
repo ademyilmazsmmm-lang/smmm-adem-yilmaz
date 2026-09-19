@@ -14,6 +14,9 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+
+import rapor  # gunluk toplu rapor (rapor.xlsx / rapor.csv)
+
 KOK = Path(__file__).resolve().parent
 AYAR_DOSYASI = KOK / "ayarlar.json"
 ORNEK_AYAR = KOK / "ayarlar.ornek.json"
@@ -70,6 +73,7 @@ IPTAL_DUGME_ADAYLARI = ["GİB'den İptal/İtiraz Sorgula", "GİB'den iptal/itira
 IPTAL_ONAY = ["İptal/İtiraz Sorgula", "İptal/itiraz Sorgula", "İptal/İtiraz sorgula"]
 IPTAL_CAPASI = "Raporlanma Tarihi"  # diyalogun kendi aciklama yazisi
 IPTAL_DESENI = re.compile(r"IPTAL|ITIRAZ")
+TEVKIFAT_DESENI = re.compile(r"TEVKIFAT")
 
 
 def yaz(mesaj, log_dosyasi=None):
@@ -1149,9 +1153,15 @@ def iptal_itiraz_satirlari(satirlar):
     return [s for s in satirlar if IPTAL_DESENI.search(sadelestir(" ".join(s)))]
 
 
+def tevkifatli_satirlar(satirlar):
+    """Ekranda 'tevkifat' yazan satirlar (KDV2 icin isaret)."""
+    return [s for s in satirlar if TEVKIFAT_DESENI.search(sadelestir(" ".join(s)))]
+
+
 def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=3):
     sonuc = {"firma": firma, "belge_tipi": belge_tipi, "fatura_sayisi": 0,
-             "durum": "", "dosyalar": [], "indirilemeyen": 0, "iptal_itiraz": 0}
+             "durum": "", "dosyalar": [], "indirilemeyen": 0, "iptal_itiraz": 0,
+             "tevkifat": 0, "donem": "", "not": ""}
     klasor = cikti_kok / dosya_adi_yap(firma) / belge_tipi
     klasor.mkdir(parents=True, exist_ok=True)
 
@@ -1159,6 +1169,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     yaz("    Firma seciliyor", log)
     firma_sec(page, firma, log)
     donem_bas, donem_bit = calisma_donemi(page)
+    if donem_bas and donem_bit:
+        sonuc["donem"] = f"{donem_bas:%d/%m/%Y}-{donem_bit:%d/%m/%Y}"
     istenen_bas = tarih_cozumle(araliklar[0][0])
     istenen_bit = tarih_cozumle(araliklar[-1][1])
     if donem_bit and (donem_bit < istenen_bas or (donem_bas and donem_bas > istenen_bit)):
@@ -1222,6 +1234,12 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     if satirlar:
         with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
             csv.writer(f).writerows(satirlar)
+        tevkifatlilar = tevkifatli_satirlar(satirlar)
+        sonuc["tevkifat"] = len(tevkifatlilar)
+        if tevkifatlilar:
+            with open(klasor / "tevkifatli.csv", "w", encoding="utf-8-sig", newline="") as f:
+                csv.writer(f).writerows(tevkifatlilar)
+            yaz(f"    DIKKAT: {len(tevkifatlilar)} tevkifatli fatura (KDV2)", log)
 
     if fr is not None and satirlar:
         secilen = hepsini_sec(page, fr, len(satirlar))
@@ -1246,6 +1264,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                         sonuc["fatura_sayisi"] = len(satirlar)
                         with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
                             csv.writer(f).writerows(satirlar)
+                        sonuc["tevkifat"] = len(tevkifatli_satirlar(satirlar))
                     iptaller = iptal_itiraz_satirlari(satirlar)
                     sonuc["iptal_itiraz"] = len(iptaller)
                     if iptaller:
@@ -1591,7 +1610,9 @@ def main():
                 yaz(f"    HATA: {type(e).__name__}: {e}", log)
                 hata_kaydet(page, calisma / "hatalar", firma)
                 sonuclar.append({"firma": firma, "belge_tipi": args.belge_tipi, "fatura_sayisi": 0,
-                                 "durum": f"hata: {type(e).__name__}", "dosyalar": [], "indirilemeyen": 0})
+                                 "durum": f"hata: {type(e).__name__}", "dosyalar": [],
+                                 "indirilemeyen": 0, "iptal_itiraz": 0, "tevkifat": 0,
+                                 "donem": "", "not": str(e)[:120]})
                 sayfayi_toparla(page)
                 ardisik_hata += 1
             else:
@@ -1599,6 +1620,10 @@ def main():
 
             # her firmadan sonra guncellenir: gece yarida kalirsa sabah nerede kalindigi gorulur
             ozet_yaz(ozet, kalan_dosya, sonuclar, firmalar[i:], args.belge_tipi)
+            try:
+                rapor.guncelle(calisma, sonuclar, firmalar[i:], args.belge_tipi)
+            except Exception as e:  # rapor yazilamazsa calisma durmasin
+                yaz(f"    UYARI: rapor guncellenemedi ({type(e).__name__}: {e})", log)
 
             if ardisik_hata >= hata_siniri:
                 yaz(f"\nUst uste {hata_siniri} firma basarisiz oldu; Luca oturumu bozulmus olabilir.", log)
@@ -1610,6 +1635,7 @@ def main():
         yaz(f"\nBitti. {basarili}/{len(sonuclar)} firma tamamlandi, {toplam_fatura} fatura listelendi.", log)
         yaz(f"Dosyalar: {calisma}", log)
         yaz(f"Ozet: {ozet}", log)
+        yaz(f"Rapor: {calisma / 'rapor.xlsx'} (aksiyon gereken firmalar en ustte)", log)
 
         if not args.bitince_kapat:
             input(">>> Tarayiciyi kapatmak icin ENTER'a basin: ")
