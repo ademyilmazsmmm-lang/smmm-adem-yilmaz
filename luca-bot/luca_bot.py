@@ -626,7 +626,7 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
     while True:
         gecen = time.time() - basla
 
-        if fatura_yok_penceresini_kapat(page):
+        if gecen >= en_az_saniye and fatura_yok_penceresini_kapat(page):
             yaz(f"    Luca: fatura bulunamadi ({int(gecen)} sn)", log)
             return 0
 
@@ -681,6 +681,7 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
 def gibden_getir(page, baslangic, bitis, log):
     yaz(f"    GİB'den Getir aciliyor ({baslangic} - {bitis})", log)
     acik_pencereleri_kapat(page, log)  # onceki sorgudan kalan pencere tiklamayi engelliyor
+    fatura_yok_penceresini_kapat(page)  # onceki sorgunun bildirimi yeni sorguya karismasin
     if not dugmeye_bas(page, "GİB'den Getir"):
         raise LookupError("'GİB'den Getir' butonuna basilamadi")
     page.wait_for_timeout(2500)
