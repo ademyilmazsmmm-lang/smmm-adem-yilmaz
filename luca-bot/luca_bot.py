@@ -1078,10 +1078,18 @@ def yanit_dosya_mi(basliklar):
     return "attachment" in cd or any(t in ct for t in INDIRME_TURLERI)
 
 
-def yanit_dosya_adi(basliklar, yedek):
+UZANTILAR = [("zip", ".zip"), ("spreadsheetml", ".xlsx"), ("ms-excel", ".xls"),
+             ("csv", ".csv"), ("pdf", ".pdf"), ("xml", ".xml")]
+
+
+def yanit_dosya_adi(basliklar, yedek_ad):
+    """Dosya adi once Content-Disposition'dan, yoksa icerik turunden uretilir."""
     eslesme = CD_DESENI.search(basliklar.get("content-disposition") or "")
-    ad = eslesme.group(1).strip() if eslesme else ""
-    return dosya_adi_yap(ad) if ad else yedek
+    if eslesme and eslesme.group(1).strip():
+        return dosya_adi_yap(eslesme.group(1).strip())
+    ct = (basliklar.get("content-type") or "").lower()
+    uzanti = next((u for anahtar, u in UZANTILAR if anahtar in ct), ".dat")
+    return f"{yedek_ad}{uzanti}"
 
 
 def indir_yakalayarak(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30,
@@ -1110,7 +1118,7 @@ def indir_yakalayarak(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=
         try:
             basliklar = {k.lower(): v for k, v in (yanit.headers or {}).items()}
             if not alinan and yanit_dosya_mi(basliklar):
-                alinan["ad"] = yanit_dosya_adi(basliklar, f"{on_ek}.dat")
+                alinan["ad"] = yanit_dosya_adi(basliklar, on_ek)
                 alinan["govde"] = yanit.body()
                 route.abort()  # tarayici indirme baslatmasin
                 return
@@ -1150,6 +1158,18 @@ def indir_yakalayarak(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=
             if uyari:
                 break
             page.wait_for_timeout(500)
+
+        # tiklama gectigi halde dosya gelmediyse butonun kendi kisayolu denenir
+        kisayol = KISAYOLLAR.get(dugme_metni)
+        if kisayol and not uyari and "govde" not in alinan and not inenler:
+            yaz(f"    Dosya gelmedi, '{dugme_metni}' kisayolu deneniyor ({kisayol})", log)
+            try:
+                page.keyboard.press(kisayol)
+            except Exception:
+                pass
+            bitis = time.time() + min(azami_saniye, 15)
+            while time.time() < bitis and "govde" not in alinan and not inenler:
+                page.wait_for_timeout(500)
 
         if "govde" in alinan:
             yol = hedef_klasor / f"{on_ek}_{alinan['ad']}"
@@ -1565,6 +1585,19 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                 # dosya yok: firmayi 'tamam' sayma, ana dongu bastan denesin
                 raise RuntimeError("tarayici indirme sirasinda kapandi")
 
+        # Excel iptal/itiraz'dan ONCE alinir: o sorgudan sonra Luca'nin Excel
+        # butonu dosya uretmiyor. Iptal/itiraz durumlari liste.csv ve
+        # iptal-itiraz.csv dosyalarina zaten yaziliyor.
+        acik_pencereleri_kapat(page, log)
+        fatura_yok_penceresini_kapat(page)
+        kutular, kutu_sayisi, guncel_fr = secim_kutulari(page)
+        if guncel_fr is not None:
+            fr = guncel_fr
+            hepsini_sec(page, fr, len(satirlar))
+        yol = indirme_islevi()(page, "Excel", klasor, "liste", log,
+                               azami_saniye=AYAR["indirme_saniye"], pencere_acilir=False)
+        if yol:
+            sonuc["dosyalar"].append(yol.name)
         if AYAR["iptal_itiraz"]:
             try:
                 if iptal_itiraz_sorgula(page, araliklar, log):
@@ -1589,19 +1622,6 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                 yaz(f"    Iptal/itiraz sorgusu yapilamadi ({type(e).__name__}: {e})", log)
                 acik_pencereleri_kapat(page, log)
 
-        # Excel, iptal/itiraz sonrasi alinir ki durumlar guncel olsun.
-        # Liste yenilendigi icin cerceve eskimis olabiliyor, bastan okunur;
-        # acik kalan islem penceresi de Excel'i engelliyor.
-        acik_pencereleri_kapat(page, log)
-        fatura_yok_penceresini_kapat(page)
-        kutular, kutu_sayisi, guncel_fr = secim_kutulari(page)
-        if guncel_fr is not None:
-            fr = guncel_fr
-            hepsini_sec(page, fr, len(satirlar))
-        yol = indirme_islevi()(page, "Excel", klasor, "liste", log,
-                               azami_saniye=AYAR["indirme_saniye"], pencere_acilir=False)
-        if yol:
-            sonuc["dosyalar"].append(yol.name)
         # belge paketi inmediyse firma tamamlanmis sayilmaz; ozette goze carpsin
         sonuc["durum"] = "tamam" if (interaktif or sonuc["dosyalar"]) else "dosya inmedi"
     else:
