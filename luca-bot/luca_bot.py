@@ -1154,8 +1154,11 @@ def iptal_itiraz_satirlari(satirlar):
     return [s for s in satirlar if IPTAL_DESENI.search(sadelestir(" ".join(s)))]
 
 
-# fatura numarasi: 3 harf + 4 haneli yil + 9 hane (orn. ABC2026000000123)
-FATURA_NO_DESENI = re.compile(r"\b([A-Za-zÇĞİÖŞÜçğıöşü]{3}\d{13})\b")
+# Fatura numarasi 16 hane: 3 on ek + 4 haneli yil + 9 haneli sira
+# (orn. ABC2026000000123). On ekte rakam da olabildigi icin harf sarti yok.
+FATURA_NO_DESENI = re.compile(r"\b([A-Za-z0-9ÇĞİÖŞÜçğıöşü]{3}\d{13})\b")
+# katı desen tutmazsa: 16 haneli, en az bir rakam iceren herhangi bir kod
+FATURA_NO_YEDEK = re.compile(r"\b(?=[A-Za-z0-9]{16}\b)[A-Za-z0-9]*\d[A-Za-z0-9]*\b")
 # tevkifat isaretleri: ekran yazisi, UBL etiketi ve KDV tevkifat vergi kodu
 XML_TEVKIFAT = ("tevkifat", "withholdingtaxtotal", ">9015<", "kdvtevkifat")
 
@@ -1163,10 +1166,13 @@ XML_TEVKIFAT = ("tevkifat", "withholdingtaxtotal", ">9015<", "kdvtevkifat")
 def fatura_kimligi(satir):
     """Bir liste satirindan (unvan ilk kelimesi, fatura no) cikarir."""
     no = ""
-    for hucre in satir:
-        eslesme = FATURA_NO_DESENI.search(hucre.replace(" ", ""))
-        if eslesme:
-            no = eslesme.group(1).upper()
+    for desen in (FATURA_NO_DESENI, FATURA_NO_YEDEK):
+        for hucre in satir:
+            eslesme = desen.search(hucre.replace(" ", "").replace("-", ""))
+            if eslesme:
+                no = eslesme.group(0).upper()
+                break
+        if no:
             break
     if not no:
         return None
