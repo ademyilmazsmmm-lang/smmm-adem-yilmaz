@@ -22,7 +22,8 @@ GIRIS_URL = "https://www.luca.com.tr"  # uygulama adresine dogrudan gidilince "L
 UYGULAMA_PARCASI = "/Luca/"
 UST_MENU = "Akıllı Entegrasyon Noktası"
 MODUL_ADAYLARI = ["İşletme Defteri", "Ser.Mes.Defteri", "Serbest Meslek Defteri",
-                  "Genel Muhasebe", "Bilanço Defteri", "Muhasebe", "Defter"]
+                  "Basit Usül", "Basit Usul", "Genel Muhasebe", "Bilanço Defteri",
+                  "Muhasebe", "Defter"]
 
 BELGE_TIPLERI = {
     "e-arsiv-alis": "e-Arşiv Alış Faturaları",
@@ -371,10 +372,15 @@ def firma_sec(page, firma_adi, log=None):
     acik_pencereleri_kapat(page)
 
     hedef = None
-    for _, sec, secenekler in firma_adaylari(page):
-        if firma_adi in secenekler:
-            hedef = sec
+    for deneme in range(3):  # onceki firmadan sonra liste gec yuklenebiliyor
+        for _, sec, secenekler in firma_adaylari(page):
+            if firma_adi in secenekler:
+                hedef = sec
+                break
+        if hedef is not None:
             break
+        acik_pencereleri_kapat(page)
+        page.wait_for_timeout(3000)
     if hedef is None:
         raise LookupError(f"'{firma_adi}' acik listelerin hicbirinde bulunamadi")
 
@@ -654,6 +660,8 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
                               else f"{int(durgunluk_saniye)} sn")
                 yaz(f"    Sorgu {sure_metni} boyunca ilerlemedi, takildi sayiliyor", log)
                 varsa_tikla(page, ["Kapat"], sure=3000)
+                acik_pencereleri_kapat(page)
+                fatura_yok_penceresini_kapat(page)
                 return son_gunluk.lower().count(INDIRILEMEDI)
 
         elif pencere_goruldu:
