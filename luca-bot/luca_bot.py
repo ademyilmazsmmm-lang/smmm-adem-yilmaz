@@ -647,19 +647,51 @@ def tabloyu_oku(page):
     return en_iyi
 
 
+SECIM_SECICILERI = ("input[type=checkbox]", "[role=checkbox]",
+                    "img[src*='check']", "img[src*='tick']", "[class*='checkbox']")
+
+
+def secim_kutulari(page):
+    """Isaret kutulari her zaman input olmayabiliyor; tum cerceveler ve bicimler taranir."""
+    for fr in cerceveler(page):
+        for secici in SECIM_SECICILERI:
+            try:
+                loc = fr.locator(secici)
+                if loc.count() and loc.first.is_visible():
+                    return loc, loc.count()
+            except Exception:
+                continue
+    return None, 0
+
+
 def isaretli_sayisi(kutular, sayi):
+    if kutular is None:
+        return 0
     try:
         return sum(1 for i in range(sayi) if kutular.nth(i).is_checked())
     except Exception:
         return 0
 
 
-def hepsini_sec(page, fr, satir_sayisi=0):
-    kutular = fr.locator("input[type=checkbox]")
+def veri_satir_indisleri(fr):
     try:
-        sayi = kutular.count()
+        satirlar = fr.locator("tr")
+        adet = min(satirlar.count(), 500)
     except Exception:
-        sayi = 0
+        return None, []
+    indisler = []
+    for i in range(adet):
+        try:
+            hucreler = [h.strip() for h in satirlar.nth(i).locator("td").all_inner_texts() if h.strip()]
+        except Exception:
+            continue
+        if len(hucreler) >= 4 and any(TARIH_DESENI.search(h) for h in hucreler):
+            indisler.append(i)
+    return satirlar, indisler
+
+
+def hepsini_sec(page, fr, satir_sayisi=0):
+    kutular, sayi = secim_kutulari(page)
 
     if sayi:
         try:  # baslik satirindaki kutu genelde hepsini isaretler
@@ -675,7 +707,7 @@ def hepsini_sec(page, fr, satir_sayisi=0):
             try:
                 kutu = kutular.nth(i)
                 if kutu.is_visible() and not kutu.is_checked():
-                    kutu.check(timeout=3000)
+                    kutu.check(timeout=2000)
                     secilen += 1
             except Exception:
                 continue
@@ -683,27 +715,28 @@ def hepsini_sec(page, fr, satir_sayisi=0):
             page.wait_for_timeout(500)
             return secilen
 
-    if dugmeye_bas(page, "Belge Seç", sure=3000):  # Alt+B ile toplu secim
+    # Luca'nin kendi ipucu: tabloda bosluk tusu satir seciyor
+    satirlar, indisler = veri_satir_indisleri(fr)
+    if satirlar is not None and indisler:
+        try:
+            satirlar.nth(indisler[0]).click(timeout=5000)
+            page.wait_for_timeout(400)
+            for _ in indisler:
+                page.keyboard.press("Space")
+                page.wait_for_timeout(150)
+                page.keyboard.press("ArrowDown")
+                page.wait_for_timeout(150)
+            return isaretli_sayisi(kutular, sayi) or len(indisler)
+        except Exception:
+            pass
+
+    if dugmeye_bas(page, "Belge Seç", sure=3000):  # Alt+B
         page.wait_for_timeout(800)
-        isaretli = isaretli_sayisi(kutular, sayi)
-        if isaretli:
-            return isaretli
-
-    # son care: tabloda bosluk tusu satir seciyor (ekrandaki ipucu)
-    try:
-        satirlar = fr.locator("tr")
-        satirlar.nth(min(1, satirlar.count() - 1)).click(timeout=3000)
-        for _ in range(max(satir_sayisi, 1)):
-            page.keyboard.press("Space")
-            page.wait_for_timeout(120)
-            page.keyboard.press("ArrowDown")
-            page.wait_for_timeout(120)
         return isaretli_sayisi(kutular, sayi) or satir_sayisi
-    except Exception:
-        return 0
+    return 0
 
 
-def indir(page, dugme_metni, hedef_klasor, on_ek, log):
+def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=120):
     kisayol = KISAYOLLAR.get(dugme_metni)
     try:
         _, dugme = metinle_bul(page, dugme_metni, sure=8000)
@@ -715,7 +748,7 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log):
 
     try:
         # tiklama/kisayol expect_download blogunun icinde kalmali, erken return edilmemeli
-        with page.expect_download(timeout=240000) as bilgi:
+        with page.expect_download(timeout=azami_saniye * 1000) as bilgi:
             tiklandi = False
             if dugme is not None:
                 try:
@@ -785,9 +818,13 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
 
     if fr is not None and satirlar:
         secilen = hepsini_sec(page, fr, len(satirlar))
-        yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
+        if secilen:
+            yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
+        else:
+            yaz("    UYARI: hicbir kayit isaretlenemedi, indirme yine de denenecek", log)
+        sure = 120 if secilen else 45  # secim yapilamadiysa uzun uzun bekleme
         for dugme, on_ek in (("Seçilenleri İndir", "belgeler"), ("Excel", "liste")):
-            yol = indir(page, dugme, klasor, on_ek, log)
+            yol = indir(page, dugme, klasor, on_ek, log, azami_saniye=sure)
             if yol:
                 sonuc["dosyalar"].append(yol.name)
         sonuc["durum"] = "tamam"
