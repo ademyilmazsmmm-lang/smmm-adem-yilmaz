@@ -365,6 +365,24 @@ def firma_dogrula(page, firma_adi, sure=8000):
     return False
 
 
+DONEM_DESENI = re.compile(r"(\d{2}[./]\d{2}[./]\d{4})\s*-\s*(\d{2}[./]\d{2}[./]\d{4})")
+
+
+def calisma_donemi(page):
+    """Firma adinin altindaki donem kutusu (orn. '08/04/2022 - 31/12/2022')."""
+    for fr in cerceveler(page):
+        try:
+            kutular = fr.locator("select")
+            for i in range(min(kutular.count(), 12)):
+                eslesme = DONEM_DESENI.search(secili_metin(kutular.nth(i)) or "")
+                if eslesme:
+                    return (tarih_cozumle(eslesme.group(1).replace(".", "/")),
+                            tarih_cozumle(eslesme.group(2).replace(".", "/")))
+        except Exception:
+            continue
+    return None, None
+
+
 def firma_sec(page, firma_adi, log=None):
     """Firmanin bulundugu listeyi adiyla secer; secim 'Tamam' ile onaylanip dogrulanir."""
     # giris sonrasi acik kalan bilgi penceresi Tamam'a basilmasini engelliyordu
@@ -969,6 +987,14 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     acik_pencereleri_kapat(page, log)
     yaz("    Firma seciliyor", log)
     firma_sec(page, firma, log)
+    donem_bas, donem_bit = calisma_donemi(page)
+    istenen_bas = tarih_cozumle(araliklar[0][0])
+    istenen_bit = tarih_cozumle(araliklar[-1][1])
+    if donem_bit and (donem_bit < istenen_bas or (donem_bas and donem_bas > istenen_bit)):
+        yaz(f"    Firma donemi {donem_bas:%d/%m/%Y}-{donem_bit:%d/%m/%Y}, istenen tarihlerin disinda", log)
+        sonuc["durum"] = "donem disi"
+        return sonuc
+
     yaz("    Menuye gidiliyor", log)
     menuye_git(page, belge_tipi)
 
