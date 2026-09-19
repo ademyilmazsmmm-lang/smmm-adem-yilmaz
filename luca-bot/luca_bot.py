@@ -1419,10 +1419,6 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         if not interaktif:  # interaktif V.D. ekraninda belge indirme butonu yok
             yol = indir(page, "Seçilenleri İndir", klasor, "belgeler", log,
                         azami_saniye=AYAR["indirme_saniye"])
-            if not sayfa_canli(page):
-                # tarayici indirme sirasinda coktu: firmayi 'tamam' sayma,
-                # ana donguye birak, tarayici yeniden acilip firma tekrar denensin
-                raise RuntimeError("tarayici indirme sirasinda kapandi")
             if yol:
                 sonuc["dosyalar"].append(yol.name)
                 if yol.suffix.lower() == ".zip":
@@ -1434,6 +1430,16 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                                                 len(tevkifatlilar), len(xml_tevkifat))
                         yaz(f"    XML'de {len(xml_tevkifat)} tevkifatli fatura bulundu"
                             f" (toplam {sonuc['tevkifat']})", log)
+            if not sayfa_canli(page):
+                if yol:
+                    # belge paketi elimizde; firmayi tekrar sorgulamaya gerek yok
+                    yaz("    Belgeler indi ama tarayici kapandi;"
+                        " Excel ve iptal/itiraz bu firmada atlandi", log)
+                    sonuc["durum"] = "tamam (excel/iptal eksik)"
+                    sonuc["not"] = "tarayici indirmeden sonra kapandi"
+                    return sonuc
+                # dosya yok: firmayi 'tamam' sayma, ana dongu bastan denesin
+                raise RuntimeError("tarayici indirme sirasinda kapandi")
 
         if AYAR["iptal_itiraz"]:
             try:

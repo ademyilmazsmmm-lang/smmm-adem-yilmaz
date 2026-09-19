@@ -22,7 +22,7 @@ SUTUNLAR = [
 
 # kotu durum once gelsin; firmanin genel durumu bunlarin en kotusudur
 DURUM_ONCELIGI = ["hata", "dosya inmedi", "kaynaktan inmedi", "donem disi", "fatura yok",
-                  "tamam", "bekliyor"]
+                  "tamam (excel", "tamam", "bekliyor"]
 
 BASLIKLAR = (["Firma", "Dönem", "Durum", "Aksiyon"]
              + [ad for _, ad in SUTUNLAR]
@@ -93,6 +93,8 @@ def _aksiyon(kayit):
     durum = _genel_durum(kayit["durumlar"])
     if durum.startswith("hata"):
         isler.append("HATA - tekrar calistir")
+    if durum.startswith("tamam (excel"):
+        isler.append("EXCEL/IPTAL EKSIK - belgeler indi, ikinci turda tamamla")
     if durum.startswith("dosya inmedi"):
         isler.append("DOSYA INMEDI - tekrar calistir")
     if sum(kayit["inmeyen"].values()):
