@@ -1851,6 +1851,10 @@ def main():
     AYAR["iptal_itiraz"] = bool(ayarlar.get("iptal_itiraz_sorgula", True)) and not args.iptal_itiraz_atla
     AYAR["donem_degistir"] = bool(ayarlar.get("donem_degistir", True)) and not args.donem_degistirme
     AYAR["chrome_gunlugu"] = bool(args.chrome_gunlugu)
+    if AYAR["chrome_gunlugu"]:
+        # Playwright'in tarayici cikis mesajlarini ekrana bassin; cokme sebebi
+        # genelde burada yaziyor ("Target crashed", exit code, stderr)
+        os.environ["DEBUG"] = "pw:browser"
     AYAR["tarayici"] = args.tarayici or ayarlar.get("tarayici") or None
     hata_siniri = max(1, int(ayarlar.get("ardisik_hata_siniri", 5)))
 
