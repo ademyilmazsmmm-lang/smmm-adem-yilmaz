@@ -65,7 +65,7 @@ KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engelle
     "Belge Seç": "Alt+b",
 }
 
-AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True, "chrome_gunlugu": False, "tarayici": None, "profil_yerel": False, "indirmeyi_yakala": False}  # ayarlar.json ile degistirilebilir
+AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True, "chrome_gunlugu": False, "tarayici": None, "profil_yerel": False, "indirmeyi_yakala": True}  # ayarlar.json ile degistirilebilir
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
@@ -1094,6 +1094,9 @@ def indir_yakalayarak(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=
     """
     ctx = page.context
     alinan = {}
+    inenler = []  # route ile yakalanamazsa tarayici indirmesi yedek kalsin
+    dinleyici = lambda d: inenler.append(d)
+    page.on("download", dinleyici)
 
     def yonlendir(route):
         try:
@@ -1139,7 +1142,7 @@ def indir_yakalayarak(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=
         sure = 5 if (pencere is not None and not onay) else azami_saniye
         uyari = None
         bitis = time.time() + sure
-        while time.time() < bitis and "govde" not in alinan:
+        while time.time() < bitis and "govde" not in alinan and not inenler:
             if fatura_yok_penceresini_kapat(page):
                 uyari = "Luca: fatura bulunamadi"
                 break
@@ -1154,6 +1157,13 @@ def indir_yakalayarak(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=
             yaz(f"    indirildi (yakalanarak): {yol.name}", log)
             return yol
 
+        if inenler:  # istek yakalanamadi ama tarayici indirdi
+            dosya = inenler[0]
+            yol = hedef_klasor / f"{on_ek}_{dosya.suggested_filename}"
+            dosya.save_as(str(yol))
+            yaz(f"    indirildi: {yol.name}", log)
+            return yol
+
         if uyari:
             yaz(f"    Luca uyarisi: {uyari}", log)
         else:
@@ -1165,6 +1175,10 @@ def indir_yakalayarak(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=
     finally:
         try:
             ctx.unroute("**/*", yonlendir)
+        except Exception:
+            pass
+        try:
+            page.remove_listener("download", dinleyici)
         except Exception:
             pass
         if sayfa_canli(page):
@@ -1905,9 +1919,8 @@ def main():
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
-    p.add_argument("--indirmeyi-yakala", action="store_true",
-                   help="Dosyayi tarayiciya indirtme, istegi yakalayip kendin kaydet"
-                        " (tarayici indirmede cokuyorsa)")
+    p.add_argument("--tarayici-indirsin", action="store_true",
+                   help="Dosyayi tarayici indirsin (varsayilan: istek yakalanip kaydedilir)")
     p.add_argument("--profil-yerel", action="store_true",
                    help="Tarayici profilini program klasoru yerine %LOCALAPPDATA% altinda tut")
     p.add_argument("--tarayici", choices=["chrome", "edge", "chromium"],
@@ -1943,7 +1956,8 @@ def main():
     AYAR["donem_degistir"] = bool(ayarlar.get("donem_degistir", True)) and not args.donem_degistirme
     AYAR["chrome_gunlugu"] = bool(args.chrome_gunlugu)
     AYAR["profil_yerel"] = bool(args.profil_yerel) or bool(ayarlar.get("profil_yerel", False))
-    AYAR["indirmeyi_yakala"] = bool(args.indirmeyi_yakala) or bool(ayarlar.get("indirmeyi_yakala", False))
+    AYAR["indirmeyi_yakala"] = (bool(ayarlar.get("indirmeyi_yakala", True))
+                                and not args.tarayici_indirsin)
     if AYAR["chrome_gunlugu"]:
         # Playwright'in tarayici cikis mesajlarini ekrana bassin; cokme sebebi
         # genelde burada yaziyor ("Target crashed", exit code, stderr)

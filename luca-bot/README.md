@@ -35,7 +35,6 @@ python -m playwright install chromium
 | `calistir.bat` | Tarih aralığını sorar, faturaları çeker. Firma adı sorulduğunda boş bırakırsanız tüm firmalar işlenir |
 | `interaktif-earsiv.bat` | İnteraktif Vergi Dairesi ekranından e-Arşiv faturalarını sorgular (GİB Servis ile, 2 kez) |
 | `bagimsiz-tarayici-ile-calistir.bat` | Chrome ve Edge çöküyorsa: Playwright Chromium ile çalışır (güvenlik yazılımlarının kancası dışında kalır) |
-| `indirtmeden-calistir.bat` | Tarayıcı indirme anında çöküyorsa: dosyayı tarayıcıya indirtmeden, isteği yakalayıp kaydeder |
 | `edge-ile-calistir.bat` | Chrome indirme sırasında çöküyorsa Edge ile çalıştırır |
 | `gece-calistir.bat` | Tüm firmalar için çalışır, iş bitince tarayıcıyı kendisi kapatır (gece bırakıp gitmek için) |
 
@@ -107,6 +106,16 @@ belge indirme butonu yoktur. Akış: tarih aralığı → **İnteraktif V.D'sind
 → **GİB Servis ile Sorgula** (iki kez) → tümünü seç → **GİB'den İptal/İtiraz Sorgula** → **Excel**.
 
 İlk 3 firmayla denemek için `--limit 3` ekleyebilirsiniz.
+
+## Dosyalar nasıl iniyor
+
+Dosyayı tarayıcı indirmez: bot indirme isteğini yakalar, gövdeyi kendisi alır ve diske yazar.
+Sebebi, bu makinede Chrome'un indirmeyi kaydettiği anda çökmesi (`AddKeepAlive kDownloadInProgress`)
+— hem Chrome hem Edge hem de Playwright Chromium'da aynı şekilde. İstek yakalandığı için tarayıcının
+indirme mekanizması hiç devreye girmiyor. Yakalama olmazsa tarayıcı indirmesi yedek olarak dinleniyor.
+
+Eski davranışa dönmek için: `python luca_bot.py --tarayici-indirsin` veya `ayarlar.json`'da
+`"indirmeyi_yakala": false`.
 
 ## Çalışırken ne oluyor
 
