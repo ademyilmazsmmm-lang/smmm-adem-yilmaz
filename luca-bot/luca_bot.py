@@ -1596,7 +1596,10 @@ def tarayici_ac(pw, profil, log, gunluk=False):
             ctx = pw.chromium.launch_persistent_context(
                 str(kanal_yolu), headless=False, accept_downloads=True,
                 args=["--start-maximized"] + (["--enable-logging", "--v=1"] if gunluk else []),
-                ignore_default_args=["--enable-automation"],
+                # Playwright varsayilan olarak --disable-breakpad geciyor; tani
+                # modunda kaldiriyoruz ki cokme Windows olay gunlugune dussun
+                ignore_default_args=["--enable-automation"]
+                + (["--disable-breakpad"] if gunluk else []),
                 chromium_sandbox=True, no_viewport=True, **secenekler
             )
             yaz(f"Tarayici: {ad}", log)
