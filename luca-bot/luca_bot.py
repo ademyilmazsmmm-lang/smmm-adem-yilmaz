@@ -480,7 +480,12 @@ def metin_iceren_sayfa(page, metin, sure=800):
 
 
 def islem_gunlugu(page):
-    """Acik Luca penceresinin (Islem Takip) metni; ilerleme takibi icin kullanilir."""
+    """Islem Takip penceresinin metni; pencere kapaliysa bos doner.
+
+    Tarih diyalogu da .luca-open-window oldugu icin yalnizca islem gunlugu
+    isaretlerini tasiyan pencere kabul edilir.
+    """
+    isaretler = [i.lower() for i in ISLEM_ISARETLERI] + [ISLEM_BITTI]
     sayfalar = [page]
     try:
         sayfalar += [p for p in page.context.pages if p is not page and not p.is_closed()]
@@ -490,8 +495,13 @@ def islem_gunlugu(page):
         for fr in cerceveler(p):
             try:
                 loc = fr.locator(".luca-open-window")
-                if loc.count() and loc.first.is_visible():
-                    return loc.first.inner_text()
+                for i in range(loc.count()):
+                    pencere = loc.nth(i)
+                    if not pencere.is_visible():
+                        continue
+                    metin = pencere.inner_text() or ""
+                    if any(isaret in metin.lower() for isaret in isaretler):
+                        return metin
             except Exception:
                 continue
     return ""
@@ -512,66 +522,66 @@ def indirilemeyen_sayisi(sayfa):
     return 0
 
 
-def islem_takibini_bekle(page, log, azami_saniye=900, en_az_saniye=4, durgunluk_saniye=180):
+def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180, pencere_bekleme=25):
     """Sorgu bitene kadar bekler; indirilemeyen fatura sayisini dondurur (-1: tamamlanmadi).
 
-    Sabit sure yerine ilerlemeye bakilir: Islem Takip penceresindeki yazi
-    durgunluk_saniye boyunca hic degismezse sorgu takilmis sayilir.
+    Bitis uc sekilde anlasilir: gunlukte "sona erdi" yazmasi, pencerenin
+    kendiliginden kapanmasi (hizli biten sorgularda boyle oluyor) veya
+    yazinin durgunluk_saniye boyunca hic degismemesi.
     """
     basla = time.time()
     pencere_goruldu = False
-    son_bildirim = 0
-    son_kontrol = -99
+    son_gunluk = ""
     son_degisim = time.time()
-    onceki_gunluk = None
+    son_bildirim = 0
 
     while True:
         gecen = time.time() - basla
+        gunluk = islem_gunlugu(page)
 
-        if gecen - son_kontrol >= 10:
-            son_kontrol = gecen
-            gunluk = islem_gunlugu(page)
-            if gunluk and gunluk != onceki_gunluk:
-                onceki_gunluk = gunluk
+        if gunluk:
+            if not pencere_goruldu:
+                pencere_goruldu = True
+                yaz("    İşlem Takip penceresi acildi, sorgu suruyor...", log)
+            if gunluk != son_gunluk:
+                son_gunluk = gunluk
                 son_degisim = time.time()
-            elif pencere_goruldu and onceki_gunluk and time.time() - son_degisim > durgunluk_saniye:
+
+            if ISLEM_BITTI in gunluk.lower():
+                basarisiz = gunluk.lower().count(INDIRILEMEDI)
+                yaz(f"    GİB sorgusu tamamlandi ({int(gecen)} sn)"
+                    + (f", {basarisiz} fatura indirilemedi" if basarisiz else ""), log)
+                varsa_tikla(page, ["Kapat"], sure=4000)
+                page.wait_for_timeout(1000)
+                return basarisiz
+
+            if time.time() - son_degisim > durgunluk_saniye:
                 sure_metni = (f"{int(durgunluk_saniye // 60)} dk" if durgunluk_saniye >= 60
                               else f"{int(durgunluk_saniye)} sn")
                 yaz(f"    Sorgu {sure_metni} boyunca ilerlemedi, takildi sayiliyor", log)
-                basarisiz = indirilemeyen_sayisi(page)
                 varsa_tikla(page, ["Kapat"], sure=3000)
-                return basarisiz
+                return son_gunluk.lower().count(INDIRILEMEDI)
+
+        elif pencere_goruldu:
+            # pencere kendiliginden kapandi: sorgu bitmis demektir
+            basarisiz = son_gunluk.lower().count(INDIRILEMEDI)
+            yaz(f"    GİB sorgusu tamamlandi ({int(gecen)} sn, pencere kapandi)"
+                + (f", {basarisiz} fatura indirilemedi" if basarisiz else ""), log)
+            return basarisiz
+
+        elif gecen > pencere_bekleme:
+            yaz(f"    İşlem Takip penceresi {int(gecen)} sn icinde gorunmedi, devam ediliyor", log)
+            return 0
 
         if gecen > azami_saniye:
             yaz(f"    UYARI: GİB sorgusu {int(gecen)} sn sonra zaman asimina ugradi", log)
             varsa_tikla(page, ["Kapat"], sure=3000)
             return -1
 
-        # onceki sorgunun "sona erdi" yazisi ekranda kalmis olabilir; ilk saniyeler yok sayilir
-        bitti = metin_iceren_sayfa(page, ISLEM_BITTI) if gecen >= en_az_saniye else None
-        if bitti:
-            basarisiz = indirilemeyen_sayisi(bitti)
-            yaz(f"    GİB sorgusu tamamlandi ({int(gecen)} sn)"
-                + (f", {basarisiz} fatura indirilemedi" if basarisiz else ""), log)
-            varsa_tikla(bitti, ["Kapat"], sure=4000)
-            page.wait_for_timeout(1500)
-            return basarisiz
-
-        if not pencere_goruldu:
-            for isaret in ISLEM_ISARETLERI:
-                if metin_iceren_sayfa(page, isaret):
-                    pencere_goruldu = True
-                    yaz(f"    Sorgu suruyor ('{isaret}' gorundu)...", log)
-                    break
-
-        if not pencere_goruldu and gecen > 75:
-            yaz("    İşlem Takip penceresi gorunmedi, devam ediliyor", log)
-            return 0
-
         if gecen - son_bildirim >= 15:
             son_bildirim = gecen
             yaz(f"    ... bekleniyor ({int(gecen)} sn)", log)
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(1500)
 
 
 def gibden_getir(page, baslangic, bitis, log):
