@@ -259,6 +259,31 @@ def diyalogda_tikla(page, metinler, sure=4000):
     return None
 
 
+def diyalogda_tumunu_sec(page):
+    """Indirme penceresindeki 'Tum faturalari secmek icin buraya' baglantisina tiklar.
+
+    Pencerede iki 'buraya' var; ilki tum faturalar, ikincisi yalnizca
+    onaylanmis faturalar icin.
+    """
+    _, pencere = acik_pencere(page)
+    if pencere is None:
+        return False
+    for kurucu in (
+        lambda: pencere.get_by_text("Tüm faturaları", exact=False).first.get_by_text("buraya", exact=False),
+        lambda: pencere.get_by_role("link", name="buraya", exact=True),
+        lambda: pencere.get_by_text("buraya", exact=True),
+    ):
+        try:
+            loc = kurucu()
+            if loc.count() and loc.first.is_visible():
+                loc.first.click(timeout=4000)
+                page.wait_for_timeout(1000)
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def acik_pencereleri_kapat(page, log=None):
     for deneme in range(4):
         fr, pencere = acik_pencere(page)
@@ -783,7 +808,10 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=120):
             if not tiklandi and kisayol:
                 page.keyboard.press(kisayol)
             page.wait_for_timeout(2500)
-            onay = diyalogda_tikla(page, INDIRME_ONAY)  # "Secilenleri Indir" onay penceresi aciyor
+            # Onay penceresi: once "Tum faturalari secmek icin buraya", sonra indirme butonu
+            if diyalogda_tumunu_sec(page):
+                yaz("    Onay penceresinde 'tum faturalar' secildi", log)
+            onay = diyalogda_tikla(page, INDIRME_ONAY)
             if onay:
                 yaz(f"    Onay penceresinde '{onay}' tiklandi", log)
         dosya = bilgi.value
