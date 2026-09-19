@@ -236,12 +236,29 @@ def acik_pencere(page):
 
 
 def diyalogda_tikla(page, metinler, sure=4000):
-    """Butona acik diyalogun icinden basar.
-
-    Onay penceresindeki buton araç cubugundakiyle ayni adi tasiyor
-    ('Secilenleri Indir'); kapsam daraltilmazsa yanlis olanina basiliyor.
-    """
     _, pencere = indirme_diyalogu(page)
+    return pencerede_tikla(page, pencere, metinler, sure)
+
+
+DIYALOG_CAPASI = "Tüm faturaları seçmek için"
+FATURA_YOK_CAPASI = "fatura bulunamadı"
+
+
+def metinli_diyalog(page, capa):
+    """Diyalogu sinif adina degil, icindeki yaziya gore bulur."""
+    for fr in cerceveler(page):
+        for secici in ("div", "table", "form"):
+            try:
+                loc = fr.locator(secici).filter(has_text=capa)
+                if loc.count() and loc.last.is_visible():
+                    return fr, loc.last
+            except Exception:
+                continue
+    return None, None
+
+
+def pencerede_tikla(page, pencere, metinler, sure=4000):
+    """Butona pencerenin icinden basar (yan yana duran Tamam/Iptal karismasin diye)."""
     if pencere is None:
         return None
     for metin in metinler:
@@ -259,19 +276,21 @@ def diyalogda_tikla(page, metinler, sure=4000):
     return None
 
 
-DIYALOG_CAPASI = "Tüm faturaları seçmek için"
+def fatura_yok_penceresini_kapat(page):
+    """'Her hangi bir fatura bulunamadi' penceresi Tamam beklerken akisi kilitliyor."""
+    _, pencere = metinli_diyalog(page, FATURA_YOK_CAPASI)
+    if pencere is None:
+        return False
+    if not pencerede_tikla(page, pencere, ["Tamam"]):
+        varsa_tikla(page, ["Tamam"], sure=2000)
+    page.wait_for_timeout(500)
+    return True
 
 
 def indirme_diyalogu(page):
-    """Indirme penceresini sinif adina degil, kendi yazisina bakarak bulur."""
-    for fr in cerceveler(page):
-        for secici in ("div", "table", "form"):
-            try:
-                loc = fr.locator(secici).filter(has_text=DIYALOG_CAPASI)
-                if loc.count() and loc.last.is_visible():
-                    return fr, loc.last
-            except Exception:
-                continue
+    fr, pencere = metinli_diyalog(page, DIYALOG_CAPASI)
+    if pencere is not None:
+        return fr, pencere
     _, pencere = acik_pencere(page)
     return (None, pencere) if pencere is not None else (None, None)
 
@@ -605,6 +624,11 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180, penc
 
     while True:
         gecen = time.time() - basla
+
+        if fatura_yok_penceresini_kapat(page):
+            yaz(f"    Luca: fatura bulunamadi ({int(gecen)} sn)", log)
+            return 0
+
         gunluk = islem_gunlugu(page)
 
         if gunluk:
@@ -844,6 +868,9 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30):
         uyari = None
         bitis = time.time() + sure
         while time.time() < bitis and not indirilenler:
+            if fatura_yok_penceresini_kapat(page):
+                uyari = "Luca: fatura bulunamadi"
+                break
             uyari = uyari_metni(page)
             if uyari:
                 break
