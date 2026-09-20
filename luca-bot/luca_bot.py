@@ -1397,6 +1397,13 @@ def interaktif_sorgula(page, araliklar, log):
             acik_pencereleri_kapat(page, log)
             calisan += 1
             page.wait_for_timeout(1500)
+
+    # bu ekranda sorgu listeyi kendiliginden doldurmuyor
+    if dugmeye_bas(page, INTERAKTIF_LISTELE, sure=5000):
+        yaz(f"    '{INTERAKTIF_LISTELE}' tiklandi", log)
+        page.wait_for_timeout(3000)
+    else:
+        yaz(f"    UYARI: '{INTERAKTIF_LISTELE}' butonu bulunamadi", log)
     return calisan
 
 
@@ -1534,9 +1541,10 @@ def excelden_satirlar(yol, log=None):
         yaz(f"    Excel acilamadi ({type(e).__name__})", log)
         return []
 
-    tum_satirlar, secilenler = [], []
+    tum_satirlar, secilenler, sayfa_sayisi = [], [], 0
     try:
         for ws in wb.worksheets:
+            sayfa_sayisi += 1
             for ham in ws.iter_rows(values_only=True):
                 hucreler = []
                 for h in ham:
@@ -1563,6 +1571,7 @@ def excelden_satirlar(yol, log=None):
         yaz(f"    Excel'de tarih/fatura no taninmadi, {len(tum_satirlar) - 1}"
             " satir oldugu gibi alindi", log)
         return tum_satirlar[1:]
+    yaz(f"    Excel'de veri yok (dolu satir: {len(tum_satirlar)}, sayfa: {sayfa_sayisi})", log)
     return []
 
 
