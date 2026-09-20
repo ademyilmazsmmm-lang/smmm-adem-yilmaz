@@ -1169,6 +1169,8 @@ def indir_yakalayarak(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=
 
     ctx.route("**/*", yonlendir)
     try:
+        # onceki adimdan kalan bildirim yeni indirmeye karismasin
+        fatura_yok_penceresini_kapat(page)
         if not dugmeye_bas(page, dugme_metni, sure=8000):
             yaz(f"    '{dugme_metni}' butonuna basilamadi, atlandi", log)
             return None
@@ -1188,8 +1190,9 @@ def indir_yakalayarak(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=
         sure = 5 if (pencere is not None and not onay) else azami_saniye
         uyari = None
         bitis = time.time() + sure
+        basla = time.time()
         while time.time() < bitis and "govde" not in alinan and not inenler:
-            if fatura_yok_penceresini_kapat(page):
+            if time.time() - basla >= 2 and fatura_yok_penceresini_kapat(page):
                 uyari = "Luca: fatura bulunamadi"
                 break
             uyari = uyari_metni(page)
@@ -1253,6 +1256,7 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30, pencere_
     dinleyici = lambda d: indirilenler.append(d)
     page.on("download", dinleyici)
     try:
+        fatura_yok_penceresini_kapat(page)  # onceki adimdan kalan bildirim
         if not dugmeye_bas(page, dugme_metni, sure=8000):
             yaz(f"    '{dugme_metni}' butonuna basilamadi, atlandi", log)
             return None
@@ -1276,8 +1280,9 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30, pencere_
         sure = 5 if (diyalog_var and not onay) else azami_saniye
         uyari = None
         bitis = time.time() + sure
+        basla = time.time()
         while time.time() < bitis and not indirilenler:
-            if fatura_yok_penceresini_kapat(page):
+            if time.time() - basla >= 2 and fatura_yok_penceresini_kapat(page):
                 uyari = "Luca: fatura bulunamadi"
                 break
             uyari = uyari_metni(page)
