@@ -1560,18 +1560,26 @@ def zipten_tevkifatlilar(zip_yolu):
     return bulunan
 
 
-def excelden_satirlar(yol, log=None):
-    """Inen Excel'den fatura satirlarini okur (ekrandaki liste okunamazsa).
+def _hucre_metni(h):
+    if h is None:
+        return ""
+    if isinstance(h, (datetime, date)):
+        return h.strftime(TARIH_BICIMI)
+    return str(h).strip()
 
-    Once tarih/fatura no tasiyan satirlar aranir; hicbiri tutmazsa baslik
-    disindaki dolu satirlar oldugu gibi alinir (Luca sutun duzenini
-    degistirebiliyor).
+
+def excelden_tablo(yol, log=None):
+    """Inen Excel'i (basliklar, satirlar) olarak okur; sutunlar yerinde kalir.
+
+    Ekrandaki tabloyu kazimak yerine inen dosyayi kaynak almak daha saglam:
+    sutun basliklari belli oldugu icin tevkifat ve iptal/itiraz dogrudan
+    kendi sutunlarindan okunabiliyor.
     """
     try:
         from openpyxl import load_workbook
     except ImportError:
         yaz("    openpyxl kurulu degil, Excel okunamadi", log)
-        return []
+        return [], []
     try:
         import warnings
         with warnings.catch_warnings():
@@ -1579,24 +1587,21 @@ def excelden_satirlar(yol, log=None):
             wb = load_workbook(str(yol), read_only=True, data_only=True)
     except Exception as e:
         yaz(f"    Excel acilamadi ({type(e).__name__})", log)
-        return []
+        return [], []
 
-    tum_satirlar, secilenler, sayfa_sayisi = [], [], 0
+    basliklar, satirlar = [], []
     try:
         for ws in wb.worksheets:
-            sayfa_sayisi += 1
             for ham in ws.iter_rows(values_only=True):
-                hucreler = []
-                for h in ham:
-                    if h is None or h == "":
-                        continue
-                    hucreler.append(h.strftime(TARIH_BICIMI) if isinstance(h, (datetime, date))
-                                    else str(h).strip())
-                if len(hucreler) < 3:
+                hucreler = [_hucre_metni(h) for h in ham]
+                while hucreler and not hucreler[-1]:
+                    hucreler.pop()
+                if len([h for h in hucreler if h]) < 2:
                     continue
-                tum_satirlar.append(hucreler)
-                if any(TARIH_DESENI.search(h) for h in hucreler) or fatura_kimligi(hucreler):
-                    secilenler.append(hucreler)
+                if not basliklar:
+                    basliklar = hucreler
+                else:
+                    satirlar.append(hucreler)
     except Exception as e:
         yaz(f"    Excel okunurken hata ({type(e).__name__})", log)
     finally:
@@ -1604,15 +1609,72 @@ def excelden_satirlar(yol, log=None):
             wb.close()
         except Exception:
             pass
+    return basliklar, satirlar
 
-    if secilenler:
-        return secilenler
-    if len(tum_satirlar) > 1:  # ilk satir baslik kabul edilir
-        yaz(f"    Excel'de tarih/fatura no taninmadi, {len(tum_satirlar) - 1}"
-            " satir oldugu gibi alindi", log)
-        return tum_satirlar[1:]
-    yaz(f"    Excel'de veri yok (dolu satir: {len(tum_satirlar)}, sayfa: {sayfa_sayisi})", log)
-    return []
+
+def excelden_satirlar(yol, log=None):
+    basliklar, satirlar = excelden_tablo(yol, log)
+    if not satirlar:
+        yaz(f"    Excel'de veri yok (baslik: {len(basliklar)} sutun)", log)
+    return satirlar
+
+
+def sutun_indeksi(basliklar, *anahtarlar):
+    """Basligi anahtari iceren ilk sutunun sirasi; yoksa None."""
+    for i, baslik in enumerate(basliklar):
+        duz = sadelestir(baslik)
+        if any(a in duz for a in anahtarlar):
+            return i
+    return None
+
+
+BOS_DEGERLER = {"", "0", "0,00", "0.00", "-", "YOK", "HAYIR"}
+
+
+def sutunlu_satirlar(basliklar, satirlar, *anahtarlar):
+    """Belirtilen sutunu dolu olan satirlar; sutun yoksa None doner."""
+    i = sutun_indeksi(basliklar, *anahtarlar)
+    if i is None:
+        return None
+    return [s for s in satirlar
+            if i < len(s) and sadelestir(s[i]) not in BOS_DEGERLER]
+
+
+def excelden_sonuca_isle(sonuc, yol, klasor, log):
+    """Inen Excel'i asil kaynak alir: satirlar, tevkifat ve iptal/itiraz.
+
+    Ekran kazimaya gore guvenilir, cunku sutun basliklari belli.
+    """
+    basliklar, satirlar = excelden_tablo(yol, log)
+    if not satirlar:
+        return []
+    yaz(f"    Excel'den {len(satirlar)} satir okundu", log)
+    sonuc["fatura_sayisi"] = len(satirlar)
+    sonuc["faturalar"] = [list(k) for k in fatura_kimlikleri(satirlar)]
+    with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
+        csv.writer(f).writerows([basliklar] + satirlar)
+
+    tevkifatlilar = sutunlu_satirlar(basliklar, satirlar, "TEVKIFAT")
+    kaynak = "Tevkifat sutunu"
+    if tevkifatlilar is None:  # sutun yoksa satir metninde ara
+        tevkifatlilar, kaynak = tevkifatli_satirlar(satirlar), "satir metni"
+    if len(tevkifatlilar) > sonuc.get("tevkifat", 0):
+        sonuc["tevkifat"] = len(tevkifatlilar)
+    if tevkifatlilar:
+        with open(klasor / "tevkifatli.csv", "w", encoding="utf-8-sig", newline="") as f:
+            csv.writer(f).writerows([basliklar] + tevkifatlilar)
+        yaz(f"    DIKKAT: {len(tevkifatlilar)} tevkifatli fatura ({kaynak}, KDV2)", log)
+
+    iptaller = sutunlu_satirlar(basliklar, satirlar, "IPTAL", "ITIRAZ")
+    if iptaller is None:
+        iptaller = iptal_itiraz_satirlari(satirlar)
+    if len(iptaller) > sonuc.get("iptal_itiraz", 0):
+        sonuc["iptal_itiraz"] = len(iptaller)
+    if iptaller:
+        with open(klasor / "iptal-itiraz.csv", "w", encoding="utf-8-sig", newline="") as f:
+            csv.writer(f).writerows([basliklar] + iptaller)
+        yaz(f"    DIKKAT: {len(iptaller)} faturada iptal/itiraz var", log)
+    return satirlar
 
 
 def tevkifatli_satirlar(satirlar):
@@ -1701,18 +1763,15 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     tevkifatlilar, ekran_tevkifat = [], set()
     excel_alindi = False
 
-    if not satirlar:
-        # ekrandaki liste okunamamis olabilir; Excel'i indirip oradan okuruz
+    if not satirlar and interaktif:
+        # e-Arsiv ekraninda liste okunamayabiliyor; Excel'i indirip oradan okuruz
         yol = indirme_islevi()(page, "Excel", klasor, "liste", log,
                                azami_saniye=AYAR["indirme_saniye"], pencere_acilir=False)
         if yol:
             excel_alindi = True
             sonuc["dosyalar"].append(yol.name)
-            satirlar = excelden_satirlar(yol, log)
-            if satirlar:
-                yaz(f"    Excel'den {len(satirlar)} satir okundu", log)
-                sonuc["fatura_sayisi"] = len(satirlar)
-            else:
+            satirlar = excelden_sonuca_isle(sonuc, yol, klasor, log)
+            if not satirlar:
                 yaz("    Excel'de de satir bulunamadi", log)
 
     if satirlar:
@@ -1772,6 +1831,10 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                                    azami_saniye=AYAR["indirme_saniye"], pencere_acilir=False)
             if yol:
                 sonuc["dosyalar"].append(yol.name)
+                if interaktif:  # e-Arsiv ekraninda ekran yerine inen dosya kaynak
+                    excel_satirlari = excelden_sonuca_isle(sonuc, yol, klasor, log)
+                    if excel_satirlari:
+                        satirlar = excel_satirlari
         if AYAR["iptal_itiraz"]:
             try:
                 # liste Excel'den okunmus olabilir; ekranda secim yapilmali
@@ -1809,6 +1872,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                                                    pencere_acilir=False)
                         if son_yol:
                             sonuc["dosyalar"].append(son_yol.name)
+                            excelden_sonuca_isle(sonuc, son_yol, klasor, log)
             except Exception as e:
                 yaz(f"    Iptal/itiraz sorgusu yapilamadi ({type(e).__name__}: {e})", log)
                 acik_pencereleri_kapat(page, log)
