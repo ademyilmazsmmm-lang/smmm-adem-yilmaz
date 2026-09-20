@@ -1161,7 +1161,13 @@ def indir_yakalayarak(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=
             if not alinan and yanit_dosya_mi(basliklar):
                 alinan["ad"] = yanit_dosya_adi(basliklar, on_ek)
                 alinan["govde"] = yanit.body()
-                route.abort()  # tarayici indirme baslatmasin
+                # abort edilirse Luca'nin cercevesi "sayfa kullanilamiyor"
+                # hatasina dusup ekrani bozuyordu; 204 ile tarayici bulundugu
+                # sayfada kalir, indirme de baslamaz
+                try:
+                    route.fulfill(status=204, body="")
+                except Exception:
+                    route.abort()
                 return
             route.fulfill(response=yanit)
         except Exception:
