@@ -1799,8 +1799,11 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                 csv.writer(f).writerows(tevkifatlilar)
             yaz(f"    DIKKAT: {len(tevkifatlilar)} tevkifatli fatura (KDV2)", log)
 
-    if satirlar:
-        secilen = hepsini_sec(page, fr, len(satirlar)) if fr is not None else 0
+    # satir listesi cikarilamasa bile ekranda kayit varsa islemler yapilmali
+    # (iptal/itiraz bu yuzden atlaniyordu)
+    satir_sayisi = len(satirlar) or (sayi or 0)
+    if satir_sayisi:
+        secilen = hepsini_sec(page, fr, satir_sayisi) if fr is not None else 0
         if secilen:
             yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
         else:
@@ -1839,7 +1842,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             kutular, kutu_sayisi, guncel_fr = secim_kutulari(page)
             if guncel_fr is not None:
                 fr = guncel_fr
-                hepsini_sec(page, fr, len(satirlar))
+                hepsini_sec(page, fr, satir_sayisi)
             yol = indirme_islevi()(page, "Excel", klasor, "liste", log,
                                    azami_saniye=AYAR["indirme_saniye"], pencere_acilir=False)
             if yol:
@@ -1854,7 +1857,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                 kutular, kutu_sayisi, secim_fr = secim_kutulari(page)
                 if secim_fr is not None:
                     fr = secim_fr
-                    hepsini_sec(page, fr, len(satirlar))
+                    hepsini_sec(page, fr, satir_sayisi)
                 if iptal_itiraz_sorgula(page, araliklar, log):
                     # sorgu durum sutununu degistirir; liste yeniden okunur
                     kutular, kutu_sayisi, yeni_fr = secim_kutulari(page)
@@ -1879,7 +1882,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                         # guncel durumlu ikinci bir kopya alinir
                         kutular, kutu_sayisi, son_fr = secim_kutulari(page)
                         if son_fr is not None:
-                            hepsini_sec(page, son_fr, len(satirlar))
+                            hepsini_sec(page, son_fr, satir_sayisi)
                         son_yol = indirme_islevi()(page, "Excel", klasor, "liste-son", log,
                                                    azami_saniye=AYAR["indirme_saniye"],
                                                    pencere_acilir=False)
