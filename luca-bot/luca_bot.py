@@ -548,7 +548,8 @@ def firma_sec(page, firma_adi, log=None):
         if firma_dogrula(page, firma_adi):
             break
         varsa_tikla(page, KAPAT_METINLERI, sure=1200)
-        acik_pencereleri_kapat(page)
+        sayfayi_toparla(page)  # gorunmez diyalog Tamam'i engelliyor olabilir
+        page.wait_for_timeout(1000)
     else:
         # dogrulanmadan devam edilirse baska firmanin faturalari cekilir; bu firmayi atla
         raise LookupError(f"'{firma_adi}' secimi onaylanamadi (Tamam gecmedi), firma atlandi")
@@ -1504,17 +1505,28 @@ def zipten_tevkifatlilar(zip_yolu):
     return bulunan
 
 
-def excelden_satirlar(yol):
-    """Inen Excel'den fatura satirlarini okur (ekrandaki liste okunamazsa)."""
+def excelden_satirlar(yol, log=None):
+    """Inen Excel'den fatura satirlarini okur (ekrandaki liste okunamazsa).
+
+    Once tarih/fatura no tasiyan satirlar aranir; hicbiri tutmazsa baslik
+    disindaki dolu satirlar oldugu gibi alinir (Luca sutun duzenini
+    degistirebiliyor).
+    """
     try:
         from openpyxl import load_workbook
     except ImportError:
+        yaz("    openpyxl kurulu degil, Excel okunamadi", log)
         return []
     try:
-        wb = load_workbook(str(yol), read_only=True, data_only=True)
-    except Exception:
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            wb = load_workbook(str(yol), read_only=True, data_only=True)
+    except Exception as e:
+        yaz(f"    Excel acilamadi ({type(e).__name__})", log)
         return []
-    satirlar = []
+
+    tum_satirlar, secilenler = [], []
     try:
         for ws in wb.worksheets:
             for ham in ws.iter_rows(values_only=True):
@@ -1524,17 +1536,26 @@ def excelden_satirlar(yol):
                         continue
                     hucreler.append(h.strftime(TARIH_BICIMI) if isinstance(h, (datetime, date))
                                     else str(h).strip())
-                if len(hucreler) >= 3 and (any(TARIH_DESENI.search(h) for h in hucreler)
-                                           or fatura_kimligi(hucreler)):
-                    satirlar.append(hucreler)
-    except Exception:
-        pass
+                if len(hucreler) < 3:
+                    continue
+                tum_satirlar.append(hucreler)
+                if any(TARIH_DESENI.search(h) for h in hucreler) or fatura_kimligi(hucreler):
+                    secilenler.append(hucreler)
+    except Exception as e:
+        yaz(f"    Excel okunurken hata ({type(e).__name__})", log)
     finally:
         try:
             wb.close()
         except Exception:
             pass
-    return satirlar
+
+    if secilenler:
+        return secilenler
+    if len(tum_satirlar) > 1:  # ilk satir baslik kabul edilir
+        yaz(f"    Excel'de tarih/fatura no taninmadi, {len(tum_satirlar) - 1}"
+            " satir oldugu gibi alindi", log)
+        return tum_satirlar[1:]
+    return []
 
 
 def tevkifatli_satirlar(satirlar):
@@ -1627,10 +1648,12 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         if yol:
             excel_alindi = True
             sonuc["dosyalar"].append(yol.name)
-            satirlar = excelden_satirlar(yol)
+            satirlar = excelden_satirlar(yol, log)
             if satirlar:
                 yaz(f"    Excel'den {len(satirlar)} satir okundu", log)
                 sonuc["fatura_sayisi"] = len(satirlar)
+            else:
+                yaz("    Excel'de de satir bulunamadi", log)
 
     if satirlar:
         with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
@@ -1691,6 +1714,11 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                 sonuc["dosyalar"].append(yol.name)
         if AYAR["iptal_itiraz"]:
             try:
+                # liste Excel'den okunmus olabilir; ekranda secim yapilmali
+                kutular, kutu_sayisi, secim_fr = secim_kutulari(page)
+                if secim_fr is not None:
+                    fr = secim_fr
+                    hepsini_sec(page, fr, len(satirlar))
                 if iptal_itiraz_sorgula(page, araliklar, log):
                     # sorgu durum sutununu degistirir; liste yeniden okunur
                     kutular, kutu_sayisi, yeni_fr = secim_kutulari(page)
@@ -2240,9 +2268,11 @@ def main():
                 break
 
             try:
-                for tip in args.belge_tipi:
+                for sira, tip in enumerate(args.belge_tipi):
                     if len(args.belge_tipi) > 1:
                         yaz(f"  -- {BELGE_TIPLERI[tip]}", log)
+                    if sira and sayfa_canli(page):
+                        sayfayi_toparla(page)  # onceki ekrandan kalan diyaloglar
                     sonuclar.append(firma_isle(page, firma, tip, araliklar, calisma, log, azami_deneme))
                 ardisik_hata = 0
             except Exception as e:
