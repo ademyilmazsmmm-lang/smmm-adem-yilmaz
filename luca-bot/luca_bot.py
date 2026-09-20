@@ -177,7 +177,9 @@ def metinle_bul(page, metin, sure=15000):
     'Tamam' ve 'Vazgec' ayni kapsayicida oldugu icin kapsayiciya tiklamak
     yanlislikla Vazgec'e denk gelip secimi iptal ediyordu.
     """
-    pay = max(1500, sure // 3)
+    # ilk iki yontem kisa tutulur; bulunamayan her metin icin 3 kez tam sure
+    # beklemek firma+menu adimlarinda saniyeler kaybettiriyordu
+    pay = max(300, sure // 4)
     son_hata = None
     for kurucu, kurucu_sure in (
         (lambda f: f.get_by_role("button", name=metin, exact=True), pay),
@@ -521,7 +523,7 @@ def donem_ayarla(page, firma_adi, istenen_bas, istenen_bit, log=None):
 def firma_sec(page, firma_adi, log=None):
     """Firmanin bulundugu listeyi adiyla secer; secim 'Tamam' ile onaylanip dogrulanir."""
     # giris sonrasi acik kalan bilgi penceresi Tamam'a basilmasini engelliyordu
-    varsa_tikla(page, KAPAT_METINLERI, sure=1500)
+    varsa_tikla(page, KAPAT_METINLERI, sure=600)
     acik_pencereleri_kapat(page)
 
     hedef = None
@@ -555,7 +557,7 @@ def firma_sec(page, firma_adi, log=None):
         raise LookupError(f"'{firma_adi}' secimi onaylanamadi (Tamam gecmedi), firma atlandi")
 
     try:
-        page.wait_for_load_state("networkidle", timeout=15000)
+        page.wait_for_load_state("networkidle", timeout=5000)
     except Exception:
         pass
 
@@ -643,7 +645,7 @@ def modul_menusunden_git(page, hedef):
         madde.click()
         page.wait_for_timeout(2500)
         try:
-            page.wait_for_load_state("networkidle", timeout=15000)
+            page.wait_for_load_state("networkidle", timeout=5000)
         except Exception:
             pass
         return
@@ -681,9 +683,9 @@ def menuye_git(page, belge_tipi):
     if alt is None:
         raise LookupError(f"'{hedef}' menu maddesi bulunamadi. Gorunen menuler: {menu_metinleri(page)}")
     alt.click()
-    page.wait_for_timeout(2500)
+    page.wait_for_timeout(1200)
     try:
-        page.wait_for_load_state("networkidle", timeout=15000)
+        page.wait_for_load_state("networkidle", timeout=5000)
     except Exception:
         pass
 
