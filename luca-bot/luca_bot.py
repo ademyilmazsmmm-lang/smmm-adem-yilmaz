@@ -1760,8 +1760,9 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             yaz(f"    Liste bos gorundu, ekran kaydi: {tani}", log)
         except Exception:
             pass
-    sonuc["fatura_sayisi"] = len(satirlar)
-    yaz(f"    {len(satirlar)} satir listelendi", log)
+    sonuc["fatura_sayisi"] = len(satirlar) or (sayi or 0)
+    yaz(f"    {len(satirlar)} satir listelendi"
+        + (f" (ekranda {sayi} kayit)" if sayi and not satirlar else ""), log)
     tevkifatlilar, ekran_tevkifat = [], set()
     excel_alindi = False
 
