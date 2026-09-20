@@ -1734,6 +1734,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     sonuc["indirilemeyen"] = kalan_hata
 
     yaz("    Tablo okunuyor", log)
+    sayi = None
     kutular, kutu_sayisi, kutu_cercevesi = secim_kutulari(page)
     satirlar = kutulardan_satirlar(kutular, kutu_sayisi)
     fr = kutu_cercevesi
@@ -1741,8 +1742,9 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         # sorgu listeyi kendiliginden doldurmadiysa kayitli faturalari listele
         sayi = interaktif_kayit_sayisi(page)
         yaz(f"    Ekrandaki kayit sayisi: {sayi if sayi is not None else 'okunamadi'}", log)
-        dugmeye_bas(page, INTERAKTIF_LISTELE, sure=5000)
-        listeyi_bekle(page, log, azami_saniye=30)
+        if not sayi:
+            dugmeye_bas(page, INTERAKTIF_LISTELE, sure=5000)
+            sayi = listeyi_bekle(page, log, azami_saniye=30)
         kutular, kutu_sayisi, kutu_cercevesi = secim_kutulari(page)
         satirlar = kutulardan_satirlar(kutular, kutu_sayisi)
         fr = kutu_cercevesi
@@ -1764,6 +1766,13 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     excel_alindi = False
 
     if not satirlar and interaktif:
+        # Excel bos inmesin diye once tum satirlar isaretlenir (elle akista da boyle)
+        kutular, kutu_sayisi, sec_fr = secim_kutulari(page)
+        if sec_fr is not None:
+            secilen = hepsini_sec(page, sec_fr, sayi or kutu_sayisi)
+            yaz(f"    Excel oncesi {secilen}/{kutu_sayisi} kayit isaretlendi", log)
+        else:
+            yaz("    UYARI: secim kutusu bulunamadi, Excel bos inebilir", log)
         # e-Arsiv ekraninda liste okunamayabiliyor; Excel'i indirip oradan okuruz
         yol = indirme_islevi()(page, "Excel", klasor, "liste", log,
                                azami_saniye=AYAR["indirme_saniye"], pencere_acilir=False)
@@ -1773,6 +1782,9 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             satirlar = excelden_sonuca_isle(sonuc, yol, klasor, log)
             if not satirlar:
                 yaz("    Excel'de de satir bulunamadi", log)
+                if sayi:  # ekran sayiyi biliyor, en azindan o rapora gecsin
+                    sonuc["fatura_sayisi"] = sayi
+                    sonuc["not"] = f"ekranda {sayi} kayit var, liste okunamadi"
 
     if satirlar:
         with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
