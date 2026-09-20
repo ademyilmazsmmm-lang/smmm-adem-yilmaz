@@ -21,8 +21,10 @@ SUTUNLAR = [
 ]
 
 # kotu durum once gelsin; firmanin genel durumu bunlarin en kotusudur
-DURUM_ONCELIGI = ["hata", "dosya inmedi", "kaynaktan inmedi", "donem disi", "fatura yok",
-                  "tamam (excel", "tamam", "bekliyor"]
+# Once gercek sorunlar. "fatura yok" en sona yakin: bir ekranda fatura
+# bulunmamasi, digerinde fatura inen firmayi "fatura yok" gostermemeli.
+DURUM_ONCELIGI = ["hata", "dosya inmedi", "kaynaktan inmedi", "donem disi",
+                  "tamam (excel", "tamam", "fatura yok", "bekliyor"]
 
 BASLIKLAR = (["Firma", "Dönem", "Durum", "Aksiyon"]
              + [ad for _, ad in SUTUNLAR]
@@ -32,7 +34,7 @@ BASLIKLAR = (["Firma", "Dönem", "Durum", "Aksiyon"]
 
 def _bos_kayit(firma):
     return {"firma": firma, "donem": "", "durumlar": {}, "sayilar": {}, "iptal": {},
-            "tevkifat": {}, "inmeyen": {}, "faturalar": {}, "dosya": 0, "not": "", "son": ""}
+            "tevkifat": {}, "inmeyen": {}, "faturalar": {}, "dosya": {}, "not": "", "son": ""}
 
 
 def _oku(yol):
@@ -125,6 +127,11 @@ def _aksiyon(kayit):
     return " | ".join(isler)
 
 
+def _dosya_sayisi(kayit):
+    dosya = kayit.get("dosya") or {}
+    return sum(dosya.values()) if isinstance(dosya, dict) else dosya
+
+
 def _satir(kayit):
     satir = [kayit["firma"], kayit["donem"], _genel_durum(kayit["durumlar"]), _aksiyon(kayit)]
     satir += [kayit["sayilar"].get(tip, "") for tip, _ in SUTUNLAR]
@@ -133,7 +140,7 @@ def _satir(kayit):
               _en_yuksek(kayit["iptal"]) or "",
               _en_yuksek(kayit["tevkifat"]) or "",
               sum(kayit["inmeyen"].values()) or "",
-              kayit["dosya"] or "",
+              _dosya_sayisi(kayit) or "",
               kayit["not"], kayit["son"]]
     return satir
 
@@ -153,7 +160,10 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
         kayit["tevkifat"][tip] = s.get("tevkifat", 0)
         kayit["inmeyen"][tip] = s.get("indirilemeyen", 0)
         kayit.setdefault("faturalar", {})[tip] = s.get("faturalar", [])
-        kayit["dosya"] = kayit.get("dosya", 0) + len(s.get("dosyalar", []))
+        # ayni gun icinde tekrar calistirilinca sayi sismesin diye tip basina tutulur
+        if not isinstance(kayit.get("dosya"), dict):
+            kayit["dosya"] = {}
+        kayit["dosya"][tip] = len(s.get("dosyalar", []))
         if s.get("donem"):
             kayit["donem"] = s["donem"]
         if s.get("not"):
