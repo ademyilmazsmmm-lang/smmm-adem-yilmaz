@@ -49,6 +49,9 @@ INTERAKTIF_CAPASI = "Luca Proxy ile Sorgula"  # secenek penceresinin kendi yazis
 INTERAKTIF_SERVIS = "GİB Servis ile Sorgula"
 INTERAKTIF_LISTELE = "Mevcut E-Arşiv Faturalarını Listele"
 INTERAKTIF_TEKRAR = 2  # Luca ilk sorguda hep getirmiyor, iki kez calistiriliyor
+# Ekranin altinda "1 / 1 (Toplam Kayit Sayisi: 7)" yazar; sorgunun bitip
+# listeyi doldurdugunu anlamanin en guvenilir yolu bu
+KAYIT_SAYISI_DESENI = re.compile(r"Toplam\s*Kay[ıi]t\s*Say[ıi]s[ıi]\s*[:=]?\s*(\d+)", re.I)
 
 KAPAT_METINLERI = ["Bir daha gösterme"]  # sayfadaki "Tamam"/"Kapat" baska islevlere ait olabiliyor
 DIYALOG_ONAY = ["Belgeleri Getir", "Sorgula", "Onayla", "Uygula"]
@@ -1323,6 +1326,44 @@ def indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30, pencere_
         acik_pencereleri_kapat(page)  # pencere acik kalirsa sonraki adimlar kilitleniyor
 
 
+def interaktif_kayit_sayisi(page):
+    """Ekran altindaki 'Toplam Kayit Sayisi' degeri; bulunamazsa None."""
+    for fr in cerceveler(page):
+        try:
+            loc = fr.get_by_text("Kayıt Sayısı", exact=False)
+            for i in range(min(loc.count(), 3)):
+                eslesme = KAYIT_SAYISI_DESENI.search(loc.nth(i).inner_text() or "")
+                if eslesme:
+                    return int(eslesme.group(1))
+        except Exception:
+            continue
+    return None
+
+
+def listeyi_bekle(page, log, azami_saniye=120):
+    """Sorgu sonrasi listenin dolmasini bekler (kayit sayisi > 0)."""
+    basla = time.time()
+    son_bildirim = 0
+    while time.time() - basla < azami_saniye:
+        sayi = interaktif_kayit_sayisi(page)
+        if sayi:
+            yaz(f"    Liste doldu: {sayi} kayit ({int(time.time() - basla)} sn)", log)
+            return sayi
+        if fatura_yok_penceresini_kapat(page):
+            yaz("    Luca: fatura bulunamadi", log)
+            return 0
+        if sayi == 0 and time.time() - basla > 10:
+            yaz("    Liste bos (Toplam Kayit Sayisi: 0)", log)
+            return 0
+        gecen = time.time() - basla
+        if gecen - son_bildirim >= 15:
+            son_bildirim = gecen
+            yaz(f"    ... liste bekleniyor ({int(gecen)} sn)", log)
+        page.wait_for_timeout(1500)
+    yaz(f"    Liste {azami_saniye} sn icinde dolmadi", log)
+    return None
+
+
 def radyo_sec(page, pencere, metin):
     """Secenek penceresindeki radyo dugmesini yazisina gore isaretler."""
     hedef = karsilastir(metin)
@@ -1391,9 +1432,8 @@ def interaktif_sorgula(page, araliklar, log):
                 acik_pencereleri_kapat(page, log)
                 return calisan
 
-            islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
-                                 durgunluk_saniye=AYAR["durgunluk_saniye"],
-                                 pencere_bekleme=10)
+            # bu ekranda Islem Takip penceresi acilmiyor; listenin dolmasi beklenir
+            listeyi_bekle(page, log, azami_saniye=min(AYAR["azami_saniye"], 120))
             acik_pencereleri_kapat(page, log)
             calisan += 1
             page.wait_for_timeout(1500)
@@ -1635,9 +1675,12 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     kutular, kutu_sayisi, kutu_cercevesi = secim_kutulari(page)
     satirlar = kutulardan_satirlar(kutular, kutu_sayisi)
     fr = kutu_cercevesi
-    if not satirlar and interaktif and dugmeye_bas(page, INTERAKTIF_LISTELE, sure=5000):
+    if not satirlar and interaktif:
         # sorgu listeyi kendiliginden doldurmadiysa kayitli faturalari listele
-        page.wait_for_timeout(3000)
+        sayi = interaktif_kayit_sayisi(page)
+        yaz(f"    Ekrandaki kayit sayisi: {sayi if sayi is not None else 'okunamadi'}", log)
+        dugmeye_bas(page, INTERAKTIF_LISTELE, sure=5000)
+        listeyi_bekle(page, log, azami_saniye=30)
         kutular, kutu_sayisi, kutu_cercevesi = secim_kutulari(page)
         satirlar = kutulardan_satirlar(kutular, kutu_sayisi)
         fr = kutu_cercevesi
