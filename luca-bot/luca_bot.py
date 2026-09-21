@@ -1880,11 +1880,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                     fr = secim_fr
                     hepsini_sec(page, fr, satir_sayisi)
 
-                # İnteraktif V.D. ise Alt+G, değilse normal iptal sorgusu
-                if interaktif:
-                    basarili = interaktif_iptal_itiraz_sorgula(page, araliklar, log)
-                else:
-                    basarili = iptal_itiraz_sorgula(page, araliklar, log)
+                        # Normal iptal/itiraz sorgusu (interaktif'te de aynı şekilde)
+                basarili = iptal_itiraz_sorgula(page, araliklar, log)
 
                 if basarili:
                     # sorgu durum sutununu degistirir; liste yeniden okunur
@@ -1912,13 +1909,14 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         if not excel_alindi:
             acik_pencereleri_kapat(page, log)
             fatura_yok_penceresini_kapat(page)
+            page.wait_for_timeout(2000)  # İptal sorgusu sonrası sayfa stabilize olması için
             kutular, kutu_sayisi, guncel_fr = secim_kutulari(page)
             if guncel_fr is not None:
                 fr = guncel_fr
                 hepsini_sec(page, fr, satir_sayisi)
                 # Interaktif ekranda Luca seçimi işlemesi ve Excel'e yazması için
                 # ekstra bekleme gerekiyor; aksi halde sadece başlık satırı iniyor
-                page.wait_for_timeout(3500)
+                page.wait_for_timeout(4000)  # İptal sonrası daha fazla bekleme gerekli
             yol = indirme_islevi()(page, "Excel", klasor, "liste", log,
                                    azami_saniye=AYAR["indirme_saniye"], pencere_acilir=False)
             if yol:
