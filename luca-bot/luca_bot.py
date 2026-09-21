@@ -1843,6 +1843,9 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             if guncel_fr is not None:
                 fr = guncel_fr
                 hepsini_sec(page, fr, satir_sayisi)
+                # Interaktif ekranda Luca seçimi işlemesi ve Excel'e yazması için
+                # ekstra bekleme gerekiyor; aksi halde sadece başlık satırı iniyor
+                page.wait_for_timeout(3500)
             yol = indirme_islevi()(page, "Excel", klasor, "liste", log,
                                    azami_saniye=AYAR["indirme_saniye"], pencere_acilir=False)
             if yol:
