@@ -641,12 +641,12 @@ def modul_menusunden_git(page, hedef):
                 if menu_ogesini_ac(page, modul, sure=1200, dogrula=hedef_gorunur):
                     break
         try:
-            _, madde = metinle_bul(page, hedef, sure=4000)
+            _, madde = metinle_bul(page, hedef, sure=8000)
         except LookupError:
             page.wait_for_timeout(1000)
             continue
-        madde.click()
-        page.wait_for_timeout(2500)
+        madde.click(timeout=8000)
+        page.wait_for_timeout(3000)
         try:
             page.wait_for_load_state("networkidle", timeout=5000)
         except Exception:
@@ -1902,7 +1902,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                 # ekstra bekleme gerekiyor; aksi halde sadece başlık satırı iniyor
                 page.wait_for_timeout(4000)  # İptal sonrası daha fazla bekleme gerekli
             yol = indirme_islevi()(page, "Excel", klasor, "liste", log,
-                                   azami_saniye=AYAR["indirme_saniye"], pencere_acilir=False)
+                                   azami_saniye=max(AYAR["indirme_saniye"], 60), pencere_acilir=False)
             if yol:
                 sonuc["dosyalar"].append(yol.name)
                 if interaktif:  # e-Arsiv ekraninda ekran yerine inen dosya kaynak
