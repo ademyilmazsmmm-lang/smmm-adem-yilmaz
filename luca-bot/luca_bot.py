@@ -1849,13 +1849,13 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         # İptal/itiraz sorgusu Excel'den ONCE yapılır (interaktif V.D. için flow: sorgu -> iptal -> excel)
         if AYAR["iptal_itiraz"]:
             try:
-                # liste Excel'den okunmus olabilir; ekranda secim yapilmali
+                # İptal sorgusu öncesi hepsini seç (faturalar seçili olmalı)
                 kutular, kutu_sayisi, secim_fr = secim_kutulari(page)
                 if secim_fr is not None:
                     fr = secim_fr
                     hepsini_sec(page, fr, satir_sayisi)
 
-                        # Normal iptal/itiraz sorgusu (interaktif'te de aynı şekilde)
+                # Normal iptal/itiraz sorgusu (interaktif'te de aynı şekilde)
                 basarili = iptal_itiraz_sorgula(page, araliklar, log)
 
                 if basarili:
