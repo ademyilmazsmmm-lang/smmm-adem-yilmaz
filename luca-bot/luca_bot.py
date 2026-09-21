@@ -1871,9 +1871,44 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                 # dosya yok: firmayi 'tamam' sayma, ana dongu bastan denesin
                 raise RuntimeError("tarayici indirme sirasinda kapandi")
 
-        # Excel iptal/itiraz'dan ONCE alinir: o sorgudan sonra Luca'nin Excel
-        # butonu dosya uretmiyor. Iptal/itiraz durumlari liste.csv ve
-        # iptal-itiraz.csv dosyalarina zaten yaziliyor.
+        # İptal/itiraz sorgusu Excel'den ONCE yapılır (interaktif V.D. için flow: sorgu -> iptal -> excel)
+        if AYAR["iptal_itiraz"]:
+            try:
+                # liste Excel'den okunmus olabilir; ekranda secim yapilmali
+                kutular, kutu_sayisi, secim_fr = secim_kutulari(page)
+                if secim_fr is not None:
+                    fr = secim_fr
+                    hepsini_sec(page, fr, satir_sayisi)
+
+                # İnteraktif V.D. ise Alt+G, değilse normal iptal sorgusu
+                if interaktif:
+                    basarili = interaktif_iptal_itiraz_sorgula(page, araliklar, log)
+                else:
+                    basarili = iptal_itiraz_sorgula(page, araliklar, log)
+
+                if basarili:
+                    # sorgu durum sutununu degistirir; liste yeniden okunur
+                    kutular, kutu_sayisi, yeni_fr = secim_kutulari(page)
+                    yeni_satirlar = kutulardan_satirlar(kutular, kutu_sayisi)
+                    if yeni_satirlar:
+                        satirlar, fr = yeni_satirlar, yeni_fr
+                        sonuc["fatura_sayisi"] = len(satirlar)
+                        with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
+                            csv.writer(f).writerows(satirlar)
+                        sonuc["tevkifat"] = len(tevkifatli_satirlar(satirlar))
+                    iptaller = iptal_itiraz_satirlari(satirlar)
+                    sonuc["iptal_itiraz"] = len(iptaller)
+                    if iptaller:
+                        with open(klasor / "iptal-itiraz.csv", "w", encoding="utf-8-sig", newline="") as f:
+                            csv.writer(f).writerows(iptaller)
+                        yaz(f"    DIKKAT: {len(iptaller)} faturada iptal/itiraz var", log)
+                    else:
+                        yaz("    Iptal/itiraz kaydi yok", log)
+            except Exception as e:
+                yaz(f"    Iptal/itiraz sorgusu yapilamadi ({type(e).__name__}: {e})", log)
+                acik_pencereleri_kapat(page, log)
+
+        # Excel al: İptal sorgusu sonrasında (interaktif V.D. için) veya normal flow'ta
         if not excel_alindi:
             acik_pencereleri_kapat(page, log)
             fatura_yok_penceresini_kapat(page)
@@ -1892,47 +1927,6 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                     excel_satirlari = excelden_sonuca_isle(sonuc, yol, klasor, log)
                     if excel_satirlari:
                         satirlar = excel_satirlari
-        if AYAR["iptal_itiraz"]:
-            try:
-                # liste Excel'den okunmus olabilir; ekranda secim yapilmali
-                kutular, kutu_sayisi, secim_fr = secim_kutulari(page)
-                if secim_fr is not None:
-                    fr = secim_fr
-                    hepsini_sec(page, fr, satir_sayisi)
-                if iptal_itiraz_sorgula(page, araliklar, log):
-                    # sorgu durum sutununu degistirir; liste yeniden okunur
-                    kutular, kutu_sayisi, yeni_fr = secim_kutulari(page)
-                    yeni_satirlar = kutulardan_satirlar(kutular, kutu_sayisi)
-                    if yeni_satirlar:
-                        satirlar, fr = yeni_satirlar, yeni_fr
-                        sonuc["fatura_sayisi"] = len(satirlar)
-                        with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
-                            csv.writer(f).writerows(satirlar)
-                        sonuc["tevkifat"] = len(tevkifatli_satirlar(satirlar))
-                    iptaller = iptal_itiraz_satirlari(satirlar)
-                    sonuc["iptal_itiraz"] = len(iptaller)
-                    if iptaller:
-                        with open(klasor / "iptal-itiraz.csv", "w", encoding="utf-8-sig", newline="") as f:
-                            csv.writer(f).writerows(iptaller)
-                        yaz(f"    DIKKAT: {len(iptaller)} faturada iptal/itiraz var", log)
-                    else:
-                        yaz("    Iptal/itiraz kaydi yok", log)
-
-                    if interaktif:
-                        # bu ekranda Excel iptal/itirazdan sonra da uretiliyor;
-                        # guncel durumlu ikinci bir kopya alinir
-                        kutular, kutu_sayisi, son_fr = secim_kutulari(page)
-                        if son_fr is not None:
-                            hepsini_sec(page, son_fr, satir_sayisi)
-                        son_yol = indirme_islevi()(page, "Excel", klasor, "liste-son", log,
-                                                   azami_saniye=AYAR["indirme_saniye"],
-                                                   pencere_acilir=False)
-                        if son_yol:
-                            sonuc["dosyalar"].append(son_yol.name)
-                            excelden_sonuca_isle(sonuc, son_yol, klasor, log)
-            except Exception as e:
-                yaz(f"    Iptal/itiraz sorgusu yapilamadi ({type(e).__name__}: {e})", log)
-                acik_pencereleri_kapat(page, log)
 
         # belge paketi inmediyse firma tamamlanmis sayilmaz; ozette goze carpsin
         sonuc["durum"] = "tamam" if (interaktif or sonuc["dosyalar"]) else "dosya inmedi"
