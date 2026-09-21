@@ -1447,6 +1447,44 @@ def interaktif_sorgula(page, araliklar, log):
     return calisan
 
 
+def interaktif_iptal_itiraz_sorgula(page, araliklar, log):
+    """Interaktif V.D. ekranında iptal/itiraz sorgusu - Alt+G shortcut'ı kullan.
+
+    Şu anki GİB Servis ile Sorgula yöntemi 2 kere yapılıyor ve 9000 hatası verebiliyor.
+    Bunun yerine tümü seçip Alt+G tuş kombinasyonu ile sorgulanır.
+    """
+    acik_pencereleri_kapat(page, log)
+    fatura_yok_penceresini_kapat(page)
+
+    yaz("    İptal/itiraz sorgusu başlatılıyor (Alt+G)", log)
+    try:
+        page.press("Alt+KeyG")
+        page.wait_for_timeout(1500)
+
+        # İşlem Takip penceresi varsa bekle, yoksa liste yenile
+        islem_takip = False
+        for _ in range(15):
+            acik = [d.bounding_box() for d in page.locator("[role='dialog']").all()]
+            if acik:
+                islem_takip = True
+                break
+            page.wait_for_timeout(1000)
+
+        if islem_takip:
+            islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
+                                 durgunluk_saniye=AYAR["durgunluk_saniye"])
+
+        acik_pencereleri_kapat(page, log)
+        yaz("    Liste yenileniyor (iptal/itiraz sonrası)", log)
+        dugmeye_bas(page, "Yenile", sure=5000)
+        page.wait_for_timeout(3000)
+        return 1
+    except Exception as e:
+        yaz(f"    UYARI: Alt+G iptal sorgusu başarısız ({type(e).__name__})", log)
+        acik_pencereleri_kapat(page, log)
+        return 0
+
+
 def iptal_itiraz_sorgula(page, araliklar, log):
     """Listedeki faturalar icin GIB'den iptal/itiraz durumunu sorgular.
 
@@ -1703,7 +1741,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         return sonuc
     donem_bas, donem_bit = calisma_donemi(page)
     if donem_bas and donem_bit:
-        sonuc["donem"] = f"{donem_bas:%d/%m/%Y}-{donem_bit:%d/%m/%Y}"
+        sonuc["donem"] = f"{istenen_bas:%d/%m/%Y}-{istenen_bit:%d/%m/%Y}"
 
     yaz("    Menuye gidiliyor", log)
     menuye_git(page, belge_tipi)

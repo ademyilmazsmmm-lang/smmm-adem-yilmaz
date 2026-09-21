@@ -97,7 +97,7 @@ def _eksik_faturalar(kayit, sinir=12):
     eksikler = [(unvan, no) for unvan, no in gib if no not in olanlar]
     if not eksikler:
         return ""
-    metin = ", ".join(f"{(unvan or '?')[:14]} {no[-5:]}" for unvan, no in eksikler[:sinir])
+    metin = ", ".join(f"{unvan or '?'} {no[-5:]}" for unvan, no in eksikler[:sinir])
     if len(eksikler) > sinir:
         metin += f" ... (+{len(eksikler) - sinir})"
     return metin
