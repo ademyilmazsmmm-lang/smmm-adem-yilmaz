@@ -1901,8 +1901,12 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                         yaz(f"    DIKKAT: {len(iptaller)} faturada iptal/itiraz var", log)
                     else:
                         yaz("    Iptal/itiraz kaydi yok", log)
+                elif interaktif:
+                    yaz("    UYARI: İnteraktif V.D.'de iptal sorgusu başarısız, Excel al devam edecek", log)
             except Exception as e:
                 yaz(f"    Iptal/itiraz sorgusu yapilamadi ({type(e).__name__}: {e})", log)
+                if interaktif:
+                    yaz("    UYARI: İnteraktif V.D.'de iptal sorgusu hata, Excel al devam edecek", log)
                 acik_pencereleri_kapat(page, log)
 
         # Excel al: İptal sorgusu sonrasında (interaktif V.D. için) veya normal flow'ta
@@ -1910,10 +1914,12 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             acik_pencereleri_kapat(page, log)
             fatura_yok_penceresini_kapat(page)
             page.wait_for_timeout(2000)  # İptal sorgusu sonrası sayfa stabilize olması için
+            # İptal sorgusu sonrası satır sayısı değişmiş olabilir, güncelle
+            satir_sayisi_guncel = len(satirlar) or satir_sayisi
             kutular, kutu_sayisi, guncel_fr = secim_kutulari(page)
             if guncel_fr is not None:
                 fr = guncel_fr
-                hepsini_sec(page, fr, satir_sayisi)
+                hepsini_sec(page, fr, satir_sayisi_guncel)
                 # Interaktif ekranda Luca seçimi işlemesi ve Excel'e yazması için
                 # ekstra bekleme gerekiyor; aksi halde sadece başlık satırı iniyor
                 page.wait_for_timeout(4000)  # İptal sonrası daha fazla bekleme gerekli
