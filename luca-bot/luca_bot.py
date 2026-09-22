@@ -1161,23 +1161,69 @@ SECIM_SECICILERI = ("input[type=checkbox]", "[role=checkbox]",
                     "img[src*='check']", "img[src*='tick']", "[class*='checkbox']")
 
 
-def secim_kutulari(page):
-    """En cok isaret kutusu olan cerceveyi secer.
+def veri_kutusu_sayisi(kutular, adet, sinir=14):
+    """Kutulardan kaci gercek bir fatura satirinda duruyor.
 
-    Baslik ve veri satirlari ayri cercevelerde oldugu icin ilk bulunan
-    alinirsa yalnizca baslik kutusu (tek kayit) isaretleniyordu.
+    Ekranda sutun secimi ve suzgec satirlarinin da isaret kutusu var; bunlar
+    fatura satiri sanilinca liste bos okunuyordu.
+    """
+    bulunan = 0
+    for i in range(min(adet, sinir)):
+        try:
+            hucreler = [h for h in (kutular.nth(i).evaluate(HUCRE_CIKAR) or []) if h]
+        except Exception:
+            continue
+        if fatura_satiri_mi(hucreler, 3):
+            bulunan += 1
+    return bulunan
+
+
+def secim_kutulari(page):
+    """Fatura satirlarindaki isaret kutularini bulur.
+
+    Yalnizca "en cok kutu" olcut alinirsa baslik/suzgec satirinin kutulari
+    secilebiliyor. Once kutunun durdugu satirin fatura satiri olup olmadigina
+    bakilir; hicbir cercevede veri satiri yoksa eski davranisa (en cok kutu)
+    dusulur.
     """
     en_iyi = (None, 0, None)
+    en_iyi_veri = 0
+    yedek = (None, 0, None)
     for fr in cerceveler(page):
         for secici in SECIM_SECICILERI:
             try:
                 loc = fr.locator(secici)
                 adet = loc.count()
-                if adet > en_iyi[1] and loc.first.is_visible():
-                    en_iyi = (loc, adet, fr)
+                if not adet or not loc.first.is_visible():
+                    continue
             except Exception:
                 continue
-    return en_iyi
+            if adet > yedek[1]:
+                yedek = (loc, adet, fr)
+            veri = veri_kutusu_sayisi(loc, adet)
+            if veri > en_iyi_veri or (veri and veri == en_iyi_veri and adet > en_iyi[1]):
+                en_iyi, en_iyi_veri = (loc, adet, fr), veri
+            if veri:  # bu cercevede fatura satiri bulundu, digerlerini deneme
+                break
+    return en_iyi if en_iyi[0] is not None else yedek
+
+
+def kutu_cerceve_ozeti(page, sinir=6):
+    """Tani icin: hangi cercevede kac kutu var, kaci fatura satirinda."""
+    ozet = []
+    for fr in cerceveler(page):
+        try:
+            adet = fr.locator("input[type=checkbox]").count()
+        except Exception:
+            continue
+        if not adet:
+            continue
+        loc = fr.locator("input[type=checkbox]")
+        ozet.append(f"{(fr.name or fr.url.rsplit('/', 1)[-1] or 'ana')[:28]}:"
+                    f" {adet} kutu / {veri_kutusu_sayisi(loc, adet)} veri")
+        if len(ozet) >= sinir:
+            break
+    return ozet
 
 
 def isaretli_sayisi(kutular, sayi):
@@ -1642,7 +1688,7 @@ def interaktif_sorgula(page, araliklar, log, listeleme_araligi=None):
     return calisan
 
 
-def iptal_itiraz_sorgula(page, araliklar, log):
+def iptal_itiraz_sorgula(page, araliklar, log, interaktif=False):
     """Listedeki faturalar icin GIB'den iptal/itiraz durumunu sorgular.
 
     Luca akisi: arac cubugundan "GİB'den İptal/İtiraz Sorgula" -> acilan
@@ -1683,7 +1729,13 @@ def iptal_itiraz_sorgula(page, araliklar, log):
         acik_pencereleri_kapat(page, log)
         calisan += 1
 
-    listeyi_yenile(page, log, "iptal/itiraz sonrasi")
+    if interaktif:
+        # bu ekranda Yenile listeyi bosaltiyor; liste yeniden listelenmeli
+        yaz("    Liste yeniden listeleniyor (iptal/itiraz sonrasi)", log)
+        dugmeye_bas(page, INTERAKTIF_LISTELE, sure=5000)
+        page.wait_for_timeout(3000)
+    else:
+        listeyi_yenile(page, log, "iptal/itiraz sonrasi")
     return calisan
 
 
@@ -1924,7 +1976,8 @@ def indirme_islevi():
     return indir_yakalayarak if AYAR.get("indirmeyi_yakala") else indir
 
 
-def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=3):
+def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=3,
+               firma_secili=False):
     sonuc = {"firma": firma, "belge_tipi": belge_tipi, "fatura_sayisi": 0,
              "durum": "", "dosyalar": [], "indirilemeyen": 0, "iptal_itiraz": 0,
              "tevkifat": 0, "donem": "", "not": "", "faturalar": []}
@@ -1932,19 +1985,20 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     klasor.mkdir(parents=True, exist_ok=True)
 
     acik_pencereleri_kapat(page, log)
-    yaz("    Firma seciliyor", log)
-    firma_sec(page, firma, log)
+    if not firma_secili:  # ikinci belge tipinde firma zaten secili
+        yaz("    Firma seciliyor", log)
+        firma_sec(page, firma, log)
     istenen_bas = tarih_cozumle(araliklar[0][0])
     istenen_bit = tarih_cozumle(araliklar[-1][1])
     indirme_bas, indirme_bit = hedef_ay_araligi(istenen_bas, istenen_bit)
     indirme_araligi = (indirme_bas.strftime(TARIH_BICIMI), indirme_bit.strftime(TARIH_BICIMI))
-    if not donem_ayarla(page, firma, istenen_bas, istenen_bit, log):
+    if not firma_secili and not donem_ayarla(page, firma, istenen_bas, istenen_bit, log):
         sonuc["durum"] = "donem disi"
         return sonuc
     donem_bas, donem_bit = calisma_donemi(page)
     if donem_bas and donem_bit:
         sonuc["donem"] = f"{indirme_bas:%d/%m/%Y}-{indirme_bit:%d/%m/%Y}"
-    if indirme_bit != istenen_bit:
+    if indirme_bit != istenen_bit and not firma_secili:
         yaz(f"    Hedef donem: {indirme_araligi[0]} - {indirme_araligi[1]}"
             f" (sorgu {istenen_bit:%d/%m/%Y} tarihine kadar surecek)", log)
 
@@ -2016,7 +2070,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             pass
         yaz(f"    Liste bos gorundu, ekran kaydi: {tani}", log)
         # neden fatura satiri sayilmadi: kutu satirlarinin yapisi gunluge yazilir
-        for ornek in kutu_satir_tanisi(kutular, kutu_sayisi):
+        yaz(f"      kutu cerceveleri: {'; '.join(kutu_cerceve_ozeti(page)) or 'yok'}", log)
+        for ornek in kutu_satir_tanisi(kutular, kutu_sayisi, adet=6):
             yaz(f"      kutu satiri: {ornek}", log)
         for ornek in ham_satir_ornegi(kutu_cercevesi or fr):
             yaz(f"      ekrandaki satir: {ornek}", log)
@@ -2060,14 +2115,13 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     # (iptal/itiraz bu yuzden atlaniyordu)
     satir_sayisi = len(satirlar) or (sayi or 0)
     if satir_sayisi:
-        secilen = hepsini_sec(page, fr, satir_sayisi) if fr is not None else 0
-        if secilen:
-            yaz(f"    {secilen} kayit isaretlendi"
-                + ("" if interaktif else ", indirme basliyor"), log)
-        else:
-            yaz("    UYARI: hicbir kayit isaretlenemedi, indirme yine de denenecek", log)
-        # Belge indir (XML): Excel al'dan sonra, interaktif ise skip
-        if not interaktif:  # interaktif V.D. ekraninda belge indirme butonu yok
+        # Belge indir (XML): interaktif V.D. ekraninda bu buton yok, secim de gerekmiyor
+        if not interaktif:
+            secilen = hepsini_sec(page, fr, satir_sayisi) if fr is not None else 0
+            if secilen:
+                yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
+            else:
+                yaz("    UYARI: hicbir kayit isaretlenemedi, indirme yine de denenecek", log)
             yol = indirme_islevi()(page, "Seçilenleri İndir", klasor, "belgeler", log,
                                    azami_saniye=AYAR["indirme_saniye"])
             if yol:
@@ -2097,7 +2151,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         if AYAR["iptal_itiraz"]:
             try:
                 # Sorgu tum listeye uygulanir; fatura isaretlemeye gerek yok
-                basarili = iptal_itiraz_sorgula(page, sorgu_araliklari, log)
+                # sorgu tum listeye uygulanir; 7 gunluk parcalara bolmeye gerek yok
+                basarili = iptal_itiraz_sorgula(page, [indirme_araligi], log, interaktif)
 
                 if basarili:
                     # sorgu durum sutununu degistirir; liste yeniden okunur
@@ -2671,7 +2726,8 @@ def main():
                         yaz(f"  -- {BELGE_TIPLERI[tip]}", log)
                     if sira and sayfa_canli(page):
                         sayfayi_toparla(page)  # onceki ekrandan kalan diyaloglar
-                    sonuclar.append(firma_isle(page, firma, tip, araliklar, calisma, log, azami_deneme))
+                    sonuclar.append(firma_isle(page, firma, tip, araliklar, calisma, log,
+                                               azami_deneme, firma_secili=bool(sira)))
                 ardisik_hata = 0
             except Exception as e:
                 # sayfa kapandiysa hata firmanin degil tarayicinin; firmayi yakmadan
@@ -2685,9 +2741,10 @@ def main():
                             break
                         yaz(f"    {firma} yeniden deneniyor ({tur}/{COKME_DENEMESI})", log)
                         try:
-                            for tip in args.belge_tipi:
-                                sonuclar.append(firma_isle(page, firma, tip, araliklar,
-                                                           calisma, log, azami_deneme))
+                            for sira, tip in enumerate(args.belge_tipi):
+                                sonuclar.append(firma_isle(page, firma, tip, araliklar, calisma,
+                                                           log, azami_deneme,
+                                                           firma_secili=bool(sira)))
                             ardisik_hata = 0
                             break
                         except Exception as e2:
