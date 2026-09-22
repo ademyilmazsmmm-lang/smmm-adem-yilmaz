@@ -1983,6 +1983,24 @@ def sutunlu_satirlar(basliklar, satirlar, *anahtarlar):
             if i < len(s) and sadelestir(s[i]) not in BOS_DEGERLER]
 
 
+def _iki_kaynaktan(sutundan, metinden, sutun_adi):
+    """Sutun ve satir metni bulgularini birlestirir.
+
+    Luca durumu bazen kendi sutununda degil "Onay Durumu" gibi bir sutunda
+    yaziyor; yalnizca sutuna bakilinca bos sutun bulgusu satir metnindeki
+    kaydi orten bir sonuc veriyordu.
+    """
+    metinden = metinden or []
+    if sutundan is None:
+        return metinden, "satir metni"
+    birlesik = list(sutundan)
+    bilinen = {id(s) for s in sutundan}
+    birlesik += [s for s in metinden if id(s) not in bilinen]
+    if len(birlesik) == len(sutundan):
+        return birlesik, sutun_adi
+    return birlesik, f"{sutun_adi} + satir metni" if sutundan else "satir metni"
+
+
 def excelden_sonuca_isle(sonuc, yol, klasor, log):
     """Inen Excel'i asil kaynak alir: satirlar, tevkifat ve iptal/itiraz.
 
@@ -1997,10 +2015,9 @@ def excelden_sonuca_isle(sonuc, yol, klasor, log):
     with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
         csv.writer(f).writerows([basliklar] + satirlar)
 
-    tevkifatlilar = sutunlu_satirlar(basliklar, satirlar, "TEVKIFAT")
-    kaynak = "Tevkifat sutunu"
-    if tevkifatlilar is None:  # sutun yoksa satir metninde ara
-        tevkifatlilar, kaynak = tevkifatli_satirlar(satirlar), "satir metni"
+    tevkifatlilar, kaynak = _iki_kaynaktan(
+        sutunlu_satirlar(basliklar, satirlar, "TEVKIFAT"),
+        tevkifatli_satirlar(satirlar), "Tevkifat sutunu")
     if len(tevkifatlilar) > sonuc.get("tevkifat", 0):
         sonuc["tevkifat"] = len(tevkifatlilar)
     if tevkifatlilar:
@@ -2008,9 +2025,9 @@ def excelden_sonuca_isle(sonuc, yol, klasor, log):
             csv.writer(f).writerows([basliklar] + tevkifatlilar)
         yaz(f"    DIKKAT: {len(tevkifatlilar)} tevkifatli fatura ({kaynak}, KDV2)", log)
 
-    iptaller = sutunlu_satirlar(basliklar, satirlar, "IPTAL", "ITIRAZ")
-    if iptaller is None:
-        iptaller = iptal_itiraz_satirlari(satirlar)
+    iptaller, _ = _iki_kaynaktan(
+        sutunlu_satirlar(basliklar, satirlar, "IPTAL", "ITIRAZ"),
+        iptal_itiraz_satirlari(satirlar), "Iptal sutunu")
     if len(iptaller) > sonuc.get("iptal_itiraz", 0):
         sonuc["iptal_itiraz"] = len(iptaller)
     if iptaller:
