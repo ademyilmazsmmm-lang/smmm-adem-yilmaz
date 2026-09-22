@@ -2221,8 +2221,9 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         if AYAR["iptal_itiraz"]:
             try:
                 # Sorgu tum listeye uygulanir; fatura isaretlemeye gerek yok
-                # sorgu tum listeye uygulanir; 7 gunluk parcalara bolmeye gerek yok
-                basarili = iptal_itiraz_sorgula(page, [indirme_araligi], log, interaktif)
+                # tek seferde sorulunca iptaller cikmiyor; sorgu ile ayni 7 gunluk
+                # parcalar kullanilir (pencerede yazan tarih raporlanma tarihidir)
+                basarili = iptal_itiraz_sorgula(page, sorgu_araliklari, log, interaktif)
 
                 if basarili:
                     # sorgu durum sutununu degistirir; liste yeniden okunur
