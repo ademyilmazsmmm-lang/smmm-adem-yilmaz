@@ -731,23 +731,42 @@ def menuye_git(page, belge_tipi):
         pass
 
 
-def tarih_kutulari(page):
+def _tarih_kutulari(kapsayici):
     adaylar = []
-    for fr in cerceveler(page):
+    try:
+        kutular = kapsayici.locator("input[type=text], input:not([type])")
+        sayi = kutular.count()
+    except Exception:
+        return adaylar
+    for i in range(sayi):
         try:
-            kutular = fr.locator("input[type=text], input:not([type])")
-            for i in range(kutular.count()):
-                kutu = kutular.nth(i)
-                if not kutu.is_visible():
-                    continue
-                deger = kutu.input_value() or ""
-                nitelik = " ".join(
-                    x for x in (kutu.get_attribute("name"), kutu.get_attribute("id"), kutu.get_attribute("class")) if x
-                ).lower()
-                if re.search(r"\d{2}[./]\d{2}[./]\d{4}", deger) or re.search(r"tarih|date", nitelik):
-                    adaylar.append(kutu)
+            kutu = kutular.nth(i)
+            if not kutu.is_visible():
+                continue
+            deger = kutu.input_value() or ""
+            nitelik = " ".join(
+                x for x in (kutu.get_attribute("name"), kutu.get_attribute("id"), kutu.get_attribute("class")) if x
+            ).lower()
+            if re.search(r"\d{2}[./]\d{2}[./]\d{4}", deger) or re.search(r"tarih|date", nitelik):
+                adaylar.append(kutu)
         except Exception:
             continue
+    return adaylar
+
+
+def tarih_kutulari(page, kapsam=None):
+    """Tarih kutulari; kapsam (acik pencere) verilirse once orada aranir.
+
+    Tum sayfa taranirsa ekranin arkasindaki suzgec kutulari one geciyor ve
+    tarih acik pencereye degil listeye yaziliyordu.
+    """
+    if kapsam is not None:
+        icerdekiler = _tarih_kutulari(kapsam)
+        if len(icerdekiler) >= 2:
+            return icerdekiler
+    adaylar = []
+    for fr in cerceveler(page):
+        adaylar.extend(_tarih_kutulari(fr))
     return adaylar
 
 
@@ -1011,19 +1030,18 @@ def belge_ara(page, bas, bit, log):
         yaz("    UYARI: 'Belge Ara' butonu bulunamadi, liste oldugu gibi kullanilacak", log)
         return False
     page.wait_for_timeout(1500)
-    kutular = tarih_kutulari(page)
+    pencere = None
+    for capa in BELGE_ARA_CAPALARI:
+        _, pencere = metinli_diyalog(page, capa)
+        if pencere is not None:
+            break
+    kutular = tarih_kutulari(page, pencere)
     if len(kutular) < 2:
         yaz("    UYARI: 'Belge Ara' tarih kutulari bulunamadi", log)
         acik_pencereleri_kapat(page, log)
         return False
     kutuya_yaz(kutular[0], bas)
     kutuya_yaz(kutular[1], bit)
-
-    pencere = None
-    for capa in BELGE_ARA_CAPALARI:
-        _, pencere = metinli_diyalog(page, capa)
-        if pencere is not None:
-            break
     onay = pencerede_tikla(page, pencere, BELGE_ARA_ONAY, sure=5000) if pencere is not None else None
     if not onay:  # pencere taninmadi: tarih kutusunda Enter de aramayi baslatiyor
         try:
@@ -1139,8 +1157,8 @@ def kutu_satir_tanisi(kutular, sayi, adet=3):
             yapi = kutular.nth(i).evaluate(YAPI_CIKAR)
         except Exception:
             continue
-        ornekler.append(f"{yapi} | {len(hucreler)} hucre: "
-                        + " ~ ".join(hucreler)[:150])
+        duz = " ~ ".join(" ".join(h.split()) for h in hucreler)
+        ornekler.append(f"{yapi.split(' > ')[0]} | {len(hucreler)} hucre: {duz[:120]}")
         if len(ornekler) >= adet:
             break
     return ornekler
@@ -1308,12 +1326,14 @@ def belge_sec_diyalogu(page, satir_sayisi=0):
     return isaretli_sayisi(kutular, sayi) or satir_sayisi
 
 
-def hepsini_sec(page, fr, satir_sayisi=0):
+def hepsini_sec(page, fr=None, satir_sayisi=0):
     secilen = belge_sec_diyalogu(page, satir_sayisi)  # Luca'nin kendi yolu
     if secilen:
         return secilen
 
-    kutular, sayi, _ = secim_kutulari(page)
+    kutular, sayi, kutu_cercevesi = secim_kutulari(page)
+    if fr is None:
+        fr = kutu_cercevesi
 
     if sayi:
         try:  # baslik satirindaki kutu genelde hepsini isaretler
@@ -1735,11 +1755,15 @@ def iptal_itiraz_sorgula(page, araliklar, log, interaktif=False):
         page.wait_for_timeout(2000)
 
         _, pencere = metinli_diyalog(page, IPTAL_CAPASI)
-        kutular = tarih_kutulari(page)
+        kutular = tarih_kutulari(page, pencere)
         if len(kutular) >= 2:
             kutuya_yaz(kutular[0], bas)
             kutuya_yaz(kutular[1], bit)
-            yaz(f"    Iptal/itiraz sorgusu ({bas} - {bit})", log)
+            try:  # gercekten pencereye yazildi mi
+                girilen = f"{kutular[0].input_value()} - {kutular[1].input_value()}"
+            except Exception:
+                girilen = f"{bas} - {bit}"
+            yaz(f"    Iptal/itiraz sorgusu ({girilen})", log)
         else:
             yaz("    UYARI: iptal/itiraz tarih kutulari bulunamadi, Luca varsayilani kullanilacak", log)
 
@@ -2100,7 +2124,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         yaz(f"    Liste bos gorundu, ekran kaydi: {tani}", log)
         # neden fatura satiri sayilmadi: kutu satirlarinin yapisi gunluge yazilir
         yaz(f"      kutu cerceveleri: {'; '.join(kutu_cerceve_ozeti(page)) or 'yok'}", log)
-        for ornek in kutu_satir_tanisi(kutular, kutu_sayisi, adet=6):
+        for ornek in kutu_satir_tanisi(kutular, kutu_sayisi, adet=3):
             yaz(f"      kutu satiri: {ornek}", log)
         for ornek in ham_satir_ornegi(kutu_cercevesi or fr):
             yaz(f"      ekrandaki satir: {ornek}", log)
@@ -2146,7 +2170,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     if satir_sayisi:
         # Belge indir (XML): interaktif V.D. ekraninda bu buton yok, secim de gerekmiyor
         if not interaktif:
-            secilen = hepsini_sec(page, fr, satir_sayisi) if fr is not None else 0
+            secilen = hepsini_sec(page, fr, satir_sayisi)
             if secilen:
                 yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
             else:
@@ -2214,6 +2238,9 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             acik_pencereleri_kapat(page, log)
             fatura_yok_penceresini_kapat(page)
             page.wait_for_timeout(2000)  # İptal sorgusu sonrası sayfa stabilize olması için
+            if not interaktif:
+                # iptal sonrasi Yenile suzgeci sifirliyor; Excel hedef donemi kapsasin
+                belge_ara(page, indirme_araligi[0], indirme_araligi[1], log)
             # İptal sorgusu sonrası satır sayısı değişmiş olabilir, güncelle
             satir_sayisi_guncel = len(satirlar) or satir_sayisi
             kutular, kutu_sayisi, guncel_fr = secim_kutulari(page)
@@ -2229,10 +2256,11 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                                    azami_saniye=max(AYAR["indirme_saniye"], 60), pencere_acilir=False)
             if yol:
                 sonuc["dosyalar"].append(yol.name)
-                if interaktif:  # e-Arsiv ekraninda ekran yerine inen dosya kaynak
-                    excel_satirlari = excelden_sonuca_isle(sonuc, yol, klasor, log)
-                    if excel_satirlari:
-                        satirlar = excel_satirlari
+                # Excel iptal/itiraz ve tevkifat sutunlarini icerdigi icin her iki
+                # ekranda da asil kaynak odur; ekran kazima yalnizca yedek
+                excel_satirlari = excelden_sonuca_isle(sonuc, yol, klasor, log)
+                if excel_satirlari:
+                    satirlar = excel_satirlari
 
 
         # belge paketi inmediyse firma tamamlanmis sayilmaz; ozette goze carpsin
