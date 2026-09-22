@@ -28,7 +28,7 @@ DURUM_ONCELIGI = ["hata", "dosya inmedi", "kaynaktan inmedi", "donem disi",
 
 BASLIKLAR = (["Firma", "Dönem", "Durum", "Aksiyon"]
              + [ad for _, ad in SUTUNLAR]
-             + ["Fark", "Eksik Faturalar", "İptal/İtiraz", "Tevkifatlı", "İnmeyen",
+             + ["Fark", "Eksik/Fazla Faturalar", "İptal/İtiraz", "Tevkifatlı", "İnmeyen",
                 "İnen Dosya", "Not", "Son İşlem"])
 
 
@@ -88,28 +88,68 @@ def _okunamadi(kayit):
     return bool(b) and not kayit.get("faturalar", {}).get("e-arsiv-interaktif")
 
 
-def _eksik_faturalar(kayit, sinir=12):
-    """Interaktif listede olup Luca listesinde olmayan faturalar.
+def _no(metin):
+    """Fatura numarasini karsilastirilabilir hale getirir."""
+    return "".join(ch for ch in (metin or "").upper() if ch.isalnum())
 
-    Cikti: "Unvanin ilk kelimesi + fatura numarasinin son 5 hanesi"
-    (orn. "TURKCELL 00554"), boylece firmaya donup bakmaya gerek kalmaz.
+
+def fatura_farklari(kayit):
+    """(GIB'de olup Luca'da olmayanlar, Luca'da olup GIB'de olmayanlar).
+
+    Iki ekranin inen listeleri fatura numarasi uzerinden karsilastirilir.
+    Listelerden biri hic yoksa (None, None) doner.
     """
-    faturalar = kayit.get("faturalar", {})
+    faturalar = kayit.get("faturalar") or {}
     luca = faturalar.get("e-arsiv-alis")
     gib = faturalar.get("e-arsiv-interaktif")
-    if luca is None:
-        return ""
-    if not gib:
-        # ekranda kayit var ama liste okunamadiysa bos birakmak yerine sebebi yaz
-        return "interaktif liste okunamadi" if kayit["sayilar"].get("e-arsiv-interaktif") else ""
-    olanlar = {no for _, no in luca}
-    eksikler = [(unvan, no) for unvan, no in gib if no not in olanlar]
-    if not eksikler:
-        return ""
-    metin = ", ".join(f"{unvan or '?'} {no[-5:]}" for unvan, no in eksikler[:sinir])
-    if len(eksikler) > sinir:
-        metin += f" ... (+{len(eksikler) - sinir})"
+    if luca is None or gib is None:
+        return None, None
+    luca_no = {_no(no) for _, no in luca if _no(no)}
+    gib_no = {_no(no) for _, no in gib if _no(no)}
+    eksik = [(unvan, no) for unvan, no in gib if _no(no) and _no(no) not in luca_no]
+    fazla = [(unvan, no) for unvan, no in luca if _no(no) and _no(no) not in gib_no]
+    return eksik, fazla
+
+
+def _ortak_fatura_var(kayit):
+    """Iki listede ortak fatura numarasi var mi (numaralandirma ayni mi)."""
+    faturalar = kayit.get("faturalar") or {}
+    luca = {_no(no) for _, no in (faturalar.get("e-arsiv-alis") or [])}
+    gib = {_no(no) for _, no in (faturalar.get("e-arsiv-interaktif") or [])}
+    return bool(luca & gib)
+
+
+def _fatura_listesi(kayitlar, sinir):
+    """Cikti: "Unvanin ilk kelimesi + fatura numarasinin son 5 hanesi"."""
+    metin = ", ".join(f"{unvan or '?'} {no[-5:]}" for unvan, no in kayitlar[:sinir])
+    if len(kayitlar) > sinir:
+        metin += f" ... (+{len(kayitlar) - sinir})"
     return metin
+
+
+def _eksik_faturalar(kayit, sinir=10):
+    """Iki ekranin fatura listeleri arasindaki fark, iki yonlu.
+
+    Yalnizca "GIB'de var Luca'da yok" yazilirsa, Luca'da fazladan duran
+    (orn. iptal edilip GIB listesinden dusen) faturalar gorunmuyordu.
+    """
+    eksik, fazla = fatura_farklari(kayit)
+    if eksik is None:
+        if kayit["sayilar"].get("e-arsiv-interaktif") and kayit.get("faturalar", {}).get("e-arsiv-alis"):
+            return "interaktif liste okunamadi"
+        return ""
+    if eksik and fazla and not _ortak_fatura_var(kayit):
+        # hicbir numara tutmuyorsa listeler farkli bicimde numaralanmis demektir
+        return "listeler eslesmedi (fatura numaralari farkli bicimde)"
+    parcalar = []
+    if eksik:
+        parcalar.append("GİB'de var, Luca'da yok: " + _fatura_listesi(eksik, sinir))
+    if fazla:
+        parcalar.append("Luca'da var, GİB'de yok: " + _fatura_listesi(fazla, sinir))
+    if not parcalar and _fark(kayit):
+        # sayilar tutmuyor ama numaralar ortusuyor: ayni fatura iki kez listelenmis
+        parcalar.append("sayilar farkli, fatura numaralari ayni")
+    return " | ".join(parcalar)
 
 
 def _aksiyon(kayit):
@@ -126,9 +166,18 @@ def _aksiyon(kayit):
     fark = _fark(kayit)
     if _okunamadi(kayit):
         isler.append("KARSILASTIRILAMADI - interaktif V.D. listesi okunamadi")
-    if isinstance(fark, int) and fark > 0:
-        eksikler = _eksik_faturalar(kayit, sinir=4)
-        isler.append(f"EKSIK - {fark} fatura" + (f": {eksikler}" if eksikler else ""))
+    eksik, fazla = fatura_farklari(kayit)
+    if eksik and fazla and not _ortak_fatura_var(kayit):
+        eksik = fazla = []
+        isler.append("KARSILASTIRILAMADI - iki listenin fatura numaralari tutmuyor")
+    if eksik:
+        isler.append(f"EKSIK - GİB'de olup Luca'da olmayan {len(eksik)} fatura:"
+                     f" {_fatura_listesi(eksik, 4)}")
+    if fazla:
+        isler.append(f"FAZLA - Luca'da olup GİB'de olmayan {len(fazla)} fatura:"
+                     f" {_fatura_listesi(fazla, 4)}")
+    if not eksik and not fazla and isinstance(fark, int) and fark:
+        isler.append(f"SAYI FARKI - {abs(fark)} fatura, numaralar ortusuyor")
     if _en_yuksek(kayit["iptal"]):
         isler.append(f"IPTAL/ITIRAZ - {_en_yuksek(kayit['iptal'])} fatura")
     if _en_yuksek(kayit["tevkifat"]):
