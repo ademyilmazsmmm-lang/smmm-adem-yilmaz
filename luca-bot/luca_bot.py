@@ -985,7 +985,19 @@ def listeyi_yenile(page, log, ek=""):
         pass
 
 
-BELGE_ARA_ONAY = ["Ara", "Sorgula", "Listele", "Tamam", "Uygula"]
+# Pencerenin onay dugmesi de "Belge Ara" yaziyor; arac cubugundaki ayni adli
+# butona tekrar basmamak icin her zaman pencerenin icinden tiklanir
+BELGE_ARA_ONAY = ["Belge Ara", "Ara", "Sorgula", "Tamam", "Uygula"]
+BELGE_ARA_CAPALARI = ("Muhasebeleşmiş", "Belge Numarası", "Tarih Aralığı")
+
+
+def pencere_acik_mi(pencere):
+    if pencere is None:
+        return False
+    try:
+        return pencere.is_visible()
+    except Exception:
+        return False
 
 
 def belge_ara(page, bas, bit, log):
@@ -1006,12 +1018,29 @@ def belge_ara(page, bas, bit, log):
         return False
     kutuya_yaz(kutular[0], bas)
     kutuya_yaz(kutular[1], bit)
-    _, pencere = metinli_diyalog(page, "Belge Tarihi")
-    onay = pencerede_tikla(page, pencere, BELGE_ARA_ONAY) if pencere is not None else None
-    if not onay:
-        onay = varsa_tikla(page, BELGE_ARA_ONAY, sure=4000)
+
+    pencere = None
+    for capa in BELGE_ARA_CAPALARI:
+        _, pencere = metinli_diyalog(page, capa)
+        if pencere is not None:
+            break
+    onay = pencerede_tikla(page, pencere, BELGE_ARA_ONAY, sure=5000) if pencere is not None else None
+    if not onay:  # pencere taninmadi: tarih kutusunda Enter de aramayi baslatiyor
+        try:
+            kutular[1].press("Enter")
+            onay = "Enter"
+        except Exception:
+            pass
+    page.wait_for_timeout(1500)
+    if onay and onay != "Enter" and pencere_acik_mi(pencere):
+        # tiklanan oge baslik olabilir; pencere hala duruyorsa Enter ile aranir
+        try:
+            kutular[1].press("Enter")
+            onay = f"{onay}+Enter"
+        except Exception:
+            pass
     yaz(f"    Belge Ara: {bas} - {bit}"
-        + (f" ('{onay}' tiklandi)" if onay else " (onay butonu bulunamadi)"), log)
+        + (f" ('{onay}' tiklandi)" if onay else " (UYARI: onay butonu bulunamadi)"), log)
     page.wait_for_timeout(3000)
     try:
         page.wait_for_load_state("networkidle", timeout=30000)
