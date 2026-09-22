@@ -1485,7 +1485,7 @@ def interaktif_iptal_itiraz_sorgula(page, araliklar, log):
         return 0
 
 
-def iptal_itiraz_sorgula(page, araliklar, log):
+def iptal_itiraz_sorgula(page, araliklar, log, fr=None, satir_sayisi=0):
     """Listedeki faturalar icin GIB'den iptal/itiraz durumunu sorgular.
 
     Luca akisi: faturalar isaretli iken arac cubugundan "GİB'den İptal/İtiraz
@@ -1496,6 +1496,9 @@ def iptal_itiraz_sorgula(page, araliklar, log):
     for bas, bit in araliklar:
         acik_pencereleri_kapat(page, log)
         fatura_yok_penceresini_kapat(page)
+        # İptal sorgusu başında hepsini seç (faturalar seçili olmalı)
+        if fr is not None:
+            hepsini_sec(page, fr, satir_sayisi)
         if not varsa_tikla(page, IPTAL_DUGME_ADAYLARI, sure=4000):
             yaz("    'GİB'den İptal/İtiraz Sorgula' butonu bulunamadi, atlandi", log)
             return calisan
@@ -1855,8 +1858,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                     fr = secim_fr
                     hepsini_sec(page, fr, satir_sayisi)
 
-                # Normal iptal/itiraz sorgusu (interaktif'te de aynı şekilde)
-                basarili = iptal_itiraz_sorgula(page, araliklar, log)
+                # Normal iptal/itiraz sorgusu (fr ve satir_sayisi geçilir)
+                basarili = iptal_itiraz_sorgula(page, araliklar, log, fr, satir_sayisi)
 
                 if basarili:
                     # sorgu durum sutununu degistirir; liste yeniden okunur
