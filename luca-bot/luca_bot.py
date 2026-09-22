@@ -938,7 +938,21 @@ def gibden_getir(page, baslangic, bitis, log):
     return basarisiz
 
 
-TARIH_DESENI = re.compile(r"\d{2}[./]\d{2}[./]\d{4}")
+# GIB ekranlari tarihi 12/08/2026, 12.08.2026, 12-08-2026 ya da 2026-08-12 yazabiliyor
+TARIH_DESENI = re.compile(r"\d{2}[./-]\d{2}[./-]\d{4}|\d{4}-\d{2}-\d{2}")
+# ETTN'siz belge numarasi: 3 harf + 13 rakam (orn. GIB2026000000011)
+BELGE_NO_DESENI = re.compile(r"[A-Za-z]{3}\d{13}")
+
+
+def fatura_satiri_mi(hucreler, en_az=3):
+    """Satir fatura satiri mi: yeterli hucre + tarih ya da belge numarasi.
+
+    Interaktif V.D. ekraninda tarih bicimi degisebildigi icin belge numarasi
+    da olcut alinir; yoksa dolu listeler bos gorunuyordu.
+    """
+    if len(hucreler) < en_az:
+        return False
+    return any(TARIH_DESENI.search(h) or BELGE_NO_DESENI.search(h) for h in hucreler)
 
 
 def cerceveden_satirlar(fr):
@@ -953,9 +967,45 @@ def cerceveden_satirlar(fr):
             hucreler = [h.strip() for h in satirlar.nth(i).locator("td").all_inner_texts() if h.strip()]
         except Exception:
             continue
-        if len(hucreler) >= 4 and any(TARIH_DESENI.search(h) for h in hucreler):
+        if fatura_satiri_mi(hucreler, 3):
             veriler.append(hucreler)
     return veriler
+
+
+def ham_satir_ornegi(fr, adet=2):
+    """Liste okunamadiginda tani icin cercevedeki ilk dolu satirlarin metni."""
+    if fr is None:
+        return []
+    try:
+        satirlar = fr.locator("tr")
+        n = min(satirlar.count(), 80)
+    except Exception:
+        return []
+    ornekler = []
+    for i in range(n):
+        try:
+            metin = " | ".join(t.strip() for t in satirlar.nth(i).locator("td").all_inner_texts() if t.strip())
+        except Exception:
+            continue
+        if len(metin) > 20:
+            ornekler.append(metin[:160])
+            if len(ornekler) >= adet:
+                break
+    return ornekler
+
+
+# Satir hucreleri: once gercek hucre ogeleri, olmazsa dogrudan cocuklar,
+# en son satir metni (izgara <td> kullanmadiginda metin tek parca geliyordu)
+HUCRE_CIKAR = """el => {
+  const s = el.closest('tr, [role=row], li')
+    || (el.parentElement && el.parentElement.parentElement);
+  if (!s) return [];
+  const metin = e => (e.innerText || e.textContent || '').trim();
+  let h = [...s.querySelectorAll('td, th, [role=gridcell], [role=cell]')].map(metin);
+  if (h.filter(Boolean).length < 2) h = [...s.children].map(metin);
+  if (h.filter(Boolean).length < 2) h = metin(s).split(/\\t|\\n|\\s{2,}/);
+  return h.map(t => t.trim()).filter(Boolean);
+}"""
 
 
 def kutulardan_satirlar(kutular, sayi):
@@ -970,15 +1020,11 @@ def kutulardan_satirlar(kutular, sayi):
     satirlar = []
     for i in range(sayi):
         try:
-            metin = kutular.nth(i).evaluate(
-                "el => { const s = el.closest('tr, [role=row], li')"
-                " || (el.parentElement && el.parentElement.parentElement);"
-                " return s ? s.innerText : ''; }"
-            ) or ""
+            hucreler = kutular.nth(i).evaluate(HUCRE_CIKAR) or []
         except Exception:
             continue
-        hucreler = [h.strip() for h in re.split(r"[\t\n]+", metin) if h.strip()]
-        if len(hucreler) >= 3 and any(TARIH_DESENI.search(h) for h in hucreler):
+        hucreler = [h.strip() for h in hucreler if h and h.strip()]
+        if fatura_satiri_mi(hucreler, 3):
             satirlar.append(hucreler)
     return satirlar
 
@@ -1046,7 +1092,7 @@ def veri_satir_indisleri(fr):
             hucreler = [h.strip() for h in satirlar.nth(i).locator("td").all_inner_texts() if h.strip()]
         except Exception:
             continue
-        if len(hucreler) >= 4 and any(TARIH_DESENI.search(h) for h in hucreler):
+        if fatura_satiri_mi(hucreler, 3):
             indisler.append(i)
     return satirlar, indisler
 
@@ -1670,6 +1716,10 @@ def excelden_tablo(yol, log=None):
                     basliklar = hucreler
                 else:
                     satirlar.append(hucreler)
+        if not satirlar:
+            sayfalar = ", ".join(ws.title for ws in wb.worksheets) or "-"
+            yaz(f"    Excel bos geldi (sayfalar: {sayfalar},"
+                f" baslik: {len(basliklar)} sutun)", log)
     except Exception as e:
         yaz(f"    Excel okunurken hata ({type(e).__name__})", log)
     finally:
@@ -1828,13 +1878,19 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             yaz(f"    Liste bos gorundu, ekran kaydi: {tani}", log)
         except Exception:
             pass
+        # hangi satirlar okundu da fatura sayilmadi: tani icin gunluge yazilir
+        for ornek in ham_satir_ornegi(kutu_cercevesi or fr):
+            yaz(f"      ekrandaki satir: {ornek}", log)
     sonuc["fatura_sayisi"] = len(satirlar) or (sayi or 0)
     yaz(f"    {len(satirlar)} satir listelendi"
         + (f" (ekranda {sayi} kayit)" if sayi and not satirlar else ""), log)
     tevkifatlilar, ekran_tevkifat = [], set()
     excel_alindi = False
 
-    if not satirlar and interaktif:
+    if not satirlar and interaktif and not sayi:
+        # Ekran kayit sayisini da veremiyorsa liste hakkinda hicbir sey bilmiyoruz;
+        # bu durumda Excel hemen alinir. Sayi biliniyorsa Excel iptal sorgusundan
+        # sonra indirilir, boyle iptal/itiraz durumu da dosyaya yansir.
         # Excel bos inmesin diye once tum satirlar isaretlenir (elle akista da boyle)
         kutular, kutu_sayisi, sec_fr = secim_kutulari(page)
         if sec_fr is not None:
@@ -1873,7 +1929,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     if satir_sayisi:
         secilen = hepsini_sec(page, fr, satir_sayisi) if fr is not None else 0
         if secilen:
-            yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
+            yaz(f"    {secilen} kayit isaretlendi"
+                + ("" if interaktif else ", indirme basliyor"), log)
         else:
             yaz("    UYARI: hicbir kayit isaretlenemedi, indirme yine de denenecek", log)
         # Belge indir (XML): Excel al'dan sonra, interaktif ise skip
