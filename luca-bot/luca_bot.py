@@ -80,6 +80,7 @@ AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "ipt
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 7  # GIB sorgusu tek seferde en fazla 7 gun kabul ediyor (eskiden 30)
+INTERAKTIF_AZAMI_GUN = 30  # Interaktif V.D. ekraninda 7 gunluk parcalamaya gerek yok
 COKME_DENEMESI = 3  # tarayici indirme sirasinda cokerse firma kac kez tekrar denensin
 
 # GIB'den iptal/itiraz sorgulama (fatura listesi indikten sonra calisir)
@@ -2077,8 +2078,10 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
 
     interaktif = belge_tipi in IKI_KADEMELI
     # Interaktif V.D. ekraninda fatura, duzenlendigi tarihle degil ait oldugu
-    # donemle listelendigi icin hedef ayin disini sorgulamaya gerek yok.
-    sorgu_araliklari = tarih_araliklari(indirme_bas, indirme_bit) if interaktif else araliklar
+    # donemle listelendigi icin hedef ayin disini sorgulamaya gerek yok; bu ekran
+    # tek seferde bir ayi kabul ettigi icin 7 gunluk parcalama da yapilmaz.
+    sorgu_araliklari = (tarih_araliklari(indirme_bas, indirme_bit, INTERAKTIF_AZAMI_GUN)
+                        if interaktif else araliklar)
     kalan_hata = 0
     if interaktif:
         interaktif_sorgula(page, sorgu_araliklari, log, indirme_araligi)
