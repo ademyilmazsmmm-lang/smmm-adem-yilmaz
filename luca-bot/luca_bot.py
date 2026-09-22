@@ -1849,6 +1849,33 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
         else:
             yaz("    UYARI: hicbir kayit isaretlenemedi, indirme yine de denenecek", log)
+        # Belge indir (XML): Excel al'dan sonra, interaktif ise skip
+        if not interaktif:  # interaktif V.D. ekraninda belge indirme butonu yok
+            yol = indirme_islevi()(page, "Seçilenleri İndir", klasor, "belgeler", log,
+                                   azami_saniye=AYAR["indirme_saniye"])
+            if yol:
+                sonuc["dosyalar"].append(yol.name)
+                if yol.suffix.lower() == ".zip":
+                    # XML bozuk inebildigi gibi ekranda da sutun olmayabiliyor;
+                    # iki kaynagin birlesimi alinir
+                    xml_tevkifat = zipten_tevkifatlilar(yol)
+                    if xml_tevkifat:
+                        sonuc["tevkifat"] = max(len(ekran_tevkifat | xml_tevkifat),
+                                                len(tevkifatlilar), len(xml_tevkifat))
+                        yaz(f"    XML'de {len(xml_tevkifat)} tevkifatli fatura bulundu"
+                            f" (toplam {sonuc['tevkifat']})", log)
+            if not sayfa_canli(page):
+                if yol:
+                    # belge paketi elimizde; firmayi tekrar sorgulamaya gerek yok
+                    yaz("    Belgeler indi ama tarayici kapandi;"
+                        " Excel'in indirilme sorgusu bu firmada atlandi", log)
+                    sonuc["durum"] = "tamam (iptal eksik)"
+                    sonuc["not"] = "tarayici belge indirmeden sonra kapandi"
+                    return sonuc
+                # dosya yok: firmayi 'tamam' sayma, ana dongu bastan denesin
+                raise RuntimeError("tarayici indirme sirasinda kapandi")
+
+
         # İptal/itiraz sorgusu Excel'den ONCE yapılır (interaktif V.D. için flow: sorgu -> iptal -> excel)
         if AYAR["iptal_itiraz"]:
             try:
@@ -1914,31 +1941,6 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                     if excel_satirlari:
                         satirlar = excel_satirlari
 
-        # Belge indir (XML): Excel al'dan sonra, interaktif ise skip
-        if not interaktif:  # interaktif V.D. ekraninda belge indirme butonu yok
-            yol = indirme_islevi()(page, "Seçilenleri İndir", klasor, "belgeler", log,
-                                   azami_saniye=AYAR["indirme_saniye"])
-            if yol:
-                sonuc["dosyalar"].append(yol.name)
-                if yol.suffix.lower() == ".zip":
-                    # XML bozuk inebildigi gibi ekranda da sutun olmayabiliyor;
-                    # iki kaynagin birlesimi alinir
-                    xml_tevkifat = zipten_tevkifatlilar(yol)
-                    if xml_tevkifat:
-                        sonuc["tevkifat"] = max(len(ekran_tevkifat | xml_tevkifat),
-                                                len(tevkifatlilar), len(xml_tevkifat))
-                        yaz(f"    XML'de {len(xml_tevkifat)} tevkifatli fatura bulundu"
-                            f" (toplam {sonuc['tevkifat']})", log)
-            if not sayfa_canli(page):
-                if yol:
-                    # belge paketi elimizde; firmayi tekrar sorgulamaya gerek yok
-                    yaz("    Belgeler indi ama tarayici kapandi;"
-                        " Excel'in indirilme sorgusu bu firmada atlandi", log)
-                    sonuc["durum"] = "tamam (iptal eksik)"
-                    sonuc["not"] = "tarayici belge indirmeden sonra kapandi"
-                    return sonuc
-                # dosya yok: firmayi 'tamam' sayma, ana dongu bastan denesin
-                raise RuntimeError("tarayici indirme sirasinda kapandi")
 
         # belge paketi inmediyse firma tamamlanmis sayilmaz; ozette goze carpsin
         sonuc["durum"] = "tamam" if (interaktif or sonuc["dosyalar"]) else "dosya inmedi"
