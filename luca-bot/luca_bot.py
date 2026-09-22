@@ -1051,7 +1051,38 @@ def veri_satir_indisleri(fr):
     return satirlar, indisler
 
 
+def belge_sec_diyalogu(page, satir_sayisi=0):
+    """Luca'nin kendi secim yolu: Belge Seç -> Tümünü Seç -> Tamam.
+
+    Satirlari tek tek isaretlemek yerine "Belge Seçiniz" penceresi kullanilir;
+    pencere listedeki butun belgeleri (ekranda gorunmeyenler dahil) secer.
+    """
+    if not dugmeye_bas(page, "Belge Seç", sure=4000):
+        return 0
+    page.wait_for_timeout(900)
+    try:  # pencere acildiysa icindeki "Tümünü Seç" gorunur olur
+        _, dugme = metinle_bul(page, "Tümünü Seç", sure=5000)
+        dugme.click(timeout=5000)
+    except Exception:
+        varsa_tikla(page, ["Kapat"])
+        return 0
+    page.wait_for_timeout(600)
+    try:
+        _, tamam = metinle_bul(page, "Tamam", sure=5000)
+        tamam.click(timeout=5000)
+    except Exception:
+        varsa_tikla(page, ["Kapat"])
+        return 0
+    page.wait_for_timeout(1000)
+    kutular, sayi, _ = secim_kutulari(page)
+    return isaretli_sayisi(kutular, sayi) or satir_sayisi
+
+
 def hepsini_sec(page, fr, satir_sayisi=0):
+    secilen = belge_sec_diyalogu(page, satir_sayisi)  # Luca'nin kendi yolu
+    if secilen:
+        return secilen
+
     kutular, sayi, _ = secim_kutulari(page)
 
     if sayi:
@@ -1090,10 +1121,6 @@ def hepsini_sec(page, fr, satir_sayisi=0):
             return isaretli_sayisi(kutular, sayi) or len(indisler)
         except Exception:
             pass
-
-    if dugmeye_bas(page, "Belge Seç", sure=3000):  # Alt+B
-        page.wait_for_timeout(800)
-        return isaretli_sayisi(kutular, sayi) or satir_sayisi
     return 0
 
 
