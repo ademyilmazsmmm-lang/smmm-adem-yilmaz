@@ -79,7 +79,7 @@ KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engelle
 AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True, "chrome_gunlugu": False, "tarayici": None, "profil_yerel": False, "indirmeyi_yakala": True}  # ayarlar.json ile degistirilebilir
 
 TARIH_BICIMI = "%d/%m/%Y"
-AZAMI_GUN = 30  # GIB sorgusu tek seferde en fazla 30 gun kabul ediyor
+AZAMI_GUN = 7  # GIB sorgusu tek seferde en fazla 7 gun kabul ediyor (eskiden 30)
 COKME_DENEMESI = 3  # tarayici indirme sirasinda cokerse firma kac kez tekrar denensin
 
 # GIB'den iptal/itiraz sorgulama (fatura listesi indikten sonra calisir)
@@ -124,7 +124,7 @@ def tarih_cozumle(metin):
 
 
 def tarih_araliklari(baslangic, bitis, gun=AZAMI_GUN):
-    """30 gunluk parcalara boler; her parca bir oncekinin bitis tarihinden basliyor."""
+    """AZAMI_GUN gunluk parcalara boler; her parca bir oncekinin bitis tarihinden basliyor."""
     if bitis < baslangic:
         raise ValueError("Bitis tarihi baslangictan once olamaz")
     araliklar = []
@@ -1008,6 +1008,33 @@ HUCRE_CIKAR = """el => {
 }"""
 
 
+YAPI_CIKAR = """el => {
+  const s = el.closest('tr, [role=row], li')
+    || (el.parentElement && el.parentElement.parentElement);
+  if (!s) return 'satir atasi yok';
+  return s.tagName + '.' + (s.className || '-') + ' > '
+    + [...s.children].map(c => c.tagName).join(',');
+}"""
+
+
+def kutu_satir_tanisi(kutular, sayi, adet=3):
+    """Liste okunamadiginda kutu satirlarinin yapisini ve hucrelerini dondurur."""
+    ornekler = []
+    if kutular is None:
+        return ornekler
+    for i in range(min(sayi, adet + 2)):
+        try:
+            hucreler = kutular.nth(i).evaluate(HUCRE_CIKAR) or []
+            yapi = kutular.nth(i).evaluate(YAPI_CIKAR)
+        except Exception:
+            continue
+        ornekler.append(f"{yapi} | {len(hucreler)} hucre: "
+                        + " ~ ".join(hucreler)[:150])
+        if len(ornekler) >= adet:
+            break
+    return ornekler
+
+
 def kutulardan_satirlar(kutular, sayi):
     """Satirlari isaret kutularindan cikarir.
 
@@ -1682,28 +1709,14 @@ def _hucre_metni(h):
     return str(h).strip()
 
 
-def excelden_tablo(yol, log=None):
-    """Inen Excel'i (basliklar, satirlar) olarak okur; sutunlar yerinde kalir.
-
-    Ekrandaki tabloyu kazimak yerine inen dosyayi kaynak almak daha saglam:
-    sutun basliklari belli oldugu icin tevkifat ve iptal/itiraz dogrudan
-    kendi sutunlarindan okunabiliyor.
-    """
-    try:
-        from openpyxl import load_workbook
-    except ImportError:
-        yaz("    openpyxl kurulu degil, Excel okunamadi", log)
-        return [], []
-    try:
-        import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            wb = load_workbook(str(yol), read_only=True, data_only=True)
-    except Exception as e:
-        yaz(f"    Excel acilamadi ({type(e).__name__})", log)
-        return [], []
-
+def _excel_tam_oku(ac, log=None):
+    """read_only okuma bos donerse dosyayi normal modda okur (yavas ama saglam)."""
     basliklar, satirlar = [], []
+    try:
+        wb = ac(False)
+    except Exception as e:
+        yaz(f"    Excel tam okumada acilamadi ({type(e).__name__})", log)
+        return basliklar, satirlar
     try:
         for ws in wb.worksheets:
             for ham in ws.iter_rows(values_only=True):
@@ -1716,10 +1729,64 @@ def excelden_tablo(yol, log=None):
                     basliklar = hucreler
                 else:
                     satirlar.append(hucreler)
-        if not satirlar:
+    except Exception as e:
+        yaz(f"    Excel tam okunurken hata ({type(e).__name__})", log)
+    finally:
+        try:
+            wb.close()
+        except Exception:
+            pass
+    return basliklar, satirlar
+
+
+def excelden_tablo(yol, log=None):
+    """Inen Excel'i (basliklar, satirlar) olarak okur; sutunlar yerinde kalir.
+
+    Ekrandaki tabloyu kazimak yerine inen dosyayi kaynak almak daha saglam:
+    sutun basliklari belli oldugu icin tevkifat ve iptal/itiraz dogrudan
+    kendi sutunlarindan okunabiliyor.
+    """
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        yaz("    openpyxl kurulu degil, Excel okunamadi", log)
+        return [], []
+    import warnings
+
+    def ac(read_only):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return load_workbook(str(yol), read_only=read_only, data_only=True)
+
+    try:
+        wb = ac(True)
+    except Exception as e:
+        yaz(f"    Excel acilamadi ({type(e).__name__})", log)
+        return [], []
+
+    basliklar, satirlar = [], []
+    try:
+        for ws in wb.worksheets:
+            try:  # Luca dosyalarinda boyut bilgisi eksik; olmazsa satirlar bos geliyor
+                ws.reset_dimensions()
+            except Exception:
+                pass
+            for ham in ws.iter_rows(values_only=True):
+                hucreler = [_hucre_metni(h) for h in ham]
+                while hucreler and not hucreler[-1]:
+                    hucreler.pop()
+                if len([h for h in hucreler if h]) < 2:
+                    continue
+                if not basliklar:
+                    basliklar = hucreler
+                else:
+                    satirlar.append(hucreler)
+        if not satirlar:  # read_only modu bos donduyse dosyayi tumuyle acip tekrar dene
             sayfalar = ", ".join(ws.title for ws in wb.worksheets) or "-"
-            yaz(f"    Excel bos geldi (sayfalar: {sayfalar},"
-                f" baslik: {len(basliklar)} sutun)", log)
+            basliklar, satirlar = _excel_tam_oku(ac, log)
+            if not satirlar:
+                yaz(f"    Excel bos geldi (sayfalar: {sayfalar},"
+                    f" baslik: {len(basliklar)} sutun)", log)
     except Exception as e:
         yaz(f"    Excel okunurken hata ({type(e).__name__})", log)
     finally:
@@ -1872,13 +1939,20 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         tani = cikti_kok / "tani"
         tani.mkdir(parents=True, exist_ok=True)
         ad = dosya_adi_yap(firma)
-        try:
-            page.screenshot(path=str(tani / f"{ad}-bos-liste.png"), full_page=True)
-            (tani / f"{ad}-bos-liste.html").write_text(page.content(), encoding="utf-8")
-            yaz(f"    Liste bos gorundu, ekran kaydi: {tani}", log)
+        try:  # tam sayfa goruntusu cerceveli ekranlarda dakikalarca surebiliyor
+            page.screenshot(path=str(tani / f"{ad}-bos-liste.png"), timeout=15000)
         except Exception:
             pass
-        # hangi satirlar okundu da fatura sayilmadi: tani icin gunluge yazilir
+        try:  # liste cercevesinin HTML'i tum sayfadan daha ise yarar
+            kaynak = (kutu_cercevesi or fr)
+            icerik = kaynak.content() if kaynak is not None else page.content()
+            (tani / f"{ad}-bos-liste.html").write_text(icerik, encoding="utf-8")
+        except Exception:
+            pass
+        yaz(f"    Liste bos gorundu, ekran kaydi: {tani}", log)
+        # neden fatura satiri sayilmadi: kutu satirlarinin yapisi gunluge yazilir
+        for ornek in kutu_satir_tanisi(kutular, kutu_sayisi):
+            yaz(f"      kutu satiri: {ornek}", log)
         for ornek in ham_satir_ornegi(kutu_cercevesi or fr):
             yaz(f"      ekrandaki satir: {ornek}", log)
     sonuc["fatura_sayisi"] = len(satirlar) or (sayi or 0)

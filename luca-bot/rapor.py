@@ -77,9 +77,15 @@ def _fark(kayit):
 
 
 def _okunamadi(kayit):
+    """Interaktif V.D. listesi fatura bazinda karsilastirmaya uygun mu."""
     a = kayit["sayilar"].get("e-arsiv-alis")
     b = kayit["sayilar"].get("e-arsiv-interaktif")
-    return a is not None and b is not None and b == 0 and a > 0
+    if a is None or b is None:
+        return False
+    if b == 0 and a > 0:
+        return True
+    # ekran kayit sayisini verdi ama satirlari okunamadi: eksikler listelenemez
+    return bool(b) and not kayit.get("faturalar", {}).get("e-arsiv-interaktif")
 
 
 def _eksik_faturalar(kayit, sinir=12):
@@ -91,8 +97,11 @@ def _eksik_faturalar(kayit, sinir=12):
     faturalar = kayit.get("faturalar", {})
     luca = faturalar.get("e-arsiv-alis")
     gib = faturalar.get("e-arsiv-interaktif")
-    if not gib or luca is None:
+    if luca is None:
         return ""
+    if not gib:
+        # ekranda kayit var ama liste okunamadiysa bos birakmak yerine sebebi yaz
+        return "interaktif liste okunamadi" if kayit["sayilar"].get("e-arsiv-interaktif") else ""
     olanlar = {no for _, no in luca}
     eksikler = [(unvan, no) for unvan, no in gib if no not in olanlar]
     if not eksikler:
