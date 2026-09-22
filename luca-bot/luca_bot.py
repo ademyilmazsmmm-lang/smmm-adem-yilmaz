@@ -1869,8 +1869,9 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                             csv.writer(f).writerows(satirlar)
                         sonuc["tevkifat"] = len(tevkifatli_satirlar(satirlar))
                     # İptal sorgusu sonrası hepsini seç (Excel indirmeden önce)
+                    # kutu_sayisi'ni kullan, satirlar'ı değil (tablo okuma başarısız olabilir)
                     if yeni_fr is not None:
-                        hepsini_sec(page, yeni_fr, len(satirlar) or satir_sayisi)
+                        hepsini_sec(page, yeni_fr, kutu_sayisi or satir_sayisi)
                     iptaller = iptal_itiraz_satirlari(satirlar)
                     sonuc["iptal_itiraz"] = len(iptaller)
                     if iptaller:
