@@ -1928,7 +1928,9 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             kutular, kutu_sayisi, guncel_fr = secim_kutulari(page)
             if guncel_fr is not None:
                 fr = guncel_fr
-                hepsini_sec(page, fr, satir_sayisi_guncel)
+                secilen = hepsini_sec(page, fr, satir_sayisi_guncel) or 0
+                if secilen == 0:
+                    yaz("    UYARI: Faturalar seçilemedi", log)
                 # Interaktif ekranda Luca seçimi işlemesi ve Excel'e yazması için
                 # ekstra bekleme gerekiyor; aksi halde sadece başlık satırı iniyor
                 page.wait_for_timeout(4000)  # İptal sonrası daha fazla bekleme gerekli
