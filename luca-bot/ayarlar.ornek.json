@@ -11,7 +11,7 @@
   "durgunluk_dakika": 3,
   "ardisik_hata_siniri": 5,
   "indirme_bekleme_saniye": 30,
-  "azami_fatura": 500,
+  "azami_fatura": 0,
   "iptal_itiraz_sorgula": true,
   "atlanacak_firmalar": [
     "ALİ KAAN T",
@@ -20,11 +20,17 @@
     "EST TEDARİ",
     "EVREN GÜNG",
     "GÜLENBER S",
+    "HAMZA",
+    "KEREM",
+    "KERİM",
+    "KÜBRA",
     "MEHMET ŞEN",
     "MERTEMİR",
+    "MUZAFFER",
     "OĞUZHAN Bİ",
-    "ÖMÜR CAN T",
+    "PINK",
     "RATATOUİLL",
-    "SERKANGENÇ"
+    "SERKANGENÇ",
+    "ÖMÜR CAN T"
   ]
 }
