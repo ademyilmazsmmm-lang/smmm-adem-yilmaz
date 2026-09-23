@@ -95,7 +95,7 @@ KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engelle
     "Belge Seç": "Alt+b",
 }
 
-AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True, "chrome_gunlugu": False, "tarayici": None, "profil_yerel": False, "indirmeyi_yakala": True}  # ayarlar.json ile degistirilebilir
+AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "iptal_itiraz": True, "donem_degistir": True, "chrome_gunlugu": False, "tarayici": None, "profil_yerel": False, "indirmeyi_yakala": True, "azami_fatura": 500}  # ayarlar.json ile degistirilebilir
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 7  # GIB sorgusu tek seferde en fazla 7 gun kabul ediyor (eskiden 30)
@@ -2138,6 +2138,18 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     # satir listesi cikarilamasa bile ekranda kayit varsa islemler yapilmali
     # (iptal/itiraz bu yuzden atlaniyordu)
     satir_sayisi = len(satirlar) or (sayi or 0)
+
+    # Cok faturali firmalar (e-fatura portalinden elle indirilenler) atlanir:
+    # binlerce belgeyi indirmek gece calismasinin tamamini tiketiyor.
+    azami = AYAR.get("azami_fatura") or 0
+    ekran_sayisi = interaktif_kayit_sayisi(page) or 0  # sayfalamada satir sayisi yaniltir
+    gercek_sayi = max(satir_sayisi, ekran_sayisi)
+    if azami and gercek_sayi > azami:
+        yaz(f"    ATLANDI: {gercek_sayi} fatura (sinir {azami}); portalden elle indirilecek", log)
+        sonuc["fatura_sayisi"] = gercek_sayi
+        sonuc["durum"] = "atlandi (cok fatura)"
+        sonuc["not"] = f"{gercek_sayi} fatura, sinir {azami}: portalden elle indirin"
+        return sonuc
     if satir_sayisi:
         # Belge indir (XML): interaktif V.D. ekraninda bu buton yok, secim de gerekmiyor
         if not interaktif and not sadece_excel:
@@ -2616,6 +2628,8 @@ def main():
                    help="Chrome cokerse sebebini yazmasi icin ayrintili gunluk tut")
     p.add_argument("--donem-degistirme", action="store_true",
                    help="Donemi degistirme; eski donemdeki firmalari atla (sorun cikarsa)")
+    p.add_argument("--azami-fatura", type=int,
+                   help="Bu sayidan cok faturasi olan firmalari atla (0: sinir yok)")
     p.add_argument("--iptal-itiraz-atla", action="store_true",
                    help="Faturalari indir ama GIB iptal/itiraz sorgusunu yapma")
     p.add_argument("--listele", action="store_true", help="Sadece firma listesini yazdir, islem yapma")
@@ -2646,6 +2660,9 @@ def main():
     AYAR["azami_saniye"] = max(60, int(float(ayarlar.get("sorgu_azami_dakika", 30)) * 60))
     AYAR["durgunluk_saniye"] = max(30, int(float(ayarlar.get("durgunluk_dakika", 3)) * 60))
     AYAR["indirme_saniye"] = max(3, int(ayarlar.get("indirme_bekleme_saniye", 30)))
+    # cok faturali firmalar atlanir (0: sinir yok)
+    AYAR["azami_fatura"] = max(0, int(args.azami_fatura if args.azami_fatura is not None
+                                      else ayarlar.get("azami_fatura", 500)))
     AYAR["iptal_itiraz"] = bool(ayarlar.get("iptal_itiraz_sorgula", True)) and not args.iptal_itiraz_atla
     AYAR["donem_degistir"] = bool(ayarlar.get("donem_degistir", True)) and not args.donem_degistirme
     AYAR["chrome_gunlugu"] = bool(args.chrome_gunlugu)
@@ -2816,8 +2833,13 @@ def main():
                         yaz(f"  -- {BELGE_TIPLERI[tip]}", log)
                     if sira and sayfa_canli(page):
                         sayfayi_toparla(page)  # onceki ekrandan kalan diyaloglar
-                    sonuclar.append(firma_isle(page, firma, tip, araliklar, calisma, log,
-                                               azami_deneme, firma_secili=bool(sira)))
+                    sonuc = firma_isle(page, firma, tip, araliklar, calisma, log,
+                                       azami_deneme, firma_secili=bool(sira))
+                    sonuclar.append(sonuc)
+                    if sonuc["durum"].startswith("atlandi"):
+                        # fatura sayisi sinirin ustunde: bu firmanin diger ekranlari da gecilir
+                        yaz("    Bu firmanin kalan ekranlari atlandi", log)
+                        break
                 ardisik_hata = 0
             except Exception as e:
                 # sayfa kapandiysa hata firmanin degil tarayicinin; firmayi yakmadan

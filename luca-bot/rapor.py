@@ -29,7 +29,7 @@ SUTUNLAR = [
 # Once gercek sorunlar. "fatura yok" en sona yakin: bir ekranda fatura
 # bulunmamasi, digerinde fatura inen firmayi "fatura yok" gostermemeli.
 DURUM_ONCELIGI = ["hata", "dosya inmedi", "kaynaktan inmedi", "donem disi",
-                  "tamam (excel", "tamam", "fatura yok", "bekliyor"]
+                  "atlandi", "tamam (excel", "tamam", "fatura yok", "bekliyor"]
 
 BASLIKLAR = (["Firma", "Dönem", "Durum", "Aksiyon"]
              + [ad for _, ad in SUTUNLAR]
@@ -166,6 +166,8 @@ def _aksiyon(kayit):
         isler.append("EXCEL/IPTAL EKSIK - belgeler indi, ikinci turda tamamla")
     if durum.startswith("dosya inmedi"):
         isler.append("DOSYA INMEDI - tekrar calistir")
+    if durum.startswith("atlandi"):
+        isler.append("ELLE INDIR - cok fatura, e-fatura portalinden indirin")
     if sum(kayit["inmeyen"].values()):
         isler.append("KAYNAKTAN INMEDI - tekrar sorgula")
     fark = _fark(kayit)

@@ -11,6 +11,7 @@
   "durgunluk_dakika": 3,
   "ardisik_hata_siniri": 5,
   "indirme_bekleme_saniye": 30,
+  "azami_fatura": 500,
   "iptal_itiraz_sorgula": true,
   "atlanacak_firmalar": [
     "ALİ KAAN T",
