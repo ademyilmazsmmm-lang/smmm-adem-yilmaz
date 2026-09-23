@@ -52,6 +52,10 @@ BELGE_TIPLERI = {
 # menusu iki kademeli olan (Akilli Entegrasyon Noktasi araciligi olmayan) ekranlar
 IKI_KADEMELI = {"e-arsiv-interaktif"}
 
+# "GİB'den İptal/İtiraz Sorgula" butonu yalnizca bu ekranlarda var; digerlerinde
+# butonu aramak her ekranda yarim dakika bosa gidiyordu
+IPTAL_EKRANLARI = {"e-arsiv-alis", "e-arsiv-interaktif"}
+
 # Belge (XML/zip) indirilmeyen ekranlar. Excel her ekranda iniyor: tevkifatli
 # faturalar (KDV2) ancak Excel'deki sutunlardan guvenilir sekilde gorulebiliyor.
 SADECE_EXCEL = {"e-arsiv-satis", "e-fatura-alis", "e-fatura-satis",
@@ -751,27 +755,26 @@ def menuye_git(page, belge_tipi):
         pass
 
 
+# Tum kutularin degeri/nitelikleri tek seferde okunur: her kutu icin ayri ayri
+# is_visible/input_value/get_attribute cagirmak ekran basina 10-25 sn suruyordu.
+KUTU_BILGISI = """els => els.map(el => ({
+  d: el.value || '',
+  n: ((el.name || '') + ' ' + (el.id || '') + ' ' + (el.className || '')).toLowerCase(),
+  g: !!(el.offsetParent || el.getClientRects().length)
+}))"""
+
+TARIH_NITELIGI = re.compile(r"tarih|date")
+
+
 def _tarih_kutulari(kapsayici):
-    adaylar = []
     try:
         kutular = kapsayici.locator("input[type=text], input:not([type])")
-        sayi = kutular.count()
+        bilgiler = kutular.evaluate_all(KUTU_BILGISI)
     except Exception:
-        return adaylar
-    for i in range(sayi):
-        try:
-            kutu = kutular.nth(i)
-            if not kutu.is_visible():
-                continue
-            deger = kutu.input_value() or ""
-            nitelik = " ".join(
-                x for x in (kutu.get_attribute("name"), kutu.get_attribute("id"), kutu.get_attribute("class")) if x
-            ).lower()
-            if re.search(r"\d{2}[./]\d{2}[./]\d{4}", deger) or re.search(r"tarih|date", nitelik):
-                adaylar.append(kutu)
-        except Exception:
-            continue
-    return adaylar
+        return []
+    return [kutular.nth(i) for i, b in enumerate(bilgiler)
+            if b.get("g") and (TARIH_DESENI.search(b.get("d") or "")
+                               or TARIH_NITELIGI.search(b.get("n") or ""))]
 
 
 def tarih_kutulari(page, kapsam=None):
@@ -2184,7 +2187,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
 
 
         # İptal/itiraz sorgusu Excel'den ONCE yapılır (interaktif V.D. için flow: sorgu -> iptal -> excel)
-        if AYAR["iptal_itiraz"]:
+        if AYAR["iptal_itiraz"] and belge_tipi in IPTAL_EKRANLARI:
             try:
                 # Sorgu tum listeye uygulanir; fatura isaretlemeye gerek yok.
                 # Sorgu ile ayni araliklar kullanilir: GIB alis ekraninda 7 gunluk
@@ -2891,14 +2894,17 @@ def main():
             yaz("Tarayiciyi acip Luca'ya girin ve programi yeniden calistirin.", log)
 
         basarili = sum(1 for s in sonuclar if s["durum"] == "tamam")
+        bos = sum(1 for s in sonuclar if s["durum"] == "fatura yok")
         # her belge tipi ayri bir sonuc satiri; firma sayisi ile karistirilmasin
         firma_basi = {}
         for s in sonuclar:
             firma_basi[s["firma"]] = max(firma_basi.get(s["firma"], 0), s["fatura_sayisi"])
         # ayni faturalar birden fazla ekranda goruldugu icin toplam degil en yuksek
         toplam_fatura = sum(firma_basi.values())
-        yaz(f"\nBitti. {len(firma_basi)} firma, {basarili}/{len(sonuclar)} ekran tamamlandi,"
-            f" {toplam_fatura} fatura listelendi.", log)
+        yaz(f"\nBitti. {len(firma_basi)} firma, {len(sonuclar)} ekran:"
+            f" {basarili} ekranda fatura indi, {bos} ekran bos,"
+            f" {len(sonuclar) - basarili - bos} ekran sorunlu."
+            f" Toplam {toplam_fatura} fatura listelendi.", log)
         yaz(f"Dosyalar: {calisma}", log)
         yaz(f"Ozet: {ozet}", log)
         yaz(f"Rapor: {calisma / 'rapor.xlsx'} (aksiyon gereken firmalar en ustte)", log)
