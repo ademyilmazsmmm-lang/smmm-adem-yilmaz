@@ -4,581 +4,425 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="index, follow">
-  <title>İhraç Kayıtlı Satışlar Rehberi | KDV, Fatura ve Vergi | SMMM Adem Yılmaz</title>
-  <meta name="description" content="İhraç kayıtlı satışlarla ilgili kapsamlı rehber: KDV uygulaması, tecil-terkin mekanizması, fatura düzeni, kurumlar vergisi ve 2026 güncel mevzuat.">
-  <meta name="keywords" content="ihraç kayıtlı satış, KDV iadesesi, tecil-terkin, fatura, 11/1-c maddesi, kurumlar vergisi, ihracat">
+  <meta name="author" content="Adem Yılmaz">
+  <title>İhraç Kayıtlı Satışlarda Vergi Uygulamaları | KDV, Tecil-Terkin, Fatura | SMMM Adem Yılmaz</title>
+  <meta name="description" content="İhraç kayıtlı satışlarda KDV uygulaması, tecil-terkin mekanizması, fatura düzeni ve kurumlar vergisinde 5 puan indirim. 2026 güncel mevzuatla mükellefin anlayacağı rehber.">
+  <meta name="keywords" content="ihraç kayıtlı satış, KDV Kanunu 11/1-c, tecil terkin, KDV iadesi, ihracat kurumlar vergisi indirimi, 701 kodu">
   <link rel="canonical" href="https://smmmyilmaz.com/ihrac-kayitli-satislar-rehberi.html">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://smmmyilmaz.com/ihrac-kayitli-satislar-rehberi.html">
+  <meta property="og:title" content="İhraç Kayıtlı Satışlarda Vergi Uygulamaları">
+  <meta property="og:description" content="KDV Kanunu 11/1-c maddesi, tecil-terkin mekanizması, fatura düzeni ve kurumlar vergisinde 5 puan indirim rehberi.">
+  <meta property="og:locale" content="tr_TR">
+  <meta property="og:site_name" content="SMMM Adem Yılmaz">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
-  <style>
-    :root{
-      --navy:#081222; --navy-light:#0f1e35; --navy-mid:#1a3052;
-      --gold:#d4af5a; --gold-light:#f0dfa8; --gold-dark:#b8943f;
-      --white:#fff; --gray-100:#f0f2f5; --gray-200:#d8dee8; --gray-600:#5a6478;
-      --success:#27ae60; --warning:#f39c12; --danger:#e74c3c; --text:#2a3344;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root{
-        --white:#0f1419; --gray-100:#1a2332; --gray-200:#2a3a52; --gray-600:#8a9ab8;
-        --text:#e0e6f2;
-      }
-    }
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{
-      font-family:'DM Sans',sans-serif; color:var(--text); background:var(--white);
-      line-height:1.7; padding:20px;
-    }
-    .container{max-width:900px;margin:0 auto;}
-    header{
-      background:linear-gradient(135deg,var(--navy),var(--navy-mid));
-      color:#fff; padding:50px 30px; border-radius:16px; margin-bottom:40px;
-      box-shadow:0 8px 32px rgba(0,0,0,.15);
-    }
-    header h1{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:700;margin-bottom:12px;}
-    header p{font-size:1.05rem;opacity:.9;max-width:600px;}
-    .breadcrumb{font-size:.85rem;opacity:.8;margin-bottom:15px;}
-
-    .content-grid{display:grid;gap:30px;}
-
-    section{
-      background:var(--gray-100); border-radius:12px; padding:30px;
-      border-left:4px solid var(--gold);
-    }
-    section h2{
-      font-family:'Cormorant Garamond',serif; font-size:1.6rem;
-      color:var(--navy); margin-bottom:20px; padding-bottom:10px;
-      border-bottom:2px solid var(--gold-light);
-    }
-    section h3{
-      font-size:1.1rem; font-weight:600; color:var(--navy);
-      margin-top:25px; margin-bottom:12px;
-    }
-
-    .info-box{
-      background:#fff; border-left:4px solid var(--gold); padding:16px;
-      margin:16px 0; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.05);
-    }
-    .warning-box{border-left-color:var(--warning); background:rgba(243,156,18,.05);}
-    .success-box{border-left-color:var(--success); background:rgba(39,174,96,.05);}
-    .danger-box{border-left-color:var(--danger); background:rgba(231,76,60,.05);}
-
-    .info-box strong{color:var(--navy);}
-    .info-box code{background:var(--gray-200);padding:2px 6px;border-radius:4px;font-size:.9rem;}
-
-    table{width:100%;border-collapse:collapse;margin:20px 0;background:#fff;border-radius:8px;overflow:hidden;}
-    table th{background:var(--navy);color:#fff;padding:14px;text-align:left;font-weight:600;}
-    table td{padding:12px 14px;border-bottom:1px solid var(--gray-200);}
-    table tr:hover{background:var(--gray-100);}
-
-    .step-list{list-style:none;padding:0;}
-    .step-list li{
-      padding:14px; margin:12px 0; background:#fff;
-      border-radius:8px; border-left:4px solid var(--gold);
-      box-shadow:0 2px 4px rgba(0,0,0,.05);
-    }
-    .step-list li strong{color:var(--navy);display:block;margin-bottom:4px;}
-
-    .timeline{position:relative;padding:20px 0;}
-    .timeline-item{
-      padding-left:40px; margin-bottom:24px; position:relative;
-    }
-    .timeline-item::before{
-      content:''; position:absolute; left:0; top:0; width:20px; height:20px;
-      border-radius:50%; background:var(--gold); border:3px solid var(--white);
-      box-shadow:0 0 0 2px var(--gold);
-    }
-    .timeline-item::after{
-      content:''; position:absolute; left:8px; top:20px; width:4px;
-      height:40px; background:var(--gold-light);
-    }
-    .timeline-item:last-child::after{display:none;}
-    .timeline-item h4{color:var(--navy);font-weight:600;margin-bottom:6px;}
-    .timeline-item p{color:var(--gray-600);font-size:.95rem;}
-
-    .comparison-table{margin:20px 0;}
-    .comparison-table tr:nth-child(odd) td{background:rgba(212,175,90,.08);}
-
-    .highlight{background:rgba(212,175,90,.15);padding:2px 6px;border-radius:4px;}
-
-    .download-btn, .contact-btn{
-      display:inline-block; padding:12px 28px; border-radius:8px;
-      font-weight:600; text-decoration:none; margin-top:16px;
-      transition:.3s ease; text-align:center;
-    }
-    .download-btn{background:var(--gold);color:var(--navy);}
-    .download-btn:hover{background:var(--gold-dark);transform:translateY(-2px);}
-    .contact-btn{background:var(--navy);color:#fff;border:2px solid var(--navy);}
-    .contact-btn:hover{background:transparent;color:var(--navy);}
-
-    .faq-accordion{margin:20px 0;}
-    .faq-item{
-      background:#fff; border-radius:8px; margin-bottom:12px;
-      border:1px solid var(--gray-200);
-    }
-    .faq-item summary{
-      padding:16px; cursor:pointer; font-weight:600;
-      color:var(--navy); user-select:none;
-    }
-    .faq-item summary:hover{background:var(--gray-100);}
-    .faq-item details[open] summary{color:var(--gold-dark);}
-    .faq-item p{padding:0 16px 16px;}
-
-    .key-dates{
-      display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-      gap:16px; margin:20px 0;
-    }
-    .date-card{
-      background:#fff; padding:16px; border-radius:8px;
-      border-left:4px solid var(--gold);
-      box-shadow:0 2px 8px rgba(0,0,0,.05);
-    }
-    .date-card .date{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:700;color:var(--gold);}
-    .date-card .label{font-size:.85rem;color:var(--gray-600);margin-top:6px;}
-
-    .code-list{
-      background:#fff; border-radius:8px; padding:20px;
-      font-family:monospace; margin:16px 0;
-    }
-    .code-item{padding:10px;border-bottom:1px solid var(--gray-200);display:flex;gap:20px;}
-    .code-item:last-child{border-bottom:none;}
-    .code-num{color:var(--gold);font-weight:700;min-width:40px;}
-    .code-desc{color:var(--text);}
-
-    footer{
-      margin-top:50px; padding:30px; background:var(--gray-100);
-      border-radius:12px; text-align:center; font-size:.9rem;
-      color:var(--gray-600);
-    }
-
-    @media(max-width:768px){
-      header{padding:30px 20px;}
-      header h1{font-size:1.5rem;}
-      section{padding:20px;}
-      .key-dates{grid-template-columns:1fr;}
-    }
-  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "Article",
-    "headline": "İhraç Kayıtlı Satışlar Rehberi: Mükellefin Bilmesi Gereken Her Şey",
-    "description": "İhraç kayıtlı satışlarda KDV uygulaması, tecil-terkin mekanizması, fatura düzeni ve 2026 güncel mevzuat",
-    "author": {
-      "@type": "Organization",
-      "name": "SMMM Adem Yılmaz"
-    },
-    "datePublished": "2026-09-23",
-    "dateModified": "2026-09-23",
-    "mainEntity": {
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "İhraç kayıtlı satış nedir?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Üreticilerin ihraç edilecek ürünleri ihracatçılara KDV'siz (tecil-terkin mekanizmasında) teslim etmeleridir."
+    "@graph": [
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Ana Sayfa", "item": "https://smmmyilmaz.com/" },
+          { "@type": "ListItem", "position": 2, "name": "Rehberler", "item": "https://smmmyilmaz.com/rehberler.html" },
+          { "@type": "ListItem", "position": 3, "name": "İhraç Kayıtlı Satışlar Rehberi", "item": "https://smmmyilmaz.com/ihrac-kayitli-satislar-rehberi.html" }
+        ]
+      },
+      {
+        "@type": "Article",
+        "headline": "İhraç Kayıtlı Satışlarda Vergi Uygulamaları",
+        "description": "KDV Kanunu 11/1-c maddesi, tecil-terkin mekanizması, fatura düzeni ve kurumlar vergisinde 5 puan indirim.",
+        "url": "https://smmmyilmaz.com/ihrac-kayitli-satislar-rehberi.html",
+        "author": { "@type": "Person", "name": "Adem Yılmaz", "jobTitle": "Serbest Muhasebeci Mali Müşavir" },
+        "datePublished": "2026-09-23"
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "İhraç kayıtlı satışta fatura KDV'li mi kesilir?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Evet, fatura KDV hesaplanarak kesilir ancak KDV tahsil edilmez. Faturaya 3065 sayılı Kanun'un 11/1-c maddesi gereğince KDV tahsil edilmediğine dair not düşülür." }
+          },
+          {
+            "@type": "Question",
+            "name": "KDV iadesini imalatçı mı ihracatçı mı talep eder?",
+            "acceptedAnswer": { "@type": "Answer", "text": "KDV iadesini imalatçı (satıcı) talep eder. İhracatçı, malı alırken KDV ödemediği için bu KDV'nin iadesini talep edemez." }
+          },
+          {
+            "@type": "Question",
+            "name": "İhracat kaç ay içinde gerçekleşmelidir?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Malın ihracatçıya teslim tarihini takip eden ay başından itibaren 3 ay içinde fiilen ihraç edilmesi gerekir." }
           }
-        },
-        {
-          "@type": "Question",
-          "name": "KDV iadesini kim talep eder?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "İhraç kayıtlı satışta KDV iadesini imalatçı (satıcı) talep eder. İhracatçı iade talep edemez."
-          }
-        }
-      ]
-    }
+        ]
+      }
+    ]
   }
   </script>
+  <style>
+    :root {
+      --navy: #081222;
+      --navy-light: #0f1e35;
+      --navy-mid: #1a3052;
+      --gold: #d4af5a;
+      --gold-light: #f0dfa8;
+      --gold-dark: #b8943f;
+      --white: #ffffff;
+      --off-white: #f6f7f9;
+      --gray-100: #eef1f5;
+      --gray-200: #d8dee8;
+      --gray-600: #5a6478;
+      --text: #2a3344;
+      --success: #1a7f5a;
+      --danger: #c0392b;
+      --shadow-sm: 0 2px 12px rgba(8, 18, 34, 0.06);
+      --shadow-md: 0 12px 40px rgba(8, 18, 34, 0.10);
+      --shadow-gold: 0 8px 32px rgba(212, 175, 90, 0.22);
+      --radius: 14px;
+      --transition: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    ::selection { background: rgba(212, 175, 90, 0.25); color: var(--navy); }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      background: var(--off-white);
+      line-height: 1.65;
+      overflow-x: hidden;
+    }
+    h1, h2, h3 { font-family: 'Cormorant Garamond', serif; font-weight: 600; line-height: 1.2; color: var(--navy); }
+    h2 { font-size: 1.8rem; margin: 36px 0 16px; padding-top: 24px; border-top: 2px solid var(--gray-100); }
+    h3 { font-size: 1.2rem; margin: 24px 0 12px; }
+    a { text-decoration: none; color: inherit; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    .scroll-progress { position: fixed; top: 0; left: 0; height: 3px; z-index: 1001; background: linear-gradient(90deg, var(--gold-dark), var(--gold-light)); width: 0%; transition: width 0.1s linear; }
+    .header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(8, 18, 34, 0.88); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(212, 175, 90, 0.12); transition: var(--transition); }
+    .header.scrolled { background: rgba(8, 18, 34, 0.97); box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
+    .header-inner { display: flex; align-items: center; justify-content: space-between; height: 80px; }
+    .logo { display: flex; align-items: center; gap: 14px; }
+    .logo-icon { width: 46px; height: 46px; background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; font-weight: 700; color: var(--navy); box-shadow: var(--shadow-gold); }
+    .logo-text { display: flex; flex-direction: column; }
+    .logo-text span:first-child { font-family: 'Cormorant Garamond', serif; font-size: 1.15rem; font-weight: 700; color: var(--white); }
+    .logo-text span:last-child { font-size: 0.65rem; color: var(--gold-light); letter-spacing: 0.12em; text-transform: uppercase; }
+    .nav { display: flex; align-items: center; gap: 6px; }
+    .nav a { color: rgba(255,255,255,0.82); font-size: 0.86rem; font-weight: 500; padding: 8px 12px; border-radius: 8px; transition: var(--transition); }
+    .nav a:hover { color: var(--gold-light); }
+    .nav-cta { background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); color: var(--navy) !important; padding: 10px 20px !important; border-radius: 10px; font-weight: 700 !important; margin-left: 6px; box-shadow: 0 4px 16px rgba(212, 175, 90, 0.25); }
+    .menu-toggle { display: none; flex-direction: column; gap: 6px; background: none; border: none; cursor: pointer; padding: 8px; }
+    .menu-toggle span { display: block; width: 26px; height: 2px; background: #fff; border-radius: 2px; transition: var(--transition); }
+    .menu-toggle.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 6px); }
+    .menu-toggle.open span:nth-child(2) { opacity: 0; }
+    .menu-toggle.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -6px); }
+    @media(max-width:960px) {
+      .nav { display: none; position: absolute; top: 80px; left: 0; right: 0; flex-direction: column; background: var(--navy); padding: 24px; gap: 6px; border-bottom: 1px solid rgba(212,175,90,.15); }
+      .nav.open { display: flex; }
+      .menu-toggle { display: flex; }
+    }
+    .page-hero { position: relative; padding: 140px 0 64px; background: var(--navy); overflow: hidden; }
+    .page-hero-bg { position: absolute; inset: 0; background: radial-gradient(ellipse 60% 50% at 80% 30%, rgba(212,175,90,0.12) 0%, transparent 55%), linear-gradient(155deg, var(--navy) 0%, var(--navy-light) 50%, var(--navy-mid) 100%); }
+    .page-hero-content { position: relative; z-index: 2; max-width: 760px; }
+    .breadcrumb { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.82rem; color: rgba(255,255,255,0.5); margin-bottom: 20px; }
+    .breadcrumb a { color: rgba(255,255,255,0.65); transition: color 0.2s; }
+    .breadcrumb a:hover { color: var(--gold-light); }
+    .page-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(212, 175, 90, 0.15); border: 1px solid rgba(212, 175, 90, 0.25); color: var(--gold-light); padding: 8px 16px; border-radius: 999px; font-size: 0.82rem; font-weight: 600; margin-bottom: 20px; }
+    .page-hero h1 { color: var(--white); font-size: clamp(2rem, 5vw, 3rem); margin-bottom: 16px; }
+    .page-hero h1 em { color: var(--gold-light); font-style: normal; }
+    .page-hero-desc { color: rgba(255,255,255,0.72); font-size: 1.1rem; max-width: 640px; }
+    .main-content { padding: 64px 0; background: var(--white); }
+    .article-body { max-width: 900px; margin: 0 auto; }
+    .article-body p { margin-bottom: 18px; color: var(--text); font-size: 1rem; }
+    .article-body ul, .article-body ol { margin: 20px 0 20px 24px; }
+    .article-body li { margin-bottom: 10px; }
+    .highlight-box { background: var(--off-white); border-left: 4px solid var(--gold); padding: 18px 20px; border-radius: 0 8px 8px 0; margin: 24px 0; }
+    .highlight-box strong { color: var(--navy); }
+    .warning-box { background: #fdf3ec; border-left-color: var(--danger); }
+    .warning-box strong { color: var(--danger); }
+    .success-box { background: #eefaf4; border-left-color: var(--success); }
+    .success-box strong { color: var(--success); }
+    .compare-table { width: 100%; border-collapse: collapse; margin: 24px 0; border: 1px solid var(--gray-200); border-radius: 8px; overflow: hidden; }
+    .compare-table th, .compare-table td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--gray-200); }
+    .compare-table th { background: var(--navy); color: var(--white); font-weight: 600; }
+    .compare-table tr:last-child td { border-bottom: none; }
+    .compare-table tr:nth-child(even) { background: var(--off-white); }
+
+    /* Süreç adımları */
+    .step-list { list-style: none; margin: 20px 0; }
+    .step-list li { display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--gray-100); }
+    .step-list li:last-child { border-bottom: none; }
+    .step-num { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--navy); color: var(--gold-light); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; }
+    .step-body strong { display: block; color: var(--navy); margin-bottom: 4px; }
+
+    /* SSS akordeon */
+    .faq-item { border: 1px solid var(--gray-200); border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+    .faq-item summary { padding: 16px 20px; cursor: pointer; font-weight: 600; color: var(--navy); list-style: none; display: flex; justify-content: space-between; align-items: center; }
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary::after { content: '+'; font-size: 1.3rem; color: var(--gold-dark); }
+    .faq-item[open] summary::after { content: '−'; }
+    .faq-item summary:hover { background: var(--off-white); }
+    .faq-item p { padding: 0 20px 18px; color: var(--gray-600); margin: 0; }
+
+    /* Kontrol listesi */
+    .checklist { list-style: none; margin: 20px 0; }
+    .checklist li { padding: 10px 0 10px 32px; position: relative; border-bottom: 1px solid var(--gray-100); }
+    .checklist li:last-child { border-bottom: none; }
+    .checklist li::before { content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; left: 0; top: 11px; color: var(--gold-dark); }
+
+    .footer { background: var(--navy); color: rgba(255,255,255,0.82); padding: 48px 0 24px; margin-top: 64px; }
+    .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 36px; margin-bottom: 32px; }
+    .footer-copy { border-top: 1px solid rgba(212, 175, 90, 0.12); padding-top: 20px; text-align: center; font-size: 0.85rem; }
+    @media(max-width:768px) {
+      .page-hero { padding: 100px 0 48px; }
+      .main-content { padding: 40px 0; }
+    }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="breadcrumb">Rehberler > Vergi</div>
-      <h1>İhraç Kayıtlı Satışlar Rehberi</h1>
-      <p>Üreticiler ve ihracatçılar için KDV uygulaması, tecil-terkin mekanizması ve 2026 güncel mevzuat</p>
-    </header>
-
-    <div class="content-grid">
-      <!-- Temel Kavramlar -->
-      <section>
-        <h2>İhraç Kayıtlı Satış Nedir?</h2>
-        <p>İhraç kayıtlı satış, KDV Kanunu'nun <span class="highlight">11/1-c maddesi</span> kapsamında, üreticilerin (imalatçıların) yurt dışına ihraç edilecek ürünleri yurtiçi ihracatçılara <strong>KDV tahsil etmeksizin</strong> teslim etmeleridir.</p>
-
-        <div class="info-box success-box">
-          <strong>✓ Temel Amaç</strong><br>
-          Üreticiye KDV iadesine imkan tanıyarak ihracatı teşvik etmek ve ihracatçının nakit akışını iyileştirmek.
-        </div>
-
-        <h3>İhraç Kayıtlı Satış Yapabilecek Mükellefler</h3>
-        <ul class="step-list">
-          <li><strong>Sanayi Siciline Kayıt</strong><br>Sanayi sicil belgesi veya gıda işletmesi kayıt belgesi sahibi olmak</li>
-          <li><strong>Meslek Odasına Üyelik</strong><br>İlgili odaya kayıtlı ve vergi mükellefi olarak kabul edilmek</li>
-          <li><strong>Kapasite Şartı</strong><br>Tebliğ'de belirtilen işçi sayısı ve araç-gereç gerekliliklerini taşımak</li>
-        </ul>
-
-        <div class="info-box warning-box">
-          <strong>⚠ Önemli:</strong> İmalatçı niteliğini kaybetmesi durumunda vergi dairesine bildir.
-        </div>
-      </section>
-
-      <!-- KDV Uygulaması -->
-      <section>
-        <h2>KDV Uygulaması: Kim Ne Yapar?</h2>
-
-        <h3>İmalatçı (Satıcı) Yönünden</h3>
-        <ul class="step-list">
-          <li><strong>Fatura Düzeni</strong><br>Faturada KDV hesaplanır (0 olarak değil, geçerli oran ile), ancak "3065 KDV Kanunu 11/1-c maddesi gereğince KDV tahsil edilmemiştir" notu düşülür.</li>
-          <li><strong>Beyan</strong><br>Eylül 2025'ten itibaren KDV beyannamesinde <code>701</code> kodunda bildirim yapılır.</li>
-          <li><strong>Tecil</strong><br>Tahsil etmediği KDV, vergi dairesince <strong>tecil edilir</strong> (ertelenir).</li>
-          <li><strong>İade/Terkin</strong><br>İhracatın teslim tarihinden itibaren 3 ay içinde gerçekleşmesi halinde, tecil edilen KDV terkin edilir (silinir). Ödenecek KDV'si varsa mahsup edilir veya nakden iade alır.</li>
-        </ul>
-
-        <h3>İhracatçı (Alıcı) Yönünden</h3>
-        <ul class="step-list">
-          <li><strong>KDV Ödemez</strong><br>Malı KDV'siz (sıfır oranı ile) muhasebe kayıtlarına alır.</li>
-          <li><strong>KDV İade Talep Etmez</strong><br>Faturada gösterilen KDV'yi beyannamede indirmez (cebinden çıkmadığından).</li>
-          <li><strong>İhracat Yükümlülüğü</strong><br>Malı teslim tarihini takip eden 3 ay içinde fiilen ihraç etmek zorundadır.</li>
-        </ul>
-
-        <div class="info-box danger-box">
-          <strong>✗ Uyarı:</strong> İhracat 3 ay içinde gerçekleşmezse, imalatçıdan tecil edilen KDV + gecikme zammı talep edilir!
-        </div>
-      </section>
-
-      <!-- Fatura Düzeni -->
-      <section>
-        <h2>İhraç Kayıtlı Fatura Nasıl Kesilir?</h2>
-
-        <h3>Faturada Bulunması Gereken Unsurlar</h3>
-        <table>
-          <tr>
-            <th>Unsur</th>
-            <th>Açıklama</th>
-            <th>Örnek</th>
-          </tr>
-          <tr>
-            <td><strong>Fatura Tipi</strong></td>
-            <td>"İHRAÇ KAYITLI" seçimi</td>
-            <td>Muhasebe yazılımında seçim</td>
-          </tr>
-          <tr>
-            <td><strong>Mal Bedeli</strong></td>
-            <td>Toplam bedel gösterilmeli</td>
-            <td>100.000 TL</td>
-          </tr>
-          <tr>
-            <td><strong>KDV</strong></td>
-            <td>Geçerli oran (0 değil), ancak tahsil edilmediği not</td>
-            <td>%18 = 18.000 TL (tahsil edilmedi)</td>
-          </tr>
-          <tr>
-            <td><strong>Döviz</strong></td>
-            <td>Döviz cinsiyse TL karşılığı gösteril</td>
-            <td>10.000 USD = 360.000 TL</td>
-          </tr>
-          <tr>
-            <td><strong>Yasal Not</strong></td>
-            <td>"...11/1-c maddesi gereğince KDV tahsil edilmemiştir"</td>
-            <td>Faturaya yazılacak metin</td>
-          </tr>
-          <tr>
-            <td><strong>İşlem Kodu</strong></td>
-            <td>701, 702, 703 veya 704 (işlem türüne göre)</td>
-            <td>701: Genel ihraç kayıtlı</td>
-          </tr>
-        </table>
-
-        <div class="info-box">
-          <strong>İşlem Kodları (2026 Güncel)</strong>
-          <div class="code-list">
-            <div class="code-item">
-              <span class="code-num">701</span>
-              <span class="code-desc">İhracatı yapılacak nihai ürünlerin teslimi (genel)</span>
-            </div>
-            <div class="code-item">
-              <span class="code-num">702</span>
-              <span class="code-desc">Ara ürün veya yarı mamul satışı</span>
-            </div>
-            <div class="code-item">
-              <span class="code-num">703</span>
-              <span class="code-desc">Iade faturası</span>
-            </div>
-            <div class="code-item">
-              <span class="code-num">704</span>
-              <span class="code-desc">Düzeltme/İptal faturası</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Tecil-Terkin Mekanizması -->
-      <section>
-        <h2>Tecil-Terkin Mekanizması: Adım Adım</h2>
-
-        <div class="timeline">
-          <div class="timeline-item">
-            <h4>1. Fatura Kesimi</h4>
-            <p>İmalatçı, satış faturasında KDV hesaplar ve "tahsil edilmedi" notu düşer.</p>
-          </div>
-          <div class="timeline-item">
-            <h4>2. KDV Beyannamesi</h4>
-            <p>İmalatçı, ilgili dönem beyannamesinde 701 kodunda işlemi bildirir. Tecil edilen KDV tutarı gösterilir.</p>
-          </div>
-          <div class="timeline-item">
-            <h4>3. Vergi Dairesince Tecil</h4>
-            <p>Vergi dairesi, resmî olarak KDV'yi tecil eder (erteleme kararı alır).</p>
-          </div>
-          <div class="timeline-item">
-            <h4>4. İhracat Gerçekleşmesi (3 ay süresi)</h4>
-            <p>İhracatçı, teslim tarihini takip eden ay başından itibaren 3 ay içinde malı ihraç etmek zorundadır.</p>
-          </div>
-          <div class="timeline-item">
-            <h4>5. İhracat Belgeleri</h4>
-            <p>İhracatçı, Gümrük Çıkış Beyannamesi (GÇB) ve ihracat faturasını imalatçıya verir.</p>
-          </div>
-          <div class="timeline-item">
-            <h4>6. Terkin veya İade</h4>
-            <p><strong>Terkin:</strong> İhracat gerçekleşmişse tecil edilen KDV silinir.<br><strong>İade:</strong> Ödenecek KDV'si yoksa nakden iade alır.</p>
-          </div>
-        </div>
-
-        <h3>3 Aylık Süreye Dikkat!</h3>
-        <div class="info-box danger-box">
-          <strong>✗ Kritik Tarih:</strong> Mal tesliminin yapıldığı tarihten itibaren <strong>3 ay içinde</strong> ihracat gerçekleşmeli.<br><br>
-          <strong>Sonuç:</strong> İhracat zamanında gerçekleşmezse, imalatçıdan <strong>tecil edilen KDV + gecikme zammı (%6 yıllık) + vergi ziyaı cezası</strong> talep edilir.
-        </div>
-
-        <h3>Ek Süre Talebinde Bulunma</h3>
-        <p>İhracat 3 ay içinde gerçekleşmezse, <strong>3. ay sonundan itibaren 15 gün içinde</strong> vergi dairesine dilekçe ile ek süre talep edilebilir. Bu 15 günü kaçıran mükelleflerin ek süre hakkı yoktur.</p>
-      </section>
-
-      <!-- KDV İadesi -->
-      <section>
-        <h2>KDV İadesini Kim Alır ve Nasıl?</h2>
-
-        <div class="info-box success-box">
-          <strong>✓ Cevap Açık:</strong> KDV iadesini <strong>imalatçı (satıcı)</strong> alır. İhracatçı iade talep edemez.
-        </div>
-
-        <h3>İmalatçının İade Seçenekleri</h3>
-        <table class="comparison-table">
-          <tr>
-            <th>Seçenek</th>
-            <th>Koşul</th>
-            <th>Sonuç</th>
-          </tr>
-          <tr>
-            <td><strong>Tecil-Terkin</strong></td>
-            <td>İhracat 3 ay içinde gerçekleşirse</td>
-            <td>Tecil edilen KDV mahsup edilir veya devredilir</td>
-          </tr>
-          <tr>
-            <td><strong>Nakden İade</strong></td>
-            <td>Ödenecek KDV'si yoksa (indirim fazlası)</td>
-            <td>KDV parayla geri verilir (3-6 ay)</td>
-          </tr>
-          <tr>
-            <td><strong>Mahsuben İade</strong></td>
-            <td>İade hakkını kullanabilirse</td>
-            <td>KDV sonraki dönemlerden mahsup edilir</td>
-          </tr>
-          <tr>
-            <td><strong>İndirim Yoluyla Giderme</strong></td>
-            <td>Mal ayrı Tesi KDV kesintili işlemlere konusu ise</td>
-            <td>İhracat döneminde indirim satırında beyan edilir</td>
-          </tr>
-        </table>
-
-        <h3>İade Talep Süreleri (2026)</h3>
-        <div class="key-dates">
-          <div class="date-card">
-            <div class="date">3 Ay</div>
-            <div class="label">İhracat Gerçekleşme Süresi</div>
-          </div>
-          <div class="date-card">
-            <div class="date">2 Yıl</div>
-            <div class="label">İade Talep Süresi (31.12. sınırı)</div>
-          </div>
-          <div class="date-card">
-            <div class="date">15 Gün</div>
-            <div class="label">Ek Süre Talep Penceresi</div>
-          </div>
-          <div class="date-card">
-            <div class="date">3-6 Ay</div>
-            <div class="label">Nakden İade İşlem Süresi</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ÖTV Ürünleri -->
-      <section>
-        <h2>ÖTV'li Ürünlerde Özel Durumlar</h2>
-
-        <p>Satılan ürün <strong>Özel Tüketim Vergisi (ÖTV)</strong>'ne tabi ise (araç, akaryakıt, vb), KDV iadesinde özel kurallar uygulanır.</p>
-
-        <h3>ÖTV'li Üründe KDV İadesi Sınırlaması</h3>
-        <div class="info-box warning-box">
-          <strong>⚠ Kuralı Unutmayın:</strong> Nakden veya mahsuben iade talebinde bulunduğunuzda, <strong>ÖTV'ye isabet eden KDV kısmı iade edilmez.</strong><br><br>
-          <strong>Çözüm:</strong> ÖTV'ye isabet eden KDV, sonraki dönemlerde <code>107 nolu satıra</code> (İndirimler) yazılarak indirilir.
-        </div>
-
-        <h3>Örnek Senaryo</h3>
-        <div class="info-box">
-          <strong>Mal Bedeli:</strong> 100.000 TL<br>
-          <strong>ÖTV:</strong> 20.000 TL<br>
-          <strong>KDV (18%):</strong> (100.000 + 20.000) × %18 = 21.600 TL<br><br>
-          <strong>ÖTV'ye isabet eden KDV:</strong> 20.000 × %18 = 3.600 TL (iade edilmez)<br>
-          <strong>İade edilebilecek KDV:</strong> 21.600 - 3.600 = 18.000 TL<br>
-          <strong>3.600 TL:</strong> İndirim satırında beyan edilir (107 kodu)
-        </div>
-      </section>
-
-      <!-- Kurumlar Vergisi -->
-      <section>
-        <h2>Kurumlar Vergisinde 5 Puan İndirim</h2>
-
-        <h3>İhracat Yapan Firmalar</h3>
-        <p>Yurt dışına <strong>mal ve hizmet ihraç eden</strong> kurumlar, ihracatlarından elde ettikleri kazançlara kurumlar vergisi oranında <span class="highlight">5 puan indirim</span> uygulayabilir.</p>
-
-        <table>
-          <tr>
-            <th>Durum</th>
-            <th>2026</th>
-            <th>2027+</th>
-          </tr>
-          <tr>
-            <td><strong>İhracat Kazançları</strong></td>
-            <td>5 puan indirim</td>
-            <td>5 puan indirim</td>
-          </tr>
-          <tr>
-            <td><strong>Üretim Kazançları</strong></td>
-            <td>1 puan indirim</td>
-            <td><strong>12,5 puan indirim (yeni!)</strong></td>
-          </tr>
-        </table>
-
-        <div class="info-box success-box">
-          <strong>✓ Yeni Haber (2026):</strong> 2027'den itibaren üretim indirimi 1 puandan <strong>12,5 puana</strong> çıkıyor!
-        </div>
-
-        <h3>İhraç Kayıtlı Satış Yapan İmalatçılar</h3>
-        <p>İhraç kayıtlı satış yapan imalatçılar <strong>doğrudan 5 puan indirimden faydalanmazlar.</strong> Ancak, <strong>dış ticaret şirketleri</strong> aracılığıyla ihracat yaparlarsa, geçerli ihracat sözleşmesi ile indirimden faydalanabilirler.</p>
-
-        <h3>Hizmet İhracında Asgari Kurumlar Vergisi</h3>
-        <div class="info-box warning-box">
-          <strong>⚠ Dikkat:</strong> Hizmet ihracatçılarında, hesaplanan kurumlar vergisi asgari kurumlar vergisinden düşük çıkarsa, <strong>asgari tutar</strong> ödenir. Bu durum 5 puan indirimden faydalanmayı sınırlayabilir.
-        </div>
-      </section>
-
-      <!-- 2026 Güncellemeler -->
-      <section>
-        <h2>2026 Güncel Mevzuat Değişiklikleri</h2>
-
-        <h3>1. KDV Beyannamesi (Eylül 2025'ten itibaren)</h3>
-        <ul class="step-list">
-          <li><strong>701 Kodu Kullanımı</strong><br>"İhracatı Yapılacak Nihai Ürünlerin Kanunun 11/1-c Maddesi Kapsamında Teslimi" başlığıyla ayrı satırda beyan</li>
-          <li><strong>702, 703, 704 Kodları</strong><br>Ara ürün, iade ve düzeltme işlemleri için farklı kodlar kullanılıyor</li>
-        </ul>
-
-        <h3>2. DİİB Tecil-Terkin Uzatması (29 Ocak 2026)</h3>
-        <p><strong>Dış Ticaret İthalatçı İçin Benzer (DİİB)</strong> kapsamında tecil-terkin süresi <strong>31.12.2030'a uzatıldı.</strong></p>
-        <div class="info-box success-box">
-          <strong>✓ Geçiş Dönemi:</strong> 1-29 Ocak 2026 arası yapılan işlemler de tecil-terkin kapsamında sayılıyor.
-        </div>
-
-        <h3>3. Üretim Vergisi İndirimi (2027'den itibaren)</h3>
-        <p>2027 yılından itibaren üretim faaliyetlerinden elde edilen kazançlara uygulanacak kurumlar vergisi indirimi:</p>
-        <div class="info-box">
-          <strong>%20 → %7,5</strong><br>
-          <strong>%25 → %12,5</strong><br>
-          <strong>%30 → %17,5</strong>
-        </div>
-
-        <h3>4. Kur Farklarında KDV Uygulaması</h3>
-        <p>İhraç kayıtlı satışlarda bedel döviz cinsiyse ve satış sonrası kur farkları oluşursa, bu kur farklarının KDV'si için özel kurallar uygulanır. Detay için mali müşavirin danışması önerilir.</p>
-      </section>
-
-      <!-- Sık Sorulan Sorular -->
-      <section>
-        <h2>Sık Sorulan Sorular</h2>
-
-        <details class="faq-item">
-          <summary>İhraç kayıtlı satışta fatura KDV'li mi kesilir?</summary>
-          <p>Evet, fatura KDV'li kesilir. Ancak "KDV tahsil edilmemiştir" notu düşülür. Faturada KDV'nin 0 yazılması yanlıştır.</p>
-        </details>
-
-        <details class="faq-item">
-          <summary>İhracatçı neden KDV iadesini talep edemez?</summary>
-          <p>Çünkü ihracatçı, malı aldığında cebinden KDV ödemez. KDV'yi ödemediği KDV'nin iadesini devletten talep edemez. Yalnızca ihracat giderleri (nakliye, gümrük vb) için KDV iadesini talep edebilir.</p>
-        </details>
-
-        <details class="faq-item">
-          <summary>3 ay sonunda ihracat yapılmazsa ne olur?</summary>
-          <p>Tecil edilen KDV + %6 yıllık gecikme zammı + vergi ziyaı cezası imalatçıdan talep edilir. Büyük bir mali yük oluşabilir.</p>
-        </details>
-
-        <details class="faq-item">
-          <summary>Ek süre talebinde kaç gün hakkım var?</summary>
-          <p>3. ayın bitiminden sonra maksimum 15 gün içinde dilekçe ile vergi dairesine başvurmalısınız. Bu 15 günü kaçırsanız ek süre hakkınız yoktur.</p>
-        </details>
-
-        <details class="faq-item">
-          <summary>ÖTV'li ürünlerde KDV iadesini nasıl yapabilirim?</summary>
-          <p>Nakden/mahsuben iade talebi sırasında ÖTV'ye isabet eden KDV, iade tutarından düşülür. Kalan KDV iade edilir. ÖTV'li KDV kısmı ise 107 satırında indirim olarak beyan edilir.</p>
-        </details>
-
-        <details class="faq-item">
-          <summary>İade talebinin süresi ne kadar?</summary>
-          <p>İhraç kayıtlı satıştan doğan KDV iade talebinizi, işlemin gerçekleştiği dönemi izleyen 2. takvim yılı sonuna kadar yapabilirsiniz. (Örn. 2024'te satış → 31.12.2025'e kadar talep edin.)</p>
-        </details>
-
-        <details class="faq-item">
-          <summary>İhraç kayıtlı faturadaki 701 kodu ne anlama gelir?</summary>
-          <p>701 kodu, "İhracatı yapılacak nihai ürünlerin Kanunun 11/1-c maddesi kapsamında teslimi" anlamına gelir. 702, 703, 704 kodları ise ara ürün, iade ve düzeltme için kullanılır.</p>
-        </details>
-      </section>
-
-      <!-- Önemli Kontrol Listesi -->
-      <section>
-        <h2>Mükellef Kontrol Listesi</h2>
-        <p>İhraç kayıtlı satış yapmadan önce kontrol edin:</p>
-
-        <div class="step-list">
-          <li><strong>□ Sanayi Sicili Belgesi</strong> — Sanayi Bakanlığından alınmış ve güncel mi?</li>
-          <li><strong>□ Meslek Odası Üyeliği</strong> — Kayıtlı mı ve vergi mükellefi olarak tanınıyor mu?</li>
-          <li><strong>□ Kapasite Belgesi</strong> — Tebliğ'te belirtilen araç-gereç ve işçi sayısına sahip mi?</li>
-          <li><strong>□ Fatura Yazılımı</strong> — İhraç kayıtlı fatura kesebiliyor mu?</li>
-          <li><strong>□ Yasal Not</strong> — Faturada "11/1-c maddesi gereğince KDV tahsil edilmemiştir" notu yer alıyor mu?</li>
-          <li><strong>□ İşlem Kodu</strong> — 701, 702, 703 veya 704 seçimi doğru mu?</li>
-          <li><strong>□ Beyanname Hazırığı</strong> — Muhasebeci tarafından KDV beyannamesi 701 satırında bildirilecek mi?</li>
-          <li><strong>□ İhracat Süresi</strong> — 3 aylık ihracat süresini takip etmek için sistem var mı?</li>
-          <li><strong>□ Belge Yönetimi</strong> — GÇB (Gümrük Çıkış Beyannamesi) ve ihracat faturasını arşivleyecek sistem?</li>
-          <li><strong>□ Mali Müşavir</strong> — Deneyimli bir SMMM'le çalışıyor musunuz?</li>
-        </div>
-      </section>
-
-      <!-- İletişim -->
-      <section style="background:linear-gradient(135deg,var(--navy),var(--navy-mid));border-left:none;color:#fff;">
-        <h2 style="color:#fff;border-bottom-color:var(--gold-light);">Sorularınız Mı Var?</h2>
-        <p>İhraç kayıtlı satışlar karmaşık bir sistem olup, her işletin özel koşulları olabilir. Detaylı danışmanlık için:</p>
-
-        <div style="margin-top:20px;">
-          <a href="tel:+905536194134" class="contact-btn">📞 Telefon: 0553 619 41 34</a>
-          <a href="mailto:adem@smmmyilmaz.com" class="contact-btn">✉️ E-mail: adem@smmmyilmaz.com</a>
-        </div>
-      </section>
+  <div class="scroll-progress" id="scrollProgress"></div>
+  <header class="header" id="header">
+    <div class="container header-inner">
+      <a href="/" class="logo">
+        <div class="logo-icon">AY</div>
+        <div class="logo-text"><span>SMMM Adem Yılmaz</span><span>Serbest Muhasebeci Mali Müşavir</span></div>
+      </a>
+      <nav class="nav" id="mainNav">
+        <a href="/#kurumsal">Kurumsal</a>
+        <a href="/#hizmetler">Hizmetlerimiz</a>
+        <a href="/#pratik-bilgiler">Pratik Bilgiler</a>
+        <a href="/rehberler.html" style="color:var(--gold-light)">Rehberler</a>
+        <a href="/hesaplama.html">Hesaplamalar</a>
+        <a href="/#iletisim" class="nav-cta">İletişim</a>
+      </nav>
+      <button class="menu-toggle" id="navToggle" aria-label="Menü"><span></span><span></span><span></span></button>
     </div>
+  </header>
 
-    <footer>
-      <p><strong>Son Güncelleme:</strong> 23 Eylül 2026 | Rehber: SMMM Adem Yılmaz</p>
-      <p>Bu rehber genel bilgilendirme amaçlı olup, hukuki veya vergisel tavsiye değildir. Kesin kararlar için mali müşavirin danışması alınmalıdır.</p>
-      <p>Mevzuat: KDV Kanunu 11/1-c maddesi, Kurumlar Vergisi Kanunu, 2026 güncel tebliğler</p>
-    </footer>
-  </div>
+  <section class="page-hero">
+    <div class="page-hero-bg"></div>
+    <div class="container page-hero-content reveal">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/">Ana Sayfa</a><span>/</span>
+        <a href="/rehberler.html">Rehberler</a><span>/</span>
+        <span style="color: var(--gold-light);">İhraç Kayıtlı Satışlar</span>
+      </nav>
+      <div class="page-badge"><i class="fas fa-file-export"></i> 2026 Güncel · İhracatçı ve İmalatçılar İçin</div>
+      <h1>İhraç Kayıtlı Satışlarda <em>Vergi Uygulamaları</em></h1>
+      <p class="page-hero-desc">KDV Kanunu'nun 11/1-c maddesi kapsamında tecil-terkin mekanizması, fatura düzeni, KDV iadesi ve kurumlar vergisinde 5 puanlık indirim — mükellefin anlayacağı dilde.</p>
+    </div>
+  </section>
+
+  <section class="main-content">
+    <div class="container article-body">
+
+      <h2>İhraç Kayıtlı Satış Nedir?</h2>
+      <p>İhraç kayıtlı satış, üretici (imalatçı) firmaların ürünlerini yurt dışına satacak ihracatçılara <strong>KDV almadan</strong> teslim etmesidir. 3065 sayılı KDV Kanunu'nun <strong>11/1-c maddesi</strong> bu uygulamayı düzenler: imalatçı, ihracatçıdan KDV tahsil etmez; buna karşılık üzerinde kalan bu KDV yükünü devletten iade veya tecil-terkin yoluyla geri alabilir.</p>
+
+      <div class="highlight-box">
+        <strong>Kimin ne kazandığı:</strong> İhracatçı KDV yükü taşımadan mal temin ederek nakit akışını rahatlatır; imalatçı ise tahsil edemediği KDV'yi iade veya tecil-terkin yoluyla geri alır. İkisi de ihracatı teşvik eder.
+      </div>
+
+      <h3>İhraç Kayıtlı Satış Yapabilecek Mükellefler</h3>
+      <p>Bu sistemden yararlanmak için "imalatçı" sayılmak ve aşağıdaki şartları taşımak gerekir:</p>
+      <ul>
+        <li>Sanayi siciline kayıtlı olmak ve sanayi sicil belgesi (veya çiftçi/gıda işletmesi kayıt belgesi) sahibi olmak</li>
+        <li>İlgili meslek odasına kayıtlı bulunmak</li>
+        <li>Sanayi Sicil Tebliğlerinde öngörülen sayıda işçi çalıştırmak ve gerekli araç parkına veya kapasite raporuna sahip olmak</li>
+      </ul>
+      <p>Bu şartları taşıyan imalatçılar, ilk ihraç kayıtlı teslimi yaptıkları dönemde "imalatçı belgesi" ve oda üyelik belgesini bir dilekçe ekinde vergi dairesine bildirmek zorundadır. İmalatçılık niteliğinin kaybedilmesi de aynı şekilde vergi dairesine bildirilir.</p>
+
+      <h2>Fatura Nasıl Düzenlenir?</h2>
+      <p>İhraç kayıtlı teslimde fatura <strong>KDV hesaplanarak</strong> düzenlenir — KDV'nin "0" yazılması yanlıştır. Genel şekil şartlarına ek olarak faturada şunlara dikkat edilmelidir:</p>
+      <ul>
+        <li>Fatura tipi <strong>"İHRAÇ KAYITLI"</strong> olarak seçilmeli</li>
+        <li>Toplam mal bedeli ve KDV tutarı ayrı ayrı gösterilmeli</li>
+        <li>Döviz cinsinden düzenlenmişse, döviz tutarı ve TL karşılığı birlikte yazılmalı</li>
+        <li>Ürün ÖTV kapsamındaysa, ÖTV tutarı ve toplam KDV ayrıca gösterilmeli</li>
+        <li>Faturaya <strong>"3065 sayılı KDV Kanununun 11/1-c maddesi hükmü gereğince KDV tahsil edilmemiştir"</strong> ibaresi düşülmeli</li>
+      </ul>
+
+      <div class="highlight-box">
+        <strong>Neden önemli:</strong> Bu şekil şartları eksik olursa vergi dairesi işlemi farklı yorumlayabilir; beyan, tecil-terkin ve iade süreçleri sekteye uğrayabilir.
+      </div>
+
+      <h2>KDV Uygulaması: Kim Ne Yapar?</h2>
+
+      <h3>İhracatçı (Alıcı) Açısından</h3>
+      <p>İhracatçı, faturada görünen KDV'yi ne muhasebe kayıtlarına indirilecek KDV olarak alır ne de beyannamesinde gösterir — çünkü bu KDV'yi fiilen ödememiştir. Sadece nakliye, komisyon, gümrük gibi ihracata bağlı genel giderlerinden doğan KDV'nin iadesini talep edebilir.</p>
+      <p>Riskin büyük kısmı imalatçı üzerindedir: ihracat süresinde gerçekleşmez veya ek süre talep edilmezse doğacak ceza ve gecikme faizinden imalatçı sorumludur. Bu yüzden taraflar arasında bu riskin ihracatçıya rücu edilmesini öngören sözleşmeler yapılabilir.</p>
+
+      <h3>İmalatçı (Satıcı) Açısından</h3>
+      <p>İmalatçı, tahsil etmediği KDV'yi ilgili dönem beyannamesinde beyan eder. <strong>Eylül 2025'ten itibaren</strong> bu tutar, KDV beyannamesinde "Tevkifat Uygulanmayan İşlemler" altında açılan İşlem Türü sekmesinde <strong>701 kodu</strong> ile ayrı bir satırda ("İhracatı Yapılacak Nihai Ürünlerin Kanunun 11/1-c Maddesi Kapsamında Teslimi") bildirilir.</p>
+      <ul>
+        <li>Ödenecek KDV çıkıyorsa, ihraç kayıtlı teslime isabet eden kısım <strong>faizsiz tecil edilir</strong></li>
+        <li>Devreden KDV çıkıyorsa, ihracat gerçekleştikten sonra <strong>nakden/mahsuben iade</strong> veya <strong>indirim yoluyla giderme</strong> tercih edilebilir</li>
+      </ul>
+
+      <h2>Tecil-Terkin Mekanizması: Adım Adım</h2>
+      <ol class="step-list">
+        <li><span class="step-num">1</span><div class="step-body"><strong>Fatura kesimi</strong>İmalatçı, KDV'yi hesaplayıp tahsil etmediğini belirten notla faturayı düzenler.</div></li>
+        <li><span class="step-num">2</span><div class="step-body"><strong>Beyan</strong>İlgili dönem KDV beyannamesinde 701 kodlu satırda bildirim yapılır; KDV vergi dairesince tarh ve tahakkuk ettirilerek tecil olunur.</div></li>
+        <li><span class="step-num">3</span><div class="step-body"><strong>İhracat süresi</strong>Mal, teslim tarihini takip eden ay başından itibaren <strong>3 ay içinde</strong> ihraç edilmelidir.</div></li>
+        <li><span class="step-num">4</span><div class="step-body"><strong>Belge teslimi</strong>İhracatçı, kapanmış Gümrük Çıkış Beyannamesi (GÇB) ve ihracat faturasının bir kopyasını imalatçıya iletir.</div></li>
+        <li><span class="step-num">5</span><div class="step-body"><strong>Terkin veya iade</strong>İhracat süresinde tevsik edilirse tecil edilen vergi terkin edilir; devreden KDV varsa nakden/mahsuben iade talep edilebilir.</div></li>
+      </ol>
+
+      <div class="highlight-box warning-box">
+        <strong>3 aylık süreye dikkat:</strong> İhracat süresinde gerçekleşmezse, tecil olunan vergi tahakkuk tarihinden itibaren 6183 sayılı Kanun'un 51. maddesine göre <strong>gecikme zammıyla birlikte</strong> tahsil edilir. Sürenin sonundan itibaren <strong>15 gün içinde</strong> dilekçeyle ek süre talep edilebilir; bu 15 gün geçtikten sonra yapılan talepler değerlendirilmez. Mücbir sebep hâlinde tecil faiziyle tahsilat söz konusu olur.</div>
+
+      <h2>İhraç Kayıtlı Teslimlerde KDV İadesini Kim Alır?</h2>
+      <p>Uygulamada en çok karıştırılan nokta budur: <strong>KDV iadesi imalatçının (tedarikçinin) hakkıdır</strong>, ihracatçının değil. İhracatçı, malı alırken faturada KDV görünse de bu KDV'yi imalatçıya ödemediği için iade talep edecek bir "cebinden çıkmış KDV"si yoktur.</p>
+      <p>İmalatçı ise malı üretirken hammadde ve giderler için KDV ödemiş, ancak satış sırasında ihracatçıdan bu KDV'yi tahsil edememiştir. Üzerinde kalan bu yükü gidermek için vergi dairesinden tecil-terkin veya iade talep eden taraf imalatçıdır.</p>
+
+      <table class="compare-table">
+        <thead>
+          <tr><th>İade Seçeneği</th><th>Koşul</th><th>Sonuç</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Tecil-Terkin</strong></td><td>İhracat 3 ay içinde gerçekleşirse</td><td>Tecil edilen KDV silinir</td></tr>
+          <tr><td><strong>Nakden İade</strong></td><td>Devreden KDV varsa</td><td>KDV parayla iade edilir</td></tr>
+          <tr><td><strong>Mahsuben İade</strong></td><td>Mükellefin başka vergi borcu varsa</td><td>Borca mahsup edilir</td></tr>
+          <tr><td><strong>İndirim Yoluyla Giderme</strong></td><td>İade yerine tercih edilirse</td><td>Sonraki dönemlere devreder</td></tr>
+        </tbody>
+      </table>
+
+      <div class="highlight-box success-box">
+        <strong>İade talebinden vazgeçip indirime dönebilir misiniz?</strong> Evet — ancak yalnızca ilgili iade dosyasının işlemleri henüz (kısmen dahi) sonuçlanmamışsa. Bu durumda ara dönem beyannameleri düzeltilmez; vazgeçiş, talebin yapıldığı dönem beyannamesinde indirim olarak gösterilir ve vergi dairesine dilekçeyle bilgi verilir.
+      </div>
+
+      <h2>ÖTV'ye Tabi Ürünlerde Özel Durum</h2>
+      <p>Satılan ürün Özel Tüketim Vergisi'ne (ÖTV) tabi ise, ÖTV'ye isabet eden KDV kısmı <strong>nakden/mahsuben iadeye konu edilemez.</strong> Gelir İdaresi Başkanlığı'nın açıklamasına göre:</p>
+      <ul>
+        <li>Tecil edilecek KDV'nin tamamı zaten "Tecil Edilecek KDV" satırındaysa, iade söz konusu olmadığından ek işlem gerekmez</li>
+        <li>Bir kısmı iade, bir kısmı tecil ise; ÖTV'ye isabet eden KDV ile tecil tutarı kıyaslanır — tecil tutarı yüksekse işlem yapılmaz, düşükse aşan kısım iade tutarından düşülür</li>
+        <li>Bu şekilde iadeden düşülen ÖTV'ye ait KDV, en erken ihracatın gerçekleştiği dönem beyannamesinde <strong>107 nolu satırda (İndirimler)</strong> indirim konusu yapılabilir</li>
+      </ul>
+
+      <h2>Kurumlar Vergisinde 5 Puanlık İndirim</h2>
+      <p>İhracat yapan kurumlar, mal ve hizmet ihracatından elde ettikleri kazançlara kurumlar vergisi oranını <strong>5 puan indirimli</strong> uygulayabilir. 7456 sayılı Kanun'la genel kurumlar vergisi oranları 5 puan artırılırken, ihracat kazançlarındaki indirim de 1 puandan 5 puana çıkarılarak ihracatçı teşvik edilmiştir.</p>
+
+      <table class="compare-table">
+        <thead><tr><th>Kazanç Türü</th><th>2026</th><th>2027 ve sonrası</th></tr></thead>
+        <tbody>
+          <tr><td><strong>İhracat kazançları</strong></td><td>5 puan indirim</td><td>5 puan indirim</td></tr>
+          <tr><td><strong>Üretim kazançları</strong></td><td>1 puan indirim</td><td>12,5 puan indirim</td></tr>
+        </tbody>
+      </table>
+
+      <div class="highlight-box">
+        <strong>2027'den itibaren önemli değişiklik:</strong> Üretim faaliyetinden elde edilen kazançlara uygulanan indirim 1 puandan 12,5 puana çıkıyor. Bu, üretim yapan mükellefler için ciddi bir avantaj.
+      </div>
+
+      <p>İndirim uygulanacak matrah, ihracattan elde edilen kazancın ticari bilanço kârına oranlanmasıyla bulunur ve hem ihracat kazancını hem de dönem safi kurum kazancını aşamaz. <strong>İhraç kayıtlı satış yapan imalatçılar bu indirimden doğrudan yararlanamaz</strong> — ancak dış ticaret sermaye şirketleri veya sektörel dış ticaret şirketleri üzerinden, geçerli bir aracılı ihracat sözleşmesine dayanarak dolaylı biçimde faydalanabilirler.</p>
+
+      <h2>2026 Güncel Mevzuat Notları</h2>
+      <ul>
+        <li><strong>İşlem kodları:</strong> 701 kodunun yanında 702, 703, 704 kodları da ara ürün, iade ve düzeltme faturaları için kullanılıyor</li>
+        <li><strong>DİİB tecil-terkin süresi:</strong> Dahilde İşleme İzin Belgesi kapsamındaki yurt içi alımlarda tecil-terkin uygulama süresi 29 Ocak 2026'da yayımlanan 7573 sayılı Kanun'la 31.12.2030'a uzatıldı</li>
+        <li><strong>İade talep süresi:</strong> KDV Kanunu'nun 32. maddesine göre iade talebi, işlemin gerçekleştiği dönemi izleyen 2. takvim yılı sonuna kadar yapılabilir</li>
+        <li><strong>Kur farkları:</strong> Bedelin döviz cinsinden belirlendiği işlemlerde ortaya çıkan kur farklarının KDV'si, 11 ve 25 seri no'lu KDV Genel Tebliğleri çerçevesinde ayrıca değerlendirilir</li>
+      </ul>
+
+      <h2>Sık Sorulan Sorular</h2>
+      <details class="faq-item">
+        <summary>İhraç kayıtlı satışta fatura KDV'li mi kesilir?</summary>
+        <p>Evet. Faturada KDV hesaplanır ve gösterilir, ancak tahsil edilmez. "3065 sayılı KDV Kanunu'nun 11/1-c maddesi gereğince KDV tahsil edilmemiştir" notu düşülür. KDV'yi "0" yazmak hatalıdır.</p>
+      </details>
+      <details class="faq-item">
+        <summary>İhracatçı neden KDV iadesi alamıyor?</summary>
+        <p>Çünkü ihracatçı bu KDV'yi imalatçıya fiilen ödemez. Cebinden çıkmayan bir verginin iadesi talep edilemez. İhracatçı yalnızca kendi ihracat giderlerine (nakliye, gümrük vb.) ait KDV'nin iadesini isteyebilir.</p>
+      </details>
+      <details class="faq-item">
+        <summary>3 aylık ihracat süresi kaçırılırsa ne olur?</summary>
+        <p>Tecil edilen KDV, gecikme zammıyla birlikte imalatçıdan tahsil edilir. Sürenin bitiminden itibaren 15 gün içinde vergi dairesine dilekçeyle ek süre talep edilebilir; bu süre kaçırılırsa talep değerlendirilmez.</p>
+      </details>
+      <details class="faq-item">
+        <summary>ÖTV'li ürünlerde KDV iadesi nasıl işler?</summary>
+        <p>ÖTV'ye isabet eden KDV kısmı nakden/mahsuben iadeye konu edilmez; bu kısım en erken ihracatın gerçekleştiği dönemde 107 nolu satırdan indirim yoluyla giderilir.</p>
+      </details>
+      <details class="faq-item">
+        <summary>İhraç kayıtlı satış yapan imalatçı 5 puan indirimden faydalanır mı?</summary>
+        <p>Doğrudan faydalanamaz. Ancak dış ticaret sermaye şirketi veya sektörel dış ticaret şirketi üzerinden, geçerli bir aracılı ihracat sözleşmesiyle yapılan ihracatta dolaylı olarak faydalanabilir.</p>
+      </details>
+      <details class="faq-item">
+        <summary>KDV iade talebini ne zamana kadar yapabilirim?</summary>
+        <p>İşlemin gerçekleştiği dönemi izleyen 2. takvim yılının sonuna kadar. Örneğin 2026'da yapılan bir satış için talep, 31.12.2027'ye kadar yapılabilir.</p>
+      </details>
+
+      <h2>Mükellef Kontrol Listesi</h2>
+      <p>İhraç kayıtlı satış yapmadan önce şunları kontrol edin:</p>
+      <ul class="checklist">
+        <li>Sanayi sicil belgesi (veya çiftçi/gıda işletmesi kayıt belgesi) güncel mi?</li>
+        <li>Meslek odası üyeliği ve vergi dairesine bildirim yapıldı mı?</li>
+        <li>Fatura "İHRAÇ KAYITLI" tipinde ve doğru işlem koduyla (701/702/703/704) kesiliyor mu?</li>
+        <li>Faturada yasal not ("11/1-c maddesi gereğince KDV tahsil edilmemiştir") yer alıyor mu?</li>
+        <li>KDV beyannamesinde 701 kodlu satırda bildirim yapılacak mı?</li>
+        <li>3 aylık ihracat süresini takip edecek bir sisteminiz var mı?</li>
+        <li>GÇB ve ihracat faturası arşivleme süreciniz net mi?</li>
+        <li>ÖTV'li ürün varsa, iade/indirim ayrımını doğru yapıyor musunuz?</li>
+      </ul>
+
+      <div class="highlight-box">
+        <strong>Sonuç:</strong> İhraç kayıtlı satış, doğru yürütüldüğünde hem üretici hem ihracatçı için önemli bir vergi avantajıdır. Ancak şekil şartlarının fazlalığı ve sürekli değişen mevzuat, sürecin bir mali müşavir eşliğinde takip edilmesini gerektirir.
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <a href="/" class="logo">
+            <div class="logo-icon">AY</div>
+            <div class="logo-text"><span>SMMM Adem Yılmaz</span></div>
+          </a>
+          <p style="margin-top:12px;color:rgba(255,255,255,.6);font-size:.9rem;">Ümraniye merkezli, Türkiye geneline dijital hizmet veren Serbest Muhasebeci Mali Müşavirlik ofisi.</p>
+        </div>
+        <div>
+          <h4 style="color:#fff;margin-bottom:12px;">Hızlı Linkler</h4>
+          <a href="/rehberler.html" style="display:block;margin-bottom:8px;color:rgba(255,255,255,.7);">Tüm Rehberler</a>
+          <a href="/hesaplama.html" style="display:block;margin-bottom:8px;color:rgba(255,255,255,.7);">Hesaplama Araçları</a>
+          <a href="/#iletisim" style="display:block;color:rgba(255,255,255,.7);">İletişim</a>
+        </div>
+        <div>
+          <h4 style="color:#fff;margin-bottom:12px;">İletişim</h4>
+          <p style="color:rgba(255,255,255,.7);margin-bottom:8px;"><i class="fas fa-phone" style="margin-right:8px;color:var(--gold);"></i>0553 619 41 34</p>
+          <p style="color:rgba(255,255,255,.7);"><i class="fas fa-envelope" style="margin-right:8px;color:var(--gold);"></i>adem@smmmyilmaz.com</p>
+        </div>
+      </div>
+      <div class="footer-copy">© 2026 <strong>SMMM Adem Yılmaz</strong> — Tüm hakları saklıdır.</div>
+    </div>
+  </footer>
+
+  <script>
+    const header = document.getElementById('header');
+    const scrollProgress = document.getElementById('scrollProgress');
+    const navToggle = document.getElementById('navToggle');
+    const mainNav = document.getElementById('mainNav');
+
+    navToggle?.addEventListener('click', () => {
+      mainNav.classList.toggle('open');
+      navToggle.classList.toggle('open');
+    });
+
+    mainNav?.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        mainNav.classList.remove('open');
+        navToggle?.classList.remove('open');
+      });
+    });
+
+    function onScroll() {
+      const y = window.scrollY;
+      const docH = document.documentElement.scrollHeight - window.innerHeight;
+      if (scrollProgress) scrollProgress.style.width = (docH > 0 ? (y / docH) * 100 : 0) + '%';
+      header?.classList.toggle('scrolled', y > 40);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  </script>
 </body>
 </html>
