@@ -18,6 +18,11 @@ SUTUNLAR = [
     ("e-arsiv-satis", "e-Arşiv Satış"),
     ("e-fatura-alis", "e-Fatura Alış"),
     ("e-fatura-satis", "e-Fatura Satış"),
+    ("gib-5000", "GİB 5000/30000"),
+    ("turmob-alis", "TÜRMOB Alış"),
+    ("turmob-satis", "TÜRMOB Satış"),
+    ("esmm-alis", "e-SMM Alış"),
+    ("esmm-satis", "e-SMM Satış"),
 ]
 
 # kotu durum once gelsin; firmanin genel durumu bunlarin en kotusudur

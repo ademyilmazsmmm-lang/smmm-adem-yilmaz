@@ -36,12 +36,27 @@ BELGE_TIPLERI = {
     "e-arsiv-satis": "e-Arşiv Satış Faturaları",
     "e-fatura-alis": "e-Fatura Alış Faturaları",
     "e-fatura-satis": "e-Fatura Satış Faturaları",
+    "gib-5000": "GİB 5000/30000",
+    "turmob-alis": "TÜRMOB Ent. Alış Faturaları",
+    "turmob-satis": "TÜRMOB Ent. Satış Faturaları",
+    "esmm-alis": "GİB e-SMM Alış",
+    "esmm-satis": "GİB e-SMM Satış",
     # Akilli Entegrasyon Noktasi altinda degil, modul menusunun kendisinde:
     "e-arsiv-interaktif": "E-Arşiv Faturaları Sorgulama",
 }
 
 # menusu iki kademeli olan (Akilli Entegrasyon Noktasi araciligi olmayan) ekranlar
 IKI_KADEMELI = {"e-arsiv-interaktif"}
+
+# Yalnizca sorgulanip listelenen ekranlar: belge (XML/zip) ve Excel indirilmez.
+# Indirme sadece e-Arsiv Alis, GIB 5000/30000 ve Interaktif V.D. ekranlarinda.
+SADECE_SORGU = {"e-arsiv-satis", "e-fatura-alis", "e-fatura-satis",
+                "turmob-alis", "turmob-satis", "esmm-alis", "esmm-satis"}
+
+# "--hepsi" ile calistirilacak sira: alis/satis ekranlari, en sonda karsilastirma
+TUM_BELGELER = ["e-arsiv-alis", "e-arsiv-satis", "e-fatura-alis", "e-fatura-satis",
+                "gib-5000", "turmob-alis", "turmob-satis", "esmm-alis", "esmm-satis",
+                "e-arsiv-interaktif"]
 
 # Interaktif Vergi Dairesi ekrani
 INTERAKTIF_SORGU = "İnteraktif V.D'sinden E-Arşiv Faturalarını Sorgula"
@@ -2013,6 +2028,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     menuye_git(page, belge_tipi)
 
     interaktif = belge_tipi in IKI_KADEMELI
+    sadece_sorgu = belge_tipi in SADECE_SORGU  # bu ekranlarda dosya indirilmez
     # Interaktif V.D. ekraninda fatura, duzenlendigi tarihle degil ait oldugu
     # donemle listelendigi icin hedef ayin disini sorgulamaya gerek yok; bu ekran
     # tek seferde bir ayi kabul ettigi icin 7 gunluk parcalama da yapilmaz.
@@ -2025,7 +2041,15 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         for bas, bit in sorgu_araliklari:
             onceki_hata = None
             for deneme in range(1, azami_deneme + 1):
-                basarisiz = gibden_getir(page, bas, bit, log)
+                try:
+                    basarisiz = gibden_getir(page, bas, bit, log)
+                except LookupError as e:
+                    # bu ekranda GIB sorgusu yoksa liste yine de okunur
+                    yaz(f"    UYARI: sorgu yapilamadi ({e}); ekrandaki liste kullanilacak", log)
+                    sonuc["not"] = "GIB sorgusu bu ekranda yok"
+                    basarisiz = 0
+                    onceki_hata = None
+                    break
                 if basarisiz <= 0:
                     break
                 # sayi azalmiyorsa karsi sunucu yanit vermiyor demektir; tekrar denemek bos
@@ -2105,7 +2129,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     satir_sayisi = len(satirlar) or (sayi or 0)
     if satir_sayisi:
         # Belge indir (XML): interaktif V.D. ekraninda bu buton yok, secim de gerekmiyor
-        if not interaktif:
+        if not interaktif and not sadece_sorgu:
             secilen = hepsini_sec(page, fr, satir_sayisi)
             if secilen:
                 yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
@@ -2172,7 +2196,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                 acik_pencereleri_kapat(page, log)
 
         # Excel al: İptal sorgusu sonrasında (interaktif V.D. için) veya normal flow'ta
-        if not excel_alindi:
+        if not excel_alindi and not sadece_sorgu:
             acik_pencereleri_kapat(page, log)
             fatura_yok_penceresini_kapat(page)
             page.wait_for_timeout(2000)  # İptal sorgusu sonrası sayfa stabilize olması için
@@ -2202,7 +2226,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
 
 
         # belge paketi inmediyse firma tamamlanmis sayilmaz; ozette goze carpsin
-        sonuc["durum"] = "tamam" if (interaktif or sonuc["dosyalar"]) else "dosya inmedi"
+        sonuc["durum"] = ("tamam" if (interaktif or sadece_sorgu or sonuc["dosyalar"])
+                          else "dosya inmedi")
     else:
         # GIB'de fatura vardi ama kaynak sunucudan inmedi: "fatura yok" demek yaniltici
         sonuc["durum"] = "kaynaktan inmedi" if kalan_hata else "fatura yok"
@@ -2516,6 +2541,8 @@ def main():
                    help="Sadece bu firma(lar) islensin; virgulle ayirarak birden fazla yazilabilir")
     p.add_argument("--belge-tipi", action="append", choices=list(BELGE_TIPLERI),
                    help="Birden fazla kez verilebilir; her firmada sirayla islenir")
+    p.add_argument("--hepsi", action="store_true",
+                   help="Tum belge tiplerini sirayla isle (menudeki butun ekranlar)")
     p.add_argument("--karsilastir", action="store_true",
                    help="Iki e-arsiv ekranini da calistir (Akilli Entegrasyon + Interaktif V.D.)")
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
@@ -2537,7 +2564,9 @@ def main():
     p.add_argument("--bitince-kapat", action="store_true",
                    help="Is bitince ENTER beklemeden tarayiciyi kapat (gece calistirma icin)")
     args = p.parse_args()
-    if args.karsilastir:
+    if args.hepsi:
+        args.belge_tipi = list(TUM_BELGELER)
+    elif args.karsilastir:
         args.belge_tipi = ["e-arsiv-alis", "e-arsiv-interaktif"]
     elif not args.belge_tipi:
         varsayilan = ayarlar.get("belge_tipi", "e-arsiv-alis")
