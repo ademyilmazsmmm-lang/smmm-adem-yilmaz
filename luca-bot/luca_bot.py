@@ -25,7 +25,11 @@ AYAR_DOSYASI = KOK / "ayarlar.json"
 ORNEK_AYAR = KOK / "ayarlar.ornek.json"
 
 GIRIS_URL = "https://www.luca.com.tr"  # uygulama adresine dogrudan gidilince "LUCA HATA" veriyor
+GIRIS_SAYFASI = "https://agiris.luca.com.tr/LUCASSO/giris.erp"  # ortak giris ekrani
 UYGULAMA_PARCASI = "/Luca/"
+SISTEM_GIRIS = ["Sistem Giriş", "Sistem Girisi", "Sistem Giris"]
+GIRIS_DUGMESI = ["GİRİŞ", "Giriş", "GIRIS", "Giris"]
+URUN_ADAYLARI = ["Mali Müşavir", "MALİ MÜŞAVİR", "Luca Mali Müşavir"]
 UST_MENU = "Akıllı Entegrasyon Noktası"
 MODUL_ADAYLARI = ["İşletme Defteri", "Ser.Mes.Defteri", "Serbest Meslek Defteri",
                   "Basit Usül", "Basit Usul", "Genel Muhasebe", "Bilanço Defteri",
@@ -2275,6 +2279,53 @@ def duraklamalari_engelle(ctx, page):
         pass
 
 
+def giris_bilgileri(ayarlar):
+    """ayarlar.json'daki giris bilgileri; eksikse None."""
+    uye = str(ayarlar.get("uye_no") or "").strip()
+    kullanici = str(ayarlar.get("kullanici_adi") or "").strip()
+    parola = str(ayarlar.get("parola") or "")
+    return (uye, kullanici, parola) if uye and kullanici and parola else None
+
+
+def otomatik_giris(page, ayarlar, log):
+    """Luca girisini ayarlar.json'daki bilgilerle kendisi yapar.
+
+    Bilgiler eksikse ya da form bulunamazsa False doner; bu durumda
+    kullanici elle giris yapar, akis degismez.
+    """
+    bilgiler = giris_bilgileri(ayarlar)
+    if bilgiler is None:
+        return False
+    uye, kullanici, parola = bilgiler
+    yaz("Otomatik giris yapiliyor...", log)
+    try:
+        if UYGULAMA_PARCASI in page.url:  # oturum zaten acik
+            return True
+        if "giris.erp" not in page.url.lower():
+            varsa_tikla(page, SISTEM_GIRIS, sure=5000)
+            page.wait_for_timeout(2500)
+        if "giris.erp" not in page.url.lower():
+            page.goto(GIRIS_SAYFASI)
+        page.wait_for_timeout(2500)
+
+        parolalar = page.locator("input[type=password]:visible")
+        metinler = page.locator("input[type=text]:visible, input:not([type]):visible")
+        if not parolalar.count() or metinler.count() < 2:
+            yaz("UYARI: giris formu bulunamadi, elle giris yapin", log)
+            return False
+        kutuya_yaz(metinler.nth(0), uye)
+        kutuya_yaz(metinler.nth(1), kullanici)
+        kutuya_yaz(parolalar.first, parola)
+        if not varsa_tikla(page, GIRIS_DUGMESI, sure=5000):
+            parolalar.first.press("Enter")
+        page.wait_for_timeout(6000)
+        varsa_tikla(page, URUN_ADAYLARI, sure=4000)  # urun secim ekrani cikarsa
+        return True
+    except Exception as e:
+        yaz(f"UYARI: otomatik giris yapilamadi ({type(e).__name__}), elle giris yapin", log)
+        return False
+
+
 def kullanici_bekle(ctx, mesaj):
     """Duz input() Playwright olaylarini dondurur; beklerken sayfa olaylari islenmeye devam etmeli."""
     hazir = threading.Event()
@@ -2621,9 +2672,17 @@ def main():
         page.bring_to_front()
         page.goto(GIRIS_URL)
 
-        yaz("\n>>> Tarayicida Luca'ya giris yapin.", log)
-        yaz(">>> Girisden sonra MUHASEBE EKRANINI acin (sag ustte firma listesi gorunen ekran).", log)
-        kullanici_bekle(ctx, ">>> O ekran acikken ENTER'a basin: ")
+        if otomatik_giris(page, ayarlar, log):
+            # muhasebe ekrani kendiliginden acilana kadar beklenir
+            bitis = time.time() + 90
+            while time.time() < bitis and uygulama_sayfasi_bul(ctx) is None:
+                page.wait_for_timeout(2000)
+        if uygulama_sayfasi_bul(ctx) is None:
+            yaz("\n>>> Tarayicida Luca'ya giris yapin.", log)
+            yaz(">>> Girisden sonra MUHASEBE EKRANINI acin (sag ustte firma listesi gorunen ekran).", log)
+            kullanici_bekle(ctx, ">>> O ekran acikken ENTER'a basin: ")
+        else:
+            yaz("Giris yapildi, muhasebe ekrani bulundu.", log)
 
         uygulama = None
         for deneme in range(1, 6):
