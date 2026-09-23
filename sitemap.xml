@@ -1,6 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://smmmyilmaz.com/</loc>
+    <lastmod>2026-09-22</lastmod>
+    <priority>1.00</priority>
+  </url>
+  <url>
     <loc>https://smmmyilmaz.com/2025-e-fatura-e-arsiv-zorunlulugu.html</loc>
     <lastmod>2026-09-15</lastmod>
     <priority>0.80</priority>
@@ -21,12 +26,12 @@
     <priority>0.80</priority>
   </url>
   <url>
-    <loc>https://smmmyilmaz.com/2025-pratik-bilgiler.html</loc>
+    <loc>https://smmmyilmaz.com/2025-pratik-bilgiler-tablolar.html</loc>
     <lastmod>2026-09-15</lastmod>
     <priority>0.80</priority>
   </url>
   <url>
-    <loc>https://smmmyilmaz.com/2025-pratik-bilgiler-tablolar.html</loc>
+    <loc>https://smmmyilmaz.com/2025-pratik-bilgiler.html</loc>
     <lastmod>2026-09-15</lastmod>
     <priority>0.80</priority>
   </url>
@@ -196,22 +201,17 @@
     <priority>0.80</priority>
   </url>
   <url>
-    <loc>https://smmmyilmaz.com/galeri.html</loc>
-    <lastmod>2026-09-15</lastmod>
-    <priority>0.80</priority>
-  </url>
-  <url>
     <loc>https://smmmyilmaz.com/galeri-yetki-belgesi-ozel-matrahli-arac-satisi.html</loc>
     <lastmod>2026-09-15</lastmod>
     <priority>0.80</priority>
   </url>
   <url>
-    <loc>https://smmmyilmaz.com/galericilik-belgesi.html</loc>
+    <loc>https://smmmyilmaz.com/galeri.html</loc>
     <lastmod>2026-09-15</lastmod>
     <priority>0.80</priority>
   </url>
   <url>
-    <loc>https://smmmyilmaz.com/genc.html</loc>
+    <loc>https://smmmyilmaz.com/galericilik-belgesi.html</loc>
     <lastmod>2026-09-15</lastmod>
     <priority>0.80</priority>
   </url>
@@ -226,12 +226,17 @@
     <priority>0.80</priority>
   </url>
   <url>
-    <loc>https://smmmyilmaz.com/gider.html</loc>
+    <loc>https://smmmyilmaz.com/genc.html</loc>
     <lastmod>2026-09-15</lastmod>
     <priority>0.80</priority>
   </url>
   <url>
     <loc>https://smmmyilmaz.com/gider-pusulasi.html</loc>
+    <lastmod>2026-09-15</lastmod>
+    <priority>0.80</priority>
+  </url>
+  <url>
+    <loc>https://smmmyilmaz.com/gider.html</loc>
     <lastmod>2026-09-15</lastmod>
     <priority>0.80</priority>
   </url>
@@ -258,7 +263,7 @@
   <url>
     <loc>https://smmmyilmaz.com/hesaplama.html</loc>
     <lastmod>2026-09-15</lastmod>
-    <priority>0.80</priority>
+    <priority>0.90</priority>
   </url>
   <url>
     <loc>https://smmmyilmaz.com/hijyen.html</loc>
@@ -288,17 +293,12 @@
   <url>
     <loc>https://smmmyilmaz.com/il.html</loc>
     <lastmod>2026-09-15</lastmod>
-    <priority>0.80</priority>
+    <priority>0.90</priority>
   </url>
   <url>
     <loc>https://smmmyilmaz.com/iletisim.html</loc>
     <lastmod>2026-09-15</lastmod>
-    <priority>0.80</priority>
-  </url>
-  <url>
-    <loc>https://smmmyilmaz.com/index.html</loc>
-    <lastmod>2026-09-23</lastmod>
-    <priority>0.80</priority>
+    <priority>0.90</priority>
   </url>
   <url>
     <loc>https://smmmyilmaz.com/insaat-muteahhitlik-muhasebesi.html</loc>
@@ -468,7 +468,7 @@
   <url>
     <loc>https://smmmyilmaz.com/sektorlere-ozel-muhasebe.html</loc>
     <lastmod>2026-09-15</lastmod>
-    <priority>0.80</priority>
+    <priority>0.90</priority>
   </url>
   <url>
     <loc>https://smmmyilmaz.com/sgk-bagkur-emeklilik.html</loc>
