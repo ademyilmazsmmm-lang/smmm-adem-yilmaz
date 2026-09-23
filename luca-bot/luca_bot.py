@@ -784,31 +784,70 @@ KUTU_BILGISI = """els => els.map(el => ({
 TARIH_NITELIGI = re.compile(r"tarih|date")
 
 
+_SON_KUTU_HATASI = ""  # tani icin: tek JS cagrisi neden tutmadi
+
+
+def _kutu_bilgileri(kutular):
+    """Kutularin degeri/nitelikleri: once tek JS cagrisi, olmazsa tek tek.
+
+    Luca cerceveleri sik sik yeniden yuklendigi icin JS calistirma
+    "execution context destroyed" ile dusebiliyor; o zaman yavas ama
+    saglam olan eski yola donulur.
+    """
+    global _SON_KUTU_HATASI
+    try:
+        bilgiler = kutular.evaluate_all(KUTU_BILGISI)
+        if bilgiler:
+            return bilgiler
+    except Exception as e:
+        _SON_KUTU_HATASI = type(e).__name__
+    try:
+        sayi = min(kutular.count(), 80)
+    except Exception as e:
+        _SON_KUTU_HATASI = type(e).__name__
+        return []
+    bilgiler = []
+    for i in range(sayi):
+        try:
+            kutu = kutular.nth(i)
+            nitelik = " ".join(x for x in (kutu.get_attribute("name"), kutu.get_attribute("id"),
+                                           kutu.get_attribute("class")) if x)
+            bilgiler.append({"d": kutu.input_value() or "", "n": nitelik.lower(),
+                             "g": kutu.is_visible()})
+        except Exception:
+            bilgiler.append({"d": "", "n": "", "g": False})
+    return bilgiler
+
+
 def _tarih_kutulari(kapsayici):
     try:
         kutular = kapsayici.locator("input[type=text], input:not([type])")
-        bilgiler = kutular.evaluate_all(KUTU_BILGISI)
     except Exception:
         return []
-    return [kutular.nth(i) for i, b in enumerate(bilgiler)
+    return [kutular.nth(i) for i, b in enumerate(_kutu_bilgileri(kutular))
             if b.get("g") and (TARIH_DESENI.search(b.get("d") or "")
                                or TARIH_NITELIGI.search(b.get("n") or ""))]
 
 
-def tarih_kutulari(page, kapsam=None):
+def tarih_kutulari(page, kapsam=None, sure=6000):
     """Tarih kutulari; kapsam (acik pencere) verilirse once orada aranir.
 
     Tum sayfa taranirsa ekranin arkasindaki suzgec kutulari one geciyor ve
-    tarih acik pencereye degil listeye yaziliyordu.
+    tarih acik pencereye degil listeye yaziliyordu. Pencere hazir olmadan
+    bakilirsa kutu bulunamadigi icin kisa araliklarla tekrar denenir.
     """
-    if kapsam is not None:
-        icerdekiler = _tarih_kutulari(kapsam)
-        if len(icerdekiler) >= 2:
-            return icerdekiler
-    adaylar = []
-    for fr in cerceveler(page):
-        adaylar.extend(_tarih_kutulari(fr))
-    return adaylar
+    bitis = time.time() + sure / 1000
+    while True:
+        adaylar = _tarih_kutulari(kapsam) if kapsam is not None else []
+        if len(adaylar) < 2:
+            hepsi = []
+            for fr in cerceveler(page):
+                hepsi.extend(_tarih_kutulari(fr))
+            if len(hepsi) > len(adaylar):
+                adaylar = hepsi
+        if len(adaylar) >= 2 or time.time() >= bitis:
+            return adaylar
+        page.wait_for_timeout(400)
 
 
 def kutuya_yaz(kutu, deger):
@@ -1014,7 +1053,9 @@ def gibden_getir(page, baslangic, bitis, log):
 
     kutular = tarih_kutulari(page)
     if len(kutular) < 2:
-        yaz(f"    UYARI: tarih kutulari bulunamadi ({len(kutular)} adet), Luca varsayilani kullanilacak", log)
+        yaz(f"    UYARI: tarih kutulari bulunamadi ({len(kutular)} adet"
+            + (f", son hata: {_SON_KUTU_HATASI}" if _SON_KUTU_HATASI else "")
+            + "), Luca varsayilani kullanilacak", log)
     else:
         kutuya_yaz(kutular[0], baslangic)
         kutuya_yaz(kutular[1], bitis)
@@ -2583,6 +2624,36 @@ def sayfalari_ozetle(ctx):
     return "\n".join(satirlar) or "  (acik sayfa yok)"
 
 
+def oturumu_yenile(page, ctx, ayarlar, log):
+    """Luca oturumu dustugunde giris sayfasina donup yeniden girer.
+
+    Oturum dustugunde ekranda ne menu ne firma listesi kaliyor; bot bunu
+    firma hatasi sanip pes ediyordu. Giris bilgileri ayarlar.json'da varsa
+    gece calismasi kaldigi yerden surebilir.
+    """
+    if giris_bilgileri(ayarlar) is None:
+        return None
+    yaz("    Luca oturumu yenileniyor...", log)
+    try:
+        page.goto(GIRIS_URL)
+        page.wait_for_timeout(2000)
+    except Exception:
+        return None
+    if not otomatik_giris(page, ayarlar, log):
+        return None
+    bitis = time.time() + 60
+    while time.time() < bitis:
+        uygulama = uygulama_sayfasi_bul(ctx)
+        if uygulama is not None:
+            yaz("    Oturum yenilendi, devam ediliyor", log)
+            return uygulama
+        try:
+            page.wait_for_timeout(2000)
+        except Exception:
+            return None
+    return None
+
+
 def sayfayi_toparla(page):
     """Hata sonrasi acik kalan diyaloglari kapatir.
 
@@ -2899,6 +2970,14 @@ def main():
 
             # her firmadan sonra guncellenir: gece yarida kalirsa sabah nerede kalindigi gorulur
             durumu_kaydet(firmalar[i:])
+
+            # pes etmeden once oturumu yenilemeyi dene: ust uste hatalarin
+            # sebebi genelde firma degil, dusmus Luca oturumu oluyor
+            if 2 <= ardisik_hata < hata_siniri and sayfa_canli(page):
+                yeni_sayfa = oturumu_yenile(page, ctx, ayarlar, log)
+                if yeni_sayfa is not None:
+                    page = yeni_sayfa
+                    ardisik_hata = 0
 
             if ardisik_hata >= hata_siniri:
                 yaz(f"\nUst uste {hata_siniri} firma basarisiz oldu; Luca oturumu bozulmus olabilir.", log)
