@@ -1711,8 +1711,11 @@ def iptal_itiraz_sorgula(page, araliklar, log, interaktif=False):
             acik_pencereleri_kapat(page, log)
             return calisan
 
+        # interaktif V.D. ekraninda Islem Takip penceresi hic acilmiyor; uzun
+        # beklemek her firmada bosa zaman
         islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
-                             durgunluk_saniye=AYAR["durgunluk_saniye"])
+                             durgunluk_saniye=AYAR["durgunluk_saniye"],
+                             pencere_bekleme=6 if interaktif else 12)
         acik_pencereleri_kapat(page, log)
         calisan += 1
 
