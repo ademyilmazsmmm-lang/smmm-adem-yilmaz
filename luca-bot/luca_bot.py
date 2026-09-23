@@ -48,9 +48,9 @@ BELGE_TIPLERI = {
 # menusu iki kademeli olan (Akilli Entegrasyon Noktasi araciligi olmayan) ekranlar
 IKI_KADEMELI = {"e-arsiv-interaktif"}
 
-# Yalnizca sorgulanip listelenen ekranlar: belge (XML/zip) ve Excel indirilmez.
-# Indirme sadece e-Arsiv Alis, GIB 5000/30000 ve Interaktif V.D. ekranlarinda.
-SADECE_SORGU = {"e-arsiv-satis", "e-fatura-alis", "e-fatura-satis",
+# Belge (XML/zip) indirilmeyen ekranlar. Excel her ekranda iniyor: tevkifatli
+# faturalar (KDV2) ancak Excel'deki sutunlardan guvenilir sekilde gorulebiliyor.
+SADECE_EXCEL = {"e-arsiv-satis", "e-fatura-alis", "e-fatura-satis",
                 "turmob-alis", "turmob-satis", "esmm-alis", "esmm-satis"}
 
 # "--hepsi" ile calistirilacak sira: alis/satis ekranlari, en sonda karsilastirma
@@ -2035,7 +2035,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         page.wait_for_timeout(700)
 
     interaktif = belge_tipi in IKI_KADEMELI
-    sadece_sorgu = belge_tipi in SADECE_SORGU  # bu ekranlarda dosya indirilmez
+    sadece_excel = belge_tipi in SADECE_EXCEL  # bu ekranlarda XML inmez, Excel iner
     # Interaktif V.D. ekraninda fatura, duzenlendigi tarihle degil ait oldugu
     # donemle listelendigi icin hedef ayin disini sorgulamaya gerek yok; bu ekran
     # tek seferde bir ayi kabul ettigi icin 7 gunluk parcalama da yapilmaz.
@@ -2136,7 +2136,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     satir_sayisi = len(satirlar) or (sayi or 0)
     if satir_sayisi:
         # Belge indir (XML): interaktif V.D. ekraninda bu buton yok, secim de gerekmiyor
-        if not interaktif and not sadece_sorgu:
+        if not interaktif and not sadece_excel:
             secilen = hepsini_sec(page, fr, satir_sayisi)
             if secilen:
                 yaz(f"    {secilen} kayit isaretlendi, indirme basliyor", log)
@@ -2203,7 +2203,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                 acik_pencereleri_kapat(page, log)
 
         # Excel al: İptal sorgusu sonrasında (interaktif V.D. için) veya normal flow'ta
-        if not excel_alindi and not sadece_sorgu:
+        if not excel_alindi:
             acik_pencereleri_kapat(page, log)
             fatura_yok_penceresini_kapat(page)
             page.wait_for_timeout(2000)  # İptal sorgusu sonrası sayfa stabilize olması için
@@ -2233,7 +2233,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
 
 
         # belge paketi inmediyse firma tamamlanmis sayilmaz; ozette goze carpsin
-        sonuc["durum"] = ("tamam" if (interaktif or sadece_sorgu or sonuc["dosyalar"])
+        sonuc["durum"] = ("tamam" if (interaktif or sadece_excel or sonuc["dosyalar"])
                           else "dosya inmedi")
     else:
         # GIB'de fatura vardi ama kaynak sunucudan inmedi: "fatura yok" demek yaniltici

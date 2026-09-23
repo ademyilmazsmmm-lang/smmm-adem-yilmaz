@@ -10,8 +10,8 @@ echo   e-Arsiv Alis, e-Arsiv Satis, e-Fatura Alis, e-Fatura Satis,
 echo   GIB 5000/30000, TURMOB Alis/Satis, GIB e-SMM Alis/Satis,
 echo   E-Arsiv Faturalari Sorgulama (Interaktif V.D.)
 echo.
-echo Dosya indirme yalnizca e-Arsiv Alis, GIB 5000/30000 ve
-echo Interaktif V.D. ekranlarinda yapilir; digerleri sadece sorgulanir.
+echo Her ekranda Excel iner (tevkifat/KDV2 kontrolu icin). Belge (XML/zip)
+echo indirme yalnizca e-Arsiv Alis ve GIB 5000/30000 ekranlarinda yapilir.
 echo.
 
 call "%~dp0_python-bul.bat"
