@@ -2134,13 +2134,12 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
 
 
         # İptal/itiraz sorgusu Excel'den ONCE yapılır (interaktif V.D. için flow: sorgu -> iptal -> excel)
-        # Iptal/itiraz sorgusu ayni firma icin GIB alis ekraninda zaten yapiliyor;
-        # interaktif V.D. ekraninda tekrarlamaya gerek yok (durum Excel'e de yansiyor)
-        if AYAR["iptal_itiraz"] and not interaktif:
+        if AYAR["iptal_itiraz"]:
             try:
-                # Sorgu tum listeye uygulanir; fatura isaretlemeye gerek yok
-                # tek seferde sorulunca iptaller cikmiyor; sorgu ile ayni 7 gunluk
-                # parcalar kullanilir (pencerede yazan tarih raporlanma tarihidir)
+                # Sorgu tum listeye uygulanir; fatura isaretlemeye gerek yok.
+                # Sorgu ile ayni araliklar kullanilir: GIB alis ekraninda 7 gunluk
+                # parcalar (tek seferde sorulunca iptaller cikmiyor), interaktif
+                # V.D. ekraninda donemin tamami icin tek sorgu.
                 basarili = iptal_itiraz_sorgula(page, sorgu_araliklari, log, interaktif)
 
                 if basarili:
