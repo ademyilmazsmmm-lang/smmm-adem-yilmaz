@@ -1207,24 +1207,6 @@ def secim_kutulari(page):
     return en_iyi if en_iyi[0] is not None else yedek
 
 
-def kutu_cerceve_ozeti(page, sinir=6):
-    """Tani icin: hangi cercevede kac kutu var, kaci fatura satirinda."""
-    ozet = []
-    for fr in cerceveler(page):
-        try:
-            adet = fr.locator("input[type=checkbox]").count()
-        except Exception:
-            continue
-        if not adet:
-            continue
-        loc = fr.locator("input[type=checkbox]")
-        ozet.append(f"{(fr.name or fr.url.rsplit('/', 1)[-1] or 'ana')[:28]}:"
-                    f" {adet} kutu / {veri_kutusu_sayisi(loc, adet)} veri")
-        if len(ozet) >= sinir:
-            break
-    return ozet
-
-
 def isaretli_sayisi(kutular, sayi):
     if kutular is None:
         return 0
@@ -2078,10 +2060,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         fr = kutu_cercevesi
     if not satirlar:
         fr, satirlar = tabloyu_oku(page, kutu_cercevesi)
-    if not satirlar:
-        # Ekran goruntusu/HTML kaydedilmiyor: liste zaten Excel olarak iniyor ve
-        # asil kaynak o. Neden okunamadigi tek satirlik tani olarak gunluge yazilir.
-        yaz(f"    Liste ekrandan okunamadi ({'; '.join(kutu_cerceve_ozeti(page)) or 'kutu yok'})", log)
+    # liste ekrandan okunamazsa sorun degil: asil kaynak inen Excel
     sonuc["fatura_sayisi"] = len(satirlar) or (sayi or 0)
     yaz(f"    {len(satirlar)} satir listelendi"
         + (f" (ekranda {sayi} kayit)" if sayi and not satirlar else ""), log)
