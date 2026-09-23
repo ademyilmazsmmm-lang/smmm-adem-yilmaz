@@ -33,6 +33,9 @@ URUN_ADAYLARI = ["Mali Müşavir", "MALİ MÜŞAVİR", "Luca Mali Müşavir"]
 # Iki asamali dogrulama ekranini taniyan yazilar
 DOGRULAMA_ISARETLERI = ["İki Aşamalı Doğrulama", "Doğrulama Kodu", "Güvenlik Kodu",
                         "SMS ile gönderilen", "Tek Kullanımlık Şifre"]
+# Iki asamali dogrulama KAPALIYKEN Luca captcha soruyor; bot bunu gecemez
+CAPTCHA_ISARETLERI = ["Captcha doğrulaması", "Captcha doğrulama", "güvenlik kontrolünü"]
+DOGRULAMA_ONAY = ["Tamam", "Doğrula", "Onayla", "GİRİŞ", "Giriş"]
 UST_MENU = "Akıllı Entegrasyon Noktası"
 MODUL_ADAYLARI = ["İşletme Defteri", "Ser.Mes.Defteri", "Serbest Meslek Defteri",
                   "Basit Usül", "Basit Usul", "Genel Muhasebe", "Bilanço Defteri",
@@ -2372,6 +2375,53 @@ def dogrulama_ekrani_mi(page):
     return ""
 
 
+def captcha_ekrani_mi(page):
+    """Captcha ekrani: iki asamali dogrulama kapaliyken Luca bunu soruyor."""
+    for isaret in CAPTCHA_ISARETLERI:
+        if gorunur_mu(page, isaret, sure=800):
+            return isaret
+    return ""
+
+
+def dogrulama_kodu(ayarlar):
+    """ayarlar.json'daki gizli anahtardan o anki dogrulama kodunu uretir.
+
+    Luca'da iki asamali dogrulamayi "kimlik dogrulayici uygulama" ile
+    acarsaniz kurulum ekranindaki gizli anahtari dogrulama_anahtari alanina
+    yazin; kodu bot kendisi hesaplar ve giris tumuyle otomatik olur.
+    """
+    anahtar = str(ayarlar.get("dogrulama_anahtari") or "").replace(" ", "")
+    if not anahtar:
+        return ""
+    try:
+        import pyotp
+    except ImportError:
+        return ""
+    try:
+        return pyotp.TOTP(anahtar).now()
+    except Exception:
+        return ""
+
+
+def dogrulama_kodunu_gir(page, kod):
+    """Dogrulama kodunu ekrandaki kutuya yazip onaylar."""
+    for secici in ("input[type=text]:visible", "input[type=tel]:visible",
+                   "input[type=number]:visible", "input[type=password]:visible"):
+        try:
+            loc = page.locator(secici)
+            if not loc.count():
+                continue
+            kutu = loc.first
+            kutuya_yaz(kutu, kod)
+            if not varsa_tikla(page, DOGRULAMA_ONAY, sure=4000):
+                kutu.press("Enter")
+            page.wait_for_timeout(4000)
+            return True
+        except Exception:
+            continue
+    return False
+
+
 def otomatik_giris(page, ayarlar, log):
     """Luca girisini ayarlar.json'daki bilgilerle kendisi yapar.
 
@@ -2405,9 +2455,23 @@ def otomatik_giris(page, ayarlar, log):
             parolalar.first.press("Enter")
         page.wait_for_timeout(6000)
 
+        captcha = captcha_ekrani_mi(page)
+        if captcha:
+            yaz("    Captcha ekrani cikti; bot bunu gecemez.", log)
+            yaz("    Luca'da iki asamali dogrulamayi acarsaniz captcha kalkar"
+                " (Luca bunu giris ekraninda kendisi yaziyor).", log)
+            return False
+
         isaret = dogrulama_ekrani_mi(page)
         if isaret:
-            # kod SMS/uygulamadan geldigi icin bot giremez; elle girilmesi beklenir
+            kod = dogrulama_kodu(ayarlar)
+            if kod and dogrulama_kodunu_gir(page, kod):
+                yaz("    Dogrulama kodu girildi", log)
+                if not dogrulama_ekrani_mi(page):
+                    varsa_tikla(page, URUN_ADAYLARI, sure=4000)
+                    return True
+                yaz("    UYARI: dogrulama kodu kabul edilmedi", log)
+            # kod uretilemiyorsa (SMS vb.) elle girilmesi beklenir
             dakika = max(0, int(ayarlar.get("dogrulama_bekleme_dakika", 5)))
             yaz(f"    Iki asamali dogrulama ekrani ('{isaret}')."
                 f" Kodu elle girin, {dakika} dk bekleniyor...", log)
