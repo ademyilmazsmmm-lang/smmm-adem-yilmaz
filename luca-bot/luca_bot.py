@@ -30,6 +30,9 @@ UYGULAMA_PARCASI = "/Luca/"
 SISTEM_GIRIS = ["Sistem Giriş", "Sistem Girisi", "Sistem Giris"]
 GIRIS_DUGMESI = ["GİRİŞ", "Giriş", "GIRIS", "Giris"]
 URUN_ADAYLARI = ["Mali Müşavir", "MALİ MÜŞAVİR", "Luca Mali Müşavir"]
+# Iki asamali dogrulama ekranini taniyan yazilar
+DOGRULAMA_ISARETLERI = ["İki Aşamalı Doğrulama", "Doğrulama Kodu", "Güvenlik Kodu",
+                        "SMS ile gönderilen", "Tek Kullanımlık Şifre"]
 UST_MENU = "Akıllı Entegrasyon Noktası"
 MODUL_ADAYLARI = ["İşletme Defteri", "Ser.Mes.Defteri", "Serbest Meslek Defteri",
                   "Basit Usül", "Basit Usul", "Genel Muhasebe", "Bilanço Defteri",
@@ -2361,6 +2364,14 @@ def giris_bilgileri(ayarlar):
     return (uye, kullanici, parola) if uye and kullanici and parola else None
 
 
+def dogrulama_ekrani_mi(page):
+    """Girisden sonra iki asamali dogrulama ekrani cikmis mi."""
+    for isaret in DOGRULAMA_ISARETLERI:
+        if gorunur_mu(page, isaret, sure=800):
+            return isaret
+    return ""
+
+
 def otomatik_giris(page, ayarlar, log):
     """Luca girisini ayarlar.json'daki bilgilerle kendisi yapar.
 
@@ -2393,6 +2404,21 @@ def otomatik_giris(page, ayarlar, log):
         if not varsa_tikla(page, GIRIS_DUGMESI, sure=5000):
             parolalar.first.press("Enter")
         page.wait_for_timeout(6000)
+
+        isaret = dogrulama_ekrani_mi(page)
+        if isaret:
+            # kod SMS/uygulamadan geldigi icin bot giremez; elle girilmesi beklenir
+            dakika = max(0, int(ayarlar.get("dogrulama_bekleme_dakika", 5)))
+            yaz(f"    Iki asamali dogrulama ekrani ('{isaret}')."
+                f" Kodu elle girin, {dakika} dk bekleniyor...", log)
+            bitis = time.time() + dakika * 60
+            while time.time() < bitis and dogrulama_ekrani_mi(page):
+                page.wait_for_timeout(3000)
+            if dogrulama_ekrani_mi(page):
+                yaz("    UYARI: dogrulama tamamlanmadi, giris yapilamadi", log)
+                return False
+            yaz("    Dogrulama tamamlandi", log)
+
         varsa_tikla(page, URUN_ADAYLARI, sure=4000)  # urun secim ekrani cikarsa
         return True
     except Exception as e:
@@ -2786,6 +2812,12 @@ def main():
             bitis = time.time() + 90
             while time.time() < bitis and uygulama_sayfasi_bul(ctx) is None:
                 page.wait_for_timeout(2000)
+        if uygulama_sayfasi_bul(ctx) is None and args.bitince_kapat:
+            # gece modunda ENTER'a basacak kimse yok; bosuna beklenmez
+            yaz("\nOtomatik giris yapilamadi (dogrulama kodu ya da sifre sorunu).", log)
+            yaz("Gece modunda elle giris beklenmez, calisma baslatilmadi.", log)
+            ctx.close()
+            return
         if uygulama_sayfasi_bul(ctx) is None:
             yaz("\n>>> Tarayicida Luca'ya giris yapin.", log)
             yaz(">>> Girisden sonra MUHASEBE EKRANINI acin (sag ustte firma listesi gorunen ekran).", log)
