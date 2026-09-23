@@ -1711,12 +1711,11 @@ def iptal_itiraz_sorgula(page, araliklar, log, interaktif=False):
             acik_pencereleri_kapat(page, log)
             return calisan
 
-        # interaktif V.D. ekraninda Islem Takip penceresi hic acilmiyor; beklemeden
-        # devam edilir (bilgi penceresi kontrolu icin en_az_saniye de dusurulur)
+        # interaktif V.D. ekraninda Islem Takip penceresi hic acilmiyor; kisa
+        # beklenir ama bilgi penceresi kontrolu (3 sn) yine de calissin
         islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
                              durgunluk_saniye=AYAR["durgunluk_saniye"],
-                             pencere_bekleme=1 if interaktif else 12,
-                             en_az_saniye=1 if interaktif else 3)
+                             pencere_bekleme=4 if interaktif else 12)
         acik_pencereleri_kapat(page, log)
         calisan += 1
 
