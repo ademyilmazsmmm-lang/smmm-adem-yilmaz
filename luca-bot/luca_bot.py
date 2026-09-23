@@ -2869,8 +2869,14 @@ def main():
             yaz("Tarayiciyi acip Luca'ya girin ve programi yeniden calistirin.", log)
 
         basarili = sum(1 for s in sonuclar if s["durum"] == "tamam")
-        toplam_fatura = sum(s["fatura_sayisi"] for s in sonuclar)
-        yaz(f"\nBitti. {basarili}/{len(sonuclar)} firma tamamlandi, {toplam_fatura} fatura listelendi.", log)
+        # her belge tipi ayri bir sonuc satiri; firma sayisi ile karistirilmasin
+        firma_basi = {}
+        for s in sonuclar:
+            firma_basi[s["firma"]] = max(firma_basi.get(s["firma"], 0), s["fatura_sayisi"])
+        # ayni faturalar birden fazla ekranda goruldugu icin toplam degil en yuksek
+        toplam_fatura = sum(firma_basi.values())
+        yaz(f"\nBitti. {len(firma_basi)} firma, {basarili}/{len(sonuclar)} ekran tamamlandi,"
+            f" {toplam_fatura} fatura listelendi.", log)
         yaz(f"Dosyalar: {calisma}", log)
         yaz(f"Ozet: {ozet}", log)
         yaz(f"Rapor: {calisma / 'rapor.xlsx'} (aksiyon gereken firmalar en ustte)", log)
