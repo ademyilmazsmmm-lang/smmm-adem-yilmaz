@@ -2026,6 +2026,13 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
 
     yaz("    Menuye gidiliyor", log)
     menuye_git(page, belge_tipi)
+    # Ekranda hic fatura yoksa Luca acilista "Her hangi bir fatura bulunamadi"
+    # penceresi gosteriyor; Tamam denmeden ekranla hicbir sey yapilamiyor.
+    for _ in range(4):
+        if fatura_yok_penceresini_kapat(page):
+            yaz("    'Fatura bulunamadi' penceresi kapatildi", log)
+            break
+        page.wait_for_timeout(700)
 
     interaktif = belge_tipi in IKI_KADEMELI
     sadece_sorgu = belge_tipi in SADECE_SORGU  # bu ekranlarda dosya indirilmez
