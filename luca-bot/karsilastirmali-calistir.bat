@@ -2,12 +2,17 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 echo ============================================
-echo   Luca Bot - Iki Ekrani Karsilastirmali
+echo   Luca Bot - Tum Ekranlar + Karsilastirma
 echo ============================================
 echo.
-echo Her firmada once GIB E-Belge Entegrasyonu Alis Faturalari,
-echo sonra E-Arsiv Faturalari Sorgulama (Interaktif V.D.) calisir.
-echo rapor.xlsx'te Fark ve Eksik Faturalar sutunlari dolar.
+echo Her firmada su ekranlar sirayla calisir:
+echo   e-Arsiv Alis, e-Arsiv Satis, e-Fatura Alis, e-Fatura Satis,
+echo   GIB 5000/30000, TURMOB Ent. Alis/Satis, GIB e-SMM Alis/Satis,
+echo   E-Arsiv Faturalari Sorgulama (Interaktif V.D.)
+echo.
+echo Her ekranda Excel iner (tevkifat/KDV2 kontrolu icin). Belge (XML/zip)
+echo indirme e-Arsiv Alis ve GIB 5000/30000 ekranlarinda yapilir.
+echo rapor.xlsx'te Fark ve Eksik/Fazla Faturalar sutunlari dolar.
 echo.
 
 call "%~dp0_python-bul.bat"
@@ -26,9 +31,9 @@ echo TUM firmalar icin bos birakip ENTER'a basin.
 set /p firma="Firma adi: "
 echo.
 if "%firma%"=="" (
-  %PY% luca_bot.py --karsilastir --baslangic "%bas%" --bitis "%bit%"
+  %PY% luca_bot.py --hepsi --baslangic "%bas%" --bitis "%bit%"
 ) else (
-  %PY% luca_bot.py --karsilastir --baslangic "%bas%" --bitis "%bit%" --firma "%firma%"
+  %PY% luca_bot.py --hepsi --baslangic "%bas%" --bitis "%bit%" --firma "%firma%"
 )
 echo.
 pause
