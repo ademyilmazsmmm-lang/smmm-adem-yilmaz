@@ -636,6 +636,26 @@ def gorunur_mu(page, metin, sure=1500):
         return False
 
 
+_SON_MODUL = None  # ilk firmada calisan modul adi; sonraki firmalarda once bu denenir
+
+
+def modul_menusunu_ac(page, dogrula):
+    """Modul menusunu (Isletme Defteri vb.) acar.
+
+    Dokuz aday sirayla denenince her ekranda saniyeler gidiyordu; bir kez
+    calisan ad hatirlanip sonraki cagrilarda ilk sirada deneniyor.
+    """
+    global _SON_MODUL
+    adaylar = MODUL_ADAYLARI
+    if _SON_MODUL in MODUL_ADAYLARI:
+        adaylar = [_SON_MODUL] + [m for m in MODUL_ADAYLARI if m != _SON_MODUL]
+    for modul in adaylar:
+        if menu_ogesini_ac(page, modul, sure=1200, dogrula=dogrula):
+            _SON_MODUL = modul
+            return True
+    return False
+
+
 def menu_ogesini_ac(page, metin, sure=4000, dogrula=None):
     """Eski Luca menuleri kimi yerde hover, kimi yerde tiklama ile aciliyor."""
     try:
@@ -699,9 +719,7 @@ def modul_menusunden_git(page, hedef):
     hedef_gorunur = lambda: gorunur_mu(page, hedef, sure=1200)
     for deneme in range(3):
         if not hedef_gorunur():
-            for modul in MODUL_ADAYLARI:
-                if menu_ogesini_ac(page, modul, sure=1200, dogrula=hedef_gorunur):
-                    break
+            modul_menusunu_ac(page, hedef_gorunur)
         try:
             _, madde = metinle_bul(page, hedef, sure=8000)
         except LookupError:
@@ -727,10 +745,7 @@ def menuye_git(page, belge_tipi):
     alt = None
     for deneme in range(3):  # menu kimi zaman hover'da acilip hemen kapaniyor
         if not ust_gorunur():
-            for modul in MODUL_ADAYLARI:
-                if menu_ogesini_ac(page, modul, sure=1200, dogrula=ust_gorunur):
-                    break
-            else:
+            if not modul_menusunu_ac(page, ust_gorunur):
                 if deneme == 2:
                     raise LookupError(
                         f"'{UST_MENU}' menusu acilamadi. Sayfada gorunen menuler: {menu_metinleri(page)}"
@@ -738,6 +753,9 @@ def menuye_git(page, belge_tipi):
                 page.wait_for_timeout(1000)
                 continue
 
+        # ust menu her seferinde acilir: ekran basligi da hedef metni icerebildigi
+        # icin "zaten gorunuyor" kontrolune guvenip menuyu atlamak yanlis ekrana
+        # tiklamaya yol aciyor
         menu_ogesini_ac(page, UST_MENU, sure=6000, dogrula=hedef_gorunur)
         try:
             _, alt = metinle_bul(page, hedef, sure=4000)
@@ -2035,11 +2053,11 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     menuye_git(page, belge_tipi)
     # Ekranda hic fatura yoksa Luca acilista "Her hangi bir fatura bulunamadi"
     # penceresi gosteriyor; Tamam denmeden ekranla hicbir sey yapilamiyor.
-    for _ in range(4):
+    for _ in range(2):
         if fatura_yok_penceresini_kapat(page):
             yaz("    'Fatura bulunamadi' penceresi kapatildi", log)
             break
-        page.wait_for_timeout(700)
+        page.wait_for_timeout(500)
 
     interaktif = belge_tipi in IKI_KADEMELI
     sadece_excel = belge_tipi in SADECE_EXCEL  # bu ekranlarda XML inmez, Excel iner
