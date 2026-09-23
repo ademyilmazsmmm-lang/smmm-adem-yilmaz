@@ -1102,28 +1102,6 @@ def cerceveden_satirlar(fr):
     return veriler
 
 
-def ham_satir_ornegi(fr, adet=2):
-    """Liste okunamadiginda tani icin cercevedeki ilk dolu satirlarin metni."""
-    if fr is None:
-        return []
-    try:
-        satirlar = fr.locator("tr")
-        n = min(satirlar.count(), 80)
-    except Exception:
-        return []
-    ornekler = []
-    for i in range(n):
-        try:
-            metin = " | ".join(t.strip() for t in satirlar.nth(i).locator("td").all_inner_texts() if t.strip())
-        except Exception:
-            continue
-        if len(metin) > 20:
-            ornekler.append(metin[:160])
-            if len(ornekler) >= adet:
-                break
-    return ornekler
-
-
 # Satir hucreleri: once gercek hucre ogeleri, olmazsa dogrudan cocuklar,
 # en son satir metni (izgara <td> kullanmadiginda metin tek parca geliyordu)
 HUCRE_CIKAR = """el => {
@@ -1136,33 +1114,6 @@ HUCRE_CIKAR = """el => {
   if (h.filter(Boolean).length < 2) h = metin(s).split(/\\t|\\n|\\s{2,}/);
   return h.map(t => t.trim()).filter(Boolean);
 }"""
-
-
-YAPI_CIKAR = """el => {
-  const s = el.closest('tr, [role=row], li')
-    || (el.parentElement && el.parentElement.parentElement);
-  if (!s) return 'satir atasi yok';
-  return s.tagName + '.' + (s.className || '-') + ' > '
-    + [...s.children].map(c => c.tagName).join(',');
-}"""
-
-
-def kutu_satir_tanisi(kutular, sayi, adet=3):
-    """Liste okunamadiginda kutu satirlarinin yapisini ve hucrelerini dondurur."""
-    ornekler = []
-    if kutular is None:
-        return ornekler
-    for i in range(min(sayi, adet + 2)):
-        try:
-            hucreler = kutular.nth(i).evaluate(HUCRE_CIKAR) or []
-            yapi = kutular.nth(i).evaluate(YAPI_CIKAR)
-        except Exception:
-            continue
-        duz = " ~ ".join(" ".join(h.split()) for h in hucreler)
-        ornekler.append(f"{yapi.split(' > ')[0]} | {len(hucreler)} hucre: {duz[:120]}")
-        if len(ornekler) >= adet:
-            break
-    return ornekler
 
 
 def kutulardan_satirlar(kutular, sayi):
@@ -2128,26 +2079,9 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     if not satirlar:
         fr, satirlar = tabloyu_oku(page, kutu_cercevesi)
     if not satirlar:
-        tani = cikti_kok / "tani"
-        tani.mkdir(parents=True, exist_ok=True)
-        ad = dosya_adi_yap(firma)
-        try:  # tam sayfa goruntusu cerceveli ekranlarda dakikalarca surebiliyor
-            page.screenshot(path=str(tani / f"{ad}-bos-liste.png"), timeout=15000)
-        except Exception:
-            pass
-        try:  # liste cercevesinin HTML'i tum sayfadan daha ise yarar
-            kaynak = (kutu_cercevesi or fr)
-            icerik = kaynak.content() if kaynak is not None else page.content()
-            (tani / f"{ad}-bos-liste.html").write_text(icerik, encoding="utf-8")
-        except Exception:
-            pass
-        yaz(f"    Liste bos gorundu, ekran kaydi: {tani}", log)
-        # neden fatura satiri sayilmadi: kutu satirlarinin yapisi gunluge yazilir
-        yaz(f"      kutu cerceveleri: {'; '.join(kutu_cerceve_ozeti(page)) or 'yok'}", log)
-        for ornek in kutu_satir_tanisi(kutular, kutu_sayisi, adet=3):
-            yaz(f"      kutu satiri: {ornek}", log)
-        for ornek in ham_satir_ornegi(kutu_cercevesi or fr):
-            yaz(f"      ekrandaki satir: {ornek}", log)
+        # Ekran goruntusu/HTML kaydedilmiyor: liste zaten Excel olarak iniyor ve
+        # asil kaynak o. Neden okunamadigi tek satirlik tani olarak gunluge yazilir.
+        yaz(f"    Liste ekrandan okunamadi ({'; '.join(kutu_cerceve_ozeti(page)) or 'kutu yok'})", log)
     sonuc["fatura_sayisi"] = len(satirlar) or (sayi or 0)
     yaz(f"    {len(satirlar)} satir listelendi"
         + (f" (ekranda {sayi} kayit)" if sayi and not satirlar else ""), log)
