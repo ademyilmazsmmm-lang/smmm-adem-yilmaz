@@ -2039,7 +2039,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     istenen_bit = tarih_cozumle(araliklar[-1][1])
     indirme_bas, indirme_bit = hedef_ay_araligi(istenen_bas, istenen_bit)
     indirme_araligi = (indirme_bas.strftime(TARIH_BICIMI), indirme_bit.strftime(TARIH_BICIMI))
-    if not firma_secili and not donem_ayarla(page, firma, istenen_bas, istenen_bit, log):
+    if not donem_ayarla(page, firma, istenen_bas, istenen_bit, log):
         sonuc["durum"] = "donem disi"
         return sonuc
     donem_bas, donem_bit = calisma_donemi(page)
@@ -2857,9 +2857,10 @@ def main():
                     sonuc = firma_isle(page, firma, tip, araliklar, calisma, log,
                                        azami_deneme, firma_secili=bool(sira))
                     sonuclar.append(sonuc)
-                    if sonuc["durum"].startswith("atlandi"):
-                        # fatura sayisi sinirin ustunde: bu firmanin diger ekranlari da gecilir
-                        yaz("    Bu firmanin kalan ekranlari atlandi", log)
+                    if sonuc["durum"].startswith(("atlandi", "donem disi")):
+                        # donemi tutmayan ya da sinir ustu firma: kalan ekranlar taranmaz
+                        if len(args.belge_tipi) - sira > 1:
+                            yaz("    Bu firmanin kalan ekranlari atlandi", log)
                         break
                 ardisik_hata = 0
             except Exception as e:
