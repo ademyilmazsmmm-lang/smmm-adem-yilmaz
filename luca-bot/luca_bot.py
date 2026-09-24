@@ -30,7 +30,8 @@ GIRIS_SAYFASI = "https://agiris.luca.com.tr/LUCASSO/giris.erp"  # ortak giris ek
 UYGULAMA_PARCASI = "/Luca/"
 SISTEM_GIRIS = ["Sistem Giriş", "Sistem Girisi", "Sistem Giris"]
 GIRIS_DUGMESI = ["GİRİŞ", "Giriş", "GIRIS", "Giris"]
-URUN_ADAYLARI = ["Mali Müşavir", "MALİ MÜŞAVİR", "Luca Mali Müşavir"]
+URUN_ADAYLARI = ["LUCA MALİ MÜŞAVİR PAKETİ", "Mali Müşavir Paketi",
+                 "MALİ MÜŞAVİR PAKETİ", "Luca Mali Müşavir", "MALİ MÜŞAVİR"]
 # Iki asamali dogrulama ekranini taniyan yazilar
 DOGRULAMA_ISARETLERI = ["İki Aşamalı Doğrulama", "Doğrulama Kodu", "Güvenlik Kodu",
                         "SMS ile gönderilen", "Tek Kullanımlık Şifre"]
@@ -2462,6 +2463,29 @@ def dogrulama_kodunu_gir(page, kod):
     return False
 
 
+def urun_sec(page, log=None, sure=30000):
+    """Giris sonrasi cikan urun secim ekranindan Mali Musavir paketini secer.
+
+    Kutular giristen birkac saniye sonra beliriyor; tek seferlik tiklama
+    denemesi erken kaldigi icin bot bu ekranda bekliyordu.
+    """
+    bitis = time.time() + sure / 1000
+    while True:
+        try:
+            if UYGULAMA_PARCASI in page.url:  # uygulama zaten acildi
+                return True
+        except Exception:
+            return False
+        tiklanan = varsa_tikla(page, URUN_ADAYLARI, sure=1200)
+        if tiklanan:
+            yaz(f"    Urun secildi: {tiklanan}", log)
+            page.wait_for_timeout(3000)
+            return True
+        if time.time() >= bitis:
+            return False
+        page.wait_for_timeout(1000)
+
+
 def otomatik_giris(page, ayarlar, log):
     """Luca girisini ayarlar.json'daki bilgilerle kendisi yapar.
 
@@ -2508,7 +2532,7 @@ def otomatik_giris(page, ayarlar, log):
             if kod and dogrulama_kodunu_gir(page, kod):
                 yaz("    Dogrulama kodu girildi", log)
                 if not dogrulama_ekrani_mi(page):
-                    varsa_tikla(page, URUN_ADAYLARI, sure=4000)
+                    urun_sec(page, log)
                     return True
                 yaz("    UYARI: dogrulama kodu kabul edilmedi", log)
             # kod uretilemiyorsa (SMS vb.) elle girilmesi beklenir
@@ -2523,7 +2547,7 @@ def otomatik_giris(page, ayarlar, log):
                 return False
             yaz("    Dogrulama tamamlandi", log)
 
-        varsa_tikla(page, URUN_ADAYLARI, sure=4000)  # urun secim ekrani cikarsa
+        urun_sec(page, log)  # urun secim ekrani cikarsa
         return True
     except Exception as e:
         yaz(f"UYARI: otomatik giris yapilamadi ({type(e).__name__}), elle giris yapin", log)
@@ -3008,9 +3032,11 @@ def main():
         page.goto(GIRIS_URL)
 
         if otomatik_giris(page, ayarlar, log):
-            # muhasebe ekrani kendiliginden acilana kadar beklenir
+            # muhasebe ekrani kendiliginden acilana kadar beklenir; bu sirada
+            # urun secim ekrani gec belirmis olabilir, tekrar denenir
             bitis = time.time() + 90
             while time.time() < bitis and uygulama_sayfasi_bul(ctx) is None:
+                urun_sec(page, log, sure=0)
                 page.wait_for_timeout(2000)
         if uygulama_sayfasi_bul(ctx) is None and args.bitince_kapat:
             # gece modunda ENTER'a basacak kimse yok; bosuna beklenmez
