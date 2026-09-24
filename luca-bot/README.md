@@ -50,9 +50,12 @@ python -m playwright install chromium
 | `tekrar_deneme` | İndirilemeyen fatura kalırsa sorgunun kaç kez tekrarlanacağı (varsayılan 3) |
 | `ardisik_hata_siniri` | Üst üste kaç firma hata verirse çalışma durdurulur (varsayılan 5) |
 | `dosya inmedi` durumu | Tarayıcı indirme sırasında çöktü; bot firmayı yeniden dener, o da olmazsa raporda `DOSYA INMEDI - tekrar calistir` yazar. Programı tekrar çalıştırmak yeterli. |
-| `atlanacak_firmalar` | İşlenmeyecek firma adları (kapanmış firmalar). Luca adı kısaltarak gösterdiği için adın baş kısmını yazmanız yeterli |
+| `atlanacak_firmalar` | İşlenmeyecek firma adları (nadiren gerekir). Luca adı kısaltarak gösterdiği için adın baş kısmını yazmanız yeterli |
 
-Kapanmış firmaların hazır listesi `kapali-firmalar.md` dosyasındadır; `ayarlar.ornek.json` içine işlenmiştir.
+**Hangi firmaların işleneceğini asıl `firmalar.xlsx` belirler**: listede olmayan firma zaten hiç açılmaz,
+listede olup belirli ekranları X ile işaretlenen firmada da yalnızca o ekranlar atlanır. `atlanacak_firmalar`
+bunun üzerine binen ayrı bir isim listesidir; `firmalar.xlsx`'e girmeyen bir firmayı ayrıca burada da
+yazmanıza gerek yoktur — zaten atlanır. Kapanmış firmaların referans listesi `kapali-firmalar.md` dosyasındadır.
 Firmanın Luca'daki çalışma dönemi istediğiniz tarihlerden eskiyse (Luca her firmada en son
 kullanılan dönemi hatırlar) bot dönem listesinden **istenen yılın dönemini seçer** ve devam eder.
 Yeni kurulan firmada `15/04/2026 - 31/12/2026`, eskisinde `01/01/2026 - 31/12/2026` olması fark etmez;
