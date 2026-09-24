@@ -31,6 +31,15 @@ SUTUNLAR = [
 TEVKIFAT_EKRANLARI = {"e-arsiv-alis", "e-arsiv-interaktif", "e-fatura-alis",
                       "gib-5000", "turmob-alis", "esmm-alis"}
 
+# Alis/satis toplam KDV ve matrah buradan hesaplanir. e-arsiv-interaktif
+# kasten disarida: e-arsiv-alis ile ayni faturalari gosterir, ikisini de
+# toplarsak alis tutari iki katina cikar. GIB 5000/30000, GIB portalinden
+# elle kesilen (Luca'ya entegre olmayan) faturalarin bildirimi oldugu icin
+# satis tarafinda sayilir.
+ALIS_EKRANLARI = {"e-arsiv-alis", "e-fatura-alis", "turmob-alis", "esmm-alis"}
+SATIS_EKRANLARI = {"e-arsiv-satis", "e-fatura-satis", "gib-5000",
+                   "turmob-satis", "esmm-satis"}
+
 # kotu durum once gelsin; firmanin genel durumu bunlarin en kotusudur
 # Once gercek sorunlar. "fatura yok" en sona yakin: bir ekranda fatura
 # bulunmamasi, digerinde fatura inen firmayi "fatura yok" gostermemeli.
@@ -40,12 +49,14 @@ DURUM_ONCELIGI = ["hata", "dosya inmedi", "kaynaktan inmedi", "donem disi",
 BASLIKLAR = (["Firma", "Dönem", "Durum", "Aksiyon"]
              + [ad for _, ad in SUTUNLAR]
              + ["Fark", "Eksik/Fazla Faturalar", "İptal/İtiraz", "Tevkifatlı Alış", "İnmeyen",
+                "Alış Matrah", "Alış KDV", "Satış Matrah", "Satış KDV",
                 "İnen Dosya", "Not", "Son İşlem"])
 
 
 def _bos_kayit(firma):
     return {"firma": firma, "donem": "", "durumlar": {}, "sayilar": {}, "iptal": {},
-            "tevkifat": {}, "inmeyen": {}, "faturalar": {}, "dosya": {}, "not": "", "son": ""}
+            "tevkifat": {}, "inmeyen": {}, "faturalar": {}, "dosya": {}, "not": "", "son": "",
+            "matrah": {}, "kdv": {}}
 
 
 def _oku(yol):
@@ -104,6 +115,27 @@ def _no(metin):
     return "".join(ch for ch in (metin or "").upper() if ch.isalnum())
 
 
+def _tutar(satir, sira=2, varsayilan=0):
+    """faturalar listesindeki (unvan, no, tutar) uclusunden tutari okur.
+
+    rapor.json'da bu ozellik eklenmeden once yazilmis eski kayitlarda tutar
+    olmayabilir (iki elemanli liste); boyle durumda 0 sayilir.
+    """
+    return satir[sira] if len(satir) > sira else varsayilan
+
+
+def _tutar_yaz(x):
+    """1234.5 -> '1.234,50' (virgul/nokta Turkce siraya cevrilir)."""
+    if not x:
+        return ""
+    return f"{x:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
+
+
+def _grup_toplami(kayit, alan, ekranlar):
+    """Belirli ekran grubundaki (orn. ALIS_EKRANLARI) tutarlarin toplami."""
+    return sum(v for tip, v in (kayit.get(alan) or {}).items() if tip in ekranlar)
+
+
 def fatura_farklari(kayit):
     """(GIB'de olup Luca'da olmayanlar, Luca'da olup GIB'de olmayanlar).
 
@@ -115,24 +147,32 @@ def fatura_farklari(kayit):
     gib = faturalar.get("e-arsiv-interaktif")
     if luca is None or gib is None:
         return None, None
-    luca_no = {_no(no) for _, no in luca if _no(no)}
-    gib_no = {_no(no) for _, no in gib if _no(no)}
-    eksik = [(unvan, no) for unvan, no in gib if _no(no) and _no(no) not in luca_no]
-    fazla = [(unvan, no) for unvan, no in luca if _no(no) and _no(no) not in gib_no]
+    luca_no = {_no(s[1]) for s in luca if len(s) > 1 and _no(s[1])}
+    gib_no = {_no(s[1]) for s in gib if len(s) > 1 and _no(s[1])}
+    eksik = [s for s in gib if len(s) > 1 and _no(s[1]) and _no(s[1]) not in luca_no]
+    fazla = [s for s in luca if len(s) > 1 and _no(s[1]) and _no(s[1]) not in gib_no]
     return eksik, fazla
 
 
 def _ortak_fatura_var(kayit):
     """Iki listede ortak fatura numarasi var mi (numaralandirma ayni mi)."""
     faturalar = kayit.get("faturalar") or {}
-    luca = {_no(no) for _, no in (faturalar.get("e-arsiv-alis") or [])}
-    gib = {_no(no) for _, no in (faturalar.get("e-arsiv-interaktif") or [])}
+    luca = {_no(s[1]) for s in (faturalar.get("e-arsiv-alis") or []) if len(s) > 1}
+    gib = {_no(s[1]) for s in (faturalar.get("e-arsiv-interaktif") or []) if len(s) > 1}
     return bool(luca & gib)
 
 
 def _fatura_listesi(kayitlar, sinir):
-    """Cikti: "Unvanin ilk kelimesi + fatura numarasinin son 5 hanesi"."""
-    metin = ", ".join(f"{unvan or '?'} {no[-5:]}" for unvan, no in kayitlar[:sinir])
+    """Cikti: "Unvanin ilk kelimesi + fatura numarasinin son 5 hanesi (tutar)"."""
+    parcalar = []
+    for satir in kayitlar[:sinir]:
+        unvan, no = satir[0], satir[1]
+        tutar = _tutar(satir)
+        parca = f"{unvan or '?'} {no[-5:]}"
+        if tutar:
+            parca += f" ({_tutar_yaz(tutar)} TL)"
+        parcalar.append(parca)
+    metin = ", ".join(parcalar)
     if len(kayitlar) > sinir:
         metin += f" ... (+{len(kayitlar) - sinir})"
     return metin
@@ -154,9 +194,9 @@ def _eksik_faturalar(kayit, sinir=10):
         return "listeler eslesmedi (fatura numaralari farkli bicimde)"
     parcalar = []
     if eksik:
-        parcalar.append("GİB'de var, Luca'da yok: " + _fatura_listesi(eksik, sinir))
+        parcalar.append("İnteraktif'te var, e-Arşiv'de yok: " + _fatura_listesi(eksik, sinir))
     if fazla:
-        parcalar.append("Luca'da var, GİB'de yok: " + _fatura_listesi(fazla, sinir))
+        parcalar.append("e-Arşiv'de var, İnteraktif'te yok: " + _fatura_listesi(fazla, sinir))
     if not parcalar and _fark(kayit):
         # sayilar tutmuyor ama numaralar ortusuyor: ayni fatura iki kez listelenmis
         parcalar.append("sayilar farkli, fatura numaralari ayni")
@@ -184,10 +224,10 @@ def _aksiyon(kayit):
         eksik = fazla = []
         isler.append("KARSILASTIRILAMADI - iki listenin fatura numaralari tutmuyor")
     if eksik:
-        isler.append(f"EKSIK - GİB'de olup Luca'da olmayan {len(eksik)} fatura:"
+        isler.append(f"EKSIK - İnteraktif'te olup e-Arşiv'de olmayan {len(eksik)} fatura:"
                      f" {_fatura_listesi(eksik, 4)}")
     if fazla:
-        isler.append(f"FAZLA - Luca'da olup GİB'de olmayan {len(fazla)} fatura:"
+        isler.append(f"FAZLA - e-Arşiv'de olup İnteraktif'te olmayan {len(fazla)} fatura:"
                      f" {_fatura_listesi(fazla, 4)}")
     if not eksik and not fazla and isinstance(fark, int) and fark:
         isler.append(f"SAYI FARKI - {abs(fark)} fatura, numaralar ortusuyor")
@@ -211,6 +251,10 @@ def _satir(kayit):
               _en_yuksek(kayit["iptal"]) or "",
               _en_yuksek(kayit["tevkifat"]) or "",
               sum(kayit["inmeyen"].values()) or "",
+              _tutar_yaz(_grup_toplami(kayit, "matrah", ALIS_EKRANLARI)),
+              _tutar_yaz(_grup_toplami(kayit, "kdv", ALIS_EKRANLARI)),
+              _tutar_yaz(_grup_toplami(kayit, "matrah", SATIS_EKRANLARI)),
+              _tutar_yaz(_grup_toplami(kayit, "kdv", SATIS_EKRANLARI)),
               _dosya_sayisi(kayit) or "",
               kayit["not"], kayit["son"]]
     return satir
@@ -230,6 +274,8 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
         kayit["iptal"][tip] = s.get("iptal_itiraz", 0)
         kayit["tevkifat"][tip] = s.get("tevkifat", 0) if tip in TEVKIFAT_EKRANLARI else 0
         kayit["inmeyen"][tip] = s.get("indirilemeyen", 0)
+        kayit.setdefault("matrah", {})[tip] = s.get("matrah", 0) or 0
+        kayit.setdefault("kdv", {})[tip] = s.get("kdv", 0) or 0
         kayit.setdefault("faturalar", {})[tip] = s.get("faturalar", [])
         # ayni gun icinde tekrar calistirilinca sayi sismesin diye tip basina tutulur
         if not isinstance(kayit.get("dosya"), dict):
@@ -289,7 +335,8 @@ def _excel_yaz(yol, satirlar):
         for hucre in ws[ws.max_row]:
             hucre.alignment = Alignment(vertical="top", wrap_text=True)
 
-    genislik = [26, 22, 16, 46] + [13] * len(SUTUNLAR) + [8, 46, 12, 12, 11, 11, 24, 16]
+    genislik = ([26, 22, 16, 46] + [13] * len(SUTUNLAR)
+                + [8, 46, 12, 12, 11, 14, 14, 14, 14, 11, 24, 16])
     for i, g in enumerate(genislik, 1):
         ws.column_dimensions[get_column_letter(i)].width = g
     ws.freeze_panes = "A2"

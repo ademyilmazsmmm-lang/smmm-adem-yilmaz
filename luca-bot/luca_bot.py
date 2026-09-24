@@ -2108,6 +2108,76 @@ def sutunlu_satirlar(basliklar, satirlar, *anahtarlar):
             if i < len(s) and sadelestir(s[i]) not in BOS_DEGERLER]
 
 
+def tutar_cozumle(metin):
+    """'1.234,56' / '1234,56' / '1234.56' (openpyxl'in dogrudan verdigi sayi) -> float.
+
+    Bos ya da sayi olmayan metin 0.0 sayilir.
+    """
+    s = str(metin or "").strip()
+    if not s:
+        return 0.0
+    s = re.sub(r"[^0-9,.\-]", "", s)  # TL isareti, bosluk vb. temizlenir
+    if not s or s in ("-", ".", ","):
+        return 0.0
+    if "," in s:  # Turkce bicim: binlik nokta, ondalik virgul
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+
+def _tutar_sutunlari(basliklar, anahtarlar, haric=()):
+    """Basligi anahtarlardan birini iceren (ve haric olanlari icermeyen) tum sutun indeksleri.
+
+    Bazi ekranlarda KDV oran basina ayri sutunlarda gosteriliyor
+    (orn. "KDV Matrahı (%20)", "KDV Matrahı (%10)"); oran onemli olmadigi
+    icin ayni turden birden fazla sutun varsa hepsi toplanir.
+    """
+    idx = []
+    for i, baslik in enumerate(basliklar):
+        duz = sadelestir(baslik)
+        if any(h in duz for h in haric):
+            continue
+        if any(a in duz for a in anahtarlar):
+            idx.append(i)
+    return idx
+
+
+def matrah_kdv_sutunlari(basliklar):
+    """(matrah sutunlari, KDV tutari sutunlari) indeksleri."""
+    matrah = _tutar_sutunlari(basliklar, ("MATRAH",))
+    if not matrah:  # bazi ekranlarda sutun adi "matrah" gecmiyor
+        matrah = _tutar_sutunlari(basliklar, ("MAL HIZMET TOPLAM TUTARI", "MAL HIZMET TUTARI"))
+    kdv = _tutar_sutunlari(basliklar, ("KDV",), haric=("ORAN",))
+    return matrah, kdv
+
+
+def _satirlarin_tutari(satirlar, sutunlar):
+    return sum(tutar_cozumle(s[i]) for s in satirlar for i in sutunlar if i < len(s))
+
+
+def satir_toplam_tutari(basliklar, satir):
+    """Bir faturanin genel toplam tutari (eksik/fazla fatura listesinde gosterilir)."""
+    for anahtar in ("GENEL TOPLAM", "VERGILER DAHIL TOPLAM TUTAR", "ODENECEK TUTAR", "TOPLAM TUTAR"):
+        i = sutun_indeksi(basliklar, anahtar)
+        if i is not None and i < len(satir):
+            return tutar_cozumle(satir[i])
+    return 0.0
+
+
+def fatura_kimlikleri_tutarli(basliklar, satirlar):
+    """(unvan, no, tutar) uclusu: eksik/fazla fatura listesinde tutar da gorunsun."""
+    sonuc = []
+    for s in satirlar:
+        k = fatura_kimligi(s)
+        if not k:
+            continue
+        unvan, no = k
+        sonuc.append((unvan, no, satir_toplam_tutari(basliklar, s)))
+    return sonuc
+
+
 def _iki_kaynaktan(sutundan, metinden, sutun_adi):
     """Sutun ve satir metni bulgularini birlestirir.
 
@@ -2136,7 +2206,7 @@ def excelden_sonuca_isle(sonuc, yol, klasor, log):
         return []
     yaz(f"    Excel'den {len(satirlar)} satir okundu", log)
     sonuc["fatura_sayisi"] = len(satirlar)
-    sonuc["faturalar"] = [list(k) for k in fatura_kimlikleri(satirlar)]
+    sonuc["faturalar"] = [list(k) for k in fatura_kimlikleri_tutarli(basliklar, satirlar)]
     with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
         csv.writer(f).writerows([basliklar] + satirlar)
 
@@ -2162,6 +2232,18 @@ def excelden_sonuca_isle(sonuc, yol, klasor, log):
         with open(klasor / "iptal-itiraz.csv", "w", encoding="utf-8-sig", newline="") as f:
             csv.writer(f).writerows([basliklar] + iptaller)
         yaz(f"    DIKKAT: {len(iptaller)} faturada iptal/itiraz var", log)
+
+    # KDV2 kontrolu icin toplam matrah/KDV: iptal/itiraz olan faturalar
+    # zaten hicbir zaman gerceklesmedigi icin toplama dahil edilmez.
+    iptal_id = {id(s) for s in iptaller}
+    sayilan_satirlar = [s for s in satirlar if id(s) not in iptal_id]
+    matrah_sutunlari, kdv_sutunlari = matrah_kdv_sutunlari(basliklar)
+    if sayilan_satirlar and not (matrah_sutunlari or kdv_sutunlari):
+        yaz("    UYARI: Matrah/KDV sutunu bulunamadi, tutar toplanamadi"
+            f" (basliklar: {', '.join(b for b in basliklar if b)})", log)
+    else:
+        sonuc["matrah"] = _satirlarin_tutari(sayilan_satirlar, matrah_sutunlari)
+        sonuc["kdv"] = _satirlarin_tutari(sayilan_satirlar, kdv_sutunlari)
     return satirlar
 
 
@@ -2184,7 +2266,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                firma_secili=False):
     sonuc = {"firma": firma, "belge_tipi": belge_tipi, "fatura_sayisi": 0,
              "durum": "", "dosyalar": [], "indirilemeyen": 0, "iptal_itiraz": 0,
-             "tevkifat": 0, "donem": "", "not": "", "faturalar": []}
+             "tevkifat": 0, "donem": "", "not": "", "faturalar": [],
+             "matrah": 0, "kdv": 0}
     klasor = cikti_kok / dosya_adi_yap(firma) / belge_tipi
     klasor.mkdir(parents=True, exist_ok=True)
 
