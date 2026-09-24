@@ -1893,7 +1893,7 @@ def _hucre_metni(h):
     return str(h).strip()
 
 
-def _excel_tam_oku(ac, log=None):
+def _excel_tam_oku(ac, log=None, sadece_ilk=False):
     """read_only okuma bos donerse dosyayi normal modda okur (yavas ama saglam)."""
     basliklar, satirlar = [], []
     try:
@@ -1902,7 +1902,7 @@ def _excel_tam_oku(ac, log=None):
         yaz(f"    Excel tam okumada acilamadi ({type(e).__name__})", log)
         return basliklar, satirlar
     try:
-        for ws in wb.worksheets:
+        for ws in (wb.worksheets[:1] if sadece_ilk else wb.worksheets):
             for ham in ws.iter_rows(values_only=True):
                 hucreler = [_hucre_metni(h) for h in ham]
                 while hucreler and not hucreler[-1]:
@@ -1923,7 +1923,7 @@ def _excel_tam_oku(ac, log=None):
     return basliklar, satirlar
 
 
-def excelden_tablo(yol, log=None):
+def excelden_tablo(yol, log=None, sadece_ilk=False):
     """Inen Excel'i (basliklar, satirlar) olarak okur; sutunlar yerinde kalir.
 
     Ekrandaki tabloyu kazimak yerine inen dosyayi kaynak almak daha saglam:
@@ -1950,7 +1950,8 @@ def excelden_tablo(yol, log=None):
 
     basliklar, satirlar = [], []
     try:
-        for ws in wb.worksheets:
+        sayfalar = wb.worksheets[:1] if sadece_ilk else wb.worksheets
+        for ws in sayfalar:
             try:  # Luca dosyalarinda boyut bilgisi eksik; olmazsa satirlar bos geliyor
                 ws.reset_dimensions()
             except Exception:
@@ -1967,7 +1968,7 @@ def excelden_tablo(yol, log=None):
                     satirlar.append(hucreler)
         if not satirlar:  # read_only modu bos donduyse dosyayi tumuyle acip tekrar dene
             sayfalar = ", ".join(ws.title for ws in wb.worksheets) or "-"
-            basliklar, satirlar = _excel_tam_oku(ac, log)
+            basliklar, satirlar = _excel_tam_oku(ac, log, sadece_ilk)
             if not satirlar:
                 yaz(f"    Excel bos geldi (sayfalar: {sayfalar},"
                     f" baslik: {len(basliklar)} sutun)", log)
@@ -2771,11 +2772,39 @@ def sayfayi_toparla(page):
             break
 
 
+# firmalar.xlsx'teki ekran sutunlari: baslik -> belge tipi
+EKRAN_SUTUNLARI = {
+    "e-Arşiv Alış": "e-arsiv-alis",
+    "e-Arşiv Satış": "e-arsiv-satis",
+    "e-Fatura Alış": "e-fatura-alis",
+    "e-Fatura Satış": "e-fatura-satis",
+    "GİB 5000/30000": "gib-5000",
+    "TÜRMOB Alış": "turmob-alis",
+    "TÜRMOB Satış": "turmob-satis",
+    "e-SMM Alış": "esmm-alis",
+    "e-SMM Satış": "esmm-satis",
+    "İnteraktif V.D.": "e-arsiv-interaktif",
+}
+# ekran sutununa bunlardan biri yazilirsa o ekran o firmada acilmaz
+ATLA_DEGERLERI = {"X", "HAYIR", "YOK", "ATLA", "-", "0"}
+
+
+def sutun_tam_indeksi(basliklar, ad):
+    """Basligi birebir eslesen sutun (e-Arsiv Alis ile Satis karismasin diye)."""
+    aranan = sadelestir(ad)
+    for i, baslik in enumerate(basliklar):
+        if sadelestir(baslik) == aranan:
+            return i
+    return None
+
+
 def firma_listesini_oku(yol, log=None):
-    """Islenecek firmalar: {kisa ad: kapanis tarihi (yoksa None)}.
+    """Islenecek firmalar: {kisa ad: (kapanis tarihi, atlanacak ekranlar)}.
 
     Excel'de "Kısa Adı" ve "Kapanış Tarihi" sutunlari aranir. Kisa ad Luca'nin
     firma listesinde gorunen adla ayni oldugu icin eslestirme dogrudan yapilir.
+    Ekran sutunlarina X yazilan belge tipleri o firmada hic acilmaz (orn.
+    e-faturasi olmayan firmada e-Fatura Alis/Satis).
     """
     yol = Path(yol)
     if not yol.is_absolute():
@@ -2783,7 +2812,8 @@ def firma_listesini_oku(yol, log=None):
     if not yol.exists():
         yaz(f"UYARI: firma listesi bulunamadi: {yol}", log)
         return {}
-    basliklar, satirlar = excelden_tablo(yol, log)
+    # yalnizca ilk sayfa: dosyadaki aciklama sayfasi firma sanilmasin
+    basliklar, satirlar = excelden_tablo(yol, log, sadece_ilk=True)
     if not satirlar:
         yaz(f"UYARI: firma listesi okunamadi: {yol}", log)
         return {}
@@ -2791,6 +2821,11 @@ def firma_listesini_oku(yol, log=None):
     kapanis_i = sutun_indeksi(basliklar, "KAPANIS")
     if ad_i is None:
         ad_i = 0
+    ekran_i = {}
+    for baslik, tip in EKRAN_SUTUNLARI.items():
+        i = sutun_tam_indeksi(basliklar, baslik)
+        if i is not None:
+            ekran_i[tip] = i
     liste = {}
     for satir in satirlar:
         ad = satir[ad_i].strip() if ad_i < len(satir) else ""
@@ -2802,20 +2837,35 @@ def firma_listesini_oku(yol, log=None):
                 kapanis = tarih_cozumle(satir[kapanis_i])
             except Exception:
                 kapanis = None
-        liste[ad] = kapanis
+        atlanan = {tip for tip, i in ekran_i.items()
+                   if i < len(satir) and sadelestir(satir[i]) in ATLA_DEGERLERI}
+        liste[ad] = (kapanis, atlanan)
     return liste
 
 
 def listede_bul(ad, liste):
-    """Luca adi listedeki hangi kisa ada denk geliyor (kisaltilmis adlar icin)."""
+    """Luca adi listedeki hangi kisa ada denk geliyor (kisaltilmis adlar icin).
+
+    Once birebir eslesme aranir; yoksa bas kismi tutanlardan EN UZUN olani
+    secilir. Aksi halde "ADEM", "ADEM MERGE" firmasiyla da esleserek yanlis
+    firmanin ayarlarini uyguluyordu.
+    """
     k = karsilastir(ad)
     if not k:
         return None
+    en_iyi, en_uzun = None, -1
     for liste_adi in liste:
         a = karsilastir(liste_adi)
-        if a and (k.startswith(a) or a.startswith(k)):
+        if not a:
+            continue
+        if a == k:
             return liste_adi
-    return None
+        # Luca adlari kisaltarak gosterdigi icin listedeki daha uzun ad da tutar.
+        # Ters yon ("ADEM" listedeki ad, Luca'da "ADEM AKÇAY") ancak yeterince
+        # uzun adlarda kabul edilir; kisa adlar baska firmalara yapisiyordu.
+        if (a.startswith(k) or (len(a) >= 8 and k.startswith(a))) and len(a) > en_uzun:
+            en_iyi, en_uzun = liste_adi, len(a)
+    return en_iyi
 
 
 def ozet_yaz(ozet_yolu, kalan_yolu, sonuclar, bekleyenler, belge_tipi):
@@ -3026,6 +3076,7 @@ def main():
             eslesmeyen = [a for a in atlama_adlari if not any(ayni_firma(f, a) for f in atlananlar)]
             if eslesmeyen:
                 yaz(f"UYARI: atlama listesinde eslesmeyen ad: {', '.join(eslesmeyen)}", log)
+        firma_atlanan = {}  # firma -> o firmada acilmayacak belge tipleri
         liste_yolu = ayarlar.get("firma_listesi")
         if liste_yolu:
             izinli = firma_listesini_oku(liste_yolu, log)
@@ -3037,12 +3088,14 @@ def main():
                     if liste_adi is None:
                         disarida.append(f)
                         continue
-                    kapanis = izinli[liste_adi]
+                    kapanis, atlanan_ekranlar = izinli[liste_adi]
                     # donem baslamadan kapanmis firmada aranacak fatura yok
                     if kapanis is not None and kapanis < baslangic:
                         kapanmis.append(f"{f} ({kapanis:%d/%m/%Y})")
                         continue
                     kalanlar.append(f)
+                    if atlanan_ekranlar:
+                        firma_atlanan[f] = atlanan_ekranlar
                 firmalar = kalanlar
                 if disarida:
                     yaz(f"Listede olmayan {len(disarida)} firma atlandi", log)
@@ -3050,6 +3103,10 @@ def main():
                     yaz(f"Donem oncesi kapanan {len(kapanmis)} firma atlandi: "
                         + ", ".join(kapanmis[:12])
                         + (f" ... (+{len(kapanmis) - 12})" if len(kapanmis) > 12 else ""), log)
+                if firma_atlanan:
+                    toplam = sum(len(v) for v in firma_atlanan.values())
+                    yaz(f"Listede {len(firma_atlanan)} firmada {toplam} ekran"
+                        " isaretlenmis, o ekranlar acilmayacak", log)
 
         if args.limit:
             firmalar = firmalar[: args.limit]
@@ -3100,18 +3157,24 @@ def main():
                 break
 
             try:
-                for sira, tip in enumerate(args.belge_tipi):
+                atlanacak = firma_atlanan.get(firma, set())
+                # ilk ekran atlanmis olabilir; firma gercekten secildi mi izlenir
+                secildi = False
+                for tip in args.belge_tipi:
+                    if tip in atlanacak:  # firmalar.xlsx'te X isaretli ekran
+                        yaz(f"  -- {BELGE_TIPLERI[tip]}: listede atlanmis", log)
+                        continue
                     if len(args.belge_tipi) > 1:
                         yaz(f"  -- {BELGE_TIPLERI[tip]}", log)
-                    if sira and sayfa_canli(page):
+                    if secildi and sayfa_canli(page):
                         sayfayi_toparla(page)  # onceki ekrandan kalan diyaloglar
                     sonuc = firma_isle(page, firma, tip, araliklar, calisma, log,
-                                       azami_deneme, firma_secili=bool(sira))
+                                       azami_deneme, firma_secili=secildi)
+                    secildi = True
                     sonuclar.append(sonuc)
                     if sonuc["durum"].startswith(("atlandi", "donem disi")):
                         # donemi tutmayan ya da sinir ustu firma: kalan ekranlar taranmaz
-                        if len(args.belge_tipi) - sira > 1:
-                            yaz("    Bu firmanin kalan ekranlari atlandi", log)
+                        yaz("    Bu firmanin kalan ekranlari atlandi", log)
                         break
                 ardisik_hata = 0
             except Exception as e:
@@ -3126,10 +3189,14 @@ def main():
                             break
                         yaz(f"    {firma} yeniden deneniyor ({tur}/{COKME_DENEMESI})", log)
                         try:
-                            for sira, tip in enumerate(args.belge_tipi):
+                            secildi = False
+                            for tip in args.belge_tipi:
+                                if tip in firma_atlanan.get(firma, set()):
+                                    continue
                                 sonuclar.append(firma_isle(page, firma, tip, araliklar, calisma,
                                                            log, azami_deneme,
-                                                           firma_secili=bool(sira)))
+                                                           firma_secili=secildi))
+                                secildi = True
                             ardisik_hata = 0
                             break
                         except Exception as e2:
