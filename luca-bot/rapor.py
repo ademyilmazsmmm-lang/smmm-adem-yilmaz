@@ -25,6 +25,12 @@ SUTUNLAR = [
     ("esmm-satis", "e-SMM Satış"),
 ]
 
+# Tevkifat uyarisi yalnizca ALIS ekranlarindan uretilir: KDV2 beyani alis
+# faturalarindaki tevkifat icin verilir, satis tarafindaki tevkifat bu beyana
+# girmedigi icin raporu ve e-postayi bosuna dolduruyordu.
+TEVKIFAT_EKRANLARI = {"e-arsiv-alis", "e-arsiv-interaktif", "e-fatura-alis",
+                      "gib-5000", "turmob-alis", "esmm-alis"}
+
 # kotu durum once gelsin; firmanin genel durumu bunlarin en kotusudur
 # Once gercek sorunlar. "fatura yok" en sona yakin: bir ekranda fatura
 # bulunmamasi, digerinde fatura inen firmayi "fatura yok" gostermemeli.
@@ -33,7 +39,7 @@ DURUM_ONCELIGI = ["hata", "dosya inmedi", "kaynaktan inmedi", "donem disi",
 
 BASLIKLAR = (["Firma", "Dönem", "Durum", "Aksiyon"]
              + [ad for _, ad in SUTUNLAR]
-             + ["Fark", "Eksik/Fazla Faturalar", "İptal/İtiraz", "Tevkifatlı", "İnmeyen",
+             + ["Fark", "Eksik/Fazla Faturalar", "İptal/İtiraz", "Tevkifatlı Alış", "İnmeyen",
                 "İnen Dosya", "Not", "Son İşlem"])
 
 
@@ -188,7 +194,7 @@ def _aksiyon(kayit):
     if _en_yuksek(kayit["iptal"]):
         isler.append(f"IPTAL/ITIRAZ - {_en_yuksek(kayit['iptal'])} fatura")
     if _en_yuksek(kayit["tevkifat"]):
-        isler.append(f"TEVKIFAT - {_en_yuksek(kayit['tevkifat'])} fatura, KDV2 kontrol")
+        isler.append(f"TEVKIFAT - {_en_yuksek(kayit['tevkifat'])} alis faturasi, KDV2 kontrol")
     return " | ".join(isler)
 
 
@@ -222,7 +228,7 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
         kayit["durumlar"][tip] = s.get("durum", "")
         kayit["sayilar"][tip] = s.get("fatura_sayisi", 0)
         kayit["iptal"][tip] = s.get("iptal_itiraz", 0)
-        kayit["tevkifat"][tip] = s.get("tevkifat", 0)
+        kayit["tevkifat"][tip] = s.get("tevkifat", 0) if tip in TEVKIFAT_EKRANLARI else 0
         kayit["inmeyen"][tip] = s.get("indirilemeyen", 0)
         kayit.setdefault("faturalar", {})[tip] = s.get("faturalar", [])
         # ayni gun icinde tekrar calistirilinca sayi sismesin diye tip basina tutulur

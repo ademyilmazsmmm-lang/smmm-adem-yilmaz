@@ -2128,15 +2128,18 @@ def excelden_sonuca_isle(sonuc, yol, klasor, log):
     with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
         csv.writer(f).writerows([basliklar] + satirlar)
 
-    tevkifatlilar, kaynak = _iki_kaynaktan(
-        sutunlu_satirlar(basliklar, satirlar, "TEVKIFAT"),
-        tevkifatli_satirlar(satirlar), "Tevkifat sutunu")
+    if sonuc.get("belge_tipi") in rapor.TEVKIFAT_EKRANLARI:
+        tevkifatlilar, kaynak = _iki_kaynaktan(
+            sutunlu_satirlar(basliklar, satirlar, "TEVKIFAT"),
+            tevkifatli_satirlar(satirlar), "Tevkifat sutunu")
+    else:  # satis ekrani: tevkifat KDV2 beyanina girmiyor
+        tevkifatlilar, kaynak = [], ""
     if len(tevkifatlilar) > sonuc.get("tevkifat", 0):
         sonuc["tevkifat"] = len(tevkifatlilar)
     if tevkifatlilar:
         with open(klasor / "tevkifatli.csv", "w", encoding="utf-8-sig", newline="") as f:
             csv.writer(f).writerows([basliklar] + tevkifatlilar)
-        yaz(f"    DIKKAT: {len(tevkifatlilar)} tevkifatli fatura ({kaynak}, KDV2)", log)
+        yaz(f"    DIKKAT: {len(tevkifatlilar)} tevkifatli alis faturasi ({kaynak}, KDV2)", log)
 
     iptaller, _ = _iki_kaynaktan(
         sutunlu_satirlar(basliklar, satirlar, "IPTAL", "ITIRAZ"),
@@ -2150,8 +2153,14 @@ def excelden_sonuca_isle(sonuc, yol, klasor, log):
     return satirlar
 
 
-def tevkifatli_satirlar(satirlar):
-    """Ekranda 'tevkifat' yazan satirlar (KDV2 icin isaret)."""
+def tevkifatli_satirlar(satirlar, belge_tipi=None):
+    """Ekranda 'tevkifat' yazan satirlar (KDV2 icin isaret).
+
+    Satis ekranlarinda aranmaz: KDV2 beyani alis faturalarindaki tevkifat icin
+    verildiginden satis tarafindaki tevkifat uyari uretmemeli.
+    """
+    if belge_tipi is not None and belge_tipi not in rapor.TEVKIFAT_EKRANLARI:
+        return []
     return [s for s in satirlar if TEVKIFAT_DESENI.search(sadelestir(" ".join(s)))]
 
 
@@ -2300,13 +2309,13 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
             csv.writer(f).writerows(satirlar)
         sonuc["faturalar"] = [list(k) for k in fatura_kimlikleri(satirlar)]
-        tevkifatlilar = tevkifatli_satirlar(satirlar)
+        tevkifatlilar = tevkifatli_satirlar(satirlar, belge_tipi)
         ekran_tevkifat = {no for _, no in fatura_kimlikleri(tevkifatlilar)}
         sonuc["tevkifat"] = len(tevkifatlilar)
         if tevkifatlilar:
             with open(klasor / "tevkifatli.csv", "w", encoding="utf-8-sig", newline="") as f:
                 csv.writer(f).writerows(tevkifatlilar)
-            yaz(f"    DIKKAT: {len(tevkifatlilar)} tevkifatli fatura (KDV2)", log)
+            yaz(f"    DIKKAT: {len(tevkifatlilar)} tevkifatli alis faturasi (KDV2)", log)
 
     # satir listesi cikarilamasa bile ekranda kayit varsa islemler yapilmali
     # (iptal/itiraz bu yuzden atlaniyordu)
@@ -2374,7 +2383,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                         sonuc["fatura_sayisi"] = len(satirlar)
                         with open(klasor / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
                             csv.writer(f).writerows(satirlar)
-                        sonuc["tevkifat"] = len(tevkifatli_satirlar(satirlar))
+                        sonuc["tevkifat"] = len(tevkifatli_satirlar(satirlar, belge_tipi))
                     iptaller = iptal_itiraz_satirlari(satirlar)
                     sonuc["iptal_itiraz"] = len(iptaller)
                     if iptaller:

@@ -17,8 +17,10 @@ import ssl as ssl_modulu
 from email.message import EmailMessage
 from pathlib import Path
 
+from rapor import TEVKIFAT_EKRANLARI  # tevkifat uyarisi sadece alis ekranlarindan
+
 # e-postada firma firma listelenen basliklar
-TEVKIFAT_BASLIGI = "TEVKIFATLI FATURALAR (KDV2 kontrol)"
+TEVKIFAT_BASLIGI = "TEVKIFATLI ALIS FATURALARI (KDV2 kontrol)"
 ESMM_BASLIGI = "e-SMM ALIS"
 IPTAL_BASLIGI = "IPTAL/ITIRAZ"
 
@@ -76,7 +78,8 @@ def _bolum(baslik, satirlar, birim="fatura"):
 
 def ozet_metni(sonuclar, donem=""):
     """E-posta govdesi: once uyari gerektirenler, sonra genel sayilar."""
-    tevkifatli = _firma_basina(sonuclar, "tevkifat")
+    tevkifatli = _firma_basina(
+        [s for s in sonuclar if s.get("belge_tipi") in TEVKIFAT_EKRANLARI], "tevkifat")
     esmm = _esmm_alislari(sonuclar)
     iptaller = _firma_basina(sonuclar, "iptal_itiraz")
 
