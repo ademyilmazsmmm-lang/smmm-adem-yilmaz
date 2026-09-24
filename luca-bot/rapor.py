@@ -41,15 +41,29 @@ SATIS_EKRANLARI = {"e-arsiv-satis", "e-fatura-satis", "gib-5000",
                    "turmob-satis", "esmm-satis"}
 
 # Bu gruplardaki ekranlar ayni faturalari gosterebilir (birden fazla
-# entegrator, ya da GIB 5000/30000'in e-Arsiv Satis ile ayni faturalari
-# tasimasi gibi); toplamda ikisi de sayilirsa tutar cifte sayilir. luca_bot.py
-# icindeki ORTUSEN_GRUPLARI ile ayni mantik, burada matrah/KDV toplami icin.
+# entegrator, GIB 5000/30000'in e-Arsiv Satis ile ayni faturalari tasimasi
+# gibi); toplamda hepsi sayilirsa tutar cifte sayilir, en yuksek olan alinir.
+# Tek kaynak burasi: luca_bot.py de bunu rapor.ortusen_grubu() ile kullanir.
+#   - e-arsiv-alis / e-arsiv-interaktif: ikisi de ayni e-arsiv alis faturalari
+#   - turmob-alis / e-fatura-alis: birden fazla entegratorde ayni alis faturalari
+#   - e-arsiv-satis / gib-5000 / turmob-satis / e-fatura-satis: TURMOB Satis
+#     ekrani hem e-Fatura hem e-Arsiv uzerinden kesilen satis faturalarini da
+#     getiriyor; GIB 5000/30000 da e-Arsiv Satis ile ayni faturalari tasiyor.
+#     Dorduncusunun de ayni satis faturalarini gosterdigi durumlarda bu grup
+#     hepsini kapsiyor.
 ORTUSEN_GRUPLARI = [
     {"e-arsiv-alis", "e-arsiv-interaktif"},
-    {"e-arsiv-satis", "gib-5000"},
     {"turmob-alis", "e-fatura-alis"},
-    {"turmob-satis", "e-fatura-satis"},
+    {"e-arsiv-satis", "gib-5000", "turmob-satis", "e-fatura-satis"},
 ]
+
+
+def ortusen_grubu(belge_tipi):
+    """belge_tipi'nin ait oldugu ortusen grubu; girmiyorsa tek basina kendisi."""
+    for grup in ORTUSEN_GRUPLARI:
+        if belge_tipi in grup:
+            return frozenset(grup)
+    return frozenset({belge_tipi})
 
 # kotu durum once gelsin; firmanin genel durumu bunlarin en kotusudur
 # Once gercek sorunlar. "fatura yok" en sona yakin: bir ekranda fatura

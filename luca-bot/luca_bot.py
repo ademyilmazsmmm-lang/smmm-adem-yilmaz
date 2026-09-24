@@ -137,27 +137,9 @@ AZAMI_GUN = 7  # GIB sorgusu tek seferde en fazla 7 gun kabul ediyor (eskiden 30
 AYLIK_AZAMI_GUN = 30
 AYLIK_SORGU = {"e-arsiv-interaktif", "gib-5000"}
 
-# Ayni faturalari birden fazla ekranda gosteren gruplar: grup icinde en
-# yuksek sayi/tutar alinir, hepsi toplanmaz (cifte sayim olmasin diye).
-# - e-arsiv-alis / e-arsiv-interaktif: ikisi de ayni e-arsiv alis faturalari
-# - e-arsiv-satis / gib-5000: GIB 5000/30000, GIB portalinden Luca disinda
-#   kesilip sonradan bildirilen e-arsiv satis faturalarinin takibidir
-# - turmob-* / e-fatura-*: firma birden fazla entegratorle calisiyorsa
-#   TURMOB ekrani hepsini, e-Fatura ekrani ise bir kismini gosterebiliyor
-ORTUSEN_GRUPLARI = [
-    {"e-arsiv-alis", "e-arsiv-interaktif"},
-    {"e-arsiv-satis", "gib-5000"},
-    {"turmob-alis", "e-fatura-alis"},
-    {"turmob-satis", "e-fatura-satis"},
-]
-
-
-def ortusen_grubu(belge_tipi):
-    """belge_tipi'nin ait oldugu ortusen grubu; girmiyorsa tek basina kendisi."""
-    for grup in ORTUSEN_GRUPLARI:
-        if belge_tipi in grup:
-            return frozenset(grup)
-    return frozenset({belge_tipi})
+# Ayni faturalari birden fazla ekranda gosteren gruplar: bkz. rapor.py'deki
+# ORTUSEN_GRUPLARI. Tek kaynak orasi (rapor.ortusen_grubu), boylece matrah/KDV
+# toplaminda ve buradaki fatura sayisi toplaminda ayni mantik kullanilir.
 COKME_DENEMESI = 3  # tarayici indirme sirasinda cokerse firma kac kez tekrar denensin
 
 # GIB'den iptal/itiraz sorgulama (fatura listesi indikten sonra calisir)
@@ -3558,11 +3540,11 @@ def main():
         basarili = sum(1 for s in sonuclar if s["durum"] == "tamam")
         bos = sum(1 for s in sonuclar if s["durum"] == "fatura yok")
         # her belge tipi ayri bir sonuc satiri; firma sayisi ile karistirilmasin.
-        # ortusen gruplarindan (bkz. ORTUSEN_GRUPLARI) yalnizca en yuksek sayi
+        # ortusen gruplarindan (bkz. rapor.ORTUSEN_GRUPLARI) yalnizca en yuksek sayi
         # alinir, geri kalan ekranlar ayri belgeler oldugu icin toplanir
         firma_grup_basi = {}  # (firma, grup) -> en yuksek fatura sayisi
         for s in sonuclar:
-            anahtar = (s["firma"], ortusen_grubu(s.get("belge_tipi", "")))
+            anahtar = (s["firma"], rapor.ortusen_grubu(s.get("belge_tipi", "")))
             sayi = s["fatura_sayisi"] or 0
             firma_grup_basi[anahtar] = max(firma_grup_basi.get(anahtar, 0), sayi)
         firmalar_gorulen = {firma for firma, _ in firma_grup_basi}
