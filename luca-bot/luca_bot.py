@@ -100,6 +100,18 @@ YETKI_ISARETLERI = ["IZNINIZ BULUNMAMAKTADIR", "YETKINIZ BULUNMAMAKTADIR",
 YETKI_YOK = -2  # islem_takibini_bekle bu ekranin atlanmasi gerektigini boyle soyler
 
 
+def ekran_tamamlanmis_mi(durum):
+    """rapor.json'daki bir ekran durumu, o ekranin o gun bittigi anlamina mi geliyor.
+
+    Bilgisayar/tarayici yarida kapanip calisma yeniden baslatildiginda, zaten
+    tamamlanmis ekranlar tekrar acilmasin diye kullanilir. "hata: ..." ve
+    "kaynaktan inmedi" gercek basarisizlik oldugu icin tamamlanmis sayilmaz;
+    calisma yeniden baslayinca o ekranlar tekrar denenir.
+    """
+    return bool(durum) and (durum.startswith("tamam") or durum.startswith("atlandi")
+                             or durum in ("fatura yok", "donem disi"))
+
+
 def gib_hatasi(metin):
     duz = sadelestir(metin or "")
     return any(isaret in duz for isaret in GIB_HATA_ISARETLERI)
@@ -3245,6 +3257,27 @@ def main():
         if args.limit:
             firmalar = firmalar[: args.limit]
 
+        # Calisma yarida kesilip (bilgisayar kapanmasi, elektrik vb.) ayni gun
+        # yeniden baslatilirsa, o gune ait rapor.json'da zaten tamamlanmis
+        # gorunen ekranlar tekrar acilmaz.
+        bugun_tamam = {}
+        onceki_rapor_yolu = calisma / "rapor.json"
+        if onceki_rapor_yolu.exists():
+            try:
+                onceki_rapor = json.loads(onceki_rapor_yolu.read_text(encoding="utf-8"))
+            except Exception:
+                onceki_rapor = {}
+            for firma, kayit in onceki_rapor.items():
+                durumlar = kayit.get("durumlar", {}) if isinstance(kayit, dict) else {}
+                tamam_tipler = {tip for tip in args.belge_tipi
+                               if ekran_tamamlanmis_mi(durumlar.get(tip, ""))}
+                if tamam_tipler:
+                    bugun_tamam[firma] = tamam_tipler
+            if bugun_tamam:
+                toplam = sum(len(v) for v in bugun_tamam.values())
+                yaz(f"Bugun daha once {len(bugun_tamam)} firmada {toplam} ekran tamamlanmis"
+                    " (yarida kalan calisma), o ekranlar tekrar acilmayacak", log)
+
         yaz(f"Islenecek firma sayisi: {len(firmalar)} | belge tipi: {', '.join(args.belge_tipi)}", log)
         yaz(f"Tarih araligi: {araliklar[0][0]} - {araliklar[-1][1]} ({len(araliklar)} sorgu/firma)\n", log)
 
@@ -3292,11 +3325,15 @@ def main():
 
             try:
                 atlanacak = firma_atlanan.get(firma, set())
+                tamamlanmis = bugun_tamam.get(firma, set())
                 # ilk ekran atlanmis olabilir; firma gercekten secildi mi izlenir
                 secildi = False
                 for tip in args.belge_tipi:
                     if tip in atlanacak:  # firmalar.xlsx'te X isaretli ekran
                         yaz(f"  -- {BELGE_TIPLERI[tip]}: listede atlanmis", log)
+                        continue
+                    if tip in tamamlanmis:  # yarida kalan calismadan zaten tamamlanmis
+                        yaz(f"  -- {BELGE_TIPLERI[tip]}: bugun tamamlanmis, atlaniyor", log)
                         continue
                     if len(args.belge_tipi) > 1:
                         yaz(f"  -- {BELGE_TIPLERI[tip]}", log)
@@ -3326,6 +3363,8 @@ def main():
                             secildi = False
                             for tip in args.belge_tipi:
                                 if tip in firma_atlanan.get(firma, set()):
+                                    continue
+                                if tip in bugun_tamam.get(firma, set()):
                                     continue
                                 sonuclar.append(firma_isle(page, firma, tip, araliklar, calisma,
                                                            log, azami_deneme,
