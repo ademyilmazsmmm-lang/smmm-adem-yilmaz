@@ -2145,15 +2145,14 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     menu_basla = time.time()
     menuye_git(page, belge_tipi)
     gecen_menu = time.time() - menu_basla
-    if gecen_menu > 10:  # uzun surduyse gorunsun, kisa surerse gunluk sismesin
+    if gecen_menu > 5:  # nerede beklendigi gunlukten anlasilsin
         yaz(f"    Menu {int(gecen_menu)} sn'de acildi", log)
     # Ekranda hic fatura yoksa Luca acilista "Her hangi bir fatura bulunamadi"
     # penceresi gosteriyor; Tamam denmeden ekranla hicbir sey yapilamiyor.
-    for _ in range(2):
-        if fatura_yok_penceresini_kapat(page):
-            yaz("    'Fatura bulunamadi' penceresi kapatildi", log)
-            break
-        page.wait_for_timeout(500)
+    # Tek deneme yeter: pencere gec cikarsa sorgu adimlari yine kapatiyor,
+    # burada beklemek her ekranda bos yere saniyeler harciyordu.
+    if fatura_yok_penceresini_kapat(page):
+        yaz("    'Fatura bulunamadi' penceresi kapatildi", log)
 
     interaktif = belge_tipi in IKI_KADEMELI
     sadece_excel = belge_tipi in SADECE_EXCEL  # bu ekranlarda XML inmez, Excel iner
