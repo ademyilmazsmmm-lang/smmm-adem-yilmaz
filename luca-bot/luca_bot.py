@@ -124,6 +124,10 @@ AZAMI_GUN = 7  # GIB sorgusu tek seferde en fazla 7 gun kabul ediyor (eskiden 30
 # Aylik sorguyu kabul eden ekranlar 7 gunluk parcalamaya gerek duymuyor
 AYLIK_AZAMI_GUN = 30
 AYLIK_SORGU = {"e-arsiv-interaktif", "gib-5000"}
+
+# Ayni faturalar iki ekranda da goruldugu icin toplam sayilirken bir kez
+# sayilmali; diger ekranlar (satis, e-fatura, e-SMM ...) ayri belgeler
+ORTUSEN_EKRANLAR = {"e-arsiv-alis", "e-arsiv-interaktif"}
 COKME_DENEMESI = 3  # tarayici indirme sirasinda cokerse firma kac kez tekrar denensin
 
 # GIB'den iptal/itiraz sorgulama (fatura listesi indikten sonra calisir)
@@ -3321,16 +3325,25 @@ def main():
 
         basarili = sum(1 for s in sonuclar if s["durum"] == "tamam")
         bos = sum(1 for s in sonuclar if s["durum"] == "fatura yok")
-        # her belge tipi ayri bir sonuc satiri; firma sayisi ile karistirilmasin
-        firma_basi = {}
+        # her belge tipi ayri bir sonuc satiri; firma sayisi ile karistirilmasin.
+        # e-Arsiv Alis ile Interaktif V.D. ayni faturalari gosterdigi icin o
+        # ikisinden yalnizca yuksek olani sayilir, digerleri ayri belgelerdir
+        firma_basi, ortusen_basi = {}, {}
         for s in sonuclar:
-            firma_basi[s["firma"]] = max(firma_basi.get(s["firma"], 0), s["fatura_sayisi"])
-        # ayni faturalar birden fazla ekranda goruldugu icin toplam degil en yuksek
-        toplam_fatura = sum(firma_basi.values())
+            firma = s["firma"]
+            sayi = s["fatura_sayisi"] or 0
+            if s.get("belge_tipi") in ORTUSEN_EKRANLAR:
+                ortusen_basi[firma] = max(ortusen_basi.get(firma, 0), sayi)
+            else:
+                firma_basi[firma] = firma_basi.get(firma, 0) + sayi
+            firma_basi.setdefault(firma, 0)
+        toplam_fatura = sum(firma_basi.values()) + sum(ortusen_basi.values())
+        atlanan_ekran = sum(len(firma_atlanan.get(f, ())) for f in firma_basi)
         yaz(f"\nBitti. {len(firma_basi)} firma, {len(sonuclar)} ekran:"
             f" {basarili} ekranda fatura indi, {bos} ekran bos,"
-            f" {len(sonuclar) - basarili - bos} ekran sorunlu."
-            f" Toplam {toplam_fatura} fatura listelendi.", log)
+            f" {len(sonuclar) - basarili - bos} ekran sorunlu"
+            + (f", {atlanan_ekran} ekran listede atlanmis" if atlanan_ekran else "")
+            + f". Toplam {toplam_fatura} fatura listelendi.", log)
         yaz(f"Dosyalar: {calisma}", log)
         yaz(f"Ozet: {ozet}", log)
         yaz(f"Rapor: {calisma / 'rapor.xlsx'} (aksiyon gereken firmalar en ustte)", log)
