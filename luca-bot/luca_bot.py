@@ -137,9 +137,27 @@ AZAMI_GUN = 7  # GIB sorgusu tek seferde en fazla 7 gun kabul ediyor (eskiden 30
 AYLIK_AZAMI_GUN = 30
 AYLIK_SORGU = {"e-arsiv-interaktif", "gib-5000"}
 
-# Ayni faturalar iki ekranda da goruldugu icin toplam sayilirken bir kez
-# sayilmali; diger ekranlar (satis, e-fatura, e-SMM ...) ayri belgeler
-ORTUSEN_EKRANLAR = {"e-arsiv-alis", "e-arsiv-interaktif"}
+# Ayni faturalari birden fazla ekranda gosteren gruplar: grup icinde en
+# yuksek sayi/tutar alinir, hepsi toplanmaz (cifte sayim olmasin diye).
+# - e-arsiv-alis / e-arsiv-interaktif: ikisi de ayni e-arsiv alis faturalari
+# - e-arsiv-satis / gib-5000: GIB 5000/30000, GIB portalinden Luca disinda
+#   kesilip sonradan bildirilen e-arsiv satis faturalarinin takibidir
+# - turmob-* / e-fatura-*: firma birden fazla entegratorle calisiyorsa
+#   TURMOB ekrani hepsini, e-Fatura ekrani ise bir kismini gosterebiliyor
+ORTUSEN_GRUPLARI = [
+    {"e-arsiv-alis", "e-arsiv-interaktif"},
+    {"e-arsiv-satis", "gib-5000"},
+    {"turmob-alis", "e-fatura-alis"},
+    {"turmob-satis", "e-fatura-satis"},
+]
+
+
+def ortusen_grubu(belge_tipi):
+    """belge_tipi'nin ait oldugu ortusen grubu; girmiyorsa tek basina kendisi."""
+    for grup in ORTUSEN_GRUPLARI:
+        if belge_tipi in grup:
+            return frozenset(grup)
+    return frozenset({belge_tipi})
 COKME_DENEMESI = 3  # tarayici indirme sirasinda cokerse firma kac kez tekrar denensin
 
 # GIB'den iptal/itiraz sorgulama (fatura listesi indikten sonra calisir)
@@ -3540,20 +3558,17 @@ def main():
         basarili = sum(1 for s in sonuclar if s["durum"] == "tamam")
         bos = sum(1 for s in sonuclar if s["durum"] == "fatura yok")
         # her belge tipi ayri bir sonuc satiri; firma sayisi ile karistirilmasin.
-        # e-Arsiv Alis ile Interaktif V.D. ayni faturalari gosterdigi icin o
-        # ikisinden yalnizca yuksek olani sayilir, digerleri ayri belgelerdir
-        firma_basi, ortusen_basi = {}, {}
+        # ortusen gruplarindan (bkz. ORTUSEN_GRUPLARI) yalnizca en yuksek sayi
+        # alinir, geri kalan ekranlar ayri belgeler oldugu icin toplanir
+        firma_grup_basi = {}  # (firma, grup) -> en yuksek fatura sayisi
         for s in sonuclar:
-            firma = s["firma"]
+            anahtar = (s["firma"], ortusen_grubu(s.get("belge_tipi", "")))
             sayi = s["fatura_sayisi"] or 0
-            if s.get("belge_tipi") in ORTUSEN_EKRANLAR:
-                ortusen_basi[firma] = max(ortusen_basi.get(firma, 0), sayi)
-            else:
-                firma_basi[firma] = firma_basi.get(firma, 0) + sayi
-            firma_basi.setdefault(firma, 0)
-        toplam_fatura = sum(firma_basi.values()) + sum(ortusen_basi.values())
-        atlanan_ekran = sum(len(firma_atlanan.get(f, ())) for f in firma_basi)
-        yaz(f"\nBitti. {len(firma_basi)} firma, {len(sonuclar)} ekran:"
+            firma_grup_basi[anahtar] = max(firma_grup_basi.get(anahtar, 0), sayi)
+        firmalar_gorulen = {firma for firma, _ in firma_grup_basi}
+        toplam_fatura = sum(firma_grup_basi.values())
+        atlanan_ekran = sum(len(firma_atlanan.get(f, ())) for f in firmalar_gorulen)
+        yaz(f"\nBitti. {len(firmalar_gorulen)} firma, {len(sonuclar)} ekran:"
             f" {basarili} ekranda fatura indi, {bos} ekran bos,"
             f" {len(sonuclar) - basarili - bos} ekran sorunlu"
             + (f", {atlanan_ekran} ekran listede atlanmis" if atlanan_ekran else "")

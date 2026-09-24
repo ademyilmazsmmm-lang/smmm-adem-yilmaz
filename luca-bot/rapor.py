@@ -40,6 +40,17 @@ ALIS_EKRANLARI = {"e-arsiv-alis", "e-fatura-alis", "turmob-alis", "esmm-alis"}
 SATIS_EKRANLARI = {"e-arsiv-satis", "e-fatura-satis", "gib-5000",
                    "turmob-satis", "esmm-satis"}
 
+# Bu gruplardaki ekranlar ayni faturalari gosterebilir (birden fazla
+# entegrator, ya da GIB 5000/30000'in e-Arsiv Satis ile ayni faturalari
+# tasimasi gibi); toplamda ikisi de sayilirsa tutar cifte sayilir. luca_bot.py
+# icindeki ORTUSEN_GRUPLARI ile ayni mantik, burada matrah/KDV toplami icin.
+ORTUSEN_GRUPLARI = [
+    {"e-arsiv-alis", "e-arsiv-interaktif"},
+    {"e-arsiv-satis", "gib-5000"},
+    {"turmob-alis", "e-fatura-alis"},
+    {"turmob-satis", "e-fatura-satis"},
+]
+
 # kotu durum once gelsin; firmanin genel durumu bunlarin en kotusudur
 # Once gercek sorunlar. "fatura yok" en sona yakin: bir ekranda fatura
 # bulunmamasi, digerinde fatura inen firmayi "fatura yok" gostermemeli.
@@ -132,8 +143,23 @@ def _tutar_yaz(x):
 
 
 def _grup_toplami(kayit, alan, ekranlar):
-    """Belirli ekran grubundaki (orn. ALIS_EKRANLARI) tutarlarin toplami."""
-    return sum(v for tip, v in (kayit.get(alan) or {}).items() if tip in ekranlar)
+    """Ekran grubundaki (orn. ALIS_EKRANLARI) tutarlarin toplami.
+
+    Ayni faturalari farkli ekranlardan gosteren gruplarda (bkz.
+    ORTUSEN_GRUPLARI) en yuksek olan alinir, ikisi de toplanmaz.
+    """
+    degerler = kayit.get(alan) or {}
+    islenen = set()
+    toplam = 0
+    for grup in ORTUSEN_GRUPLARI:
+        ilgili = grup & ekranlar
+        if not ilgili:
+            continue
+        toplam += max((degerler.get(tip, 0) for tip in ilgili), default=0)
+        islenen |= ilgili
+    for tip in ekranlar - islenen:
+        toplam += degerler.get(tip, 0)
+    return toplam
 
 
 def fatura_farklari(kayit):
