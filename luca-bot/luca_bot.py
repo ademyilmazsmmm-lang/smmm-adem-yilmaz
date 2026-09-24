@@ -91,11 +91,21 @@ ISLEM_ISARETLERI = ["İşlem Takip", "sorgulandı", "belge kaydı bulundu", "Oto
 # GIB'e ulasilamadiginda Luca bu uyariyi verip bekliyor; bosuna beklememek icin
 GIB_HATA_ISARETLERI = ["VERILER GETIRILIRKEN HATA", "GIB INTERNET SITESINDEN",
                        "GIB INTERNET E-ARSIV", "ERISILEMEDI", "BAGLANTI KURULAMADI"]
+# Firmanin o servise abonesi/yetkisi yoksa Luca bu SOAP hatasini yaziyor ve
+# pencere hic kapanmiyor; ayni ekranin kalan tarih araliklarini denemek bos
+YETKI_ISARETLERI = ["IZNINIZ BULUNMAMAKTADIR", "YETKINIZ BULUNMAMAKTADIR",
+                    "SOAP FAULT", "YETKISIZ ISLEM"]
+YETKI_YOK = -2  # islem_takibini_bekle bu ekranin atlanmasi gerektigini boyle soyler
 
 
 def gib_hatasi(metin):
     duz = sadelestir(metin or "")
     return any(isaret in duz for isaret in GIB_HATA_ISARETLERI)
+
+
+def yetki_hatasi(metin):
+    duz = sadelestir(metin or "")
+    return any(isaret in duz for isaret in YETKI_ISARETLERI)
 
 KISAYOLLAR = {  # butonlarin kendi ipuclarinda yazan kisayollar (tiklama engellenirse kullanilir)
     "GİB'den Getir": "Alt+g",
@@ -1006,6 +1016,14 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
                 varsa_tikla(page, ["Kapat"], sure=4000)
                 page.wait_for_timeout(1000)
                 return basarisiz
+
+            if yetki_hatasi(gunluk):
+                yaz(f"    Bu firmanin bu servise yetkisi yok ({int(gecen)} sn),"
+                    " ekran atlaniyor", log)
+                varsa_tikla(page, ["Kapat", "Tamam"], sure=3000)
+                acik_pencereleri_kapat(page)
+                fatura_yok_penceresini_kapat(page)
+                return YETKI_YOK
 
             if gib_hatasi(gunluk):
                 yaz(f"    GİB'e ulasilamadi ({int(gecen)} sn), bu sorgu atlaniyor", log)
@@ -2125,7 +2143,10 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     if interaktif:
         interaktif_sorgula(page, sorgu_araliklari, log, indirme_araligi)
     else:
+        yetkisiz = False
         for bas, bit in sorgu_araliklari:
+            if yetkisiz:  # servise yetki yok: kalan tarih araliklari denenmez
+                break
             onceki_hata = None
             for deneme in range(1, azami_deneme + 1):
                 try:
@@ -2136,6 +2157,11 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                     sonuc["not"] = "GIB sorgusu bu ekranda yok"
                     basarisiz = 0
                     onceki_hata = None
+                    break
+                if basarisiz == YETKI_YOK:
+                    sonuc["not"] = "bu firmanin bu servise yetkisi yok"
+                    yetkisiz = True
+                    basarisiz = 0
                     break
                 if basarisiz <= 0:
                     break
@@ -3073,9 +3099,12 @@ def main():
             firmalar = [f for f in firmalar if f not in atlananlar]
             if atlananlar:
                 yaz(f"Atlanan firma ({len(atlananlar)}): {', '.join(atlananlar)}", log)
-            eslesmeyen = [a for a in atlama_adlari if not any(ayni_firma(f, a) for f in atlananlar)]
-            if eslesmeyen:
-                yaz(f"UYARI: atlama listesinde eslesmeyen ad: {', '.join(eslesmeyen)}", log)
+            # --firma ile calisirken zaten tek firma var; eslesmeyen adlar dogal
+            if not args.firma:
+                eslesmeyen = [a for a in atlama_adlari
+                              if not any(ayni_firma(f, a) for f in atlananlar)]
+                if eslesmeyen:
+                    yaz(f"UYARI: atlama listesinde eslesmeyen ad: {', '.join(eslesmeyen)}", log)
         firma_atlanan = {}  # firma -> o firmada acilmayacak belge tipleri
         liste_yolu = ayarlar.get("firma_listesi")
         if liste_yolu:
