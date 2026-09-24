@@ -2668,6 +2668,32 @@ def kullanici_bekle(ctx, mesaj):
         time.sleep(0.25)
 
 
+def kullanici_metni_al(ctx, mesaj):
+    """kullanici_bekle ile ayni, ama ENTER'a basilmadan once yazilan metni dondurur."""
+    hazir = threading.Event()
+    kutu = {"metin": ""}
+
+    def oku():
+        try:
+            kutu["metin"] = input(mesaj)
+        finally:
+            hazir.set()
+
+    threading.Thread(target=oku, daemon=True).start()
+    while not hazir.is_set():
+        acik = [p for p in ctx.pages if not p.is_closed()]
+        for p in acik:
+            duraklamalari_engelle(ctx, p)
+        if acik:
+            try:
+                acik[0].wait_for_timeout(250)
+                continue
+            except Exception:
+                pass
+        time.sleep(0.25)
+    return kutu["metin"]
+
+
 def profil_klasoru(log=None):
     """Tarayici profilinin yeri.
 
@@ -3259,7 +3285,9 @@ def main():
 
         # Calisma yarida kesilip (bilgisayar kapanmasi, elektrik vb.) ayni gun
         # yeniden baslatilirsa, o gune ait rapor.json'da zaten tamamlanmis
-        # gorunen ekranlar tekrar acilmaz.
+        # gorunen ekranlar bulunur. Gece modunda (kimse cevap veremez) kaldigi
+        # yerden otomatik devam edilir; elle calistirmada kullaniciya sorulur,
+        # cunku bazen kasitli olarak hepsinin yeniden taranmasi istenebilir.
         bugun_tamam = {}
         onceki_rapor_yolu = calisma / "rapor.json"
         if onceki_rapor_yolu.exists():
@@ -3267,16 +3295,31 @@ def main():
                 onceki_rapor = json.loads(onceki_rapor_yolu.read_text(encoding="utf-8"))
             except Exception:
                 onceki_rapor = {}
+            aday_tamam = {}
             for firma, kayit in onceki_rapor.items():
                 durumlar = kayit.get("durumlar", {}) if isinstance(kayit, dict) else {}
                 tamam_tipler = {tip for tip in args.belge_tipi
                                if ekran_tamamlanmis_mi(durumlar.get(tip, ""))}
                 if tamam_tipler:
-                    bugun_tamam[firma] = tamam_tipler
-            if bugun_tamam:
-                toplam = sum(len(v) for v in bugun_tamam.values())
-                yaz(f"Bugun daha once {len(bugun_tamam)} firmada {toplam} ekran tamamlanmis"
-                    " (yarida kalan calisma), o ekranlar tekrar acilmayacak", log)
+                    aday_tamam[firma] = tamam_tipler
+            if aday_tamam:
+                toplam = sum(len(v) for v in aday_tamam.values())
+                if args.bitince_kapat:
+                    bugun_tamam = aday_tamam
+                    yaz(f"Bugun daha once {len(aday_tamam)} firmada {toplam} ekran tamamlanmis"
+                        " (yarida kalan calisma), gece modunda kaldigi yerden devam ediliyor", log)
+                else:
+                    print(f"\nBu klasorde ({calisma.name}) bugun daha once {len(aday_tamam)} firmada"
+                          f" {toplam} ekran tamamlanmis gorunuyor (yarida kalan bir calisma olabilir).")
+                    cevap = kullanici_metni_al(
+                        ctx, ">>> [D]evam: kaldigi yerden surer, tamamlanmis ekranlar tekrar"
+                        " acilmaz  /  [B]astan: hepsi yeniden taranir (varsayilan D): ")
+                    if cevap.strip().lower().startswith("b"):
+                        yaz("Kullanici secimi: hepsi bastan taranacak", log)
+                    else:
+                        bugun_tamam = aday_tamam
+                        yaz(f"Kullanici secimi: kaldigi yerden devam ({len(aday_tamam)} firmada"
+                            f" {toplam} ekran atlanacak)", log)
 
         yaz(f"Islenecek firma sayisi: {len(firmalar)} | belge tipi: {', '.join(args.belge_tipi)}", log)
         yaz(f"Tarih araligi: {araliklar[0][0]} - {araliklar[-1][1]} ({len(araliklar)} sorgu/firma)\n", log)
