@@ -109,7 +109,9 @@ AYAR = {"azami_saniye": 900, "durgunluk_saniye": 180, "indirme_saniye": 30, "ipt
 
 TARIH_BICIMI = "%d/%m/%Y"
 AZAMI_GUN = 7  # GIB sorgusu tek seferde en fazla 7 gun kabul ediyor (eskiden 30)
-INTERAKTIF_AZAMI_GUN = 30  # Interaktif V.D. ekraninda 7 gunluk parcalamaya gerek yok
+# Aylik sorguyu kabul eden ekranlar 7 gunluk parcalamaya gerek duymuyor
+AYLIK_AZAMI_GUN = 30
+AYLIK_SORGU = {"e-arsiv-interaktif", "gib-5000"}
 COKME_DENEMESI = 3  # tarayici indirme sirasinda cokerse firma kac kez tekrar denensin
 
 # GIB'den iptal/itiraz sorgulama (fatura listesi indikten sonra calisir)
@@ -2109,10 +2111,15 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
     interaktif = belge_tipi in IKI_KADEMELI
     sadece_excel = belge_tipi in SADECE_EXCEL  # bu ekranlarda XML inmez, Excel iner
     # Interaktif V.D. ekraninda fatura, duzenlendigi tarihle degil ait oldugu
-    # donemle listelendigi icin hedef ayin disini sorgulamaya gerek yok; bu ekran
-    # tek seferde bir ayi kabul ettigi icin 7 gunluk parcalama da yapilmaz.
-    sorgu_araliklari = (tarih_araliklari(indirme_bas, indirme_bit, INTERAKTIF_AZAMI_GUN)
-                        if interaktif else araliklar)
+    # donemle listelendigi icin hedef ayin disini sorgulamaya gerek yok.
+    # GIB 5000/30000 de artik aylik sorgu kabul ediyor; orada tarih araligi
+    # daralmaz, yalnizca parca boyu 7 gunden 30 gune cikar.
+    if interaktif:
+        sorgu_araliklari = tarih_araliklari(indirme_bas, indirme_bit, AYLIK_AZAMI_GUN)
+    elif belge_tipi in AYLIK_SORGU:
+        sorgu_araliklari = tarih_araliklari(istenen_bas, istenen_bit, AYLIK_AZAMI_GUN)
+    else:
+        sorgu_araliklari = araliklar
     kalan_hata = 0
     if interaktif:
         interaktif_sorgula(page, sorgu_araliklari, log, indirme_araligi)
