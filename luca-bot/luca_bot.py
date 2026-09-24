@@ -2759,6 +2759,53 @@ def sayfayi_toparla(page):
             break
 
 
+def firma_listesini_oku(yol, log=None):
+    """Islenecek firmalar: {kisa ad: kapanis tarihi (yoksa None)}.
+
+    Excel'de "Kısa Adı" ve "Kapanış Tarihi" sutunlari aranir. Kisa ad Luca'nin
+    firma listesinde gorunen adla ayni oldugu icin eslestirme dogrudan yapilir.
+    """
+    yol = Path(yol)
+    if not yol.is_absolute():
+        yol = KOK / yol
+    if not yol.exists():
+        yaz(f"UYARI: firma listesi bulunamadi: {yol}", log)
+        return {}
+    basliklar, satirlar = excelden_tablo(yol, log)
+    if not satirlar:
+        yaz(f"UYARI: firma listesi okunamadi: {yol}", log)
+        return {}
+    ad_i = sutun_indeksi(basliklar, "KISA AD")
+    kapanis_i = sutun_indeksi(basliklar, "KAPANIS")
+    if ad_i is None:
+        ad_i = 0
+    liste = {}
+    for satir in satirlar:
+        ad = satir[ad_i].strip() if ad_i < len(satir) else ""
+        if not ad:
+            continue
+        kapanis = None
+        if kapanis_i is not None and kapanis_i < len(satir):
+            try:
+                kapanis = tarih_cozumle(satir[kapanis_i])
+            except Exception:
+                kapanis = None
+        liste[ad] = kapanis
+    return liste
+
+
+def listede_bul(ad, liste):
+    """Luca adi listedeki hangi kisa ada denk geliyor (kisaltilmis adlar icin)."""
+    k = karsilastir(ad)
+    if not k:
+        return None
+    for liste_adi in liste:
+        a = karsilastir(liste_adi)
+        if a and (k.startswith(a) or a.startswith(k)):
+            return liste_adi
+    return None
+
+
 def ozet_yaz(ozet_yolu, kalan_yolu, sonuclar, bekleyenler, belge_tipi):
     """Ozeti her firmadan sonra yeniden yazar; islenmeyenler 'bekliyor' olarak gorunur."""
     with open(ozet_yolu, "w", encoding="utf-8-sig", newline="") as f:
@@ -2967,6 +3014,31 @@ def main():
             eslesmeyen = [a for a in atlama_adlari if not any(ayni_firma(f, a) for f in atlananlar)]
             if eslesmeyen:
                 yaz(f"UYARI: atlama listesinde eslesmeyen ad: {', '.join(eslesmeyen)}", log)
+        liste_yolu = ayarlar.get("firma_listesi")
+        if liste_yolu:
+            izinli = firma_listesini_oku(liste_yolu, log)
+            if izinli:
+                yaz(f"Firma listesi: {liste_yolu} ({len(izinli)} firma)", log)
+                kalanlar, disarida, kapanmis = [], [], []
+                for f in firmalar:
+                    liste_adi = listede_bul(f, izinli)
+                    if liste_adi is None:
+                        disarida.append(f)
+                        continue
+                    kapanis = izinli[liste_adi]
+                    # donem baslamadan kapanmis firmada aranacak fatura yok
+                    if kapanis is not None and kapanis < baslangic:
+                        kapanmis.append(f"{f} ({kapanis:%d/%m/%Y})")
+                        continue
+                    kalanlar.append(f)
+                firmalar = kalanlar
+                if disarida:
+                    yaz(f"Listede olmayan {len(disarida)} firma atlandi", log)
+                if kapanmis:
+                    yaz(f"Donem oncesi kapanan {len(kapanmis)} firma atlandi: "
+                        + ", ".join(kapanmis[:12])
+                        + (f" ... (+{len(kapanmis) - 12})" if len(kapanmis) > 12 else ""), log)
+
         if args.limit:
             firmalar = firmalar[: args.limit]
 
