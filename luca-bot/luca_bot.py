@@ -178,9 +178,14 @@ def hedef_ay_araligi(baslangic, bitis):
     01/08/2026-15/09/2026 gibi bir aralik veriyor. Eylul tarihleri yalnizca
     gec duzenlenen agustos faturalarini GIB'den cekmek icin sorgulanir;
     indirme ve listeleme agustosun tamami uzerinden yapilir.
+
+    Sorgu araligi ayin sonundan once bitse bile (orn. 01/08-02/08 gibi kisa bir
+    deneme) listeleme yine 01/08-31/08 olur: aksi halde daha once GIB'den
+    cekilmis agustos faturalari "Belge Ara" suzgecine takilip listede
+    gorunmuyordu.
     """
     ay_sonu = (baslangic.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
-    return baslangic, min(bitis, ay_sonu)
+    return baslangic, ay_sonu
 
 
 def tarih_araliklari(baslangic, bitis, gun=AZAMI_GUN):
@@ -760,7 +765,38 @@ def ekrandaki_modul(page):
     return None
 
 
-def modul_menusunden_git(page, hedef):
+def _cerceve_imzasi(page):
+    """Acik cercevelerin adresleri: ekran degisti mi anlamak icin."""
+    try:
+        return tuple(sorted(f.url for f in page.frames))
+    except Exception:
+        return ()
+
+
+def ekran_hazir_bekle(page, isaret, onceki_imza=None, azami=6000):
+    """Menu tiklandiktan sonra ekranin kendi butonu gorunene kadar bekler.
+
+    Eskiden burada sabit bekleme + networkidle vardi; ekran 1 saniyede acilsa
+    bile her menude 6-8 saniye harcaniyordu. Artik ekran hazir olur olmaz
+    devam edilir, bulunamazsa eski sureye kadar beklenir.
+    """
+    basla = time.time()
+    while True:
+        page.wait_for_timeout(200)
+        gecen = (time.time() - basla) * 1000
+        if gecen >= azami:
+            return False
+        # "GİB'den Getir" her ekranda var; yeni ekran acilmadan onceki ekranin
+        # butonunu gorup devam edersek yanlis ekrani sorgulariz. Once cerceve
+        # adreslerinin degismesi beklenir; 2 saniye sonra bu kontrol birakilir
+        # (kimi ekran ayni adrese yukleniyor).
+        if onceki_imza and gecen < 2000 and _cerceve_imzasi(page) == onceki_imza:
+            continue
+        if gorunur_mu(page, isaret, sure=400):
+            return True
+
+
+def modul_menusunden_git(page, hedef, isaret=None):
     """Modul menusu (orn. Isletme Defteri) -> madde. Ara menu yok."""
     hedef_gorunur = lambda: gorunur_mu(page, hedef, sure=1200)
     for deneme in range(3):
@@ -771,20 +807,23 @@ def modul_menusunden_git(page, hedef):
         except LookupError:
             page.wait_for_timeout(1000)
             continue
+        onceki_imza = _cerceve_imzasi(page)
         madde.click(timeout=8000)
-        page.wait_for_timeout(3000)
-        try:
-            page.wait_for_load_state("networkidle", timeout=5000)
-        except Exception:
-            pass
+        if not ekran_hazir_bekle(page, isaret or hedef, onceki_imza, azami=8000):
+            try:
+                page.wait_for_load_state("networkidle", timeout=3000)
+            except Exception:
+                pass
         return
     raise LookupError(f"'{hedef}' menu maddesi bulunamadi. Gorunen menuler: {menu_metinleri(page)}")
 
 
 def menuye_git(page, belge_tipi):
     hedef = BELGE_TIPLERI[belge_tipi]
+    # Ekran acildiginda mutlaka gorunen buton: bekleme bunu gorunce biter
+    isaret = INTERAKTIF_LISTELE if belge_tipi in IKI_KADEMELI else "GİB'den Getir"
     if belge_tipi in IKI_KADEMELI:
-        return modul_menusunden_git(page, hedef)
+        return modul_menusunden_git(page, hedef, isaret)
     ust_gorunur = lambda: gorunur_mu(page, UST_MENU, sure=1200)
     hedef_gorunur = lambda: gorunur_mu(page, hedef, sure=1200)
 
@@ -811,12 +850,13 @@ def menuye_git(page, belge_tipi):
 
     if alt is None:
         raise LookupError(f"'{hedef}' menu maddesi bulunamadi. Gorunen menuler: {menu_metinleri(page)}")
+    onceki_imza = _cerceve_imzasi(page)
     alt.click()
-    page.wait_for_timeout(1200)
-    try:
-        page.wait_for_load_state("networkidle", timeout=5000)
-    except Exception:
-        pass
+    if not ekran_hazir_bekle(page, isaret, onceki_imza, azami=6000):
+        try:
+            page.wait_for_load_state("networkidle", timeout=3000)
+        except Exception:
+            pass
 
 
 # Tum kutularin degeri/nitelikleri tek seferde okunur: her kutu icin ayri ayri
@@ -2143,7 +2183,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         sonuc["donem"] = f"{indirme_bas:%d/%m/%Y}-{indirme_bit:%d/%m/%Y}"
     if indirme_bit != istenen_bit and not firma_secili:
         yaz(f"    Hedef donem: {indirme_araligi[0]} - {indirme_araligi[1]}"
-            f" (sorgu {istenen_bit:%d/%m/%Y} tarihine kadar surecek)", log)
+            f" (GIB sorgusu {istenen_bas:%d/%m/%Y} - {istenen_bit:%d/%m/%Y})", log)
 
     yaz("    Menuye gidiliyor", log)
     menu_basla = time.time()
