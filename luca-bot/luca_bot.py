@@ -19,6 +19,7 @@ from playwright.sync_api import sync_playwright
 
 
 import rapor  # gunluk toplu rapor (rapor.xlsx / rapor.csv)
+import eposta  # calisma bitince ozet e-postasi
 
 KOK = Path(__file__).resolve().parent
 AYAR_DOSYASI = KOK / "ayarlar.json"
@@ -3282,6 +3283,14 @@ def main():
         yaz(f"Dosyalar: {calisma}", log)
         yaz(f"Ozet: {ozet}", log)
         yaz(f"Rapor: {calisma / 'rapor.xlsx'} (aksiyon gereken firmalar en ustte)", log)
+
+        # ozet e-postasi: gonderilemezse calisma yine de tamamlanmis sayilir
+        donem_metni = next((s["donem"] for s in sonuclar if s.get("donem")), "")
+        try:
+            eposta.gonder(ayarlar, calisma, sonuclar,
+                          lambda mesaj: yaz(mesaj, log), donem_metni)
+        except Exception as e:
+            yaz(f"UYARI: e-posta adimi hata verdi ({type(e).__name__}: {e})", log)
 
         if not args.bitince_kapat:
             input(">>> Tarayiciyi kapatmak icin ENTER'a basin: ")

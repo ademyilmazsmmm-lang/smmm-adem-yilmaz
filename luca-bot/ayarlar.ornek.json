@@ -16,6 +16,18 @@
   "indirme_bekleme_saniye": 30,
   "azami_fatura": 0,
   "iptal_itiraz_sorgula": true,
+  "mail_yontemi": "outlook",
+  "mail_otomatik_gonder": true,
+  "mail_alici": "",
+  "mail_sadece_uyari": false,
+  "smtp": {
+    "sunucu": "smtp.office365.com",
+    "port": 587,
+    "ssl": false,
+    "kullanici": "",
+    "sifre": "",
+    "gonderen": ""
+  },
   "atlanacak_firmalar": [
     "ALİ KAAN T",
     "BERKAYYETİ",
