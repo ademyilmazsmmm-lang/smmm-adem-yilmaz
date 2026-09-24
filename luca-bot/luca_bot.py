@@ -2383,23 +2383,28 @@ def captcha_ekrani_mi(page):
     return ""
 
 
-def dogrulama_kodu(ayarlar):
+def dogrulama_kodu(ayarlar, log=None):
     """ayarlar.json'daki gizli anahtardan o anki dogrulama kodunu uretir.
 
     Luca'da iki asamali dogrulamayi "kimlik dogrulayici uygulama" ile
     acarsaniz kurulum ekranindaki gizli anahtari dogrulama_anahtari alanina
     yazin; kodu bot kendisi hesaplar ve giris tumuyle otomatik olur.
+    Uretilemezse sebebi yazilir: sessizce elle girise dusmek kullaniciya
+    neyin eksik oldugunu soylemiyordu.
     """
     anahtar = str(ayarlar.get("dogrulama_anahtari") or "").replace(" ", "")
     if not anahtar:
+        yaz("    ayarlar.json'da dogrulama_anahtari yok, kod elle girilmeli", log)
         return ""
     try:
         import pyotp
     except ImportError:
+        yaz("    pyotp kurulu degil (kurulum.bat calistirin), kod elle girilmeli", log)
         return ""
     try:
         return pyotp.TOTP(anahtar).now()
-    except Exception:
+    except Exception as e:
+        yaz(f"    Dogrulama kodu uretilemedi ({type(e).__name__}), anahtari kontrol edin", log)
         return ""
 
 
@@ -2464,7 +2469,7 @@ def otomatik_giris(page, ayarlar, log):
 
         isaret = dogrulama_ekrani_mi(page)
         if isaret:
-            kod = dogrulama_kodu(ayarlar)
+            kod = dogrulama_kodu(ayarlar, log)
             if kod and dogrulama_kodunu_gir(page, kod):
                 yaz("    Dogrulama kodu girildi", log)
                 if not dogrulama_ekrani_mi(page):
