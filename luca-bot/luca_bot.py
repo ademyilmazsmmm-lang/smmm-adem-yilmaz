@@ -666,9 +666,11 @@ def modul_menusunu_ac(page, dogrula):
     calisan ad hatirlanip sonraki cagrilarda ilk sirada deneniyor.
     """
     global _SON_MODUL
-    adaylar = MODUL_ADAYLARI
-    if _SON_MODUL in MODUL_ADAYLARI:
-        adaylar = [_SON_MODUL] + [m for m in MODUL_ADAYLARI if m != _SON_MODUL]
+    adaylar = list(MODUL_ADAYLARI)
+    one_al = [m for m in (_SON_MODUL, ekrandaki_modul(page)) if m in adaylar]
+    for m in reversed(one_al):  # ekranda gorunen en one, sonra son calisan
+        adaylar.remove(m)
+        adaylar.insert(0, m)
     for modul in adaylar:
         if menu_ogesini_ac(page, modul, sure=1200, dogrula=dogrula):
             _SON_MODUL = modul
@@ -712,26 +714,46 @@ def dugmeye_bas(page, metin, sure=8000):
     return False
 
 
+# Gorunur menu yazilari tek JS cagrisiyla alinir; oge basina is_visible +
+# inner_text cagirmak cerceve basina yuzlerce gidis donus demekti
+MENU_METNI_JS = """els => els.map(e => ({
+  t: ((e.innerText || '').trim()).slice(0, 60),
+  g: !!(e.offsetParent || e.getClientRects().length)
+}))"""
+
+
 def menu_metinleri(page, sinir=40):
     bulunan = []
     for fr in cerceveler(page):
         try:
             ogeler = fr.locator("a, td, span")
-            for i in range(min(ogeler.count(), 200)):
-                oge = ogeler.nth(i)
-                try:
-                    if not oge.is_visible():
-                        continue
-                    metin = (oge.inner_text() or "").strip()
-                except Exception:
-                    continue
-                if 3 <= len(metin) <= 40 and metin not in bulunan:
-                    bulunan.append(metin)
-                    if len(bulunan) >= sinir:
-                        return bulunan
+            bilgiler = ogeler.evaluate_all(MENU_METNI_JS)
         except Exception:
             continue
+        for b in bilgiler:
+            metin = (b.get("t") or "").strip()
+            if b.get("g") and 3 <= len(metin) <= 40 and metin not in bulunan:
+                bulunan.append(metin)
+                if len(bulunan) >= sinir:
+                    return bulunan
     return bulunan
+
+
+def ekrandaki_modul(page):
+    """Ust cubukta gercekten duran modul adi; yoksa None.
+
+    Dokuz adayi tek tek tiklamayi denemek yerine once ekranda hangisinin
+    yazdigina bakilir: bir JS cagrisi, dokuz bosa arama yerine.
+    """
+    try:
+        gorunen = {karsilastir(m) for m in menu_metinleri(page, sinir=80)}
+    except Exception:
+        return None
+    for modul in MODUL_ADAYLARI:
+        k = karsilastir(modul)
+        if k and any(g.startswith(k) for g in gorunen):
+            return modul
+    return None
 
 
 def modul_menusunden_git(page, hedef):
@@ -2120,7 +2142,11 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
             f" (sorgu {istenen_bit:%d/%m/%Y} tarihine kadar surecek)", log)
 
     yaz("    Menuye gidiliyor", log)
+    menu_basla = time.time()
     menuye_git(page, belge_tipi)
+    gecen_menu = time.time() - menu_basla
+    if gecen_menu > 10:  # uzun surduyse gorunsun, kisa surerse gunluk sismesin
+        yaz(f"    Menu {int(gecen_menu)} sn'de acildi", log)
     # Ekranda hic fatura yoksa Luca acilista "Her hangi bir fatura bulunamadi"
     # penceresi gosteriyor; Tamam denmeden ekranla hicbir sey yapilamiyor.
     for _ in range(2):
