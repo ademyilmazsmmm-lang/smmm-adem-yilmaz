@@ -19,6 +19,7 @@ Ayarlar (ayarlar.json):
 
 import smtplib
 import ssl as ssl_modulu
+import time
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -144,12 +145,14 @@ def _outlook_ile_gonder(alicilar, konu, govde, ek_yolu, gonder_mi, bildir):
 
     try:
         outlook = win32com.client.Dispatch("Outlook.Application")
+        ad_alani = None
         try:
             # Outlook kapaliysa Dispatch onu arka planda baslatir, ama MAPI
             # oturumu hazir olmadan CreateItem/Send cagrilirsa hata verebilir.
             # Logon hem Outlook'u acar (kapaliysa) hem oturum hazir olana
             # kadar bekler; zaten acik/oturum acilmissa sessizce gecer.
-            outlook.GetNamespace("MAPI").Logon("", "", False, False)
+            ad_alani = outlook.GetNamespace("MAPI")
+            ad_alani.Logon("", "", False, False)
         except Exception:
             pass
         if not alicilar:
@@ -168,8 +171,13 @@ def _outlook_ile_gonder(alicilar, konu, govde, ek_yolu, gonder_mi, bildir):
         if ek_yolu and Path(ek_yolu).exists():
             mail.Attachments.Add(str(Path(ek_yolu).resolve()))
         if gonder_mi:
+            onceki = _giden_kutusu_sayisi(ad_alani)
             mail.Send()
-            bildir(f"Ozet e-postasi Outlook ile gonderildi: {', '.join(alicilar)}")
+            if _giden_kutusu_bosalsin(ad_alani, onceki):
+                bildir(f"Ozet e-postasi Outlook ile gonderildi: {', '.join(alicilar)}")
+            else:
+                bildir(f"UYARI: ozet e-postasi Outlook'un Giden Kutusu'nda bekliyor"
+                       f" ({', '.join(alicilar)}); Outlook'u acinca gidecek")
         else:
             mail.Display()
             bildir(f"Ozet e-postasi Outlook'ta taslak olarak acildi: {', '.join(alicilar)}"
@@ -178,6 +186,42 @@ def _outlook_ile_gonder(alicilar, konu, govde, ek_yolu, gonder_mi, bildir):
     except Exception as e:
         bildir(f"E-posta gonderilemedi (Outlook: {type(e).__name__}: {e})")
         return False
+
+
+def _giden_kutusu_sayisi(ad_alani):
+    try:
+        return ad_alani.GetDefaultFolder(4).Items.Count  # 4 = olFolderOutbox
+    except Exception:
+        return None
+
+
+def _giden_kutusu_bosalsin(ad_alani, onceki, azami_saniye=90):
+    """Mail Giden Kutusu'ndan cikana kadar bekler (Outlook kapaliyken de gitsin diye).
+
+    Outlook kapaliyken bot onu arka planda acar; Send() maili yalnizca Giden
+    Kutusu'na koyar. Program hemen biterse Outlook da kapanir ve mail orada
+    kalabilir. Bu yuzden Gonder/Al tetiklenir ve kutu bosalana kadar beklenir.
+    Sayi okunamiyorsa (eski Outlook) gonderildi kabul edilir.
+    """
+    if ad_alani is None or onceki is None:
+        return True
+    try:
+        ad_alani.SendAndReceive(False)
+    except Exception:
+        pass
+    try:
+        import pythoncom
+    except ImportError:
+        pythoncom = None
+    bitis = time.time() + azami_saniye
+    while time.time() < bitis:
+        sayi = _giden_kutusu_sayisi(ad_alani)
+        if sayi is None or sayi <= onceki:
+            return True
+        if pythoncom is not None:
+            pythoncom.PumpWaitingMessages()
+        time.sleep(1)
+    return False
 
 
 def _outlook_kendi_adresi(outlook):
