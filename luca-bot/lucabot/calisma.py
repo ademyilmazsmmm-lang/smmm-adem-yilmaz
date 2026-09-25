@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from . import konsol, rapor
 from .bekleme import sayfa_canli
 from .ekran_isleyici import FirmaSecilemedi, firma_isle
-from .giris import oturumu_yenile
+from .giris import giris_bilgileri, luca_oturumu_ac, oturumu_yenile
 from .luca_ekran import hata_kaydet, sayfayi_toparla
 from .ortak import gunluge_yaz, yaz, yeni_sonuc
 from .sabitler import BELGE_TIPLERI, COKME_DENEMESI
@@ -159,6 +159,16 @@ class Calisma:
         yeni_ctx, yeni = tarayiciyi_yeniden_baslat(self.pw, self.profil, self.ctx, self.log)
         if yeni_ctx is not None:
             self.ctx = yeni_ctx
+        if yeni_ctx is not None and not sayfa_canli(yeni) and giris_bilgileri(self.ayarlar):
+            # profilde oturum kalmamis: ayarlar.json'daki bilgilerle yeniden giris yapilir
+            yaz("Luca'ya otomatik olarak yeniden giris yapiliyor...", self.log)
+            try:
+                sayfa = yeni_ctx.pages[0] if yeni_ctx.pages else yeni_ctx.new_page()
+                yeni = luca_oturumu_ac(yeni_ctx, sayfa, self.ayarlar, True,
+                                       self.klasor / "tani", self.log)
+            except Exception as e:
+                yaz(f"Yeniden giris yapilamadi ({type(e).__name__}: {e})", self.log)
+                yeni = None
         if yeni_ctx is None or not sayfa_canli(yeni):
             raise TarayiciGitti()
         self.page = yeni

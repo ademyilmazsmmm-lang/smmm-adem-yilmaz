@@ -352,7 +352,13 @@ class EkranIsleyici:
             # Sorgu ile ayni araliklar kullanilir: GIB alis ekraninda 7 gunluk
             # parcalar (tek seferde sorulunca iptaller cikmiyor), interaktif
             # V.D. ekraninda donemin tamami icin tek sorgu.
-            basarili = iptal_itiraz_sorgula(page, self.sorgu_araliklari, self.log, self.interaktif)
+            bilgi = {}
+            basarili = iptal_itiraz_sorgula(page, self.sorgu_araliklari, self.log, self.interaktif,
+                                            bilgi)
+            if bilgi.get("gib_hatasi"):
+                self.sonuc["not"] = ("Iptal/itiraz sorgulanamadi: GIB kimlik dogrulanamadi"
+                                     f" ({', '.join(bilgi['gib_hatasi'])}) - firmanin GIB/"
+                                     "interaktif VD bilgilerini Luca'da kontrol edin")
             if basarili:
                 # sorgu durum sutununu degistirir; liste yeniden okunur
                 yeni_satirlar, yeni_fr = ekrandaki_satirlar(page)

@@ -240,7 +240,8 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
    excel: () => {
      if (TIP !== 'e-arsiv-interaktif' && !secili()) {
        document.getElementById('uyari').textContent = 'Lütfen önce faturaları seçiniz'; return; }
-     indir('excel');
+     // interaktif ekranda Excel gercek Luca'daki gibi gec geliyor
+     if (TIP === 'e-arsiv-interaktif') sonra(1500, () => indir('excel')); else indir('excel');
    },
    iptal: () => sonra(400, () => ac('<span>Raporlanma Tarihi aralığı</span> '
        + '<input type="text" name="rapBas" value="01/08/2026"> <input type="text" name="rapBit" value="31/08/2026"> '
@@ -275,7 +276,8 @@ INTERAKTIF_ARAC = """Başlangıç <input type="text" name="ilkTarih" value="01/0
 Bitiş <input type="text" name="sonTarih" value="31/08/2026">
 <button data-e="interaktif">İnteraktif V.D'sinden E-Arşiv Faturalarını Sorgula</button>
 <button data-e="listele">Mevcut E-Arşiv Faturalarını Listele</button>
-<button data-e="iptal">GİB'den İptal/İtiraz Sorgula</button><button data-e="excel">Excel</button>"""
+<button data-e="iptal">GİB'den İptal/İtiraz Sorgula</button><button data-e="excel">Excel</button>
+<div style="color:red">** Uyarı: Lütfen faturalarınızla ekrandaki tutarları kontrol ediniz.</div>"""
 
 
 class Isleyici(BaseHTTPRequestHandler):

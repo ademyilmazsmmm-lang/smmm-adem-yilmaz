@@ -45,6 +45,9 @@ NE_YAPMALI = [
 def _ne_yapmali(durum, not_metni=""):
     if "yetkisi yok" in (not_metni or ""):
         return "Firmanın bu servise yetkisi yok; firmalar.xlsx'te bu ekrana X koyabilirsiniz."
+    if "kimlik dogrulanamadi" in (not_metni or ""):
+        return ("Luca'da firma kartindaki GIB / Interaktif VD kullanici-sifre bilgilerini kontrol"
+                " edin; bu donemin iptal/itiraz kontrolunu elle yapin.")
     if "takildi" in (not_metni or ""):
         return "GİB sorgusu yanıt vermedi; daha sonra tekrar deneyin."
     for anahtar, oneri in NE_YAPMALI:
@@ -153,9 +156,6 @@ def _ozet_sayfasi(ws, kayitlar, satirlar, stil):
             dosya = k.get("dosya") or {}
             e["dosya"] += dosya.get(tip, 0) if isinstance(dosya, dict) else 0
 
-    def grup_toplami(alan, ekranlar):
-        return sum(rapor._grup_toplami(k, alan, ekranlar) for k in kayitlar.values())
-
     def mukerrersiz_fatura(k):
         grup_basi = {}
         for tip, sayi in k["sayilar"].items():
@@ -177,10 +177,6 @@ def _ozet_sayfasi(ws, kayitlar, satirlar, stil):
         ("Tevkifatlı alış faturası (KDV2)",
          sum(rapor._en_yuksek(k["tevkifat"]) for k in kayitlar.values())),
         ("İptal/itiraz edilmiş fatura", sum(rapor._en_yuksek(k["iptal"]) for k in kayitlar.values())),
-        ("Alış matrahı (TL)", grup_toplami("matrah", rapor.ALIS_EKRANLARI)),
-        ("Alış KDV (TL)", grup_toplami("kdv", rapor.ALIS_EKRANLARI)),
-        ("Satış matrahı (TL)", grup_toplami("matrah", rapor.SATIS_EKRANLARI)),
-        ("Satış KDV (TL)", grup_toplami("kdv", rapor.SATIS_EKRANLARI)),
         ("İnen dosya", sum(rapor._dosya_sayisi(k) or 0 for k in kayitlar.values())),
     ]
     _tablo(ws, ["Gösterge", "Değer"], gostergeler, [52, 20], stil, ilk_satir=4, filtre=False)
@@ -204,6 +200,31 @@ def _ozet_sayfasi(ws, kayitlar, satirlar, stil):
     _tablo(ws, ["Ekran", "Firma", "Fatura inen", "Boş", "Atlanan", "Sorunlu", "Bekliyor",
                 "Fatura adedi", "İnen dosya"],
            ekran_satirlari, [52, 20, 12, 8, 10, 10, 10, 13, 11], stil, ilk_satir=bas, filtre=False)
+    # firma bazinda tutarlar: ayni faturalari gosteren ekranlar (TURMOB Alis /
+    # e-Fatura Alis, e-Arsiv Satis / GIB 5000 / TURMOB Satis / e-Fatura Satis,
+    # e-Arsiv Alis / Interaktif) toplanmaz, en yuksek olan alinir
+    bas2 = bas + len(ekran_satirlari) + 3
+    ws.cell(row=bas2 - 1, column=1,
+            value="Firma bazında tutarlar (iptal/itiraz hariç; aynı faturayı gösteren ekranlar"
+                  " bir kez sayılır)").font = stil["kalin"]
+    firma_satirlari = []
+    for firma in sorted(kayitlar):
+        k = kayitlar[firma]
+        firma_satirlari.append([
+            firma, mukerrersiz_fatura(k) or None,
+            rapor._grup_toplami(k, "matrah", rapor.ALIS_EKRANLARI) or None,
+            rapor._grup_toplami(k, "kdv", rapor.ALIS_EKRANLARI) or None,
+            rapor._grup_toplami(k, "matrah", rapor.SATIS_EKRANLARI) or None,
+            rapor._grup_toplami(k, "kdv", rapor.SATIS_EKRANLARI) or None,
+            rapor._en_yuksek(k["tevkifat"]) or None,
+            rapor._en_yuksek(k["iptal"]) or None,
+        ])
+    _tablo(ws, ["Firma", "Fatura", "Alış Matrah", "Alış KDV", "Satış Matrah", "Satış KDV",
+                "Tevkifatlı Alış", "İptal/İtiraz"],
+           firma_satirlari, [52, 20, 16, 16, 16, 16, 14, 13], stil, ilk_satir=bas2, filtre=False)
+    for i in range(bas2 + 1, bas2 + 1 + len(firma_satirlari)):
+        for j in range(3, 7):
+            ws.cell(row=i, column=j).number_format = PARA_BICIMI
     ws.freeze_panes = None
 
 

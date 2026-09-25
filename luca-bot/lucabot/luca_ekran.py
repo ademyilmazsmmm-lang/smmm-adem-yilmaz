@@ -149,16 +149,31 @@ def menu_metinleri(page, sinir=40):
     return bulunan
 
 
-def uyari_metni(page):
-    """Luca uyarisi (orn. 'Lutfen indirilecek faturalari seciniz') varsa metnini dondurur."""
+def uyari_metinleri(page):
+    """Ekranda gorunen 'Lütfen ...' yazilari (Luca uyarilari)."""
+    bulunan = set()
     for fr in cerceveler(page):
         try:
             loc = fr.get_by_text("Lütfen", exact=False)
-            if loc.count() and loc.first.is_visible():
-                return " ".join((loc.first.inner_text() or "").split())[:90]
+            for i in range(min(loc.count(), 10)):
+                oge = loc.nth(i)
+                if oge.is_visible():
+                    bulunan.add(" ".join((oge.inner_text() or "").split())[:90])
         except Exception:
             continue
-    return None
+    return bulunan
+
+
+def uyari_metni(page, onceki=frozenset()):
+    """Yeni cikan Luca uyarisi (orn. 'Lutfen indirilecek faturalari seciniz'); yoksa None.
+
+    onceki: islemden once ekranda zaten duran yazilar. Interaktif V.D. ekraninda
+    "Lutfen faturalarinizla ekrandaki tutarlari kontrol ediniz" hep yaziyor;
+    bu uyari sanilinca Excel beklenmeden birakiliyor, gec gelen dosya da
+    tarayiciyi cokertiyordu.
+    """
+    yeni = sorted(uyari_metinleri(page) - set(onceki))
+    return yeni[0] if yeni else None
 
 
 def ekranda_gib_hatasi(page):

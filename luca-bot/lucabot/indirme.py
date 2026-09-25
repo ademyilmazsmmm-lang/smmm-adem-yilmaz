@@ -18,7 +18,7 @@ from .bekleme import kosulu_bekle, sayfa_canli
 from .luca_ekran import (acik_pencereleri_kapat, diyalogda_tikla,
                          diyalogda_tumunu_sec, dugmeye_bas,
                          fatura_yok_penceresini_kapat, indirme_diyalogu,
-                         uyari_metni)
+                         uyari_metinleri, uyari_metni)
 from .ortak import AYAR, dosya_adi_yap, yaz
 from .sabitler import INDIRME_ONAY, KISAYOLLAR
 
@@ -128,7 +128,7 @@ class _DosyaYakalayici:
         return None
 
 
-def _dosyayi_bekle(page, yakalayici, sure_sn):
+def _dosyayi_bekle(page, yakalayici, sure_sn, onceki_uyarilar=frozenset()):
     """Dosya gelene ya da Luca bir uyari gosterene kadar bekler; uyari metnini dondurur."""
     basla = time.monotonic()
     durum = {"uyari": None}
@@ -139,7 +139,7 @@ def _dosyayi_bekle(page, yakalayici, sure_sn):
         if time.monotonic() - basla >= 2 and fatura_yok_penceresini_kapat(page):
             durum["uyari"] = "Luca: fatura bulunamadi"
             return True
-        uyari = uyari_metni(page)
+        uyari = uyari_metni(page, onceki_uyarilar)
         if uyari:
             durum["uyari"] = uyari
             return True
@@ -162,6 +162,7 @@ def dosya_indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30,
         with _DosyaYakalayici(page, on_ek, yakala) as yakalayici:
             # onceki adimdan kalan bildirim yeni indirmeye karismasin
             fatura_yok_penceresini_kapat(page)
+            onceki_uyarilar = uyari_metinleri(page)  # ekranda hep duran yazilar uyari sayilmaz
             if not dugmeye_bas(page, dugme_metni, sure=8000):
                 yaz(f"    '{dugme_metni}' butonuna basilamadi, atlandi", log)
                 return None
@@ -169,7 +170,7 @@ def dosya_indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30,
             # butonun ilk tepkisi: dosya, onay penceresi ya da Luca uyarisi
             kosulu_bekle(page, lambda: (yakalayici.geldi()
                                         or (pencere_acilir and indirme_diyalogu(page)[1] is not None)
-                                        or uyari_metni(page)),
+                                        or uyari_metni(page, onceki_uyarilar)),
                          2000, aralik_ms=250)
 
             pencere = (indirme_diyalogu(page)[1]
@@ -186,7 +187,7 @@ def dosya_indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30,
 
             # onay penceresi acilip tiklanamadiysa dosya gelmeyecek; bosuna beklenmez
             sure = 5 if (pencere is not None and not onay) else azami_saniye
-            uyari = _dosyayi_bekle(page, yakalayici, sure)
+            uyari = _dosyayi_bekle(page, yakalayici, sure, onceki_uyarilar)
 
             # tiklama gectigi halde dosya gelmediyse butonun kendi kisayolu denenir
             kisayol = KISAYOLLAR.get(dugme_metni)

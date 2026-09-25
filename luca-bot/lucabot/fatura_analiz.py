@@ -255,13 +255,23 @@ def _satirlarin_tutari(satirlar, sutunlar):
     return sum(tutar_cozumle(s[i]) for s in satirlar for i in sutunlar if i < len(s))
 
 
+TOPLAM_ANAHTARLARI = ("GENEL TOPLAM", "VERGILER DAHIL TOPLAM TUTAR", "VERGILER DAHIL TUTAR",
+                      "ODENECEK TUTAR", "ODENECEK", "FATURA TUTARI", "TOPLAM TUTAR")
+
+
 def satir_toplam_tutari(basliklar, satir):
-    """Bir faturanin genel toplam tutari (eksik/fazla fatura listesinde gosterilir)."""
-    for anahtar in ("GENEL TOPLAM", "VERGILER DAHIL TOPLAM TUTAR", "ODENECEK TUTAR", "TOPLAM TUTAR"):
-        i = sutun_indeksi(basliklar, anahtar)
-        if i is not None and i < len(satir):
-            return tutar_cozumle(satir[i])
-    return 0.0
+    """Bir faturanin genel toplam tutari (fatura listesi ve eksik/fazla listesinde gosterilir).
+
+    Once "Genel Toplam / Odenecek Tutar" gibi bir sutun aranir ("Mal Hizmet
+    Toplam Tutari" matrahtir, sayilmaz). Luca'nin Excel'inde boyle bir sutun
+    yoksa tutar matrah + KDV olarak hesaplanir.
+    """
+    for anahtar in TOPLAM_ANAHTARLARI:
+        for i in _tutar_sutunlari(basliklar, (anahtar,), haric=("MAL HIZMET", "MATRAH", "KDV")):
+            if i < len(satir) and tutar_cozumle(satir[i]):
+                return tutar_cozumle(satir[i])
+    matrah, kdv = matrah_kdv_sutunlari(basliklar)
+    return round(_satirlarin_tutari([satir], matrah) + _satirlarin_tutari([satir], kdv), 2)
 
 
 def fatura_kimlikleri_tutarli(basliklar, satirlar):

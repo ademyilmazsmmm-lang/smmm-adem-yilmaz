@@ -114,6 +114,15 @@ class TutarVeFaturaTestleri(unittest.TestCase):
             self.assertEqual(sonuc["faturalar"][0], ["TURKCELL", "AAA2026000000001", 1200.0])
             self.assertTrue((klasor / "iptal-itiraz.csv").exists())
 
+    def test_fatura_tutari(self):
+        from lucabot.fatura_analiz import satir_toplam_tutari
+        # Luca'nin Excel'inde genel toplam sutunu yoksa matrah + KDV
+        basliklar = ["Fatura No", "Mal Hizmet Toplam Tutarı", "Hesaplanan KDV", "KDV Oranı"]
+        self.assertEqual(satir_toplam_tutari(basliklar, ["X", "1.000,00", "200,00", "20"]), 1200.0)
+        # genel toplam sutunu varsa o kullanilir
+        basliklar = ["Fatura No", "Matrah", "KDV", "Ödenecek Tutar"]
+        self.assertEqual(satir_toplam_tutari(basliklar, ["X", "1000", "200", "1150,5"]), 1150.5)
+
     def test_gib_hata_mesaji_taninir(self):
         from lucabot.gib_sorgu import gib_hatasi, hata_satiri, yetki_hatasi
         metin = ("İşlem Takip\nGİB e-Arşiv Sistemi Hata Mesajı:Doğrulama hatası Internet vergi"

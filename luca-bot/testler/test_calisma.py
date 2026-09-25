@@ -176,5 +176,35 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertLess(time.time() - basla, 60)    # durgunluk suresi (60 sn) beklenmedi
 
 
+    def test_gib_kimlik_hatasi_surerse_kalan_araliklar_atlanir(self):
+        """Hata her aralikta tekrarlaniyorsa 2 araliktan sonra birakilir ve rapora not dusulur."""
+        from lucabot.ekran_isleyici import firma_isle
+        from lucabot.ortak import AYAR
+        sahte_luca.sifirla()
+        AYAR.update(azami_saniye=120, durgunluk_saniye=60, indirme_saniye=15)
+        sahte_luca.SAYAC["gib_hatasi"] = 99
+        log = self.klasor / "calisma.log"
+        araliklar = tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("20/08/2026"))
+        sonuc = firma_isle(self.page, "AKIN COBAN", "e-arsiv-alis", araliklar, self.klasor, log)
+        gunluk = log.read_text(encoding="utf-8")
+        self.assertIn("kalan iptal/itiraz araliklari atlaniyor", gunluk)
+        self.assertEqual(gunluk.count("Iptal/itiraz sorgusu ("), 4)  # 2 aralik x 2 deneme
+        self.assertIn("kimlik dogrulanamadi", sonuc["not"])
+        self.assertEqual(sonuc["durum"], "tamam")
+
+    def test_interaktif_kalici_uyari_excel_beklenir(self):
+        """Ekranda hep duran 'Lutfen ...' yazisi uyari sanilmamali; gec gelen Excel beklenmeli."""
+        from lucabot.ekran_isleyici import firma_isle
+        from lucabot.ortak import AYAR
+        sahte_luca.sifirla()
+        AYAR.update(azami_saniye=120, durgunluk_saniye=60, indirme_saniye=15)
+        araliklar = tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("05/08/2026"))
+        sonuc = firma_isle(self.page, "AKIN COBAN", "e-arsiv-interaktif", araliklar, self.klasor,
+                           self.klasor / "calisma.log")
+        self.assertTrue(any(d.startswith("liste") for d in sonuc["dosyalar"]), sonuc["dosyalar"])
+        self.assertEqual(sonuc["fatura_sayisi"], 4)
+        self.assertTrue(all(len(f) == 3 and f[2] for f in sonuc["faturalar"]))  # tutarlar dolu
+
+
 if __name__ == "__main__":
     unittest.main()

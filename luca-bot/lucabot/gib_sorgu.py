@@ -418,20 +418,30 @@ def _iptal_araligi(page, bas, bit, log, interaktif):
     return sonuc
 
 
-def iptal_itiraz_sorgula(page, araliklar, log, interaktif=False):
+def iptal_itiraz_sorgula(page, araliklar, log, interaktif=False, bilgi=None):
     """Listedeki faturalar icin GIB'den iptal/itiraz durumunu sorgular.
 
     Luca akisi: arac cubugundan "GİB'den İptal/İtiraz Sorgula" -> acilan
     pencerede tarih araligi -> "İptal/İtiraz Sorgula". Sorgu tum listeye
     uygulandigi icin faturalari onceden isaretlemek gerekmiyor.
     Buradaki tarih, faturanin GIB'e raporlanma tarihidir.
-    Basarili sorgu sayisini dondurur.
+    Basarili sorgu sayisini dondurur. bilgi (sozluk) verilirse GIB kimlik
+    hatasi yuzunden sorgulanamayan araliklar bilgi["gib_hatasi"] listesine yazilir.
     """
     calisan = 0
     ust_uste_takildi = 0
+    ust_uste_gib = 0
+    hatali = []
     for bas, bit in araliklar:
         if ust_uste_takildi >= 2:
             yaz("    Iptal/itiraz sorgusu ust uste takildi, kalan tarih araliklari atlaniyor", log)
+            break
+        if ust_uste_gib >= 2:
+            # hata her aralikta tekrarlaniyorsa gecici degildir (orn. firmanin GIB
+            # bilgileri Luca'da hatali); kalan araliklari denemek bos
+            yaz("    GİB iki aralikta ust uste kimlik hatasi verdi, kalan iptal/itiraz"
+                " araliklari atlaniyor", log)
+            hatali.append(f"{bas} sonrasi")
             break
         for tur in (1, 2):  # GIB gecici hata verirse ayni aralik bir kez daha sorulur
             sonuc = _iptal_araligi(page, bas, bit, log, interaktif)
@@ -446,6 +456,13 @@ def iptal_itiraz_sorgula(page, araliklar, log, interaktif=False):
         # Bir defalik takilma tek basina kalanini gecersiz saymaz (bazen sadece
         # ilk parca donuyor), ama ust uste ikinci kez olursa ekran yanit vermiyor demektir
         ust_uste_takildi = ust_uste_takildi + 1 if sonuc == TAKILDI else 0
+        if sonuc == GIB_HATASI:
+            ust_uste_gib += 1
+            hatali.append(f"{bas} - {bit}")
+        else:
+            ust_uste_gib = 0
+    if bilgi is not None and hatali:
+        bilgi["gib_hatasi"] = hatali
 
     if interaktif:
         # bu ekranda Yenile listeyi bosaltiyor; liste yeniden listelenmeli
