@@ -3,7 +3,7 @@ rem Python paketlerini kontrol eder, eksikse kurar.
 rem Tarayici olarak bilgisayardaki Chrome/Edge kullanilir, indirmeye gerek yoktur.
 rem Cagirmadan once _python-bul.bat ile PY degiskeni ayarlanmis olmali.
 
-%PY% -c "import playwright, openpyxl, pyotp" >nul 2>&1
+%PY% -c "import playwright, openpyxl, pyotp, win32com.client" >nul 2>&1
 if not errorlevel 1 exit /b 0
 
 echo Gerekli paketler kuruluyor...
@@ -11,7 +11,8 @@ echo Gerekli paketler kuruluyor...
 %PY% -c "import playwright" >nul 2>&1
 if errorlevel 1 exit /b 1
 rem openpyxl yoksa rapor sadece CSV olur, pyotp yoksa dogrulama kodu elle
-rem girilir; ikisi de calismayi durdurmaz
+rem girilir, win32com yoksa e-posta Outlook ile gonderilemez (SMTP'ye
+rem gecebilirsiniz); ucu de calismayi durdurmaz
 echo Hazir.
 echo.
 exit /b 0

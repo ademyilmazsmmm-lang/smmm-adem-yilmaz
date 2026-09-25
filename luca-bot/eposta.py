@@ -6,10 +6,14 @@ bakmak yeterli olsun diye: tevkifatli faturalar (KDV2), e-SMM alislari ve
 iptal/itiraz kayitlari firma firma listelenir.
 
 Ayarlar (ayarlar.json):
-    mail_otomatik_gonder : true/false  - kapaliysa hicbir sey yapilmaz
+    mail_yontemi         : "outlook" (varsayilan) / "smtp"
+    mail_otomatik_gonder : true/false
+        - outlook yonteminde: true ise doğrudan gonderilir, false ise
+          Outlook'ta taslak olarak acilir (siz kontrol edip gonderirsiniz)
+        - smtp yonteminde: false ise e-posta hic denenmez
     mail_alici           : "a@b.com"   - birden fazla icin virgulle ayirin
     mail_sadece_uyari    : true/false  - true ise uyari yoksa e-posta gitmez
-    smtp.sunucu/port/ssl/kullanici/sifre/gonderen
+    smtp.sunucu/port/ssl/kullanici/sifre/gonderen  - sadece mail_yontemi=smtp icin
 """
 
 import smtplib
@@ -114,50 +118,70 @@ def ozet_metni(sonuclar, donem=""):
         satirlar.append("")
 
     satirlar.append("Ayrintilar ekteki rapor.xlsx dosyasinda.")
-    return "\n".join(satirlar), bool(tevkifatli or esmm)
+    metin = "\n".join(satirlar)
+    # WhatsApp/Markdown alismasindan kalan '*' isaretleri duz metin mailde
+    # oldugu gibi gorunur; hicbir yerde kullanilmasa da guvenlik icin temizlenir
+    metin = metin.replace("**", "").replace("*", "")
+    return metin, bool(tevkifatli or esmm)
 
 
-def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem=""):
-    """Ozet e-postasini gonderir. Gonderildiyse True doner.
+def _outlook_ile_gonder(alicilar, konu, govde, ek_yolu, gonder_mi, bildir):
+    """Masaustunde kurulu Outlook uzerinden gonderir (win32com).
 
-    Hicbir hata calismayi durdurmaz; sebep gunluge yazilir.
+    Sifre gerekmez: Outlook'ta o an oturum acmis hesap kullanilir, mail sizin
+    adresinizden gider ve Gonderilmis Ogeler klasorune duser - elle
+    gonderdiginiz bir mailden farki yoktur. gonder_mi False ise mail
+    gonderilmez, Outlook'ta taslak olarak acilir; siz kontrol edip
+    gonderirsiniz (Outlook kapaliysa Dispatch onu kendisi acar).
     """
-    def bildir(mesaj):
-        if log_yaz:
-            log_yaz(mesaj)
-
-    if not _ayar(ayarlar, "mail_otomatik_gonder", False):
-        bildir("E-posta gonderilmedi: mail_otomatik_gonder kapali (ayarlar.json)")
+    try:
+        import win32com.client
+    except ImportError:
+        bildir("E-posta gonderilemedi: pywin32 kurulu degil (kurulum.bat calistirin)")
         return False
+
+    try:
+        outlook = win32com.client.Dispatch("Outlook.Application")
+        mail = outlook.CreateItem(0)  # 0 = olMailItem
+        mail.To = "; ".join(alicilar)
+        mail.Subject = konu
+        mail.Body = govde
+        if ek_yolu and Path(ek_yolu).exists():
+            mail.Attachments.Add(str(Path(ek_yolu).resolve()))
+        if gonder_mi:
+            mail.Send()
+            bildir(f"Ozet e-postasi Outlook ile gonderildi: {', '.join(alicilar)}")
+        else:
+            mail.Display()
+            bildir(f"Ozet e-postasi Outlook'ta taslak olarak acildi: {', '.join(alicilar)}"
+                   " (gondermek icin Outlook'ta kontrol edip Gonder'e basin)")
+        return True
+    except Exception as e:
+        bildir(f"E-posta gonderilemedi (Outlook: {type(e).__name__}: {e})")
+        return False
+
+
+def _smtp_ile_gonder(ayarlar, alicilar, konu, govde, ek_yolu, bildir):
     kullanici = _ayar(ayarlar, "smtp.kullanici")
     sifre = _ayar(ayarlar, "smtp.sifre")
     sunucu = _ayar(ayarlar, "smtp.sunucu")
     if not (kullanici and sifre and sunucu):
         bildir("E-posta gonderilmedi: smtp kullanici/sifre/sunucu eksik")
         return False
-    alicilar = _alicilar(ayarlar)
-    if not alicilar:
-        bildir("E-posta gonderilmedi: mail_alici bos")
-        return False
-
-    govde, uyari_var = ozet_metni(sonuclar, donem)
-    if _ayar(ayarlar, "mail_sadece_uyari", False) and not uyari_var:
-        bildir("Tevkifatli/e-SMM kaydi yok, e-posta gonderilmedi (mail_sadece_uyari)")
-        return False
 
     gonderen = _ayar(ayarlar, "smtp.gonderen") or kullanici
     ileti = EmailMessage()
     ileti["From"] = gonderen
     ileti["To"] = ", ".join(alicilar)
-    ileti["Subject"] = f"Luca Bot ozeti{' - ' + donem if donem else ''}"
+    ileti["Subject"] = konu
     ileti.set_content(govde)
 
-    rapor_yolu = Path(klasor) / "rapor.xlsx"
-    if rapor_yolu.exists():
+    if ek_yolu and Path(ek_yolu).exists():
+        ek_yolu = Path(ek_yolu)
         ileti.add_attachment(
-            rapor_yolu.read_bytes(), maintype="application",
+            ek_yolu.read_bytes(), maintype="application",
             subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            filename=rapor_yolu.name)
+            filename=ek_yolu.name)
 
     port = int(_ayar(ayarlar, "smtp.port", 587))
     try:
@@ -181,5 +205,45 @@ def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem=""):
         bildir(f"E-posta gonderilemedi ({type(e).__name__}: {e})")
         return False
 
-    bildir(f"Ozet e-postasi gonderildi: {', '.join(alicilar)}")
+    bildir(f"Ozet e-postasi SMTP ile gonderildi: {', '.join(alicilar)}")
     return True
+
+
+def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem=""):
+    """Ozet e-postasini gonderir. Gonderildiyse (ya da taslak acildiysa) True doner.
+
+    Hicbir hata calismayi durdurmaz; sebep gunluge yazilir.
+    """
+    def bildir(mesaj):
+        if log_yaz:
+            log_yaz(mesaj)
+
+    yontem = str(_ayar(ayarlar, "mail_yontemi", "outlook")).strip().lower()
+    if yontem not in ("outlook", "smtp"):
+        yontem = "outlook"
+
+    # SMTP'de "otomatik gonder" kapaliysa mail hic denenmez. Outlook'ta ise
+    # kapali olmasi "hicbir sey yapma" degil "taslak olarak ac" anlamina
+    # gelir (asagida _outlook_ile_gonder'e gonder_mi olarak geciliyor).
+    if yontem == "smtp" and not _ayar(ayarlar, "mail_otomatik_gonder", False):
+        bildir("E-posta gonderilmedi: mail_otomatik_gonder kapali (ayarlar.json)")
+        return False
+
+    alicilar = _alicilar(ayarlar)
+    if not alicilar:
+        bildir("E-posta gonderilmedi: mail_alici bos")
+        return False
+
+    govde, uyari_var = ozet_metni(sonuclar, donem)
+    if _ayar(ayarlar, "mail_sadece_uyari", False) and not uyari_var:
+        bildir("Tevkifatli/e-SMM kaydi yok, e-posta gonderilmedi (mail_sadece_uyari)")
+        return False
+
+    konu = f"Luca Bot ozeti{' - ' + donem if donem else ''}"
+    rapor_yolu = Path(klasor) / "rapor.xlsx"
+    ek_yolu = rapor_yolu if rapor_yolu.exists() else None
+
+    if yontem == "outlook":
+        gonder_mi = bool(_ayar(ayarlar, "mail_otomatik_gonder", False))
+        return _outlook_ile_gonder(alicilar, konu, govde, ek_yolu, gonder_mi, bildir)
+    return _smtp_ile_gonder(ayarlar, alicilar, konu, govde, ek_yolu, bildir)
