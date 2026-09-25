@@ -22,7 +22,7 @@ Artik her bekleme bir KOSULA baglidir:
         bilincli bekleme: GIB sunucusuna ust uste sorgu atmadan once nefes
         payi. Sayfanin hazir olmasiyla ilgisi yoktur.
 
-Programin baska hicbir yerinde sabit bekleme (wait_for_timeout / sleep)
+Programin baska hicbir yerinde dogrudan bekleme (wait_for_timeout / sleep)
 yoktur; hepsi bu modulden gecer.
 """
 
@@ -209,10 +209,14 @@ def kaybolana_kadar_bekle(loc, azami_ms):
 
 
 def geri_cekil(page, saniye):
-    """Bilincli bekleme (backoff): ayni sorguyu tekrar gondermeden once.
+    """Bilincli, sureli bekleme. Yalnizca iki yerde kullanilir:
 
-    GIB tarafi bir faturayi veremediginde hemen tekrar sormak ayni sonucu
-    veriyor; kisa bir ara birakilir. Sayfa bu sirada canli tutulur.
+      * GIB bir faturayi veremediginde ayni sorguyu hemen tekrarlamadan once;
+      * Luca girisinde (giris.py): Luca oturumu arka planda kuruyor ve bunu
+        gosteren bir isaret yok. Erken davranilinca uygulama penceresi bos
+        aciliyordu; burada sahada calistigi kanitlanmis eski sureler korunur.
+
+    Sayfa bu sirada canli tutulur (Playwright olaylari islenir).
     """
     bitis = time.monotonic() + saniye
     while time.monotonic() < bitis and sayfa_canli(page):

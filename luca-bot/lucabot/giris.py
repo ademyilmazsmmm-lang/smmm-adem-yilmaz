@@ -5,12 +5,18 @@ Giris bilgileri (uye no, kullanici adi, parola) ayarlar.json'da varsa bot
 girisi kendisi yapar. Yoksa ya da bir engel cikarsa (captcha, SMS kodu)
 kullanicinin elle girmesi beklenir; gece modunda (--bitince-kapat) ise
 bekleyecek kimse olmadigi icin calisma baslatilmaz.
+
+Giris adimlari bilerek eski surumdeki gibi SURELI bekler ve sayfalara
+degisiklik gozlemcisi (bekleme.sayfa_durulsun) kurmaz: Luca oturumu arka
+planda kuruyor ve erken/farkli davranilinca urun secildikten sonra acilan
+uygulama penceresi (ssoGiris.do) bos kaliyordu. Giris gunde bir kez
+yapildigi icin birkac saniyenin onemi yok.
 """
 
 import time
 
-from .bekleme import kosulu_bekle, sayfa_durulsun
-from .luca_ekran import cerceveler, gorunur_mu, kutuya_yaz, varsa_tikla
+from .bekleme import geri_cekil, kosulu_bekle
+from .luca_ekran import gorunur_mu, kutuya_yaz, varsa_tikla
 from .ortak import yaz
 from .sabitler import (CAPTCHA_ISARETLERI, DOGRULAMA_ISARETLERI, DOGRULAMA_ONAY,
                        GIRIS_DUGMESI, GIRIS_SAYFASI, KAPAT_METINLERI,
@@ -19,25 +25,17 @@ from .tarayici import (duraklamalari_engelle, giris_adresi, kullanici_bekle,
                        sayfalari_ozetle, uygulama_sayfasi_bul)
 
 
+def _tikla(page, metinler, sure):
+    """Giris ekranlarinda tiklama: sayfaya gozlemci kurulmaz (bkz. dosya basi)."""
+    return varsa_tikla(page, metinler, sure=sure, durul=False)
+
+
 def giris_bilgileri(ayarlar):
     """ayarlar.json'daki giris bilgileri; eksikse None."""
     uye = str(ayarlar.get("uye_no") or "").strip()
     kullanici = str(ayarlar.get("kullanici_adi") or "").strip()
     parola = str(ayarlar.get("parola") or "")
     return (uye, kullanici, parola) if uye and kullanici and parola else None
-
-
-def _sayfada_yazi_var(page, metinler):
-    """Metinlerden biri sayfanin herhangi bir cercevesinde geciyor mu (tek hizli bakis)."""
-    kucuk = [m.lower() for m in metinler]
-    for fr in cerceveler(page):
-        try:
-            icerik = (fr.locator("body").inner_text(timeout=1000) or "").lower()
-        except Exception:
-            continue
-        if any(m in icerik for m in kucuk):
-            return True
-    return False
 
 
 def dogrulama_ekrani_mi(page):
@@ -90,96 +88,89 @@ def dogrulama_kodunu_gir(page, kod):
                 continue
             kutu = loc.first
             kutuya_yaz(kutu, kod)
-            if not varsa_tikla(page, DOGRULAMA_ONAY, sure=4000):
+            if not _tikla(page, DOGRULAMA_ONAY, sure=4000):
                 kutu.press("Enter")
-            # kod gonderilince sayfa degisir; yeni ekran gelip oturana kadar beklenir.
-            # Luca bu arada oturumu arka planda hazirliyor: erken davranilinca urun
-            # penceresi bos aciliyordu, bu yuzden eski surumdeki 4 sn en az sure olarak kaldi
-            sayfa_durulsun(page, azami_ms=8000, sessizlik_ms=700, en_az_ms=4000)
+            geri_cekil(page, 4)  # eski surumdeki sure (bkz. dosya basi)
             return True
         except Exception:
             continue
     return False
 
 
-def uygulama_penceresi_acik(page):
-    """Tarayicinin herhangi bir penceresinde Luca uygulamasi (/Luca/ adresi) acik mi.
-
-    Urun secilince uygulama AYRI bir pencerede aciliyor (orn. .../Luca/ssoGiris.do);
-    giris sekmesi oldugu gibi kaliyor. Yalnizca giris sekmesine bakilirsa uygulama
-    acilmamis sanilip urune tekrar tiklaniyor, ikinci oturum ilkini bozuyordu.
-    """
-    try:
-        sayfalar = [page] + [p for p in page.context.pages if p is not page]
-    except Exception:
-        sayfalar = [page]
-    for p in sayfalar:
-        try:
-            if not p.is_closed() and UYGULAMA_PARCASI in p.url:
-                return True
-        except Exception:
-            continue
-    return False
-
-
-def urun_sec(page, log=None, sure=30000, tekrar=False):
+def urun_sec(page, log=None, sure=30000):
     """Giris sonrasi cikan urun secim ekranindan Mali Musavir paketini secer.
 
-    Kutular giristen birkac saniye sonra beliriyor; biri gorunene ya da
-    uygulama acilana kadar beklenir. Uygulama penceresi aciksa (yukleniyor
-    olabilir) urune tekrar tiklanmaz; tekrar=True ise (pencere uzun sure bos
-    kaldiysa) yine de tiklanir.
+    Kutular giristen birkac saniye sonra beliriyor; biri gorunene kadar
+    saniyede bir bakilir. Eski surumle ayni: tiklamadan sonra 3 sn beklenir.
     """
-    def dene():
-        if UYGULAMA_PARCASI in page.url or (not tekrar and uygulama_penceresi_acik(page)):
-            return "acik"
-        tiklanan = varsa_tikla(page, URUN_ADAYLARI, sure=1200)
+    bitis = time.monotonic() + sure / 1000
+    while True:
+        try:
+            if UYGULAMA_PARCASI in page.url:  # uygulama bu sekmede acildi
+                return True
+        except Exception:
+            return False
+        tiklanan = _tikla(page, URUN_ADAYLARI, sure=1200)
         if tiklanan:
             yaz(f"    Urun secildi: {tiklanan}", log)
-            # uygulama yeni pencerede aciliyor; en az 3 sn (eski surumdeki gibi)
-            # ve o pencere gorunene kadar beklenir
-            sayfa_durulsun(page, azami_ms=5000, sessizlik_ms=500, en_az_ms=3000)
-            if not kosulu_bekle(page, lambda: uygulama_penceresi_acik(page), 20000, aralik_ms=300):
-                yaz("    UYARI: urun secildi ama Luca uygulama penceresi 20 sn icinde acilmadi", log)
-            return tiklanan
-        return None
-
-    try:
-        return bool(kosulu_bekle(page, dene, sure, aralik_ms=1000))
-    except Exception:
-        return False
+            geri_cekil(page, 3)
+            return True
+        if time.monotonic() >= bitis:
+            return False
+        geri_cekil(page, 1)
 
 
-def uygulamayi_bekle(ctx, page, log, azami_saniye=120, yeniden_sec_saniye=20, en_fazla_secim=4):
+def _luca_pencereleri(ctx):
+    """Acik /Luca/ pencerelerinin kisa durumu (tani icin): adres, baslik, icerik boyu."""
+    satirlar = []
+    for p in list(ctx.pages):
+        try:
+            if p.is_closed() or UYGULAMA_PARCASI not in p.url:
+                continue
+            try:
+                icerik = len(p.locator("body").inner_text(timeout=1000) or "")
+            except Exception:
+                icerik = -1
+            satirlar.append(f"{p.url.split('?')[0]} (baslik: '{p.title()[:40]}',"
+                            f" cerceve: {len(p.frames)}, yazi: {icerik} karakter)")
+        except Exception as e:
+            satirlar.append(f"(okunamadi: {type(e).__name__})")
+    return satirlar
+
+
+def uygulamayi_bekle(ctx, page, log, azami_saniye=90, tani_klasoru=None):
     """Urun secildikten sonra firma listeli Luca ekrani gelene kadar bekler.
 
-    Luca'nin uygulama penceresi (ssoGiris.do) bazen bos kaliyor. Eski surum
-    urune birkac saniyede bir tekrar tikliyordu ve bu, farkinda olmadan bos
-    pencereyi kurtariyordu. Burada ayni sey kontrollu yapilir: pencere
-    yeniden_sec_saniye icinde firma listesiyle yuklenmezse urun yeniden
-    secilir (en fazla en_fazla_secim kez). Bulunan sayfayi ya da None dondurur.
+    Eski surumle ayni: ekran gelmedikce urun secimi tekrar denenir. Ayrica
+    acik Luca pencerelerinin durumu 15 sn'de bir gunluge yazilir; ekran hic
+    gelmezse butun pencerelerin ekran goruntusu tani klasorune kaydedilir.
+    Bulunan sayfayi ya da None dondurur.
     """
-    durum = {"son": time.monotonic(), "secim": 1}
+    basla = time.monotonic()
+    son_bildirim = [basla]
 
     def hazir():
         bulunan = uygulama_sayfasi_bul(ctx)
         if bulunan is not None:
             return bulunan
-        if not uygulama_penceresi_acik(page):
-            # urun ekrani gec belirdiyse ilk secim simdi yapilir
-            if urun_sec(page, log, sure=0):
-                durum["son"] = time.monotonic()
-        elif (time.monotonic() - durum["son"] > yeniden_sec_saniye
-              and durum["secim"] < en_fazla_secim):
-            yaz(f"    Luca penceresi {yeniden_sec_saniye} sn'de yuklenmedi (bos sayfa);"
-                f" urun yeniden seciliyor ({durum['secim'] + 1}/{en_fazla_secim})", log)
-            durum["secim"] += 1
-            durum["son"] = time.monotonic()
-            urun_sec(page, log, sure=0, tekrar=True)
-            durum["son"] = time.monotonic()
+        if time.monotonic() - son_bildirim[0] >= 15:
+            son_bildirim[0] = time.monotonic()
+            durum = _luca_pencereleri(ctx)
+            yaz(f"    Luca ekrani bekleniyor ({int(time.monotonic() - basla)} sn): "
+                + ("; ".join(durum) if durum else "Luca penceresi henuz acilmadi"), log)
+        urun_sec(page, log, sure=0)
         return None
 
-    return kosulu_bekle(page, hazir, azami_saniye * 1000, aralik_ms=2000)
+    bulunan = kosulu_bekle(page, hazir, azami_saniye * 1000, aralik_ms=2000)
+    if bulunan is None and tani_klasoru is not None:
+        tani_klasoru.mkdir(parents=True, exist_ok=True)
+        for sira, p in enumerate([x for x in ctx.pages if not x.is_closed()], 1):
+            try:
+                p.screenshot(path=str(tani_klasoru / f"giris-sayfa{sira}.png"))
+            except Exception:
+                pass
+        yaz(f"    Luca ekrani {azami_saniye} sn'de gelmedi; pencerelerin goruntusu: {tani_klasoru}", log)
+    return bulunan
 
 
 def _giris_formu_hazir(page):
@@ -205,12 +196,13 @@ def otomatik_giris(page, ayarlar, log):
         if UYGULAMA_PARCASI in page.url:  # oturum zaten acik
             return True
         if "giris.erp" not in page.url.lower():
-            varsa_tikla(page, SISTEM_GIRIS, sure=5000)
-            kosulu_bekle(page, lambda: "giris.erp" in page.url.lower(), 2500, aralik_ms=250)
+            _tikla(page, SISTEM_GIRIS, sure=5000)
+            geri_cekil(page, 2.5)
         if "giris.erp" not in page.url.lower():
             page.goto(GIRIS_SAYFASI)
+        geri_cekil(page, 2.5)
 
-        if not kosulu_bekle(page, lambda: _giris_formu_hazir(page), 10000, aralik_ms=300):
+        if not kosulu_bekle(page, lambda: _giris_formu_hazir(page), 10000, aralik_ms=500):
             yaz("UYARI: giris formu bulunamadi, elle giris yapin", log)
             return False
         parolalar = page.locator("input[type=password]:visible")
@@ -218,16 +210,9 @@ def otomatik_giris(page, ayarlar, log):
         kutuya_yaz(metinler.nth(0), uye)
         kutuya_yaz(metinler.nth(1), kullanici)
         kutuya_yaz(parolalar.first, parola)
-        if not varsa_tikla(page, GIRIS_DUGMESI, sure=5000):
+        if not _tikla(page, GIRIS_DUGMESI, sure=5000):
             parolalar.first.press("Enter")
-
-        # giris sonrasi: sayfa degisene ya da captcha/dogrulama cikana kadar
-        engel = CAPTCHA_ISARETLERI + DOGRULAMA_ISARETLERI
-        kosulu_bekle(page, lambda: ("giris.erp" not in page.url.lower()
-                                    or _sayfada_yazi_var(page, engel)),
-                     15000, aralik_ms=500)
-        # eski surumdeki gibi en az 6 sn: Luca giris sonrasi oturumu arka planda kuruyor
-        sayfa_durulsun(page, azami_ms=10000, sessizlik_ms=700, en_az_ms=6000)
+        geri_cekil(page, 6)
 
         if captcha_ekrani_mi(page):
             yaz("    Captcha ekrani cikti; bot bunu gecemez.", log)
@@ -298,7 +283,7 @@ def luca_oturumu_ac(ctx, page, ayarlar, gece_modu, tani_klasoru, log):
     if otomatik_giris(page, ayarlar, log):
         # muhasebe ekrani acilana kadar beklenir; bos kalan uygulama penceresi
         # icin urun kontrollu olarak yeniden secilir
-        uygulamayi_bekle(ctx, page, log)
+        uygulamayi_bekle(ctx, page, log, tani_klasoru=tani_klasoru)
 
     if uygulama_sayfasi_bul(ctx) is None:
         if gece_modu:

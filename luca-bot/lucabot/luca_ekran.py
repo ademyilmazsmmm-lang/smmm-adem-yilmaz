@@ -9,8 +9,8 @@ cagiranin yakalayacagi LookupError firlatir).
 
 from pathlib import Path
 
-from .bekleme import (kaybolana_kadar_bekle, kosulu_bekle, sayfa_canli,
-                      sayfa_durulsun)
+from .bekleme import (geri_cekil, kaybolana_kadar_bekle, kosulu_bekle,
+                      sayfa_canli, sayfa_durulsun)
 from .ortak import dosya_adi_yap, karsilastir, yaz
 from .sabitler import (BILGI_CAPALARI, DIYALOG_CAPASI, FATURA_YOK_CAPASI,
                        GIB_HATA_METINLERI, KISAYOLLAR, TARIH_DESENI,
@@ -85,15 +85,22 @@ def gorunur_mu(page, metin, sure=1500):
         return False
 
 
-def varsa_tikla(page, metinler, sure=1500):
-    """Metinlerden ilk bulunana tiklar; hicbiri yoksa None doner (hata firlatmaz)."""
+def varsa_tikla(page, metinler, sure=1500, durul=True):
+    """Metinlerden ilk bulunana tiklar; hicbiri yoksa None doner (hata firlatmaz).
+
+    durul=False: tiklamadan sonra sayfaya gozlemci kurulmaz, eski surumdeki
+    gibi kisa bir sure beklenir (Luca giris ekranlari icin; bkz. giris.py).
+    """
     for metin in metinler:
         try:
             _, loc = metinle_bul(page, metin, sure=sure)
             loc.click()
         except Exception:
             continue
-        sayfa_durulsun(page, azami_ms=400)
+        if durul:
+            sayfa_durulsun(page, azami_ms=400)
+        else:
+            geri_cekil(page, 0.4)
         return metin
     return None
 
