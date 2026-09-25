@@ -98,6 +98,7 @@ GIB_HATA_ISARETLERI = ["VERILER GETIRILIRKEN HATA", "GIB INTERNET SITESINDEN",
 YETKI_ISARETLERI = ["IZNINIZ BULUNMAMAKTADIR", "YETKINIZ BULUNMAMAKTADIR",
                     "SOAP FAULT", "YETKISIZ ISLEM"]
 YETKI_YOK = -2  # islem_takibini_bekle bu ekranin atlanmasi gerektigini boyle soyler
+TAKILDI = -3  # islem_takibini_bekle sorgu durgunluk suresi boyunca ilerlemeyince boyle doner
 
 
 def ekran_tamamlanmis_mi(durum):
@@ -1119,7 +1120,7 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
                 varsa_tikla(page, ["Kapat"], sure=3000)
                 acik_pencereleri_kapat(page)
                 fatura_yok_penceresini_kapat(page)
-                return son_gunluk.lower().count(INDIRILEMEDI)
+                return TAKILDI
 
         elif pencere_goruldu:
             # pencere kendiliginden kapandi: sorgu bitmis demektir
@@ -1867,7 +1868,11 @@ def iptal_itiraz_sorgula(page, araliklar, log, interaktif=False):
     Buradaki tarih, faturanin GIB'e raporlanma tarihidir.
     """
     calisan = 0
+    ust_uste_takildi = 0
     for bas, bit in araliklar:
+        if ust_uste_takildi >= 2:
+            yaz("    Iptal/itiraz sorgusu ust uste takildi, kalan tarih araliklari atlaniyor", log)
+            break
         acik_pencereleri_kapat(page, log)
         fatura_yok_penceresini_kapat(page)
         if not varsa_tikla(page, IPTAL_DUGME_ADAYLARI, sure=4000):
@@ -1900,11 +1905,14 @@ def iptal_itiraz_sorgula(page, araliklar, log, interaktif=False):
 
         # interaktif V.D. ekraninda Islem Takip penceresi hic acilmiyor; kisa
         # beklenir ama bilgi penceresi kontrolu (3 sn) yine de calissin
-        islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
+        sonuc_bekleme = islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
                              durgunluk_saniye=AYAR["durgunluk_saniye"],
                              pencere_bekleme=4 if interaktif else 12)
         acik_pencereleri_kapat(page, log)
         calisan += 1
+        # Bir defalik takilma tek basina kalanini gecersiz saymaz (bazen sadece
+        # ilk parca donuyor), ama ust uste ikinci kez olursa ekran yanit vermiyor demektir
+        ust_uste_takildi = ust_uste_takildi + 1 if sonuc_bekleme == TAKILDI else 0
 
     if interaktif:
         # bu ekranda Yenile listeyi bosaltiyor; liste yeniden listelenmeli
@@ -2319,6 +2327,7 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
         interaktif_sorgula(page, sorgu_araliklari, log, indirme_araligi)
     else:
         yetkisiz = False
+        ust_uste_takildi = 0
         for bas, bit in sorgu_araliklari:
             if yetkisiz:  # servise yetki yok: kalan tarih araliklari denenmez
                 break
@@ -2338,6 +2347,8 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                     yetkisiz = True
                     basarisiz = 0
                     break
+                if basarisiz == TAKILDI:
+                    break
                 if basarisiz <= 0:
                     break
                 # sayi azalmiyorsa karsi sunucu yanit vermiyor demektir; tekrar denemek bos
@@ -2352,6 +2363,18 @@ def firma_isle(page, firma, belge_tipi, araliklar, cikti_kok, log, azami_deneme=
                 onceki_hata = basarisiz
                 yaz(f"    Tekrar sorgulaniyor ({deneme + 1}/{azami_deneme})", log)
                 page.wait_for_timeout(5000)
+
+            # Bir defalik takilma tek basina sorgunun kalanini gecersiz saymaz
+            # (bazen sadece ilk parca donuyor, sonrakiler normal calisiyor);
+            # ama ust uste iki kez olursa ekranin tamami yanit vermiyor demektir.
+            if basarisiz == TAKILDI:
+                ust_uste_takildi += 1
+                if ust_uste_takildi >= 2:
+                    yaz("    Bu ekranda sorgu ust uste takildi, kalan tarih araliklari atlaniyor", log)
+                    sonuc["not"] = "sorgu ust uste takildi"
+                    break
+            else:
+                ust_uste_takildi = 0
         # liste her 7 gunluk parcada degil, tum sorgular bitince bir kez tazelenir
         listeyi_yenile(page, log)
         # ekranda son parcanin filtresi kalmasin; indirme tum donem uzerinden
