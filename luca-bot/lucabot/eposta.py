@@ -8,7 +8,7 @@ iptal/itiraz kayitlari firma firma listelenir.
 Ayarlar (ayarlar.json):
     mail_yontemi         : "outlook" (varsayilan) / "smtp"
     mail_otomatik_gonder : true/false
-        - outlook yonteminde: true ise doğrudan gonderilir, false ise
+        - outlook yonteminde: true (ya da hic yazilmamissa) doğrudan gonderilir, false ise
           Outlook'ta taslak olarak acilir (siz kontrol edip gonderirsiniz)
         - smtp yonteminde: false ise e-posta hic denenmez
     mail_alici           : "a@b.com"   - birden fazla icin virgulle ayirin; bos birakilirsa
@@ -284,6 +284,7 @@ def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem=""):
     ek_yolu = rapor_yolu if rapor_yolu.exists() else None
 
     if yontem == "outlook":
-        gonder_mi = bool(_ayar(ayarlar, "mail_otomatik_gonder", False))
+        # ayar hic yazilmamissa gonderilir; taslak icin acikca false yazilmali
+        gonder_mi = bool(_ayar(ayarlar, "mail_otomatik_gonder", True))
         return _outlook_ile_gonder(alicilar, konu, govde, ek_yolu, gonder_mi, bildir)
     return _smtp_ile_gonder(ayarlar, alicilar, konu, govde, ek_yolu, bildir)
