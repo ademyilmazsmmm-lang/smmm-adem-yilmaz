@@ -21,7 +21,7 @@ import ssl as ssl_modulu
 from email.message import EmailMessage
 from pathlib import Path
 
-from rapor import TEVKIFAT_EKRANLARI  # tevkifat uyarisi sadece alis ekranlarindan
+from .rapor import TEVKIFAT_EKRANLARI  # tevkifat uyarisi sadece alis ekranlarindan
 
 # e-postada firma firma listelenen basliklar
 TEVKIFAT_BASLIGI = "TEVKIFATLI ALIS FATURALARI (KDV2 kontrol)"
@@ -117,7 +117,8 @@ def ozet_metni(sonuclar, donem=""):
             satirlar.append(f"  ... (+{len(sorunlular) - 20})")
         satirlar.append("")
 
-    satirlar.append("Ayrintilar ekteki rapor.xlsx dosyasinda.")
+    satirlar.append("Ayrintilar ekteki rapor.xlsx dosyasinda: 'Özet' sayfasi genel tabloyu,"
+                    " 'Hatalar ve Uyarılar' sayfasi ne yapilmasi gerektigini gosterir.")
     metin = "\n".join(satirlar)
     # WhatsApp/Markdown alismasindan kalan '*' isaretleri duz metin mailde
     # oldugu gibi gorunur; hicbir yerde kullanilmasa da guvenlik icin temizlenir

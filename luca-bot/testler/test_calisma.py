@@ -1,0 +1,134 @@
+# -*- coding: utf-8 -*-
+"""Ana dongunun dayanikliligi: ekran hatasi, firma secilememesi, sekme cokmesi.
+
+Ekran akisinin kendisi (firma_isle) sahte bir fonksiyonla degistirilir;
+tarayici gercektir (sekme kapanmasi/ekran goruntusu gercekten denenir).
+Tarayici acilamazsa testler atlanir.
+
+    xvfb-run -a python -m unittest testler.test_calisma -v    (Linux)
+"""
+
+import os
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import sahte_luca  # noqa: E402
+from lucabot import calisma as calisma_modulu  # noqa: E402
+from lucabot.ekran_isleyici import FirmaSecilemedi  # noqa: E402
+from lucabot.firma_listesi import FirmaSecimi  # noqa: E402
+from lucabot.ortak import tarih_araliklari, tarih_cozumle, yeni_sonuc  # noqa: E402
+
+
+class CalismaDayanikliligi(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from playwright.sync_api import sync_playwright
+            cls.pw = sync_playwright().start()
+            secenek = {}
+            if os.environ.get("LUCA_TEST_CHROMIUM"):
+                secenek["executable_path"] = os.environ["LUCA_TEST_CHROMIUM"]
+            cls.tarayici = cls.pw.chromium.launch(headless=True, **secenek)
+        except Exception as e:  # pragma: no cover - ortamda tarayici yok
+            raise unittest.SkipTest(f"tarayici acilamadi: {e}")
+        cls.sunucu, cls.adres = sahte_luca.baslat()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tarayici.close()
+        cls.pw.stop()
+        cls.sunucu.shutdown()
+
+    def setUp(self):
+        self.ctx = self.tarayici.new_context()
+        self.page = self.ctx.new_page()
+        self.page.goto(self.adres)
+        self.klasor = Path(tempfile.mkdtemp())
+        self.cagrilar = []
+        self._asil = calisma_modulu.firma_isle
+
+    def tearDown(self):
+        calisma_modulu.firma_isle = self._asil
+        self.ctx.close()
+
+    def _calistir(self, firmalar, tipler, sahte):
+        calisma_modulu.firma_isle = sahte
+        araliklar = tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("10/08/2026"))
+        c = calisma_modulu.Calisma(self.pw, self.ctx, self.page, self.klasor / "profil", {},
+                                   FirmaSecimi(firmalar), tipler, araliklar, self.klasor,
+                                   self.klasor / "calisma.log")
+        return c, c.calistir()
+
+    def _tamam(self, firma, tip, **_):
+        s = yeni_sonuc(firma, tip)
+        s.update(durum="tamam", fatura_sayisi=2)
+        return s
+
+    def test_ekran_hatasi_firmanin_diger_ekranlarini_durdurmaz(self):
+        def sahte(page, firma, tip, *a, **k):
+            self.cagrilar.append((firma, tip))
+            if tip == "gib-5000":
+                raise LookupError("'GİB 5000/30000' menu maddesi bulunamadi")
+            return self._tamam(firma, tip)
+
+        c, ozet = self._calistir(["A", "B"], ["e-arsiv-alis", "gib-5000", "esmm-alis"], sahte)
+        self.assertEqual(len(self.cagrilar), 6)  # her iki firmada da 3 ekran denendi
+        durumlar = {(s["firma"], s["belge_tipi"]): s["durum"] for s in c.sonuclar}
+        self.assertEqual(durumlar[("A", "esmm-alis")], "tamam")
+        self.assertEqual(durumlar[("A", "gib-5000")], "hata: LookupError")
+        self.assertEqual((ozet.basarili, ozet.sorunlu), (4, 2))
+        hatali = next(s for s in c.sonuclar if s["durum"].startswith("hata"))
+        self.assertTrue(Path(hatali["ekran_goruntusu"]).exists())
+        self.assertEqual(c.ardisik_hata, 0)  # ekranlarin cogu calisti, firma basarisiz sayilmaz
+
+    def test_firma_secilemezse_kalan_ekranlar_denenmez(self):
+        def sahte(page, firma, tip, *a, **k):
+            self.cagrilar.append((firma, tip))
+            if firma == "A":
+                raise FirmaSecilemedi("'A' acik listelerin hicbirinde bulunamadi")
+            return self._tamam(firma, tip)
+
+        c, ozet = self._calistir(["A", "B"], ["e-arsiv-alis", "e-fatura-alis"], sahte)
+        self.assertEqual(self.cagrilar, [("A", "e-arsiv-alis"), ("B", "e-arsiv-alis"),
+                                         ("B", "e-fatura-alis")])
+        self.assertEqual(ozet.sorunlu, 1)
+
+    def test_sekme_cokerse_acik_luca_sekmesinden_devam(self):
+        yedek = self.ctx.new_page()  # tarayicida acik kalan ikinci Luca sekmesi
+        yedek.goto(self.adres)
+
+        def sahte(page, firma, tip, *a, **k):
+            self.cagrilar.append((firma, tip, page is yedek))
+            if (firma, tip) == ("A", "e-fatura-alis") and not page.is_closed() and page is not yedek:
+                page.close()  # indirme sirasinda sekme coktu
+                raise RuntimeError("Target page, context or browser has been closed")
+            return self._tamam(firma, tip)
+
+        c, ozet = self._calistir(["A", "B"], ["e-arsiv-alis", "e-fatura-alis"], sahte)
+        # A'nin tamamlanmis ilk ekrani tekrar acilmaz; coken ekran yedek sekmede tekrar denenir
+        self.assertEqual(self.cagrilar, [("A", "e-arsiv-alis", False), ("A", "e-fatura-alis", False),
+                                         ("A", "e-fatura-alis", True), ("B", "e-arsiv-alis", True),
+                                         ("B", "e-fatura-alis", True)])
+        self.assertEqual((ozet.basarili, ozet.sorunlu), (4, 0))
+        self.assertEqual(ozet.durduruldu, "")
+
+    def test_ctrl_c_durumu_kaydeder(self):
+        def sahte(page, firma, tip, *a, **k):
+            if firma == "B":
+                raise KeyboardInterrupt
+            return self._tamam(firma, tip)
+
+        c, ozet = self._calistir(["A", "B", "C"], ["e-arsiv-alis"], sahte)
+        self.assertIn("Ctrl+C", ozet.durduruldu)
+        kalan = (self.klasor / "kalan-firmalar.txt").read_text(encoding="utf-8")
+        self.assertEqual(kalan, "B, C")
+        self.assertTrue((self.klasor / "rapor.xlsx").exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

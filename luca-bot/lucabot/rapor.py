@@ -9,6 +9,7 @@ calistirildikca ayni satirlar guncellenir.
 
 import csv
 import json
+import os
 from datetime import datetime
 
 # rapora sutun olarak giren belge tipleri (sira sutun sirasidir)
@@ -43,7 +44,7 @@ SATIS_EKRANLARI = {"e-arsiv-satis", "e-fatura-satis", "gib-5000",
 # Bu gruplardaki ekranlar ayni faturalari gosterebilir (birden fazla
 # entegrator, GIB 5000/30000'in e-Arsiv Satis ile ayni faturalari tasimasi
 # gibi); toplamda hepsi sayilirsa tutar cifte sayilir, en yuksek olan alinir.
-# Tek kaynak burasi: luca_bot.py de bunu rapor.ortusen_grubu() ile kullanir.
+# Tek kaynak burasi: calisma.py de bunu rapor.ortusen_grubu() ile kullanir.
 #   - e-arsiv-alis / e-arsiv-interaktif: ikisi de ayni e-arsiv alis faturalari
 #   - turmob-alis / e-fatura-alis: birden fazla entegratorde ayni alis faturalari
 #   - e-arsiv-satis / gib-5000 / turmob-satis / e-fatura-satis: TURMOB Satis
@@ -81,7 +82,23 @@ BASLIKLAR = (["Firma", "Dönem", "Durum", "Aksiyon"]
 def _bos_kayit(firma):
     return {"firma": firma, "donem": "", "durumlar": {}, "sayilar": {}, "iptal": {},
             "tevkifat": {}, "inmeyen": {}, "faturalar": {}, "dosya": {}, "not": "", "son": "",
-            "matrah": {}, "kdv": {}}
+            "matrah": {}, "kdv": {}, "notlar": {}, "dosya_adlari": {}, "klasorler": {},
+            "goruntuler": {}, "sureler": {}}
+
+
+# eski gunlerden kalan rapor.json kayitlarinda sonradan eklenen alanlar yok
+_SOZLUK_ALANLARI = ("durumlar", "sayilar", "iptal", "tevkifat", "inmeyen", "faturalar",
+                    "matrah", "kdv", "notlar", "dosya_adlari", "klasorler", "goruntuler", "sureler")
+
+
+def _tamamla(kayit):
+    for alan in _SOZLUK_ALANLARI:
+        if not isinstance(kayit.get(alan), dict):
+            kayit[alan] = {}
+    kayit.setdefault("donem", "")
+    kayit.setdefault("not", "")
+    kayit.setdefault("son", "")
+    return kayit
 
 
 def _oku(yol):
@@ -306,6 +323,9 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
     kayitlar = _oku(durum_yolu)
     simdi = datetime.now().strftime("%d/%m/%Y %H:%M")
 
+    for kayit in kayitlar.values():
+        _tamamla(kayit)
+
     for s in sonuclar:
         kayit = kayitlar.setdefault(s["firma"], _bos_kayit(s["firma"]))
         tip = s.get("belge_tipi", belge_tipi)
@@ -321,6 +341,11 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
         if not isinstance(kayit.get("dosya"), dict):
             kayit["dosya"] = {}
         kayit["dosya"][tip] = len(s.get("dosyalar", []))
+        kayit["dosya_adlari"][tip] = list(s.get("dosyalar", []))
+        kayit["notlar"][tip] = s.get("not", "")
+        kayit["klasorler"][tip] = s.get("klasor", "")
+        kayit["goruntuler"][tip] = s.get("ekran_goruntusu", "")
+        kayit["sureler"][tip] = s.get("sure", 0)
         if s.get("donem"):
             kayit["donem"] = s["donem"]
         if s.get("not"):
@@ -331,8 +356,12 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
         kayit = kayitlar.setdefault(firma, _bos_kayit(firma))
         kayit["durumlar"].setdefault(belge_tipi, "bekliyor")
 
-    with open(durum_yolu, "w", encoding="utf-8") as f:
+    # once gecici dosyaya yazilip yer degistirilir: yazarken elektrik/bilgisayar
+    # kesilirse yarim kalan dosya yuzunden onceki gunun tum durumu kaybolmasin
+    gecici = durum_yolu.with_suffix(".json.tmp")
+    with open(gecici, "w", encoding="utf-8") as f:
         json.dump(kayitlar, f, ensure_ascii=False, indent=1)
+    os.replace(gecici, durum_yolu)
 
     satirlar = [_satir(k) for k in kayitlar.values()]
     satirlar.sort(key=lambda r: (not r[3], r[0]))  # aksiyon gerektirenler en uste
@@ -342,45 +371,19 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
         w.writerow(BASLIKLAR)
         w.writerows(satirlar)
 
-    return _excel_yaz(klasor / "rapor.xlsx", satirlar)
+    from . import rapor_excel  # openpyxl yoksa rapor.csv yine de yazilmis olur
+    return rapor_excel.yaz(klasor / "rapor.xlsx", kayitlar, satirlar)
 
 
-def _excel_yaz(yol, satirlar):
-    try:
-        from openpyxl import Workbook
-        from openpyxl.styles import Alignment, Font, PatternFill
-        from openpyxl.utils import get_column_letter
-    except ImportError:
-        return None  # openpyxl yoksa rapor.csv yeterli
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Firma Durumu"
-    ws.append(BASLIKLAR)
-
-    baslik_dolgu = PatternFill("solid", fgColor="1F4E78")
-    for hucre in ws[1]:
-        hucre.font = Font(bold=True, color="FFFFFF")
-        hucre.fill = baslik_dolgu
-        hucre.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-    uyari = PatternFill("solid", fgColor="FFF2CC")   # aksiyon gerekiyor
-    kirmizi = PatternFill("solid", fgColor="F8CBAD")  # hata
-    for satir in satirlar:
-        ws.append(satir)
-        if satir[3]:
-            dolgu = kirmizi if satir[3].startswith("HATA") else uyari
-            for hucre in ws[ws.max_row]:
-                hucre.fill = dolgu
-        for hucre in ws[ws.max_row]:
-            hucre.alignment = Alignment(vertical="top", wrap_text=True)
-
-    genislik = ([26, 22, 16, 46] + [13] * len(SUTUNLAR)
-                + [8, 46, 12, 12, 11, 14, 14, 14, 14, 11, 24, 16])
-    for i, g in enumerate(genislik, 1):
-        ws.column_dimensions[get_column_letter(i)].width = g
-    ws.freeze_panes = "A2"
-    ws.auto_filter.ref = f"A1:{get_column_letter(len(BASLIKLAR))}{ws.max_row}"
-
-    wb.save(str(yol))
-    return yol
+def ozet_csv_yaz(ozet_yolu, kalan_yolu, sonuclar, bekleyenler, belge_tipi):
+    """Ekran bazinda duz ozet; her firmadan sonra yeniden yazilir, islenmeyenler 'bekliyor'."""
+    with open(ozet_yolu, "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["Firma", "Belge Tipi", "Fatura Sayisi", "Indirilemeyen", "Iptal/Itiraz",
+                    "Durum", "Dosyalar"])
+        for s in sonuclar:
+            w.writerow([s["firma"], s["belge_tipi"], s["fatura_sayisi"], s.get("indirilemeyen", 0),
+                        s.get("iptal_itiraz", 0), s["durum"], "; ".join(s["dosyalar"])])
+        for firma in bekleyenler:
+            w.writerow([firma, belge_tipi, "", "", "", "bekliyor", ""])
+    kalan_yolu.write_text(", ".join(bekleyenler), encoding="utf-8")

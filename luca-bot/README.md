@@ -62,18 +62,19 @@ Yeni kurulan firmada `15/04/2026 - 31/12/2026`, eskisinde `01/01/2026 - 31/12/20
 eşleştirme yıla göre yapılır. O yıla ait dönem hiç yoksa (gerçekten kapanmış firma) sorgu
 çalıştırılmaz, özete `dönem dışı` yazılır.
 
-## Tarih aralığı (30 gün sınırı)
+## Tarih aralığı (7 gün sınırı)
 
-GİB sorgusu tek seferde en fazla 30 gün kabul ettiği için, siz elle nasıl ay ay sorguluyorsanız
-(01/08/2026-31/08/2026 → 31/08/2026-30/09/2026 → ...) bot da aynı şekilde otomatik bölüyor.
-Siz sadece geniş aralığı veriyorsunuz, parçalamayı bot yapıyor:
+GİB sorgusu tek seferde en fazla 7 gün kabul ettiği için bot geniş aralığı kendisi 7 günlük
+parçalara böler (GİB 5000/30000 ve İnteraktif V.D. aylık sorgu kabul ettiği için onlarda 30 gün).
+Siz sadece geniş aralığı verirsiniz:
 
 ```
-python luca_bot.py --baslangic 01/08/2026 --bitis 31/12/2026
+python luca_bot.py --baslangic 01/08/2026 --bitis 15/09/2026
 ```
 
-Bu komut her firma için 6 ayrı GİB sorgusu çalıştırır, hepsi bittikten sonra listenin tamamını indirir.
-Tarih vermezseniz içinde bulunulan ay sorgulanır.
+Sorgular bu aralıkta yapılır; **listeleme ve indirme ise başlangıç ayının tamamı** (01/08–31/08)
+üzerinden yapılır — eylülde kesilen ağustos faturaları da yakalanır. Tarih vermezseniz içinde
+bulunulan ay sorgulanır.
 
 ## Kullanım (komut satırı)
 
@@ -123,13 +124,36 @@ Eski davranışa dönmek için: `python luca_bot.py --tarayici-indirsin` veya `a
 
 ## Çalışırken ne oluyor
 
-1. Bot Chromium tarayıcısını açar ve Luca giriş sayfasına gider.
-2. Siz giriş yaparsınız, firma ekranı gelince komut istemine dönüp **ENTER**'a basarsınız.
-3. Bot sağ üstteki listeden firmaları sırayla seçer; her firma için menüden ilgili ekrana gider,
-   **GİB'den Getir** der (tarih aralığını 30 günlük parçalar hâlinde sırayla sorgular),
-   gelen faturaların hepsini seçer, **Seçilenleri İndir** der, ardından **GİB'den İptal/İtiraz Sorgula**
-   ile iptal/itiraz durumunu çeker ve en son güncel listeyi **Excel** olarak indirir.
-4. Biten her firma için ekrana durum yazar; sonunda özet çıkarır.
+Ekranda dört adım başlığı görürsünüz:
+
+1. **LUCA GİRİŞ** — tarayıcı açılır; `ayarlar.json`'da giriş bilgileri varsa bot kendisi girer,
+   yoksa siz girip firma ekranı gelince **ENTER**'a basarsınız.
+2. **FİRMA LİSTESİ** — Luca'daki firmalar `firmalar.xlsx` ile süzülür (kapanmış firmalar, X ile
+   işaretli ekranlar atlanır). Aynı gün yarıda kalmış bir çalışma varsa **[D]evam / [B]aştan** sorulur.
+3. **FATURA SORGULAMA VE İNDİRME** — her firma için sıra ve tahmini kalan süre yazılır; her ekranın
+   sonunda tek satırlık sonuç görünür:
+   ```
+   [3/45] AKIN COBAN  | tahmini kalan: 1 sa 20 dk
+     [OK] e-Arşiv Alış Faturaları: tamam (12 fatura, 2 dosya, 1 tevkifatli, 48 sn)
+     [--] e-Fatura Alış Faturaları: fatura yok (0 fatura, 21 sn)
+     [!!] GİB 5000/30000: hata: LookupError (0 fatura) - menu maddesi bulunamadi
+   ```
+4. **RAPOR** — sonuç kutusu (kaç ekran başarılı/boş/sorunlu, toplam fatura, tevkifat, iptal),
+   `rapor.xlsx` ve özet e-postası.
+
+**Durdurmak için Ctrl+C**: o ana kadarki sonuçlar ve rapor kaydedilir; programı yeniden
+çalıştırıp **[D]evam** seçerseniz tamamlanan ekranlar tekrar açılmaz.
+
+**Hata olursa ne olur**
+
+| Durum | Botun davranışı |
+| --- | --- |
+| Bir ekranda hata | Ekran görüntüsü `hatalar/` klasörüne kaydedilir, hata rapora yazılır, firmanın **sonraki ekranına** geçilir |
+| Firma seçilemedi / aynı firmada üst üste 2 ekran hata | O firma bırakılır, sıradakine geçilir |
+| Tarayıcı sekmesi çöktü | Açık kalan Luca sekmesine geçilir; yoksa tarayıcı yeniden açılır ve firma **kalan ekranlarıyla** en fazla 3 kez tekrar denenir |
+| Üst üste 2 firma başarısız | Luca oturumu yenilenir (giriş bilgileri varsa) |
+| Üst üste `ardisik_hata_siniri` firma başarısız | Çalışma durur, rapor yazılır |
+| `rapor.xlsx` Excel'de açık | Uyarı verilir, bir sonraki firmada tekrar yazılmaya çalışılır |
 
 ## Dosyalar nereye iniyor
 
@@ -142,37 +166,40 @@ indirilenler/
         belgeler_....zip       → Seçilenleri İndir çıktısı
         liste_....xls          → Luca'nın Excel çıktısı (iptal/itiraz sorgusundan sonraki hâli)
         iptal-itiraz.csv       → sadece iptal/itiraz edilmiş faturalar (varsa)
-    rapor.xlsx                 → TOPLU RAPOR: her firma tek satır, aksiyon gerekenler en üstte
+    rapor.xlsx                 → TOPLU RAPOR: Özet, Firma Durumu, İndirilen Faturalar, Dosyalar, Hatalar
     rapor.csv                  → aynı raporun CSV hâli
     ozet.csv                   → tüm firmaların durumu; her firmadan sonra güncellenir
     kalan-firmalar.txt         → henüz işlenmemiş firmalar (kaldığı yerden devam için)
     calisma.log                → zaman damgalı çalışma kaydı
-    hatalar/                   → hata olursa ekran görüntüsü ve sayfa kaydı
+    hatalar/                   → hata olursa ekran görüntüsü ve sayfa kaydı (Hatalar sayfasından tıklanır)
 ```
 
-Bir firmada hata olursa bot durmaz, o firmayı `ozet.csv`'ye "hata" olarak yazıp sıradakine geçer.
+Bir ekranda hata olursa bot durmaz; hatayı rapora yazıp sıradaki ekrana/firmaya geçer.
 `hatalar/` klasöründeki ekran görüntüsünü bana gönderirseniz o adımı düzeltirim.
 
 ## Toplu rapor (`rapor.xlsx`)
 
-Günün klasöründe her firma için **tek satır** tutar; aynı gün farklı belge tipleriyle
-çalıştırdıkça aynı satır güncellenir. Aksiyon gereken firmalar en üste alınır ve renklendirilir.
+Günün klasöründe tutulur ve **her firmadan sonra güncellenir**; aynı gün farklı ekranlarla
+çalıştırdıkça aynı rapor büyür. E-postaya da bu dosya eklenir. Sayfaları:
+
+| Sayfa | İçerik |
+| --- | --- |
+| **Özet** | Genel tablo: firma sayısı, fatura inen / boş / atlanan / sorunlu / bekleyen ekran, toplam fatura (aynı fatura iki ekranda iki kez sayılmaz), tevkifatlı alış, iptal/itiraz, alış–satış matrahı ve KDV'si; altında **ekran bazında** dağılım |
+| **Firma Durumu** | Her firma tek satır; aksiyon gerekenler en üstte ve renkli (kırmızı: hata, sarı: kontrol) |
+| **İndirilen Faturalar** | Her fatura tek satır: firma, ekran, alış/satış, karşı taraf, fatura no, tutar ve **Mutabakat** sütunu — e-Arşiv Alış ile İnteraktif V.D. listeleri fatura numarasıyla eşleştirilir (`iki ekranda da var` / `e-Arşiv'de YOK` / `İnteraktif'te YOK`) |
+| **Dosyalar** | İnen her dosya; klasör sütununa tıklayınca klasör açılır |
+| **Hatalar ve Uyarılar** | Sorunlu ve bekleyen ekranlar: sebebi, **ne yapmanız gerektiği** ve hata anının ekran görüntüsü (tıklayınca açılır) |
+
+**Firma Durumu** sütunları:
 
 | Sütun | Anlamı |
 | --- | --- |
-| Firma / Dönem / Durum | firma, Luca çalışma dönemi, en kötü durum (hata > kaynaktan inmedi > dönem dışı > fatura yok > tamam) |
+| Firma / Dönem / Durum | firma, hedef dönem, en kötü durum (hata > dosya inmedi > kaynaktan inmedi > dönem dışı > atlandı > tamam > fatura yok) |
 | Aksiyon | ne yapmanız gerektiği; boşsa o firmada iş yok |
-| e-Arşiv Alış | Akıllı Entegrasyon Noktası ekranından gelen fatura adedi |
-| İnteraktif V.D. | İnteraktif Vergi Dairesi ekranından gelen fatura adedi |
-| Fark | İnteraktif − Akıllı Entegrasyon. **Artı ise Luca'ya eksik fatura inmiş demektir** |
-| Eksik Faturalar | eksik kalanların listesi: ünvanın ilk kelimesi + fatura numarasının son 5 hanesi (`TURKCELL 56671, TRUGO 09988`) — firmaya dönüp bakmadan karar verirsiniz. Karşılaştırma 16 hanelik fatura numarasının tamamı üzerinden yapılır, rapora sadece son 5 hane yazılır |
-| İptal/İtiraz | GİB'de iptal/itiraz edilmiş fatura adedi |
-| Tevkifatlı | tevkifatlı fatura adedi. İki kaynaktan bakılır: ekrandaki belge türü sütunu **ve** inen ZIP içindeki XML (`WithholdingTaxTotal`, vergi kodu 9015). XML bozuk inerse ekran, ekranda sütun yoksa XML yakalar |
-| İnmeyen | GİB'de vardı ama kaynak sunucudan inmedi |
-| İnen Dosya | o firma için kaydedilen dosya sayısı |
-
-Aksiyon sütununda çıkabilecekler: `HATA - tekrar calistir`, `KAYNAKTAN INMEDI - tekrar sorgula`,
-`EKSIK - interaktifte N fatura fazla`, `IPTAL/ITIRAZ - N fatura`, `TEVKIFAT - N fatura, KDV2 kontrol`.
+| Ekran sütunları | her ekrandan gelen fatura adedi |
+| Fark / Eksik-Fazla Faturalar | İnteraktif V.D. − e-Arşiv Alış; eksik/fazla faturalar ünvanın ilk kelimesi + fatura numarasının son 5 hanesi + tutarla |
+| İptal/İtiraz, Tevkifatlı Alış, İnmeyen | adetler (tevkifat yalnızca alış ekranlarından, KDV2 için) |
+| Alış/Satış Matrah ve KDV | iptal/itiraz hariç toplamlar; aynı faturaları gösteren ekranlarda (ör. TÜRMOB Alış ↔ e-Fatura Alış) en yüksek olan alınır |
 
 ## Sık karşılaşılan durumlar
 
@@ -189,11 +216,46 @@ Aksiyon sütununda çıkabilecekler: `HATA - tekrar calistir`, `KAYNAKTAN INMEDI
 | Tarayıcı her seferinde giriş istiyor | Oturum `%LOCALAPPDATA%\luca-bot\tarayici-profili` klasöründe tutulur, silmeyin. |
 | `UYARI: tarih kutulari bulunamadi` | GİB tarih penceresi tanınmamış; `hatalar/` ekran görüntüsünü paylaşın, alan adlarını düzeltirim. |
 
+## Program yapısı (geliştirmek isteyenler için)
+
+`luca_bot.py` yalnızca giriş kapısıdır; iş `lucabot/` klasöründeki parçalara bölünmüştür:
+
+| Dosya | Görevi |
+| --- | --- |
+| `giris.py` | **Luca giriş**: otomatik giriş, iki aşamalı doğrulama, ürün seçimi, oturum yenileme |
+| `gib_sorgu.py` | **Fatura sorgulama**: GİB'den Getir, İşlem Takip, Belge Ara, İnteraktif V.D., iptal/itiraz |
+| `indirme.py` | **Fatura indirme**: belge paketi (zip) ve Excel |
+| `fatura_analiz.py` | İnen Excel/ZIP'ten tevkifat, iptal/itiraz, matrah/KDV |
+| `rapor.py`, `rapor_excel.py` | **Raporlama**: `rapor.json` / `rapor.csv` / `rapor.xlsx` |
+| `eposta.py` | Özet e-postası (Outlook / SMTP) |
+| `ekran_isleyici.py` | Bir firmanın bir ekranını baştan sona işleyen akış (adım adım metotlar) |
+| `calisma.py` | Tüm firmaları dolaşan döngü, hata/çökme kurtarma |
+| `firma_listesi.py` | `firmalar.xlsx`, atlanacak firmalar, yarıda kalan çalışma |
+| `luca_ekran.py`, `luca_gezinme.py` | Buton/pencere bulma, firma ve dönem seçimi, menü |
+| `tarayici.py` | Tarayıcıyı açma / yeniden açma |
+| `bekleme.py` | **Dinamik bekleme** |
+| `sabitler.py` | Luca'daki buton ve menü yazıları — Luca bir yazıyı değiştirirse düzeltilecek tek yer |
+| `konsol.py` | Ekrandaki adım/ilerleme mesajları |
+
+**Beklemeler:** Programda "2 saniye bekle" gibi sabit bekleme yoktur. Her bekleme bir koşula
+bağlıdır (Selenium'daki `WebDriverWait` karşılığı): pencere açılana, liste yenilenip sayfa durulana,
+İşlem Takip'te "sona erdi" yazana kadar. Koşul sağlanınca hemen devam edilir; site yavaşsa
+koşul sağlanana kadar (bir üst sınıra kadar) beklenir. Hiçbir bekleme programı çökertmez; süre
+dolarsa bir sonraki güvenli adıma geçilir ve durum günlüğe yazılır.
+
+**Testler** (Luca'ya bağlanmaz; `testler/sahte_luca.py` Luca'yı taklit eden küçük bir sitedir):
+
+```
+python -m unittest discover -s testler        # birim ve dayanıklılık testleri
+python testler/uctan_uca.py                    # programın tamamı, sahte Luca üzerinde
+```
+
 ## Notlar
 
-- Bot Luca arayüzünü kullanır; Luca ekranlarında değişiklik olursa buton/menü adlarının güncellenmesi gerekebilir.
+- Bot Luca arayüzünü kullanır; Luca ekranlarında değişiklik olursa buton/menü adlarının güncellenmesi gerekebilir
+  (hepsi `lucabot/sabitler.py` içindedir).
 - Aynı anda Luca'ya başka yerden girmeyin, oturum düşebilir.
 - **Programı OneDrive klasöründe tutmayın.** OneDrive indirilen dosyaları ve tarayıcı profilini
   eşitlerken kilitliyor, Chrome indirme sırasında çökebiliyor. `C:\luca-bot` gibi bir yer uygundur.
   Tarayıcı profili zaten otomatik olarak OneDrive dışına (`%LOCALAPPDATA%\luca-bot`) alınır.
-- Tevkifatlı fatura uyarısı, Excel'den Luca'ya yükleme ve yapay zeka ile muhasebe kaydı sonraki adımlarda eklenecek.
+- Excel'den Luca'ya yükleme ve yapay zeka ile muhasebe kaydı sonraki adımlarda eklenecek.

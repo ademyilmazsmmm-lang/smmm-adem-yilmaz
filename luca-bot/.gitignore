@@ -1,6 +1,6 @@
 ayarlar.json
 firmalar.xlsx
 indirilenler/
-.tarayici-profili/
+.tarayici-profili*/
 *.log
 __pycache__/
