@@ -127,6 +127,7 @@ def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem=""):
             log_yaz(mesaj)
 
     if not _ayar(ayarlar, "mail_otomatik_gonder", False):
+        bildir("E-posta gonderilmedi: mail_otomatik_gonder kapali (ayarlar.json)")
         return False
     kullanici = _ayar(ayarlar, "smtp.kullanici")
     sifre = _ayar(ayarlar, "smtp.sifre")
