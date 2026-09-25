@@ -40,6 +40,17 @@ AEN_EKRANLARI = {
 
 # sunucu tarafi durum: (firma, tip) -> {"sorgulandi": bool, "iptal": bool}
 DURUM = {}
+# urun seciminde uygulama penceresinin kac kez acildigi (cift tiklama testi icin)
+SAYAC = {"sso": 0}
+
+# Gercek Luca'daki gibi: urun kutusuna tiklaninca uygulama AYRI pencerede ve
+# gecikmeli aciliyor; giris sekmesi oldugu gibi kaliyor.
+URUN_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>LUCA - Ortak Giriş Sayfası</title>
+</head><body><div id="kutu" style="cursor:pointer;padding:20px;background:#2aa">LUCA MALİ MÜŞAVİR PAKETİ</div>
+<script>document.getElementById('kutu').onclick = () =>
+  setTimeout(() => window.open('/Luca/ssoGiris.do', '_blank'), 800);</script></body></html>"""
+SSO_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>yukleniyor</title></head>
+<body><script>setTimeout(() => location.href = '/Luca/uygulama', 2500);</script></body></html>"""
 KILIT = threading.Lock()
 
 
@@ -281,7 +292,13 @@ class Isleyici(BaseHTTPRequestHandler):
 
     def do_GET(self):
         yol, firma, tip = self._parametre()
-        if yol == "/":
+        if yol == "/urun":
+            return self._yanit(URUN_SAYFASI)
+        if yol == "/Luca/ssoGiris.do":
+            with KILIT:
+                SAYAC["sso"] += 1
+            return self._yanit(SSO_SAYFASI)
+        if yol in ("/", "/Luca/uygulama"):
             secenek = "".join(f"<option>{f}</option>" for f in FIRMALAR)
             aen = "".join(f'<a data-tip="{t}">{ad}</a>' for ad, t in AEN_EKRANLARI.items())
             html = (ANA_SAYFA.replace("__FIRMALAR__", secenek).replace("__AEN__", aen)
@@ -326,6 +343,7 @@ def baslat(port=0):
 def sifirla():
     with KILIT:
         DURUM.clear()
+        SAYAC["sso"] = 0
 
 
 if __name__ == "__main__":

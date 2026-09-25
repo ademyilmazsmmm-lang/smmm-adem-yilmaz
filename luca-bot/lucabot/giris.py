@@ -98,19 +98,42 @@ def dogrulama_kodunu_gir(page, kod):
     return False
 
 
+def uygulama_penceresi_acik(page):
+    """Tarayicinin herhangi bir penceresinde Luca uygulamasi (/Luca/ adresi) acik mi.
+
+    Urun secilince uygulama AYRI bir pencerede aciliyor (orn. .../Luca/ssoGiris.do);
+    giris sekmesi oldugu gibi kaliyor. Yalnizca giris sekmesine bakilirsa uygulama
+    acilmamis sanilip urune tekrar tiklaniyor, ikinci oturum ilkini bozuyordu.
+    """
+    try:
+        sayfalar = [page] + [p for p in page.context.pages if p is not page]
+    except Exception:
+        sayfalar = [page]
+    for p in sayfalar:
+        try:
+            if not p.is_closed() and UYGULAMA_PARCASI in p.url:
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def urun_sec(page, log=None, sure=30000):
     """Giris sonrasi cikan urun secim ekranindan Mali Musavir paketini secer.
 
     Kutular giristen birkac saniye sonra beliriyor; biri gorunene ya da
-    uygulama acilana kadar beklenir.
+    uygulama acilana kadar beklenir. Uygulama herhangi bir pencerede aciksa
+    (ya da aciliyorsa) urune bir daha TIKLANMAZ.
     """
     def dene():
-        if UYGULAMA_PARCASI in page.url:  # uygulama zaten acildi
+        if uygulama_penceresi_acik(page):  # uygulama zaten acik / aciliyor
             return "acik"
         tiklanan = varsa_tikla(page, URUN_ADAYLARI, sure=1200)
         if tiklanan:
             yaz(f"    Urun secildi: {tiklanan}", log)
-            sayfa_durulsun(page, azami_ms=3000, en_az_ms=300)
+            # uygulama yeni pencerede aciliyor; o pencere gorunene kadar beklenir
+            if not kosulu_bekle(page, lambda: uygulama_penceresi_acik(page), 20000, aralik_ms=300):
+                yaz("    UYARI: urun secildi ama Luca uygulama penceresi 20 sn icinde acilmadi", log)
             return tiklanan
         return None
 
@@ -237,6 +260,8 @@ def luca_oturumu_ac(ctx, page, ayarlar, gece_modu, tani_klasoru, log):
         # urun secim ekrani gec belirmis olabilir, tekrar denenir
         def hazir():
             bulunan = uygulama_sayfasi_bul(ctx)
+            # urun ekrani gec belirdiyse secilir; uygulama penceresi aciliyorsa
+            # (henuz yuklenmemis olsa da) urun_sec tekrar tiklamaz
             if bulunan is None:
                 urun_sec(page, log, sure=0)
             return bulunan
