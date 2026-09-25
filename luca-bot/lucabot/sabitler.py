@@ -122,7 +122,10 @@ INDIRILEMEDI = "indirilemedi"
 ISLEM_ISARETLERI = ["İşlem Takip", "sorgulandı", "belge kaydı bulundu", "Otomatik aşağı kaydır"]
 # GIB'e ulasilamadiginda Luca bu uyariyi verip bekliyor; bosuna beklememek icin
 GIB_HATA_ISARETLERI = ["VERILER GETIRILIRKEN HATA", "GIB INTERNET SITESINDEN",
-                       "GIB INTERNET E-ARSIV", "ERISILEMEDI", "BAGLANTI KURULAMADI"]
+                       "GIB INTERNET E-ARSIV", "ERISILEMEDI", "BAGLANTI KURULAMADI",
+                       # "GIB e-Arsiv Sistemi Hata Mesaji: Dogrulama hatasi Internet vergi
+                       # dairesinden kimlik dogrulanamadi" - gecici; ayni aralik tekrar sorgulanir
+                       "E-ARSIV SISTEMI HATA", "DOGRULAMA HATASI", "KIMLIK DOGRULANAMADI"]
 GIB_HATA_METINLERI = ["veriler getirilirken hata", "e-Arşiv sistemine giriş",
                       "GİB internet sitesinden"]
 # Firmanin o servise abonesi/yetkisi yoksa Luca bu SOAP hatasini yaziyor ve
@@ -134,6 +137,7 @@ YETKI_ISARETLERI = ["IZNINIZ BULUNMAMAKTADIR", "YETKINIZ BULUNMAMAKTADIR",
 TAMAMLANMADI = -1  # zaman asimi
 YETKI_YOK = -2     # bu ekranin atlanmasi gerekiyor
 TAKILDI = -3       # sorgu durgunluk suresi boyunca ilerlemedi
+GIB_HATASI = -4    # GIB hata verdi / ulasilamadi; ayni aralik bir kez daha denenebilir
 
 # --- iptal/itiraz -----------------------------------------------------------
 IPTAL_DUGME_ADAYLARI = ["GİB'den İptal/İtiraz Sorgula", "GİB'den iptal/itiraz Sorgula",

@@ -114,6 +114,15 @@ class TutarVeFaturaTestleri(unittest.TestCase):
             self.assertEqual(sonuc["faturalar"][0], ["TURKCELL", "AAA2026000000001", 1200.0])
             self.assertTrue((klasor / "iptal-itiraz.csv").exists())
 
+    def test_gib_hata_mesaji_taninir(self):
+        from lucabot.gib_sorgu import gib_hatasi, hata_satiri, yetki_hatasi
+        metin = ("İşlem Takip\nGİB e-Arşiv Sistemi Hata Mesajı:Doğrulama hatası Internet vergi"
+                 " dairesinden kimlik doğrulanamadı.")
+        self.assertTrue(gib_hatasi(metin))
+        self.assertFalse(yetki_hatasi(metin))
+        self.assertIn("kimlik", hata_satiri(metin))
+        self.assertFalse(gib_hatasi("01/08 sorgulandı. 2 belge kaydı bulundu. İşlem sona erdi."))
+
     def test_bozuk_excel_cokertmez(self):
         with tempfile.TemporaryDirectory() as d:
             yol = Path(d) / "bozuk.xlsx"

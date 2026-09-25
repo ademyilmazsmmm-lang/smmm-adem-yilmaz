@@ -41,7 +41,11 @@ AEN_EKRANLARI = {
 # sunucu tarafi durum: (firma, tip) -> {"sorgulandi": bool, "iptal": bool}
 DURUM = {}
 # urun seciminde uygulama penceresinin kac kez acildigi (cift tiklama testi icin)
-SAYAC = {"sso": 0, "ilk_bos": False}
+SAYAC = {"sso": 0, "ilk_bos": False, "gib_hatasi": 0}
+
+# gercek Luca'da goruldu (26/09/2026); gecici, ayni sorgu tekrarlaninca geciyor
+GIB_HATA_METNI = ("GİB e-Arşiv Sistemi Hata Mesajı:Doğrulama hatası Internet vergi dairesinden"
+                  " kimlik doğrulanamadı.")
 
 # Gercek Luca'daki gibi: urun kutusuna tiklaninca uygulama AYRI pencerede ve
 # gecikmeli aciliyor; giris sekmesi oldugu gibi kaliyor.
@@ -207,9 +211,13 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
    ac('<b>İşlem Takip</b><div id="gunluk"></div><label><input type=checkbox checked>Otomatik aşağı kaydır</label>');
    const g = () => document.getElementById('gunluk');
    sonra(500, () => g().innerHTML += '<div>Tarih aralığı sorgulandı</div>');
-   sonra(1200, async () => { await fetch(url, {method:'POST'});
+   let hata = false;
+   sonra(1200, async () => { const j = await (await fetch(url, {method:'POST'})).json();
+     if (j.hata) { hata = true;  // gercek Luca'daki gibi: hata yazar, pencere kapanmaz, "sona erdi" gelmez
+       g().innerHTML += '<div style="color:red">' + j.hata + '</div>' + kapatDugmesi(); return; }
      g().innerHTML += '<div>belge kaydı bulundu</div>'; });
-   sonra(3500, () => { g().innerHTML += '<div>İşlem sona erdi.</div>' + kapatDugmesi(); if (sonrasi) sonrasi(); });
+   sonra(3500, () => { if (hata) return;
+     g().innerHTML += '<div>İşlem sona erdi.</div>' + kapatDugmesi(); if (sonrasi) sonrasi(); });
  }
  const eylem = {
    getir: () => sonra(400, () => ac('<span>GİB\\'den fatura getir</span> '
@@ -328,6 +336,9 @@ class Isleyici(BaseHTTPRequestHandler):
     def do_POST(self):
         yol, firma, tip = self._parametre()
         with KILIT:
+            if yol == "/api/iptal" and SAYAC["gib_hatasi"] > 0:
+                SAYAC["gib_hatasi"] -= 1
+                return self._yanit(json.dumps({"hata": GIB_HATA_METNI}), "application/json")
             d = DURUM.setdefault((firma, tip), {})
             if yol == "/api/sorgula":
                 d["sorgulandi"] = True
@@ -346,7 +357,7 @@ def baslat(port=0):
 def sifirla():
     with KILIT:
         DURUM.clear()
-        SAYAC.update(sso=0, ilk_bos=False)
+        SAYAC.update(sso=0, ilk_bos=False, gib_hatasi=0)
 
 
 if __name__ == "__main__":

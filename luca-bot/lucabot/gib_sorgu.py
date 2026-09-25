@@ -9,8 +9,8 @@ ekranin altindaki "Toplam Kayit Sayisi" gibi.
 
 import time
 
-from .bekleme import (degisiklik_baslat, degisip_durulsun, kosulu_bekle, nabiz,
-                      sayfa_durulsun)
+from .bekleme import (degisiklik_baslat, degisip_durulsun, geri_cekil, kosulu_bekle,
+                      nabiz, sayfa_durulsun)
 from .luca_ekran import (TANI, acik_pencere, acik_pencereleri_kapat,
                          bilgi_penceresini_kapat, cerceveler, diyalog_bekle,
                          dugmeye_bas, ekranda_gib_hatasi,
@@ -24,7 +24,8 @@ from .sabitler import (BELGE_ARA_CAPALARI, BELGE_ARA_ONAY, DIYALOG_ONAY,
                        INTERAKTIF_SERVIS, INTERAKTIF_SORGU, INTERAKTIF_TEKRAR,
                        IPTAL_CAPASI, IPTAL_DUGME_ADAYLARI, IPTAL_ONAY,
                        ISLEM_BITTI, ISLEM_ISARETLERI, KAYIT_SAYISI_DESENI,
-                       TAKILDI, TAMAMLANMADI, YETKI_ISARETLERI, YETKI_YOK)
+                       GIB_HATASI, TAKILDI, TAMAMLANMADI, YETKI_ISARETLERI,
+                       YETKI_YOK)
 
 # Islem Takip penceresine ne siklikla bakilir (her bakis butun cerceveleri tarar)
 TAKIP_ARALIGI_MS = 1000
@@ -33,6 +34,14 @@ TAKIP_ARALIGI_MS = 1000
 def gib_hatasi(metin):
     duz = sadelestir(metin or "")
     return any(isaret in duz for isaret in GIB_HATA_ISARETLERI)
+
+
+def hata_satiri(metin):
+    """Islem Takip yazisindaki hata satiri (gunluge kisaca yazmak icin)."""
+    for satir in (metin or "").splitlines():
+        if any(i in sadelestir(satir) for i in GIB_HATA_ISARETLERI + ["HATA"]):
+            return " ".join(satir.split())[:140]
+    return ""
 
 
 def yetki_hatasi(metin):
@@ -135,9 +144,9 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
                 return YETKI_YOK
 
             if gib_hatasi(gunluk):
-                yaz(f"    GİB'e ulasilamadi ({int(gecen)} sn), bu sorgu atlaniyor", log)
+                yaz(f"    GİB hata verdi ({int(gecen)} sn): {hata_satiri(gunluk)}", log)
                 _sorgu_penceresini_birak(page)
-                return 0
+                return GIB_HATASI
 
             if time.time() - son_degisim > durgunluk_saniye:
                 sure_metni = (f"{int(durgunluk_saniye // 60)} dk" if durgunluk_saniye >= 60
@@ -154,10 +163,10 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
             return basarisiz
 
         elif ekranda_gib_hatasi(page):
-            yaz(f"    GİB'e ulasilamadi ({int(gecen)} sn), bu sorgu atlaniyor", log)
+            yaz(f"    GİB'e ulasilamadi ({int(gecen)} sn)", log)
             varsa_tikla(page, ["Kapat", "Tamam"], sure=3000)
             acik_pencereleri_kapat(page)
-            return 0
+            return GIB_HATASI
 
         elif gecen > pencere_bekleme:
             yaz(f"    İşlem Takip penceresi {int(gecen)} sn icinde gorunmedi, devam ediliyor", log)
@@ -374,6 +383,41 @@ def interaktif_sorgula(page, araliklar, log, listeleme_araligi=None):
 
 # --- iptal/itiraz -----------------------------------------------------------------
 
+def _iptal_araligi(page, bas, bit, log, interaktif):
+    """Tek tarih araligi icin iptal/itiraz sorgusu; islem_takibini_bekle sonucunu
+    ya da (buton/pencere bulunamazsa) None dondurur."""
+    acik_pencereleri_kapat(page, log)
+    fatura_yok_penceresini_kapat(page)
+    if not varsa_tikla(page, IPTAL_DUGME_ADAYLARI, sure=4000):
+        yaz("    'GİB'den İptal/İtiraz Sorgula' butonu bulunamadi, atlandi", log)
+        return None
+
+    _, pencere = diyalog_bekle(page, IPTAL_CAPASI, azami_ms=4000)
+    kutular = tarih_kutulari(page, pencere)
+    if len(kutular) >= 2:
+        yaz(f"    Iptal/itiraz sorgusu ({tarih_araligi_yaz(kutular, bas, bit)})", log)
+    else:
+        yaz("    UYARI: iptal/itiraz tarih kutulari bulunamadi, Luca varsayilani kullanilacak", log)
+
+    onay = pencerede_tikla(page, pencere, IPTAL_ONAY) if pencere is not None else None
+    if not onay:
+        # pencere taninmadiysa tam metinle ara; arac cubugu butonu farkli yazildigi
+        # icin tam eslesme yanlislikla ona denk gelmez
+        onay = varsa_tikla(page, IPTAL_ONAY, sure=4000)
+    if not onay:
+        yaz("    UYARI: iptal/itiraz sorgu butonu tiklanamadi", log)
+        acik_pencereleri_kapat(page, log)
+        return None
+
+    # interaktif V.D. ekraninda Islem Takip penceresi hic acilmiyor; kisa
+    # beklenir ama bilgi penceresi kontrolu (3 sn) yine de calissin
+    sonuc = islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
+                                 durgunluk_saniye=AYAR["durgunluk_saniye"],
+                                 pencere_bekleme=4 if interaktif else 12)
+    acik_pencereleri_kapat(page, log)
+    return sonuc
+
+
 def iptal_itiraz_sorgula(page, araliklar, log, interaktif=False):
     """Listedeki faturalar icin GIB'den iptal/itiraz durumunu sorgular.
 
@@ -389,35 +433,15 @@ def iptal_itiraz_sorgula(page, araliklar, log, interaktif=False):
         if ust_uste_takildi >= 2:
             yaz("    Iptal/itiraz sorgusu ust uste takildi, kalan tarih araliklari atlaniyor", log)
             break
-        acik_pencereleri_kapat(page, log)
-        fatura_yok_penceresini_kapat(page)
-        if not varsa_tikla(page, IPTAL_DUGME_ADAYLARI, sure=4000):
-            yaz("    'GİB'den İptal/İtiraz Sorgula' butonu bulunamadi, atlandi", log)
-            return calisan
-
-        _, pencere = diyalog_bekle(page, IPTAL_CAPASI, azami_ms=4000)
-        kutular = tarih_kutulari(page, pencere)
-        if len(kutular) >= 2:
-            yaz(f"    Iptal/itiraz sorgusu ({tarih_araligi_yaz(kutular, bas, bit)})", log)
-        else:
-            yaz("    UYARI: iptal/itiraz tarih kutulari bulunamadi, Luca varsayilani kullanilacak", log)
-
-        onay = pencerede_tikla(page, pencere, IPTAL_ONAY) if pencere is not None else None
-        if not onay:
-            # pencere taninmadiysa tam metinle ara; arac cubugu butonu farkli yazildigi
-            # icin tam eslesme yanlislikla ona denk gelmez
-            onay = varsa_tikla(page, IPTAL_ONAY, sure=4000)
-        if not onay:
-            yaz("    UYARI: iptal/itiraz sorgu butonu tiklanamadi", log)
-            acik_pencereleri_kapat(page, log)
-            return calisan
-
-        # interaktif V.D. ekraninda Islem Takip penceresi hic acilmiyor; kisa
-        # beklenir ama bilgi penceresi kontrolu (3 sn) yine de calissin
-        sonuc = islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
-                                     durgunluk_saniye=AYAR["durgunluk_saniye"],
-                                     pencere_bekleme=4 if interaktif else 12)
-        acik_pencereleri_kapat(page, log)
+        for tur in (1, 2):  # GIB gecici hata verirse ayni aralik bir kez daha sorulur
+            sonuc = _iptal_araligi(page, bas, bit, log, interaktif)
+            if sonuc is None:  # buton/pencere bulunamadi: bu ekranda devam etmek bos
+                return calisan
+            if sonuc == GIB_HATASI and tur == 1:
+                yaz(f"    GİB hatasi sonrasi ayni aralik tekrar sorgulaniyor ({bas} - {bit})", log)
+                geri_cekil(page, 5)
+                continue
+            break
         calisan += 1
         # Bir defalik takilma tek basina kalanini gecersiz saymaz (bazen sadece
         # ilk parca donuyor), ama ust uste ikinci kez olursa ekran yanit vermiyor demektir

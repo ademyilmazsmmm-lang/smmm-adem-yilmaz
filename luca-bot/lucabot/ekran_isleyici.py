@@ -33,7 +33,8 @@ from .ortak import (AYAR, AYLIK_AZAMI_GUN, TARIH_BICIMI, dosya_adi_yap,
                     hedef_ay_araligi, tarih_araliklari, tarih_cozumle,
                     yaz, yeni_sonuc)
 from .sabitler import (AYLIK_SORGU, IKI_KADEMELI, INTERAKTIF_LISTELE,
-                       IPTAL_EKRANLARI, SADECE_EXCEL, TAKILDI, YETKI_YOK)
+                       GIB_HATASI, IPTAL_EKRANLARI, SADECE_EXCEL, TAKILDI,
+                       YETKI_YOK)
 
 TEKRAR_ONCESI_SANIYE = 5  # indirilemeyen fatura kalinca ayni sorguyu tekrarlamadan once
 
@@ -211,6 +212,14 @@ class EkranIsleyici:
             if basarisiz == YETKI_YOK:
                 self.sonuc["not"] = "bu firmanin bu servise yetkisi yok"
                 return YETKI_YOK
+            if basarisiz == GIB_HATASI:
+                if deneme < self.azami_deneme:
+                    self._yaz(f"    GİB hatasi sonrasi tekrar sorgulaniyor ({deneme + 1}/{self.azami_deneme})")
+                    geri_cekil(self.page, TEKRAR_ONCESI_SANIYE)
+                    continue
+                self._yaz(f"    GİB {self.azami_deneme} denemede de hata verdi, bu aralik atlandi ({bas} - {bit})")
+                self.sonuc["not"] = f"GIB hata verdi: {bas} - {bit}"
+                return 0
             if basarisiz <= 0:  # 0: hepsi indi, TAKILDI/TAMAMLANMADI: tekrar denemek bos
                 return basarisiz
             # sayi azalmiyorsa karsi sunucu yanit vermiyor demektir; tekrar denemek bos

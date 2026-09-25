@@ -156,5 +156,25 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertIn("/Luca/uygulama", url or "")
         self.assertGreaterEqual(acilis, 2)
 
+    def test_gib_dogrulama_hatasinda_aralik_tekrar_sorgulanir(self):
+        """Iptal sorgusunda GIB 'kimlik dogrulanamadi' derse beklemeden ayni aralik tekrar sorulur."""
+        import time
+        from lucabot.ekran_isleyici import firma_isle
+        from lucabot.ortak import AYAR
+        sahte_luca.sifirla()
+        AYAR.update(azami_saniye=120, durgunluk_saniye=60, indirme_saniye=15)
+        sahte_luca.SAYAC["gib_hatasi"] = 1
+        log = self.klasor / "calisma.log"
+        araliklar = tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("05/08/2026"))
+        basla = time.time()
+        sonuc = firma_isle(self.page, "AKIN COBAN", "e-arsiv-alis", araliklar, self.klasor, log)
+        gunluk = log.read_text(encoding="utf-8")
+        self.assertIn("GİB hata verdi", gunluk)
+        self.assertIn("tekrar sorgulaniyor", gunluk)
+        self.assertEqual(sonuc["durum"], "tamam")
+        self.assertEqual(sonuc["iptal_itiraz"], 1)  # tekrar sorgu iptali buldu
+        self.assertLess(time.time() - basla, 60)    # durgunluk suresi (60 sn) beklenmedi
+
+
 if __name__ == "__main__":
     unittest.main()
