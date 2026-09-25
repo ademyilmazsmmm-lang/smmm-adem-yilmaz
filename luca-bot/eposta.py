@@ -142,6 +142,14 @@ def _outlook_ile_gonder(alicilar, konu, govde, ek_yolu, gonder_mi, bildir):
 
     try:
         outlook = win32com.client.Dispatch("Outlook.Application")
+        try:
+            # Outlook kapaliysa Dispatch onu arka planda baslatir, ama MAPI
+            # oturumu hazir olmadan CreateItem/Send cagrilirsa hata verebilir.
+            # Logon hem Outlook'u acar (kapaliysa) hem oturum hazir olana
+            # kadar bekler; zaten acik/oturum acilmissa sessizce gecer.
+            outlook.GetNamespace("MAPI").Logon("", "", False, False)
+        except Exception:
+            pass
         mail = outlook.CreateItem(0)  # 0 = olMailItem
         mail.To = "; ".join(alicilar)
         mail.Subject = konu
