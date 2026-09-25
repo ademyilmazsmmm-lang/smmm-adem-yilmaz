@@ -11,7 +11,8 @@ Ayarlar (ayarlar.json):
         - outlook yonteminde: true ise doğrudan gonderilir, false ise
           Outlook'ta taslak olarak acilir (siz kontrol edip gonderirsiniz)
         - smtp yonteminde: false ise e-posta hic denenmez
-    mail_alici           : "a@b.com"   - birden fazla icin virgulle ayirin
+    mail_alici           : "a@b.com"   - birden fazla icin virgulle ayirin; bos birakilirsa
+                                         Outlook'taki kendi hesabiniza gonderilir
     mail_sadece_uyari    : true/false  - true ise uyari yoksa e-posta gitmez
     smtp.sunucu/port/ssl/kullanici/sifre/gonderen  - sadece mail_yontemi=smtp icin
 """
@@ -151,6 +152,15 @@ def _outlook_ile_gonder(alicilar, konu, govde, ek_yolu, gonder_mi, bildir):
             outlook.GetNamespace("MAPI").Logon("", "", False, False)
         except Exception:
             pass
+        if not alicilar:
+            # mail_alici bos: Outlook'ta oturum acmis hesabin kendi adresine gonderilir
+            kendi = _outlook_kendi_adresi(outlook)
+            if not kendi:
+                bildir("E-posta gonderilmedi: mail_alici bos ve Outlook hesabinin adresi"
+                       " okunamadi (ayarlar.json'a \"mail_alici\" yazin)")
+                return False
+            alicilar = [kendi]
+            bildir(f"mail_alici bos; ozet Outlook hesabinizin kendi adresine gonderiliyor: {kendi}")
         mail = outlook.CreateItem(0)  # 0 = olMailItem
         mail.To = "; ".join(alicilar)
         mail.Subject = konu
@@ -168,6 +178,27 @@ def _outlook_ile_gonder(alicilar, konu, govde, ek_yolu, gonder_mi, bildir):
     except Exception as e:
         bildir(f"E-posta gonderilemedi (Outlook: {type(e).__name__}: {e})")
         return False
+
+
+def _outlook_kendi_adresi(outlook):
+    """Outlook'ta acik olan hesabin e-posta adresi; bulunamazsa ""."""
+    try:
+        hesaplar = outlook.Session.Accounts
+        for i in range(1, hesaplar.Count + 1):
+            adres = str(hesaplar.Item(i).SmtpAddress or "").strip()
+            if "@" in adres:
+                return adres
+    except Exception:
+        pass
+    try:
+        kullanici = outlook.Session.CurrentUser.AddressEntry
+        try:
+            adres = str(kullanici.GetExchangeUser().PrimarySmtpAddress or "").strip()
+        except Exception:
+            adres = str(kullanici.Address or "").strip()
+        return adres if "@" in adres else ""
+    except Exception:
+        return ""
 
 
 def _smtp_ile_gonder(ayarlar, alicilar, konu, govde, ek_yolu, bildir):
@@ -239,8 +270,8 @@ def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem=""):
         return False
 
     alicilar = _alicilar(ayarlar)
-    if not alicilar:
-        bildir("E-posta gonderilmedi: mail_alici bos")
+    if not alicilar and yontem != "outlook":  # Outlook'ta bos alici = kendi hesabiniz
+        bildir("E-posta gonderilmedi: mail_alici bos (ayarlar.json)")
         return False
 
     govde, uyari_var = ozet_metni(sonuclar, donem)
