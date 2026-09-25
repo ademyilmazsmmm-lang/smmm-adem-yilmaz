@@ -41,7 +41,7 @@ AEN_EKRANLARI = {
 # sunucu tarafi durum: (firma, tip) -> {"sorgulandi": bool, "iptal": bool}
 DURUM = {}
 # urun seciminde uygulama penceresinin kac kez acildigi (cift tiklama testi icin)
-SAYAC = {"sso": 0}
+SAYAC = {"sso": 0, "ilk_bos": False}
 
 # Gercek Luca'daki gibi: urun kutusuna tiklaninca uygulama AYRI pencerede ve
 # gecikmeli aciliyor; giris sekmesi oldugu gibi kaliyor.
@@ -293,11 +293,14 @@ class Isleyici(BaseHTTPRequestHandler):
     def do_GET(self):
         yol, firma, tip = self._parametre()
         if yol == "/urun":
+            with KILIT:  # ?ilk_bos=1: ilk acilan uygulama penceresi bos kalir (gercek Luca'daki gibi)
+                SAYAC["ilk_bos"] = "ilk_bos=1" in self.path
             return self._yanit(URUN_SAYFASI)
         if yol == "/Luca/ssoGiris.do":
             with KILIT:
                 SAYAC["sso"] += 1
-            return self._yanit(SSO_SAYFASI)
+                bos = SAYAC["ilk_bos"] and SAYAC["sso"] == 1
+            return self._yanit("<!doctype html><html><body></body></html>" if bos else SSO_SAYFASI)
         if yol in ("/", "/Luca/uygulama"):
             secenek = "".join(f"<option>{f}</option>" for f in FIRMALAR)
             aen = "".join(f'<a data-tip="{t}">{ad}</a>' for ad, t in AEN_EKRANLARI.items())
@@ -343,7 +346,7 @@ def baslat(port=0):
 def sifirla():
     with KILIT:
         DURUM.clear()
-        SAYAC["sso"] = 0
+        SAYAC.update(sso=0, ilk_bos=False)
 
 
 if __name__ == "__main__":

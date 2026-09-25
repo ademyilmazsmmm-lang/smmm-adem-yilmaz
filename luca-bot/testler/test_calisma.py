@@ -130,31 +130,30 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertTrue((self.klasor / "rapor.xlsx").exists())
 
 
-    def test_urune_bir_kez_tiklanir(self):
-        """Urun secilince uygulama ayri pencerede acilir; urune bir kez tiklanmali."""
-        from lucabot.bekleme import kosulu_bekle
-        from lucabot.giris import urun_sec
-        from lucabot.tarayici import uygulama_sayfasi_bul
-
+    def _urun_akisi(self, adres_eki, **secenek):
+        from lucabot.giris import urun_sec, uygulamayi_bekle
         sahte_luca.sifirla()
         ctx = self.tarayici.new_context()
         try:
             page = ctx.new_page()
-            page.goto(self.adres + "urun")
+            page.goto(self.adres + adres_eki)
             self.assertTrue(urun_sec(page, None, sure=5000))
-            # luca_oturumu_ac'taki dongu: uygulama bulunana kadar urun_sec tekrar cagrilir
-            def hazir():
-                bulunan = uygulama_sayfasi_bul(ctx)
-                if bulunan is None:
-                    urun_sec(page, None, sure=0)
-                return bulunan
-            uygulama = kosulu_bekle(page, hazir, 20000, aralik_ms=500)
-            self.assertIsNotNone(uygulama)
-            self.assertIn("/Luca/uygulama", uygulama.url)
-            self.assertEqual(sahte_luca.SAYAC["sso"], 1)  # ikinci oturum acilmadi
+            uygulama = uygulamayi_bekle(ctx, page, None, azami_saniye=40, **secenek)
+            return (uygulama.url if uygulama else None), sahte_luca.SAYAC["sso"]
         finally:
             ctx.close()
 
+    def test_urune_bir_kez_tiklanir(self):
+        """Uygulama ayri pencerede gec aciliyor; bu arada urune tekrar tiklanmamali."""
+        url, acilis = self._urun_akisi("urun")
+        self.assertIn("/Luca/uygulama", url or "")
+        self.assertEqual(acilis, 1)
+
+    def test_bos_kalan_pencerede_urun_yeniden_secilir(self):
+        """Ilk uygulama penceresi bos kalirsa urun bir kez daha secilir ve Luca acilir."""
+        url, acilis = self._urun_akisi("urun?ilk_bos=1", yeniden_sec_saniye=6)
+        self.assertIn("/Luca/uygulama", url or "")
+        self.assertEqual(acilis, 2)
 
 if __name__ == "__main__":
     unittest.main()
