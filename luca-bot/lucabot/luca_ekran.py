@@ -9,8 +9,8 @@ cagiranin yakalayacagi LookupError firlatir).
 
 from pathlib import Path
 
-from .bekleme import (geri_cekil, kaybolana_kadar_bekle, kosulu_bekle,
-                      sayfa_canli, sayfa_durulsun)
+from .bekleme import (geri_cekil, gorunur_cerceveler, kaybolana_kadar_bekle,
+                      kosulu_bekle, sayfa_canli, sayfa_durulsun)
 from .ortak import dosya_adi_yap, karsilastir, yaz
 from .sabitler import (BILGI_CAPALARI, DIYALOG_CAPASI, FATURA_YOK_CAPASI,
                        GIB_HATA_METINLERI, KISAYOLLAR, TARIH_DESENI,
@@ -18,11 +18,11 @@ from .sabitler import (BILGI_CAPALARI, DIYALOG_CAPASI, FATURA_YOK_CAPASI,
 
 
 def cerceveler(page):
-    """Sayfanin butun cerceveleri (ekranlar farkli frame'lere dagilmis olabiliyor)."""
-    try:
-        return list(page.frames)
-    except Exception:
-        return []
+    """Aranacak cerceveler: ekranlar farkli frame'lere dagilmis olabiliyor.
+
+    Gizli sekmelerde birikmis eski ekranlar atlanir (bkz. bekleme.gorunur_cerceveler).
+    """
+    return gorunur_cerceveler(page)
 
 
 # --- oge bulma ----------------------------------------------------------------

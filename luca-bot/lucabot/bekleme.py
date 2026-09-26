@@ -48,12 +48,71 @@ DURULMA_JS = """() => {
 
 _bekleyen_istekler = {}  # context -> {istek: baslangic}
 
+# Luca her acilan ekrani gizli bir sekme (iframe) olarak sakliyor; ekran
+# sayisi arttikca her aramada butun cerceveleri taramak adimlari 6 sn'den
+# 20-30 sn'ye cikariyordu. Yalnizca gorunur cercevelere bakilir; sonuc kisa
+# sure onbellekte tutulur (cerceve eklenir/cikarsa hemen yenilenir).
+CERCEVE_TAZELEME_SN = 1.5
+AZ_CERCEVE = 3  # bu kadar ya da daha az cerceve varsa suzmeye gerek yok
+_cerceve_onbellegi = {}  # page -> (zaman, cerceve kimlikleri, gorunur cerceveler)
+
+# Cercevenin kendisi ve butun ust cerceveleri gorunur mu. Luca cerceveleri
+# ayni alan adinda oldugu icin frameElement okunabilir; okunamazsa (farkli
+# alan adi) gorunur sayilir, yani bu suzme hicbir cerceveyi yanlislikla atlamaz.
+CERCEVE_GORUNUR_JS = """() => {
+  let w = window;
+  try {
+    while (w.frameElement) {
+      const e = w.frameElement;
+      if (!(e.offsetParent || e.getClientRects().length)) return false;
+      const r = e.getBoundingClientRect();
+      if (!r.width || !r.height) return false;
+      w = w.parent;
+    }
+  } catch (x) {}
+  return true;
+}"""
+
 
 def sayfa_canli(page):
     try:
         return page is not None and not page.is_closed()
     except Exception:
         return False
+
+
+def gorunur_cerceveler(page):
+    """Sayfanin gorunur cerceveleri (ana cerceve her zaman dahil).
+
+    Gizli sekmelerde kalan eski ekranlar atlanir. Bir cercevenin gorunurlugu
+    okunamazsa o cerceve listede tutulur (guvenli taraf).
+    """
+    try:
+        hepsi = list(page.frames)
+    except Exception:
+        return []
+    if len(hepsi) <= AZ_CERCEVE:
+        return hepsi
+    kimlik = tuple(id(f) for f in hepsi)
+    simdi = time.monotonic()
+    kayit = _cerceve_onbellegi.get(page)
+    if kayit and kayit[1] == kimlik and simdi - kayit[0] < CERCEVE_TAZELEME_SN:
+        return kayit[2]
+    ana = page.main_frame
+    gorunur = [ana]
+    for fr in hepsi:
+        if fr is ana:
+            continue
+        try:
+            if fr.is_detached():
+                continue
+            if fr.evaluate(CERCEVE_GORUNUR_JS) is False:
+                continue
+        except Exception:
+            pass  # yukleniyor / okunamadi: dahil edilir
+        gorunur.append(fr)
+    _cerceve_onbellegi[page] = (simdi, kimlik, gorunur)
+    return gorunur
 
 
 def nabiz(page, ms):
@@ -137,7 +196,7 @@ def bekleyen_istek_var(page):
 def _dom_sessiz_ms(page):
     """Butun cercevelerde son DOM degisikliginden bu yana gecen en kisa sure."""
     en_kisa = None
-    for fr in list(page.frames):
+    for fr in gorunur_cerceveler(page):
         try:
             gecen = fr.evaluate(DURULMA_JS)
         except Exception:

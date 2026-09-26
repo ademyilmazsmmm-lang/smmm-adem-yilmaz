@@ -138,7 +138,7 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
     </div>
   </span>
 </div>
-<iframe id="ekran" name="ekran" src="about:blank" style="width:100%;height:600px;border:0"></iframe>
+<div id="sekmeler"></div>
 <script>
  const firma = document.getElementById('firma'), donem = document.getElementById('donem');
  const onay = document.getElementById('onay');
@@ -154,7 +154,7 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
      seciliFirma = firma.value;
      if (yeni) donem.selectedIndex = (seciliFirma === ESKI) ? 1 : 0;
      document.title = seciliFirma + ' [ ' + donem.value.slice(-4) + ' ]';
-     document.getElementById('ekran').src = 'about:blank';
+     document.getElementById('sekmeler').innerHTML = '';  // firma degisince sekmeler kapanir
    });
  };
  document.getElementById('modul').onclick = () =>
@@ -166,7 +166,13 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
    document.getElementById('modulMenu').classList.add('gizli');
    document.getElementById('aenMenu').classList.add('gizli');
    sonra(300, () => {
-     document.getElementById('ekran').src = '/ekran?tip=' + a.dataset.tip
+     // gercek Luca gibi: her ekran yeni bir sekmede (iframe) acilir, eskiler gizlenip kalir
+     const sekmeler = document.getElementById('sekmeler');
+     sekmeler.querySelectorAll('div.sekme').forEach(d => d.style.display = 'none');
+     const d = document.createElement('div'); d.className = 'sekme';
+     d.innerHTML = '<iframe style="width:100%;height:600px;border:0"></iframe>';
+     sekmeler.appendChild(d);
+     d.firstChild.src = '/ekran?tip=' + a.dataset.tip
        + '&firma=' + encodeURIComponent(seciliFirma) + '&t=' + Date.now();
    });
  });
@@ -200,8 +206,8 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
        + f.tarih+'</td><td>'+f.tip+'</td><td>'+f.matrah+'</td><td>'+f.kdv+'</td><td>'+f.durum+'</td>';
      tb.appendChild(tr);
    }
-   document.getElementById('sayac').textContent = liste.length
-     ? '1 / 1 (Toplam Kayıt Sayısı: ' + liste.length + ')' : '';
+   // gercek Luca gibi: liste bos da olsa kayit sayisi yazar
+   document.getElementById('sayac').textContent = '1 / 1 (Toplam Kayıt Sayısı: ' + liste.length + ')';
    return liste.length;
  }
  function secili(){ return [...document.querySelectorAll('#liste tbody input:checked')].length; }

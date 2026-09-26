@@ -206,5 +206,18 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertTrue(all(len(f) == 3 and f[2] for f in sonuc["faturalar"]))  # tutarlar dolu
 
 
+    def test_gizli_sekmelerdeki_cerceveler_taranmaz(self):
+        """Luca'nin gizli sekmelerinde biriken eski ekranlar aramaya girmemeli."""
+        from lucabot.luca_ekran import cerceveler, gorunur_mu
+        gizli = "".join(f'<iframe srcdoc="<button>GİB den Getir {i}</button>"></iframe>' for i in range(4))
+        acik = '<iframe srcdoc="<button>Aktif ekran</button>"></iframe>'
+        self.page.set_content(f'<div style="display:none">{gizli}</div><div>{acik}</div>')
+        self.page.wait_for_timeout(300)
+        self.assertEqual(len(self.page.frames), 6)
+        self.assertEqual(len(cerceveler(self.page)), 2)  # ana cerceve + gorunur sekme
+        self.assertTrue(gorunur_mu(self.page, "Aktif ekran", sure=500))
+        self.assertFalse(gorunur_mu(self.page, "GİB den Getir 1", sure=500))
+
+
 if __name__ == "__main__":
     unittest.main()
