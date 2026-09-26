@@ -69,7 +69,8 @@ def ortusen_grubu(belge_tipi):
 # kotu durum once gelsin; firmanin genel durumu bunlarin en kotusudur
 # Once gercek sorunlar. "fatura yok" en sona yakin: bir ekranda fatura
 # bulunmamasi, digerinde fatura inen firmayi "fatura yok" gostermemeli.
-DURUM_ONCELIGI = ["hata", "dosya inmedi", "kaynaktan inmedi", "donem disi",
+DURUM_ONCELIGI = ["hata", "ekran acilmadi", "dosya inmedi", "excel inmedi", "kaynaktan inmedi",
+                  "donem disi",
                   "atlandi", "tamam (excel", "tamam", "fatura yok", "bekliyor"]
 
 BASLIKLAR = (["Firma", "Dönem", "Durum", "Aksiyon"]
@@ -269,6 +270,10 @@ def _aksiyon(kayit):
         isler.append("EXCEL/IPTAL EKSIK - belgeler indi, ikinci turda tamamla")
     if durum.startswith("dosya inmedi"):
         isler.append("DOSYA INMEDI - tekrar calistir")
+    if durum.startswith("excel inmedi"):
+        isler.append("EXCEL INMEDI - tekrar calistir (tevkifat/tutar kontrol edilemedi)")
+    if durum.startswith("ekran acilmadi"):
+        isler.append("EKRAN ACILMADI - firmada bu ekran var mi kontrol edin")
     if durum.startswith("atlandi"):
         isler.append("ELLE INDIR - cok fatura, e-fatura portalinden indirin")
     if sum(kayit["inmeyen"].values()):

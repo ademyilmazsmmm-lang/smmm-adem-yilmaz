@@ -56,7 +56,7 @@ def ekran_sonucu(sonuc, log=None):
     """Bir ekranin tek satirlik sonucu: '  [OK] e-Arşiv Alış: 12 fatura, 2 dosya (48 sn)'."""
     durum = sonuc.get("durum", "")
     ad = BELGE_TIPLERI.get(sonuc.get("belge_tipi"), sonuc.get("belge_tipi", ""))
-    if durum.startswith("tamam"):
+    if durum == "tamam":
         etiket = "[OK]"
     elif durum in ("fatura yok", "donem disi") or durum.startswith("atlandi"):
         etiket = "[--]"

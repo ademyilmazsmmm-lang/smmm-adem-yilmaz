@@ -233,5 +233,34 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertEqual(len(self.ctx.pages), 1)  # yalnizca Luca sekmesi kaldi
 
 
+    def test_yavas_excel_beklenir_ikinci_istek_gitmez(self):
+        """Luca Excel'i 70 sn'de hazirlasa da beklenir; kisayolla ikinci Excel istenmez."""
+        from lucabot.ekran_isleyici import firma_isle
+        from lucabot.ortak import AYAR
+        sahte_luca.sifirla()
+        sahte_luca.SAYAC["excel_gecikme"] = 70
+        AYAR.update(azami_saniye=120, durgunluk_saniye=60, indirme_saniye=15)
+        araliklar = tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("05/08/2026"))
+        log = self.klasor / "calisma.log"
+        sonuc = firma_isle(self.page, "AKIN COBAN", "e-fatura-alis", araliklar, self.klasor, log)
+        self.assertEqual(sonuc["durum"], "tamam")
+        self.assertIn("liste_faturalar.xlsx", sonuc["dosyalar"])
+        self.assertEqual(sahte_luca.SAYAC["excel"], 1)
+        self.assertIn("hazirliyor", log.read_text(encoding="utf-8"))
+
+
+    def test_ekran_acilmazsa_fatura_yok_denmez(self):
+        """Ekranin kendi butonu hic gorunmediyse sonuc 'fatura yok' degil 'ekran acilmadi'."""
+        from lucabot.ekran_isleyici import firma_isle
+        from lucabot.ortak import AYAR, ekran_tamamlanmis_mi
+        sahte_luca.sifirla()
+        AYAR.update(azami_saniye=60, durgunluk_saniye=30, indirme_saniye=10)
+        araliklar = tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("05/08/2026"))
+        sonuc = firma_isle(self.page, "MERT INSAAT", "esmm-alis", araliklar, self.klasor,
+                           self.klasor / "calisma.log")
+        self.assertEqual(sonuc["durum"], "ekran acilmadi")
+        self.assertFalse(ekran_tamamlanmis_mi(sonuc["durum"]))  # [D]evam'da tekrar denenir
+
+
 if __name__ == "__main__":
     unittest.main()

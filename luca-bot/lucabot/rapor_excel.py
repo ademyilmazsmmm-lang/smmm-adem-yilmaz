@@ -34,6 +34,10 @@ NE_YAPMALI = [
     ("hata", "Programı tekrar çalıştırın ([D]evam seçeneği yalnızca bu ekranları dener)."
              " Tekrarlarsa ekran görüntüsünü gönderin."),
     ("dosya inmedi", "Tekrar çalıştırın; belge paketi inmedi."),
+    ("excel inmedi", "Tekrar çalıştırın ([D]evam); Excel inmediği için tevkifat ve tutarlar eksik."),
+    ("tamam (excel eksik)", "Belgeler indi, Excel inmedi; tekrar çalıştırın ([D]evam)."),
+    ("ekran acilmadi", "Ekran menüden açılamadı; firmada bu ekran/modül var mı bakın,"
+                       " yoksa firmalar.xlsx'te bu ekrana X koyun."),
     ("kaynaktan inmedi", "GİB kaynağı yanıt vermedi; bir süre sonra tekrar sorgulayın."),
     ("tamam (iptal eksik)", "Belgeler indi, iptal/itiraz ve Excel eksik; tekrar çalıştırın."),
     ("bekliyor", "Çalışma bu firmaya gelmeden durdu; tekrar çalıştırın."),
@@ -58,7 +62,7 @@ def _ne_yapmali(durum, not_metni=""):
 
 def _durum_grubu(durum):
     durum = durum or ""
-    if durum == "tamam (iptal eksik)":
+    if durum in ("tamam (iptal eksik)", "tamam (excel eksik)"):
         return "sorunlu"
     if durum.startswith("tamam"):
         return "basarili"

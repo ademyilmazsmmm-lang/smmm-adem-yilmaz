@@ -15,6 +15,7 @@ import io
 import json
 import sys
 import threading
+import time
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -41,7 +42,7 @@ AEN_EKRANLARI = {
 # sunucu tarafi durum: (firma, tip) -> {"sorgulandi": bool, "iptal": bool}
 DURUM = {}
 # urun seciminde uygulama penceresinin kac kez acildigi (cift tiklama testi icin)
-SAYAC = {"sso": 0, "ilk_bos": False, "gib_hatasi": 0}
+SAYAC = {"sso": 0, "ilk_bos": False, "gib_hatasi": 0, "excel": 0, "excel_gecikme": 0}
 
 # gercek Luca'da goruldu (26/09/2026); gecici, ayni sorgu tekrarlaninca geciyor
 GIB_HATA_METNI = ("GİB e-Arşiv Sistemi Hata Mesajı:Doğrulama hatası Internet vergi dairesinden"
@@ -329,6 +330,8 @@ class Isleyici(BaseHTTPRequestHandler):
         if yol == "/ekran":
             baslik = next((ad for ad, t in AEN_EKRANLARI.items() if t == tip), "E-Arşiv Faturaları Sorgulama")
             arac = INTERAKTIF_ARAC if tip == "e-arsiv-interaktif" else AEN_ARAC
+            if firma == "MERT INSAAT" and tip == "esmm-alis":
+                arac = "<i>Bu modul firmada tanimli degil</i>"  # ekran bos gelir
             html = (EKRAN.replace("__BASLIK__", baslik).replace("__ARAC__", arac)
                     .replace("__TIP__", tip).replace("__FIRMA__", firma)
                     .replace("__FATURASIZ__", FATURASIZ))
@@ -340,6 +343,10 @@ class Isleyici(BaseHTTPRequestHandler):
         if yol == "/api/liste":
             return self._yanit(json.dumps(gorunen_faturalar(firma, tip)), "application/json")
         if yol == "/indir/excel":
+            with KILIT:
+                SAYAC["excel"] += 1
+                gecikme = SAYAC["excel_gecikme"]
+            time.sleep(gecikme)  # buyuk listede Luca Excel'i dakikalarca hazirlayabiliyor
             return self._yanit(excel_bayt(firma, tip),
                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                {"Content-Disposition": 'attachment; filename="faturalar.xlsx"'})
@@ -372,7 +379,7 @@ def baslat(port=0):
 def sifirla():
     with KILIT:
         DURUM.clear()
-        SAYAC.update(sso=0, ilk_bos=False, gib_hatasi=0)
+        SAYAC.update(sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0)
 
 
 if __name__ == "__main__":

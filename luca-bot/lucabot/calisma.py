@@ -68,7 +68,7 @@ def ozetle(sonuclar, sure=0):
             en_yuksek(tevkifat, anahtar, s.get("tevkifat"))
         en_yuksek(iptal, anahtar, s.get("iptal_itiraz"))
         durum = s.get("durum", "")
-        if durum.startswith("tamam"):
+        if durum.startswith("tamam") and "eksik" not in durum:
             oz.basarili += 1
         elif durum == "fatura yok":
             oz.bos += 1

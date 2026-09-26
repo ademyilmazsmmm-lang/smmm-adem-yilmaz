@@ -78,6 +78,8 @@ class EkranIsleyici:
         self.fr = None          # listenin bulundugu cerceve
         self.kalan_hata = 0     # GIB'de olup kaynaktan inmeyen fatura
         self.excel_alindi = False
+        self.excel_bekleniyor = False  # Excel indirilmeye calisildi mi
+        self.ekran_acildi = True
         self.tevkifatlilar = []
         self.ekran_tevkifat = set()
 
@@ -104,6 +106,12 @@ class EkranIsleyici:
             if not self._firma_ve_donem():
                 return self.sonuc
             self._ekrani_ac()
+            if not self.ekran_acildi:
+                # bilinmeyen bir ekranda sorgu/onay butonlarina basmak tehlikeli
+                # (baska bir islevin "Uygula"sina tiklaniyordu); ekran birakilir
+                self.sonuc["durum"] = "ekran acilmadi"
+                self.sonuc["not"] = "menuden ekran acilamadi; firmada bu ekran/modul var mi?"
+                return self.sonuc
             self._gibden_sorgula()
             self._listeyi_oku()
             self._liste_okunamadiysa_excel()
@@ -123,12 +131,24 @@ class EkranIsleyici:
             self._iptal_itiraz()
             self._exceli_indir(satir_sayisi)
 
-            # belge paketi inmediyse firma tamamlanmis sayilmaz; ozette goze carpsin
-            self.sonuc["durum"] = ("tamam" if (self.interaktif or self.sadece_excel
-                                               or self.sonuc["dosyalar"]) else "dosya inmedi")
+            self.sonuc["durum"] = self._son_durum()
             return self.sonuc
         finally:
             self.sonuc["sure"] = round(time.time() - basla, 1)
+
+    def _son_durum(self):
+        """Indirilen dosyalara gore ekranin durumu.
+
+        Belge paketi (zip) inmediyse "dosya inmedi". Excel (tevkifat, iptal,
+        matrah/KDV'nin kaynagi) inmediyse ekran tamam sayilmaz; sonraki
+        calistirmada [D]evam secilince bu ekran yeniden denenir.
+        """
+        excel_yok = self.excel_bekleniyor and not self.excel_alindi
+        if self.interaktif or self.sadece_excel:
+            return "excel inmedi" if excel_yok else "tamam"
+        if not self.sonuc["dosyalar"]:
+            return "dosya inmedi"
+        return "tamam (excel eksik)" if excel_yok else "tamam"
 
     # 1. firma ve donem
     def _firma_ve_donem(self):
@@ -155,8 +175,11 @@ class EkranIsleyici:
     def _ekrani_ac(self):
         self._yaz("    Menuye gidiliyor")
         basla = time.time()
-        menuye_git(self.page, self.tip)
+        self.ekran_acildi = menuye_git(self.page, self.tip)
         gecen = time.time() - basla
+        if not self.ekran_acildi:
+            self._yaz("    UYARI: ekranin kendi butonu gorunmedi; ekran acilmamis olabilir"
+                      " (firmada bu modul yok mu?)")
         if gecen > 5:  # nerede beklendigi gunlukten anlasilsin
             self._yaz(f"    Menu {int(gecen)} sn'de acildi")
         # Ekranda hic fatura yoksa Luca acilista "Her hangi bir fatura bulunamadi"
@@ -402,9 +425,13 @@ class EkranIsleyici:
             if not hepsini_sec(page, self.fr, guncel_sayi):
                 self._yaz("    UYARI: Faturalar secilemedi")
             sayfa_durulsun(page, azami_ms=3000)
+        # buyuk listelerde Luca Excel'i gec hazirliyor; sure satir sayisiyla artar
+        sure = max(AYAR["indirme_saniye"], 60) + int(guncel_sayi * 0.3)
+        self.excel_bekleniyor = True
         yol = dosya_indir(page, "Excel", self.klasor, "liste", self.log,
-                          azami_saniye=max(AYAR["indirme_saniye"], 60), pencere_acilir=False)
+                          azami_saniye=sure, pencere_acilir=False)
         if yol:
+            self.excel_alindi = True
             self.sonuc["dosyalar"].append(yol.name)
             # Excel iptal/itiraz ve tevkifat sutunlarini icerdigi icin her iki
             # ekranda da asil kaynak odur; ekran kazima yalnizca yedek

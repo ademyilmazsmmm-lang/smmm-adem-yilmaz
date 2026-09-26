@@ -332,10 +332,13 @@ def ekran_hazir_bekle(page, isaret, onceki_imza=None, azami=6000):
 
 
 def _ekrana_gec(page, madde, isaret, azami):
+    """Menu maddesine tiklar; ekranin kendi butonu gorunduyse True."""
     onceki_imza = _cerceve_imzasi(page)
     madde.click(timeout=8000)
-    if not ekran_hazir_bekle(page, isaret, onceki_imza, azami=azami):
-        sayfa_durulsun(page, azami_ms=3000)
+    if ekran_hazir_bekle(page, isaret, onceki_imza, azami=azami):
+        return True
+    sayfa_durulsun(page, azami_ms=3000)
+    return gorunur_mu(page, isaret, sure=1000)
 
 
 def modul_menusunden_git(page, hedef, isaret=None):
@@ -349,13 +352,16 @@ def modul_menusunden_git(page, hedef, isaret=None):
         except LookupError:
             sayfa_durulsun(page, azami_ms=1000)
             continue
-        _ekrana_gec(page, madde, isaret or hedef, azami=8000)
-        return
+        return _ekrana_gec(page, madde, isaret or hedef, azami=8000)
     raise LookupError(f"'{hedef}' menu maddesi bulunamadi. Gorunen menuler: {menu_metinleri(page)}")
 
 
 def menuye_git(page, belge_tipi):
-    """Belge tipinin ekranini menuden acar; ekran hazir olunca doner."""
+    """Belge tipinin ekranini menuden acar.
+
+    Ekranin kendi butonu (GİB'den Getir / Listele) gorunduyse True; menu
+    tiklandi ama ekran gelmediyse False (orn. firmada o modul yok).
+    """
     hedef = BELGE_TIPLERI[belge_tipi]
     # Ekran acildiginda mutlaka gorunen buton: bekleme bunu gorunce biter
     isaret = INTERAKTIF_LISTELE if belge_tipi in IKI_KADEMELI else GIB_GETIR
@@ -386,4 +392,4 @@ def menuye_git(page, belge_tipi):
 
     if alt is None:
         raise LookupError(f"'{hedef}' menu maddesi bulunamadi. Gorunen menuler: {menu_metinleri(page)}")
-    _ekrana_gec(page, alt, isaret, azami=6000)
+    return _ekrana_gec(page, alt, isaret, azami=6000)

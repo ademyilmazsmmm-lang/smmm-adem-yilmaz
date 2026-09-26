@@ -34,6 +34,7 @@ AYAR = {
     "giris_adresi": None,       # yalnizca test icin (sahte Luca); bos ise gercek Luca
     "tarayici_yolu": None,      # Playwright Chromium yerine belirli bir chrome.exe (istege bagli)
     "tarayici_sandbox": True,   # yalnizca test ortami (Linux/root) icin kapatilir
+    "excel_azami_saniye": 600,  # Luca buyuk Excel'i hazirlarken en fazla bu kadar beklenir
 }
 
 TARIH_BICIMI = "%d/%m/%Y"
@@ -189,5 +190,7 @@ def ekran_tamamlanmis_mi(durum):
     "kaynaktan inmedi" gercek basarisizlik oldugu icin tamamlanmis sayilmaz;
     calisma yeniden baslayinca o ekranlar tekrar denenir.
     """
+    if durum in ("tamam (excel eksik)", "tamam (iptal eksik)"):
+        return False  # belgeler indi ama eksik kaldi: yeniden denenir
     return bool(durum) and (durum.startswith("tamam") or durum.startswith("atlandi")
                              or durum in ("fatura yok", "donem disi"))

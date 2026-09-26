@@ -57,11 +57,28 @@ class _DosyaYakalayici:
         self.yakala = yakala
         self.alinan = {}
         self.inenler = []
+        self.suren = 0  # yaniti henuz gelmemis istek sayisi (Luca dosyayi hazirliyor olabilir)
+
+    def suren_istek_var(self):
+        return self.suren > 0
+
+    def yeni_sekme_acildi(self):
+        try:
+            return any(p not in self.onceki_sekmeler for p in self.ctx.pages)
+        except Exception:
+            return False
 
     # route: her istek once buradan gecer
     def _yonlendir(self, route):
+        self.suren += 1
         try:
-            yanit = route.fetch()
+            self._yonlendir_ic(route)
+        finally:
+            self.suren -= 1
+
+    def _yonlendir_ic(self, route):
+        try:
+            yanit = route.fetch(timeout=0)  # buyuk Excel'ler dakikalarca surebiliyor
         except Exception:
             try:
                 route.continue_()
@@ -175,6 +192,25 @@ def _dosyayi_bekle(page, yakalayici, sure_sn, onceki_uyarilar=frozenset()):
     return durum["uyari"]
 
 
+def _hazirlanan_dosyayi_bekle(page, yakalayici, dugme_metni, log):
+    """Sure doldu ama Luca'ya giden istek hala suruyorsa (buyuk Excel hazirlaniyor) bekler.
+
+    500 faturalik bir Excel'in hazirlanmasi 1 dakikayi gecebiliyor; eskiden
+    bot bu sirada vazgecip kisayolla ikinci bir Excel istiyor ve sonraki
+    ekrana geciyordu. En gec AYAR["excel_azami_saniye"] kadar beklenir.
+    """
+    if yakalayici.geldi() or not yakalayici.suren_istek_var():
+        return
+    azami = AYAR.get("excel_azami_saniye") or 600
+    yaz(f"    Luca '{dugme_metni}' dosyasini hazirliyor, bekleniyor (en fazla {azami // 60} dk)...", log)
+    basla = time.monotonic()
+    while time.monotonic() - basla < azami:
+        if kosulu_bekle(page, lambda: yakalayici.geldi() or not yakalayici.suren_istek_var(),
+                        30000, aralik_ms=500):
+            return
+        yaz(f"    ... dosya hazirlaniyor ({int(time.monotonic() - basla)} sn)", log)
+
+
 def dosya_indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30,
                 pencere_acilir=True):
     """Indirme akisi: arac cubugu butonu -> (pencerede 'tum faturalar' -> indir) -> dosya.
@@ -214,10 +250,14 @@ def dosya_indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30,
             # onay penceresi acilip tiklanamadiysa dosya gelmeyecek; bosuna beklenmez
             sure = 5 if (pencere is not None and not onay) else azami_saniye
             uyari = _dosyayi_bekle(page, yakalayici, sure, onceki_uyarilar)
+            if not uyari:
+                _hazirlanan_dosyayi_bekle(page, yakalayici, dugme_metni, log)
 
-            # tiklama gectigi halde dosya gelmediyse butonun kendi kisayolu denenir
+            # tiklama hic tutmadiysa (istek gitmedi, sekme acilmadi) butonun kendi
+            # kisayolu denenir; istek gittiyse ikinci bir dosya istenmez
             kisayol = KISAYOLLAR.get(dugme_metni)
-            if kisayol and not uyari and not yakalayici.geldi():
+            if (kisayol and not uyari and not yakalayici.geldi()
+                    and not yakalayici.suren_istek_var() and not yakalayici.yeni_sekme_acildi()):
                 yaz(f"    Dosya gelmedi, '{dugme_metni}' kisayolu deneniyor ({kisayol})", log)
                 try:
                     page.keyboard.press(kisayol)
