@@ -29,9 +29,12 @@ SUTUNLAR = [
 
 # Tevkifat uyarisi yalnizca ALIS ekranlarindan uretilir: KDV2 beyani alis
 # faturalarindaki tevkifat icin verilir, satis tarafindaki tevkifat bu beyana
-# girmedigi icin raporu ve e-postayi bosuna dolduruyordu.
+# girmedigi icin raporu ve e-postayi bosuna dolduruyordu. GIB 5000/30000 satis
+# ekranidir (bkz. SATIS_EKRANLARI / ORTUSEN_GRUPLARI): o ekranda gorulen
+# "tevkifat" ibaresi bu firmanin sattigi ve tevkifata tabi bir faturaya ait
+# olabilir, KDV2'yi ilgilendirmez; bu yuzden burada YER ALMAZ.
 TEVKIFAT_EKRANLARI = {"e-arsiv-alis", "e-arsiv-interaktif", "e-fatura-alis",
-                      "gib-5000", "turmob-alis", "esmm-alis"}
+                      "turmob-alis", "esmm-alis"}
 
 # Alis/satis toplam KDV ve matrah buradan hesaplanir. e-arsiv-interaktif
 # kasten disarida: e-arsiv-alis ile ayni faturalari gosterir, ikisini de

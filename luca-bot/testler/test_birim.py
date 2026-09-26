@@ -264,6 +264,18 @@ class RaporTestleri(unittest.TestCase):
             kayitlar = json.loads((klasor / "rapor.json").read_text(encoding="utf-8"))
             self.assertTrue(kayitlar["A"]["guncellenme"]["e-arsiv-alis"].startswith(bugun))
 
+    def test_gib5000_tevkifati_alisa_sayilmaz(self):
+        """GIB 5000/30000 satis ekranidir; oradaki 'tevkifat' ibaresi KDV2'yi ilgilendirmez,
+        Tevkifatli Alis sayisina/aksiyonuna karismamali (bkz. TEVKIFAT_EKRANLARI)."""
+        with tempfile.TemporaryDirectory() as d:
+            klasor = Path(d)
+            rapor.guncelle(klasor, [self._sonuc("A", "gib-5000", durum="tamam",
+                                                 fatura_sayisi=5, tevkifat=5)], [], "gib-5000")
+            kayitlar = json.loads((klasor / "rapor.json").read_text(encoding="utf-8"))
+            self.assertEqual(kayitlar["A"]["tevkifat"]["gib-5000"], 0)
+            isler = rapor._aksiyon(kayitlar["A"])
+            self.assertFalse(any("TEVKIFAT" in i for i in isler))
+
     def test_eposta_metni(self):
         sonuclar = [self._sonuc("A", "e-arsiv-alis", durum="tamam", fatura_sayisi=3, tevkifat=2),
                     self._sonuc("B", "esmm-alis", durum="tamam", fatura_sayisi=1)]
