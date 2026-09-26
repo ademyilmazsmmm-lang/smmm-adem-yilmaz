@@ -274,5 +274,95 @@ class RaporTestleri(unittest.TestCase):
         self.assertNotIn("*", metin)
 
 
+class GecisAraciTestleri(unittest.TestCase):
+    """gecis_rapor_birlestir.py: eski gunluk rapor.json'lari tek surekli rapora birlestirir."""
+
+    def setUp(self):
+        import gecis_rapor_birlestir
+        self.arac = gecis_rapor_birlestir
+
+    def test_eski_gunler_ve_mevcut_rapor_birlesir(self):
+        with tempfile.TemporaryDirectory() as d:
+            kok = Path(d) / "indirilenler"
+            (kok / "2026-09-24").mkdir(parents=True)
+            (kok / "2026-09-25").mkdir(parents=True)
+            # eski format: "guncellenme" alani yok (ozellik eklenmeden once yazilmis kayitlar boyle)
+            (kok / "2026-09-24" / "rapor.json").write_text(json.dumps({
+                "AKIN COBAN": {"firma": "AKIN COBAN", "donem": "01/08/2026-31/08/2026",
+                              "durumlar": {"e-arsiv-alis": "tamam", "e-fatura-alis": "fatura yok"},
+                              "sayilar": {"e-arsiv-alis": 3, "e-fatura-alis": 0},
+                              "iptal": {"e-arsiv-alis": 1}, "tevkifat": {"e-arsiv-alis": 1},
+                              "inmeyen": {}, "faturalar": {}, "dosya": 2, "not": "",
+                              "son": "24/09/2026 10:00", "matrah": {"e-arsiv-alis": 1000},
+                              "kdv": {"e-arsiv-alis": 200}},
+                "ESKI FIRMA": {"firma": "ESKI FIRMA", "durumlar": {"e-arsiv-alis": "fatura yok"},
+                              "sayilar": {"e-arsiv-alis": 0}, "son": "24/09/2026 10:05"},
+            }), encoding="utf-8")
+            (kok / "2026-09-25" / "rapor.json").write_text(json.dumps({
+                "AKIN COBAN": {"firma": "AKIN COBAN", "donem": "01/08/2026-31/08/2026",
+                              "durumlar": {"e-fatura-satis": "tamam"},
+                              "sayilar": {"e-fatura-satis": 5}, "son": "25/09/2026 11:00",
+                              "matrah": {"e-fatura-satis": 400}, "kdv": {"e-fatura-satis": 80}},
+            }), encoding="utf-8")
+            # mevcut SUREKLI rapor (yeni koddan, "guncellenme" VAR): AKIN COBAN'in e-arsiv-alis'i
+            # bugun tekrar calisip 5 fatura bulmus - en guncel deger bu olmali
+            sonuc = yeni_sonuc("AKIN COBAN", "e-arsiv-alis")
+            sonuc.update(durum="tamam", fatura_sayisi=5, matrah=1500, kdv=300)
+            rapor.guncelle(kok, [sonuc], [], "e-arsiv-alis")
+
+            self.assertEqual(self.arac.main.__module__, "gecis_rapor_birlestir")
+            gunler = self.arac._gunluk_klasorler(kok)
+            self.assertEqual([g.name for g in gunler], ["2026-09-24", "2026-09-25"])
+
+            birlesik = {}
+            for gun in gunler:
+                self.arac._kaydi_birlestir(birlesik, self.arac._veriyi_oku(gun / "rapor.json"), gun.name)
+            self.arac._kaydi_birlestir(birlesik, self.arac._veriyi_oku(kok / "rapor.json"), None)
+
+            akin = birlesik["AKIN COBAN"]
+            # bugunku (surekli rapordan gelen) deger onceki gunlerin verisini gecmeli
+            self.assertEqual(akin["sayilar"]["e-arsiv-alis"], 5)
+            self.assertEqual(akin["matrah"]["e-arsiv-alis"], 1500)
+            # sadece gecmis gunlerde olan ekranlar korunmali
+            self.assertEqual(akin["sayilar"]["e-fatura-alis"], 0)
+            self.assertEqual(akin["sayilar"]["e-fatura-satis"], 5)
+            # eski kayitta "guncellenme" yoktu; firma-geneli "son" alanindan turetilmis olmali
+            self.assertEqual(akin["guncellenme"]["e-fatura-alis"], "24/09/2026 10:00")
+            self.assertEqual(akin["guncellenme"]["e-fatura-satis"], "25/09/2026 11:00")
+            self.assertIn("ESKI FIRMA", birlesik)
+
+    def test_birlestirme_dosyayi_yedekler_ve_eskiye_dokunmaz(self):
+        with tempfile.TemporaryDirectory() as d:
+            kok = Path(d) / "indirilenler"
+            gun = kok / "2026-09-24"
+            gun.mkdir(parents=True)
+            (gun / "rapor.json").write_text(json.dumps({
+                "A": {"firma": "A", "durumlar": {"e-arsiv-alis": "tamam"},
+                     "sayilar": {"e-arsiv-alis": 1}, "son": "24/09/2026 10:00"},
+            }), encoding="utf-8")
+            rapor.guncelle(kok, [yeni_sonuc("B", "e-arsiv-alis")], [], "e-arsiv-alis")
+            eski_icerik = (gun / "rapor.json").read_text(encoding="utf-8")
+
+            (Path(d) / "ayarlar.json").write_text(json.dumps({"indirme_klasoru": str(kok)}),
+                                                  encoding="utf-8")
+            import os
+            onceki = os.environ.get("LUCA_BOT_AYAR")
+            os.environ["LUCA_BOT_AYAR"] = str(Path(d) / "ayarlar.json")
+            try:
+                self.assertEqual(self.arac.main(), 0)
+            finally:
+                if onceki is None:
+                    os.environ.pop("LUCA_BOT_AYAR", None)
+                else:
+                    os.environ["LUCA_BOT_AYAR"] = onceki
+
+            self.assertEqual((gun / "rapor.json").read_text(encoding="utf-8"), eski_icerik)
+            yedekler = [p for p in kok.iterdir() if p.name.startswith("rapor-birlestirme-oncesi")]
+            self.assertEqual(len(yedekler), 1)
+            self.assertTrue((yedekler[0] / "rapor.json").exists())
+            birlesik = json.loads((kok / "rapor.json").read_text(encoding="utf-8"))
+            self.assertEqual(set(birlesik), {"A", "B"})
+
+
 if __name__ == "__main__":
     unittest.main()

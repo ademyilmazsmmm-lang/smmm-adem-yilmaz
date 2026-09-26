@@ -39,6 +39,7 @@ python -m playwright install chromium
 | `edge-ile-calistir.bat` | Chrome indirme sırasında çöküyorsa Edge ile çalıştırır |
 | `gece-calistir.bat` | Tüm firmalar için çalışır, iş bitince tarayıcıyı kendisi kapatır (gece bırakıp gitmek için) |
 | `luca-giris.bat` | **Fatura çekme botuyla ilgisi yok:** `ayarlar.json`'daki bilgilerle Luca'ya tek tıkla otomatik giriş yapar, tarayıcıyı açık bırakır. Aynı klasörü (ya da OneDrive ile bu dosyayı) ofis ve ev bilgisayarına koyup ikisinde de kullanabilirsiniz; Chrome'u kapatınca pencere kendiliğinden kapanır |
+| `gecis-rapor-birlestir.bat` | **Bir kereye mahsus:** eskiden her gün ayrı çıkan `indirilenler\GG-AA-YYYY\rapor.xlsx` dosyalarını, şimdiki tek ve sürekli `indirilenler\rapor.xlsx`'e birleştirir. Eski günlük dosyalara dokunmaz, üzerine yazmadan önce mevcut raporu yedekler |
 
 ## Ayarlar (`ayarlar.json`)
 
