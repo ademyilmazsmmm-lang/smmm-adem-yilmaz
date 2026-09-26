@@ -160,17 +160,19 @@ Ekranda dört adım başlığı görürsünüz:
 
 ```
 indirilenler/
-  2026-09-18/
+  rapor.xlsx                   → TEK ve SÜREKLİ TOPLU RAPOR: Özet, Firma Durumu, İndirilen
+                                  Faturalar, Dosyalar, Hatalar (her çalışmada güncellenir)
+  rapor.csv                    → aynı raporun CSV hâli
+  rapor.json                   → raporun ara/ham verisi (elle düzenlenmez)
+  ozet.csv                     → tüm firmaların durumu; her firmadan sonra güncellenir
+  kalan-firmalar.txt           → henüz işlenmemiş firmalar (kaldığı yerden devam için)
+  2026-09-18/                  → o günkü çalışmanın indirdiği dosyalar ve günlüğü
     AKIN COBAN/
       e-arsiv-alis/
         liste.csv              → ekrandaki fatura listesi
         belgeler_....zip       → Seçilenleri İndir çıktısı
         liste_....xls          → Luca'nın Excel çıktısı (iptal/itiraz sorgusundan sonraki hâli)
         iptal-itiraz.csv       → sadece iptal/itiraz edilmiş faturalar (varsa)
-    rapor.xlsx                 → TOPLU RAPOR: Özet, Firma Durumu, İndirilen Faturalar, Dosyalar, Hatalar
-    rapor.csv                  → aynı raporun CSV hâli
-    ozet.csv                   → tüm firmaların durumu; her firmadan sonra güncellenir
-    kalan-firmalar.txt         → henüz işlenmemiş firmalar (kaldığı yerden devam için)
     calisma.log                → zaman damgalı çalışma kaydı
     hatalar/                   → hata olursa ekran görüntüsü ve sayfa kaydı (Hatalar sayfasından tıklanır)
 ```
@@ -180,8 +182,10 @@ Bir ekranda hata olursa bot durmaz; hatayı rapora yazıp sıradaki ekrana/firma
 
 ## Toplu rapor (`rapor.xlsx`)
 
-Günün klasöründe tutulur ve **her firmadan sonra güncellenir**; aynı gün farklı ekranlarla
-çalıştırdıkça aynı rapor büyür. E-postaya da bu dosya eklenir. Sayfaları:
+**Tek bir dosyadır** — `indirilenler/rapor.xlsx` — günlük değildir: hangi gün, hangi ay için
+çalıştırırsanız çalıştırın aynı dosya güncellenir, ayrı ayrı rapor birikmez. **Her firmadan
+sonra kaydedilir**. İndirilen dosyaların kendisi (Excel/zip) yine günün klasöründe kalır;
+sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 
 | Sayfa | İçerik |
 | --- | --- |

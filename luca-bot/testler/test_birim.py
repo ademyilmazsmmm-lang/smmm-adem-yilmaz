@@ -175,15 +175,28 @@ class FirmaListesiTestleri(unittest.TestCase):
             self.assertTrue(bos.bos_sebep)
 
     def test_bugun_tamamlananlar(self):
+        bugun = date.today().strftime("%d/%m/%Y") + " 10:00"
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "rapor.json").write_text(json.dumps({
-                "A": {"durumlar": {"e-arsiv-alis": "tamam", "gib-5000": "hata: X"}},
-                "B": {"durumlar": {"e-arsiv-alis": "bekliyor"}},
+                "A": {"durumlar": {"e-arsiv-alis": "tamam", "gib-5000": "hata: X"},
+                     "guncellenme": {"e-arsiv-alis": bugun, "gib-5000": bugun}},
+                "B": {"durumlar": {"e-arsiv-alis": "bekliyor"}, "guncellenme": {"e-arsiv-alis": bugun}},
             }), encoding="utf-8")
             self.assertEqual(bugun_tamamlananlar(d, ["e-arsiv-alis", "gib-5000"]),
                              {"A": {"e-arsiv-alis"}})
             self.assertTrue(ekran_tamamlanmis_mi("fatura yok"))
             self.assertFalse(ekran_tamamlanmis_mi("kaynaktan inmedi"))
+
+    def test_bugun_tamamlananlar_surekli_raporda_gecmis_gunler_sayilmaz(self):
+        """Rapor artik gunluk degil surekli; gecen ayin 'tamam'i bugun sayilmamali."""
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "rapor.json").write_text(json.dumps({
+                "A": {"durumlar": {"e-arsiv-alis": "tamam"},
+                     "guncellenme": {"e-arsiv-alis": "01/01/2026 10:00"}},
+                # eski (guncelleme alani hic olmayan) kayitlar da bugun sayilmamali
+                "B": {"durumlar": {"e-arsiv-alis": "tamam"}},
+            }), encoding="utf-8")
+            self.assertEqual(bugun_tamamlananlar(d, ["e-arsiv-alis"]), {})
 
 
 class RaporTestleri(unittest.TestCase):
@@ -241,6 +254,15 @@ class RaporTestleri(unittest.TestCase):
             self.assertEqual(degerler["A"], 1000)
             self.assertTrue((klasor / "rapor.csv").exists())
             self.assertFalse((klasor / "rapor.json.tmp").exists())
+
+    def test_guncellenme_bugunku_tarihi_tasir(self):
+        """rapor.guncelle() her ekran icin 'bugun islendi mi' kontrolune yarayan tarihi yazar."""
+        bugun = date.today().strftime("%d/%m/%Y")
+        with tempfile.TemporaryDirectory() as d:
+            klasor = Path(d)
+            rapor.guncelle(klasor, [self._sonuc("A", "e-arsiv-alis", durum="tamam")], [], "e-arsiv-alis")
+            kayitlar = json.loads((klasor / "rapor.json").read_text(encoding="utf-8"))
+            self.assertTrue(kayitlar["A"]["guncellenme"]["e-arsiv-alis"].startswith(bugun))
 
     def test_eposta_metni(self):
         sonuclar = [self._sonuc("A", "e-arsiv-alis", durum="tamam", fatura_sayisi=3, tevkifat=2),

@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Gunluk calismanin tum belge tiplerini tek dosyada toplayan rapor.
+"""Tum calismalarin tek bir dosyada toplandigi surekli rapor.
 
 Her firma icin tek satir: hangi ekrandan kac fatura geldi, ikisi arasinda fark
-var mi, iptal/itiraz ve tevkifatli kac tane, ne yapilmasi gerekiyor.
-Ara durum rapor.json'da tutulur; ayni gun icinde farkli belge tipleriyle
-calistirildikca ayni satirlar guncellenir.
+var mi, iptal/itiraz ve tevkifatli kac tane, ne yapilmasi gerekiyor. Rapor
+gunluk degil sureklidir: `indirilenler/` klasorunun kokunde tek bir rapor.json/
+rapor.xlsx tutulur, hangi gun/ayla calistirilirsa calistirilsin ayni satirlar
+guncellenir (indirilen dosyalarin kendisi yine tarihli alt klasorlerde kalir).
 """
 
 import csv
@@ -84,12 +85,13 @@ def _bos_kayit(firma):
     return {"firma": firma, "donem": "", "durumlar": {}, "sayilar": {}, "iptal": {},
             "tevkifat": {}, "inmeyen": {}, "faturalar": {}, "dosya": {}, "not": "", "son": "",
             "matrah": {}, "kdv": {}, "notlar": {}, "dosya_adlari": {}, "klasorler": {},
-            "goruntuler": {}, "sureler": {}}
+            "goruntuler": {}, "sureler": {}, "guncellenme": {}}
 
 
 # eski gunlerden kalan rapor.json kayitlarinda sonradan eklenen alanlar yok
 _SOZLUK_ALANLARI = ("durumlar", "sayilar", "iptal", "tevkifat", "inmeyen", "faturalar",
-                    "matrah", "kdv", "notlar", "dosya_adlari", "klasorler", "goruntuler", "sureler")
+                    "matrah", "kdv", "notlar", "dosya_adlari", "klasorler", "goruntuler",
+                    "sureler", "guncellenme")
 
 
 def _tamamla(kayit):
@@ -323,7 +325,11 @@ def _satir(kayit):
 
 
 def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
-    """Calisma sonuclarini gunun raporuna isler; rapor.xlsx ve rapor.csv yazar."""
+    """Calisma sonuclarini surekli rapora isler; rapor.xlsx ve rapor.csv yazar.
+
+    `klasor` artik gunluk degil, `indirilenler/` kokudur: ayni rapor.json/xlsx
+    hangi gun calistirilirsa calistirilsin guncellenir.
+    """
     durum_yolu = klasor / "rapor.json"
     kayitlar = _oku(durum_yolu)
     simdi = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -351,6 +357,10 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
         kayit["klasorler"][tip] = s.get("klasor", "")
         kayit["goruntuler"][tip] = s.get("ekran_goruntusu", "")
         kayit["sureler"][tip] = s.get("sure", 0)
+        # bu ekranin EN SON ne zaman guncellendigi: "bugun yarida kalan calisma"
+        # kontrolu (bkz. firma_listesi.bugun_tamamlananlar) hangi ekranin
+        # gercekten bugun islendigini boylece ayirt edebiliyor
+        kayit["guncellenme"][tip] = simdi
         if s.get("donem"):
             kayit["donem"] = s["donem"]
         if s.get("not"):

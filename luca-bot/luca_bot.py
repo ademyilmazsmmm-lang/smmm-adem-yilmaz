@@ -132,23 +132,30 @@ def ayarlari_uygula(args, ayarlar):
         os.environ["DEBUG"] = "pw:browser"
 
 
-def calisma_klasoru(ayarlar):
+def indirme_koku(ayarlar):
+    """indirme_klasoru'nun kendisi (gunluk degil): surekli rapor burada tutulur."""
     kok = Path(ayarlar.get("indirme_klasoru") or "indirilenler").expanduser()
     if not kok.is_absolute():
         kok = KOK / kok
-    klasor = kok / date.today().isoformat()
+    kok.mkdir(parents=True, exist_ok=True)
+    return kok
+
+
+def calisma_klasoru(ayarlar):
+    """Bugunun indirme/gunluk klasoru (indirme_koku()/YYYY-AA-GG)."""
+    klasor = indirme_koku(ayarlar) / date.today().isoformat()
     klasor.mkdir(parents=True, exist_ok=True)
     return klasor
 
 
-def devam_mi_bastan_mi(ctx, klasor, belge_tipleri, gece_modu, log):
+def devam_mi_bastan_mi(ctx, rapor_klasoru, belge_tipleri, gece_modu, log):
     """Ayni gun yarida kalan calisma varsa: tamamlanan ekranlari atla mi, hepsini yeniden mi?
 
     Gece modunda (kimse cevap veremez) kaldigi yerden otomatik devam edilir;
     elle calistirmada kullaniciya sorulur, cunku bazen kasitli olarak hepsinin
     yeniden taranmasi istenebilir.
     """
-    aday = bugun_tamamlananlar(klasor, belge_tipleri)
+    aday = bugun_tamamlananlar(rapor_klasoru, belge_tipleri)
     if not aday:
         return {}
     toplam = sum(len(v) for v in aday.values())
@@ -156,7 +163,7 @@ def devam_mi_bastan_mi(ctx, klasor, belge_tipleri, gece_modu, log):
         yaz(f"Bugun daha once {len(aday)} firmada {toplam} ekran tamamlanmis"
             " (yarida kalan calisma), gece modunda kaldigi yerden devam ediliyor", log)
         return aday
-    print(f"\nBu klasorde ({klasor.name}) bugun daha once {len(aday)} firmada"
+    print(f"\nBugun daha once {len(aday)} firmada"
           f" {toplam} ekran tamamlanmis gorunuyor (yarida kalan bir calisma olabilir).")
     cevap = kullanici_metni_al(
         ctx, ">>> [D]evam: kaldigi yerden surer, tamamlanmis ekranlar tekrar"
@@ -170,9 +177,9 @@ def devam_mi_bastan_mi(ctx, klasor, belge_tipleri, gece_modu, log):
 
 # --- 5. raporlama ----------------------------------------------------------
 
-def sonucu_bildir(calisma, ozet, ayarlar, klasor, log):
+def sonucu_bildir(calisma, ozet, ayarlar, klasor, rapor_klasoru, log):
     konsol.son_ozet(ozet, log)
-    yaz(f"  Rapor    : {klasor / 'rapor.xlsx'}", log)
+    yaz(f"  Rapor    : {rapor_klasoru / 'rapor.xlsx'}  (surekli - her calismada guncellenir)", log)
     yaz("             (Özet | Firma Durumu | İndirilen Faturalar | Dosyalar | Hatalar ve Uyarılar)", log)
     yaz(f"  Dosyalar : {klasor}", log)
     yaz(f"  Gunluk   : {log}", log)
@@ -184,7 +191,7 @@ def sonucu_bildir(calisma, ozet, ayarlar, klasor, log):
     # ozet e-postasi: gonderilemezse calisma yine de tamamlanmis sayilir
     donem_metni = next((s["donem"] for s in calisma.sonuclar if s.get("donem")), "")
     try:
-        eposta.gonder(ayarlar, klasor, calisma.sonuclar, lambda m: yaz(m, log), donem_metni)
+        eposta.gonder(ayarlar, rapor_klasoru, calisma.sonuclar, lambda m: yaz(m, log), donem_metni)
     except Exception as e:
         yaz(f"UYARI: e-posta adimi hata verdi ({type(e).__name__}: {e})", log)
 
@@ -201,6 +208,7 @@ def calistir(args, ayarlar, p):
     gece_modu = bool(args.bitince_kapat)
 
     klasor = calisma_klasoru(ayarlar)
+    rapor_klasoru = klasor.parent  # surekli rapor: indirme_koku(), gunluk klasorun bir ustu
     log = klasor / "calisma.log"
     konsol.acilis("", f"{araliklar[0][0]} - {araliklar[-1][1]} ({len(araliklar)} sorgu/firma)",
                   belge_tipleri, klasor, gece_modu, log)
@@ -247,18 +255,18 @@ def calistir(args, ayarlar, p):
             tarayiciyi_kapat(ctx)
             return 1
 
-        bugun_tamam = devam_mi_bastan_mi(ctx, klasor, belge_tipleri, gece_modu, log)
+        bugun_tamam = devam_mi_bastan_mi(ctx, rapor_klasoru, belge_tipleri, gece_modu, log)
         yaz(f"Islenecek firma sayisi: {len(secim.firmalar)} | ekran: {len(belge_tipleri)}", log)
 
         # 4. islem
         konsol.bolum("3/4  FATURA SORGULAMA VE INDIRME  (durdurmak icin Ctrl+C)", log)
         calisma = Calisma(pw, ctx, page, profil, ayarlar, secim, belge_tipleri, araliklar,
-                          klasor, log, azami_deneme, hata_siniri, bugun_tamam)
+                          klasor, log, azami_deneme, hata_siniri, bugun_tamam, rapor_klasoru)
         ozet = calisma.calistir()
 
         # 5. raporlama
         konsol.bolum("4/4  RAPOR", log)  # rapor her firmadan sonra zaten guncellendi
-        sonucu_bildir(calisma, ozet, ayarlar, klasor, log)
+        sonucu_bildir(calisma, ozet, ayarlar, klasor, rapor_klasoru, log)
 
         if not gece_modu:
             kullanici_bekle(calisma.ctx, ">>> Tarayiciyi kapatmak icin ENTER'a basin: ")

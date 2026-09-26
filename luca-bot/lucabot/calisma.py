@@ -88,7 +88,7 @@ def ozetle(sonuclar, sure=0):
 
 class Calisma:
     def __init__(self, pw, ctx, page, profil, ayarlar, secim, belge_tipleri, araliklar,
-                 klasor, log, azami_deneme=3, hata_siniri=5, bugun_tamam=None):
+                 klasor, log, azami_deneme=3, hata_siniri=5, bugun_tamam=None, rapor_klasoru=None):
         self.pw = pw
         self.ctx = ctx
         self.page = page
@@ -98,7 +98,10 @@ class Calisma:
         self.atlanan_ekranlar = secim.atlanan_ekranlar
         self.belge_tipleri = belge_tipleri
         self.araliklar = araliklar
-        self.klasor = klasor
+        self.klasor = klasor  # gunluk klasor: indirilen dosyalar, hata goruntuleri, gunluk
+        # rapor_klasoru: SUREKLI rapor (rapor.json/xlsx/csv, ozet.csv) - gunluk degil,
+        # indirilenler/ kokunde tutulur ki her gun ayri bir rapor cikmasin
+        self.rapor_klasoru = rapor_klasoru or klasor
         self.log = log
         self.azami_deneme = azami_deneme
         self.hata_siniri = hata_siniri
@@ -119,14 +122,18 @@ class Calisma:
         self._sonuclar[(sonuc["firma"], sonuc["belge_tipi"])] = sonuc
 
     def durumu_kaydet(self, kalanlar):
-        """ozet.csv + rapor.json/xlsx; yazilamazsa calisma durmaz."""
+        """ozet.csv + rapor.json/xlsx; yazilamazsa calisma durmaz.
+
+        Bunlar SUREKLI dosyalardir (rapor_klasoru = indirilenler/ koku): her
+        gun ayri bir rapor cikmasin diye gunluk klasore degil oraya yazilir.
+        """
         try:
-            rapor.ozet_csv_yaz(self.klasor / "ozet.csv", self.klasor / "kalan-firmalar.txt",
+            rapor.ozet_csv_yaz(self.rapor_klasoru / "ozet.csv", self.rapor_klasoru / "kalan-firmalar.txt",
                                self.sonuclar, kalanlar, self.belge_tipleri[0])
         except Exception as e:
             yaz(f"    UYARI: ozet.csv yazilamadi ({type(e).__name__}: {e})", self.log)
         try:
-            rapor.guncelle(self.klasor, self.sonuclar, kalanlar, self.belge_tipleri[0])
+            rapor.guncelle(self.rapor_klasoru, self.sonuclar, kalanlar, self.belge_tipleri[0])
         except PermissionError:
             yaz("    UYARI: rapor.xlsx yazilamadi - dosya Excel'de acik olabilir, kapatin"
                 " (bir sonraki firmada tekrar denenecek)", self.log)

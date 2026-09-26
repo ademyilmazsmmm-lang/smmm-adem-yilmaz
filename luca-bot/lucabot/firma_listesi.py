@@ -3,11 +3,12 @@
 
 Kaynaklar: Luca'daki firma listesi, --firma secenegi, ayarlar.json'daki
 atlanacak_firmalar, firmalar.xlsx (kapanis tarihi + X ile isaretlenen
-ekranlar) ve ayni gun yarida kalan calismanin rapor.json'u.
+ekranlar) ve ayni gun yarida kalan calismanin (surekli) rapor.json'u.
 """
 
 import json
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 from .fatura_analiz import excelden_tablo, sutun_indeksi, sutun_tam_indeksi
@@ -168,23 +169,32 @@ def firmalari_suz(luca_firmalari, ayarlar, aranan=None, limit=None, baslangic=No
                        "" if firmalar else "suzmeden sonra islenecek firma kalmadi")
 
 
-def bugun_tamamlananlar(calisma_klasoru, belge_tipleri):
+def bugun_tamamlananlar(rapor_klasoru, belge_tipleri):
     """Ayni gun daha once tamamlanmis ekranlar: {firma: {belge tipi}}.
 
     Calisma yarida kesilip (bilgisayar kapanmasi, elektrik vb.) ayni gun
-    yeniden baslatilirsa bunlar tekrar acilmaz.
+    yeniden baslatilirsa bunlar tekrar acilmaz. Rapor artik surekli (gunluk
+    degil) tutuldugu icin yalnizca durum degil, o ekranin BUGUN guncellenmis
+    olmasi da aranir; yoksa gecen ay tamamlanmis bir ekran sonsuza kadar
+    "bugun de tamam" sanilip bir daha hic acilmazdi.
     """
-    yol = Path(calisma_klasoru) / "rapor.json"
+    yol = Path(rapor_klasoru) / "rapor.json"
     if not yol.exists():
         return {}
     try:
         onceki = json.loads(yol.read_text(encoding="utf-8"))
     except Exception:
         return {}
+    bugun = date.today().strftime("%d/%m/%Y")
     tamam = {}
     for firma, kayit in onceki.items():
-        durumlar = kayit.get("durumlar", {}) if isinstance(kayit, dict) else {}
-        tipler = {tip for tip in belge_tipleri if ekran_tamamlanmis_mi(durumlar.get(tip, ""))}
+        if not isinstance(kayit, dict):
+            continue
+        durumlar = kayit.get("durumlar", {})
+        guncellenme = kayit.get("guncellenme", {})
+        tipler = {tip for tip in belge_tipleri
+                 if ekran_tamamlanmis_mi(durumlar.get(tip, ""))
+                 and guncellenme.get(tip, "").startswith(bugun)}
         if tipler:
             tamam[firma] = tipler
     return tamam

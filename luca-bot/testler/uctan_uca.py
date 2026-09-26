@@ -65,10 +65,13 @@ def main():
     sonuc = subprocess.run(komut, env=ortam, cwd=str(KOK))
     sunucu.shutdown()
 
-    gun = next((klasor / "indirilenler").iterdir())
-    rapor = json.loads((gun / "rapor.json").read_text(encoding="utf-8"))
+    # rapor.xlsx/json artik gunluk degil, indirilenler/ kokunde tek dosya (bkz. luca_bot.py);
+    # indirilen dosyalar ise hala gunun alt klasorunde
+    kok = klasor / "indirilenler"
+    gun = next(p for p in kok.iterdir() if p.is_dir())
+    rapor = json.loads((kok / "rapor.json").read_text(encoding="utf-8"))
     from openpyxl import load_workbook
-    wb = load_workbook(gun / "rapor.xlsx")
+    wb = load_workbook(kok / "rapor.xlsx")
     print("\nrapor.xlsx sayfalari:", wb.sheetnames)
     hatalar = []
 
