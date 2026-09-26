@@ -92,6 +92,10 @@ class _DosyaYakalayici:
         self.inenler.append(indirme)
 
     def __enter__(self):
+        try:
+            self.onceki_sekmeler = set(self.ctx.pages)
+        except Exception:
+            self.onceki_sekmeler = None
         self.page.on("download", self._indirme_geldi)
         if self.yakala:
             self.ctx.route("**/*", self._yonlendir)
@@ -107,7 +111,29 @@ class _DosyaYakalayici:
             self.page.remove_listener("download", self._indirme_geldi)
         except Exception:
             pass
+        self._yeni_sekmeleri_kapat()
         return False
+
+    def _yeni_sekmeleri_kapat(self):
+        """Indirme icin acilan bos Chrome sekmelerini kapatir.
+
+        Luca'nin Excel butonu dosyayi yeni bir sekmede aciyor; dosya yakalandigi
+        icin o sekme bos kaliyor ve her Excel'de bir tane daha birikiyordu.
+        Yalnizca bu indirme sirasinda acilan sekmeler kapatilir.
+        """
+        if self.onceki_sekmeler is None:
+            return
+        try:
+            yeniler = [p for p in self.ctx.pages
+                       if p not in self.onceki_sekmeler and p is not self.page]
+        except Exception:
+            return
+        for p in yeniler:
+            try:
+                if not p.is_closed():
+                    p.close()
+            except Exception:
+                pass
 
     def geldi(self):
         return "govde" in self.alinan or bool(self.inenler)

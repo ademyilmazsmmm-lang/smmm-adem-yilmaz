@@ -219,5 +219,19 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertFalse(gorunur_mu(self.page, "GİB den Getir 1", sure=500))
 
 
+    def test_excel_icin_acilan_sekme_kapanir(self):
+        """Excel yeni sekmede acilir; dosya alindiktan sonra o sekme kapanmali."""
+        from lucabot.ekran_isleyici import firma_isle
+        from lucabot.ortak import AYAR
+        sahte_luca.sifirla()
+        AYAR.update(azami_saniye=120, durgunluk_saniye=60, indirme_saniye=15)
+        araliklar = tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("05/08/2026"))
+        sonuc = firma_isle(self.page, "AKIN COBAN", "e-arsiv-alis", araliklar, self.klasor,
+                           self.klasor / "calisma.log")
+        self.assertIn("liste_faturalar.xlsx", sonuc["dosyalar"])
+        self.assertEqual(sonuc["fatura_sayisi"], 3)
+        self.assertEqual(len(self.ctx.pages), 1)  # yalnizca Luca sekmesi kaldi
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -247,7 +247,10 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
      if (TIP !== 'e-arsiv-interaktif' && !secili()) {
        document.getElementById('uyari').textContent = 'Lütfen önce faturaları seçiniz'; return; }
      // interaktif ekranda Excel gercek Luca'daki gibi gec geliyor
-     if (TIP === 'e-arsiv-interaktif') sonra(1500, () => indir('excel')); else indir('excel');
+     if (TIP === 'e-arsiv-interaktif') sonra(1500, () => indir('excel'));
+     // gercek Luca'da Excel yeni bir tarayici sekmesinde aciliyor
+     else if (TIP === 'e-arsiv-alis') window.open('/excel-sayfa?' + q, '_blank');
+     else indir('excel');
    },
    iptal: () => sonra(400, () => ac('<span>Raporlanma Tarihi aralığı</span> '
        + '<input type="text" name="rapBas" value="01/08/2026"> <input type="text" name="rapBit" value="31/08/2026"> '
@@ -330,6 +333,10 @@ class Isleyici(BaseHTTPRequestHandler):
                     .replace("__TIP__", tip).replace("__FIRMA__", firma)
                     .replace("__FATURASIZ__", FATURASIZ))
             return self._yanit(html)
+        if yol == "/excel-sayfa":  # yeni sekmede acilan ara sayfa, dosyayi kendisi indirir
+            hedef = "/indir/excel?" + urlparse(self.path).query
+            return self._yanit(f"<html><body>Excel hazirlaniyor...<script>"
+                               f"setTimeout(() => location.href = '{hedef}', 300)</script></body></html>")
         if yol == "/api/liste":
             return self._yanit(json.dumps(gorunen_faturalar(firma, tip)), "application/json")
         if yol == "/indir/excel":
