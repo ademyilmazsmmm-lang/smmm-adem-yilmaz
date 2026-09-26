@@ -4,3 +4,4 @@ indirilenler/
 .tarayici-profili*/
 *.log
 __pycache__/
+/tani/

@@ -38,6 +38,7 @@ python -m playwright install chromium
 | `bagimsiz-tarayici-ile-calistir.bat` | Chrome ve Edge çöküyorsa: Playwright Chromium ile çalışır (güvenlik yazılımlarının kancası dışında kalır) |
 | `edge-ile-calistir.bat` | Chrome indirme sırasında çöküyorsa Edge ile çalıştırır |
 | `gece-calistir.bat` | Tüm firmalar için çalışır, iş bitince tarayıcıyı kendisi kapatır (gece bırakıp gitmek için) |
+| `luca-giris.bat` | **Fatura çekme botuyla ilgisi yok:** `ayarlar.json`'daki bilgilerle Luca'ya tek tıkla otomatik giriş yapar, tarayıcıyı açık bırakır. Aynı klasörü (ya da OneDrive ile bu dosyayı) ofis ve ev bilgisayarına koyup ikisinde de kullanabilirsiniz; Chrome'u kapatınca pencere kendiliğinden kapanır |
 
 ## Ayarlar (`ayarlar.json`)
 

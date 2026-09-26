@@ -11,6 +11,7 @@ Tarayici acilamazsa testler atlanir.
 import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -260,6 +261,77 @@ class CalismaDayanikliligi(unittest.TestCase):
                            self.klasor / "calisma.log")
         self.assertEqual(sonuc["durum"], "ekran acilmadi")
         self.assertFalse(ekran_tamamlanmis_mi(sonuc["durum"]))  # [D]evam'da tekrar denenir
+
+
+class LucaGirisTestleri(unittest.TestCase):
+    """luca_giris.py: fatura botuyla ilgisi olmayan, tek tikla giris araci."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.sunucu, cls.adres = sahte_luca.baslat()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.sunucu.shutdown()
+
+    def _calistir(self, ek_ayar=None):
+        import json
+        import subprocess
+        kok = Path(__file__).resolve().parent.parent
+        klasor = Path(tempfile.mkdtemp())
+        ayar = {"giris_adresi": self.adres, "tarayici": "chromium",
+               "tarayici_yolu": os.environ.get("LUCA_TEST_CHROMIUM", ""),
+               "tarayici_sandbox": os.name == "nt", "profil_yerel": True}
+        ayar.update(ek_ayar or {})
+        (klasor / "ayarlar.json").write_text(json.dumps(ayar), encoding="utf-8")
+        ortam = dict(os.environ, LUCA_BOT_AYAR=str(klasor / "ayarlar.json"),
+                    LOCALAPPDATA=str(klasor / "yerel"), PYTHONIOENCODING="utf-8")
+        return subprocess.Popen([sys.executable, str(kok / "luca_giris.py")], cwd=str(kok),
+                                env=ortam, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True)
+
+    def _cocuk_surecler(self, pid):
+        import subprocess
+        try:
+            return subprocess.check_output(["pgrep", "-P", str(pid)]).decode().split()
+        except subprocess.CalledProcessError:
+            return []
+
+    def test_giris_yapar_ve_tarayici_acik_kalir(self):
+        p = self._calistir()
+        try:
+            cikti = ""
+            basla = time.time()
+            while time.time() - basla < 40 and "Giris tamam" not in cikti:
+                cikti += p.stdout.readline()
+            self.assertIn("Giris tamam", cikti)
+            self.assertIn("Calisilan sayfa:", cikti)
+            time.sleep(1)
+            self.assertIsNone(p.poll())  # program hala calisiyor, tarayici acik
+        finally:
+            p.terminate()
+            try:
+                p.wait(timeout=10)
+            except Exception:
+                p.kill()
+
+    def test_tarayici_kapaninca_program_da_kapanir(self):
+        import signal
+        p = self._calistir()
+        try:
+            cikti = ""
+            basla = time.time()
+            while time.time() - basla < 40 and "Giris tamam" not in cikti:
+                cikti += p.stdout.readline()
+            self.assertIn("Giris tamam", cikti)
+            cocuklar = self._cocuk_surecler(p.pid)
+            self.assertTrue(cocuklar, "tarayici sureci bulunamadi")
+            for pid in cocuklar:
+                os.kill(int(pid), signal.SIGTERM)
+            self.assertEqual(p.wait(timeout=15), 0)
+        finally:
+            if p.poll() is None:
+                p.kill()
 
 
 if __name__ == "__main__":
