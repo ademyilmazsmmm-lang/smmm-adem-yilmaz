@@ -59,14 +59,74 @@ def _acik_sayfalar(page):
     return sayfalar
 
 
+# Panel arama + metin okumayi tek JS turunda yapar (cerceve basina ayri
+# Playwright cagrisi yerine). Luca acik sekme/cerceve sayisi arttikca eski
+# yontem (count/is_visible/inner_text, cerceve basina ayri ayri) yavasliyordu.
+# getClientRects() bos donerse (display:none atasi dahil) panel "gorunmez"
+# sayilir; bu, gorunur_cerceveler()'daki cerceve-duzeyi suzmeyle ayni sonucu
+# verir (gizli sekmedeki hicbir eleman rects almaz), yani hangi panelin
+# eslesecegi degismez, yalnizca gidis-donus sayisi azalir.
+_ISLEM_PANELI_JS = """(isaretler) => {
+  const gorunur = (el) => {
+    if (!el || el.getClientRects().length === 0) return false;
+    try { return getComputedStyle(el).visibility !== 'hidden'; } catch (e) { return true; }
+  };
+  const tara = (pencere, derinlik, sonuclar) => {
+    if (derinlik > 8) return;
+    let belge;
+    try { belge = pencere.document; } catch (e) { return; }
+    try {
+      for (const panel of belge.querySelectorAll('.luca-open-window')) {
+        if (gorunur(panel)) sonuclar.push(panel.innerText || panel.textContent || '');
+      }
+    } catch (e) {}
+    let cerceveler;
+    try { cerceveler = pencere.frames; } catch (e) { return; }
+    for (let i = 0; i < cerceveler.length; i++) {
+      try { tara(cerceveler[i], derinlik + 1, sonuclar); } catch (e) {}
+    }
+  };
+  const metinler = [];
+  tara(window, 0, metinler);
+  for (const metin of metinler) {
+    const duz = (metin || '').toLowerCase();
+    if (isaretler.some((i) => duz.includes(i))) return metin;
+  }
+  return null;
+}"""
+
+
+def _panel_metni_hizli(sayfa, isaretler):
+    """Tek JS turunda panel metnini arar.
+
+    JS calisamazsa (orn. capraz-origin cerceve, sayfa henuz hazir degil)
+    False doner; bu, "panel yok" anlamina gelen None/bos'tan ayri tutulur ki
+    cagiran o sayfa icin eski, cerceve cerceve yonteme dusebilsin.
+    """
+    try:
+        return sayfa.evaluate(_ISLEM_PANELI_JS, isaretler)
+    except Exception:
+        return False
+
+
 def islem_gunlugu(page):
     """Islem Takip penceresinin metni; pencere kapaliysa bos doner.
 
     Tarih diyalogu da .luca-open-window oldugu icin yalnizca islem gunlugu
     isaretlerini tasiyan pencere kabul edilir.
+
+    Once tek JS turunda tum cerceveleri tarayan hizli yol denenir; basarisiz
+    olursa (yalnizca o sayfa icin) eski cerceve-cerceve Playwright yontemine
+    dusulur. Aranan isaretler ve "gorunur mu" tanimi ayni oldugu icin sonuc
+    degismez.
     """
     isaretler = [i.lower() for i in ISLEM_ISARETLERI] + [ISLEM_BITTI]
     for p in _acik_sayfalar(page):
+        hizli = _panel_metni_hizli(p, isaretler)
+        if hizli is not False:
+            if hizli:
+                return hizli
+            continue
         for fr in cerceveler(p):
             try:
                 loc = fr.locator(".luca-open-window")
