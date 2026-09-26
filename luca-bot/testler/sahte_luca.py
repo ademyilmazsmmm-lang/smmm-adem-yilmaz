@@ -42,7 +42,8 @@ AEN_EKRANLARI = {
 # sunucu tarafi durum: (firma, tip) -> {"sorgulandi": bool, "iptal": bool}
 DURUM = {}
 # urun seciminde uygulama penceresinin kac kez acildigi (cift tiklama testi icin)
-SAYAC = {"sso": 0, "ilk_bos": False, "gib_hatasi": 0, "excel": 0, "excel_gecikme": 0}
+SAYAC = {"sso": 0, "ilk_bos": False, "gib_hatasi": 0, "excel": 0, "excel_gecikme": 0,
+        "zip_basarisiz": 0}
 
 # gercek Luca'da goruldu (26/09/2026); gecici, ayni sorgu tekrarlaninca geciyor
 GIB_HATA_METNI = ("GİB e-Arşiv Sistemi Hata Mesajı:Doğrulama hatası Internet vergi dairesinden"
@@ -198,6 +199,11 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
  function ac(html){ pencere.innerHTML = html; pencere.classList.remove('gizli'); perde.classList.remove('gizli'); }
  function kapat(){ pencere.classList.add('gizli'); perde.classList.add('gizli'); pencere.innerHTML=''; }
  function kapatDugmesi(){ return '<button onclick="kapat()">Kapat</button>'; }
+ async function zipIndir(){
+   // gercek Luca'da ara sira butona tiklaninca hicbir istek gitmiyor (tepkisiz kaliyor)
+   const r = await fetch('/api/zip-durumu'); const j = await r.json();
+   if (!j.atla) indir('zip');
+ }
  async function yukle(){
    const r = await fetch('/api/liste?' + q); const liste = await r.json();
    const tb = document.querySelector('#liste tbody'); tb.innerHTML = '';
@@ -242,7 +248,7 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
      if (!secili()) { document.getElementById('uyari').textContent = 'Lütfen indirilecek faturaları seçiniz'; return; }
      sonra(400, () => ac('<span>Tüm faturaları seçmek için <a href="#" id="buraya">buraya</a>,'
        + ' onaylanmışlar için <a href="#">buraya</a> tıklayınız</span> '
-       + '<button onclick="kapat(); indir(\\'zip\\')">Seçilenleri İndir</button>' + kapatDugmesi()));
+       + '<button onclick="kapat(); zipIndir()">Seçilenleri İndir</button>' + kapatDugmesi()));
    },
    excel: () => {
      if (TIP !== 'e-arsiv-interaktif' && !secili()) {
@@ -350,6 +356,12 @@ class Isleyici(BaseHTTPRequestHandler):
             return self._yanit(excel_bayt(firma, tip),
                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                {"Content-Disposition": 'attachment; filename="faturalar.xlsx"'})
+        if yol == "/api/zip-durumu":
+            with KILIT:
+                atla = SAYAC["zip_basarisiz"] > 0
+                if atla:
+                    SAYAC["zip_basarisiz"] -= 1
+            return self._yanit(json.dumps({"atla": atla}), "application/json")
         if yol == "/indir/zip":
             return self._yanit(zip_bayt(firma, tip), "application/zip",
                                {"Content-Disposition": 'attachment; filename="belgeler.zip"'})
@@ -379,7 +391,7 @@ def baslat(port=0):
 def sifirla():
     with KILIT:
         DURUM.clear()
-        SAYAC.update(sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0)
+        SAYAC.update(sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
 
 
 if __name__ == "__main__":

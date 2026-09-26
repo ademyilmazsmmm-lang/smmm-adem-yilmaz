@@ -331,16 +331,34 @@ class EkranIsleyici:
         return True
 
     # 5. belge paketi
-    def _belgeleri_indir(self, satir_sayisi):
-        """XML belge paketini indirir. Akis burada bitmeliyse True doner."""
+    def _belge_paketini_indir(self, satir_sayisi):
+        """Tek bir 'Seçilenleri İndir' denemesi: isaretle -> indir. Inen dosyayi (ya da None) dondurur."""
         page = self.page
         secilen = hepsini_sec(page, self.fr, satir_sayisi)
         if secilen:
             self._yaz(f"    {secilen} kayit isaretlendi, indirme basliyor")
         else:
             self._yaz("    UYARI: hicbir kayit isaretlenemedi, indirme yine de denenecek")
-        yol = dosya_indir(page, "Seçilenleri İndir", self.klasor, "belgeler", self.log,
-                          azami_saniye=AYAR["indirme_saniye"])
+        return dosya_indir(page, "Seçilenleri İndir", self.klasor, "belgeler", self.log,
+                           azami_saniye=AYAR["indirme_saniye"])
+
+    def _belgeleri_indir(self, satir_sayisi):
+        """XML belge paketini indirir. Akis burada bitmeliyse True doner.
+
+        Butona tiklandigi halde dosya gelmeyebiliyor (Luca'nin ara sira tepki
+        vermedigi oluyor); bir kez daha denenir. Yine gelmezse ekran yine de
+        tamam sayilir (Excel asil kaynak) ama rapora not dusulur.
+        """
+        page = self.page
+        yol = self._belge_paketini_indir(satir_sayisi)
+        if not yol and sayfa_canli(page):
+            self._yaz("    Belge paketi (zip) inmedi, tekrar deneniyor")
+            geri_cekil(page, 3)
+            acik_pencereleri_kapat(page, self.log)
+            yol = self._belge_paketini_indir(satir_sayisi)
+            if not yol:
+                self._yaz("    UYARI: belge paketi (zip) yine inmedi; Excel ile devam ediliyor")
+                self.sonuc["not"] = "belge paketi (zip) inmedi, yalnizca Excel indi"
         if yol:
             self.sonuc["dosyalar"].append(yol.name)
             if yol.suffix.lower() == ".zip":

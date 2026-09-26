@@ -262,6 +262,36 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertEqual(sonuc["durum"], "ekran acilmadi")
         self.assertFalse(ekran_tamamlanmis_mi(sonuc["durum"]))  # [D]evam'da tekrar denenir
 
+    def test_zip_inmezse_tekrar_denenir(self):
+        """Buton tepki vermezse (istek hic gitmez) belge paketi bir kez daha istenir."""
+        from lucabot.ekran_isleyici import firma_isle
+        from lucabot.ortak import AYAR
+        sahte_luca.sifirla()
+        sahte_luca.SAYAC["zip_basarisiz"] = 1
+        AYAR.update(azami_saniye=120, durgunluk_saniye=60, indirme_saniye=15)
+        araliklar = tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("05/08/2026"))
+        log = self.klasor / "calisma.log"
+        sonuc = firma_isle(self.page, "AKIN COBAN", "e-arsiv-alis", araliklar, self.klasor, log)
+        self.assertEqual(sonuc["durum"], "tamam")
+        self.assertTrue(any(d.startswith("belgeler_") for d in sonuc["dosyalar"]))
+        self.assertFalse(sonuc.get("not"))
+        self.assertIn("tekrar deneniyor", log.read_text(encoding="utf-8"))
+
+    def test_zip_iki_denemede_de_inmezse_not_dusulur(self):
+        """Iki denemede de gelmezse ekran yine tamam sayilir (Excel var) ama nota yazilir."""
+        from lucabot.ekran_isleyici import firma_isle
+        from lucabot.ortak import AYAR
+        sahte_luca.sifirla()
+        sahte_luca.SAYAC["zip_basarisiz"] = 99
+        AYAR.update(azami_saniye=120, durgunluk_saniye=60, indirme_saniye=15)
+        araliklar = tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("05/08/2026"))
+        sonuc = firma_isle(self.page, "AKIN COBAN", "e-arsiv-alis", araliklar, self.klasor,
+                           self.klasor / "calisma.log")
+        self.assertEqual(sonuc["durum"], "tamam")
+        self.assertFalse(any(d.startswith("belgeler_") for d in sonuc["dosyalar"]))
+        self.assertIn("liste_faturalar.xlsx", sonuc["dosyalar"])
+        self.assertIn("zip", sonuc["not"])
+
 
 class LucaGirisTestleri(unittest.TestCase):
     """luca_giris.py: fatura botuyla ilgisi olmayan, tek tikla giris araci."""
