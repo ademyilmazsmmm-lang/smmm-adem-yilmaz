@@ -1,2 +1,7 @@
+ayarlar.json
+firmalar.xlsx
+indirilenler/
+.tarayici-profili*/
+*.log
 __pycache__/
-*.pyc
+/tani/
