@@ -1,0 +1,11 @@
+{
+  "name": "Luca Giriş",
+  "short_name": "Luca",
+  "start_url": "/luca-giris-kisayol.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "/logo.png", "sizes": "735x723", "type": "image/png" }
+  ]
+}
