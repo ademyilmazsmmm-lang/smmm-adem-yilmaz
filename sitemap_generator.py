@@ -41,6 +41,24 @@ def is_noindex(path):
     return re.search(r'<meta[^>]+name=["\']robots["\'][^>]*noindex', head, re.I) is not None
 
 
+def has_foreign_canonical(path, url_path):
+    """Sayfanin canonical'i kendi URL'inden farkli bir sayfayi gosteriyorsa
+    (ornegin ayni konudaki iki sayfadan biri digerine canonical veriyorsa),
+    bu sayfa sitemap'e girmemeli - aksi halde Google'a celisen sinyal gider."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            head = fh.read(4000)
+    except OSError:
+        return False
+    m = re.search(r'<link[^>]+rel=["\']canonical["\'][^>]+href=["\']([^"\']+)["\']', head, re.I)
+    if not m:
+        return False
+    canonical = m.group(1).rstrip("/")
+    if url_path == HOMEPAGE:
+        return canonical != BASE_URL
+    return canonical != f"{BASE_URL}/{url_path}"
+
+
 def generate_sitemap():
     urls = []
     today = datetime.date.today().isoformat()
@@ -56,6 +74,10 @@ def generate_sitemap():
 
             # noindex sayfalari (eski URL yonlendirmeleri) sitemap'e girmez
             if is_noindex(full_path):
+                continue
+
+            # Baska bir sayfaya canonical veren sayfalar da sitemap'e girmez
+            if has_foreign_canonical(full_path, url_path):
                 continue
 
             if url_path == HOMEPAGE:
