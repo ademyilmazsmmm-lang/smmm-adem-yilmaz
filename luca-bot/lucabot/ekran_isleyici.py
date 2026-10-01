@@ -82,6 +82,7 @@ class EkranIsleyici:
         self.ekran_acildi = True
         self.tevkifatlilar = []
         self.ekran_tevkifat = set()
+        self.iptal_nolari = set()  # ekranda iptal/itiraz gorunen fatura numaralari
 
     def _yaz(self, mesaj):
         yaz(mesaj, self.log)
@@ -410,6 +411,7 @@ class EkranIsleyici:
                     self.sonuc["tevkifat"] = len(tevkifatli_satirlar(self.satirlar, self.tip))
                 iptaller = iptal_itiraz_satirlari(self.satirlar)
                 self.sonuc["iptal_itiraz"] = len(iptaller)
+                self.iptal_nolari = {no for _, no in fatura_kimlikleri(iptaller)}
                 if iptaller:
                     csv_yaz(self.klasor / "iptal-itiraz.csv", iptaller)
                     self._yaz(f"    DIKKAT: {len(iptaller)} faturada iptal/itiraz var")
@@ -453,7 +455,8 @@ class EkranIsleyici:
             self.sonuc["dosyalar"].append(yol.name)
             # Excel iptal/itiraz ve tevkifat sutunlarini icerdigi icin her iki
             # ekranda da asil kaynak odur; ekran kazima yalnizca yedek
-            excel_satirlari = excelden_sonuca_isle(self.sonuc, yol, self.klasor, self.log)
+            excel_satirlari = excelden_sonuca_isle(self.sonuc, yol, self.klasor, self.log,
+                                                   iptal_nolari=self.iptal_nolari)
             if excel_satirlari:
                 self.satirlar = excel_satirlari
 

@@ -114,6 +114,23 @@ class TutarVeFaturaTestleri(unittest.TestCase):
             self.assertEqual(sonuc["faturalar"][0], ["TURKCELL", "AAA2026000000001", 1200.0])
             self.assertTrue((klasor / "iptal-itiraz.csv").exists())
 
+    def test_ekranda_iptal_gorunen_fatura_excelde_durum_yoksa_da_toplama_girmez(self):
+        """Iptal/itiraz sorgusu durumu ekrandaki listeye yaziyor; Excel'de durum
+        sutunu olmayabilir. O fatura yine de matrah/KDV toplamindan dusulmeli."""
+        with tempfile.TemporaryDirectory() as d:
+            klasor = Path(d)
+            yol = _xlsx(klasor / "liste.xlsx", [
+                ["Fatura No", "Unvan", "Tarih", "Matrah", "KDV Tutarı"],
+                ["AAA2026000000001", "TURKCELL", "05/08/2026", 1000, 200],
+                ["AAA2026000000002", "VODAFONE", "06/08/2026", 500, 100],
+            ])
+            sonuc = yeni_sonuc("F", "e-arsiv-alis")
+            sonuc["iptal_itiraz"] = 1  # ekrandan sayilmisti
+            excelden_sonuca_isle(sonuc, yol, klasor, None, iptal_nolari={"AAA2026000000002"})
+            self.assertEqual(sonuc["matrah"], 1000)
+            self.assertEqual(sonuc["kdv"], 200)
+            self.assertEqual(sonuc["iptal_itiraz"], 1)
+
     def test_fatura_tutari(self):
         from lucabot.fatura_analiz import satir_toplam_tutari
         # Luca'nin Excel'inde genel toplam sutunu yoksa matrah + KDV

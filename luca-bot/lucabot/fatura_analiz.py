@@ -304,11 +304,13 @@ def _iki_kaynaktan(sutundan, metinden, sutun_adi):
     return birlesik, f"{sutun_adi} + satir metni" if sutundan else "satir metni"
 
 
-def excelden_sonuca_isle(sonuc, yol, klasor, log):
+def excelden_sonuca_isle(sonuc, yol, klasor, log, iptal_nolari=()):
     """Inen Excel'i asil kaynak alir: satirlar, tevkifat, iptal/itiraz, matrah/KDV.
 
     Ekran kazimaya gore guvenilir, cunku sutun basliklari belli. Okunan
     satirlari dondurur (okunamazsa bos liste; sonuc degistirilmez).
+    `iptal_nolari`: ekrandaki listede iptal/itiraz gorunen fatura numaralari;
+    Excel'de durum sutunu olmasa da bu faturalar tutar toplamina girmez.
     """
     basliklar, satirlar = excelden_tablo(yol, log)
     if not satirlar:
@@ -333,6 +335,10 @@ def excelden_sonuca_isle(sonuc, yol, klasor, log):
     iptaller, _ = _iki_kaynaktan(
         sutunlu_satirlar(basliklar, satirlar, "IPTAL", "ITIRAZ"),
         iptal_itiraz_satirlari(satirlar), "Iptal sutunu")
+    if iptal_nolari:
+        bilinen = {id(s) for s in iptaller}
+        iptaller += [s for s in satirlar if id(s) not in bilinen
+                     and (fatura_kimligi(s) or ("", ""))[1] in iptal_nolari]
     if len(iptaller) > sonuc.get("iptal_itiraz", 0):
         sonuc["iptal_itiraz"] = len(iptaller)
     if iptaller:
