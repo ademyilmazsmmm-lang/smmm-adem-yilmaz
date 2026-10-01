@@ -34,12 +34,18 @@ Komut satırı kullanmadan, pencereden çalıştırmak için `luca-arayuz.bat`'a
 
 1. **Luca Girişi › Değiştir**: Üye No, Kullanıcı Adı, Parola (ve varsa iki aşamalı giriş
    anahtarı) bir kez girilir, `ayarlar.json`'a kaydedilir. Program Luca'ya kendisi girer.
-2. **Firma Listesi**: `firmalar.xlsx`'i seçin. Tek firma için "Sadece bu firma" kutusuna adını yazın.
+2. **Firma Listesi**: **Şablon İndir** doğru sütunlarla bir Excel indirir (daha önce işlenen
+   firmalar hazır yazılı gelir); doldurup **Liste Yükle** ile seçin. Ekran sütunlarında
+   **✓ = sorgulanır, X = sorgulanmaz** (boş = sorgulanır; eski X'li listeler aynen çalışır).
+   **Firma / Ekran Seçimi** listeyi tablo olarak açar: her firmada hangi ekranın sorgulanacağını
+   kutucuklarla işaretleyip Devreden KDV'yi yazarsınız, **Kaydet** Excel'e yazar (önce
+   `firmalar.yedek-...xlsx` yedeği alınır; diğer sütun ve sayfalara dokunulmaz).
+   Tek firma için "Sadece bu firma" kutusuna adını yazın.
 3. **Tarih Aralığı** ve **Ekranlar**'ı seçip **Çalıştır**'a basın. İlerleme ve log pencerede
    canlı akar. **Durdur** o ana kadarki sonuçları kaydederek durdurur; tekrar Çalıştır'a basınca
    kaldığı yerden sürer ("Bugün bitenleri atla" işaretliyse).
 4. Alttaki kutular seçili dönem için `rapor.json`'dan hesaplanır, tıklayınca firmaları listeler
-   (listeyi "Excel'e yapıştırmak için kopyala" ile alabilirsiniz):
+   (**Excel olarak indir** listeyi .xlsx olarak kaydedip açar):
    - **Alış Tevkifat KDV**: tevkifatlı alış faturaları (KDV2). Excel'de tevkifat tutarı sütunu
      yoksa faturanın KDV'si gösterilir ve `*` ile işaretlenir.
    - **Alış SMM**: e-SMM alış makbuzları.
@@ -260,6 +266,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | `fatura_analiz.py` | İnen Excel/ZIP'ten tevkifat, iptal/itiraz, matrah/KDV |
 | `rapor.py`, `rapor_excel.py` | **Raporlama**: `rapor.json` / `rapor.csv` / `rapor.xlsx` |
 | `gostergeler.py` | Arayüzün alt kutuları (tevkifat KDV, SMM, interaktif farkı, KDV ödemesi); arayüzün kendisi `luca_arayuz.py` |
+| `firma_tablosu.py` | `firmalar.xlsx` şablonu ve arayüzdeki Firma / Ekran Seçimi tablosunun okunup yazılması |
 | `eposta.py` | Özet e-postası (Outlook / SMTP) |
 | `ekran_isleyici.py` | Bir firmanın bir ekranını baştan sona işleyen akış (adım adım metotlar) |
 | `calisma.py` | Tüm firmaları dolaşan döngü, hata/çökme kurtarma |

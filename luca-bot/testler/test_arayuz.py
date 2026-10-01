@@ -160,6 +160,43 @@ class ArayuzTestleri(unittest.TestCase):
         self.assertIn("Durduruldu. O ana kadarki sonuclar kaydedildi", self.app.log_metni())
         self.assertEqual(self.app.durum_etiketi.cget("text").strip(), "Durduruldu")
 
+    def test_firma_ekran_penceresi_kaydeder(self):
+        from lucabot import firma_tablosu
+        from lucabot.firma_listesi import firma_listesini_oku
+        firma_tablosu.sablon_olustur(self.d / "firmalar.xlsx", ["BIRLIK TICARET", "KAYA INSAAT"])
+        fp = self.app.firma_ekran_penceresi()
+        self.kok.update()
+        self.assertEqual(len(fp.satirlar), 2)
+        fp.v_ara.set("kaya")
+        self.kok.update()
+        self.assertEqual([s["ad"] for s in fp.gorunen()], ["KAYA INSAAT"])
+        fp._sutunu_cevir("gib-5000")           # yalnizca gorunen (KAYA) firmada kapanir
+        fp.v_ara.set("")
+        fp._satiri_cevir(0)                    # BIRLIK: tum ekranlar kapanir
+        fp.satirlar[0]["secim"]["e-arsiv-alis"].set(True)
+        fp.satirlar[0]["dev"].set("1.250,50")
+        fp.kaydet()
+        okunan = firma_listesini_oku(self.d / "firmalar.xlsx")
+        self.assertEqual(okunan["KAYA INSAAT"][1], {"gib-5000"})
+        self.assertEqual(len(okunan["BIRLIK TICARET"][1]), 9)
+        self.assertNotIn("e-arsiv-alis", okunan["BIRLIK TICARET"][1])
+        from lucabot.firma_listesi import devreden_kdvleri
+        self.assertEqual(devreden_kdvleri(self.d / "firmalar.xlsx"), {"BIRLIK TICARET": 1250.5})
+        # kaydedince kutular yenilenir: 1000 - 300 - 1250,50 devreden < 0, odeme cikmaz
+        self.assertEqual(self.app.gostergeler["kdv"], [])
+
+    def test_liste_excel_olarak_iner(self):
+        from openpyxl import load_workbook
+        yol = self.d / "liste.xlsx"
+        self.mod.liste_excel_yaz(yol, "Alış Tevkifat KDV — firmalar", "01/09/2026-30/09/2026",
+                                 ("Firma", "Fatura", "Tevkifat KDV"),
+                                 [("A", 2, "1.234,50 TL *"), ("B", 1, "100,00 TL")],
+                                 ("Toplam", 3, "1.334,50 TL"), ["not"])
+        ws = load_workbook(yol).active
+        self.assertEqual(ws["A4"].value, "Firma")
+        self.assertEqual(ws["C5"].value, 1234.5)
+        self.assertEqual(ws["C7"].value, 1334.5)
+
     def test_giris_bilgisi_yoksa_calismaz(self):
         self.app.ayarlar["parola"] = ""
         import luca_arayuz

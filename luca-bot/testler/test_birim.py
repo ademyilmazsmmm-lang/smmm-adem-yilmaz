@@ -411,6 +411,53 @@ class ArayuzOzetTestleri(unittest.TestCase):
         self.assertEqual(gostergeler.tl(1234.5), "1.234,50 TL")
 
 
+class FirmaTablosuTestleri(unittest.TestCase):
+    """Sablon indir / tabloda ekran sec / kaydet: bot ayni dosyayi dogru okumali."""
+
+    def test_sablonu_bot_okur_hepsi_sorgulanir(self):
+        from lucabot import firma_tablosu
+        with tempfile.TemporaryDirectory() as d:
+            yol = firma_tablosu.sablon_olustur(Path(d) / "sablon.xlsx", ["BIRLIK TIC", "KAYA INS"])
+            self.assertEqual(firma_listesini_oku(yol), {"BIRLIK TIC": (None, set()),
+                                                       "KAYA INS": (None, set())})
+            from openpyxl import load_workbook
+            self.assertEqual(load_workbook(yol).sheetnames, ["Firmalar", "Açıklama"])
+            tablo = firma_tablosu.tabloyu_oku(yol)
+            self.assertEqual(len(tablo[0]["ekranlar"]), 10)
+
+    def test_eski_listeye_secim_yazilir_diger_sutunlar_korunur(self):
+        from openpyxl import Workbook, load_workbook
+        from lucabot import firma_tablosu
+        from lucabot.firma_listesi import devreden_kdvleri
+        with tempfile.TemporaryDirectory() as d:
+            yol = Path(d) / "firmalar.xlsx"
+            wb = Workbook()
+            wb.active.append(["Kısa Adı", "Kapanış Tarihi", "Telefon", "e-Fatura Alış"])
+            wb.active.append(["BIRLIK TIC", "", "0212", "X"])
+            wb.active.append(["KAYA INS", "15/03/2026", "0216", ""])
+            wb.create_sheet("Notlar")["A1"] = "elle yazilmis not"
+            wb.save(yol)
+            tablo = firma_tablosu.tabloyu_oku(yol)
+            self.assertNotIn("e-fatura-alis", tablo[0]["ekranlar"])
+            self.assertEqual(len(tablo[1]["ekranlar"]), 10)
+            # arayuzde: BIRLIK'te yalnizca e-Arsiv Alis + Interaktif, KAYA'da GIB 5000 kapali
+            tablo[0]["ekranlar"] = {"e-arsiv-alis", "e-arsiv-interaktif"}
+            tablo[0]["devreden"] = "5.000"
+            tablo[1]["ekranlar"].discard("gib-5000")
+            yedek = firma_tablosu.tabloyu_yaz(yol, tablo)
+            self.assertTrue(yedek.exists())
+
+            okunan = firma_listesini_oku(yol)
+            self.assertEqual(len(okunan["BIRLIK TIC"][1]), 8)
+            self.assertNotIn("e-arsiv-alis", okunan["BIRLIK TIC"][1])
+            self.assertEqual(okunan["KAYA INS"], (date(2026, 3, 15), {"gib-5000"}))
+            self.assertEqual(devreden_kdvleri(yol), {"BIRLIK TIC": 5000.0})
+            wb = load_workbook(yol)
+            self.assertEqual(wb.sheetnames, ["Sheet", "Notlar"])
+            self.assertEqual(wb["Notlar"]["A1"].value, "elle yazilmis not")
+            self.assertEqual(wb.active["C2"].value, "0212")
+
+
 class GecisAraciTestleri(unittest.TestCase):
     """gecis_rapor_birlestir.py: eski gunluk rapor.json'lari tek surekli rapora birlestirir."""
 

@@ -31,10 +31,10 @@ from tkinter import filedialog, messagebox, ttk
 KOK = Path(__file__).resolve().parent
 sys.path.insert(0, str(KOK))
 
-from lucabot import gostergeler  # noqa: E402
+from lucabot import firma_tablosu, gostergeler  # noqa: E402
 from lucabot.firma_listesi import devreden_kdvleri  # noqa: E402
 from lucabot.ortak import (AYAR_DOSYASI, ORNEK_AYAR, TARIH_BICIMI,  # noqa: E402
-                           hedef_ay_araligi, indirme_koku, tarih_cozumle)
+                           hedef_ay_araligi, indirme_koku, sadelestir, tarih_cozumle)
 from lucabot.sabitler import EKRAN_SUTUNLARI, TUM_BELGELER  # noqa: E402
 
 # --- gorunum (smmmyilmaz.com ile ayni: lacivert + altin) -------------------
@@ -116,6 +116,49 @@ def python_komutu():
     return str(exe)
 
 
+TL_DESENI = re.compile(r"^-?[\d.]+,\d{2} TL( \*)?$")
+
+
+def liste_excel_yaz(yol, baslik, donem, sutunlar, satirlar, toplam, notlar):
+    """Ozet kutusunun firma listesini .xlsx olarak yazar; TL tutarlari sayi olarak."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from lucabot.fatura_analiz import tutar_cozumle
+
+    def hucre(deger):
+        if isinstance(deger, str) and TL_DESENI.match(deger):
+            return tutar_cozumle(deger.replace(" *", ""))
+        return deger
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Liste"
+    ws.append([baslik])
+    ws["A1"].font = Font(bold=True, size=13)
+    ws.append([f"Dönem: {donem.replace('-', ' – ')}" if donem else ""])
+    ws.append([])
+    ws.append(list(sutunlar))
+    for h in ws[4]:
+        h.font = Font(bold=True)
+    for s in satirlar:
+        ws.append([hucre(d) for d in s])
+    if satirlar:
+        ws.append([hucre(d) for d in toplam])
+        for h in ws[ws.max_row]:
+            h.font = Font(bold=True)
+    for satir in ws.iter_rows(min_row=5):
+        for h in satir:
+            if isinstance(h.value, float):
+                h.number_format = '#,##0.00 "TL"'
+    ws.append([])
+    for n in notlar:
+        ws.append([n])
+    ws.column_dimensions["A"].width = 38
+    for harf in "BCDEF":
+        ws.column_dimensions[harf].width = 18
+    wb.save(yol)
+
+
 # --- kucuk parcalar ----------------------------------------------------------
 
 def bolum_basligi(ebeveyn, metin):
@@ -173,6 +216,135 @@ class OzetKutusu(tk.Frame):
     def ayarla(self, deger, alt="Firmaları gör ›"):
         self.deger.configure(text=deger)
         self.alt.configure(text=alt)
+
+
+class FirmaEkranPenceresi:
+    """firmalar.xlsx'i tablo olarak gosterir: her firmada hangi ekran sorgulansin (✓/X), Devreden KDV."""
+
+    GENISLIK = (240, 100) + (80,) * len(TUM_BELGELER)
+
+    def __init__(self, arayuz, yol, firmalar):
+        self.arayuz, self.yol, self.firmalar = arayuz, yol, firmalar
+        w = self.w = tk.Toplevel(arayuz.kok, bg=ZEMIN, padx=18, pady=14)
+        w.title(f"Firma / Ekran Seçimi — {yol.name}")
+        w.transient(arayuz.kok)
+        w.geometry(f"{sum(self.GENISLIK) + 70}x660")
+
+        ust = tk.Frame(w, bg=ZEMIN)
+        ust.pack(fill="x")
+        tk.Label(ust, text="Firma / Ekran Seçimi", font=("Georgia", 14, "bold"), fg="#F2F4F8",
+                 bg=ZEMIN).pack(side="left")
+        self.v_ara = tk.StringVar()
+        self.v_ara.trace_add("write", lambda *_: self._suz())
+        giris_kutusu(ust, self.v_ara, genislik=24).pack(side="right", ipady=3)
+        tk.Label(ust, text="Firma ara:", font=KUCUK, fg=ETIKET, bg=ZEMIN).pack(side="right", padx=6)
+        tk.Label(w, text="İşaretli = o ekran bu firmada sorgulanır. Sütun başlığına tıklayınca o ekran"
+                         " tüm firmalarda açılır/kapanır, firma adına tıklayınca o firmanın tüm ekranları.",
+                 font=KUCUK, fg=SOLUK, bg=ZEMIN, anchor="w", justify="left",
+                 wraplength=sum(self.GENISLIK)).pack(fill="x", pady=(4, 8))
+
+        alt = tk.Frame(w, bg=ZEMIN)
+        alt.pack(side="bottom", fill="x", pady=(10, 0))
+        self.bilgi = tk.Label(alt, text=f"{len(firmalar)} firma", font=KUCUK, fg=SOLUK, bg=ZEMIN)
+        self.bilgi.pack(side="left")
+        dugme(alt, "Kaydet", self.kaydet, ana=True).pack(side="right")
+        dugme(alt, "Vazgeç", w.destroy).pack(side="right", padx=8)
+
+        baslik = tk.Frame(w, bg=KUTU)
+        baslik.pack(fill="x")
+        basliklar = ["Firma", "Devreden KDV"] + [EKRAN_ADLARI.get(t, t).replace(" ", "\n", 1)
+                                                 for t in TUM_BELGELER]
+        for i, ad in enumerate(basliklar):
+            baslik.grid_columnconfigure(i, minsize=self.GENISLIK[i])
+            et = tk.Label(baslik, text=ad, font=BOLUM, fg=ALTIN, bg=KUTU,
+                          anchor="w" if i < 2 else "center", justify="center", pady=6)
+            et.grid(row=0, column=i, sticky="ew")
+            if i >= 2:
+                tip = TUM_BELGELER[i - 2]
+                et.configure(cursor="hand2")
+                et.bind("<Button-1>", lambda _e, t=tip: self._sutunu_cevir(t))
+
+        govde = tk.Frame(w, bg=PANEL)
+        govde.pack(fill="both", expand=True)
+        self.tuval = tk.Canvas(govde, bg=PANEL, highlightthickness=0)
+        kaydir = tk.Scrollbar(govde, command=self.tuval.yview)
+        self.tuval.configure(yscrollcommand=kaydir.set)
+        kaydir.pack(side="right", fill="y")
+        self.tuval.pack(side="left", fill="both", expand=True)
+        self.ic = tk.Frame(self.tuval, bg=PANEL)
+        self.tuval.create_window((0, 0), window=self.ic, anchor="nw")
+        self.ic.bind("<Configure>", lambda _e: self.tuval.configure(scrollregion=self.tuval.bbox("all")))
+        for i, g in enumerate(self.GENISLIK):
+            self.ic.grid_columnconfigure(i, minsize=g)
+
+        self.satirlar = []
+        for r, f in enumerate(firmalar):
+            ad = tk.Label(self.ic, text=f["ad"], font=GOVDE, fg=YAZI, bg=PANEL, anchor="w", cursor="hand2")
+            ad.bind("<Button-1>", lambda _e, i=r: self._satiri_cevir(i))
+            dev = tk.StringVar(value=f["devreden"])
+            kutu = giris_kutusu(self.ic, dev, genislik=10)
+            secim = {t: tk.BooleanVar(value=t in f["ekranlar"]) for t in TUM_BELGELER}
+            isaretler = [tk.Checkbutton(self.ic, variable=secim[t], bg=PANEL, activebackground=PANEL,
+                                        fg=YAZI, activeforeground=YAZI, selectcolor=KUTU,
+                                        highlightthickness=0, bd=0)
+                         for t in TUM_BELGELER]
+            self.satirlar.append({"ad": f["ad"], "dev": dev, "secim": secim,
+                                  "widgetlar": [ad, kutu] + isaretler})
+        self._suz()
+        w.bind_all("<MouseWheel>", self._tekerlek)
+        w.bind_all("<Button-4>", lambda _e: self.tuval.yview_scroll(-3, "units"))
+        w.bind_all("<Button-5>", lambda _e: self.tuval.yview_scroll(3, "units"))
+        w.bind("<Destroy>", self._kapandi)
+
+    def _tekerlek(self, e):
+        self.tuval.yview_scroll(int(-e.delta / 120) * 3, "units")
+
+    def _kapandi(self, e):
+        if e.widget is self.w:
+            for olay in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+                self.w.unbind_all(olay)
+
+    def gorunen(self):
+        ara = sadelestir(self.v_ara.get())
+        return [s for s in self.satirlar if ara in sadelestir(s["ad"])]
+
+    def _suz(self):
+        for s in self.satirlar:
+            for wdg in s["widgetlar"]:
+                wdg.grid_forget()
+        for r, s in enumerate(self.gorunen()):
+            for c, wdg in enumerate(s["widgetlar"]):
+                wdg.grid(row=r, column=c, sticky="w" if c < 2 else "", padx=(8 if c == 0 else 2, 2), pady=2)
+        self.tuval.yview_moveto(0)
+
+    def _sutunu_cevir(self, tip):
+        gorunen = self.gorunen()
+        yeni = not all(s["secim"][tip].get() for s in gorunen)
+        for s in gorunen:
+            s["secim"][tip].set(yeni)
+
+    def _satiri_cevir(self, i):
+        secim = self.satirlar[i]["secim"]
+        yeni = not all(v.get() for v in secim.values())
+        for v in secim.values():
+            v.set(yeni)
+
+    def secimler(self):
+        return [{"ad": s["ad"], "devreden": s["dev"].get().strip(),
+                 "ekranlar": {t for t, v in s["secim"].items() if v.get()}} for s in self.satirlar]
+
+    def kaydet(self):
+        try:
+            firma_tablosu.tabloyu_yaz(self.yol, self.secimler())
+        except PermissionError:
+            messagebox.showerror("Kaydedilemedi", f"{self.yol.name} Excel'de açık; kapatıp tekrar deneyin.",
+                                 parent=self.w)
+            return
+        except Exception as e:
+            messagebox.showerror("Kaydedilemedi", f"{type(e).__name__}: {e}", parent=self.w)
+            return
+        self.arayuz.gostergeleri_yenile()
+        self.w.destroy()
 
 
 # --- ana pencere ---------------------------------------------------------------
@@ -280,7 +452,11 @@ class Arayuz:
         self.liste_etiketi = tk.Label(p, text="", font=KUCUK, fg=ETIKET, bg=KUTU, anchor="w",
                                       padx=8, pady=6, highlightthickness=1, highlightbackground=KENAR)
         self.liste_etiketi.pack(fill="x", pady=(6, 6))
-        dugme(p, "Dosya Seç…", self.liste_sec).pack(fill="x")
+        iki = tk.Frame(p, bg=ZEMIN)
+        iki.pack(fill="x")
+        dugme(iki, "Liste Yükle…", self.liste_sec).pack(side="left", fill="x", expand=True, padx=(0, 6))
+        dugme(iki, "Şablon İndir", self.sablon_indir).pack(side="left", fill="x", expand=True)
+        dugme(p, "Firma / Ekran Seçimi…", self.firma_ekran_penceresi).pack(fill="x", pady=(6, 0))
         tk.Label(p, text="Sadece bu firma (boş = listedeki hepsi)", font=KUCUK, fg=ETIKET,
                  bg=ZEMIN, anchor="w").pack(fill="x", pady=(10, 3))
         giris_kutusu(p, self.v_firma).pack(fill="x", ipady=4)
@@ -423,14 +599,64 @@ class Arayuz:
                                          filetypes=[("Excel", "*.xlsx"), ("Tüm dosyalar", "*.*")])
         if not yol:
             return
+        self._listeyi_ayarla(yol)
+
+    def _liste_tam_yolu(self):
+        yol = self.v_liste.get().strip()
+        if not yol:
+            return None
+        p = Path(yol)
+        return p if p.is_absolute() else KOK / p
+
+    def sablon_indir(self):
+        yol = filedialog.asksaveasfilename(
+            title="Firma listesi şablonu", initialdir=str(KOK), initialfile="firmalar-sablon.xlsx",
+            defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")], parent=self.kok)
+        if not yol:
+            return
+        try:  # daha once islenen firmalar varsa sablon onlarla dolu gelsin
+            firmalar = sorted(json.loads(self.rapor_yolu().read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            firmalar = []
+        try:
+            firma_tablosu.sablon_olustur(yol, firmalar)
+        except PermissionError:
+            messagebox.showerror("Kaydedilemedi", "Dosya Excel'de açık; kapatıp tekrar deneyin.",
+                                 parent=self.kok)
+            return
+        if messagebox.askyesno(
+                "Şablon indi",
+                f"{Path(yol).name} kaydedildi"
+                + (f" ({len(firmalar)} firma, daha önce işlenenler)" if firmalar else "") + ".\n\n"
+                "Ekran sütunlarında ✓ = sorgulanır, X = sorgulanmaz.\n"
+                "Bu dosya firma listesi olarak seçilsin ve Excel'de açılsın mı?", parent=self.kok):
+            self._listeyi_ayarla(yol)
+            dosya_ac(yol)
+
+    def _listeyi_ayarla(self, yol):
         p = Path(yol)
         try:
             yol = str(p.relative_to(KOK))
         except ValueError:
             yol = str(p)
         self.v_liste.set(yol)
+        self.ayarlar["firma_listesi"] = yol
+        ayarlari_kaydet(self.ayarlar)
         self._liste_etiketini_yaz()
         self.gostergeleri_yenile()
+
+    def firma_ekran_penceresi(self):
+        yol = self._liste_tam_yolu()
+        if not yol or not yol.exists():
+            messagebox.showinfo("Firma listesi yok", "Önce 'Liste Yükle' ile firmalar.xlsx'i seçin ya da"
+                                " 'Şablon İndir' ile yeni bir liste oluşturun.", parent=self.kok)
+            return
+        try:
+            firmalar = firma_tablosu.tabloyu_oku(yol)
+        except Exception as e:
+            messagebox.showerror("Okunamadı", f"{yol.name} okunamadı: {e}", parent=self.kok)
+            return
+        return FirmaEkranPenceresi(self, yol, firmalar)
 
     def _hepsi_degisti(self):
         for v in self.v_ekran.values():
@@ -737,15 +963,25 @@ class Arayuz:
             agac.insert("", "end", values=toplam, tags=("toplam",))
         agac.pack(fill="both", expand=True)
 
-        def kopyala():
-            metin = "\n".join("\t".join(str(h) for h in s) for s in [sutunlar, *satirlar, toplam])
-            w.clipboard_clear()
-            w.clipboard_append(metin)
-            kopya.configure(text="Kopyalandı ✓")
+        def excele_indir():
+            ad = re.sub(r"[^\w-]+", "-", sadelestir(baslik.split("—")[0]).lower()).strip("-")
+            yol = filedialog.asksaveasfilename(
+                title="Excel olarak kaydet", parent=w, defaultextension=".xlsx",
+                initialdir=str(indirme_koku(self.ayarlar)),
+                initialfile=f"{ad}-{(donem or '').replace('/', '.')}.xlsx",
+                filetypes=[("Excel", "*.xlsx")])
+            if not yol:
+                return
+            try:
+                liste_excel_yaz(yol, baslik, donem, sutunlar, satirlar, toplam, notlar)
+            except PermissionError:
+                messagebox.showerror("Kaydedilemedi", "Dosya Excel'de açık; kapatıp tekrar deneyin.",
+                                     parent=w)
+                return
+            dosya_ac(yol)
 
         dugme(alt, "Kapat", w.destroy).pack(side="right")
-        kopya = dugme(alt, "Excel'e yapıştırmak için kopyala", kopyala)
-        kopya.pack(side="right", padx=8)
+        dugme(alt, "Excel olarak indir", excele_indir, ana=True).pack(side="right", padx=8)
 
     # -- dosyalar / kapanis -------------------------------------------------------
 
