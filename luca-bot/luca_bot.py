@@ -16,19 +16,18 @@ Kullanim ornekleri icin README.md'ye bakin; .bat dosyalari da bunu cagirir.
 
 import argparse
 import os
+import signal
 import sys
 import traceback
 from datetime import date
-from pathlib import Path
 
 from lucabot import eposta, konsol
 from lucabot.calisma import Calisma
 from lucabot.firma_listesi import bugun_tamamlananlar, firmalari_suz
 from lucabot.giris import luca_oturumu_ac
 from lucabot.luca_gezinme import firma_secici
-from lucabot.ortak import (AYAR, KOK, ayarlari_oku, gunluge_yaz,
-                           icinde_bulunulan_ay, tarih_araliklari, tarih_cozumle,
-                           yaz)
+from lucabot.ortak import (AYAR, ayarlari_oku, gunluge_yaz, icinde_bulunulan_ay,
+                           indirme_koku, tarih_araliklari, tarih_cozumle, yaz)
 from lucabot.sabitler import BELGE_TIPLERI, TUM_BELGELER
 from lucabot.tarayici import (kullanici_bekle, kullanici_metni_al,
                               profil_klasoru, tarayici_ac, tarayiciyi_kapat)
@@ -66,6 +65,8 @@ def arguman_ayristirici():
     p.add_argument("--listele", action="store_true", help="Sadece firma listesini yazdir, islem yapma")
     p.add_argument("--bitince-kapat", action="store_true",
                    help="Is bitince ENTER beklemeden tarayiciyi kapat (gece calistirma icin)")
+    p.add_argument("--bastan", action="store_true",
+                   help="Bugun tamamlanan ekranlar da yeniden taransin (sormadan)")
     return p
 
 
@@ -130,15 +131,6 @@ def ayarlari_uygula(args, ayarlar):
         # Playwright'in tarayici cikis mesajlarini ekrana bassin; cokme sebebi
         # genelde burada yaziyor ("Target crashed", exit code, stderr)
         os.environ["DEBUG"] = "pw:browser"
-
-
-def indirme_koku(ayarlar):
-    """indirme_klasoru'nun kendisi (gunluk degil): surekli rapor burada tutulur."""
-    kok = Path(ayarlar.get("indirme_klasoru") or "indirilenler").expanduser()
-    if not kok.is_absolute():
-        kok = KOK / kok
-    kok.mkdir(parents=True, exist_ok=True)
-    return kok
 
 
 def calisma_klasoru(ayarlar):
@@ -255,7 +247,11 @@ def calistir(args, ayarlar, p):
             tarayiciyi_kapat(ctx)
             return 1
 
-        bugun_tamam = devam_mi_bastan_mi(ctx, rapor_klasoru, belge_tipleri, gece_modu, log)
+        if args.bastan:
+            yaz("Bugun tamamlanan ekranlar da yeniden taranacak (--bastan)", log)
+            bugun_tamam = {}
+        else:
+            bugun_tamam = devam_mi_bastan_mi(ctx, rapor_klasoru, belge_tipleri, gece_modu, log)
         yaz(f"Islenecek firma sayisi: {len(secim.firmalar)} | ekran: {len(belge_tipleri)}", log)
 
         # 4. islem
@@ -274,7 +270,15 @@ def calistir(args, ayarlar, p):
     return 0
 
 
+def _durdurma_sinyali(*_):
+    raise KeyboardInterrupt
+
+
 def main():
+    # Arayuz (luca_arayuz.py) "Durdur"da Windows'ta CTRL_BREAK gonderir; Ctrl+C
+    # ile ayni sekilde ele alinsin ki o ana kadarki sonuclar kaydedilsin
+    if hasattr(signal, "SIGBREAK"):
+        signal.signal(signal.SIGBREAK, _durdurma_sinyali)
     p = arguman_ayristirici()
     args = p.parse_args()
     ayarlar = ayarlari_oku()

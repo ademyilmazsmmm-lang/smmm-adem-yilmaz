@@ -247,8 +247,28 @@ def matrah_kdv_sutunlari(basliklar):
     matrah = _tutar_sutunlari(basliklar, ("MATRAH",))
     if not matrah:  # bazi ekranlarda sutun adi "matrah" gecmiyor
         matrah = _tutar_sutunlari(basliklar, ("MAL HIZMET TOPLAM TUTARI", "MAL HIZMET TUTARI"))
-    kdv = _tutar_sutunlari(basliklar, ("KDV",), haric=("ORAN",))
+    # "KDV Tevkifat Tutari" gibi sutunlar KDV'nin bir parcasi; ayrica toplanirsa cifte sayilir
+    kdv = _tutar_sutunlari(basliklar, ("KDV",), haric=("ORAN", "TEVKIFAT"))
     return matrah, kdv
+
+
+TEVKIFAT_HARIC = ("ORAN", "KOD", "TUR", "TIP", "NEDEN", "ACIKLAMA")
+
+
+def tevkifat_kdv_tutari(basliklar, satirlar):
+    """Tevkifatli faturalarin tevkif edilen KDV'si: (tutar, tahmini_mi).
+
+    Excel'de "Tevkifat Tutari" gibi bir sutun varsa o toplanir. Yoksa
+    faturalarin KDV'si dondurulur ve tahmini_mi True olur (tevkif edilen
+    kisim, oranina gore, bundan azdir).
+    """
+    sutunlar = _tutar_sutunlari(basliklar, ("TEVKIFAT",), haric=TEVKIFAT_HARIC)
+    if sutunlar:
+        tutar = _satirlarin_tutari(satirlar, sutunlar)
+        if tutar:
+            return round(tutar, 2), False
+    _, kdv = matrah_kdv_sutunlari(basliklar)
+    return round(_satirlarin_tutari(satirlar, kdv), 2), bool(satirlar)
 
 
 def _satirlarin_tutari(satirlar, sutunlar):
@@ -356,4 +376,7 @@ def excelden_sonuca_isle(sonuc, yol, klasor, log, iptal_nolari=()):
     else:
         sonuc["matrah"] = _satirlarin_tutari(sayilan_satirlar, matrah_sutunlari)
         sonuc["kdv"] = _satirlarin_tutari(sayilan_satirlar, kdv_sutunlari)
+    # tevkifat sayisi iptalleri de icerir (uyari kacmasin); tutar icermez
+    sonuc["tevkifat_kdv"], sonuc["tevkifat_kdv_tahmini"] = tevkifat_kdv_tutari(
+        basliklar, [s for s in tevkifatlilar if id(s) not in iptal_id])
     return satirlar

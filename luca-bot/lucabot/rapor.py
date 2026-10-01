@@ -110,13 +110,14 @@ def _bos_kayit(firma):
     return {"firma": firma, "donem": "", "durumlar": {}, "sayilar": {}, "iptal": {},
             "tevkifat": {}, "inmeyen": {}, "faturalar": {}, "dosya": {}, "not": "", "son": "",
             "matrah": {}, "kdv": {}, "notlar": {}, "dosya_adlari": {}, "klasorler": {},
-            "goruntuler": {}, "sureler": {}, "guncellenme": {}}
+            "goruntuler": {}, "sureler": {}, "guncellenme": {},
+            "tevkifat_kdv": {}, "tevkifat_kdv_tahmini": {}}
 
 
 # eski gunlerden kalan rapor.json kayitlarinda sonradan eklenen alanlar yok
 _SOZLUK_ALANLARI = ("durumlar", "sayilar", "iptal", "tevkifat", "inmeyen", "faturalar",
                     "matrah", "kdv", "notlar", "dosya_adlari", "klasorler", "goruntuler",
-                    "sureler", "guncellenme")
+                    "sureler", "guncellenme", "tevkifat_kdv", "tevkifat_kdv_tahmini")
 
 
 def _tamamla(kayit):
@@ -209,6 +210,16 @@ def _grup_toplami(kayit, alan, ekranlar):
 def fatura_adedi(kayit):
     """Firmanin mukerrersiz fatura adedi (ayni fatura iki ekranda sayilmaz)."""
     return birlesik(kayit.get("sayilar") or {})
+
+
+def tevkifat_adedi(kayit):
+    """Tevkifatli alis faturasi adedi: e-Arsiv ve e-Fatura alistakiler ayri faturalar, toplanir."""
+    return birlesik(kayit.get("tevkifat") or {}, ekranlar=TEVKIFAT_EKRANLARI)
+
+
+def tevkifat_kdv(kayit):
+    """Tevkifatli alis faturalarinin tevkif edilen KDV'si (iptaller haric)."""
+    return birlesik(kayit.get("tevkifat_kdv") or {}, ekranlar=TEVKIFAT_EKRANLARI)
 
 
 def fatura_farklari(kayit):
@@ -312,8 +323,8 @@ def _aksiyon(kayit):
         isler.append(f"SAYI FARKI - {abs(fark)} fatura, numaralar ortusuyor")
     if _en_yuksek(kayit["iptal"]):
         isler.append(f"IPTAL/ITIRAZ - {_en_yuksek(kayit['iptal'])} fatura")
-    if _en_yuksek(kayit["tevkifat"]):
-        isler.append(f"TEVKIFAT - {_en_yuksek(kayit['tevkifat'])} alis faturasi, KDV2 kontrol")
+    if tevkifat_adedi(kayit):
+        isler.append(f"TEVKIFAT - {tevkifat_adedi(kayit)} alis faturasi, KDV2 kontrol")
     return " | ".join(isler)
 
 
@@ -328,7 +339,7 @@ def _satir(kayit):
     satir += [_fark(kayit),
               _eksik_faturalar(kayit),
               _en_yuksek(kayit["iptal"]) or "",
-              _en_yuksek(kayit["tevkifat"]) or "",
+              tevkifat_adedi(kayit) or "",
               sum(kayit["inmeyen"].values()) or "",
               _tutar_yaz(_grup_toplami(kayit, "matrah", ALIS_EKRANLARI)),
               _tutar_yaz(_grup_toplami(kayit, "kdv", ALIS_EKRANLARI)),
@@ -359,6 +370,8 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
         kayit["sayilar"][tip] = s.get("fatura_sayisi", 0)
         kayit["iptal"][tip] = s.get("iptal_itiraz", 0)
         kayit["tevkifat"][tip] = s.get("tevkifat", 0) if tip in TEVKIFAT_EKRANLARI else 0
+        kayit["tevkifat_kdv"][tip] = (s.get("tevkifat_kdv", 0) or 0) if tip in TEVKIFAT_EKRANLARI else 0
+        kayit["tevkifat_kdv_tahmini"][tip] = bool(s.get("tevkifat_kdv_tahmini"))
         kayit["inmeyen"][tip] = s.get("indirilemeyen", 0)
         kayit.setdefault("matrah", {})[tip] = s.get("matrah", 0) or 0
         kayit.setdefault("kdv", {})[tip] = s.get("kdv", 0) or 0

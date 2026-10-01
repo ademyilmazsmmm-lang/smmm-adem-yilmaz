@@ -65,6 +65,15 @@ def ayarlari_oku():
                          " adini ayarlar.json yapin.")
 
 
+def indirme_koku(ayarlar):
+    """indirme_klasoru'nun kendisi (gunluk degil): surekli rapor burada tutulur."""
+    kok = Path(ayarlar.get("indirme_klasoru") or "indirilenler").expanduser()
+    if not kok.is_absolute():
+        kok = KOK / kok
+    kok.mkdir(parents=True, exist_ok=True)
+    return kok
+
+
 def yaz(mesaj, log_dosyasi=None):
     """Mesaji ekrana basar ve (verildiyse) zaman damgasiyla gunluge ekler.
 
@@ -178,7 +187,8 @@ def yeni_sonuc(firma, belge_tipi):
     """
     return {"firma": firma, "belge_tipi": belge_tipi, "fatura_sayisi": 0,
             "durum": "", "dosyalar": [], "indirilemeyen": 0, "iptal_itiraz": 0,
-            "tevkifat": 0, "donem": "", "not": "", "faturalar": [],
+            "tevkifat": 0, "tevkifat_kdv": 0, "tevkifat_kdv_tahmini": False,
+            "donem": "", "not": "", "faturalar": [],
             "matrah": 0, "kdv": 0, "sure": 0, "klasor": "", "ekran_goruntusu": ""}
 
 

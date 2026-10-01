@@ -174,7 +174,7 @@ def _ozet_sayfasi(ws, kayitlar, satirlar, stil):
         ("Listelenen fatura (aynı fatura iki ekranda sayılmaz)",
          sum(mukerrersiz_fatura(k) for k in kayitlar.values())),
         ("Tevkifatlı alış faturası (KDV2)",
-         sum(rapor._en_yuksek(k["tevkifat"]) for k in kayitlar.values())),
+         sum(rapor.tevkifat_adedi(k) for k in kayitlar.values())),
         ("İptal/itiraz edilmiş fatura", sum(rapor._en_yuksek(k["iptal"]) for k in kayitlar.values())),
         ("İnen dosya", sum(rapor._dosya_sayisi(k) or 0 for k in kayitlar.values())),
     ]
@@ -214,7 +214,7 @@ def _ozet_sayfasi(ws, kayitlar, satirlar, stil):
             rapor._grup_toplami(k, "kdv", rapor.ALIS_EKRANLARI) or None,
             rapor._grup_toplami(k, "matrah", rapor.SATIS_EKRANLARI) or None,
             rapor._grup_toplami(k, "kdv", rapor.SATIS_EKRANLARI) or None,
-            rapor._en_yuksek(k["tevkifat"]) or None,
+            rapor.tevkifat_adedi(k) or None,
             rapor._en_yuksek(k["iptal"]) or None,
         ])
     _tablo(ws, ["Firma", "Fatura", "Alış Matrah", "Alış KDV", "Satış Matrah", "Satış KDV",

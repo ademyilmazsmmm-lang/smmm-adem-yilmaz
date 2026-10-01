@@ -7,6 +7,7 @@ ekranlar) ve ayni gun yarida kalan calismanin (surekli) rapor.json'u.
 """
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -68,6 +69,38 @@ def firma_listesini_oku(yol, log=None):
                    if i < len(satir) and sadelestir(satir[i]) in ATLA_DEGERLERI}
         liste[ad] = (kapanis, atlanan)
     return liste
+
+
+def devreden_kdvleri(yol):
+    """firmalar.xlsx'teki "Devreden KDV" sutunu: {kisa ad: tutar}.
+
+    Sutun elle doldurulur; bos birakilan firma sozlukte yer almaz (arayuz
+    "girilmedi" gosterir). Dosya ya da sutun yoksa bos sozluk doner.
+    """
+    from .fatura_analiz import tutar_cozumle
+    if not yol:
+        return {}
+    yol = Path(yol)
+    if not yol.is_absolute():
+        yol = KOK / yol
+    if not yol.exists():
+        return {}
+    basliklar, satirlar = excelden_tablo(yol, None, sadece_ilk=True, satir_en_az=1)
+    ad_i = sutun_indeksi(basliklar, "KISA AD")
+    devreden_i = sutun_indeksi(basliklar, "DEVREDEN")
+    if devreden_i is None:
+        return {}
+    if ad_i is None:
+        ad_i = 0
+    sonuc = {}
+    for satir in satirlar:
+        ad = satir[ad_i].strip() if ad_i < len(satir) else ""
+        deger = satir[devreden_i].strip() if devreden_i < len(satir) else ""
+        if ad and deger:
+            if re.fullmatch(r"\d{1,3}(\.\d{3})+", deger):  # metin olarak "5.000": binlik nokta
+                deger = deger.replace(".", "")
+            sonuc[ad] = tutar_cozumle(deger)
+    return sonuc
 
 
 def listede_bul(ad, liste):

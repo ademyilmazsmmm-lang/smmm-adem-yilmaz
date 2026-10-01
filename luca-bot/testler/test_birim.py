@@ -335,6 +335,82 @@ class RaporTestleri(unittest.TestCase):
         self.assertNotIn("*", metin)
 
 
+class ArayuzOzetTestleri(unittest.TestCase):
+    """Arayuzun alt kutulari: tevkifat KDV, SMM, interaktif farki, KDV odemesi."""
+
+    def test_tevkifat_tutari_sutundan_yoksa_kdvden(self):
+        from lucabot.fatura_analiz import matrah_kdv_sutunlari, tevkifat_kdv_tutari
+        basliklar = ["Fatura No", "Matrah", "KDV Tutarı", "KDV Tevkifat Tutarı", "Tevkifat Oranı"]
+        satirlar = [["AAA2026000000001", "1000", "200", "100", "5/10"]]
+        self.assertEqual(tevkifat_kdv_tutari(basliklar, satirlar), (100.0, False))
+        # tevkifat sutunu KDV toplamina ikinci kez girmez
+        self.assertEqual(matrah_kdv_sutunlari(basliklar)[1], [2])
+        self.assertEqual(tevkifat_kdv_tutari(["Fatura No", "Matrah", "KDV Tutarı"],
+                                             [["AAA2026000000001", "1000", "200"]]), (200.0, True))
+        self.assertEqual(tevkifat_kdv_tutari(basliklar, []), (0, False))
+
+    def test_excelde_iptal_edilen_tevkifatli_fatura_tutara_girmez(self):
+        with tempfile.TemporaryDirectory() as d:
+            klasor = Path(d)
+            yol = _xlsx(klasor / "liste.xlsx", [
+                ["Fatura No", "Unvan", "Tip", "Matrah", "KDV Tutarı", "Tevkifat Tutarı", "Durum"],
+                ["AAA2026000000001", "TRUGO", "TEVKIFAT", 2000, 400, 200, "ONAY"],
+                ["AAA2026000000002", "SHELL", "TEVKIFAT", 1000, 200, 100, "IPTAL"],
+            ])
+            sonuc = yeni_sonuc("F", "e-fatura-alis")
+            excelden_sonuca_isle(sonuc, yol, klasor, None)
+            self.assertEqual(sonuc["tevkifat"], 2)       # uyari icin iptal de sayilir
+            self.assertEqual(sonuc["tevkifat_kdv"], 200)  # tutara girmez
+            self.assertFalse(sonuc["tevkifat_kdv_tahmini"])
+
+    def test_tevkifat_adedi_e_arsiv_ve_e_fatura_alisi_toplar(self):
+        """e-Arsiv Alis ile e-Fatura Alis'taki tevkifatli faturalar farkli faturalar."""
+        kayit = {"tevkifat": {"e-arsiv-alis": 1, "e-arsiv-interaktif": 1, "e-fatura-alis": 4,
+                              "turmob-alis": 4}}
+        self.assertEqual(rapor.tevkifat_adedi(kayit), 5)
+
+    def test_devreden_kdv_sutunu_okunur(self):
+        from lucabot.firma_listesi import devreden_kdvleri
+        with tempfile.TemporaryDirectory() as d:
+            yol = _xlsx(Path(d) / "firmalar.xlsx", [
+                ["Kısa Adı", "Kapanış Tarihi", "Devreden KDV"],
+                ["BIRLIK TIC", "", 5000.5],
+                ["KAYA INS", "", "5.000"],
+                ["YILDIZ OTO", "", ""],
+            ])
+            self.assertEqual(devreden_kdvleri(yol), {"BIRLIK TIC": 5000.5, "KAYA INS": 5000.0})
+            self.assertEqual(devreden_kdvleri(Path(d) / "yok.xlsx"), {})
+            self.assertEqual(devreden_kdvleri(""), {})
+
+    def test_gostergeler(self):
+        from lucabot import gostergeler
+        donem = "01/09/2026-30/09/2026"
+        kayitlar = {
+            "BIRLIK TIC": {"donem": donem,
+                           "sayilar": {"e-arsiv-alis": 3, "e-arsiv-interaktif": 5, "esmm-alis": 2},
+                           "faturalar": {"e-arsiv-interaktif": [["X", "AAA2026000000001", 1.0]]},
+                           "tevkifat": {"e-fatura-alis": 2}, "tevkifat_kdv": {"e-fatura-alis": 700},
+                           "tevkifat_kdv_tahmini": {"e-fatura-alis": True},
+                           "matrah": {"esmm-alis": 3000},
+                           "kdv": {"e-arsiv-satis": 1000, "e-fatura-satis": 500, "e-arsiv-alis": 600}},
+            "YILDIZ OTO": {"donem": donem, "sayilar": {}, "kdv": {"turmob-satis": 300}},
+            "AZ ALIS": {"donem": donem, "kdv": {"e-fatura-satis": 100, "e-fatura-alis": 400}},
+            "ESKI AY": {"donem": "01/08/2026-31/08/2026", "kdv": {"e-fatura-satis": 999}},
+        }
+        g = gostergeler.hesapla(kayitlar, {"BIRLIK TICARET": 200}, donem)
+        self.assertEqual(g["tevkifat"], [{"firma": "BIRLIK TIC", "adet": 2, "tutar": 700,
+                                          "tahmini": True}])
+        self.assertEqual(g["smm"], [{"firma": "BIRLIK TIC", "adet": 2, "tutar": 3000}])
+        self.assertEqual(g["fark"], [{"firma": "BIRLIK TIC", "interaktif": 5, "earsiv": 3, "fark": 2}])
+        # satis 1500 - alis 600 - devreden 200 = 700; Luca'da kisaltilmis ad listedeki tam adla eslesir
+        self.assertEqual(g["kdv"], [
+            {"firma": "BIRLIK TIC", "satis": 1500, "alis": 600, "devreden": 200, "odeme": 700},
+            {"firma": "YILDIZ OTO", "satis": 300, "alis": 0, "devreden": None, "odeme": 300}])
+        t = gostergeler.toplamlar(g)
+        self.assertEqual((t["tevkifat"], t["smm"], t["fark"], t["kdv_firma"]), (700, 3000, 2, 2))
+        self.assertEqual(gostergeler.tl(1234.5), "1.234,50 TL")
+
+
 class GecisAraciTestleri(unittest.TestCase):
     """gecis_rapor_birlestir.py: eski gunluk rapor.json'lari tek surekli rapora birlestirir."""
 

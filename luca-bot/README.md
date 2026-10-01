@@ -3,7 +3,8 @@
 Luca'da her firma için tek tek yaptığınız **Akıllı Entegrasyon Noktası → e-Arşiv Alış Faturaları → GİB'den Getir → Seçilenleri İndir** işlemini
 tüm firmalar için sırayla otomatik yapar. İndirilen dosyaları ve fatura listelerini bilgisayarınızda firma bazında klasörlere kaydeder.
 
-**Şifreniz hiçbir yerde saklanmaz.** Bot tarayıcıyı açar, Luca'ya girişi **siz elle** yaparsınız, sonrasındaki 50 firmalık tekrar eden işi bot devralır.
+**Giriş bilgileri yalnızca bu bilgisayardaki `ayarlar.json`'da tutulur** (başka yere gönderilmez); girilirse
+bot Luca'ya kendisi girer, girilmezse tarayıcıyı açar ve girişi **siz elle** yaparsınız. Sonrasındaki tekrar eden işi bot devralır.
 
 ## Kurulum (tek seferlik)
 
@@ -26,10 +27,35 @@ pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
+## Arayüz (en kolay yol): `luca-arayuz.bat`
+
+Komut satırı kullanmadan, pencereden çalıştırmak için `luca-arayuz.bat`'a çift tıklayın
+(arkada küçültülmüş bir siyah pencere kalır, onu kapatmayın).
+
+1. **Luca Girişi › Değiştir**: Üye No, Kullanıcı Adı, Parola (ve varsa iki aşamalı giriş
+   anahtarı) bir kez girilir, `ayarlar.json`'a kaydedilir. Program Luca'ya kendisi girer.
+2. **Firma Listesi**: `firmalar.xlsx`'i seçin. Tek firma için "Sadece bu firma" kutusuna adını yazın.
+3. **Tarih Aralığı** ve **Ekranlar**'ı seçip **Çalıştır**'a basın. İlerleme ve log pencerede
+   canlı akar. **Durdur** o ana kadarki sonuçları kaydederek durdurur; tekrar Çalıştır'a basınca
+   kaldığı yerden sürer ("Bugün bitenleri atla" işaretliyse).
+4. Alttaki kutular seçili dönem için `rapor.json`'dan hesaplanır, tıklayınca firmaları listeler
+   (listeyi "Excel'e yapıştırmak için kopyala" ile alabilirsiniz):
+   - **Alış Tevkifat KDV**: tevkifatlı alış faturaları (KDV2). Excel'de tevkifat tutarı sütunu
+     yoksa faturanın KDV'si gösterilir ve `*` ile işaretlenir.
+   - **Alış SMM**: e-SMM alış makbuzları.
+   - **İnteraktif Farkı**: İnteraktif V.D. ile e-Arşiv Alış'ın fatura sayısı tutmayan firmalar.
+   - **KDV Ödemesi Çıkabilir**: Satış KDV − Alış KDV − Devreden KDV > 0 olan firmalar. Devreden
+     KDV'yi `firmalar.xlsx`'e **"Devreden KDV"** adlı bir sütun açıp elle yazın; boşsa 0 sayılır.
+     Tahmindir (diğer beyan kalemleri girmez).
+
+İptal/itiraz edilen faturalar tutarlara dahil edilmez. Python'da pencere kütüphanesi (tkinter)
+yoksa `.bat` bunu söyler; python.org'dan kurarken "tcl/tk and IDLE" işaretli olmalı (varsayılan).
+
 ## Çalıştırma (çift tıklayarak)
 
 | Dosya | Ne yapar |
 | --- | --- |
+| `luca-arayuz.bat` | **Pencereli arayüz** (yukarıya bakın) |
 | `kurulum.bat` | Tek seferlik kurulum |
 | `firmalari-listele.bat` | Luca'daki firma adlarını listeler (test için doğru adı öğrenmek üzere) |
 | `calistir.bat` | Tarih aralığını sorar, faturaları çeker. Firma adı sorulduğunda boş bırakırsanız tüm firmalar işlenir |
@@ -233,6 +259,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | `indirme.py` | **Fatura indirme**: belge paketi (zip) ve Excel |
 | `fatura_analiz.py` | İnen Excel/ZIP'ten tevkifat, iptal/itiraz, matrah/KDV |
 | `rapor.py`, `rapor_excel.py` | **Raporlama**: `rapor.json` / `rapor.csv` / `rapor.xlsx` |
+| `gostergeler.py` | Arayüzün alt kutuları (tevkifat KDV, SMM, interaktif farkı, KDV ödemesi); arayüzün kendisi `luca_arayuz.py` |
 | `eposta.py` | Özet e-postası (Outlook / SMTP) |
 | `ekran_isleyici.py` | Bir firmanın bir ekranını baştan sona işleyen akış (adım adım metotlar) |
 | `calisma.py` | Tüm firmaları dolaşan döngü, hata/çökme kurtarma |
@@ -252,7 +279,7 @@ dolarsa bir sonraki güvenli adıma geçilir ve durum günlüğe yazılır.
 **Testler** (Luca'ya bağlanmaz; `testler/sahte_luca.py` Luca'yı taklit eden küçük bir sitedir):
 
 ```
-python -m unittest discover -s testler        # birim ve dayanıklılık testleri
+python -m unittest discover -s testler        # birim, dayanıklılık ve arayüz testleri
 python testler/uctan_uca.py                    # programın tamamı, sahte Luca üzerinde
 ```
 
