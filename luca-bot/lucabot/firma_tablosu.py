@@ -35,8 +35,8 @@ def _yol(yol):
     return yol if yol.is_absolute() else KOK / yol
 
 
-def sablon_olustur(yol, firmalar=()):
-    """Bos (ya da verilen firmalarla dolu) firmalar.xlsx sablonu yazar."""
+def sablon_olustur(yol, firmalar=(), ornek=True):
+    """Bos (ya da verilen firmalarla dolu) firmalar.xlsx sablonu yazar; bossa ornek bir satir."""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.worksheet.datavalidation import DataValidation
@@ -45,7 +45,7 @@ def sablon_olustur(yol, firmalar=()):
     ws = wb.active
     ws.title = "Firmalar"
     ws.append(SABLON_SUTUNLARI)
-    for ad in firmalar or ["ÖRNEK FİRMA A.Ş."]:
+    for ad in list(firmalar) or (["ÖRNEK FİRMA A.Ş."] if ornek else []):
         ws.append([ad, "", ""] + [SORGULA] * len(EKRAN_SUTUNLARI))
     baslik = PatternFill("solid", fgColor="1F4E78")
     for h in ws[1]:
@@ -135,10 +135,11 @@ def tabloyu_oku(yol):
         wb.close()
 
 
-def tabloyu_yaz(yol, firmalar):
+def tabloyu_yaz(yol, firmalar, silinenler=()):
     """Arayuzde yapilan secimleri dosyaya yazar; once yedek alir. Yedegin yolunu dondurur.
 
-    Dosya Excel'de acikken PermissionError verir (cagiran kullaniciya soyler).
+    Dosyada olmayan firma sona eklenir; yalnizca `silinenler`deki adlarin
+    satiri silinir. Dosya Excel'de acikken PermissionError verir.
     """
     from openpyxl import load_workbook
     yol = _yol(yol)
@@ -160,17 +161,33 @@ def tabloyu_yaz(yol, firmalar):
     ekran_i = {tip: sutun(baslik) for baslik, tip in EKRAN_SUTUNLARI.items()}
     dev_i = sutun(DEVREDEN_SUTUNU)
     secimler = {f["ad"]: f for f in firmalar}
-    for satir in ws.iter_rows(min_row=satir_no + 1):
-        hucre = satir[ad_i] if ad_i < len(satir) else None
-        ad = str(hucre.value).strip() if hucre is not None and hucre.value is not None else ""
-        f = secimler.get(ad)
-        if f is None:
-            continue
-        r = hucre.row
+    silinecek = set(silinenler)
+
+    def doldur(r, f):
         for tip, i in ekran_i.items():
             ws.cell(row=r, column=i + 1, value=SORGULA if tip in f["ekranlar"] else ATLA)
         dev = (f.get("devreden") or "").strip()
         ws.cell(row=r, column=dev_i + 1, value=_sayi_ya_da_metin(dev) if dev else None)
+
+    bulunan, silinecek_satirlar = set(), []
+    son_satir = ws.max_row  # yeni firmalar en alta: araya ya da notlarin ustune yazilmaz
+    for satir in ws.iter_rows(min_row=satir_no + 1):
+        hucre = satir[ad_i] if ad_i < len(satir) else None
+        ad = str(hucre.value).strip() if hucre is not None and hucre.value is not None else ""
+        if not ad:
+            continue
+        if ad in silinecek:
+            silinecek_satirlar.append(hucre.row)
+        elif ad in secimler:
+            bulunan.add(ad)
+            doldur(hucre.row, secimler[ad])
+    for f in firmalar:  # arayuzde eklenen firmalar
+        if f["ad"] not in bulunan and f["ad"] not in silinecek:
+            son_satir += 1
+            ws.cell(row=son_satir, column=ad_i + 1, value=f["ad"])
+            doldur(son_satir, f)
+    for r in sorted(silinecek_satirlar, reverse=True):
+        ws.delete_rows(r)
 
     yedek = yol.with_name(f"{yol.stem}.yedek-{datetime.now():%Y%m%d-%H%M%S}{yol.suffix}")
     shutil.copy2(yol, yedek)

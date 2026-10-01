@@ -219,47 +219,56 @@ class OzetKutusu(tk.Frame):
 
 
 class FirmaEkranPenceresi:
-    """firmalar.xlsx'i tablo olarak gosterir: her firmada hangi ekran sorgulansin (✓/X), Devreden KDV."""
+    """firmalar.xlsx'i tablo olarak gosterir: her firmada hangi ekran sorgulansin (✓/X), Devreden KDV.
 
-    GENISLIK = (240, 100) + (80,) * len(TUM_BELGELER)
+    Firma eklenip silinebilir; Kaydet dosyaya yazar (firma_tablosu.tabloyu_yaz).
+    """
+
+    GENISLIK = (240, 100) + (80,) * len(TUM_BELGELER) + (34,)
 
     def __init__(self, arayuz, yol, firmalar):
         self.arayuz, self.yol, self.firmalar = arayuz, yol, firmalar
         w = self.w = tk.Toplevel(arayuz.kok, bg=ZEMIN, padx=18, pady=14)
-        w.title(f"Firma / Ekran Seçimi — {yol.name}")
+        w.title(f"KDV Devri ve Ekran Seçimi — {yol.name}")
         w.transient(arayuz.kok)
         w.geometry(f"{sum(self.GENISLIK) + 70}x660")
 
         ust = tk.Frame(w, bg=ZEMIN)
         ust.pack(fill="x")
-        tk.Label(ust, text="Firma / Ekran Seçimi", font=("Georgia", 14, "bold"), fg="#F2F4F8",
+        tk.Label(ust, text="KDV Devri ve Ekran Seçimi", font=("Georgia", 14, "bold"), fg="#F2F4F8",
                  bg=ZEMIN).pack(side="left")
         self.v_ara = tk.StringVar()
         self.v_ara.trace_add("write", lambda *_: self._suz())
         giris_kutusu(ust, self.v_ara, genislik=24).pack(side="right", ipady=3)
         tk.Label(ust, text="Firma ara:", font=KUCUK, fg=ETIKET, bg=ZEMIN).pack(side="right", padx=6)
-        tk.Label(w, text="İşaretli = o ekran bu firmada sorgulanır. Sütun başlığına tıklayınca o ekran"
-                         " tüm firmalarda açılır/kapanır, firma adına tıklayınca o firmanın tüm ekranları.",
+        tk.Label(w, text="Her firmanın Devreden KDV'sini yazın ve sorgulanacak ekranları işaretleyin."
+                         " Sütun başlığına tıklayınca o ekran tüm firmalarda açılır/kapanır, firma adına"
+                         " tıklayınca o firmanın tüm ekranları. ✕ firmayı listeden çıkarır.",
                  font=KUCUK, fg=SOLUK, bg=ZEMIN, anchor="w", justify="left",
                  wraplength=sum(self.GENISLIK)).pack(fill="x", pady=(4, 8))
 
         alt = tk.Frame(w, bg=ZEMIN)
         alt.pack(side="bottom", fill="x", pady=(10, 0))
-        self.bilgi = tk.Label(alt, text=f"{len(firmalar)} firma", font=KUCUK, fg=SOLUK, bg=ZEMIN)
-        self.bilgi.pack(side="left")
+        self.v_yeni = tk.StringVar()
+        yeni = giris_kutusu(alt, self.v_yeni, genislik=26)
+        yeni.pack(side="left", ipady=4)
+        yeni.bind("<Return>", lambda _e: self.firma_ekle())
+        dugme(alt, "Firma Ekle", self.firma_ekle).pack(side="left", padx=6)
+        self.bilgi = tk.Label(alt, text="", font=KUCUK, fg=SOLUK, bg=ZEMIN)
+        self.bilgi.pack(side="left", padx=10)
         dugme(alt, "Kaydet", self.kaydet, ana=True).pack(side="right")
         dugme(alt, "Vazgeç", w.destroy).pack(side="right", padx=8)
 
         baslik = tk.Frame(w, bg=KUTU)
         baslik.pack(fill="x")
         basliklar = ["Firma", "Devreden KDV"] + [EKRAN_ADLARI.get(t, t).replace(" ", "\n", 1)
-                                                 for t in TUM_BELGELER]
+                                                 for t in TUM_BELGELER] + [""]
         for i, ad in enumerate(basliklar):
             baslik.grid_columnconfigure(i, minsize=self.GENISLIK[i])
             et = tk.Label(baslik, text=ad, font=BOLUM, fg=ALTIN, bg=KUTU,
                           anchor="w" if i < 2 else "center", justify="center", pady=6)
             et.grid(row=0, column=i, sticky="ew")
-            if i >= 2:
+            if 2 <= i < 2 + len(TUM_BELGELER):
                 tip = TUM_BELGELER[i - 2]
                 et.configure(cursor="hand2")
                 et.bind("<Button-1>", lambda _e, t=tip: self._sutunu_cevir(t))
@@ -277,24 +286,56 @@ class FirmaEkranPenceresi:
         for i, g in enumerate(self.GENISLIK):
             self.ic.grid_columnconfigure(i, minsize=g)
 
-        self.satirlar = []
-        for r, f in enumerate(firmalar):
-            ad = tk.Label(self.ic, text=f["ad"], font=GOVDE, fg=YAZI, bg=PANEL, anchor="w", cursor="hand2")
-            ad.bind("<Button-1>", lambda _e, i=r: self._satiri_cevir(i))
-            dev = tk.StringVar(value=f["devreden"])
-            kutu = giris_kutusu(self.ic, dev, genislik=10)
-            secim = {t: tk.BooleanVar(value=t in f["ekranlar"]) for t in TUM_BELGELER}
-            isaretler = [tk.Checkbutton(self.ic, variable=secim[t], bg=PANEL, activebackground=PANEL,
-                                        fg=YAZI, activeforeground=YAZI, selectcolor=KUTU,
-                                        highlightthickness=0, bd=0)
-                         for t in TUM_BELGELER]
-            self.satirlar.append({"ad": f["ad"], "dev": dev, "secim": secim,
-                                  "widgetlar": [ad, kutu] + isaretler})
+        self.satirlar, self.silinenler = [], set()
+        for f in firmalar:
+            self._satir_olustur(f)
         self._suz()
         w.bind_all("<MouseWheel>", self._tekerlek)
         w.bind_all("<Button-4>", lambda _e: self.tuval.yview_scroll(-3, "units"))
         w.bind_all("<Button-5>", lambda _e: self.tuval.yview_scroll(3, "units"))
         w.bind("<Destroy>", self._kapandi)
+
+    def _satir_olustur(self, f):
+        satir = {"ad": f["ad"]}
+        ad = tk.Label(self.ic, text=f["ad"], font=GOVDE, fg=YAZI, bg=PANEL, anchor="w", cursor="hand2")
+        ad.bind("<Button-1>", lambda _e: self._satiri_cevir(satir))
+        satir["dev"] = tk.StringVar(value=f["devreden"])
+        kutu = giris_kutusu(self.ic, satir["dev"], genislik=10)
+        satir["secim"] = {t: tk.BooleanVar(value=t in f["ekranlar"]) for t in TUM_BELGELER}
+        isaretler = [tk.Checkbutton(self.ic, variable=satir["secim"][t], bg=PANEL, activebackground=PANEL,
+                                    fg=YAZI, activeforeground=YAZI, selectcolor=KUTU,
+                                    highlightthickness=0, bd=0)
+                     for t in TUM_BELGELER]
+        sil = tk.Label(self.ic, text="✕", font=GOVDE, fg=KIRMIZI, bg=PANEL, cursor="hand2")
+        sil.bind("<Button-1>", lambda _e: self.firma_sil(satir))
+        satir["widgetlar"] = [ad, kutu] + isaretler + [sil]
+        self.satirlar.append(satir)
+        return satir
+
+    def firma_ekle(self):
+        ad = " ".join(self.v_yeni.get().split())
+        if not ad:
+            return
+        if any(sadelestir(s["ad"]) == sadelestir(ad) for s in self.satirlar):
+            messagebox.showinfo("Zaten var", f"{ad} listede zaten var.", parent=self.w)
+            return
+        self.silinenler.discard(ad)
+        self._satir_olustur({"ad": ad, "devreden": "", "ekranlar": set(TUM_BELGELER)})
+        self.v_yeni.set("")
+        self.v_ara.set("")
+        self._suz()
+        self.tuval.update_idletasks()
+        self.tuval.yview_moveto(1)
+
+    def firma_sil(self, satir):
+        if not messagebox.askyesno("Firmayı çıkar", f"{satir['ad']} listeden çıkarılsın mı?\n"
+                                   "(Kaydet'e basınca dosyadan silinir; bu firma işlenmez.)", parent=self.w):
+            return
+        for wdg in satir["widgetlar"]:
+            wdg.destroy()
+        self.satirlar.remove(satir)
+        self.silinenler.add(satir["ad"])
+        self._suz()
 
     def _tekerlek(self, e):
         self.tuval.yview_scroll(int(-e.delta / 120) * 3, "units")
@@ -316,6 +357,7 @@ class FirmaEkranPenceresi:
             for c, wdg in enumerate(s["widgetlar"]):
                 wdg.grid(row=r, column=c, sticky="w" if c < 2 else "", padx=(8 if c == 0 else 2, 2), pady=2)
         self.tuval.yview_moveto(0)
+        self.bilgi.configure(text=f"{len(self.satirlar)} firma")
 
     def _sutunu_cevir(self, tip):
         gorunen = self.gorunen()
@@ -323,8 +365,8 @@ class FirmaEkranPenceresi:
         for s in gorunen:
             s["secim"][tip].set(yeni)
 
-    def _satiri_cevir(self, i):
-        secim = self.satirlar[i]["secim"]
+    def _satiri_cevir(self, satir):
+        secim = satir["secim"]
         yeni = not all(v.get() for v in secim.values())
         for v in secim.values():
             v.set(yeni)
@@ -335,7 +377,7 @@ class FirmaEkranPenceresi:
 
     def kaydet(self):
         try:
-            firma_tablosu.tabloyu_yaz(self.yol, self.secimler())
+            firma_tablosu.tabloyu_yaz(self.yol, self.secimler(), self.silinenler)
         except PermissionError:
             messagebox.showerror("Kaydedilemedi", f"{self.yol.name} Excel'de açık; kapatıp tekrar deneyin.",
                                  parent=self.w)
@@ -456,7 +498,7 @@ class Arayuz:
         iki.pack(fill="x")
         dugme(iki, "Liste Yükle…", self.liste_sec).pack(side="left", fill="x", expand=True, padx=(0, 6))
         dugme(iki, "Şablon İndir", self.sablon_indir).pack(side="left", fill="x", expand=True)
-        dugme(p, "Firma / Ekran Seçimi…", self.firma_ekran_penceresi).pack(fill="x", pady=(6, 0))
+        dugme(p, "KDV Devri ve Ekran Seçimi…", self.firma_ekran_penceresi).pack(fill="x", pady=(6, 0))
         tk.Label(p, text="Sadece bu firma (boş = listedeki hepsi)", font=KUCUK, fg=ETIKET,
                  bg=ZEMIN, anchor="w").pack(fill="x", pady=(10, 3))
         giris_kutusu(p, self.v_firma).pack(fill="x", ipady=4)
@@ -648,9 +690,21 @@ class Arayuz:
     def firma_ekran_penceresi(self):
         yol = self._liste_tam_yolu()
         if not yol or not yol.exists():
-            messagebox.showinfo("Firma listesi yok", "Önce 'Liste Yükle' ile firmalar.xlsx'i seçin ya da"
-                                " 'Şablon İndir' ile yeni bir liste oluşturun.", parent=self.kok)
-            return
+            yol = KOK / "firmalar.xlsx"
+            if not yol.exists():
+                try:
+                    firmalar = sorted(json.loads(self.rapor_yolu().read_text(encoding="utf-8")))
+                except (OSError, ValueError):
+                    firmalar = []
+                if not messagebox.askyesno(
+                        "Firma listesi yok",
+                        "Henüz firma listesi seçilmedi. Yeni bir firmalar.xlsx oluşturulsun mu?\n"
+                        + (f"Daha önce işlenen {len(firmalar)} firma hazır eklenir; "
+                           if firmalar else "Firmaları açılan pencereden ekleyebilirsiniz; ")
+                        + "başka firma ekleyip çıkarabilirsiniz.", parent=self.kok):
+                    return
+                firma_tablosu.sablon_olustur(yol, firmalar, ornek=False)
+            self._listeyi_ayarla(yol)
         try:
             firmalar = firma_tablosu.tabloyu_oku(yol)
         except Exception as e:

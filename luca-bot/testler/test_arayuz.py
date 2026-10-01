@@ -172,7 +172,7 @@ class ArayuzTestleri(unittest.TestCase):
         self.assertEqual([s["ad"] for s in fp.gorunen()], ["KAYA INSAAT"])
         fp._sutunu_cevir("gib-5000")           # yalnizca gorunen (KAYA) firmada kapanir
         fp.v_ara.set("")
-        fp._satiri_cevir(0)                    # BIRLIK: tum ekranlar kapanir
+        fp._satiri_cevir(fp.satirlar[0])       # BIRLIK: tum ekranlar kapanir
         fp.satirlar[0]["secim"]["e-arsiv-alis"].set(True)
         fp.satirlar[0]["dev"].set("1.250,50")
         fp.kaydet()
@@ -184,6 +184,53 @@ class ArayuzTestleri(unittest.TestCase):
         self.assertEqual(devreden_kdvleri(self.d / "firmalar.xlsx"), {"BIRLIK TICARET": 1250.5})
         # kaydedince kutular yenilenir: 1000 - 300 - 1250,50 devreden < 0, odeme cikmaz
         self.assertEqual(self.app.gostergeler["kdv"], [])
+
+    def test_arayuzden_firma_eklenir_ve_silinir(self):
+        from lucabot import firma_tablosu
+        from lucabot.firma_listesi import devreden_kdvleri, firma_listesini_oku
+        firma_tablosu.sablon_olustur(self.d / "firmalar.xlsx", ["BIRLIK TICARET", "KAYA INSAAT"])
+        fp = self.app.firma_ekran_penceresi()
+        fp.v_yeni.set("  YENI   FIRMA ")
+        fp.firma_ekle()
+        fp.v_yeni.set("yeni firma")       # ayni firma ikinci kez eklenmez
+        uyari = []
+        eski = self.mod.messagebox.showinfo
+        self.mod.messagebox.showinfo = lambda *a, **k: uyari.append(a)
+        eski_soru = self.mod.messagebox.askyesno
+        self.mod.messagebox.askyesno = lambda *a, **k: True
+        try:
+            fp.firma_ekle()
+            yeni = fp.satirlar[-1]
+            yeni["dev"].set("750")
+            yeni["secim"]["turmob-alis"].set(False)
+            fp.firma_sil(fp.satirlar[1])  # KAYA
+        finally:
+            self.mod.messagebox.showinfo = eski
+            self.mod.messagebox.askyesno = eski_soru
+        self.assertTrue(uyari)
+        self.assertEqual(fp.bilgi.cget("text"), "2 firma")
+        fp.kaydet()
+        okunan = firma_listesini_oku(self.d / "firmalar.xlsx")
+        self.assertEqual(set(okunan), {"BIRLIK TICARET", "YENI FIRMA"})
+        self.assertEqual(okunan["YENI FIRMA"][1], {"turmob-alis"})
+        self.assertEqual(devreden_kdvleri(self.d / "firmalar.xlsx"), {"YENI FIRMA": 750.0})
+
+    def test_liste_yoksa_olusturulur(self):
+        self.app.v_liste.set("")
+        hedef = self.mod.KOK / "firmalar.xlsx"
+        if hedef.exists():
+            self.skipTest("program klasorunde gercek firmalar.xlsx var")
+        eski = self.mod.messagebox.askyesno
+        self.mod.messagebox.askyesno = lambda *a, **k: True
+        try:
+            fp = self.app.firma_ekran_penceresi()
+        finally:
+            self.mod.messagebox.askyesno = eski
+            self.addCleanup(lambda: hedef.unlink(missing_ok=True))
+        # rapor.json'daki firma hazir gelir, sablonun ornek satiri gelmez
+        self.assertEqual([s["ad"] for s in fp.satirlar], ["BIRLIK TIC"])
+        self.assertEqual(self.app.v_liste.get(), "firmalar.xlsx")
+        self.assertEqual(json.loads(self.ayar.read_text(encoding="utf-8"))["firma_listesi"], "firmalar.xlsx")
 
     def test_liste_excel_olarak_iner(self):
         from openpyxl import load_workbook

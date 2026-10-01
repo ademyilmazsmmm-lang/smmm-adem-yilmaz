@@ -37,9 +37,10 @@ Komut satırı kullanmadan, pencereden çalıştırmak için `luca-arayuz.bat`'a
 2. **Firma Listesi**: **Şablon İndir** doğru sütunlarla bir Excel indirir (daha önce işlenen
    firmalar hazır yazılı gelir); doldurup **Liste Yükle** ile seçin. Ekran sütunlarında
    **✓ = sorgulanır, X = sorgulanmaz** (boş = sorgulanır; eski X'li listeler aynen çalışır).
-   **Firma / Ekran Seçimi** listeyi tablo olarak açar: her firmada hangi ekranın sorgulanacağını
-   kutucuklarla işaretleyip Devreden KDV'yi yazarsınız, **Kaydet** Excel'e yazar (önce
-   `firmalar.yedek-...xlsx` yedeği alınır; diğer sütun ve sayfalara dokunulmaz).
+   **KDV Devri ve Ekran Seçimi** listeyi tablo olarak açar: her firmanın Devreden KDV'sini yazar,
+   hangi ekranın sorgulanacağını kutucuklarla işaretlersiniz; alttan firma eklenir, ✕ ile çıkarılır.
+   **Kaydet** Excel'e yazar (önce `firmalar.yedek-...xlsx` yedeği alınır; diğer sütun ve sayfalara
+   dokunulmaz). Liste hiç seçilmemişse bu buton yeni bir `firmalar.xlsx` oluşturur.
    Tek firma için "Sadece bu firma" kutusuna adını yazın.
 3. **Tarih Aralığı** ve **Ekranlar**'ı seçip **Çalıştır**'a basın. İlerleme ve log pencerede
    canlı akar. **Durdur** o ana kadarki sonuçları kaydederek durdurur; tekrar Çalıştır'a basınca
