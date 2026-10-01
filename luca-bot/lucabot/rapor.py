@@ -45,21 +45,29 @@ ALIS_EKRANLARI = {"e-arsiv-alis", "e-fatura-alis", "turmob-alis", "esmm-alis"}
 SATIS_EKRANLARI = {"e-arsiv-satis", "e-fatura-satis", "gib-5000",
                    "turmob-satis", "esmm-satis"}
 
-# Bu gruplardaki ekranlar ayni faturalari gosterebilir (birden fazla
-# entegrator, GIB 5000/30000'in e-Arsiv Satis ile ayni faturalari tasimasi
-# gibi); toplamda hepsi sayilirsa tutar cifte sayilir, en yuksek olan alinir.
-# Tek kaynak burasi: calisma.py de bunu rapor.ortusen_grubu() ile kullanir.
-#   - e-arsiv-alis / e-arsiv-interaktif: ikisi de ayni e-arsiv alis faturalari
-#   - turmob-alis / e-fatura-alis: birden fazla entegratorde ayni alis faturalari
-#   - e-arsiv-satis / gib-5000 / turmob-satis / e-fatura-satis: TURMOB Satis
-#     ekrani hem e-Fatura hem e-Arsiv uzerinden kesilen satis faturalarini da
-#     getiriyor; GIB 5000/30000 da e-Arsiv Satis ile ayni faturalari tasiyor.
-#     Dorduncusunun de ayni satis faturalarini gosterdigi durumlarda bu grup
-#     hepsini kapsiyor.
+# Ekranlarin birbiriyle iliskisi (fatura adedi ve tutar toplamlarinin tek kaynagi):
+#   - TURMOB Alis = e-Fatura Alis           (ayni yerden gelir)
+#   - Interaktif V.D. = e-Arsiv Alis        (ayni e-arsiv alis faturalari)
+#   - GIB 5000/30000 = e-Arsiv Satis
+#   - TURMOB Satis = e-Arsiv Satis + e-Fatura Satis   (ikisinin TOPLAMI)
+# "max": ayni faturalar, en yuksegi alinir; "+": ayri faturalar, toplanir.
+# TURMOB Satis ekrani acilmayan firmada parcalarin toplami, parcalardan biri
+# inmeyen firmada TURMOB'un kendisi kullanilir; ikisi asla ust uste sayilmaz.
+ALIS_BIRLESIMI = ("+", ("max", "turmob-alis", "e-fatura-alis"),
+                  ("max", "e-arsiv-alis", "e-arsiv-interaktif"),
+                  "esmm-alis")
+SATIS_BIRLESIMI = ("+", ("max", "turmob-satis",
+                         ("+", ("max", "e-arsiv-satis", "gib-5000"), "e-fatura-satis")),
+                   "esmm-satis")
+TUM_BIRLESIM = ("+", ALIS_BIRLESIMI, SATIS_BIRLESIMI)
+
+# Birebir ayni faturalari gosteren ekran ciftleri; tevkifat ve iptal/itiraz
+# sayilari bunlarda toplanmaz (bkz. calisma.ozetle). TURMOB Satis burada yok:
+# o tek bir ekranin degil iki ekranin toplamina esit (bkz. SATIS_BIRLESIMI).
 ORTUSEN_GRUPLARI = [
     {"e-arsiv-alis", "e-arsiv-interaktif"},
     {"turmob-alis", "e-fatura-alis"},
-    {"e-arsiv-satis", "gib-5000", "turmob-satis", "e-fatura-satis"},
+    {"e-arsiv-satis", "gib-5000"},
 ]
 
 
@@ -69,6 +77,20 @@ def ortusen_grubu(belge_tipi):
         if belge_tipi in grup:
             return frozenset(grup)
     return frozenset({belge_tipi})
+
+
+def birlesik(degerler, ifade=TUM_BIRLESIM, ekranlar=None):
+    """Ekran basina degerleri (adet/tutar) mukerrer saymadan birlestirir.
+
+    `ekranlar` verilirse disindaki ekranlar 0 sayilir (orn. yalnizca alis tarafi).
+    """
+    if isinstance(ifade, str):
+        if ekranlar is not None and ifade not in ekranlar:
+            return 0
+        return degerler.get(ifade) or 0
+    islem, *parcalar = ifade
+    sonuclar = [birlesik(degerler, p, ekranlar) for p in parcalar]
+    return max(sonuclar) if islem == "max" else sum(sonuclar)
 
 # kotu durum once gelsin; firmanin genel durumu bunlarin en kotusudur
 # Once gercek sorunlar. "fatura yok" en sona yakin: bir ekranda fatura
@@ -180,23 +202,13 @@ def _tutar_yaz(x):
 
 
 def _grup_toplami(kayit, alan, ekranlar):
-    """Ekran grubundaki (orn. ALIS_EKRANLARI) tutarlarin toplami.
+    """Ekran grubundaki (orn. ALIS_EKRANLARI) tutarlarin mukerrersiz toplami."""
+    return birlesik(kayit.get(alan) or {}, ekranlar=ekranlar)
 
-    Ayni faturalari farkli ekranlardan gosteren gruplarda (bkz.
-    ORTUSEN_GRUPLARI) en yuksek olan alinir, ikisi de toplanmaz.
-    """
-    degerler = kayit.get(alan) or {}
-    islenen = set()
-    toplam = 0
-    for grup in ORTUSEN_GRUPLARI:
-        ilgili = grup & ekranlar
-        if not ilgili:
-            continue
-        toplam += max((degerler.get(tip, 0) for tip in ilgili), default=0)
-        islenen |= ilgili
-    for tip in ekranlar - islenen:
-        toplam += degerler.get(tip, 0)
-    return toplam
+
+def fatura_adedi(kayit):
+    """Firmanin mukerrersiz fatura adedi (ayni fatura iki ekranda sayilmaz)."""
+    return birlesik(kayit.get("sayilar") or {})
 
 
 def fatura_farklari(kayit):

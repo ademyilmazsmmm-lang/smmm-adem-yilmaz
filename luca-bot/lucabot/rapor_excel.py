@@ -160,12 +160,7 @@ def _ozet_sayfasi(ws, kayitlar, satirlar, stil):
             dosya = k.get("dosya") or {}
             e["dosya"] += dosya.get(tip, 0) if isinstance(dosya, dict) else 0
 
-    def mukerrersiz_fatura(k):
-        grup_basi = {}
-        for tip, sayi in k["sayilar"].items():
-            anahtar = rapor.ortusen_grubu(tip)
-            grup_basi[anahtar] = max(grup_basi.get(anahtar, 0), sayi or 0)
-        return sum(grup_basi.values())
+    mukerrersiz_fatura = rapor.fatura_adedi
 
     aksiyonlu = sum(1 for s in satirlar if s[3])
     gostergeler = [
@@ -204,9 +199,8 @@ def _ozet_sayfasi(ws, kayitlar, satirlar, stil):
     _tablo(ws, ["Ekran", "Firma", "Fatura inen", "Boş", "Atlanan", "Sorunlu", "Bekliyor",
                 "Fatura adedi", "İnen dosya"],
            ekran_satirlari, [52, 20, 12, 8, 10, 10, 10, 13, 11], stil, ilk_satir=bas, filtre=False)
-    # firma bazinda tutarlar: ayni faturalari gosteren ekranlar (TURMOB Alis /
-    # e-Fatura Alis, e-Arsiv Satis / GIB 5000 / TURMOB Satis / e-Fatura Satis,
-    # e-Arsiv Alis / Interaktif) toplanmaz, en yuksek olan alinir
+    # firma bazinda tutarlar: ayni faturalari gosteren ekranlar bir kez sayilir
+    # (bkz. rapor.ALIS_BIRLESIMI / SATIS_BIRLESIMI)
     bas2 = bas + len(ekran_satirlari) + 3
     ws.cell(row=bas2 - 1, column=1,
             value="Firma bazında tutarlar (iptal/itiraz hariç; aynı faturayı gösteren ekranlar"

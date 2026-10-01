@@ -205,7 +205,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | Ekran sütunları | her ekrandan gelen fatura adedi |
 | Fark / Eksik-Fazla Faturalar | İnteraktif V.D. − e-Arşiv Alış; eksik/fazla faturalar ünvanın ilk kelimesi + fatura numarasının son 5 hanesi + tutarla |
 | İptal/İtiraz, Tevkifatlı Alış, İnmeyen | adetler (tevkifat yalnızca alış ekranlarından, KDV2 için) |
-| Alış/Satış Matrah ve KDV | iptal/itiraz hariç toplamlar; aynı faturaları gösteren ekranlarda (ör. TÜRMOB Alış ↔ e-Fatura Alış) en yüksek olan alınır |
+| Alış/Satış Matrah ve KDV | iptal/itiraz hariç toplamlar; aynı faturalar iki kez sayılmaz: TÜRMOB Alış = e-Fatura Alış, İnteraktif V.D. = e-Arşiv Alış, GİB 5000/30000 = e-Arşiv Satış, TÜRMOB Satış = e-Arşiv Satış + e-Fatura Satış (TÜRMOB ekranı açılmayan firmada iki parça toplanır) |
 
 ## Sık karşılaşılan durumlar
 

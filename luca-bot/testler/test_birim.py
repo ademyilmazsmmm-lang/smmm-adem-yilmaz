@@ -218,6 +218,38 @@ class RaporTestleri(unittest.TestCase):
         self.assertEqual(oz.tevkifat, 1)
         self.assertIn("menu yok", oz.sorunlu_liste[0])
 
+    def test_turmob_satis_e_arsiv_ve_e_fatura_satisin_toplamidir(self):
+        """TURMOB Satis = e-Arsiv Satis + e-Fatura Satis; GIB 5000 = e-Arsiv Satis.
+
+        TURMOB ekrani acilmayan firmada satis, iki parcanin toplami olmali (en
+        buyugu degil); TURMOB indiyse parcalar onun ustune eklenmemeli.
+        """
+        satis = rapor.SATIS_EKRANLARI
+        turmobsuz = {"kdv": {"e-arsiv-satis": 100, "gib-5000": 100, "e-fatura-satis": 260}}
+        self.assertEqual(rapor._grup_toplami(turmobsuz, "kdv", satis), 360)
+        turmoblu = {"kdv": {"e-arsiv-satis": 100, "gib-5000": 100, "e-fatura-satis": 260,
+                            "turmob-satis": 360, "esmm-satis": 40}}
+        self.assertEqual(rapor._grup_toplami(turmoblu, "kdv", satis), 400)
+        # parcalardan biri inmediyse TURMOB'un kendisi kullanilir
+        eksik = {"kdv": {"e-arsiv-satis": 100, "turmob-satis": 360}}
+        self.assertEqual(rapor._grup_toplami(eksik, "kdv", satis), 360)
+
+    def test_alis_toplami_ortusen_ekranlari_bir_kez_sayar(self):
+        kayit = {"kdv": {"turmob-alis": 2200, "e-fatura-alis": 2200, "e-arsiv-alis": 300,
+                         "e-arsiv-interaktif": 300, "esmm-alis": 100, "e-fatura-satis": 999}}
+        self.assertEqual(rapor._grup_toplami(kayit, "kdv", rapor.ALIS_EKRANLARI), 2600)
+
+    def test_ozet_fatura_adedi_turmob_acilmayan_firmada_eksik_kalmaz(self):
+        sonuclar = [
+            self._sonuc("A", "e-arsiv-satis", durum="tamam", fatura_sayisi=5),
+            self._sonuc("A", "gib-5000", durum="tamam", fatura_sayisi=5),
+            self._sonuc("A", "e-fatura-satis", durum="tamam", fatura_sayisi=13),
+            self._sonuc("A", "turmob-satis", durum="ekran acilmadi"),
+            self._sonuc("A", "turmob-alis", durum="tamam", fatura_sayisi=22),
+            self._sonuc("A", "e-fatura-alis", durum="tamam", fatura_sayisi=22),
+        ]
+        self.assertEqual(ozetle(sonuclar).fatura, 18 + 22)
+
     def test_rapor_dosyalari_ve_mutabakat(self):
         from openpyxl import load_workbook
         with tempfile.TemporaryDirectory() as d:

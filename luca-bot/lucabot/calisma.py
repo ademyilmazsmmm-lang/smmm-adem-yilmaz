@@ -54,16 +54,17 @@ class CalismaOzeti:
 def ozetle(sonuclar, sure=0):
     """Ekran sonuclarindan son ozet. Ortusen ekranlarda fatura sayisi cifte sayilmaz."""
     oz = CalismaOzeti(sure=sure, ekran=len(sonuclar))
-    # ortusen gruplarindan (bkz. rapor.ORTUSEN_GRUPLARI) yalnizca en yuksek sayi
-    # alinir, geri kalan ekranlar ayri belgeler oldugu icin toplanir
-    grup_basi, tevkifat, iptal = {}, {}, {}
+    # fatura adedi firma basina rapor.birlesik() ile (ayni fatura iki ekranda
+    # sayilmaz); tevkifat ve iptal/itiraz ortusen ciftlerde en yuksek alinarak
+    firma_sayilari, tevkifat, iptal = {}, {}, {}
 
     def en_yuksek(sozluk, anahtar, deger):
         sozluk[anahtar] = max(sozluk.get(anahtar, 0), deger or 0)
 
     for s in sonuclar:
         anahtar = (s["firma"], rapor.ortusen_grubu(s.get("belge_tipi", "")))
-        en_yuksek(grup_basi, anahtar, s.get("fatura_sayisi"))
+        en_yuksek(firma_sayilari.setdefault(s["firma"], {}), s.get("belge_tipi", ""),
+                  s.get("fatura_sayisi"))
         if s.get("belge_tipi") in rapor.TEVKIFAT_EKRANLARI:
             en_yuksek(tevkifat, anahtar, s.get("tevkifat"))
         en_yuksek(iptal, anahtar, s.get("iptal_itiraz"))
@@ -79,8 +80,8 @@ def ozetle(sonuclar, sure=0):
             ad = BELGE_TIPLERI.get(s.get("belge_tipi"), s.get("belge_tipi", ""))
             oz.sorunlu_liste.append(f"{s['firma']} / {ad}: {durum}"
                                     + (f" - {s['not']}" if s.get("not") else ""))
-    oz.firma = len({f for f, _ in grup_basi})
-    oz.fatura = sum(grup_basi.values())
+    oz.firma = len(firma_sayilari)
+    oz.fatura = sum(rapor.birlesik(sayilar) for sayilar in firma_sayilari.values())
     oz.tevkifat = sum(tevkifat.values())
     oz.iptal = sum(iptal.values())
     return oz
