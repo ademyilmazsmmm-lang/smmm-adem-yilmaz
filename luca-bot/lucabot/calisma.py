@@ -19,7 +19,7 @@ Dayaniklilik kurallari:
 import traceback
 from dataclasses import dataclass, field
 
-from . import konsol, rapor
+from . import konsol, rapor, sure_olcer
 from .bekleme import sayfa_canli
 from .ekran_isleyici import FirmaSecilemedi, firma_isle
 from .giris import giris_bilgileri, luca_oturumu_ac, oturumu_yenile
@@ -122,6 +122,7 @@ class Calisma:
     def _sonuc_ekle(self, sonuc):
         self._sonuclar[(sonuc["firma"], sonuc["belge_tipi"])] = sonuc
 
+    @sure_olcer.olculur("rapor kaydetme")
     def durumu_kaydet(self, kalanlar):
         """ozet.csv + rapor.json/xlsx; yazilamazsa calisma durmaz.
 
@@ -269,12 +270,15 @@ class Calisma:
         try:
             for i, firma in enumerate(firmalar, 1):
                 self.ilerleme.firma_basladi(i, firma, self.log)
+                onceki = sure_olcer.an()
                 self._sayfa_hazirla()
                 if self._firmayi_isle(firma):
                     self.ardisik_hata = 0
                 else:
                     self.ardisik_hata += 1
                 self.ilerleme.firma_bitti()
+                sure_olcer.bolum_yaz(self.log, "Firma toplamı", onceki, en_cok=8)
+                sure_olcer.rapor_yaz(self.klasor / sure_olcer.RAPOR_DOSYASI)
                 # her firmadan sonra: gece yarida kalirsa sabah nerede kalindigi gorulur
                 self.durumu_kaydet(firmalar[i:])
 

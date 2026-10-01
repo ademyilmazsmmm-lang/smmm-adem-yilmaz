@@ -28,6 +28,8 @@ yoktur; hepsi bu modulden gecer.
 
 import time
 
+from .sure_olcer import olculur
+
 # Ag istegi bu surede bitmediyse (uzun sorgu / canli baglanti) "bekleyen"
 # sayilmaz; aksi halde sayfa hic durulmamis gorunurdu.
 ISTEK_ZAMAN_ASIMI = 15.0
@@ -206,6 +208,7 @@ def _dom_sessiz_ms(page):
     return en_kisa or 0
 
 
+@olculur("sayfanın durulması", genel=True)
 def sayfa_durulsun(page, azami_ms=3000, sessizlik_ms=300, en_az_ms=100):
     """Sayfa "sakinlesene" kadar bekler: DOM degismiyor ve ag istegi yok.
 
@@ -231,6 +234,7 @@ def degisiklik_baslat(page):
     return time.monotonic()
 
 
+@olculur("listenin yüklenmesi", genel=True)
 def degisip_durulsun(page, baslangic, azami_ms=15000, degisim_ms=3000, sessizlik_ms=500):
     """Islemin etkisi GORULENE kadar, sonra sayfa durulana kadar bekler.
 
@@ -267,6 +271,7 @@ def kaybolana_kadar_bekle(loc, azami_ms):
         return False
 
 
+@olculur("bilinçli bekleme (GİB'e nefes)")
 def geri_cekil(page, saniye):
     """Bilincli, sureli bekleme. Yalnizca iki yerde kullanilir:
 

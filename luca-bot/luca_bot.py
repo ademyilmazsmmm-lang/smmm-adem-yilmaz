@@ -21,7 +21,7 @@ import sys
 import traceback
 from datetime import date
 
-from lucabot import eposta, konsol
+from lucabot import eposta, konsol, sure_olcer
 from lucabot.calisma import Calisma
 from lucabot.firma_listesi import bugun_tamamlananlar, firmalari_suz
 from lucabot.giris import luca_oturumu_ac
@@ -127,6 +127,7 @@ def ayarlari_uygula(args, ayarlar):
     AYAR["tarayici_yolu"] = ayarlar.get("tarayici_yolu") or None
     AYAR["giris_adresi"] = ayarlar.get("giris_adresi") or None
     AYAR["tarayici_sandbox"] = bool(ayarlar.get("tarayici_sandbox", True))
+    AYAR["sure_ayrintisi"] = bool(ayarlar.get("sure_ayrintisi", True))
     if AYAR["chrome_gunlugu"]:
         # Playwright'in tarayici cikis mesajlarini ekrana bassin; cokme sebebi
         # genelde burada yaziyor ("Target crashed", exit code, stderr)
@@ -175,6 +176,10 @@ def sonucu_bildir(calisma, ozet, ayarlar, klasor, rapor_klasoru, log):
     yaz("             (Özet | Firma Durumu | İndirilen Faturalar | Dosyalar | Hatalar ve Uyarılar)", log)
     yaz(f"  Dosyalar : {klasor}", log)
     yaz(f"  Gunluk   : {log}", log)
+    sure_raporu = sure_olcer.rapor_yaz(klasor / sure_olcer.RAPOR_DOSYASI)
+    if sure_raporu:
+        sure_olcer.bolum_yaz(log, "Bütün çalışma", {}, en_cok=8)
+        yaz(f"  Süreler  : {sure_raporu}  (zaman nereye gitti)", log)
     if ozet.durduruldu:
         yaz(f"\n  NOT: Calisma yarida kaldi - {ozet.durduruldu}.", log)
 

@@ -85,6 +85,7 @@ yoksa `.bat` bunu söyler; python.org'dan kurarken "tcl/tk and IDLE" işaretli o
 | `tekrar_deneme` | İndirilemeyen fatura kalırsa sorgunun kaç kez tekrarlanacağı (varsayılan 3) |
 | `ardisik_hata_siniri` | Üst üste kaç firma hata verirse çalışma durdurulur (varsayılan 5) |
 | `dosya inmedi` durumu | Tarayıcı indirme sırasında çöktü; bot firmayı yeniden dener, o da olmazsa raporda `DOSYA INMEDI - tekrar calistir` yazar. Programı tekrar çalıştırmak yeterli. |
+| `sure_ayrintisi` | Günlüğe `[süre]` satırlarını yaz (varsayılan açık); kapalıyken de `sure-raporu.txt` oluşur |
 | `atlanacak_firmalar` | İşlenmeyecek firma adları (nadiren gerekir). Luca adı kısaltarak gösterdiği için adın baş kısmını yazmanız yeterli |
 
 **Hangi firmaların işleneceğini asıl `firmalar.xlsx` belirler**: listede olmayan firma zaten hiç açılmaz,
@@ -176,6 +177,27 @@ Ekranda dört adım başlığı görürsünüz:
 4. **RAPOR** — sonuç kutusu (kaç ekran başarılı/boş/sorunlu, toplam fatura, tevkifat, iptal),
    `rapor.xlsx` ve özet e-postası.
 
+**Zaman nereye gidiyor (`[süre]` satırları)**: bot her adımı kendi saatiyle ölçer ve günlüğe yazar:
+
+```
+    [süre] Aralık 01/09/2026 - 07/09/2026 19,8 sn: açık pencereleri kapatma 6,1 sn (2×) · tarih kutularını arama 4,0 sn · ...
+    [süre] e-SMM Alış ekranı 2 dk 56 sn - en çok: ...
+    [süre] Firma toplamı 21 dk 4 sn - en çok: ...
+```
+
+- Her GİB tarih aralığından (ve iptal/itiraz aralığından) sonra o aralığın adımları,
+  her ekranın ve her firmanın sonunda en çok zaman alan adımlar yazılır.
+- `GİB yanıtı bekleme` Luca/GİB'in sorguyu yapma süresidir; `(ilk 3 sn)` yazanı, sorgu
+  erken bitse de bitişin kabul edilmediği ilk 3 saniyedir. Diğerleri botun ekranda pencere
+  açma, buton arama, kapatma gibi işleridir; asıl kısaltılabilecek yer bunlardır.
+- Bütün çalışmanın dökümü günlük klasördeki `sure-raporu.txt` dosyasına yazılır (her firmadan
+  sonra güncellenir; arayüzde **Süre Raporu** düğmesi açar). İç içe adımlarda aynı saniye iki kez
+  sayılmaz.
+- Arayüzde ilerleme çubuğunun altındaki **"Şu an: … — 14 sn"** satırı botun o an ne yaptığını ve
+  o adımda ne zamandır beklediğini gösterir; 30 sn değişmezse turuncu, 90 sn'de kırmızı olur.
+- Satırlar kalabalık gelirse `ayarlar.json`'a `"sure_ayrintisi": false` yazın (`sure-raporu.txt`
+  yine oluşur).
+
 **Durdurmak için Ctrl+C**: o ana kadarki sonuçlar ve rapor kaydedilir; programı yeniden
 çalıştırıp **[D]evam** seçerseniz tamamlanan ekranlar tekrar açılmaz.
 
@@ -208,6 +230,7 @@ indirilenler/
         liste_....xls          → Luca'nın Excel çıktısı (iptal/itiraz sorgusundan sonraki hâli)
         iptal-itiraz.csv       → sadece iptal/itiraz edilmiş faturalar (varsa)
     calisma.log                → zaman damgalı çalışma kaydı
+    sure-raporu.txt            → adım süreleri: zaman nereye gitti (her firmadan sonra güncellenir)
     hatalar/                   → hata olursa ekran görüntüsü ve sayfa kaydı (Hatalar sayfasından tıklanır)
 ```
 
@@ -269,6 +292,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | `gostergeler.py` | Arayüzün alt kutuları (tevkifat KDV, SMM, interaktif farkı, KDV ödemesi); arayüzün kendisi `luca_arayuz.py` |
 | `firma_tablosu.py` | `firmalar.xlsx` şablonu ve arayüzdeki Firma / Ekran Seçimi tablosunun okunup yazılması |
 | `eposta.py` | Özet e-postası (Outlook / SMTP) |
+| `sure_olcer.py` | Adım süreleri: `[süre]` satırları ve `sure-raporu.txt` |
 | `ekran_isleyici.py` | Bir firmanın bir ekranını baştan sona işleyen akış (adım adım metotlar) |
 | `calisma.py` | Tüm firmaları dolaşan döngü, hata/çökme kurtarma |
 | `firma_listesi.py` | `firmalar.xlsx`, atlanacak firmalar, yarıda kalan çalışma |

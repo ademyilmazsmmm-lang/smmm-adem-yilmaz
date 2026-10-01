@@ -9,6 +9,7 @@ kullanilir.
 from .bekleme import sayfa_durulsun
 from .luca_ekran import cerceveler, dugmeye_bas, metinle_bul, varsa_tikla
 from .sabitler import BELGE_NO_DESENI, TARIH_DESENI
+from .sure_olcer import olculur
 
 
 def fatura_satiri_mi(hucreler, en_az=3):
@@ -148,6 +149,7 @@ def secim_kutulari(page):
     return en_iyi if en_iyi[0] is not None else yedek
 
 
+@olculur("ekrandaki tabloyu okuma")
 def ekrandaki_satirlar(page):
     """(satirlar, cerceve): isaret kutularindan, olmazsa tablodan okunan fatura satirlari."""
     kutular, sayi, fr = secim_kutulari(page)
@@ -208,6 +210,7 @@ def belge_sec_diyalogu(page, satir_sayisi=0):
     return isaretli_sayisi(kutular, sayi) or satir_sayisi
 
 
+@olculur("faturaları işaretleme")
 def hepsini_sec(page, fr=None, satir_sayisi=0):
     """Listedeki butun faturalari isaretler; isaretlenen sayiyi dondurur (0: olmadi).
 

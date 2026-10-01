@@ -32,7 +32,8 @@ from .luca_gezinme import calisma_donemi, donem_ayarla, firma_sec, menuye_git
 from .ortak import (AYAR, AYLIK_AZAMI_GUN, TARIH_BICIMI, dosya_adi_yap,
                     hedef_ay_araligi, tarih_araliklari, tarih_cozumle,
                     yaz, yeni_sonuc)
-from .sabitler import (AYLIK_SORGU, IKI_KADEMELI, INTERAKTIF_LISTELE,
+from . import sure_olcer
+from .sabitler import (AYLIK_SORGU, BELGE_TIPLERI, IKI_KADEMELI, INTERAKTIF_LISTELE,
                        GIB_HATASI, IPTAL_EKRANLARI, SADECE_EXCEL, TAKILDI,
                        YETKI_YOK)
 
@@ -102,40 +103,48 @@ class EkranIsleyici:
 
     def calistir(self):
         basla = time.time()
-        self.klasor.mkdir(parents=True, exist_ok=True)
+        onceki = sure_olcer.an()
+        sure_olcer.satiri_temizle()
         try:
-            if not self._firma_ve_donem():
-                return self.sonuc
-            self._ekrani_ac()
-            if not self.ekran_acildi:
-                # bilinmeyen bir ekranda sorgu/onay butonlarina basmak tehlikeli
-                # (baska bir islevin "Uygula"sina tiklaniyordu); ekran birakilir
-                self.sonuc["durum"] = "ekran acilmadi"
-                self.sonuc["not"] = "menuden ekran acilamadi; firmada bu ekran/modul var mi?"
-                return self.sonuc
-            self._gibden_sorgula()
-            self._listeyi_oku()
-            self._liste_okunamadiysa_excel()
-            self._ekran_satirlarini_isle()
-
-            satir_sayisi = len(self.satirlar) or (self.sayi or 0)
-            if self._cok_fatura(satir_sayisi):
-                return self.sonuc
-            if not satir_sayisi:
-                # GIB'de fatura vardi ama kaynak sunucudan inmedi: "fatura yok" demek yaniltici
-                self.sonuc["durum"] = "kaynaktan inmedi" if self.kalan_hata else "fatura yok"
-                return self.sonuc
-
-            if not self.interaktif and not self.sadece_excel:
-                if self._belgeleri_indir(satir_sayisi):
-                    return self.sonuc
-            self._iptal_itiraz()
-            self._exceli_indir(satir_sayisi)
-
-            self.sonuc["durum"] = self._son_durum()
-            return self.sonuc
+            with sure_olcer.olc("ekran (diğer)", kapsayici=True):
+                return self._calistir()
         finally:
             self.sonuc["sure"] = round(time.time() - basla, 1)
+            sure_olcer.bolum_yaz(self.log, f"{BELGE_TIPLERI.get(self.tip, self.tip)} ekranı",
+                                 onceki)
+
+    def _calistir(self):
+        self.klasor.mkdir(parents=True, exist_ok=True)
+        if not self._firma_ve_donem():
+            return self.sonuc
+        self._ekrani_ac()
+        if not self.ekran_acildi:
+            # bilinmeyen bir ekranda sorgu/onay butonlarina basmak tehlikeli
+            # (baska bir islevin "Uygula"sina tiklaniyordu); ekran birakilir
+            self.sonuc["durum"] = "ekran acilmadi"
+            self.sonuc["not"] = "menuden ekran acilamadi; firmada bu ekran/modul var mi?"
+            return self.sonuc
+        self._gibden_sorgula()
+        self._listeyi_oku()
+        self._liste_okunamadiysa_excel()
+        self._ekran_satirlarini_isle()
+
+        satir_sayisi = len(self.satirlar) or (self.sayi or 0)
+        if self._cok_fatura(satir_sayisi):
+            return self.sonuc
+        if not satir_sayisi:
+            # GIB'de fatura vardi ama kaynak sunucudan inmedi: "fatura yok" demek yaniltici
+            self.sonuc["durum"] = "kaynaktan inmedi" if self.kalan_hata else "fatura yok"
+            return self.sonuc
+
+        if not self.interaktif and not self.sadece_excel:
+            if self._belgeleri_indir(satir_sayisi):
+                return self.sonuc
+        self._iptal_itiraz()
+        self._exceli_indir(satir_sayisi)
+
+        self.sonuc["durum"] = self._son_durum()
+        return self.sonuc
 
     def _son_durum(self):
         """Indirilen dosyalara gore ekranin durumu.

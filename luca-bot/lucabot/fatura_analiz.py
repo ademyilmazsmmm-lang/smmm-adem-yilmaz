@@ -15,6 +15,7 @@ from .ortak import TARIH_BICIMI, sadelestir, yaz
 from .sabitler import (FATURA_NO_DESENI, FATURA_NO_YEDEK, IPTAL_DESENI,
                        TARIH_DESENI, TEVKIFAT_DESENI, XML_TEVKIFAT)
 from . import rapor
+from .sure_olcer import olculur
 
 BOS_DEGERLER = {"", "0", "0,00", "0.00", "-", "YOK", "HAYIR"}
 
@@ -324,6 +325,7 @@ def _iki_kaynaktan(sutundan, metinden, sutun_adi):
     return birlesik, f"{sutun_adi} + satir metni" if sutundan else "satir metni"
 
 
+@olculur("Excel analizi")
 def excelden_sonuca_isle(sonuc, yol, klasor, log, iptal_nolari=()):
     """Inen Excel'i asil kaynak alir: satirlar, tevkifat, iptal/itiraz, matrah/KDV.
 

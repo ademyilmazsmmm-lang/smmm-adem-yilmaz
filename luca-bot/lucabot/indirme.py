@@ -21,6 +21,7 @@ from .luca_ekran import (acik_pencereleri_kapat, diyalogda_tikla,
                          uyari_metinleri, uyari_metni)
 from .ortak import AYAR, dosya_adi_yap, yaz
 from .sabitler import INDIRME_ONAY, KISAYOLLAR
+from .sure_olcer import olculur
 
 CD_DESENI = re.compile(r'filename\*?=(?:UTF-8\'\')?"?([^";]+)"?', re.I)
 INDIRME_TURLERI = ("application/zip", "application/octet-stream", "application/x-zip",
@@ -211,6 +212,7 @@ def _hazirlanan_dosyayi_bekle(page, yakalayici, dugme_metni, log):
         yaz(f"    ... dosya hazirlaniyor ({int(time.monotonic() - basla)} sn)", log)
 
 
+@olculur("dosya indirme")
 def dosya_indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30,
                 pencere_acilir=True):
     """Indirme akisi: arac cubugu butonu -> (pencerede 'tum faturalar' -> indir) -> dosya.
