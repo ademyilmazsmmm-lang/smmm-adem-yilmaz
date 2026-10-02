@@ -32,7 +32,7 @@ from tkinter import filedialog, messagebox, ttk
 KOK = Path(__file__).resolve().parent
 sys.path.insert(0, str(KOK))
 
-from lucabot import firma_tablosu, gostergeler  # noqa: E402
+from lucabot import beyanname, firma_tablosu, gostergeler  # noqa: E402
 from lucabot.firma_listesi import devreden_kdvleri  # noqa: E402
 from lucabot.ortak import (AYAR_DOSYASI, ORNEK_AYAR, TARIH_BICIMI,  # noqa: E402
                            hedef_ay_araligi, indirme_koku, sadelestir, tarih_cozumle)
@@ -262,6 +262,7 @@ class FirmaEkranPenceresi:
         self.bilgi.pack(side="left", padx=10)
         dugme(alt, "Kaydet", self.kaydet, ana=True).pack(side="right")
         dugme(alt, "Vazgeç", w.destroy).pack(side="right", padx=8)
+        dugme(alt, "Beyannameden Devir Al…", self.beyannameden_al).pack(side="right", padx=(0, 8))
 
         baslik = tk.Frame(w, bg=KUTU)
         baslik.pack(fill="x")
@@ -378,6 +379,65 @@ class FirmaEkranPenceresi:
     def secimler(self):
         return [{"ad": s["ad"], "devreden": s["dev"].get().strip(),
                  "ekranlar": {t for t, v in s["secim"].items() if v.get()}} for s in self.satirlar]
+
+    def beyannameden_al(self, yollar=None):
+        """KDV1 beyannamesi PDF'lerinden Devreden KDV'yi okuyup tabloya yazar (Kaydet'e kadar dosyaya yazilmaz).
+
+        Kontrol edilen ayin kendi beyannamesinden "101 - Önceki Dönemden Devreden",
+        bir onceki ayinkinden "Sonraki Döneme Devreden" alinir.
+        """
+        donem = self.arayuz.secili_donem()
+        if not donem:
+            messagebox.showwarning("Tarih aralığı", "Ana penceredeki tarih aralığını kontrol edin;"
+                                   " devir hangi dönem için alınacak buradan anlaşılıyor.", parent=self.w)
+            return
+        hedef = tarih_cozumle(donem.split("-")[0])
+        onceki = (hedef - timedelta(days=1)).replace(day=1)
+        if yollar is None:
+            yollar = filedialog.askopenfilenames(
+                parent=self.w, filetypes=[("Beyanname (PDF)", "*.pdf"), ("Tüm dosyalar", "*.*")],
+                title=f"KDV1 beyannameleri: {onceki:%m/%Y} ya da {hedef:%m/%Y} (birden çok seçilebilir)")
+        if not yollar:
+            return
+        okunan, okunamayan = [], []
+        self.w.configure(cursor="watch")
+        self.w.update_idletasks()
+        try:
+            for yol in yollar:
+                try:
+                    okunan.append(beyanname.oku(yol))
+                except beyanname.BeyannameDegil as e:
+                    okunamayan.append((Path(yol).name, str(e)))
+        except RuntimeError as e:  # pypdf kurulu degil
+            messagebox.showerror("Beyanname okunamadı", str(e), parent=self.w)
+            return
+        finally:
+            self.w.configure(cursor="")
+        eslesen, eslesmeyen, donem_disi = beyanname.devirleri_bul(
+            okunan, [s["ad"] for s in self.satirlar], hedef)
+        satirlar = {s["ad"]: s for s in self.satirlar}
+        tl = gostergeler.tl
+        sonuc = []
+        for e in sorted(eslesen, key=lambda x: x["ad"]):
+            satirlar[e["ad"]]["dev"].set(tl(e["tutar"]).replace(" TL", ""))
+            sonuc.append((e["ad"], e["b"].unvan, "Yazıldı", e["kaynak"], e["b"].donem, tl(e["tutar"])))
+        for b in eslesmeyen:
+            sonuc.append(("— (elle yazın)", b.unvan or b.dosya, "Firma bulunamadı", b.dosya, b.donem,
+                          tl(b.sonraki_devreden if b.bas == onceki else b.onceki_devreden)))
+        for b in donem_disi:
+            sonuc.append(("—", b.unvan or b.dosya, "Dönem tutmuyor", b.dosya, b.donem, ""))
+        for ad, neden in okunamayan:
+            sonuc.append(("—", ad, "Okunamadı", neden, "", ""))
+        self.arayuz._detay_penceresi(
+            f"Beyannameden devir — {len(eslesen)} firmaya yazıldı",
+            ("Tablodaki firma", "Beyannamedeki ad", "Durum", "Kaynak", "Dönem", "Devreden KDV"),
+            sonuc, (f"{len(eslesen)} / {len(yollar)} dosya yazıldı", "", "", "", "", ""),
+            [f"Kontrol edilen dönem {hedef:%m/%Y}: {hedef:%m/%Y} beyannamesinden \"101 - Önceki Dönemden"
+             f" Devreden\", {onceki:%m/%Y} beyannamesinden \"Sonraki Döneme Devreden\" alındı"
+             " (ikisi aynı tutardır).",
+             "Tutarlar tabloya yazıldı; kontrol edip Kaydet'e basın. Eşleşmeyen firmaların devrini"
+             " elle yazın."], yazi_sutunu=4)
+        return sonuc
 
     def kaydet(self):
         try:
@@ -1017,11 +1077,12 @@ class Arayuz:
                       " boşsa 0 sayılır."]
         self._detay_penceresi(baslik, sutunlar, satirlar, toplam, notlar)
 
-    def _detay_penceresi(self, baslik, sutunlar, satirlar, toplam, notlar):
+    def _detay_penceresi(self, baslik, sutunlar, satirlar, toplam, notlar, yazi_sutunu=1):
+        """yazi_sutunu: bastaki bu kadar sutun yazidir (sola yaslanir), kalanlar tutar (saga)."""
         w = tk.Toplevel(self.kok, bg=ZEMIN, padx=20, pady=16)
         w.title(baslik)
         w.transient(self.kok)
-        w.geometry(f"{240 + 140 * len(sutunlar)}x460")
+        w.geometry(f"{240 + 140 * len(sutunlar) + 40 * (yazi_sutunu - 1)}x460")
         tk.Label(w, text=baslik, font=("Georgia", 14, "bold"), fg="#F2F4F8", bg=ZEMIN,
                  anchor="w").pack(fill="x")
         donem = self.secili_donem()
@@ -1035,9 +1096,10 @@ class Arayuz:
                      wraplength=700).pack(side="bottom", fill="x", pady=(4, 0))
         agac = ttk.Treeview(w, columns=sutunlar, show="headings", style="Liste.Treeview")
         for i, s in enumerate(sutunlar):
-            agac.heading(s, text=s, anchor="w" if i == 0 else "e")
-            agac.column(s, anchor="w" if i == 0 else "e", width=240 if i == 0 else 130,
-                        stretch=i == 0)
+            yon = "w" if i < yazi_sutunu else "e"
+            agac.heading(s, text=s, anchor=yon)
+            agac.column(s, anchor=yon, width=240 if i == 0 else 170 if i < yazi_sutunu else 130,
+                        stretch=i < yazi_sutunu)
         agac.tag_configure("toplam", foreground=ALTIN, font=GOVDE_KALIN)
         if not satirlar:
             agac.insert("", "end", values=("Bu dönemde kayıt yok",) + ("",) * (len(sutunlar) - 1))

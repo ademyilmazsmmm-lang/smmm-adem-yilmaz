@@ -214,6 +214,32 @@ class ArayuzTestleri(unittest.TestCase):
         # kaydedince kutular yenilenir: 1000 - 300 - 1250,50 devreden < 0, odeme cikmaz
         self.assertEqual(self.app.gostergeler["kdv"], [])
 
+    def test_beyannameden_devir_alinir(self):
+        from lucabot import beyanname, firma_tablosu
+        from lucabot.firma_listesi import devreden_kdvleri
+        from testler.test_birim import ORNEK_BEYANNAME
+        firma_tablosu.sablon_olustur(self.d / "firmalar.xlsx", ["BIRLIK TICARET", "CAGRI DENE"])
+        fp = self.app.firma_ekran_penceresi()
+
+        def sahte_oku(yol):
+            if "bozuk" in yol:
+                raise beyanname.BeyannameDegil("KDV1 beyannamesi değil")
+            return beyanname.cozumle(ORNEK_BEYANNAME, yol)
+
+        eski, beyanname.oku = beyanname.oku, sahte_oku
+        try:
+            once = len(self.kok.winfo_children())
+            sonuc = fp.beyannameden_al(["CAGRI_DENE_1_KDV1_01082026-31082026.pdf", "bozuk.pdf"])
+        finally:
+            beyanname.oku = eski
+        self.kok.update()
+        self.assertEqual(len(self.kok.winfo_children()), once + 1)  # sonuc penceresi
+        self.assertEqual(fp.satirlar[1]["dev"].get(), "34.027,69")   # eylul: agustosun sonraki devri
+        self.assertEqual(fp.satirlar[0]["dev"].get(), "")
+        self.assertEqual([r[2] for r in sonuc], ["Yazıldı", "Okunamadı"])
+        fp.kaydet()
+        self.assertEqual(devreden_kdvleri(self.d / "firmalar.xlsx")["CAGRI DENE"], 34027.69)
+
     def test_arayuzden_firma_eklenir_ve_silinir(self):
         from lucabot import firma_tablosu
         from lucabot.firma_listesi import devreden_kdvleri, firma_listesini_oku

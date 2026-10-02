@@ -3,7 +3,7 @@ rem Python paketlerini kontrol eder, eksikse kurar.
 rem Tarayici olarak bilgisayardaki Chrome/Edge kullanilir, indirmeye gerek yoktur.
 rem Cagirmadan once _python-bul.bat ile PY degiskeni ayarlanmis olmali.
 
-%PY% -c "import playwright, openpyxl, pyotp, win32com.client" >nul 2>&1
+%PY% -c "import playwright, openpyxl, pyotp, pypdf, win32com.client" >nul 2>&1
 if not errorlevel 1 exit /b 0
 
 echo Gerekli paketler kuruluyor...

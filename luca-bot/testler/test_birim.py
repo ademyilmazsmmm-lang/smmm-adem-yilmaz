@@ -518,6 +518,69 @@ class SureOlcerTestleri(unittest.TestCase):
         self.assertEqual(so._yigin, [])
 
 
+ORNEK_BEYANNAME = """
+                     KATMA DEĞER VERGİSİ BEYANNAMESİ                                1015 A
+               (Gerçek Usulde Vergilendirilen Mükellefler İçin)                    1
+ ÜMRANİYE                  DÖNEM TİPİ                  Yıl                         2026
+ Vergi Dairesi Müdürlüğü   Aylık                       Ay                          Ağustos
+ Onay Zamanı :              28.09.2026 - 19:47:44
+ Vergi Kimlik Numarası (TC Kimlik No)          11111111111
+  Soyadı (Unvanı)                               DENEMEOĞLU
+  Adı (Unvanın Devamı)                          ÇAĞRI
+Toplam Katma Değer Vergisi                                                 28.061,32
+Önceki Dönemden Devreden              101 - Önceki Dönemden Devreden       27.972,22
+İndirimler Toplamı                                                         62.089,01
+ İade Edilmesi Gereken Katma Değer Vergisi                                      0,00
+Sonraki Döneme Devreden Katma Değer Vergisi                                34.027,69
+"""
+
+
+class BeyannameTestleri(unittest.TestCase):
+    def setUp(self):
+        from lucabot import beyanname
+        self.bm = beyanname
+        self.b = beyanname.cozumle(
+            ORNEK_BEYANNAME, "CAGRI_DENE_034252_6170780106_KDV1_45_01082026-31082026_BYN_17.pdf")
+
+    def test_tutarlar_ve_donem(self):
+        b = self.b
+        self.assertEqual((b.onceki_devreden, b.sonraki_devreden), (27972.22, 34027.69))
+        self.assertEqual((b.bas, b.bit), (date(2026, 8, 1), date(2026, 8, 31)))
+        self.assertEqual(b.unvan, "DENEMEOĞLU ÇAĞRI")
+        self.assertEqual(b.dosya_adi_firma, "CAGRI DENE")
+        self.assertEqual(b.vkn, "11111111111")
+        # dosya adinda tarih yoksa donem metinden ("Yıl 2026 / Ay Ağustos")
+        b2 = self.bm.cozumle(ORNEK_BEYANNAME, "beyanname.pdf")
+        self.assertEqual((b2.bas, b2.bit), (date(2026, 8, 1), date(2026, 8, 31)))
+
+    def test_hedef_doneme_gore_dogru_satir(self):
+        adlar = ["CAGRI DENEMEOGLU", "BASKA FIRMA"]
+        eylul, _, _ = self.bm.devirleri_bul([self.b], adlar, date(2026, 9, 1))
+        self.assertEqual(eylul[0]["tutar"], 34027.69)          # agustos beyannamesi: sonraki doneme
+        agustos, _, _ = self.bm.devirleri_bul([self.b], adlar, date(2026, 8, 1))
+        self.assertEqual(agustos[0]["tutar"], 27972.22)        # kendi beyannamesi: 101 satiri
+        _, _, disi = self.bm.devirleri_bul([self.b], adlar, date(2026, 11, 1))
+        self.assertEqual(len(disi), 1)
+
+    def test_firma_eslestirme(self):
+        bul = self.bm.firma_bul
+        self.assertEqual(bul(self.b, ["ÇAĞRI DENEMEOĞLU", "ÇAĞRI AKSU"]), "ÇAĞRI DENEMEOĞLU")
+        self.assertEqual(bul(self.b, ["CAGRI DENE", "CAGRI"]), "CAGRI DENE")   # Luca kisaltmasi
+        self.assertEqual(bul(self.b, ["DENEMEOĞLU Ç"]), "DENEMEOĞLU Ç")
+        self.assertIsNone(bul(self.b, ["ÇAĞRI"]))              # tek kelime her Cagri'ya yapismaz
+        self.assertIsNone(bul(self.b, ["ÇAĞRI AKSU"]))
+
+    def test_kdv2_ve_duzeltme(self):
+        with self.assertRaises(self.bm.BeyannameDegil):
+            self.bm.cozumle("KDV BEYANNAMESİ 2 (Sorumlu Sıfatıyla)", "x.pdf")
+        from datetime import datetime
+        duzeltme = self.bm.cozumle(ORNEK_BEYANNAME.replace("34.027,69", "30.000,00")
+                                   .replace("28.09.2026", "30.09.2026"), "duzeltme.pdf")
+        sonuc, _, _ = self.bm.devirleri_bul([self.b, duzeltme], ["CAGRI DENEMEOGLU"], date(2026, 9, 1))
+        self.assertEqual(sonuc[0]["tutar"], 30000.0)           # en son onaylanan
+        self.assertEqual(duzeltme.onay, datetime(2026, 9, 30, 19, 47, 44))
+
+
 class GecisAraciTestleri(unittest.TestCase):
     """gecis_rapor_birlestir.py: eski gunluk rapor.json'lari tek surekli rapora birlestirir."""
 

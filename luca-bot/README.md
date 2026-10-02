@@ -41,6 +41,13 @@ Komut satırı kullanmadan, pencereden çalıştırmak için `luca-arayuz.bat`'a
    hangi ekranın sorgulanacağını kutucuklarla işaretlersiniz; alttan firma eklenir, ✕ ile çıkarılır.
    **Kaydet** Excel'e yazar (önce `firmalar.yedek-...xlsx` yedeği alınır; diğer sütun ve sayfalara
    dokunulmaz). Liste hiç seçilmemişse bu buton yeni bir `firmalar.xlsx` oluşturur.
+   **Beyannameden Devir Al** ile KDV1 beyannamesi PDF'leri (birden çok seçilebilir) okunur, devir
+   tabloya yazılır. Kontrol edilen dönem Eylül ise **Ağustos** beyannamesinin "Sonraki Döneme
+   Devreden" satırı ya da Eylül beyannamesinin "101 - Önceki Dönemden Devreden" satırı alınır (ikisi
+   aynı tutardır; ana penceredeki tarih aralığı dönemi belirler). Firma, beyannamedeki unvandan ve
+   dosya adındaki kısa addan bulunur; bulunamayan, dönemi tutmayan ya da okunamayan dosyalar sonuç
+   listesinde gösterilir. Düzeltme beyannamesi varsa en son onaylanan alınır. Tutarlar **Kaydet**'e
+   basınca dosyaya yazılır.
    Tek firma için "Sadece bu firma" kutusuna adını yazın.
 3. **Tarih Aralığı** ve **Ekranlar**'ı seçip **Çalıştır**'a basın. İlerleme ve log pencerede
    canlı akar. **Durdur** o ana kadarki sonuçları kaydederek durdurur; tekrar Çalıştır'a basınca
@@ -292,6 +299,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | `gostergeler.py` | Arayüzün alt kutuları (tevkifat KDV, SMM, interaktif farkı, KDV ödemesi); arayüzün kendisi `luca_arayuz.py` |
 | `firma_tablosu.py` | `firmalar.xlsx` şablonu ve arayüzdeki Firma / Ekran Seçimi tablosunun okunup yazılması |
 | `eposta.py` | Özet e-postası (Outlook / SMTP) |
+| `beyanname.py` | KDV1 beyanname PDF'lerinden devreden KDV'yi okuma ve firmayla eşleştirme |
 | `sure_olcer.py` | Adım süreleri: `[süre]` satırları ve `sure-raporu.txt` |
 | `ekran_isleyici.py` | Bir firmanın bir ekranını baştan sona işleyen akış (adım adım metotlar) |
 | `calisma.py` | Tüm firmaları dolaşan döngü, hata/çökme kurtarma |
