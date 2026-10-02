@@ -40,8 +40,8 @@ class Beyanname:
     dosya_adi_firma: str  # dosya adinin basindaki kisa ad (Luca: "ADEM_MERGE_...")
     bas: date
     bit: date
-    onceki_devreden: float  # 101 - Onceki Donemden Devreden (yoksa 0)
-    sonraki_devreden: float
+    onceki_devreden: float  # Onceki Donemden Devreden (bolum yoksa 0, var ama okunamadiysa None)
+    sonraki_devreden: float  # Sonraki Doneme Devreden (okunamadiysa None)
     onay: datetime = None
 
     @property
@@ -103,7 +103,11 @@ def cozumle(metin, dosya_adi=""):
     unvan = " ".join(x for x in (_deger(metin, r"Soyadı \(Unvanı\)"),
                                  _deger(metin, r"Adı \(Unvanın Devamı\)")) if x)
     sonraki = _tutar(metin, r"Sonraki Döneme Devreden Katma Değer Vergisi")
-    onceki = _tutar(metin, r"101 - Önceki Dönemden Devreden")
+    # satir "Önceki Dönemden Devreden  101 - Önceki Dönemden Devreden  27.972,22" ya da
+    # kodsuz "Önceki Dönemden Devreden  859.116,51" olabiliyor (bolum basligi buyuk harfli)
+    onceki = _tutar(metin, r"^[ \t]*Önceki Dönemden Devreden\b")
+    if onceki is None and "ONCEKI DONEMDEN DEVREDEN INDIRILECEK" not in duz:
+        onceki = 0.0  # devreden yok: bolum hic basilmamis
     if sonraki is None and onceki is None:
         raise BeyannameDegil("devreden KDV satırları bulunamadı")
     onay = re.search(r"Onay Zamanı\s*:\s*(\d{2}\.\d{2}\.\d{4})\s*-\s*(\d{2}:\d{2}:\d{2})", metin)
@@ -111,7 +115,7 @@ def cozumle(metin, dosya_adi=""):
     return Beyanname(
         dosya=Path(dosya_adi).name, vkn=vkn.group(1) if vkn else "", unvan=" ".join(unvan.split()),
         dosya_adi_firma=kisa.group(1).replace("_", " ").strip() if kisa else "",
-        bas=bas, bit=bit, onceki_devreden=onceki or 0.0, sonraki_devreden=sonraki or 0.0,
+        bas=bas, bit=bit, onceki_devreden=onceki, sonraki_devreden=sonraki,
         onay=datetime.strptime(" ".join(onay.groups()), "%d.%m.%Y %H:%M:%S") if onay else None)
 
 
@@ -178,17 +182,20 @@ def devirleri_bul(beyannameler, adlar, hedef_bas):
     (101 satiri) onceki donemin beyannamesine (Sonraki Doneme Devreden) gore
     once gelir; ayni donemin birden fazla beyannamesi varsa (duzeltme) en son
     onaylanan alinir.
-    Dondurur: (eslesen [{ad, tutar, b, kaynak}], eslesmeyen [b], donemi_tutmayan [b]).
+    Dondurur: (eslesen [{ad, tutar, b, kaynak}], eslesmeyen [b], donemi_tutmayan [b]);
+    tutar None ise beyannamedeki satir okunamamistir (elle yazilmali).
     """
     secilen, eslesmeyen, donem_disi = {}, [], []
     for b in beyannameler:
         if b.bas == hedef_bas:
-            oncelik, tutar, kaynak = 2, b.onceki_devreden, "101 - Önceki Dönemden Devreden"
+            oncelik, tutar, kaynak = 2, b.onceki_devreden, "Önceki Dönemden Devreden (101)"
         elif b.bit == hedef_bas - timedelta(days=1):
             oncelik, tutar, kaynak = 1, b.sonraki_devreden, "Sonraki Döneme Devreden"
         else:
             donem_disi.append(b)
             continue
+        if tutar is None:  # satir var ama tutar okunamadi: okunabilen beyanname one gecsin
+            oncelik = 0
         ad = firma_bul(b, adlar)
         if ad is None:
             eslesmeyen.append(b)

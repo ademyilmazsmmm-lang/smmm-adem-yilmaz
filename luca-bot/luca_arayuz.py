@@ -418,20 +418,27 @@ class FirmaEkranPenceresi:
         satirlar = {s["ad"]: s for s in self.satirlar}
         tl = gostergeler.tl
         sonuc = []
+        yazilan = 0
         for e in sorted(eslesen, key=lambda x: x["ad"]):
+            if e["tutar"] is None:
+                sonuc.append((e["ad"], e["b"].unvan, "Tutar okunamadı — elle yazın", e["kaynak"],
+                              e["b"].donem, ""))
+                continue
             satirlar[e["ad"]]["dev"].set(tl(e["tutar"]).replace(" TL", ""))
             sonuc.append((e["ad"], e["b"].unvan, "Yazıldı", e["kaynak"], e["b"].donem, tl(e["tutar"])))
+            yazilan += 1
         for b in eslesmeyen:
+            tutar = b.sonraki_devreden if b.bas == onceki else b.onceki_devreden
             sonuc.append(("— (elle yazın)", b.unvan or b.dosya, "Firma bulunamadı", b.dosya, b.donem,
-                          tl(b.sonraki_devreden if b.bas == onceki else b.onceki_devreden)))
+                          tl(tutar) if tutar is not None else ""))
         for b in donem_disi:
             sonuc.append(("—", b.unvan or b.dosya, "Dönem tutmuyor", b.dosya, b.donem, ""))
         for ad, neden in okunamayan:
             sonuc.append(("—", ad, "Okunamadı", neden, "", ""))
         self.arayuz._detay_penceresi(
-            f"Beyannameden devir — {len(eslesen)} firmaya yazıldı",
+            f"Beyannameden devir — {yazilan} firmaya yazıldı",
             ("Tablodaki firma", "Beyannamedeki ad", "Durum", "Kaynak", "Dönem", "Devreden KDV"),
-            sonuc, (f"{len(eslesen)} / {len(yollar)} dosya yazıldı", "", "", "", "", ""),
+            sonuc, (f"{yazilan} / {len(yollar)} dosya yazıldı", "", "", "", "", ""),
             [f"Kontrol edilen dönem {hedef:%m/%Y}: {hedef:%m/%Y} beyannamesinden \"101 - Önceki Dönemden"
              f" Devreden\", {onceki:%m/%Y} beyannamesinden \"Sonraki Döneme Devreden\" alındı"
              " (ikisi aynı tutardır).",

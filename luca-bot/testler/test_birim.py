@@ -570,6 +570,21 @@ class BeyannameTestleri(unittest.TestCase):
         self.assertIsNone(bul(self.b, ["ÇAĞRI"]))              # tek kelime her Cagri'ya yapismaz
         self.assertIsNone(bul(self.b, ["ÇAĞRI AKSU"]))
 
+    def test_kodsuz_devreden_satiri_ve_devirsiz_beyanname(self):
+        # bazi beyannamelerde satirda "101 -" kodu yok
+        kodsuz = ORNEK_BEYANNAME.replace("101 - Önceki Dönemden Devreden       27.972,22",
+                                         "                                     859.116,51")
+        self.assertEqual(self.bm.cozumle(kodsuz, "x.pdf").onceki_devreden, 859116.51)
+        # devir yoksa bolum hic basilmaz: 0
+        devirsiz = "\n".join(s for s in ORNEK_BEYANNAME.splitlines() if "Önceki Dönemden" not in s)
+        self.assertEqual(self.bm.cozumle(devirsiz, "x.pdf").onceki_devreden, 0.0)
+        # bolum var ama tutar okunamadiysa 0 yazilmaz, elle yazilmak uzere None
+        bozuk = ORNEK_BEYANNAME.replace("27.972,22", "") + "\nÖNCEKİ DÖNEMDEN DEVREDEN İNDİRİLECEK KDV\n"
+        b = self.bm.cozumle(bozuk, "x.pdf")
+        self.assertIsNone(b.onceki_devreden)
+        sonuc, _, _ = self.bm.devirleri_bul([b], ["CAGRI DENEMEOGLU"], date(2026, 8, 1))
+        self.assertIsNone(sonuc[0]["tutar"])
+
     def test_kdv2_ve_duzeltme(self):
         with self.assertRaises(self.bm.BeyannameDegil):
             self.bm.cozumle("KDV BEYANNAMESİ 2 (Sorumlu Sıfatıyla)", "x.pdf")
