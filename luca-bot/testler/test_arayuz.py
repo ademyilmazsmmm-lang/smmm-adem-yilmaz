@@ -155,13 +155,11 @@ class ArayuzTestleri(unittest.TestCase):
         self.assertEqual(self.app.kalan_etiketi.cget("text"), "Tahmini kalan: 2 sa 10 dk")
         self.assertAlmostEqual(float(self.app.ilerleme.cget("value")), 12 * 100 / 93, places=3)
 
-    def test_sure_satirlari_ve_su_an_gostergesi(self):
+    def test_su_an_gostergesi(self):
         self.app.surec = object()  # calisiyor gibi
         try:
             self.app._satir("    GİB'den Getir aciliyor (01/09/2026 - 07/09/2026)")
-            self.app._satir("    [süre] Aralık 01/09/2026 - 07/09/2026 4,7 sn: tarih yazma 0,3 sn")
-            self.assertTrue(self.app.log.tag_ranges("sure"))
-            # [süre] satiri "su an" yazisini degistirmez; gecen sure saniye saniye artar
+            self.app._satir("================")  # ayirici cizgiler "su an" yazisi olmaz
             metin, an = self.app.son_islem
             self.assertIn("GİB'den Getir aciliyor", metin)
             self.app.son_islem = (metin, an - self.mod.UZUN_BEKLEME * 3)
@@ -173,16 +171,6 @@ class ArayuzTestleri(unittest.TestCase):
             self.app.surec = None
         self.app._son_islemi_goster()
         self.assertEqual(self.app.son_islem_etiketi.cget("text"), "")
-
-    def test_sure_raporu_en_yenisi_bulunur(self):
-        self.assertIsNone(self.app.sure_raporu_yolu())
-        eski = self.d / "indir" / "2026-09-01" / "sure-raporu.txt"
-        yeni = self.d / "indir" / "2026-09-02" / "sure-raporu.txt"
-        for yol in (eski, yeni):
-            yol.parent.mkdir()
-            yol.write_text("x", encoding="utf-8")
-        os.utime(eski, (time.time() - 100, time.time() - 100))
-        self.assertEqual(self.app.sure_raporu_yolu(), yeni)
 
     def test_durdur_sonuclari_kaydederek_durdurur(self):
         self.bot.write_text(SAHTE_BOT.replace('float(sys.argv[-1]) if sys.argv[-1].replace(".", "").isdigit() else 0.2', "30"),

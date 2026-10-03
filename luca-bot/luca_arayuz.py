@@ -37,7 +37,6 @@ from lucabot.firma_listesi import devreden_kdvleri  # noqa: E402
 from lucabot.ortak import (AYAR_DOSYASI, DURDUR_DOSYASI, ORNEK_AYAR, TARIH_BICIMI,  # noqa: E402
                            hedef_ay_araligi, indirme_koku, sadelestir, tarih_cozumle)
 from lucabot.sabitler import EKRAN_SUTUNLARI, TUM_BELGELER  # noqa: E402
-from lucabot.sure_olcer import ON_EK, RAPOR_DOSYASI  # noqa: E402
 
 # --- gorunum (smmmyilmaz.com ile ayni: lacivert + altin) -------------------
 ZEMIN = "#0B1426"
@@ -65,7 +64,6 @@ SERIF = ("Georgia", 16, "bold")
 KONSOL_YAZI = ("Consolas", 10)
 
 EKRAN_ADLARI = {tip: ad for ad, tip in EKRAN_SUTUNLARI.items()}
-SURE_ON_EKI = ON_EK.strip()  # botun "[süre]" satirlari
 UZUN_BEKLEME = 30  # "Şu an" satiri bu kadar saniye degismezse turuncu, 3 katinda kirmizi
 ILERLEME = re.compile(r"^\[(\d+)/(\d+)\]\s+(.+?)(?:\s+\|\s+tahmini kalan:\s*(.+))?$")
 AZAMI_SATIR = 4000  # log penceresinde tutulan satir (uzun gecelerde pencere sismesin)
@@ -665,7 +663,6 @@ class Arayuz:
         alt.pack(side="bottom", fill="x", pady=(10, 0))
         dugme(alt, "Rapor Dosyasını Aç", self.raporu_ac).pack(side="left")
         dugme(alt, "İndirilenler Klasörü", self.klasoru_ac).pack(side="left", padx=8)
-        dugme(alt, "Süre Raporu", self.sure_raporunu_ac).pack(side="left")
         self.durum_yazisi = tk.Label(alt, text="", font=KUCUK, fg=SOLUK, bg=ZEMIN)
         self.durum_yazisi.pack(side="right")
 
@@ -696,11 +693,8 @@ class Arayuz:
         kaydir.pack(side="right", fill="y")
         self.log.pack(side="left", fill="both", expand=True)
         for etiket, renk in (("ok", "#8CE59A"), ("uyari", "#F2D98A"), ("soluk", "#7F8BA3"),
-                             ("hata", KIRMIZI), ("firma", ALTIN_ACIK), ("bilgi", "#9AA6BD"),
-                             ("sure", "#7CC6D6")):
+                             ("hata", KIRMIZI), ("firma", ALTIN_ACIK), ("bilgi", "#9AA6BD")):
             self.log.tag_configure(etiket, foreground=renk)
-        # sure satirlari uzun: kesilmesin, alt satira kaysin
-        self.log.tag_configure("sure", wrap="word", lmargin2=90)
 
     # -- ayarlar ---------------------------------------------------------------
 
@@ -964,11 +958,9 @@ class Arayuz:
         sade = satir.strip()
         m = ILERLEME.match(sade)
         etiket = None
-        if sade and not sade.startswith(SURE_ON_EKI) and set(sade) - set("=-"):
+        if sade and set(sade) - set("=-"):
             self.son_islem = (sade, time.monotonic())
-        if sade.startswith(SURE_ON_EKI):
-            etiket = "sure"
-        elif m:
+        if m:
             sira, toplam = int(m.group(1)), int(m.group(2))
             self.ilerleme_etiketi.configure(text=f"İşleniyor: {m.group(3)}  ({sira} / {toplam} firma)")
             self.kalan_etiketi.configure(text=f"Tahmini kalan: {m.group(4)}" if m.group(4) else "")
@@ -1185,19 +1177,6 @@ class Arayuz:
 
     def klasoru_ac(self):
         dosya_ac(indirme_koku(self.ayarlar))
-
-    def sure_raporu_yolu(self):
-        """En son calismanin sure-raporu.txt'si (gunluk klasorlerden en yenisi)."""
-        adaylar = list(indirme_koku(self.ayarlar).glob(f"*/{RAPOR_DOSYASI}"))
-        return max(adaylar, key=lambda y: y.stat().st_mtime) if adaylar else None
-
-    def sure_raporunu_ac(self):
-        yol = self.sure_raporu_yolu()
-        if yol is None:
-            messagebox.showinfo("Süre raporu yok", "Süre raporu ilk firma bitince oluşur;"
-                                " önce bir çalıştırma yapın.", parent=self.kok)
-            return
-        dosya_ac(yol)
 
     def kapat(self):
         if self.surec:

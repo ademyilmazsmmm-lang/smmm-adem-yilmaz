@@ -9,7 +9,6 @@ from .luca_ekran import (acik_pencereleri_kapat, cerceveler, gorunur_mu,
                          menu_metinleri, metinle_bul, sayfayi_toparla,
                          varsa_tikla)
 from .ortak import AYAR, karsilastir, sadelestir, tarih_cozumle, yaz
-from .sure_olcer import olculur
 from .sabitler import (BELGE_TIPLERI, DONEM_DESENI, GETIR_DUGMELERI, IKI_KADEMELI,
                        INTERAKTIF_LISTELE, KAPAT_METINLERI, MENU_KELIMELERI,
                        MODUL_ADAYLARI, UST_MENU)
@@ -86,7 +85,6 @@ def firma_dogrula(page, firma_adi, sure=8000):
     return bool(kosulu_bekle(page, lambda: hedef in sadelestir(page.title()), sure, aralik_ms=300))
 
 
-@olculur("firma seçimi")
 def firma_sec(page, firma_adi, log=None):
     """Firmanin bulundugu listeyi adiyla secer; secim 'Tamam' ile onaylanip dogrulanir."""
     # giris sonrasi acik kalan bilgi penceresi Tamam'a basilmasini engelliyordu
@@ -197,7 +195,6 @@ def uygun_donem(secenekler, istenen_bas, istenen_bit):
     return adaylar[0][0]
 
 
-@olculur("dönem ayarı")
 def donem_ayarla(page, firma_adi, istenen_bas, istenen_bit, log=None):
     """Firma eski donemde acilmissa uygun donemi secer; yoksa False doner.
 
@@ -359,7 +356,6 @@ def modul_menusunden_git(page, hedef, isaret=None):
     raise LookupError(f"'{hedef}' menu maddesi bulunamadi. Gorunen menuler: {menu_metinleri(page)}")
 
 
-@olculur("menüden ekranı açma")
 def menuye_git(page, belge_tipi):
     """Belge tipinin ekranini menuden acar.
 

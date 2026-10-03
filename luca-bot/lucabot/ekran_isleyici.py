@@ -32,8 +32,7 @@ from .luca_gezinme import calisma_donemi, donem_ayarla, firma_sec, menuye_git
 from .ortak import (AYAR, AYLIK_AZAMI_GUN, TARIH_BICIMI, dosya_adi_yap,
                     hedef_ay_araligi, tarih_araliklari, tarih_cozumle,
                     yaz, yeni_sonuc)
-from . import sure_olcer
-from .sabitler import (AYLIK_SORGU, BELGE_TIPLERI, IKI_KADEMELI, INTERAKTIF_LISTELE,
+from .sabitler import (AYLIK_SORGU, IKI_KADEMELI, INTERAKTIF_LISTELE,
                        GIB_HATASI, IPTAL_EKRANLARI, SADECE_EXCEL, TAKILDI,
                        YETKI_YOK)
 
@@ -103,15 +102,10 @@ class EkranIsleyici:
 
     def calistir(self):
         basla = time.time()
-        onceki = sure_olcer.an()
-        sure_olcer.satiri_temizle()
         try:
-            with sure_olcer.olc("ekran (diğer)", kapsayici=True):
-                return self._calistir()
+            return self._calistir()
         finally:
             self.sonuc["sure"] = round(time.time() - basla, 1)
-            sure_olcer.bolum_yaz(self.log, f"{BELGE_TIPLERI.get(self.tip, self.tip)} ekranı",
-                                 onceki)
 
     def _calistir(self):
         self.klasor.mkdir(parents=True, exist_ok=True)

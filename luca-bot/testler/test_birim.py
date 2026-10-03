@@ -458,66 +458,6 @@ class FirmaTablosuTestleri(unittest.TestCase):
             self.assertEqual(wb.active["C2"].value, "0212")
 
 
-class SureOlcerTestleri(unittest.TestCase):
-    """Adim sureleri: ic ice adimlarda ayni saniye iki kez sayilmamali."""
-
-    def setUp(self):
-        from lucabot import sure_olcer
-        self.so = sure_olcer
-        self.saat = [0.0]
-        self.eski = sure_olcer.time.monotonic
-        sure_olcer.time.monotonic = lambda: self.saat[0]
-        sure_olcer.sifirla()
-
-    def tearDown(self):
-        self.so.time.monotonic = self.eski
-        self.so.sifirla()
-
-    def gecsin(self, sn):
-        self.saat[0] += sn
-
-    def test_ic_ice_adimlar_kendi_suresiyle(self):
-        so = self.so
-        with so.olc("aralik (diğer)", kapsayici=True):
-            self.gecsin(1)
-            with so.olc("pencere kapatma"):
-                self.gecsin(2)
-                with so.olc("buton", genel=True):  # belirli adimin icinde: ona katilir
-                    self.gecsin(4)
-            with so.olc("buton", genel=True):      # kapsayicinin icinde: kendi adiyla
-                self.gecsin(0.5)
-        toplam = so.an()
-        self.assertEqual(toplam["aralik (diğer)"][0], 1)
-        self.assertEqual(toplam["pencere kapatma"][0], 6)
-        self.assertEqual(toplam["buton"][:2], [0.5, 1])
-        self.assertAlmostEqual(sum(t[0] for t in toplam.values()), 7.5)
-
-    def test_bolum_farki_ve_rapor(self):
-        so = self.so
-        with so.olc("menü"):
-            self.gecsin(3)
-        onceki = so.an()
-        for _ in range(2):
-            with so.olc("menü"):
-                self.gecsin(5)
-        self.assertEqual(so.fark(onceki), {"menü": [10.0, 2]})
-        with tempfile.TemporaryDirectory() as d:
-            yol = so.rapor_yaz(Path(d) / so.RAPOR_DOSYASI)
-            metin = yol.read_text(encoding="utf-8")
-        self.assertIn("menü", metin)
-        self.assertIn("13,0 sn", metin)
-        self.assertEqual(so.sn(75), "1 dk 15 sn")
-
-    def test_hata_olsa_da_olculur(self):
-        so = self.so
-        with self.assertRaises(ValueError):
-            with so.olc("indirme"):
-                self.gecsin(2)
-                raise ValueError("x")
-        self.assertEqual(so.an()["indirme"][0], 2)
-        self.assertEqual(so._yigin, [])
-
-
 ORNEK_BEYANNAME = """
                      KATMA DEĞER VERGİSİ BEYANNAMESİ                                1015 A
                (Gerçek Usulde Vergilendirilen Mükellefler İçin)                    1

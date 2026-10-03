@@ -40,7 +40,6 @@ AYAR = {
     "tarayici_yolu": None,      # Playwright Chromium yerine belirli bir chrome.exe (istege bagli)
     "tarayici_sandbox": True,   # yalnizca test ortami (Linux/root) icin kapatilir
     "excel_azami_saniye": 600,  # Luca buyuk Excel'i hazirlarken en fazla bu kadar beklenir
-    "sure_ayrintisi": True,     # gunluge adim surelerini ("[süre]" satirlari) yaz
 }
 
 TARIH_BICIMI = "%d/%m/%Y"

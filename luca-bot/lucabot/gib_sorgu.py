@@ -28,7 +28,6 @@ from .sabitler import (BELGE_ARA_CAPALARI, BELGE_ARA_ONAY, DIYALOG_ONAY,
                        ISLEM_BITTI, ISLEM_ISARETLERI, KAYIT_SAYISI_DESENI,
                        GIB_HATASI, TAKILDI, TAMAMLANMADI, YETKI_ISARETLERI,
                        YETKI_YOK)
-from .sure_olcer import olc, olculur, satiri_temizle, satiri_yaz
 
 # Islem Takip penceresine ne siklikla bakilir (her bakis butun cerceveleri tarar)
 TAKIP_ARALIGI_MS = 500
@@ -66,7 +65,6 @@ def _acik_sayfalar(page):
     return sayfalar
 
 
-@olculur("İşlem Takip penceresini okuma")
 def islem_gunlugu(page):
     """Islem Takip penceresinin metni; pencere kapaliysa bos doner.
 
@@ -112,7 +110,6 @@ def _sorgu_penceresini_birak(page):
     fatura_yok_penceresini_kapat(page)
 
 
-@olculur("İşlem Takip izleme (diğer)", kapsayici=True)
 def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
                          pencere_bekleme=12, en_az_saniye=1, eski_gunluk="", eski_bildirim=""):
     """Sorgu bitene kadar bekler; indirilemeyen fatura sayisini dondurur.
@@ -180,9 +177,8 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
                     " ".join(x.split()) for x in gunluk.splitlines()[-4:] if x.strip()), log)
                 yaz(f"    GİB sorgusu tamamlandi ({int(gecen)} sn)"
                     + (f", {basarisiz} fatura indirilemedi" if basarisiz else ""), log)
-                with olc("sorgu bitince Kapat"):
-                    varsa_tikla(page, ["Kapat"], sure=4000)
-                    kosulu_bekle(page, lambda: not islem_gunlugu(page), 1500, aralik_ms=250)
+                varsa_tikla(page, ["Kapat"], sure=4000)
+                kosulu_bekle(page, lambda: not islem_gunlugu(page), 1500, aralik_ms=250)
                 return basarisiz
 
             if yetki_hatasi(gunluk):
@@ -228,23 +224,11 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
         if gecen - son_bildirim >= 15:
             son_bildirim = gecen
             yaz(f"    ... bekleniyor ({int(gecen)} sn)", log)
-        # ilk en_az_saniye icinde sorgu bitmis olsa da kabul edilmez; ayri sayilir
-        with olc("GİB yanıtı bekleme" if gecen >= en_az_saniye
-                 else f"GİB yanıtı bekleme (ilk {en_az_saniye} sn)"):
-            nabiz(page, TAKIP_ARALIGI_MS)
+        nabiz(page, TAKIP_ARALIGI_MS)
 
 
 def gibden_getir(page, baslangic, bitis, log):
     """'GİB'den Getir' ile tek bir tarih araligini sorgular; islem_takibini_bekle sonucunu dondurur."""
-    satiri_temizle()
-    try:
-        with olc("GİB'den Getir (diğer)", kapsayici=True):
-            return _gibden_getir(page, baslangic, bitis, log)
-    finally:
-        satiri_yaz(log, f"Aralık {baslangic} - {bitis}")
-
-
-def _gibden_getir(page, baslangic, bitis, log):
     yaz(f"    GİB'den Getir aciliyor ({baslangic} - {bitis})", log)
     acik_pencereleri_kapat(page, log)  # onceki sorgudan kalan pencere tiklamayi engelliyor
     fatura_yok_penceresini_kapat(page, bekle=False)  # dugmeli uyari kapatilir; duz bildirim beklenmez
@@ -266,8 +250,7 @@ def _gibden_getir(page, baslangic, bitis, log):
             yoklama["en_uzun"] = max(yoklama["en_uzun"], time.monotonic() - basla_yoklama)
 
     basla_pencere = time.monotonic()
-    with olc("tarih penceresinin açılması"):
-        bulunan = kosulu_bekle(page, tarih_penceresi_var, 5000, aralik_ms=150)
+    bulunan = kosulu_bekle(page, tarih_penceresi_var, 5000, aralik_ms=150)
     gecen_pencere = time.monotonic() - basla_pencere
     if gecen_pencere > 2.5:  # yavas: pencere mi gec aciliyor, yoksa yoklamalar mi yavas anlasilsin
         gunluge_yaz(f"    TANI: tarih penceresi {gecen_pencere:.1f} sn'de goruldu "
@@ -331,7 +314,6 @@ def listenin_yuklenmesini_bekle(page, baslangic, azami_ms=15000):
     degisip_durulsun(page, baslangic, azami_ms=azami_ms, degisim_ms=3000, sessizlik_ms=500)
 
 
-@olculur("liste yenileme (diğer)", kapsayici=True)
 def listeyi_yenile(page, log, ek=""):
     """Sorgu sonrasi liste kendiliginden tazelenmiyor; tum sorgular bitince bir kez."""
     yaz("    Liste yenileniyor" + (f" ({ek})" if ek else ""), log)
@@ -340,7 +322,6 @@ def listeyi_yenile(page, log, ek=""):
         listenin_yuklenmesini_bekle(page, baslangic)
 
 
-@olculur("Belge Ara (diğer)", kapsayici=True)
 def belge_ara(page, bas, bit, log):
     """Listeyi istenen tarih araligina getirir (indirme ay geneli olsun diye).
 
@@ -384,7 +365,6 @@ def belge_ara(page, bas, bit, log):
 
 # --- Interaktif V.D. ------------------------------------------------------------
 
-@olculur("kayıt sayısını okuma")
 def interaktif_kayit_sayisi(page):
     """Ekran altindaki 'Toplam Kayit Sayisi' degeri; bulunamazsa None."""
     for fr in cerceveler(page):
@@ -399,7 +379,6 @@ def interaktif_kayit_sayisi(page):
     return None
 
 
-@olculur("listenin dolmasını bekleme")
 def listeyi_bekle(page, log, azami_saniye=120):
     """Sorgu sonrasi listenin dolmasini bekler (kayit sayisi > 0); sayiyi ya da None dondurur."""
     basla = time.time()
@@ -449,10 +428,7 @@ def interaktif_sorgula(page, araliklar, log, listeleme_araligi=None):
         # aralikta iki kez sorulur, sonrakilerde tek sorgu yetiyor
         tekrar = INTERAKTIF_TEKRAR if sira == 0 else 1
         for tur in range(1, tekrar + 1):
-            satiri_temizle()
-            with olc("İnteraktif sorgu (diğer)", kapsayici=True):
-                devam = _interaktif_turu(page, bas, bit, tur, tekrar, log)
-            satiri_yaz(log, f"Aralık {bas} - {bit}")
+            devam = _interaktif_turu(page, bas, bit, tur, tekrar, log)
             if not devam:
                 return calisan
             calisan += 1
@@ -575,10 +551,7 @@ def iptal_itiraz_sorgula(page, araliklar, log, interaktif=False, bilgi=None):
             hatali.append(f"{bas} sonrasi")
             break
         for tur in (1, 2):  # GIB gecici hata verirse ayni aralik bir kez daha sorulur
-            satiri_temizle()
-            with olc("İptal/itiraz sorgusu (diğer)", kapsayici=True):
-                sonuc = _iptal_araligi(page, bas, bit, log, interaktif)
-            satiri_yaz(log, f"İptal aralığı {bas} - {bit}")
+            sonuc = _iptal_araligi(page, bas, bit, log, interaktif)
             if sonuc is None:  # buton/pencere bulunamadi: bu ekranda devam etmek bos
                 return calisan
             if sonuc == GIB_HATASI and tur == 1:

@@ -11,7 +11,6 @@ from pathlib import Path
 
 from .bekleme import (geri_cekil, gorunur_cerceveler, kaybolana_kadar_bekle,
                       kosulu_bekle, sayfa_canli, sayfa_durulsun)
-from .sure_olcer import olculur
 from .ortak import dosya_adi_yap, karsilastir, yaz
 from .sabitler import (BILGI_CAPALARI, DIYALOG_CAPASI, FATURA_YOK_CAPASI,
                        GIB_HATA_METINLERI, ISLEM_BITTI, ISLEM_ISARETLERI, KISAYOLLAR,
@@ -92,7 +91,6 @@ def gorunur_mu(page, metin, sure=1500):
         return False
 
 
-@olculur("buton arama/tıklama", genel=True)
 def getir_dugmesi(page, sure=3000):
     """Ekranin sorguyu baslatan dugmesinin yazisi (GİB'den Getir / TÜRMOB'dan Getir); yoksa None."""
     from .sabitler import GETIR_DUGMELERI
@@ -121,7 +119,6 @@ def varsa_tikla(page, metinler, sure=1500, durul=True):
     return None
 
 
-@olculur("buton arama/tıklama", genel=True)
 def dugmeye_bas(page, metin, sure=8000):
     """Once butona tiklar; tiklama engellenirse butonun kendi klavye kisayolunu dener."""
     try:
@@ -193,7 +190,6 @@ def uyari_metni(page, onceki=frozenset()):
     return yeni[0] if yeni else None
 
 
-@olculur("GİB hata kontrolü")
 def ekranda_gib_hatasi(page):
     """Islem Takip penceresi acilmadan ekrana dusen GIB hata uyarisi."""
     for fr in cerceveler(page):
@@ -334,7 +330,6 @@ def metinli_diyalog(page, capa, islem_takip_haric=False):
     return None, None
 
 
-@olculur("pencerenin açılmasını bekleme", genel=True)
 def diyalog_bekle(page, capalar, azami_ms=4000):
     """Yazilarindan biri gorunen diyalog acilana kadar bekler; (cerceve, pencere) ya da (None, None)."""
     if isinstance(capalar, str):
@@ -350,7 +345,6 @@ def diyalog_bekle(page, capalar, azami_ms=4000):
     return kosulu_bekle(page, bak, azami_ms, aralik_ms=250) or (None, None)
 
 
-@olculur("buton arama/tıklama", genel=True)
 def pencerede_tikla(page, pencere, metinler, sure=4000):
     """Butona pencerenin icinden basar (yan yana duran Tamam/Iptal karismasin diye)."""
     if pencere is None:
@@ -475,7 +469,6 @@ def bildirim_yazisi(page):
     return ""
 
 
-@olculur("bilgi penceresi kontrolü")
 def bilgi_penceresini_kapat(page):
     """Sorgu sonucu bildiren pencereyi kapatir ve yazisini dondurur.
 
@@ -495,7 +488,6 @@ def bilgi_penceresini_kapat(page):
     return ""
 
 
-@olculur("'fatura yok' penceresi kontrolü")
 def fatura_yok_penceresini_kapat(page, bekle=True):
     """'Her hangi bir fatura bulunamadi' penceresi Tamam beklerken akisi kilitliyor.
 
@@ -509,7 +501,6 @@ def fatura_yok_penceresini_kapat(page, bekle=True):
     return True
 
 
-@olculur("açık pencereleri kapatma")
 def acik_pencereleri_kapat(page, log=None):
     """Acik kalan Luca pencerelerini kapatir; hepsi kapandiysa True."""
     kapali = lambda: acik_pencere(page)[1] is None
@@ -541,7 +532,6 @@ def acik_pencereleri_kapat(page, log=None):
     return acik_pencere(page)[1] is None
 
 
-@olculur("ekranı toparlama")
 def sayfayi_toparla(page):
     """Hata sonrasi acik kalan diyaloglari kapatir.
 
@@ -695,7 +685,6 @@ def yeni_tarih_kutulari(page):
     return None
 
 
-@olculur("tarih kutularını arama")
 def tarih_kutulari(page, kapsam=None, sure=6000):
     """Tarih kutulari; kapsam (acik pencere) verilirse once orada aranir.
 
@@ -747,7 +736,6 @@ def kutuya_yaz(kutu, deger):
         return False
 
 
-@olculur("tarih yazma")
 def tarih_araligi_yaz(kutular, bas, bit):
     """Ilk iki tarih kutusuna aralik yazar; kutularda gercekten ne yazdigini dondurur."""
     kutuya_yaz(kutular[0], bas)
