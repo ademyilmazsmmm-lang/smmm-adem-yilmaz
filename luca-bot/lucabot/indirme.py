@@ -19,7 +19,7 @@ from .luca_ekran import (acik_pencereleri_kapat, diyalogda_tikla,
                          diyalogda_tumunu_sec, dugmeye_bas,
                          fatura_yok_penceresini_kapat, indirme_diyalogu,
                          uyari_metinleri, uyari_metni)
-from .ortak import AYAR, dosya_adi_yap, yaz
+from .ortak import AYAR, dosya_adi_yap, gunluge_yaz, yaz
 from .sabitler import INDIRME_ONAY, KISAYOLLAR
 from .sure_olcer import olculur
 
@@ -57,15 +57,33 @@ SEKMESIZ_JS = """acik => {
   if (!w.__lucaBotAsilOpen) {
     w.__lucaBotAsilOpen = w.open;
     w.__lucaBotCerceveler = [];
-    w.open = function (adres, ...diger) {
-      if (!w.__lucaBotIndir || !adres) return w.__lucaBotAsilOpen.apply(this, [adres, ...diger]);
+    const gizli = (ad, adres) => {
       const f = document.createElement('iframe');
       f.style.display = 'none';
-      f.src = adres;
+      if (ad) f.name = ad;
+      if (adres) f.src = adres;
       (document.body || document.documentElement).appendChild(f);
       w.__lucaBotCerceveler.push(f);
-      return f.contentWindow;  // Luca donen pencereyle bir sey yaparsa hata vermesin
+      return f;
     };
+    // window.open(adres, hedef): adres bos da olsa (sonradan form/yazi gonderilen bos sekme),
+    // adlandirilmis hedef de ayni adli gizli cerceveye gider
+    w.open = function (adres, hedef) {
+      if (!w.__lucaBotIndir) return w.__lucaBotAsilOpen.apply(this, arguments);
+      const ozel = hedef && !/^_(blank|self|parent|top)$/i.test(hedef);
+      return gizli(ozel ? hedef : '', adres).contentWindow;  // Luca donen pencereyle bir sey yaparsa hata vermesin
+    };
+    // target="_blank" olan form ve baglantilar da gizli cerceveye yonlendirilir
+    const yonlendir = e => {
+      if (!w.__lucaBotIndir) return;
+      const el = e.target && e.target.closest ? e.target.closest('form, a') : null;
+      if (!el || !/^_blank$/i.test(el.target || '')) return;
+      const ad = '__lucaBotIndirme' + w.__lucaBotCerceveler.length;
+      gizli(ad, '');
+      el.target = ad;
+    };
+    document.addEventListener('submit', yonlendir, true);
+    document.addEventListener('click', yonlendir, true);
   }
   w.__lucaBotIndir = acik;
   if (!acik) {
@@ -80,7 +98,9 @@ CERCEVE_ENGELLERI = ("x-frame-options", "content-security-policy")
 class _DosyaYakalayici:
     """Indirme istegini yakalar (route) ve tarayici indirmesini yedek olarak dinler."""
 
-    def __init__(self, page, on_ek, yakala):
+    def __init__(self, page, on_ek, yakala, log=None):
+        self.log = log
+        self.acilanlar = []  # indirme sirasinda acilan sekmelerin adresleri (tani icin)
         self.page = page
         self.ctx = page.context
         self.on_ek = on_ek
@@ -143,12 +163,22 @@ class _DosyaYakalayici:
     def _indirme_geldi(self, indirme):
         self.inenler.append(indirme)
 
+    def _sekme_acildi(self, sekme):
+        try:
+            self.acilanlar.append(sekme.url or "about:blank")
+        except Exception:
+            self.acilanlar.append("?")
+
     def __enter__(self):
         try:
             self.onceki_sekmeler = set(self.ctx.pages)
         except Exception:
             self.onceki_sekmeler = None
         self.page.on("download", self._indirme_geldi)
+        try:
+            self.ctx.on("page", self._sekme_acildi)
+        except Exception:
+            pass
         if self.yakala:
             self.ctx.route("**/*", self._yonlendir)
         if self.sekmesiz:
@@ -179,6 +209,13 @@ class _DosyaYakalayici:
             self.page.remove_listener("download", self._indirme_geldi)
         except Exception:
             pass
+        try:
+            self.ctx.remove_listener("page", self._sekme_acildi)
+        except Exception:
+            pass
+        if self.acilanlar:  # beklenmedik: sekmesiz yol tutmadiysa hangi adreslerle acildigi gorulsun
+            gunluge_yaz(f"    TANI: indirme sirasinda {len(self.acilanlar)} yeni sekme acildi: "
+                        + ", ".join(a[:80] for a in self.acilanlar), self.log)
         self._yeni_sekmeleri_kapat()
         return False
 
@@ -273,7 +310,7 @@ def dosya_indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30,
     """
     yakala = bool(AYAR.get("indirmeyi_yakala"))
     try:
-        with _DosyaYakalayici(page, on_ek, yakala) as yakalayici:
+        with _DosyaYakalayici(page, on_ek, yakala, log) as yakalayici:
             # onceki adimdan kalan bildirim yeni indirmeye karismasin
             fatura_yok_penceresini_kapat(page)
             onceki_uyarilar = uyari_metinleri(page)  # ekranda hep duran yazilar uyari sayilmaz

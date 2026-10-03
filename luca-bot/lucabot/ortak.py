@@ -15,6 +15,10 @@ from pathlib import Path
 # program klasoru (luca_bot.py'nin bulundugu yer)
 KOK = Path(__file__).resolve().parent.parent
 AYAR_DOSYASI = KOK / "ayarlar.json"
+# Arayuz "Durdur"a basinca bu dosyayi olusturur; bot bir sonraki bekleme adiminda gorup
+# Ctrl+C ile ayni sekilde (o ana kadarki sonuclari kaydederek) durur. Konsolsuz calisan
+# arayuze (pythonw) CTRL_BREAK sinyali gonderilemedigi icin sinyalden bagimsiz bir yol.
+DURDUR_DOSYASI = KOK / "durdur.istek"
 ORNEK_AYAR = KOK / "ayarlar.ornek.json"
 
 # Calisma sirasinda kullanilan ayarlar. ayarlar.json ve komut satiri

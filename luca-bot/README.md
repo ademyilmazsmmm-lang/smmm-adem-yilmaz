@@ -30,7 +30,8 @@ python -m playwright install chromium
 ## Arayüz (en kolay yol): `luca-arayuz.bat`
 
 Komut satırı kullanmadan, pencereden çalıştırmak için `luca-arayuz.bat`'a çift tıklayın
-(arkada küçültülmüş bir siyah pencere kalır, onu kapatmayın).
+(arkada siyah pencere kalmaz; arayüz konsolsuz açılır. `pythonw` bulunamazsa eski yöntemle küçültülmüş
+bir siyah pencere kalır, onu kapatmayın).
 
 1. **Luca Girişi › Değiştir**: Üye No, Kullanıcı Adı, Parola (ve varsa iki aşamalı giriş
    anahtarı) bir kez girilir, `ayarlar.json`'a kaydedilir. Program Luca'ya kendisi girer.
@@ -50,7 +51,8 @@ Komut satırı kullanmadan, pencereden çalıştırmak için `luca-arayuz.bat`'a
    basınca dosyaya yazılır.
    Tek firma için "Sadece bu firma" kutusuna adını yazın.
 3. **Tarih Aralığı** ve **Ekranlar**'ı seçip **Çalıştır**'a basın. İlerleme ve log pencerede
-   canlı akar. **Durdur** o ana kadarki sonuçları kaydederek durdurur; tekrar Çalıştır'a basınca
+   canlı akar. **Durdur** (bota `durdur.istek` dosyasıyla haber verir, bot bir sonraki bekleme adımında
+   görüp) o ana kadarki sonuçları kaydederek durdurur; tekrar Çalıştır'a basınca
    kaldığı yerden sürer ("Bugün bitenleri atla" işaretliyse).
 4. Alttaki kutular seçili dönem için `rapor.json`'dan hesaplanır, tıklayınca firmaları listeler
    (**Excel olarak indir** listeyi .xlsx olarak kaydedip açar):
@@ -92,6 +94,7 @@ yoksa `.bat` bunu söyler; python.org'dan kurarken "tcl/tk and IDLE" işaretli o
 | `tekrar_deneme` | İndirilemeyen fatura kalırsa sorgunun kaç kez tekrarlanacağı (varsayılan 3) |
 | `ardisik_hata_siniri` | Üst üste kaç firma hata verirse çalışma durdurulur (varsayılan 5) |
 | `dosya inmedi` durumu | Tarayıcı indirme sırasında çöktü; bot firmayı yeniden dener, o da olmazsa raporda `DOSYA INMEDI - tekrar calistir` yazar. Programı tekrar çalıştırmak yeterli. |
+| `indirme_sekmesiz` | İndirme sırasında Luca'nın açtığı boş sekme yerine gizli çerçeve kullan (varsayılan açık); sorun çıkarırsa `false` yazın. Yine de sekme açılırsa `calisma.log`'a `TANI: indirme sirasinda ... yeni sekme acildi` satırı düşer |
 | `sure_ayrintisi` | Günlüğe `[süre]` satırlarını yaz (varsayılan açık); kapalıyken de `sure-raporu.txt` oluşur |
 | `atlanacak_firmalar` | İşlenmeyecek firma adları (nadiren gerekir). Luca adı kısaltarak gösterdiği için adın baş kısmını yazmanız yeterli |
 

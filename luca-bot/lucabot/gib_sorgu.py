@@ -11,8 +11,8 @@ import time
 
 from .bekleme import (degisiklik_baslat, degisip_durulsun, geri_cekil, kosulu_bekle,
                       nabiz, sayfa_durulsun)
-from .luca_ekran import (TANI, acik_pencere, acik_pencereleri_kapat, eski_kutulari_isaretle,
-                         getir_dugmesi,
+from .luca_ekran import (TANI, acik_pencere, acik_pencereleri_kapat, bildirim_yazisi,
+                         eski_kutulari_isaretle, getir_dugmesi,
                          yeni_tarih_kutulari,
                          bilgi_penceresini_kapat, cerceveler, diyalog_bekle,
                          dugmeye_bas, ekranda_gib_hatasi,
@@ -31,7 +31,7 @@ from .sabitler import (BELGE_ARA_CAPALARI, BELGE_ARA_ONAY, DIYALOG_ONAY,
 from .sure_olcer import olc, olculur, satiri_temizle, satiri_yaz
 
 # Islem Takip penceresine ne siklikla bakilir (her bakis butun cerceveleri tarar)
-TAKIP_ARALIGI_MS = 1000
+TAKIP_ARALIGI_MS = 500
 # sorgudan once ekranda kalmis Islem Takip yazisi en fazla bu kadar "eski" sayilir
 ESKI_GUNLUK_SANIYE = 3
 # "sona erdi" gunlugun sonunda degilse bu kadar sure yeni satir gelmezse bitmis sayilir
@@ -114,7 +114,7 @@ def _sorgu_penceresini_birak(page):
 
 @olculur("İşlem Takip izleme (diğer)", kapsayici=True)
 def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
-                         pencere_bekleme=12, en_az_saniye=1, eski_gunluk=""):
+                         pencere_bekleme=12, en_az_saniye=1, eski_gunluk="", eski_bildirim=""):
     """Sorgu bitene kadar bekler; indirilemeyen fatura sayisini dondurur.
 
     Ozel donusler: TAMAMLANMADI (-1, zaman asimi), YETKI_YOK (-2), TAKILDI (-3).
@@ -125,7 +125,12 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
     eski_gunluk: sorgu baslatilmadan once ekranda duran Islem Takip yazisi;
     onceki sorgudan kalmissa onun "sona erdi"si bu sorgunun bitisi sayilmaz
     (ESKI_GUNLUK_SANIYE dolana kadar).
+    eski_bildirim: sorgudan once ekranda duran sonuc bildirimi ("3 adet fatura bulundu...").
+    Duz bildirimler kendiliginden kaybolana kadar ekranda kalabiliyor; ayni yazi hic
+    kaybolmadan duruyorsa onceki sorgunun kalintisidir ve bu sorgunun bitisi sayilmaz
+    (aksi halde sorgu bitmeden sonraki tarihe geciliyor, faturalar eksik iniyordu).
     """
+    eski_kayboldu = not eski_bildirim
     basla = time.time()
     pencere_goruldu = False
     son_gunluk = ""
@@ -140,13 +145,19 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
         # "fatura bulundu" uyari pencerelerine yalnizca o yokken bakilir (her saniye
         # bu iki aramayi yapmak sorgu basina saniyeler tutuyordu)
         if not gunluk and gecen >= en_az_saniye:
-            if fatura_yok_penceresini_kapat(page):
-                yaz(f"    Luca: fatura bulunamadi ({int(gecen)} sn)", log)
-                return 0
-            bilgi = bilgi_penceresini_kapat(page)  # "... adet fatura bulundu" de bitis
-            if bilgi:
-                yaz(f"    Luca: {bilgi} ({int(gecen)} sn)", log)
-                return 0
+            yazi = bildirim_yazisi(page)
+            if not yazi:
+                eski_kayboldu = True
+            elif yazi == eski_bildirim and not eski_kayboldu:
+                pass  # sorgudan once kalmis bildirim: bu sorgunun sonucu degil
+            else:
+                if fatura_yok_penceresini_kapat(page):
+                    yaz(f"    Luca: fatura bulunamadi ({int(gecen)} sn)", log)
+                    return 0
+                bilgi = bilgi_penceresini_kapat(page)  # "... adet fatura bulundu" de bitis
+                if bilgi:
+                    yaz(f"    Luca: {bilgi} ({int(gecen)} sn)", log)
+                    return 0
 
         if gunluk:
             if not pencere_goruldu:
@@ -236,7 +247,7 @@ def gibden_getir(page, baslangic, bitis, log):
 def _gibden_getir(page, baslangic, bitis, log):
     yaz(f"    GİB'den Getir aciliyor ({baslangic} - {bitis})", log)
     acik_pencereleri_kapat(page, log)  # onceki sorgudan kalan pencere tiklamayi engelliyor
-    fatura_yok_penceresini_kapat(page)  # onceki sorgunun bildirimi yeni sorguya karismasin
+    fatura_yok_penceresini_kapat(page, bekle=False)  # dugmeli uyari kapatilir; duz bildirim beklenmez
     eski_kutulari_isaretle(page)
     getir = getir_dugmesi(page, sure=8000) or GIB_GETIR  # ekrana gore GİB'den / TÜRMOB'dan Getir
     if not dugmeye_bas(page, getir):
@@ -244,9 +255,25 @@ def _gibden_getir(page, baslangic, bitis, log):
 
     # tarih penceresi: yeni beliren tarih kutulari ya da bilinen bir Luca penceresi
     # (hangisi once gelirse); kutular o pencerenin icinde aranir
+    yoklama = {"sayi": 0, "en_uzun": 0.0}
+
+    def tarih_penceresi_var():
+        basla_yoklama = time.monotonic()
+        try:
+            return yeni_tarih_kutulari(page) or acik_pencere(page)[1]
+        finally:
+            yoklama["sayi"] += 1
+            yoklama["en_uzun"] = max(yoklama["en_uzun"], time.monotonic() - basla_yoklama)
+
+    basla_pencere = time.monotonic()
     with olc("tarih penceresinin açılması"):
-        bulunan = kosulu_bekle(page, lambda: yeni_tarih_kutulari(page) or acik_pencere(page)[1],
-                               5000, aralik_ms=150)
+        bulunan = kosulu_bekle(page, tarih_penceresi_var, 5000, aralik_ms=150)
+    gecen_pencere = time.monotonic() - basla_pencere
+    if gecen_pencere > 2.5:  # yavas: pencere mi gec aciliyor, yoksa yoklamalar mi yavas anlasilsin
+        gunluge_yaz(f"    TANI: tarih penceresi {gecen_pencere:.1f} sn'de goruldu "
+                    f"({'kutu' if isinstance(bulunan, list) else 'pencere' if bulunan is not None else 'GORULMEDI'}); "
+                    f"{yoklama['sayi']} yoklama, en uzunu {yoklama['en_uzun']:.1f} sn; "
+                    f"{len(cerceveler(page))} gorunur cerceve", log)
     if isinstance(bulunan, list):
         kutular, pencere = bulunan, acik_pencere(page)[1]
     else:
@@ -262,6 +289,7 @@ def _gibden_getir(page, baslangic, bitis, log):
         yaz(f"    Tarih araligi girildi: {tarih_araligi_yaz(kutular, baslangic, bitis)}", log)
 
     eski_gunluk = islem_gunlugu(page)  # normalde bos: pencereler kapatildi
+    eski_bildirim = bildirim_yazisi(page)  # sorgudan once ekranda kalmis sonuc bildirimi
     tiklanan = (pencerede_tikla(page, pencere, DIYALOG_ONAY, sure=5000) if pencere is not None
                 else None) or varsa_tikla(page, DIYALOG_ONAY, sure=5000)
     if not tiklanan:
@@ -270,7 +298,7 @@ def _gibden_getir(page, baslangic, bitis, log):
 
     basarisiz = islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
                                      durgunluk_saniye=AYAR["durgunluk_saniye"],
-                                     eski_gunluk=eski_gunluk)
+                                     eski_gunluk=eski_gunluk, eski_bildirim=eski_bildirim)
     acik_pencereleri_kapat(page, log)
     return basarisiz
 
@@ -446,7 +474,7 @@ def interaktif_sorgula(page, araliklar, log, listeleme_araligi=None):
 def _interaktif_turu(page, bas, bit, tur, tekrar, log):
     """Interaktif V.D. ekraninda tek sorgu; devam edilebilirse True."""
     acik_pencereleri_kapat(page, log)
-    fatura_yok_penceresini_kapat(page)
+    fatura_yok_penceresini_kapat(page, bekle=False)
 
     kutular = tarih_kutulari(page)
     if len(kutular) >= 2:
@@ -487,7 +515,7 @@ def _iptal_araligi(page, bas, bit, log, interaktif):
     """Tek tarih araligi icin iptal/itiraz sorgusu; islem_takibini_bekle sonucunu
     ya da (buton/pencere bulunamazsa) None dondurur."""
     acik_pencereleri_kapat(page, log)
-    fatura_yok_penceresini_kapat(page)
+    fatura_yok_penceresini_kapat(page, bekle=False)
     if not varsa_tikla(page, IPTAL_DUGME_ADAYLARI, sure=4000):
         yaz("    'GİB'den İptal/İtiraz Sorgula' butonu bulunamadi, atlandi", log)
         return None
@@ -500,6 +528,7 @@ def _iptal_araligi(page, bas, bit, log, interaktif):
         yaz("    UYARI: iptal/itiraz tarih kutulari bulunamadi, Luca varsayilani kullanilacak", log)
 
     eski_gunluk = islem_gunlugu(page)
+    eski_bildirim = bildirim_yazisi(page)
     onay = pencerede_tikla(page, pencere, IPTAL_ONAY) if pencere is not None else None
     if not onay:
         # pencere taninmadiysa tam metinle ara; arac cubugu butonu farkli yazildigi
@@ -515,7 +544,7 @@ def _iptal_araligi(page, bas, bit, log, interaktif):
     sonuc = islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
                                  durgunluk_saniye=AYAR["durgunluk_saniye"],
                                  pencere_bekleme=4 if interaktif else 12,
-                                 eski_gunluk=eski_gunluk)
+                                 eski_gunluk=eski_gunluk, eski_bildirim=eski_bildirim)
     acik_pencereleri_kapat(page, log)
     return sonuc
 

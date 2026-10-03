@@ -26,7 +26,7 @@ from lucabot.calisma import Calisma
 from lucabot.firma_listesi import bugun_tamamlananlar, firmalari_suz
 from lucabot.giris import luca_oturumu_ac
 from lucabot.luca_gezinme import firma_secici
-from lucabot.ortak import (AYAR, ayarlari_oku, gunluge_yaz, icinde_bulunulan_ay,
+from lucabot.ortak import (AYAR, DURDUR_DOSYASI, ayarlari_oku, gunluge_yaz, icinde_bulunulan_ay,
                            indirme_koku, tarih_araliklari, tarih_cozumle, yaz)
 from lucabot.sabitler import BELGE_TIPLERI, TUM_BELGELER
 from lucabot.tarayici import (kullanici_bekle, kullanici_metni_al,
@@ -288,6 +288,10 @@ def main():
     p = arguman_ayristirici()
     args = p.parse_args()
     ayarlar = ayarlari_oku()
+    try:
+        DURDUR_DOSYASI.unlink()  # onceki calismadan kalmis durdurma istegi yeni calismayi durdurmasin
+    except OSError:
+        pass
     try:
         return calistir(args, ayarlar, p)
     except KeyboardInterrupt:

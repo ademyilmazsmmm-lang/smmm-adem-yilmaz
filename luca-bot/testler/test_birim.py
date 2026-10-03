@@ -611,6 +611,35 @@ class SorguBitisiTestleri(unittest.TestCase):
         self.assertFalse(sorgu_bitti_mi(""))
 
 
+class DurdurDosyasiTestleri(unittest.TestCase):
+    """Konsolsuz calisan arayuz botu sinyalle degil dosyayla durdurur."""
+
+    def setUp(self):
+        from lucabot import bekleme
+        self.bekleme = bekleme
+        self.eski = bekleme.DURDUR_DOSYASI
+        self.d = Path(tempfile.mkdtemp())
+        bekleme.DURDUR_DOSYASI = self.d / "durdur.istek"
+
+    def tearDown(self):
+        self.bekleme.DURDUR_DOSYASI = self.eski
+
+    def test_bekleme_adimi_dosyayi_gorunce_durur(self):
+        class Sayfa:
+            def wait_for_timeout(self, ms):
+                pass
+
+            def is_closed(self):
+                return False
+
+        self.bekleme.nabiz(Sayfa(), 1)  # dosya yok: normal
+        self.bekleme.DURDUR_DOSYASI.write_text("durdur")
+        with self.assertRaises(KeyboardInterrupt):
+            self.bekleme.kosulu_bekle(Sayfa(), lambda: False, 5000)  # kosul icindeki hatalar yutulur, bu yutulmaz
+        self.assertFalse(self.bekleme.DURDUR_DOSYASI.exists())  # bir kez tuketilir
+        self.bekleme.nabiz(Sayfa(), 1)  # tekrar durdurmaz
+
+
 class GecisAraciTestleri(unittest.TestCase):
     """gecis_rapor_birlestir.py: eski gunluk rapor.json'lari tek surekli rapora birlestirir."""
 

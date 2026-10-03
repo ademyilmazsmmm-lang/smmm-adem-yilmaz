@@ -73,6 +73,11 @@ class ArayuzTestleri(unittest.TestCase):
         self.app.BOT = self.bot
 
     def tearDown(self):
+        from lucabot.ortak import DURDUR_DOSYASI
+        try:
+            DURDUR_DOSYASI.unlink()  # sahte bot dosyayi tuketmez
+        except OSError:
+            pass
         if self.app.surec:
             self.app.surec.kill()
             self.app.surec.wait()
@@ -188,6 +193,19 @@ class ArayuzTestleri(unittest.TestCase):
         self.assertTrue(self._bekle(lambda: self.app.surec is None))
         self.assertIn("Durduruldu. O ana kadarki sonuclar kaydedildi", self.app.log_metni())
         self.assertEqual(self.app.durum_etiketi.cget("text").strip(), "Durduruldu")
+
+    def test_durdur_dosyasi_yazilir_ve_eskisi_silinir(self):
+        from lucabot.ortak import DURDUR_DOSYASI
+        self.addCleanup(lambda: DURDUR_DOSYASI.exists() and DURDUR_DOSYASI.unlink())
+        DURDUR_DOSYASI.write_text("kalinti")  # onceki calismadan kalmis istek
+        self.bot.write_text(SAHTE_BOT.replace('float(sys.argv[-1]) if sys.argv[-1].replace(".", "").isdigit() else 0.2', "30"),
+                            encoding="utf-8")
+        self.app.calistir()
+        self.assertFalse(DURDUR_DOSYASI.exists())  # yeni calisma kalintiyla durmasin
+        self.assertTrue(self._bekle(lambda: "[1/2]" in self.app.log_metni()))
+        self.app.durdur()
+        self.assertTrue(DURDUR_DOSYASI.exists())   # bot bunu gorup duracak
+        self.assertTrue(self._bekle(lambda: self.app.surec is None))
 
     def test_firma_ekran_penceresi_kaydeder(self):
         from lucabot import firma_tablosu

@@ -219,7 +219,19 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
    }
    // gercek Luca gibi: liste bos da olsa kayit sayisi yazar
    document.getElementById('sayac').textContent = '1 / 1 (Toplam Kayıt Sayısı: ' + liste.length + ')';
+   bildirim(liste.length ? '' : 'Fatura bulunamadı.');
    return liste.length;
+ }
+ // gercek Luca'da sorgu sonucu duz bir bildirimle de gosteriliyor: dugmesi yok, birkac sn kalir
+ let bildirimZamani = null;
+ function bildirim(metin){
+   let b = document.getElementById('bildirim');
+   if (!metin) { if (b) b.remove(); return; }
+   if (!b) { b = document.createElement('div'); b.id = 'bildirim'; b.className = 'luca-open-window';
+     b.style.cssText = 'position:fixed;right:20px;bottom:20px;padding:10px;background:#ffe;border:1px solid #cb8;'
+       + 'min-width:160px'; document.body.appendChild(b); }
+   b.textContent = metin; clearTimeout(bildirimZamani);
+   bildirimZamani = setTimeout(() => { const x = document.getElementById('bildirim'); if (x) x.remove(); }, 6000);
  }
  function secili(){ return [...document.querySelectorAll('#liste tbody input:checked')].length; }
  function indir(tur){ document.getElementById('uyari').textContent='';

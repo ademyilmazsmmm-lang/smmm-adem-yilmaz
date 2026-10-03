@@ -5,8 +5,7 @@ echo ============================================
 echo   Luca Bot - Arayuz
 echo ============================================
 echo.
-echo Pencere aciliyor... (bu siyah pencere kucultulmus olarak arkada kalir,
-echo kapatmayin; arayuzu kapatinca o da kapanir)
+echo Pencere aciliyor...
 echo.
 
 call "%~dp0_python-bul.bat"
@@ -18,7 +17,15 @@ if errorlevel 1 goto pakethata
 %PY% -c "import tkinter" >nul 2>&1
 if errorlevel 1 goto tkyok
 
-start "Luca Bot" /min %PY% luca_arayuz.py
+rem Arayuz konsolsuz acilir (pythonw / pyw): arkada siyah pencere kalmaz. Bulunamazsa
+rem eski yontem: kucultulmus konsol penceresi.
+set "PYW=%PY%w"
+where %PYW% >nul 2>&1
+if errorlevel 1 (
+    start "Luca Bot" /min %PY% luca_arayuz.py
+) else (
+    start "Luca Bot" %PYW% luca_arayuz.py
+)
 exit /b 0
 
 :pythonyok

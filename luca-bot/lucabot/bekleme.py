@@ -28,6 +28,7 @@ yoktur; hepsi bu modulden gecer.
 
 import time
 
+from .ortak import DURDUR_DOSYASI
 from .sure_olcer import olculur
 
 # Ag istegi bu surede bitmediyse (uzun sorgu / canli baglanti) "bekleyen"
@@ -117,6 +118,20 @@ def gorunur_cerceveler(page):
     return gorunur
 
 
+def durdurma_istendi_mi():
+    """Arayuzun "Durdur" dosyasi (ortak.DURDUR_DOSYASI) var mi; varsa siler ve True doner."""
+    try:
+        if DURDUR_DOSYASI.exists():
+            try:
+                DURDUR_DOSYASI.unlink()
+            except OSError:
+                pass
+            return True
+    except OSError:
+        pass
+    return False
+
+
 def nabiz(page, ms):
     """Bekleme dongulerinin tek adimi.
 
@@ -124,6 +139,8 @@ def nabiz(page, ms):
     olaylari (indirme, istek yakalama, acilir pencere) islenmeye devam eder.
     Dogrudan cagrilmaz; kosulu_bekle ve benzerleri kullanir.
     """
+    if durdurma_istendi_mi():
+        raise KeyboardInterrupt  # Ctrl+C ile ayni yol: sonuclar kaydedilerek durulur
     ms = max(1, int(ms))
     try:
         page.wait_for_timeout(ms)

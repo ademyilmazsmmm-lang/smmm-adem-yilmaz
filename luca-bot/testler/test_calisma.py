@@ -233,6 +233,94 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertFalse(gorunur_mu(self.page, "GİB den Getir 1", sure=500))
 
 
+    def _sure(self, f, *a, **k):
+        import time
+        basla = time.monotonic()
+        sonuc = f(*a, **k)
+        return sonuc, time.monotonic() - basla
+
+    def test_duz_bildirim_hizli_gecilir(self):
+        """Dugmesiz bildirim ("Fatura bulunamadi.") icin olmayan 'Tamam' aranmaz (eskiden ~4,5 sn)."""
+        from lucabot.luca_ekran import (acik_pencere, acik_pencereleri_kapat,
+                                        bilgi_penceresini_kapat, fatura_yok_penceresini_kapat)
+        toast = ('<div class="luca-open-window" style="position:fixed;right:10px;bottom:10px;'
+                 'width:200px;height:40px">%s</div>')
+        self.page.set_content(toast % "Fatura bulunamadı.")
+        self.assertIsNone(acik_pencere(self.page)[1])  # kapatilacak pencere degil
+        sonuc, sure = self._sure(acik_pencereleri_kapat, self.page)
+        self.assertTrue(sonuc)
+        self.assertLess(sure, 0.5)
+        sonuc, sure = self._sure(fatura_yok_penceresini_kapat, self.page)
+        self.assertTrue(sonuc)
+        self.assertLess(sure, 2.0)
+        self.page.set_content(toast % "3 adet fatura bulundu. (Sayfa No: 1)")
+        sonuc, sure = self._sure(bilgi_penceresini_kapat, self.page)
+        self.assertIn("3 adet fatura bulundu", sonuc)
+        self.assertLess(sure, 2.0)
+
+    def test_gercek_pencereler_eskisi_gibi_kapanir(self):
+        """Duz bildirim ayrimi, dugmeli pencereleri kapatmayi bozmamali."""
+        from lucabot.luca_ekran import acik_pencere, acik_pencereleri_kapat, fatura_yok_penceresini_kapat
+        takip = ('<div class="luca-open-window" style="width:300px;height:80px"><b>İşlem Takip</b>'
+                 '<label><input type=checkbox>Otomatik aşağı kaydır</label>'
+                 '<button onclick="this.parentNode.remove()">Kapat</button></div>')
+        self.page.set_content(takip)
+        self.assertIsNotNone(acik_pencere(self.page)[1])
+        self.assertTrue(acik_pencereleri_kapat(self.page))
+        self.assertEqual(self.page.locator(".luca-open-window").count(), 0)
+        # "Tamam" dugmesi yazinin bulundugu kutunun disinda
+        self.page.set_content('<div class="luca-open-window" style="width:300px;height:80px"><div>'
+                              '<span>Her hangi bir fatura bulunamadı.</span></div>'
+                              '<button onclick="this.parentNode.remove()">Tamam</button></div>')
+        self.assertTrue(fatura_yok_penceresini_kapat(self.page))
+        self.assertEqual(self.page.locator(".luca-open-window").count(), 0)
+        # dugmesi bir tiklama olayiyla tanimlanmis pencere de kapatilacak pencere sayilir
+        self.page.set_content('<div class="luca-open-window" style="width:300px;height:60px">Emin misiniz?'
+                              ' <span onclick="this.parentNode.remove()">X</span></div>')
+        self.assertIsNotNone(acik_pencere(self.page)[1])
+
+    def _bildirim_sayfasi(self, js=""):
+        self.page.set_content('<div id="b" class="luca-open-window" style="position:fixed;right:10px;'
+                              'bottom:10px;width:260px;height:40px">3 adet fatura bulundu. (Sayfa No: 1)</div>'
+                              '<script>%s</script>' % js)
+
+    def test_sorgudan_once_kalan_bildirim_bitis_sayilmaz(self):
+        """Onceki araligin bildirimi ekranda duruyorsa yeni sorgu 1 sn'de bitmis sanilmamali."""
+        from lucabot.gib_sorgu import islem_takibini_bekle
+        from lucabot.luca_ekran import bildirim_yazisi
+        self._bildirim_sayfasi()
+        eski = bildirim_yazisi(self.page)
+        self.assertIn("3 adet", eski)
+        sonuc, sure = self._sure(islem_takibini_bekle, self.page, None, pencere_bekleme=3,
+                                 eski_bildirim=eski)
+        self.assertEqual(sonuc, 0)
+        self.assertGreaterEqual(sure, 3.0)  # bildirim bitis sayilmadi, pencere_bekleme beklendi
+        self.assertEqual(self.page.locator("#b").count(), 1)  # bildirim kapatilmaya calisilmadi
+
+    def test_yeni_sorgunun_bildirimi_hemen_bitis_sayilir(self):
+        from lucabot.gib_sorgu import islem_takibini_bekle
+        self._bildirim_sayfasi()
+        sonuc, sure = self._sure(islem_takibini_bekle, self.page, None, pencere_bekleme=10,
+                                 eski_bildirim="")
+        self.assertEqual(sonuc, 0)
+        self.assertLess(sure, 4.0)
+
+    def test_eski_bildirim_kaybolup_yeniden_cikarsa_bitis_sayilir(self):
+        from lucabot.gib_sorgu import islem_takibini_bekle
+        from lucabot.luca_ekran import bildirim_yazisi
+        self._bildirim_sayfasi("""
+          const b = document.getElementById('b'), metin = b.textContent;
+          setTimeout(() => b.remove(), 600);
+          setTimeout(() => { const y = document.createElement('div'); y.id = 'b2';
+            y.className = 'luca-open-window'; y.style.cssText = 'position:fixed;right:10px;bottom:10px;width:260px;height:40px';
+            y.textContent = metin; document.body.appendChild(y); }, 2200);""")
+        eski = bildirim_yazisi(self.page)
+        sonuc, sure = self._sure(islem_takibini_bekle, self.page, None, pencere_bekleme=12,
+                                 eski_bildirim=eski)
+        self.assertEqual(sonuc, 0)
+        self.assertGreaterEqual(sure, 2.0)   # yeniden cikana kadar beklendi
+        self.assertLess(sure, 6.0)           # pencere_bekleme (12 sn) dolmadan bitirildi
+
     def test_islem_takip_satiri_fatura_yok_uyarisi_sanilmaz(self):
         """Sorgu surerken Islem Takip'e dusen 'fatura bulunamadi' satiri sorguyu bitirmemeli."""
         from lucabot.luca_ekran import bilgi_penceresini_kapat, fatura_yok_penceresini_kapat
@@ -288,6 +376,24 @@ class CalismaDayanikliligi(unittest.TestCase):
     def test_excel_icin_bos_sekme_acilmaz(self):
         """Luca Excel'i yeni sekmede aciyor; bot bunu gizli cerceveye cevirir, sekme hic acilmaz."""
         self.assertEqual(self._excel_sekmesi_dene(True), [])
+
+    def test_bos_sekme_ve_target_blank_gizli_cerceveye_gider(self):
+        """Indirme sirasinda window.open('', ad) ve target=_blank form de sekme acmamali."""
+        from lucabot.indirme import _DosyaYakalayici
+        self.page.set_content(
+            '<form id="f" action="%s/api/zip-durumu" target="_blank" method="get">'
+            '<button id="g" type="submit">Gonder</button></form>'
+            '<button id="o" onclick="window.open(\'\', \'hedefAd\')">Ac</button>' % self.adres)
+        with _DosyaYakalayici(self.page, "t", True) as yakalayici:
+            self.page.click("#g")
+            self.page.click("#o")
+            self.page.wait_for_timeout(800)
+            self.assertEqual(len(self.ctx.pages), 1)                      # yeni sekme yok
+            self.assertEqual(self.page.locator("iframe[name=hedefAd]").count(), 1)
+            self.assertGreaterEqual(self.page.locator("iframe").count(), 2)
+        self.assertEqual(self.page.locator("iframe").count(), 0)          # cikista temizlenir
+        self.assertEqual(yakalayici.acilanlar, [])
+        self.assertEqual(len(self.ctx.pages), 1)
 
     def test_excel_icin_acilan_sekme_kapanir(self):
         """Sekmesiz yol kapaliyken (ayar) acilan sekme dosya alininca kapanmali."""

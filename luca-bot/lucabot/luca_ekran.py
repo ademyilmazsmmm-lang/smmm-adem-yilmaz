@@ -213,16 +213,33 @@ def ekranda_gib_hatasi(page):
 # gizli pencereler de tutuyor; yalnizca ilkine bakmak, yeni acilan pencere
 # ikinci sirada oldugunda onu hic gormuyordu (tarih penceresi her seferinde
 # 5 sn bekletiyordu).
+# Luca sorgu sonucunu duz bir bildirim penceresiyle de gosteriyor ("Fatura bulunamadi.",
+# "3 adet fatura bulundu. (Sayfa No: 1)"): dugmesi yok, kendiliginden kaybolur ve ekrani
+# kilitlemez. Bot bunlari kapatilacak pencere sanip her seferinde saniyelerce olmayan bir
+# "Tamam"/"Kapat" dugmesini ariyordu. Pasif sayilmasi icin: icinde tiklanacak oge (dugme,
+# giris kutusu, baglanti...) yok, "Tamam/Kapat/Vazgec/Evet/Hayir" yazisi yok ve metin kisa.
+PASIF_PENCERE_JS = """el => {
+  if (el.querySelector('button, input, select, textarea, a, [onclick], [role=button], [role=link]')) return false;
+  const n = s => (s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/\\u0131/g, 'i').toLowerCase();
+  const t = n(el.innerText || el.textContent);
+  if (/tamam|kapat|vazge|evet|hayir/.test(t)) return false;
+  return t.trim().length < 160;
+}"""
+
 GORUNUR_PENCERE_JS = """() => {
+  const pasif = %s;
   const ws = Array.from(document.querySelectorAll('.luca-open-window'));
   for (let i = ws.length - 1; i >= 0; i--) {
     const el = ws[i];
     if (!(el.offsetParent || el.getClientRects().length)) continue;
     const r = el.getBoundingClientRect();
-    if (r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden') return i;
+    if (!(r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden')) continue;
+    if (pasif(el)) continue;  // duz bildirim: kapatilacak pencere degil
+    return i;
   }
   return -1;
-}"""
+}""" % PASIF_PENCERE_JS
 
 # Cercevede (gorunur yazida) bu metin var mi; Turkce harf ve buyuk/kucuk farki yok sayilir.
 # Diyalog aramadan once bakilir: yoksa her cercevede div/table/form taramak gereksiz.
@@ -392,10 +409,70 @@ def diyalogda_tumunu_sec(page):
     return False
 
 
+def _dugme_gorunur(page, metin):
+    """Sayfada yazisi tam `metin` olan gorunur bir dugme var mi (beklemeden tek bakis)."""
+    for fr in cerceveler(page):
+        for kurucu in (lambda: fr.get_by_role("button", name=metin, exact=True),
+                       lambda: fr.get_by_text(metin, exact=True)):
+            try:
+                loc = kurucu()
+                if loc.count() and loc.last.is_visible():
+                    return True
+            except Exception:
+                continue
+    return False
+
+
 def _pencereyi_kapat_ve_bekle(page, pencere):
+    """Bildirim penceresini kapatir. Dugmesi olmayan duz bildirimde (bkz. PASIF_PENCERE_JS)
+    olmayan "Tamam"i aramaz; kaybolmasini en fazla 1 sn bekler."""
     if not pencerede_tikla(page, pencere, ["Tamam", "Kapat"]):
-        varsa_tikla(page, ["Tamam"], sure=2000)
+        if _dugme_gorunur(page, "Tamam"):  # dugme pencerenin disindaki bir kapsayicida olabilir
+            varsa_tikla(page, ["Tamam"], sure=2000)
     kaybolana_kadar_bekle(pencere, 1000)
+
+
+def _pencereyi_kapat_ve_bekle_tamam(page, pencere, bekle=True):
+    if not pencerede_tikla(page, pencere, ["Tamam"]):
+        if _dugme_gorunur(page, "Tamam"):
+            varsa_tikla(page, ["Tamam"], sure=2000)
+        elif not bekle:
+            return  # duz bildirim: kilitlemez, kaybolmasi beklenmez
+    kaybolana_kadar_bekle(pencere, 1000)
+
+
+# Bir cercevede bu yazilardan hangileri gorunur: tek JS cagrisi (innerText bir kez hesaplanir).
+CAPALAR_VAR_JS = """capalar => {
+  const n = s => (s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/\\u0131/g, 'i').toLowerCase().replace(/\\s+/g, ' ');
+  const t = n(document.body ? document.body.innerText : '');
+  return capalar.filter(c => t.includes(n(c)));
+}"""
+
+
+def _gorunen_capalar(page, capalar):
+    """capalar icinden herhangi bir cercevede gorunen yazilar (sirayi korur)."""
+    capalar = list(capalar)
+    bulunan = set()
+    for fr in cerceveler(page):
+        try:
+            bulunan.update(fr.evaluate(CAPALAR_VAR_JS, capalar))
+        except Exception:
+            return capalar  # okunamadi: hepsi aday sayilir (eski davranis)
+    return [c for c in capalar if c in bulunan]
+
+
+def bildirim_yazisi(page):
+    """Ekranda gorunen sorgu sonucu bildiriminin ("fatura bulunamadi" / "N adet fatura
+    bulundu") yazisi; yoksa "". Pencereyi kapatmaz."""
+    for capa in _gorunen_capalar(page, (FATURA_YOK_CAPASI,) + tuple(BILGI_CAPALARI)):
+        _, pencere = metinli_diyalog(page, capa, islem_takip_haric=True)
+        if pencere is not None:
+            try:
+                return " ".join((pencere.inner_text() or "").split())[:80]
+            except Exception:
+                return capa
+    return ""
 
 
 @olculur("bilgi penceresi kontrolü")
@@ -405,7 +482,7 @@ def bilgi_penceresini_kapat(page):
     Bu pencere ciktiginda sorgu bitmistir; Islem Takip penceresini beklemeye
     devam etmek bosuna zaman kaybi oluyordu.
     """
-    for capa in BILGI_CAPALARI:
+    for capa in _gorunen_capalar(page, BILGI_CAPALARI):
         _, pencere = metinli_diyalog(page, capa, islem_takip_haric=True)
         if pencere is None:
             continue
@@ -419,14 +496,16 @@ def bilgi_penceresini_kapat(page):
 
 
 @olculur("'fatura yok' penceresi kontrolü")
-def fatura_yok_penceresini_kapat(page):
-    """'Her hangi bir fatura bulunamadi' penceresi Tamam beklerken akisi kilitliyor."""
+def fatura_yok_penceresini_kapat(page, bekle=True):
+    """'Her hangi bir fatura bulunamadi' penceresi Tamam beklerken akisi kilitliyor.
+
+    bekle=False: dugmesi olmayan duz bildirimin (kendiliginden kaybolur, ekrani kilitlemez)
+    kaybolmasi beklenmez; yeni sorgu baslarken eski bildirim sorguyu bekletmesin diye.
+    """
     _, pencere = metinli_diyalog(page, FATURA_YOK_CAPASI, islem_takip_haric=True)
     if pencere is None:
         return False
-    if not pencerede_tikla(page, pencere, ["Tamam"]):
-        varsa_tikla(page, ["Tamam"], sure=2000)
-    kaybolana_kadar_bekle(pencere, 1000)
+    _pencereyi_kapat_ve_bekle_tamam(page, pencere, bekle)
     return True
 
 
@@ -440,7 +519,7 @@ def acik_pencereleri_kapat(page, log=None):
             return True
         if deneme == 0 and log:
             yaz("    Acik Luca penceresi kapatiliyor", log)
-        if varsa_tikla(page, ["Kapat"], sure=1500):
+        if _dugme_gorunur(page, "Kapat") and varsa_tikla(page, ["Kapat"], sure=1500):
             kosulu_bekle(page, kapali, 600, aralik_ms=150)
             continue
         kapandi = False
@@ -586,9 +665,30 @@ def eski_kutulari_isaretle(page):
             continue
 
 
+# Cercevede isaretsiz (yeni) gorunur tarih kutusu sayisi: tek JS cagrisi. Her yoklamada
+# her cerceve icin yer isaretleyicisi + deger okuma ayri ayri yapilinca yoklama saniyeler suruyordu.
+YENI_KUTU_SAYISI_JS = """([isaret, desen, nitelik]) => {
+  const d = new RegExp(desen), n = new RegExp(nitelik, 'i');
+  let say = 0;
+  document.querySelectorAll('input').forEach(e => {
+    if (e.hasAttribute(isaret)) return;
+    if ((e.getAttribute('type') || 'text').toLowerCase() !== 'text') return;
+    if (!(e.offsetParent || e.getClientRects().length)) return;
+    if (d.test(e.value || '') || n.test((e.name || '') + ' ' + (e.id || '') + ' ' + (e.className || ''))) say++;
+  });
+  return say;
+}"""
+
+
 def yeni_tarih_kutulari(page):
     """eski_kutulari_isaretle'den sonra gorunur olan tarih kutulari (en az 2 ise), yoksa None."""
     for fr in cerceveler(page):
+        try:
+            if fr.evaluate(YENI_KUTU_SAYISI_JS,
+                           [ESKI_KUTU, TARIH_DESENI.pattern, TARIH_NITELIGI.pattern]) < 2:
+                continue
+        except Exception:
+            pass  # okunamadi: eski (yavas) yoldan bakilir
         kutular = _tarih_kutulari(fr, yalniz_yeni=True)
         if len(kutular) >= 2:
             return kutular

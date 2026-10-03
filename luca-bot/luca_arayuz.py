@@ -34,7 +34,7 @@ sys.path.insert(0, str(KOK))
 
 from lucabot import beyanname, firma_tablosu, gostergeler  # noqa: E402
 from lucabot.firma_listesi import devreden_kdvleri  # noqa: E402
-from lucabot.ortak import (AYAR_DOSYASI, ORNEK_AYAR, TARIH_BICIMI,  # noqa: E402
+from lucabot.ortak import (AYAR_DOSYASI, DURDUR_DOSYASI, ORNEK_AYAR, TARIH_BICIMI,  # noqa: E402
                            hedef_ay_araligi, indirme_koku, sadelestir, tarih_cozumle)
 from lucabot.sabitler import EKRAN_SUTUNLARI, TUM_BELGELER  # noqa: E402
 from lucabot.sure_olcer import ON_EK, RAPOR_DOSYASI  # noqa: E402
@@ -849,9 +849,13 @@ class Arayuz:
         ortam = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
         bayrak = 0
         if sys.platform.startswith("win"):
-            # ayri surec grubu: "Durdur"daki CTRL_BREAK yalnizca bota gitsin. Konsol
-            # paylasilmali (CREATE_NO_WINDOW olmaz), yoksa sinyal ulasmiyor.
-            bayrak = subprocess.CREATE_NEW_PROCESS_GROUP
+            # Bot pencere (konsol) acmadan calisir; arayuz de konsolsuz (pythonw) acilabilir.
+            # "Durdur" bu yuzden sinyal degil durdur dosyasiyla calisir (bkz. durdur()).
+            bayrak = subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+        try:
+            DURDUR_DOSYASI.unlink()  # onceki calismadan kalmis istek yeni calismayi durdurmasin
+        except OSError:
+            pass
         self._log_temizle()
         self._log_ekle("Başlatılıyor…\n", "bilgi")
         try:
@@ -891,13 +895,17 @@ class Arayuz:
                 self.surec.kill()
             return
         self.durdurma_istendi = True
+        # Asil yol: bot bekleme adimlarinda bu dosyayi gorup sonuclari kaydederek durur
+        # (konsolsuz calismada da gecerli). Sinyal ek olarak gonderilir; ulasmazsa sorun degil.
         try:
-            if sys.platform.startswith("win"):
-                self.surec.send_signal(signal.CTRL_BREAK_EVENT)
-            else:
-                self.surec.send_signal(signal.SIGINT)
+            DURDUR_DOSYASI.write_text("durdur", encoding="utf-8")
         except OSError:
-            self.surec.kill()  # sinyal gonderilemiyorsa (konsol yok) en azindan kapansin
+            pass
+        try:
+            self.surec.send_signal(signal.CTRL_BREAK_EVENT if sys.platform.startswith("win")
+                                   else signal.SIGINT)
+        except (OSError, ValueError):
+            pass
         self._log_ekle("\nDurduruluyor… o ana kadarki sonuçlar kaydediliyor.\n", "uyari")
         self.durdur_dugmesi.configure(text="Zorla Kapat")
 
