@@ -48,6 +48,35 @@ def yanit_dosya_adi(basliklar, yedek_ad):
     return f"{yedek_ad}{uzanti}"
 
 
+# Indirme sirasinda Luca'nin window.open'i (Excel'i yeni sekmede acip bos sayfa
+# birakiyordu) sayfanin icindeki gizli bir cerceveye yonlendirilir: istek yine
+# gider ve yakalanir, ama ekranda bos sekme acilmaz. Yalnizca indirme
+# suresince gecerlidir; diger zamanlarda window.open eskisi gibi calisir.
+SEKMESIZ_JS = """acik => {
+  const w = window;
+  if (!w.__lucaBotAsilOpen) {
+    w.__lucaBotAsilOpen = w.open;
+    w.__lucaBotCerceveler = [];
+    w.open = function (adres, ...diger) {
+      if (!w.__lucaBotIndir || !adres) return w.__lucaBotAsilOpen.apply(this, [adres, ...diger]);
+      const f = document.createElement('iframe');
+      f.style.display = 'none';
+      f.src = adres;
+      (document.body || document.documentElement).appendChild(f);
+      w.__lucaBotCerceveler.push(f);
+      return f.contentWindow;  // Luca donen pencereyle bir sey yaparsa hata vermesin
+    };
+  }
+  w.__lucaBotIndir = acik;
+  if (!acik) {
+    w.__lucaBotCerceveler.forEach(f => f.remove());
+    w.__lucaBotCerceveler = [];
+  }
+}"""
+# cerceve icinde acilan ara sayfa bu basliklarla reddedilmesin (yalnizca indirme sirasinda)
+CERCEVE_ENGELLERI = ("x-frame-options", "content-security-policy")
+
+
 class _DosyaYakalayici:
     """Indirme istegini yakalar (route) ve tarayici indirmesini yedek olarak dinler."""
 
@@ -59,6 +88,7 @@ class _DosyaYakalayici:
         self.alinan = {}
         self.inenler = []
         self.suren = 0  # yaniti henuz gelmemis istek sayisi (Luca dosyayi hazirliyor olabilir)
+        self.sekmesiz = yakala and bool(AYAR.get("indirme_sekmesiz", True))
 
     def suren_istek_var(self):
         return self.suren > 0
@@ -99,6 +129,10 @@ class _DosyaYakalayici:
                 except Exception:
                     route.abort()
                 return
+            if self.sekmesiz and any(b in basliklar for b in CERCEVE_ENGELLERI):
+                route.fulfill(response=yanit, headers={k: v for k, v in basliklar.items()
+                                                       if k not in CERCEVE_ENGELLERI})
+                return
             route.fulfill(response=yanit)
         except Exception:
             try:
@@ -117,9 +151,25 @@ class _DosyaYakalayici:
         self.page.on("download", self._indirme_geldi)
         if self.yakala:
             self.ctx.route("**/*", self._yonlendir)
+        if self.sekmesiz:
+            self._sekmesiz(True)
         return self
 
+    def _sekmesiz(self, acik):
+        """Luca'nin indirme icin actigi sekmeyi gizli cerceveye cevirir (bkz. SEKMESIZ_JS)."""
+        try:
+            cerceveler = list(self.page.frames)
+        except Exception:
+            return
+        for fr in cerceveler:
+            try:
+                fr.evaluate(SEKMESIZ_JS, acik)
+            except Exception:
+                pass  # cerceve yeniden yukleniyor: o cercevede eski davranis
+
     def __exit__(self, *hata):
+        if self.sekmesiz and sayfa_canli(self.page):
+            self._sekmesiz(False)
         if self.yakala:
             try:
                 self.ctx.unroute("**/*", self._yonlendir)

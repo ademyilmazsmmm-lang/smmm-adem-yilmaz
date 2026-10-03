@@ -194,8 +194,8 @@ Ekranda dört adım başlığı görürsünüz:
 
 - Her GİB tarih aralığından (ve iptal/itiraz aralığından) sonra o aralığın adımları,
   her ekranın ve her firmanın sonunda en çok zaman alan adımlar yazılır.
-- `GİB yanıtı bekleme` Luca/GİB'in sorguyu yapma süresidir; `(ilk 3 sn)` yazanı, sorgu
-  erken bitse de bitişin kabul edilmediği ilk 3 saniyedir. Diğerleri botun ekranda pencere
+- `GİB yanıtı bekleme` Luca/GİB'in sorguyu yapma süresidir; `(ilk 1 sn)` yazanı, sorgu
+  erken bitse de bitişin kabul edilmediği ilk saniyedir. Diğerleri botun ekranda pencere
   açma, buton arama, kapatma gibi işleridir; asıl kısaltılabilecek yer bunlardır.
 - Bütün çalışmanın dökümü günlük klasördeki `sure-raporu.txt` dosyasına yazılır (her firmadan
   sonra güncellenir; arayüzde **Süre Raporu** düğmesi açar). İç içe adımlarda aynı saniye iki kez

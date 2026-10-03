@@ -90,34 +90,64 @@ def dogrulama_kodunu_gir(page, kod):
             kutuya_yaz(kutu, kod)
             if not _tikla(page, DOGRULAMA_ONAY, sure=4000):
                 kutu.press("Enter")
-            geri_cekil(page, 4)  # eski surumdeki sure (bkz. dosya basi)
+            # eskiden sabit 4 sn beklenirdi; urun ekrani gelir gelmez devam edilir
+            kosulu_bekle(page, lambda: _urun_bul(page) or not dogrulama_ekrani_mi(page),
+                         4000, aralik_ms=300, en_az_ms=500)
             return True
         except Exception:
             continue
     return False
 
 
+def _urun_bul(page):
+    """Ekranda gorunen urun (paket) yazisi; yoksa None. Beklemeden tek bakis."""
+    try:
+        cerceveler = list(page.frames)
+    except Exception:
+        return None
+    for fr in cerceveler:
+        for metin in URUN_ADAYLARI:
+            try:
+                loc = fr.get_by_text(metin, exact=False)
+                if loc.count() and loc.first.is_visible():
+                    return metin
+            except Exception:
+                continue
+    return None
+
+
 def urun_sec(page, log=None, sure=30000):
     """Giris sonrasi cikan urun secim ekranindan Mali Musavir paketini secer.
 
-    Kutular giristen birkac saniye sonra beliriyor; biri gorunene kadar
-    saniyede bir bakilir. Eski surumle ayni: tiklamadan sonra 3 sn beklenir.
+    Kutular giristen birkac saniye sonra beliriyor. Eskiden her turda butun
+    adaylar sirayla (her biri ~2 sn) aranip 1 sn beklendigi icin paket
+    ekrani gorundukten sonra 10 sn'ye kadar bekleniyordu; artik 0,3 sn'de bir
+    bakilir, gorunur gorunmez tiklanir. Eski surumle ayni: tiklamadan sonra
+    3 sn beklenir (uygulama penceresi arka planda kuruluyor, bkz. dosya basi).
     """
-    bitis = time.monotonic() + sure / 1000
-    while True:
+    def hazir():
         try:
             if UYGULAMA_PARCASI in page.url:  # uygulama bu sekmede acildi
-                return True
+                return "uygulama"
         except Exception:
+            return "kapandi"
+        return _urun_bul(page)
+
+    bitis = time.monotonic() + sure / 1000
+    while True:  # sure=0 olsa da bir kez bakilir (bos kalan pencerede yeniden secim)
+        bulunan = kosulu_bekle(page, hazir, max(0, (bitis - time.monotonic()) * 1000), aralik_ms=300)
+        if bulunan in (None, "kapandi"):
             return False
-        tiklanan = _tikla(page, URUN_ADAYLARI, sure=1200)
+        if bulunan == "uygulama":
+            return True
+        tiklanan = _tikla(page, [bulunan] + [m for m in URUN_ADAYLARI if m != bulunan], sure=1500)
         if tiklanan:
             yaz(f"    Urun secildi: {tiklanan}", log)
             geri_cekil(page, 3)
             return True
         if time.monotonic() >= bitis:
             return False
-        geri_cekil(page, 1)
+        geri_cekil(page, 0.5)  # yazi gorundu ama tiklanamadi (ekran yeni ciziliyor)
 
 
 def _luca_pencereleri(ctx):

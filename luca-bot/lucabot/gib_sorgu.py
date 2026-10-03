@@ -17,7 +17,7 @@ from .luca_ekran import (TANI, acik_pencere, acik_pencereleri_kapat,
                          fatura_yok_penceresini_kapat, menu_metinleri,
                          pencere_acik_mi, pencerede_tikla, radyo_sec,
                          tarih_araligi_yaz, tarih_kutulari, varsa_tikla)
-from .ortak import AYAR, sadelestir, yaz
+from .ortak import AYAR, gunluge_yaz, sadelestir, yaz
 from .sabitler import (BELGE_ARA_CAPALARI, BELGE_ARA_ONAY, DIYALOG_ONAY,
                        GIB_GETIR, GIB_HATA_ISARETLERI, INDIRILEMEDI,
                        INTERAKTIF_CAPASI, INTERAKTIF_LISTELE,
@@ -30,6 +30,10 @@ from .sure_olcer import olc, olculur, satiri_temizle, satiri_yaz
 
 # Islem Takip penceresine ne siklikla bakilir (her bakis butun cerceveleri tarar)
 TAKIP_ARALIGI_MS = 1000
+# sorgudan once ekranda kalmis Islem Takip yazisi en fazla bu kadar "eski" sayilir
+ESKI_GUNLUK_SANIYE = 3
+# "sona erdi" gunlugun sonunda degilse bu kadar sure yeni satir gelmezse bitmis sayilir
+BITTI_SUKUNET_SANIYE = 5
 
 
 def gib_hatasi(metin):
@@ -84,6 +88,21 @@ def islem_gunlugu(page):
     return ""
 
 
+# Islem Takip penceresinin gunluk disindaki yazilari (son satira bakarken atlanir)
+PENCERE_YAZILARI = ("otomatik aşağı kaydır", "kapat", "işlem takip")
+
+
+def sorgu_bitti_mi(gunluk):
+    """Gunlugun SONUNDA "sona erdi" var mi (ortalarda gecen bir "sona erdi" sayilmaz).
+
+    Pencerenin kendi yazilari (Otomatik aşağı kaydır, Kapat) atlanir; "sona
+    erdi"den sonra baska bir gunluk satiri geldiyse islem hala suruyordur.
+    """
+    satirlar = [" ".join(x.split()).strip(" .").lower() for x in (gunluk or "").splitlines()]
+    satirlar = [x for x in satirlar if x and x not in PENCERE_YAZILARI]
+    return bool(satirlar) and ISLEM_BITTI in satirlar[-1]
+
+
 def _sorgu_penceresini_birak(page):
     """Hata/takilma sonrasi ekranda kalan butun pencereleri kapatir."""
     varsa_tikla(page, ["Kapat", "Tamam"], sure=3000)
@@ -93,7 +112,7 @@ def _sorgu_penceresini_birak(page):
 
 @olculur("İşlem Takip izleme (diğer)", kapsayici=True)
 def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
-                         pencere_bekleme=12, en_az_saniye=3):
+                         pencere_bekleme=12, en_az_saniye=1, eski_gunluk=""):
     """Sorgu bitene kadar bekler; indirilemeyen fatura sayisini dondurur.
 
     Ozel donusler: TAMAMLANMADI (-1, zaman asimi), YETKI_YOK (-2), TAKILDI (-3).
@@ -101,6 +120,9 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
     kendiliginden kapanmasi (hizli biten sorgularda boyle oluyor) veya
     bilgi penceresi cikmasi. Yazi durgunluk_saniye boyunca hic degismezse
     sorgu takilmis sayilir.
+    eski_gunluk: sorgu baslatilmadan once ekranda duran Islem Takip yazisi;
+    onceki sorgudan kalmissa onun "sona erdi"si bu sorgunun bitisi sayilmaz
+    (ESKI_GUNLUK_SANIYE dolana kadar).
     """
     basla = time.time()
     pencere_goruldu = False
@@ -132,8 +154,16 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
                 son_degisim = time.time()
 
             # onceki sorgunun "sona erdi" yazisi ekranda kalmis olabilir
-            if ISLEM_BITTI in gunluk.lower() and gecen >= en_az_saniye:
+            eski = eski_gunluk and gunluk == eski_gunluk and gecen < ESKI_GUNLUK_SANIYE
+            # "sona erdi" en sondaysa hemen; ortalardaysa (pencerede tanimadigimiz bir
+            # yazi kalmis olabilir) gunluk BITTI_SUKUNET_SANIYE boyunca degismediyse
+            bitti = sorgu_bitti_mi(gunluk) or (
+                ISLEM_BITTI in gunluk.lower() and time.time() - son_degisim >= BITTI_SUKUNET_SANIYE)
+            if bitti and gecen >= en_az_saniye and not eski:
                 basarisiz = gunluk.lower().count(INDIRILEMEDI)
+                # hangi yaziyla bitildigi gunlukte dursun (Luca ekranlari farkli yaziyor)
+                gunluge_yaz("    İşlem Takip son satirlar: " + " | ".join(
+                    " ".join(x.split()) for x in gunluk.splitlines()[-4:] if x.strip()), log)
                 yaz(f"    GİB sorgusu tamamlandi ({int(gecen)} sn)"
                     + (f", {basarisiz} fatura indirilemedi" if basarisiz else ""), log)
                 with olc("sorgu bitince Kapat"):
@@ -218,6 +248,7 @@ def _gibden_getir(page, baslangic, bitis, log):
     else:
         yaz(f"    Tarih araligi girildi: {tarih_araligi_yaz(kutular, baslangic, bitis)}", log)
 
+    eski_gunluk = islem_gunlugu(page)  # normalde bos: pencereler kapatildi
     tiklanan = (pencerede_tikla(page, pencere, DIYALOG_ONAY, sure=5000) if pencere is not None
                 else None) or varsa_tikla(page, DIYALOG_ONAY, sure=5000)
     if not tiklanan:
@@ -225,7 +256,8 @@ def _gibden_getir(page, baslangic, bitis, log):
     yaz(f"    '{tiklanan}' tiklandi, sorgu basladi", log)
 
     basarisiz = islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
-                                     durgunluk_saniye=AYAR["durgunluk_saniye"])
+                                     durgunluk_saniye=AYAR["durgunluk_saniye"],
+                                     eski_gunluk=eski_gunluk)
     acik_pencereleri_kapat(page, log)
     return basarisiz
 
@@ -431,6 +463,7 @@ def _iptal_araligi(page, bas, bit, log, interaktif):
     else:
         yaz("    UYARI: iptal/itiraz tarih kutulari bulunamadi, Luca varsayilani kullanilacak", log)
 
+    eski_gunluk = islem_gunlugu(page)
     onay = pencerede_tikla(page, pencere, IPTAL_ONAY) if pencere is not None else None
     if not onay:
         # pencere taninmadiysa tam metinle ara; arac cubugu butonu farkli yazildigi
@@ -445,7 +478,8 @@ def _iptal_araligi(page, bas, bit, log, interaktif):
     # beklenir ama bilgi penceresi kontrolu (3 sn) yine de calissin
     sonuc = islem_takibini_bekle(page, log, azami_saniye=AYAR["azami_saniye"],
                                  durgunluk_saniye=AYAR["durgunluk_saniye"],
-                                 pencere_bekleme=4 if interaktif else 12)
+                                 pencere_bekleme=4 if interaktif else 12,
+                                 eski_gunluk=eski_gunluk)
     acik_pencereleri_kapat(page, log)
     return sonuc
 

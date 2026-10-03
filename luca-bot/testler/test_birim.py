@@ -596,6 +596,21 @@ class BeyannameTestleri(unittest.TestCase):
         self.assertEqual(duzeltme.onay, datetime(2026, 9, 30, 19, 47, 44))
 
 
+class SorguBitisiTestleri(unittest.TestCase):
+    def test_sona_erdi_yalnizca_sondaysa(self):
+        from lucabot.gib_sorgu import sorgu_bitti_mi
+        bitmis = ("İşlem Takip\n[82/82] AAC2026000116758 numaralı belge sistemde kayıtlıdır.\n"
+                  "Fatura kaydetme işlemi sona erdi.\nOtomatik aşağı kaydır.\nKapat")
+        self.assertTrue(sorgu_bitti_mi(bitmis))
+        surmekte = ("İşlem Takip\nFatura listesi alma işlemi sona erdi.\n"
+                    "[3/82] VEA2026000003479 numaralı belge sistemde kayıtlıdır.\nOtomatik aşağı kaydır.")
+        self.assertFalse(sorgu_bitti_mi(surmekte))
+        kirmizi = ("Sorgulama Tarihi: 26/09/2026 Hata mesajı: Belirtilen tarih aralığında fatura"
+                   " bulunamadı. Bu hata GİB servislerinden alınmıştır.\nOtomatik aşağı kaydır.")
+        self.assertFalse(sorgu_bitti_mi(kirmizi))
+        self.assertFalse(sorgu_bitti_mi(""))
+
+
 class GecisAraciTestleri(unittest.TestCase):
     """gecis_rapor_birlestir.py: eski gunluk rapor.json'lari tek surekli rapora birlestirir."""
 

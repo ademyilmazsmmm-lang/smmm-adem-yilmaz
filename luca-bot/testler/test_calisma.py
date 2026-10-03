@@ -248,18 +248,37 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.page.set_content('<div class="luca-open-window" style="display:none">eski</div>')
         self.assertIsNone(acik_pencere(self.page)[1])
 
-    def test_excel_icin_acilan_sekme_kapanir(self):
-        """Excel yeni sekmede acilir; dosya alindiktan sonra o sekme kapanmali."""
+    def _excel_sekmesi_dene(self, sekmesiz):
         from lucabot.ekran_isleyici import firma_isle
         from lucabot.ortak import AYAR
         sahte_luca.sifirla()
-        AYAR.update(azami_saniye=120, durgunluk_saniye=60, indirme_saniye=15)
-        araliklar = tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("05/08/2026"))
-        sonuc = firma_isle(self.page, "AKIN COBAN", "e-arsiv-alis", araliklar, self.klasor,
-                           self.klasor / "calisma.log")
+        AYAR.update(azami_saniye=120, durgunluk_saniye=60, indirme_saniye=15,
+                    indirme_sekmesiz=sekmesiz)
+        acilan = []
+
+        def yeni_sekme(sekme):
+            acilan.append(sekme)
+
+        self.ctx.on("page", yeni_sekme)
+        try:
+            araliklar = tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("05/08/2026"))
+            sonuc = firma_isle(self.page, "AKIN COBAN", "e-arsiv-alis", araliklar, self.klasor,
+                               self.klasor / "calisma.log")
+        finally:
+            self.ctx.remove_listener("page", yeni_sekme)
+            AYAR["indirme_sekmesiz"] = True
         self.assertIn("liste_faturalar.xlsx", sonuc["dosyalar"])
         self.assertEqual(sonuc["fatura_sayisi"], 3)
         self.assertEqual(len(self.ctx.pages), 1)  # yalnizca Luca sekmesi kaldi
+        return acilan
+
+    def test_excel_icin_bos_sekme_acilmaz(self):
+        """Luca Excel'i yeni sekmede aciyor; bot bunu gizli cerceveye cevirir, sekme hic acilmaz."""
+        self.assertEqual(self._excel_sekmesi_dene(True), [])
+
+    def test_excel_icin_acilan_sekme_kapanir(self):
+        """Sekmesiz yol kapaliyken (ayar) acilan sekme dosya alininca kapanmali."""
+        self.assertEqual(len(self._excel_sekmesi_dene(False)), 1)
 
 
     def test_yavas_excel_beklenir_ikinci_istek_gitmez(self):

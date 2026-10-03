@@ -30,6 +30,7 @@ AYAR = {
     "tarayici": None,
     "profil_yerel": False,
     "indirmeyi_yakala": True,
+    "indirme_sekmesiz": True,   # Luca'nin indirme icin actigi bos sekme yerine gizli cerceve
     "azami_fatura": 500,
     "giris_adresi": None,       # yalnizca test icin (sahte Luca); bos ise gercek Luca
     "tarayici_yolu": None,      # Playwright Chromium yerine belirli bir chrome.exe (istege bagli)

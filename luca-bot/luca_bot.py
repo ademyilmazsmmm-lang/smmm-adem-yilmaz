@@ -128,6 +128,7 @@ def ayarlari_uygula(args, ayarlar):
     AYAR["giris_adresi"] = ayarlar.get("giris_adresi") or None
     AYAR["tarayici_sandbox"] = bool(ayarlar.get("tarayici_sandbox", True))
     AYAR["sure_ayrintisi"] = bool(ayarlar.get("sure_ayrintisi", True))
+    AYAR["indirme_sekmesiz"] = bool(ayarlar.get("indirme_sekmesiz", True))
     if AYAR["chrome_gunlugu"]:
         # Playwright'in tarayici cikis mesajlarini ekrana bassin; cokme sebebi
         # genelde burada yaziyor ("Target crashed", exit code, stderr)
