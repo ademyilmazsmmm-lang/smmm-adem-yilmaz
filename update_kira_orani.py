@@ -117,7 +117,17 @@ def format_tr_percent(rate: float) -> str:
     return f"%{rate:.2f}".replace(".", ",")
 
 
-def update_html(rate_text: str, ay_label: str) -> bool:
+def next_announce_label(last_point_date: date) -> str:
+    # TÜİK, bir aya ait TÜFE verisini bir sonraki ayın ilk haftasında acikliyor.
+    # Elimizdeki son veri "last_point_date" ayina ait oldugu icin, bir sonraki
+    # veri (last_point_date + 1 ay) bir sonraki ayin ilk haftasinda, yani
+    # last_point_date + 2 ay icinde acıklanir.
+    total_months = (last_point_date.year * 12 + (last_point_date.month - 1)) + 2
+    year, month_idx = divmod(total_months, 12)
+    return f"{AY_ADLARI[month_idx]} {year}"
+
+
+def update_html(rate_text: str, ay_label: str, next_label: str) -> bool:
     with open(INDEX_HTML, "r", encoding="utf-8") as f:
         html = f.read()
 
@@ -133,6 +143,12 @@ def update_html(rate_text: str, ay_label: str) -> bool:
         r'(<span class="kira-oran-value">)[^<]*(</span>)',
         rf"\g<1>{rate_text}\g<2>",
         html,
+    )
+    html = re.sub(
+        r'(<span class="kira-oran-next">)Sonraki güncelleme: [^(]*\([^)]*\)(</span>)',
+        rf"\g<1>Sonraki güncelleme: {next_label} ayının ilk haftasında (TÜİK TÜFE açıklamasıyla birlikte)\g<2>",
+        html,
+        count=1,
     )
 
     if html == original:
@@ -170,8 +186,9 @@ def main() -> None:
     # "bugunun ayi" ile "elimizdeki son veri ayi" birbirinden farklidir.
     last_point_date = points[-1][0]
     ay_label = f"{AY_ADLARI[last_point_date.month - 1]} {last_point_date.year}"
+    next_label = next_announce_label(last_point_date)
 
-    changed = update_html(rate_text, ay_label)
+    changed = update_html(rate_text, ay_label, next_label)
     if changed:
         print(f"Güncellendi: {ay_label} -> {rate_text}")
     else:
