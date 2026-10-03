@@ -1,10 +1,14 @@
 """
-TCMB EVDS API'sinden TÜFE Genel Endeksi (TP.FG.J0) verisini çekip
-TBK m.344 uyarınca uygulanan "12 aylık ortalamalara göre değişim"
+TCMB EVDS API'sinden TÜFE Genel Endeksi (TP.TUKFIY2025.GENEL) verisini
+çekip TBK m.344 uyarınca uygulanan "12 aylık ortalamalara göre değişim"
 (yasal kira artış tavanı) oranını hesaplar ve index.html'deki
 Kur & Enflasyon kartını günceller.
 
 Oran = (son 12 ayın TÜFE ortalaması / önceki 12 ayın TÜFE ortalaması - 1) * 100
+
+NOT: TÜİK, TÜFE'nin baz yılını 1 Ocak 2026 itibarıyla 2003=100'den
+2025=100'e güncelledi ve eski "TP.FG.J0" serisini bu tarihten sonra
+güncellemeyi bıraktı. Yeni baz yıla ait seri kodu TP.TUKFIY2025.GENEL'dir.
 
 Gerekli ortam değişkeni: TCMB_EVDS_API_KEY
 (https://evds3.tcmb.gov.tr adresinden ücretsiz alınır)
@@ -17,7 +21,7 @@ from datetime import date, timedelta
 
 import requests
 
-SERIES = "TP.TUKFIY2025.GENEL"  # GEÇİCİ TEST: yeni (2025=100) baz yıllı TÜFE serisi adayı
+SERIES = "TP.TUKFIY2025.GENEL"
 INDEX_HTML = "index.html"
 
 AY_ADLARI = [
@@ -62,7 +66,6 @@ def fetch_series(api_key: str) -> list[tuple[date, float]]:
     data = _get_json(url, api_key)
 
     items = data.get("items", [])
-    print(f"DEBUG: seri={SERIES}, toplam {len(items)} kayıt, ilk 2 ve son 5 ham kayıt: {items[:2]} ... {items[-5:]}", file=sys.stderr)
     series_key = SERIES.replace(".", "_")
 
     points: list[tuple[date, float]] = []
