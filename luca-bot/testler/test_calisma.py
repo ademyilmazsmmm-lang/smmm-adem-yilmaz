@@ -238,7 +238,8 @@ class CalismaDayanikliligi(unittest.TestCase):
         kayitlar = musteri_listesi.listeyi_oku(self.page, 2026, self.klasor / "tani", None, bekleme_ms=15000)
         adlar = [k["ad"] for k in kayitlar]
         self.assertEqual(adlar, ["AKIN COBAN", "DENTAL SAGLIK", "FATURASIZ AS", "KEREM TICARET",
-                                 "MERT INSAAT", "YENI FIRMA LTD"])   # ESKI DONEM LTD 2025'te kalmis
+                                 "MERT INSAAT", "YENI FIRMA LTD", "NUMARASIZ KISI"])   # ESKI DONEM LTD 2025'te
+        self.assertEqual(musteri_listesi.toplam_kayit(self.page), len(kayitlar))
         kerem = next(k for k in kayitlar if k["ad"] == "KEREM TICARET")
         self.assertEqual((kerem["kapanis"], kerem["acilis"], kerem["vkn"]),
                          ("28/02/2026", "01/01/2019", "5555555555"))

@@ -31,7 +31,7 @@ ARAMA_PENCERESI = "Müşteri Arama"
 VKN_DESENI = re.compile(r"^\d{10,11}$")
 TARIH_DESENI = re.compile(r"(\d{2})[./-](\d{2})[./-](\d{4})|(\d{4})-(\d{2})-(\d{2})")
 BASLIK_KELIMELERI = ("UNVAN", "VKN", "VERGI", "KISA", "ACILIS", "KAPANIS", "SINIF", "DONEM", "BASLANGIC", "BITIS")
-TOPLAM_DESENI = re.compile(r"Toplam\s+Kay[ıi]t(?:\s+Say[ıi]s[ıi])?\s*:?\s*(\d+)", re.I)
+TOPLAM_DESENI = re.compile(r"Kay[ıi]t\s+Say[ıi]s[ıi]\s*:?\s*(\d+)", re.I)
 
 # Gorunen tablolar/izgaralar: her biri hucre metinlerinin satir listesi
 TABLOLAR_JS = """() => {
@@ -94,9 +94,11 @@ def tarih_metni(deger, yil=None):
 
 
 def baslik_satiri_mi(hucreler):
-    if any(VKN_DESENI.match(h.strip()) for h in hucreler):
+    if any(VKN_DESENI.match(h.strip()) or TARIH_DESENI.search(h) for h in hucreler):
         return False
-    isabet = sum(1 for h in hucreler if any(k in sadelestir(h) for k in BASLIK_KELIMELERI))
+    # veri satirindaki "... VERGI DAIRESI" gibi uzun metinler baslik sanilmasin
+    isabet = sum(1 for h in hucreler
+                 if len(h.strip()) <= 18 and any(k in sadelestir(h) for k in BASLIK_KELIMELERI))
     return isabet >= 2
 
 
@@ -118,25 +120,26 @@ def en_iyi_tablo(tablolar):
     if en_iyi is None:
         return None, []
     cerceve, satirlar, veri = en_iyi
-    for s in satirlar[:6]:
-        if baslik_satiri_mi(s):
-            return s, veri
-    for c, diger in tablolar:
-        if c == cerceve:
-            for s in diger[:6]:
-                if baslik_satiri_mi(s):
-                    return s, veri
-    return None, veri
+    baslik = next((s for s in satirlar[:6] if baslik_satiri_mi(s)), None)
+    if baslik is None:
+        baslik = next((s for c, diger in tablolar if c == cerceve
+                       for s in diger[:6] if baslik_satiri_mi(s)), None)
+    if baslik is not None:
+        # vergi no'su bos firma da listede: baslik biliniyorsa basligi tutan her satir veridir
+        veri = [s for s in satirlar if not baslik_satiri_mi(s) and len(s) >= max(3, len(baslik) - 1)
+                and any(h.strip() for h in s)]
+    return baslik, veri
 
 
 def _sutun_indeksleri(baslik):
     """Baslik hucrelerinden alan -> sutun no (bulunamayanlar yok)."""
     kurallar = (
         ("ad", lambda b: "KISA" in b),
-        ("unvan", lambda b: "UNVAN" in b),
+        ("unvan", lambda b: "UNVAN" in b or "UZUN AD" in b),
         ("vergi_dairesi", lambda b: "VERGI DAIRESI" in b),
-        ("vkn", lambda b: "VKN" in b or "VERGI NO" in b or "VERGI KIMLIK" in b or "KIMLIK" in b),
-        ("acilis", lambda b: "ACILIS" in b),
+        ("vkn", lambda b: "VKN" in b or "VERGI NO" in b or "VERGI KIMLIK" in b),
+        ("tc", lambda b: "KIMLIK" in b),
+        ("acilis", lambda b: "ACILIS" in b or "KURULUS" in b),
         ("kapanis", lambda b: "KAPANIS" in b),
     )
     idx = {}
@@ -188,7 +191,7 @@ def kayit_cikar(baslik, hucreler):
         acilis = tarihler[0] if tarihler else ""
         kapanis = tarihler[1] if len(tarihler) > 1 else ""
     return {"ad": ad or "", "unvan": unvan or "", "vergi_dairesi": al("vergi_dairesi") or "",
-            "vkn": vkn, "acilis": tarih_metni(acilis), "kapanis": tarih_metni(kapanis),
+            "vkn": vkn, "tc": al("tc") or "", "acilis": tarih_metni(acilis), "kapanis": tarih_metni(kapanis),
             "ham": hucreler}
 
 
@@ -200,7 +203,7 @@ def kayitlari_cikar(tablolar):
         k = kayit_cikar(baslik, s)
         if not k["ad"]:
             continue
-        anahtar = k["vkn"] or sadelestir(k["ad"])
+        anahtar = (sadelestir(k["ad"]), k["vkn"], k["tc"])
         if anahtar in gorulen:
             continue
         gorulen.add(anahtar)

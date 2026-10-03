@@ -247,8 +247,9 @@ def _kapanis(kayit, yil):
 def luca_plani(yol, yil, kayitlar):
     """Tabloyla Luca musteri listesinin farki; dosya degismez.
 
-    Dondurur: {"guncellenecek": [{ad, kayit, kapanis: (eski, yeni), acilis: (eski, yeni)}],
+    Dondurur: {"guncellenecek": [{ad, yeni_ad, kayit, kapanis: (eski, yeni), acilis: (eski, yeni)}],
                "yeni": [kayit], "luca_da_yok": [tablodaki ad], "ayni": sayi}
+    "yeni_ad": Luca'daki kisa ad (tablodaki ad onun baslangiciysa ona cevrilir).
     Luca'da kapanisi bos olan firmanin tablodaki kapanisi silinmez.
     """
     from openpyxl import load_workbook
@@ -277,24 +278,27 @@ def luca_plani(yol, yil, kayitlar):
         if r is None:
             plan["luca_da_yok"].append(ad)
             continue
+        ilk_kez = id(r) not in eslesen  # ayni firmaya iki satir uyarsa ikincisine dokunulmaz
         eslesen.add(id(r))
         yeni_kap = _kapanis(r, yil) or kap
         yeni_acil = r.get("acilis", "") or acil
-        if (yeni_kap, yeni_acil) == (kap, acil):
+        yeni_ad = r["ad"] if ilk_kez and r.get("ad") else ad
+        if (yeni_kap, yeni_acil, yeni_ad) == (kap, acil, ad):
             plan["ayni"] += 1
         else:
-            plan["guncellenecek"].append({"ad": ad, "kayit": r, "kapanis": (kap, yeni_kap),
-                                          "acilis": (acil, yeni_acil)})
+            plan["guncellenecek"].append({"ad": ad, "yeni_ad": yeni_ad, "kayit": r,
+                                          "kapanis": (kap, yeni_kap), "acilis": (acil, yeni_acil)})
     plan["yeni"] = [dict(r, kapanis=_kapanis(r, yil)) for r in kayitlar
                     if id(r) not in eslesen and r.get("ad")]
     return plan
 
 
-def luca_plani_uygula(yol, plan, yeni_ekle=True):
+def luca_plani_uygula(yol, plan, yeni_ekle=True, eksikleri_sil=False):
     """Plani dosyaya yazar: kapanis/acilis guncellenir, yeni firmalar tum ekranlar isaretli eklenir.
 
-    Mevcut firmalarin ekran secimleri ve Devreden KDV'sine dokunulmaz, hicbir
-    satir silinmez; once yedek alinir. Yedegin yolunu dondurur.
+    Listede kalan firmalarin ekran secimleri ve Devreden KDV'sine dokunulmaz.
+    eksikleri_sil: Luca listesinde olmayan firmalarin satiri silinir (liste
+    Luca'yi yansitsin). Once yedek alinir; yedegin yolunu dondurur.
     """
     from openpyxl import load_workbook
     yol = _yol(yol)
@@ -316,14 +320,19 @@ def luca_plani_uygula(yol, plan, yeni_ekle=True):
     kap_i, acil_i = sutun(KAPANIS_SUTUNU), sutun(ACILIS_SUTUNU)
     ekran_i = {tip: sutun(baslik) for baslik, tip in EKRAN_SUTUNLARI.items()}
     degisecek = {g["ad"]: g for g in plan["guncellenecek"]}
+    silinecek = set(plan["luca_da_yok"]) if eksikleri_sil else set()
+    silinecek_satirlar = []
     son_satir = ws.max_row
     for satir in ws.iter_rows(min_row=satir_no + 1):
         hucre = satir[ad_i] if ad_i < len(satir) else None
         ad = str(hucre.value).strip() if hucre is not None and hucre.value is not None else ""
         g = degisecek.get(ad)
         if g:
+            hucre.value = g["yeni_ad"]
             ws.cell(row=hucre.row, column=kap_i + 1, value=g["kapanis"][1] or None)
             ws.cell(row=hucre.row, column=acil_i + 1, value=g["acilis"][1] or None)
+        elif ad in silinecek:
+            silinecek_satirlar.append(hucre.row)
     if yeni_ekle:
         for r in plan["yeni"]:
             son_satir += 1
@@ -332,6 +341,8 @@ def luca_plani_uygula(yol, plan, yeni_ekle=True):
             ws.cell(row=son_satir, column=acil_i + 1, value=r.get("acilis") or None)
             for i in ekran_i.values():
                 ws.cell(row=son_satir, column=i + 1, value=SORGULA)
+    for r in sorted(silinecek_satirlar, reverse=True):
+        ws.delete_rows(r)
 
     yedek = yol.with_name(f"{yol.stem}.yedek-{datetime.now():%Y%m%d-%H%M%S}{yol.suffix}")
     shutil.copy2(yol, yedek)

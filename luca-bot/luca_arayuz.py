@@ -501,17 +501,22 @@ class LucaListesiPenceresi:
         tk.Label(w, text=f"{yol.name} ile karşılaştırma: {len(plan['yeni'])} yeni firma,"
                          f" {len(plan['guncellenecek'])} firmada açılış/kapanış güncellenecek,"
                          f" {plan['ayni']} firma aynı, {len(plan['luca_da_yok'])} firma Luca'nın {yil}"
-                         " listesinde yok.", font=KUCUK, fg=SOLUK, bg=ZEMIN, anchor="w", justify="left",
+                         " listesinde yok (listeden çıkarılabilir).", font=KUCUK, fg=SOLUK, bg=ZEMIN, anchor="w", justify="left",
                  wraplength=800).pack(fill="x", pady=(2, 10))
 
         alt = tk.Frame(w, bg=ZEMIN)
         alt.pack(side="bottom", fill="x", pady=(10, 0))
         self.v_yeni = tk.BooleanVar(value=True)
-        tk.Checkbutton(alt, text="Yeni firmaları listeye ekle (tüm ekranlar işaretli)", variable=self.v_yeni,
-                       font=GOVDE, **Arayuz._kutu_renk()).pack(side="left")
+        self.v_sil = tk.BooleanVar(value=True)
+        secenekler = tk.Frame(alt, bg=ZEMIN)
+        secenekler.pack(side="left")
+        tk.Checkbutton(secenekler, text="Yeni firmaları ekle (tüm ekranlar işaretli)", variable=self.v_yeni,
+                       font=GOVDE, **Arayuz._kutu_renk()).pack(anchor="w")
+        tk.Checkbutton(secenekler, text=f"Luca'nın {yil} listesinde olmayan firmaları listeden çıkar",
+                       variable=self.v_sil, font=GOVDE, **Arayuz._kutu_renk()).pack(anchor="w")
         dugme(alt, "Vazgeç", w.destroy).pack(side="right")
         dugme(alt, "Tabloya Uygula", self.uygula, ana=True).pack(side="right", padx=8)
-        tk.Label(w, text="Mevcut firmaların ekran seçimleri ve Devreden KDV'leri değişmez, hiçbir firma silinmez;"
+        tk.Label(w, text="Listede kalan firmaların ekran seçimleri ve Devreden KDV'leri değişmez;"
                          " yazmadan önce dosyanın yedeği alınır. Luca'da kapanışı boş olan firmanın tablodaki"
                          " kapanışı korunur; kapanış tarihi dönem sonuysa (31/12) firma açık sayılır.",
                  font=KUCUK, fg=SOLUK, bg=ZEMIN, anchor="w", justify="left", wraplength=800
@@ -519,7 +524,7 @@ class LucaListesiPenceresi:
 
         sutunlar = ("Durum", "Firma", "Açılış", "Kapanış")
         agac = self.agac = ttk.Treeview(w, columns=sutunlar, show="headings", style="Liste.Treeview")
-        for s, g in zip(sutunlar, (190, 330, 100, 170)):
+        for s, g in zip(sutunlar, (250, 300, 100, 170)):
             agac.heading(s, text=s, anchor="w")
             agac.column(s, anchor="w", width=g, stretch=s == "Firma")
         for r in plan["yeni"]:
@@ -530,12 +535,13 @@ class LucaListesiPenceresi:
             agac.insert("", "end", values=("Güncellenecek", g["ad"], g["acilis"][1] or "—",
                                            f"{eski or '—'} → {yeni or '—'}" if eski != yeni else yeni or "—"))
         for ad in plan["luca_da_yok"]:
-            agac.insert("", "end", values=(f"Luca {yil} listesinde yok", ad, "", ""))
+            agac.insert("", "end", values=("Çıkarılacak (Luca'da yok)", ad, "", ""))
         agac.pack(fill="both", expand=True)
 
     def uygula(self):
         try:
-            yedek = firma_tablosu.luca_plani_uygula(self.yol, self.plan, yeni_ekle=self.v_yeni.get())
+            yedek = firma_tablosu.luca_plani_uygula(self.yol, self.plan, yeni_ekle=self.v_yeni.get(),
+                                                     eksikleri_sil=self.v_sil.get())
         except PermissionError:
             messagebox.showerror("Kaydedilemedi", f"{self.yol.name} Excel'de açık; kapatıp tekrar deneyin.",
                                  parent=self.w)
@@ -658,16 +664,9 @@ class Arayuz:
         self.liste_etiketi = tk.Label(p, text="", font=KUCUK, fg=ETIKET, bg=KUTU, anchor="w",
                                       padx=8, pady=6, highlightthickness=1, highlightbackground=KENAR)
         self.liste_etiketi.pack(fill="x", pady=(6, 6))
-        iki = tk.Frame(p, bg=ZEMIN)
-        iki.pack(fill="x")
-        dugme(iki, "Liste Yükle…", self.liste_sec).pack(side="left", fill="x", expand=True, padx=(0, 6))
-        dugme(iki, "Şablon İndir", self.sablon_indir).pack(side="left", fill="x", expand=True)
-        uc = tk.Frame(p, bg=ZEMIN)
-        uc.pack(fill="x", pady=(6, 0))
-        dugme(uc, "KDV / Ekran Seçimi…", self.firma_ekran_penceresi).pack(
-            side="left", fill="x", expand=True, padx=(0, 6))
-        self.luca_liste_dugmesi = dugme(uc, "Luca'dan Firma Çek…", self.firma_listesi_cek)
-        self.luca_liste_dugmesi.pack(side="left", fill="x", expand=True)
+        self.luca_liste_dugmesi = dugme(p, "Luca'dan Firma Listesini Çek…", self.firma_listesi_cek)
+        self.luca_liste_dugmesi.pack(fill="x")
+        dugme(p, "KDV Devri ve Ekran Seçimi…", self.firma_ekran_penceresi).pack(fill="x", pady=(6, 0))
         tk.Label(p, text="Sadece bu firma (boş = listedeki hepsi)", font=KUCUK, fg=ETIKET,
                  bg=ZEMIN, anchor="w").pack(fill="x", pady=(10, 3))
         giris_kutusu(p, self.v_firma).pack(fill="x", ipady=4)
@@ -808,44 +807,12 @@ class Arayuz:
         dugme(alt, "Vazgeç", w.destroy).pack(side="right", padx=8)
         w.grab_set()
 
-    def liste_sec(self):
-        yol = filedialog.askopenfilename(title="Firma listesi (firmalar.xlsx)", initialdir=str(KOK),
-                                         filetypes=[("Excel", "*.xlsx"), ("Tüm dosyalar", "*.*")])
-        if not yol:
-            return
-        self._listeyi_ayarla(yol)
-
     def _liste_tam_yolu(self):
         yol = self.v_liste.get().strip()
         if not yol:
             return None
         p = Path(yol)
         return p if p.is_absolute() else KOK / p
-
-    def sablon_indir(self):
-        yol = filedialog.asksaveasfilename(
-            title="Firma listesi şablonu", initialdir=str(KOK), initialfile="firmalar-sablon.xlsx",
-            defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")], parent=self.kok)
-        if not yol:
-            return
-        try:  # daha once islenen firmalar varsa sablon onlarla dolu gelsin
-            firmalar = sorted(json.loads(self.rapor_yolu().read_text(encoding="utf-8")))
-        except (OSError, ValueError):
-            firmalar = []
-        try:
-            firma_tablosu.sablon_olustur(yol, firmalar)
-        except PermissionError:
-            messagebox.showerror("Kaydedilemedi", "Dosya Excel'de açık; kapatıp tekrar deneyin.",
-                                 parent=self.kok)
-            return
-        if messagebox.askyesno(
-                "Şablon indi",
-                f"{Path(yol).name} kaydedildi"
-                + (f" ({len(firmalar)} firma, daha önce işlenenler)" if firmalar else "") + ".\n\n"
-                "Ekran sütunlarında ✓ = sorgulanır, X = sorgulanmaz.\n"
-                "Bu dosya firma listesi olarak seçilsin ve Excel'de açılsın mı?", parent=self.kok):
-            self._listeyi_ayarla(yol)
-            dosya_ac(yol)
 
     def _listeyi_ayarla(self, yol):
         p = Path(yol)

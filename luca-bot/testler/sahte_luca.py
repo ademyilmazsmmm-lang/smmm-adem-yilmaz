@@ -36,6 +36,8 @@ MUSTERILER = [
     ("KEREM TICARET", "KEREM TİCARET", "5555555555", "01/01/2019", "28/02/2026", (2025, 2026)),
     ("MERT INSAAT", "MERT İNŞAAT SANAYİ", "6666666666", "01/01/2021", "", (2025, 2026)),
     ("YENI FIRMA LTD", "YENİ FİRMA LİMİTED ŞİRKETİ", "7777777777", "01/06/2026", "", (2026,)),
+    # gercek Luca'da vergi no'su ve TC'si bos firma da listede
+    ("NUMARASIZ KISI", "NUMARASIZ KİŞİ", "", "01/02/2026", "", (2026,)),
 ]
 
 AEN_EKRANLARI = {
@@ -347,8 +349,8 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
 MUSTERI_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Müşteri Listesi</title>
 """ + ORTAK_STIL + """</head><body>
 <h3>Müşteri Listesi</h3>
-<table id="liste"><thead><tr><th></th><th>Kısa Ad</th><th>Ünvan</th><th>Vergi Dairesi</th><th>VKN</th>
-<th>Açılış Tarihi</th><th>Kapanış Tarihi</th></tr></thead><tbody></tbody></table>
+<table id="liste"><thead><tr><th></th><th>Kısa Adı</th><th>Uzun Adı</th><th>Vergi Dairesi</th><th>Vergi No</th>
+<th>TC Kimlik No</th><th>Açıklama</th><th>Kuruluş Tarihi</th><th>Kapanış Tarihi</th></tr></thead><tbody></tbody></table>
 <div id="sayac"></div>
 <div id="araclar"><button>Yeni</button> <button id="filtre">Filtre</button> <button>Şirket Sil</button>
 <button>Mükellef Bilgi</button> <button>Yetki Tablosu</button> <button>Diğer İşlemler</button></div>
@@ -373,7 +375,7 @@ MUSTERI_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Mü
        tr.innerHTML = '<td><input type="checkbox"></td>' + m.map(x => '<td>' + x + '</td>').join('');
        tb.appendChild(tr);
      }
-     document.getElementById('sayac').textContent = 'Toplam Kayıt Sayısı: ' + liste.length;
+     document.getElementById('sayac').textContent = 'Kayıt Sayısı: ' + liste.length;
    }, 800);
  };
 </script></body></html>"""
@@ -432,7 +434,7 @@ class Isleyici(BaseHTTPRequestHandler):
             return self._yanit(MUSTERI_SAYFASI)
         if yol == "/api/musteriler":
             yil = int((parse_qs(urlparse(self.path).query).get("yil") or ["0"])[0] or 0)
-            liste = [[m[0], m[1], "ÜMRANİYE VERGİ DAİRESİ", m[2], m[3], m[4]] for m in
+            liste = [[m[0], m[1], "ÜMRANİYE VERGİ DAİRESİ", m[2], "", "", m[3], m[4]] for m in
                      [mm for mm in MUSTERILER if yil in mm[5]]] if yil else []
             return self._yanit(json.dumps(liste), "application/json")
         if yol == "/ekran":

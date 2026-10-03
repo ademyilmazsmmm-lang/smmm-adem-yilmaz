@@ -530,6 +530,37 @@ class MusteriListesiTestleri(unittest.TestCase):
         self.assertEqual(len(kayitlar), 1)
         self.assertEqual(kayitlari_cikar([(0, menu)]), ([], None))
 
+    GERCEK_BASLIK = ["", "Kısa Adı", "Uzun Adı", "Vergi Dairesi", "Vergi No", "TC Kimlik No", "Açıklama",
+                     "Kuruluş Tarihi", "Kapanış Tarihi"]
+
+    def test_gercek_luca_basligi_ve_vergi_nosuz_firma(self):
+        """Gercek ekran: Uzun Adı / Kuruluş Tarihi basliklari; vergi no'su bos firma da listede."""
+        from lucabot.musteri_listesi import kayitlari_cikar
+        tablo = [self.GERCEK_BASLIK,
+                 ["", "ADEM", "ADEM YILMAZ", "ÜMRANİYE VERGİ DAİRESİ", "9660268213", "18719053408", "",
+                  "01/04/2021", ""],
+                 ["", "AHMET EREN", "AHMET EREN AKSOY", "ÜMRANİYE VERGİ DAİRESİ", "0350869711",
+                  "10496564184", "GENÇ GİRİŞİM", "09/08/2024", "31/08/2026"],
+                 ["", "BESTHARNES", "BEST HARNES TEKSTİL SANAYİ", "SULTANBEYLİ VERGİ DAİRESİ", "1660852841",
+                  "", "", "08/05/2023", ""],
+                 ["", "VERGISIZ", "VERGİ NUMARASIZ KİŞİ", "ÜMRANİYE VERGİ DAİRESİ", "", "", "DÖNEM BEKLİYOR",
+                  "01/01/2026", ""],
+                 ["", "VERGISIZ", "VERGİ NUMARASIZ KİŞİ", "ÜMRANİYE VERGİ DAİRESİ", "", "", "DÖNEM BEKLİYOR",
+                  "01/01/2026", ""]]
+        kayitlar, baslik = kayitlari_cikar([(0, tablo)])
+        self.assertEqual(baslik, self.GERCEK_BASLIK)
+        self.assertEqual([k["ad"] for k in kayitlar], ["ADEM", "AHMET EREN", "BESTHARNES", "VERGISIZ"])
+        ahmet = kayitlar[1]
+        self.assertEqual((ahmet["unvan"], ahmet["vkn"], ahmet["tc"], ahmet["acilis"], ahmet["kapanis"]),
+                         ("AHMET EREN AKSOY", "0350869711", "10496564184", "09/08/2024", "31/08/2026"))
+        self.assertEqual(kayitlar[0]["acilis"], "01/04/2021")
+
+    def test_toplam_kayit_yazisi(self):
+        from lucabot.musteri_listesi import TOPLAM_DESENI
+        self.assertEqual(TOPLAM_DESENI.search("Kayıt Sayısı: 105").group(1), "105")
+        self.assertEqual(TOPLAM_DESENI.search("Toplam Kayıt Sayısı: 7").group(1), "7")
+        self.assertIsNone(TOPLAM_DESENI.search("Silinmiş dönemler dahil dönem sayısı: 105"))
+
     def test_luca_kaydi_bulma(self):
         from lucabot.firma_tablosu import luca_kaydi_bul
         bul = lambda ad: (luca_kaydi_bul(ad, ORNEK_MUSTERILER) or {}).get("ad")
@@ -555,6 +586,7 @@ class MusteriListesiTestleri(unittest.TestCase):
             plan = firma_tablosu.luca_plani(yol, 2026, ORNEK_MUSTERILER)
             self.assertEqual([g["ad"] for g in plan["guncellenecek"]],
                              ["AKIN COBAN", "KEREM TICARET", "DENTAL SAGLIK HIZ"])
+            self.assertEqual(plan["guncellenecek"][2]["yeni_ad"], "DENTAL SAGLIK HIZMETLERI")
             self.assertEqual(plan["guncellenecek"][1]["kapanis"], ("", "28/02/2026"))
             self.assertEqual(plan["guncellenecek"][0]["kapanis"], ("", ""))      # 31/12/2026 kapanis degil
             self.assertEqual(plan["guncellenecek"][0]["acilis"], ("", "01/01/2020"))
@@ -562,11 +594,11 @@ class MusteriListesiTestleri(unittest.TestCase):
             self.assertEqual(plan["luca_da_yok"], ["ESKI DONEM LTD"])
             self.assertEqual([r["ad"] for r in plan["yeni"]], ["YENI FIRMA LTD"])
 
-            yedek = firma_tablosu.luca_plani_uygula(yol, plan)
+            yedek = firma_tablosu.luca_plani_uygula(yol, plan)   # silmeden
             self.assertTrue(yedek.exists())
             okunan = firma_listesini_oku(yol)
             self.assertEqual(okunan["KEREM TICARET"][0], date(2026, 2, 28))
-            self.assertEqual(okunan["DENTAL SAGLIK HIZ"][0], date(2026, 5, 20))
+            self.assertEqual(okunan["DENTAL SAGLIK HIZMETLERI"][0], date(2026, 5, 20))   # Luca'daki ada cevrildi
             self.assertEqual(okunan["ESKI DONEM LTD"][0], date(2026, 2, 10))      # silinmedi, degismedi
             self.assertEqual(len(okunan["YENI FIRMA LTD"][1]), 0)                 # tum ekranlar sorgulanir
             self.assertEqual(okunan["AKIN COBAN"][1], {"e-fatura-alis"})          # ekran secimi korundu
@@ -575,9 +607,17 @@ class MusteriListesiTestleri(unittest.TestCase):
             self.assertIn("Açılış Tarihi", basliklar)
             self.assertEqual(ws.cell(row=2, column=3).value, 1500)                # Devreden KDV'ye dokunulmadi
             self.assertEqual(ws.max_row, 6)
-            # ikinci kez ayni liste: degisecek bir sey kalmaz
+            # ikinci kez ayni liste: degisecek bir sey kalmaz (Luca'da olmayan firma hala listede)
             plan2 = firma_tablosu.luca_plani(yol, 2026, ORNEK_MUSTERILER)
             self.assertEqual((plan2["guncellenecek"], plan2["yeni"]), ([], []))
+            self.assertEqual(plan2["luca_da_yok"], ["ESKI DONEM LTD"])
+            # liste Luca'yi yansitsin: Luca'da olmayan firma cikarilir, digerleri ve ekran secimleri kalir
+            firma_tablosu.luca_plani_uygula(yol, plan2, eksikleri_sil=True)
+            okunan = firma_listesini_oku(yol)
+            self.assertNotIn("ESKI DONEM LTD", okunan)
+            self.assertEqual(sorted(okunan), ["AKIN COBAN", "DENTAL SAGLIK HIZMETLERI", "KEREM TICARET",
+                                              "YENI FIRMA LTD"])
+            self.assertEqual(okunan["AKIN COBAN"][1], {"e-fatura-alis"})
 
 
 ORNEK_BEYANNAME = """

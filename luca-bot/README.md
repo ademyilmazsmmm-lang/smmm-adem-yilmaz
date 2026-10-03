@@ -35,20 +35,19 @@ kendisini konsolsuz yeniden başlatır. Hiçbiri olmazsa küçültülmüş bir s
 
 1. **Luca Girişi › Değiştir**: Üye No, Kullanıcı Adı, Parola (ve varsa iki aşamalı giriş
    anahtarı) bir kez girilir, `ayarlar.json`'a kaydedilir. Program Luca'ya kendisi girer.
-2. **Firma Listesi**: **Şablon İndir** doğru sütunlarla bir Excel indirir (daha önce işlenen
-   firmalar hazır yazılı gelir); doldurup **Liste Yükle** ile seçin. Ekran sütunlarında
-   **✓ = sorgulanır, X = sorgulanmaz** (boş = sorgulanır; eski X'li listeler aynen çalışır).
+2. **Firma Listesi**: firma listesi artık Luca'dan alınır (ayrıca Excel yüklenmez, şablon indirilmez).
+   Ekran sütunlarında **✓ = sorgulanır, X = sorgulanmaz** (boş = sorgulanır).
    **KDV Devri ve Ekran Seçimi** listeyi tablo olarak açar: her firmanın Devreden KDV'sini yazar,
    hangi ekranın sorgulanacağını kutucuklarla işaretlersiniz; alttan firma eklenir, ✕ ile çıkarılır.
    **Kaydet** Excel'e yazar (önce `firmalar.yedek-...xlsx` yedeği alınır; diğer sütun ve sayfalara
-   dokunulmaz). Liste hiç seçilmemişse bu buton yeni bir `firmalar.xlsx` oluşturur.
+   dokunulmaz). Liste hiç yoksa ilk kullanımda yeni bir `firmalar.xlsx` oluşturulur.
    **Luca'dan Firma Çek** (soldaki buton) Luca'nın **Yönetici › Müşteri İşlemleri › Müşteri Listesi**
    ekranını açar, **Filtre**'de **Yıl**'ı tarih aralığının yılına (örn. 2026) getirip **Ara**'ya basar
    ve o yılın firmalarını açılış/kapanış tarihleriyle okur. Sonra `firmalar.xlsx` ile farkı gösterilir
    (yeni firmalar, güncellenecek açılış/kapanış, Luca'nın o yıl listesinde olmayan firmalar);
-   **Tabloya Uygula**'ya basmadan dosyaya yazılmaz. Mevcut firmaların ekran seçimleri ve Devreden
-   KDV'sine dokunulmaz, hiçbir satır silinmez (yedek alınır); yeni firmalar tüm ekranlar işaretli
-   eklenir. Luca'da kapanışı boş olan firmanın tablodaki kapanışı korunur, kapanış tarihi dönem sonuysa
+   **Tabloya Uygula**'ya basmadan dosyaya yazılmaz. Liste Luca'yı yansıtır: Luca'da olmayan firmalar
+   çıkarılır (kutucuktan vazgeçilebilir), yeni firmalar tüm ekranlar işaretli eklenir; listede kalan
+   firmaların ekran seçimleri ve Devreden KDV'si değişmez (yedek alınır). Luca'da kapanışı boş olan firmanın tablodaki kapanışı korunur, kapanış tarihi dönem sonuysa
    (31/12) firma açık sayılır. Okunan ham liste `indirilenler\luca-musteri-listesi.json`'a, ekran
    görüntüsü ve sayfa kaynağı günlük klasörün `tani` klasörüne kaydedilir. Komut satırından:
    `python luca_bot.py --firma-listesi-cek --yil 2026`.
