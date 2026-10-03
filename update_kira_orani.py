@@ -160,8 +160,12 @@ def main() -> None:
 
     rate_text = format_tr_percent(rate)
 
-    today = date.today()
-    ay_label = f"{AY_ADLARI[today.month - 1]} {today.year}"
+    # Etiket, script'in calistigi gunden degil, TUFE verisinin EVDS'den
+    # gelen GERCEK son ayindan uretilir. TUIK her ayin basinda bir onceki
+    # ayin verisini acikladigi icin, script ayin 1-7'si arasinda calistiginda
+    # "bugunun ayi" ile "elimizdeki son veri ayi" birbirinden farklidir.
+    last_point_date = points[-1][0]
+    ay_label = f"{AY_ADLARI[last_point_date.month - 1]} {last_point_date.year}"
 
     changed = update_html(rate_text, ay_label)
     if changed:
