@@ -458,6 +458,128 @@ class FirmaTablosuTestleri(unittest.TestCase):
             self.assertEqual(wb.active["C2"].value, "0212")
 
 
+ORNEK_MUSTERILER = [
+    {"ad": "AKIN COBAN", "unvan": "AKIN ÇOBAN", "vkn": "1111111111", "acilis": "01/01/2020",
+     "kapanis": "31/12/2026"},
+    {"ad": "KEREM TICARET", "unvan": "KEREM TİCARET", "vkn": "5555555555", "acilis": "01/01/2019",
+     "kapanis": "28/02/2026"},
+    {"ad": "DENTAL SAGLIK HIZMETLERI", "unvan": "DENTAL SAĞLIK HİZMETLERİ LTD. ŞTİ.",
+     "vkn": "2222222222", "acilis": "15/04/2026", "kapanis": ""},
+    {"ad": "YENI FIRMA LTD", "unvan": "YENİ FİRMA LİMİTED", "vkn": "7777777777",
+     "acilis": "01/06/2026", "kapanis": ""},
+]
+
+
+class MusteriListesiTestleri(unittest.TestCase):
+    """Luca Müşteri Listesi'nin tablodan okunmasi ve firmalar.xlsx ile birlestirilmesi."""
+
+    BASLIK = ["", "Kısa Ad", "Ünvan", "Vergi Dairesi", "VKN", "Açılış Tarihi", "Kapanış Tarihi"]
+
+    def test_tarih_metni_bicimleri(self):
+        from lucabot.musteri_listesi import tarih_metni
+        self.assertEqual(tarih_metni("05.03.2026"), "05/03/2026")
+        self.assertEqual(tarih_metni("2026-03-05 00:00:00"), "05/03/2026")
+        self.assertEqual(tarih_metni(date(2026, 3, 5)), "05/03/2026")
+        self.assertEqual(tarih_metni("31/02/2026"), "")
+        self.assertEqual(tarih_metni(""), "")
+        self.assertEqual(tarih_metni(None), "")
+
+    def test_baslikli_tablodan_kayit(self):
+        from lucabot.musteri_listesi import kayitlari_cikar
+        tablo = [self.BASLIK,
+                 ["", "BURAK ALİ", "BURAK ALİ ARSLAN", "ÜMRANİYE VERGİ DAİRESİ", "12345678901",
+                  "02.01.2020", ""],
+                 ["", "KAYA", "KAYA İNŞAAT", "KADIKÖY VERGİ DAİRESİ", "9876543210",
+                  "01/01/2019", "28/02/2026"]]
+        kayitlar, baslik = kayitlari_cikar([(0, tablo)])
+        self.assertEqual(baslik, self.BASLIK)
+        self.assertEqual([(k["ad"], k["vkn"], k["acilis"], k["kapanis"]) for k in kayitlar],
+                         [("BURAK ALİ", "12345678901", "02/01/2020", ""),
+                          ("KAYA", "9876543210", "01/01/2019", "28/02/2026")])
+        self.assertEqual(kayitlar[0]["unvan"], "BURAK ALİ ARSLAN")
+        self.assertEqual(kayitlar[0]["vergi_dairesi"], "ÜMRANİYE VERGİ DAİRESİ")
+
+    def test_baslik_ayri_tabloda_durunca_bulunur(self):
+        from lucabot.musteri_listesi import kayitlari_cikar
+        veri = [["BURAK ALİ", "BURAK ALİ ARSLAN", "ÜMRANİYE", "12345678901", "02.01.2020", "05.05.2026"]]
+        kayitlar, baslik = kayitlari_cikar([(0, [self.BASLIK[1:]]), (0, veri)])
+        self.assertEqual(kayitlar[0]["kapanis"], "05/05/2026")
+        self.assertEqual(kayitlar[0]["acilis"], "02/01/2020")
+
+    def test_veri_satirinda_fazladan_basa_sutun_varsa_baslik_saga_hizalanir(self):
+        from lucabot.musteri_listesi import kayit_cikar
+        k = kayit_cikar(self.BASLIK[1:], ["", "1", "KAYA", "KAYA İNŞAAT", "KADIKÖY", "9876543210",
+                                           "01/01/2019", "28/02/2026"])
+        self.assertEqual((k["ad"], k["acilis"], k["kapanis"]), ("KAYA", "01/01/2019", "28/02/2026"))
+
+    def test_baslik_okunamazsa_desenden_okunur_tek_tarih_kapanis_sayilmaz(self):
+        from lucabot.musteri_listesi import kayitlari_cikar
+        kayitlar, baslik = kayitlari_cikar([(0, [["KAYA", "KAYA İNŞAAT", "KADIKÖY", "9876543210",
+                                                   "01/01/2019"]])])
+        self.assertIsNone(baslik)
+        self.assertEqual((kayitlar[0]["ad"], kayitlar[0]["unvan"], kayitlar[0]["vkn"]),
+                         ("KAYA", "KAYA İNŞAAT", "9876543210"))
+        self.assertEqual((kayitlar[0]["acilis"], kayitlar[0]["kapanis"]), ("01/01/2019", ""))
+
+    def test_vkn_li_tablo_secilir_ayni_firma_bir_kez(self):
+        from lucabot.musteri_listesi import kayitlari_cikar
+        menu = [["Yeni", "Filtre", "Şirket Sil"], ["a", "b", "c"]]
+        veri = [self.BASLIK, ["", "KAYA", "KAYA İNŞAAT", "KADIKÖY", "9876543210", "", ""],
+                ["", "KAYA", "KAYA İNŞAAT", "KADIKÖY", "9876543210", "", ""]]
+        kayitlar, _ = kayitlari_cikar([(0, menu), (0, veri)])
+        self.assertEqual(len(kayitlar), 1)
+        self.assertEqual(kayitlari_cikar([(0, menu)]), ([], None))
+
+    def test_luca_kaydi_bulma(self):
+        from lucabot.firma_tablosu import luca_kaydi_bul
+        bul = lambda ad: (luca_kaydi_bul(ad, ORNEK_MUSTERILER) or {}).get("ad")
+        self.assertEqual(bul("akin çoban"), "AKIN COBAN")          # unvanla
+        self.assertEqual(bul("Kerem Ticaret"), "KEREM TICARET")
+        self.assertEqual(bul("DENTAL SAGLIK"), "DENTAL SAGLIK HIZMETLERI")   # kisaltilmis ad
+        self.assertIsNone(bul("DENTAL"))                            # 8 harf altinda baslangic: eslesmez
+        self.assertEqual(bul("DENTAL SAGLIK HIZ"), "DENTAL SAGLIK HIZMETLERI")
+        self.assertIsNone(bul("BAŞKA FİRMA"))
+
+    def test_plan_ve_uygulama(self):
+        from openpyxl import Workbook, load_workbook
+        from lucabot import firma_tablosu
+        with tempfile.TemporaryDirectory() as d:
+            yol = Path(d) / "firmalar.xlsx"
+            wb = Workbook()
+            wb.active.append(["Kısa Adı", "Kapanış Tarihi", "Devreden KDV", "e-Fatura Alış"])
+            wb.active.append(["AKIN COBAN", "", 1500, "X"])                 # Luca'da donem sonu: acik
+            wb.active.append(["KEREM TICARET", "", "", ""])                  # kapanmis
+            wb.active.append(["ESKI DONEM LTD", "10/02/2026", "", ""])       # Luca 2026 listesinde yok
+            wb.active.append(["DENTAL SAGLIK HIZ", "20/05/2026", "", ""])    # Luca'da kapanis yok: korunur
+            wb.save(yol)
+            plan = firma_tablosu.luca_plani(yol, 2026, ORNEK_MUSTERILER)
+            self.assertEqual([g["ad"] for g in plan["guncellenecek"]],
+                             ["AKIN COBAN", "KEREM TICARET", "DENTAL SAGLIK HIZ"])
+            self.assertEqual(plan["guncellenecek"][1]["kapanis"], ("", "28/02/2026"))
+            self.assertEqual(plan["guncellenecek"][0]["kapanis"], ("", ""))      # 31/12/2026 kapanis degil
+            self.assertEqual(plan["guncellenecek"][0]["acilis"], ("", "01/01/2020"))
+            self.assertEqual(plan["guncellenecek"][2]["kapanis"], ("20/05/2026", "20/05/2026"))
+            self.assertEqual(plan["luca_da_yok"], ["ESKI DONEM LTD"])
+            self.assertEqual([r["ad"] for r in plan["yeni"]], ["YENI FIRMA LTD"])
+
+            yedek = firma_tablosu.luca_plani_uygula(yol, plan)
+            self.assertTrue(yedek.exists())
+            okunan = firma_listesini_oku(yol)
+            self.assertEqual(okunan["KEREM TICARET"][0], date(2026, 2, 28))
+            self.assertEqual(okunan["DENTAL SAGLIK HIZ"][0], date(2026, 5, 20))
+            self.assertEqual(okunan["ESKI DONEM LTD"][0], date(2026, 2, 10))      # silinmedi, degismedi
+            self.assertEqual(len(okunan["YENI FIRMA LTD"][1]), 0)                 # tum ekranlar sorgulanir
+            self.assertEqual(okunan["AKIN COBAN"][1], {"e-fatura-alis"})          # ekran secimi korundu
+            ws = load_workbook(yol).active
+            basliklar = [c.value for c in ws[1]]
+            self.assertIn("Açılış Tarihi", basliklar)
+            self.assertEqual(ws.cell(row=2, column=3).value, 1500)                # Devreden KDV'ye dokunulmadi
+            self.assertEqual(ws.max_row, 6)
+            # ikinci kez ayni liste: degisecek bir sey kalmaz
+            plan2 = firma_tablosu.luca_plani(yol, 2026, ORNEK_MUSTERILER)
+            self.assertEqual((plan2["guncellenecek"], plan2["yeni"]), ([], []))
+
+
 ORNEK_BEYANNAME = """
                      KATMA DEĞER VERGİSİ BEYANNAMESİ                                1015 A
                (Gerçek Usulde Vergilendirilen Mükellefler İçin)                    1

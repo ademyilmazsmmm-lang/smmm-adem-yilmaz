@@ -232,6 +232,29 @@ class CalismaDayanikliligi(unittest.TestCase):
         _, _, firmalar = firma_secici_bekle(self.page, sure=15000)
         self.assertEqual(len(firmalar), 8)
 
+    def test_musteri_listesi_luca_menusunden_okunur(self):
+        """Yönetici > Müşteri İşlemleri > Müşteri Listesi > Filtre > Yıl=2026 > Ara; yalniz 2026 firmalari gelir."""
+        from lucabot import musteri_listesi
+        kayitlar = musteri_listesi.listeyi_oku(self.page, 2026, self.klasor / "tani", None, bekleme_ms=15000)
+        adlar = [k["ad"] for k in kayitlar]
+        self.assertEqual(adlar, ["AKIN COBAN", "DENTAL SAGLIK", "FATURASIZ AS", "KEREM TICARET",
+                                 "MERT INSAAT", "YENI FIRMA LTD"])   # ESKI DONEM LTD 2025'te kalmis
+        kerem = next(k for k in kayitlar if k["ad"] == "KEREM TICARET")
+        self.assertEqual((kerem["kapanis"], kerem["acilis"], kerem["vkn"]),
+                         ("28/02/2026", "01/01/2019", "5555555555"))
+        self.assertEqual(kerem["vergi_dairesi"], "ÜMRANİYE VERGİ DAİRESİ")
+        self.assertTrue(list((self.klasor / "tani").glob("musteri-listesi*.png")))
+        # kaydet / oku
+        yol = self.klasor / musteri_listesi.MUSTERI_LISTESI_DOSYASI
+        musteri_listesi.kaydet(yol, 2026, kayitlar)
+        self.assertEqual(musteri_listesi.oku(yol), (2026, kayitlar))
+
+    def test_musteri_listesi_baska_yil(self):
+        from lucabot import musteri_listesi
+        kayitlar = musteri_listesi.listeyi_oku(self.page, 2025, self.klasor / "tani", None, bekleme_ms=15000)
+        self.assertIn("ESKI DONEM LTD", [k["ad"] for k in kayitlar])
+        self.assertNotIn("YENI FIRMA LTD", [k["ad"] for k in kayitlar])
+
     def test_gizli_sekmelerdeki_cerceveler_taranmaz(self):
         """Luca'nin gizli sekmelerinde biriken eski ekranlar aramaya girmemeli."""
         from lucabot.luca_ekran import cerceveler, gorunur_mu

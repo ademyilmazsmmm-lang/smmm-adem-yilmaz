@@ -32,7 +32,7 @@ from tkinter import filedialog, messagebox, ttk
 KOK = Path(__file__).resolve().parent
 sys.path.insert(0, str(KOK))
 
-from lucabot import beyanname, firma_tablosu, gostergeler  # noqa: E402
+from lucabot import beyanname, firma_tablosu, gostergeler, musteri_listesi  # noqa: E402
 from lucabot.firma_listesi import devreden_kdvleri  # noqa: E402
 from lucabot.ortak import (AYAR_DOSYASI, DURDUR_DOSYASI, ORNEK_AYAR, TARIH_BICIMI,  # noqa: E402
                            hedef_ay_araligi, indirme_koku, sadelestir, tarih_cozumle)
@@ -487,6 +487,68 @@ class FirmaEkranPenceresi:
         self.w.destroy()
 
 
+class LucaListesiPenceresi:
+    """Luca'dan cekilen firma listesinin firmalar.xlsx'ten farki; "Tabloya Uygula" ile dosyaya yazilir."""
+
+    def __init__(self, arayuz, yol, yil, luca_sayisi, plan):
+        self.arayuz, self.yol, self.plan = arayuz, yol, plan
+        w = self.w = tk.Toplevel(arayuz.kok, bg=ZEMIN, padx=20, pady=16)
+        w.title(f"Luca'dan Firma Listesi — {yil}")
+        w.transient(arayuz.kok)
+        w.geometry("860x560")
+        tk.Label(w, text=f"Luca'da {yil} yılında {luca_sayisi} firma var", font=("Georgia", 14, "bold"),
+                 fg="#F2F4F8", bg=ZEMIN, anchor="w").pack(fill="x")
+        tk.Label(w, text=f"{yol.name} ile karşılaştırma: {len(plan['yeni'])} yeni firma,"
+                         f" {len(plan['guncellenecek'])} firmada açılış/kapanış güncellenecek,"
+                         f" {plan['ayni']} firma aynı, {len(plan['luca_da_yok'])} firma Luca'nın {yil}"
+                         " listesinde yok.", font=KUCUK, fg=SOLUK, bg=ZEMIN, anchor="w", justify="left",
+                 wraplength=800).pack(fill="x", pady=(2, 10))
+
+        alt = tk.Frame(w, bg=ZEMIN)
+        alt.pack(side="bottom", fill="x", pady=(10, 0))
+        self.v_yeni = tk.BooleanVar(value=True)
+        tk.Checkbutton(alt, text="Yeni firmaları listeye ekle (tüm ekranlar işaretli)", variable=self.v_yeni,
+                       font=GOVDE, **Arayuz._kutu_renk()).pack(side="left")
+        dugme(alt, "Vazgeç", w.destroy).pack(side="right")
+        dugme(alt, "Tabloya Uygula", self.uygula, ana=True).pack(side="right", padx=8)
+        tk.Label(w, text="Mevcut firmaların ekran seçimleri ve Devreden KDV'leri değişmez, hiçbir firma silinmez;"
+                         " yazmadan önce dosyanın yedeği alınır. Luca'da kapanışı boş olan firmanın tablodaki"
+                         " kapanışı korunur; kapanış tarihi dönem sonuysa (31/12) firma açık sayılır.",
+                 font=KUCUK, fg=SOLUK, bg=ZEMIN, anchor="w", justify="left", wraplength=800
+                 ).pack(side="bottom", fill="x", pady=(4, 0))
+
+        sutunlar = ("Durum", "Firma", "Açılış", "Kapanış")
+        agac = self.agac = ttk.Treeview(w, columns=sutunlar, show="headings", style="Liste.Treeview")
+        for s, g in zip(sutunlar, (190, 330, 100, 170)):
+            agac.heading(s, text=s, anchor="w")
+            agac.column(s, anchor="w", width=g, stretch=s == "Firma")
+        for r in plan["yeni"]:
+            agac.insert("", "end", values=("Yeni — eklenecek", r["ad"], r.get("acilis", ""),
+                                           r.get("kapanis", "") or "—"))
+        for g in plan["guncellenecek"]:
+            eski, yeni = g["kapanis"]
+            agac.insert("", "end", values=("Güncellenecek", g["ad"], g["acilis"][1] or "—",
+                                           f"{eski or '—'} → {yeni or '—'}" if eski != yeni else yeni or "—"))
+        for ad in plan["luca_da_yok"]:
+            agac.insert("", "end", values=(f"Luca {yil} listesinde yok", ad, "", ""))
+        agac.pack(fill="both", expand=True)
+
+    def uygula(self):
+        try:
+            yedek = firma_tablosu.luca_plani_uygula(self.yol, self.plan, yeni_ekle=self.v_yeni.get())
+        except PermissionError:
+            messagebox.showerror("Kaydedilemedi", f"{self.yol.name} Excel'de açık; kapatıp tekrar deneyin.",
+                                 parent=self.w)
+            return
+        except Exception as e:
+            messagebox.showerror("Kaydedilemedi", f"{type(e).__name__}: {e}", parent=self.w)
+            return
+        self.arayuz.gostergeleri_yenile()
+        self.arayuz._log_ekle(f"Luca firma listesi {self.yol.name} dosyasına uygulandı (yedek: {yedek.name})\n",
+                              "ok")
+        self.w.destroy()
+
+
 # --- ana pencere ---------------------------------------------------------------
 
 class Arayuz:
@@ -499,6 +561,9 @@ class Arayuz:
         self.kuyruk = queue.Queue()
         self.yarim_satir = ""
         self.durdurma_istendi = False
+        self.mod = "calisma"  # "firma_listesi": surec Luca'dan musteri listesi cekiyor
+        self.liste_yili = None
+        self.luca_penceresi = None  # son acilan "Luca'dan firma listesi" onizleme penceresi
         self.son_islem = ("", 0.0)  # (son log satiri, geldigi an): "su an ne yapiyor"
         self.gostergeler = {"tevkifat": [], "smm": [], "fark": [], "kdv": []}
         try:
@@ -597,7 +662,12 @@ class Arayuz:
         iki.pack(fill="x")
         dugme(iki, "Liste Yükle…", self.liste_sec).pack(side="left", fill="x", expand=True, padx=(0, 6))
         dugme(iki, "Şablon İndir", self.sablon_indir).pack(side="left", fill="x", expand=True)
-        dugme(p, "KDV Devri ve Ekran Seçimi…", self.firma_ekran_penceresi).pack(fill="x", pady=(6, 0))
+        uc = tk.Frame(p, bg=ZEMIN)
+        uc.pack(fill="x", pady=(6, 0))
+        dugme(uc, "KDV / Ekran Seçimi…", self.firma_ekran_penceresi).pack(
+            side="left", fill="x", expand=True, padx=(0, 6))
+        self.luca_liste_dugmesi = dugme(uc, "Luca'dan Firma Çek…", self.firma_listesi_cek)
+        self.luca_liste_dugmesi.pack(side="left", fill="x", expand=True)
         tk.Label(p, text="Sadece bu firma (boş = listedeki hepsi)", font=KUCUK, fg=ETIKET,
                  bg=ZEMIN, anchor="w").pack(fill="x", pady=(10, 3))
         giris_kutusu(p, self.v_firma).pack(fill="x", ipady=4)
@@ -853,11 +923,7 @@ class Arayuz:
         if self.surec:
             return
         a = self.ayarlar
-        if not (a.get("uye_no") and a.get("kullanici_adi") and a.get("parola")):
-            messagebox.showwarning("Giriş bilgisi eksik",
-                                   "Program Luca'ya kendisi girer; önce Üye No, Kullanıcı Adı ve"
-                                   " Parola'yı girin.", parent=self.kok)
-            self.giris_penceresi()
+        if not self._giris_tamam_mi():
             return
         try:
             komut = self.komut()
@@ -869,6 +935,65 @@ class Arayuz:
         a["arayuz_ekranlar"] = [t for t in TUM_BELGELER if self.v_ekran[t].get()]
         ayarlari_kaydet(a)
 
+        self._baslat(komut, "Luca'ya giriş yapılıyor…")
+
+    def firma_listesi_cek(self):
+        """Luca'nin Yönetici > Müşteri Listesi ekranindan secili yilin firmalarini cekip tabloyla karsilastirir."""
+        if self.surec or not self._giris_tamam_mi():
+            return
+        try:
+            yil = tarih_cozumle(self.v_bas.get().strip()).year
+        except ValueError:
+            yil = date.today().year
+        if not messagebox.askyesno(
+                "Firmaları Luca'dan çek",
+                f"Luca'nın Yönetici › Müşteri İşlemleri › Müşteri Listesi ekranından {yil} yılında"
+                " açık olan firmalar (açılış/kapanış tarihleriyle) okunacak.\n\n"
+                "Tarayıcı açılıp kendiliğinden kapanır; bitince firma listenizle farkı gösterilir,"
+                " siz onaylamadan dosyaya bir şey yazılmaz. Devam edilsin mi?", parent=self.kok):
+            return
+        self.liste_yili = yil
+        komut = [python_komutu(), "-u", str(self.BOT), "--bitince-kapat",
+                 "--firma-listesi-cek", "--yil", str(yil)]
+        self._baslat(komut, f"Luca'dan {yil} firma listesi çekiliyor…", mod="firma_listesi")
+
+    def luca_listesini_goster(self):
+        """Cekilen Luca listesini firmalar.xlsx ile karsilastirip onizleme penceresini acar."""
+        dosya = indirme_koku(self.ayarlar) / musteri_listesi.MUSTERI_LISTESI_DOSYASI
+        try:
+            yil, kayitlar = musteri_listesi.oku(dosya)
+        except ValueError as e:
+            messagebox.showerror("Liste okunamadı", str(e), parent=self.kok)
+            return None
+        yol = self._liste_tam_yolu()
+        if not yol or not yol.exists():
+            yol = KOK / "firmalar.xlsx"
+            if not yol.exists():
+                firma_tablosu.sablon_olustur(yol, [], ornek=False)
+            self._listeyi_ayarla(yol)
+        try:
+            plan = firma_tablosu.luca_plani(yol, yil, kayitlar)
+        except Exception as e:
+            messagebox.showerror("Karşılaştırılamadı", f"{yol.name} okunamadı: {e}", parent=self.kok)
+            return None
+        if not (plan["yeni"] or plan["guncellenecek"] or plan["luca_da_yok"]):
+            messagebox.showinfo("Firma listesi", f"Luca'da {yil} yılında {len(kayitlar)} firma var;"
+                                f" {yol.name} ile aynı, değişiklik yok.", parent=self.kok)
+            return None
+        self.luca_penceresi = LucaListesiPenceresi(self, yol, yil, len(kayitlar), plan)
+        return self.luca_penceresi
+
+    def _giris_tamam_mi(self):
+        a = self.ayarlar
+        if a.get("uye_no") and a.get("kullanici_adi") and a.get("parola"):
+            return True
+        messagebox.showwarning("Giriş bilgisi eksik",
+                               "Program Luca'ya kendisi girer; önce Üye No, Kullanıcı Adı ve"
+                               " Parola'yı girin.", parent=self.kok)
+        self.giris_penceresi()
+        return False
+
+    def _baslat(self, komut, ilk_etiket, mod="calisma"):
         ortam = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
         bayrak = 0
         if sys.platform.startswith("win"):
@@ -894,10 +1019,12 @@ class Arayuz:
         self.okuyucu = threading.Thread(target=self._oku, args=(self.surec,), daemon=True)
         self.okuyucu.start()
         self.ilerleme.configure(value=0)
-        self.ilerleme_etiketi.configure(text="Luca'ya giriş yapılıyor…")
+        self.ilerleme_etiketi.configure(text=ilk_etiket)
         self.kalan_etiketi.configure(text="")
         self._durum("Çalışıyor", ALTIN, ALTIN_YAZI)
+        self.mod = mod
         self.calistir_dugmesi.configure(state="disabled")
+        self.luca_liste_dugmesi.configure(state="disabled")
         self.durdur_dugmesi.configure(state="normal", text="Durdur")
 
     def _oku(self, surec):
@@ -986,9 +1113,24 @@ class Arayuz:
         self.surec.stdout.close()
         self.surec = None
         self.calistir_dugmesi.configure(state="normal")
+        self.luca_liste_dugmesi.configure(state="normal")
         self.durdur_dugmesi.configure(state="disabled", text="Durdur")
         self.gostergeleri_yenile()
-        if kod == 0 and not self.durdurma_istendi:
+        mod, self.mod = self.mod, "calisma"
+        if mod == "firma_listesi":
+            if kod == 0 and not self.durdurma_istendi:
+                self.ilerleme.configure(value=100)
+                self.ilerleme_etiketi.configure(text="Luca'dan firma listesi alındı.")
+                self._durum("Tamamlandı", YESIL, "#FFFFFF")
+                self.luca_listesini_goster()
+            elif self.durdurma_istendi or kod in (130, -2):
+                self.ilerleme_etiketi.configure(text="Firma listesi çekme durduruldu.")
+                self._durum("Durduruldu", TURUNCU, ALTIN_YAZI)
+            else:
+                self.ilerleme_etiketi.configure(
+                    text="Firma listesi alınamadı — log'a bakın (indirilenler\\…\\tani klasöründe ekran görüntüsü var).")
+                self._durum("Hata", "#B3443A", "#FFFFFF")
+        elif kod == 0 and not self.durdurma_istendi:
             self.ilerleme.configure(value=100)
             self.ilerleme_etiketi.configure(text="Tamamlandı. Rapor güncellendi.")
             self._durum("Tamamlandı", YESIL, "#FFFFFF")

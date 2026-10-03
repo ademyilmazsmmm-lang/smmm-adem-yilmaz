@@ -26,6 +26,7 @@ from lucabot.calisma import Calisma
 from lucabot.firma_listesi import bugun_tamamlananlar, firmalari_suz
 from lucabot.giris import luca_oturumu_ac
 from lucabot.luca_gezinme import firma_secici_bekle
+from lucabot.musteri_listesi import MUSTERI_LISTESI_DOSYASI, kaydet as musteri_listesini_kaydet, listeyi_oku
 from lucabot.ortak import (AYAR, DURDUR_DOSYASI, ayarlari_oku, gunluge_yaz, icinde_bulunulan_ay,
                            indirme_koku, tarih_araliklari, tarih_cozumle, yaz)
 from lucabot.sabitler import BELGE_TIPLERI, TUM_BELGELER
@@ -65,6 +66,10 @@ def arguman_ayristirici():
     p.add_argument("--listele", action="store_true", help="Sadece firma listesini yazdir, islem yapma")
     p.add_argument("--bitince-kapat", action="store_true",
                    help="Is bitince ENTER beklemeden tarayiciyi kapat (gece calistirma icin)")
+    p.add_argument("--firma-listesi-cek", action="store_true",
+                   help="Luca'nin Musteri Listesi'nden firma bilgilerini (acilis/kapanis dahil) cek ve kaydet")
+    p.add_argument("--yil", type=int,
+                   help="--firma-listesi-cek icin hangi yilin firmalari (varsayilan: bu yil)")
     p.add_argument("--bastan", action="store_true",
                    help="Bugun tamamlanan ekranlar da yeniden taransin (sormadan)")
     return p
@@ -189,6 +194,43 @@ def sonucu_bildir(calisma, ozet, ayarlar, klasor, rapor_klasoru, log):
         yaz(f"UYARI: e-posta adimi hata verdi ({type(e).__name__}: {e})", log)
 
 
+# --- firma listesi cekme -------------------------------------------------------
+
+def firma_listesini_cek(args, ayarlar):
+    """Luca > Yönetici > Müşteri Listesi'nden secilen yilin firmalarini indirilenler/luca-musteri-listesi.json'a yazar."""
+    ayarlari_uygula(args, ayarlar)
+    yil = args.yil or date.today().year
+    gece_modu = bool(args.bitince_kapat)
+    klasor = calisma_klasoru(ayarlar)
+    log = klasor / "calisma.log"
+    konsol.bolum(f"LUCA MUSTERI LISTESI ({yil})", log)
+    profil = profil_klasoru(log)
+
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as pw:
+        ctx = tarayici_ac(pw, profil, log, AYAR["chrome_gunlugu"])
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        page = luca_oturumu_ac(ctx, page, ayarlar, gece_modu, klasor / "tani", log)
+        if page is None:
+            tarayiciyi_kapat(ctx)
+            return 1
+        try:
+            firma_secici_bekle(page)  # uygulama tamamen yuklensin (menu ve firma listesi gelsin)
+            kayitlar = listeyi_oku(page, yil, klasor / "tani", log)
+        except LookupError as e:
+            yaz(f"HATA: {e}", log)
+            kayitlar = []
+        finally:
+            tarayiciyi_kapat(ctx)
+    if not kayitlar:
+        yaz("Luca'dan firma okunamadi; tani dosyalari: " + str(klasor / "tani"), log)
+        return 1
+    yol = indirme_koku(ayarlar) / MUSTERI_LISTESI_DOSYASI
+    musteri_listesini_kaydet(yol, yil, kayitlar)
+    yaz(f"[OK] {yil} yilinda {len(kayitlar)} firma okundu: {yol}", log)
+    return 0
+
+
 # --- ana akis --------------------------------------------------------------
 
 def calistir(args, ayarlar, p):
@@ -288,6 +330,8 @@ def main():
     except OSError:
         pass
     try:
+        if args.firma_listesi_cek:
+            return firma_listesini_cek(args, ayarlar)
         return calistir(args, ayarlar, p)
     except KeyboardInterrupt:
         print("\nKullanici tarafindan durduruldu.")

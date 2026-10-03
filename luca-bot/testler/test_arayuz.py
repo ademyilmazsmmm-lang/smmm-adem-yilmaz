@@ -42,6 +42,22 @@ SAHTE_BOT = textwrap.dedent('''
 ''')
 
 
+# --firma-listesi-cek ile cagrilinca Luca'dan musteri listesi cekmis gibi JSON yazar
+SAHTE_LISTE_BOTU = textwrap.dedent('''
+    import json, os, sys
+    from pathlib import Path
+    print("ARGS " + " ".join(sys.argv[1:]), flush=True)
+    kok = Path(json.loads(Path(os.environ["LUCA_BOT_AYAR"]).read_text(encoding="utf-8"))["indirme_klasoru"])
+    firmalar = [
+        {"ad": "BIRLIK TICARET", "unvan": "BIRLIK TİCARET", "vkn": "1", "acilis": "01/01/2020", "kapanis": "31/03/2026"},
+        {"ad": "YENI FIRMA LTD", "unvan": "YENİ FİRMA", "vkn": "2", "acilis": "01/06/2026", "kapanis": ""},
+    ]
+    (kok / "luca-musteri-listesi.json").write_text(
+        json.dumps({"yil": 2026, "alinma": "x", "firmalar": firmalar}), encoding="utf-8")
+    print("[OK] 2026 yilinda 2 firma okundu", flush=True)
+''')
+
+
 @unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")
 class ArayuzTestleri(unittest.TestCase):
     def setUp(self):
@@ -247,6 +263,48 @@ class ArayuzTestleri(unittest.TestCase):
         self.assertEqual(devreden_kdvleri(self.d / "firmalar.xlsx"), {"BIRLIK TICARET": 1250.5})
         # kaydedince kutular yenilenir: 1000 - 300 - 1250,50 devreden < 0, odeme cikmaz
         self.assertEqual(self.app.gostergeler["kdv"], [])
+
+    def test_luca_dan_firma_listesi_cekilir_ve_uygulanir(self):
+        from lucabot import firma_tablosu, musteri_listesi
+        from lucabot.firma_listesi import firma_listesini_oku
+        from tkinter import messagebox
+        from datetime import date
+        firma_tablosu.sablon_olustur(self.d / "firmalar.xlsx", ["BIRLIK TICARET"])
+        self.bot.write_text(SAHTE_LISTE_BOTU, encoding="utf-8")
+        sorular = []
+        eski, messagebox.askyesno = messagebox.askyesno, lambda *a, **k: sorular.append(a) or True
+        try:
+            self.app.firma_listesi_cek()
+        finally:
+            messagebox.askyesno = eski
+        self.assertIn("2026", sorular[0][1])
+        self.assertEqual(str(self.app.luca_liste_dugmesi.cget("state")), "disabled")
+        self.assertTrue(self._bekle(lambda: self.app.surec is None))
+        self.assertIn("--firma-listesi-cek --yil 2026", self.app.log_metni())
+        self.assertEqual(str(self.app.luca_liste_dugmesi.cget("state")), "normal")
+        pencere = self.app.luca_penceresi
+        self.assertIsNotNone(pencere)
+        self.kok.update()
+        self.assertEqual(len(pencere.plan["yeni"]), 1)
+        self.assertEqual(len(pencere.agac.get_children()), 2)   # yeni + guncellenecek
+        pencere.uygula()
+        okunan = firma_listesini_oku(self.d / "firmalar.xlsx")
+        self.assertEqual(okunan["BIRLIK TICARET"][0], date(2026, 3, 31))
+        self.assertIn("YENI FIRMA LTD", okunan)
+        self.assertEqual(self.app.mod, "calisma")
+
+    def test_luca_listesi_cekilemezse_hata_gosterilir(self):
+        from tkinter import messagebox
+        self.bot.write_text("import sys\nprint('HATA: Filtre penceresi kullanilamadi')\nsys.exit(1)\n",
+                            encoding="utf-8")
+        eski, messagebox.askyesno = messagebox.askyesno, lambda *a, **k: True
+        try:
+            self.app.firma_listesi_cek()
+        finally:
+            messagebox.askyesno = eski
+        self.assertTrue(self._bekle(lambda: self.app.surec is None))
+        self.assertIsNone(self.app.luca_penceresi)
+        self.assertIn("alınamadı", self.app.ilerleme_etiketi.cget("text"))
 
     def test_beyannameden_devir_alinir(self):
         from lucabot import beyanname, firma_tablosu

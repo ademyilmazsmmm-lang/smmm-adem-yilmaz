@@ -27,6 +27,17 @@ ESKI_DONEMLI = "ESKI DONEM LTD"
 # Bu firmada hic fatura yok
 FATURASIZ = "FATURASIZ AS"
 
+# Yönetici > Müşteri İşlemleri > Müşteri Listesi: (kisa ad, unvan, VKN, acilis, kapanis, yillar)
+MUSTERILER = [
+    ("AKIN COBAN", "AKIN ÇOBAN", "1111111111", "01/01/2020", "31/12/2026", (2025, 2026)),
+    ("DENTAL SAGLIK", "DENTAL SAĞLIK HİZMETLERİ LTD. ŞTİ.", "2222222222", "15/04/2026", "", (2026,)),
+    ("ESKI DONEM LTD", "ESKİ DÖNEM LİMİTED ŞİRKETİ", "3333333333", "01/01/2015", "", (2025,)),
+    ("FATURASIZ AS", "FATURASIZ ANONİM ŞİRKETİ", "4444444444", "01/01/2018", "", (2025, 2026)),
+    ("KEREM TICARET", "KEREM TİCARET", "5555555555", "01/01/2019", "28/02/2026", (2025, 2026)),
+    ("MERT INSAAT", "MERT İNŞAAT SANAYİ", "6666666666", "01/01/2021", "", (2025, 2026)),
+    ("YENI FIRMA LTD", "YENİ FİRMA LİMİTED ŞİRKETİ", "7777777777", "01/06/2026", "", (2026,)),
+]
+
 AEN_EKRANLARI = {
     "e-Arşiv Alış Faturaları": "e-arsiv-alis",
     "e-Arşiv Satış Faturaları": "e-arsiv-satis",
@@ -131,6 +142,14 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
   </select>
   <span id="onay" class="gizli">Seçim değişti <button id="tamam">Tamam</button></span>
   <span class="menu" style="display:inline-block;vertical-align:top">
+    <a id="yonetici">Yönetici</a>
+    <div id="yoneticiMenu" class="gizli">
+      <a id="musteriIslemleri">Müşteri İşlemleri</a>
+      <div id="musteriMenu" class="gizli" style="margin-left:14px"><a id="musteriListesi">Müşteri Listesi</a></div>
+      <a>Kullanıcı İşlemleri</a>
+    </div>
+  </span>
+  <span class="menu" style="display:inline-block;vertical-align:top">
     <a id="modul">İşletme Defteri</a>
     <div id="modulMenu" class="gizli">
       <a id="aen">Akıllı Entegrasyon Noktası</a>
@@ -161,6 +180,23 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
  };
  document.getElementById('modul').onclick = () =>
    sonra(150, () => document.getElementById('modulMenu').classList.toggle('gizli'));
+ function sekmeAc(adres){
+   const sekmeler = document.getElementById('sekmeler');
+   sekmeler.querySelectorAll('div.sekme').forEach(d => d.style.display = 'none');
+   const d = document.createElement('div'); d.className = 'sekme';
+   d.innerHTML = '<iframe style="width:100%;height:600px;border:0"></iframe>';
+   sekmeler.appendChild(d);
+   d.firstChild.src = adres;
+ }
+ document.getElementById('yonetici').onclick = () =>
+   sonra(150, () => document.getElementById('yoneticiMenu').classList.toggle('gizli'));
+ const mi = document.getElementById('musteriIslemleri');
+ mi.onmouseenter = mi.onclick = () =>
+   sonra(150, () => document.getElementById('musteriMenu').classList.remove('gizli'));
+ document.getElementById('musteriListesi').onclick = () => {
+   document.getElementById('yoneticiMenu').classList.add('gizli');
+   sonra(300, () => sekmeAc('/musteri-listesi?t=' + Date.now()));
+ };
  const aen = document.getElementById('aen');
  aen.onmouseenter = aen.onclick = () =>
    sonra(150, () => document.getElementById('aenMenu').classList.remove('gizli'));
@@ -308,6 +344,40 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
    sonra(300, () => ac('<span>Her hangi bir fatura bulunamadı.</span> <button onclick="kapat()">Tamam</button>')); });
 </script></body></html>"""
 
+MUSTERI_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Müşteri Listesi</title>
+""" + ORTAK_STIL + """</head><body>
+<h3>Müşteri Listesi</h3>
+<table id="liste"><thead><tr><th></th><th>Kısa Ad</th><th>Ünvan</th><th>Vergi Dairesi</th><th>VKN</th>
+<th>Açılış Tarihi</th><th>Kapanış Tarihi</th></tr></thead><tbody></tbody></table>
+<div id="sayac"></div>
+<div id="araclar"><button>Yeni</button> <button id="filtre">Filtre</button> <button>Şirket Sil</button>
+<button>Mükellef Bilgi</button> <button>Yetki Tablosu</button> <button>Diğer İşlemler</button></div>
+<div id="pencere" class="luca-open-window gizli">
+  <b>Müşteri Arama</b>
+  <p>Yıl <select id="yil"><option></option><option>2025</option><option>2026</option></select></p>
+  <p>Sınıf <select><option>Tümü</option><option>A</option></select></p>
+  <p>Dönem Durumu <select><option>Tümü</option><option>Açık</option></select></p>
+  <button id="ara">Ara</button> <button onclick="document.getElementById('pencere').classList.add('gizli')">Kapat</button>
+</div>
+<script>
+ document.getElementById('filtre').onclick = () =>
+   setTimeout(() => document.getElementById('pencere').classList.remove('gizli'), 400);
+ document.getElementById('ara').onclick = async () => {
+   const yil = document.getElementById('yil').value;
+   document.getElementById('pencere').classList.add('gizli');
+   const liste = await (await fetch('/api/musteriler?yil=' + yil)).json();
+   const tb = document.querySelector('#liste tbody'); tb.innerHTML = '';
+   setTimeout(() => {
+     for (const m of liste) {
+       const tr = document.createElement('tr');
+       tr.innerHTML = '<td><input type="checkbox"></td>' + m.map(x => '<td>' + x + '</td>').join('');
+       tb.appendChild(tr);
+     }
+     document.getElementById('sayac').textContent = 'Toplam Kayıt Sayısı: ' + liste.length;
+   }, 800);
+ };
+</script></body></html>"""
+
 AEN_ARAC = """<button data-e="getir" title="Alt+g">GİB'den Getir</button>
 <button data-e="yenile">Yenile</button><button data-e="ara">Belge Ara</button>
 <button data-e="sec">Belge Seç</button><button data-e="indir">Seçilenleri İndir</button>
@@ -358,6 +428,13 @@ class Isleyici(BaseHTTPRequestHandler):
             html = (ANA_SAYFA.replace("__FIRMALAR__", secenek).replace("__AEN__", aen)
                     .replace("__ESKI__", ESKI_DONEMLI))
             return self._yanit(html)
+        if yol == "/musteri-listesi":
+            return self._yanit(MUSTERI_SAYFASI)
+        if yol == "/api/musteriler":
+            yil = int((parse_qs(urlparse(self.path).query).get("yil") or ["0"])[0] or 0)
+            liste = [[m[0], m[1], "ÜMRANİYE VERGİ DAİRESİ", m[2], m[3], m[4]] for m in
+                     [mm for mm in MUSTERILER if yil in mm[5]]] if yil else []
+            return self._yanit(json.dumps(liste), "application/json")
         if yol == "/ekran":
             baslik = next((ad for ad, t in AEN_EKRANLARI.items() if t == tip), "E-Arşiv Faturaları Sorgulama")
             arac = INTERAKTIF_ARAC if tip == "e-arsiv-interaktif" else AEN_ARAC

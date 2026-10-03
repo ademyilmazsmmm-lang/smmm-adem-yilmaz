@@ -42,6 +42,16 @@ kendisini konsolsuz yeniden başlatır. Hiçbiri olmazsa küçültülmüş bir s
    hangi ekranın sorgulanacağını kutucuklarla işaretlersiniz; alttan firma eklenir, ✕ ile çıkarılır.
    **Kaydet** Excel'e yazar (önce `firmalar.yedek-...xlsx` yedeği alınır; diğer sütun ve sayfalara
    dokunulmaz). Liste hiç seçilmemişse bu buton yeni bir `firmalar.xlsx` oluşturur.
+   **Luca'dan Firma Çek** (soldaki buton) Luca'nın **Yönetici › Müşteri İşlemleri › Müşteri Listesi**
+   ekranını açar, **Filtre**'de **Yıl**'ı tarih aralığının yılına (örn. 2026) getirip **Ara**'ya basar
+   ve o yılın firmalarını açılış/kapanış tarihleriyle okur. Sonra `firmalar.xlsx` ile farkı gösterilir
+   (yeni firmalar, güncellenecek açılış/kapanış, Luca'nın o yıl listesinde olmayan firmalar);
+   **Tabloya Uygula**'ya basmadan dosyaya yazılmaz. Mevcut firmaların ekran seçimleri ve Devreden
+   KDV'sine dokunulmaz, hiçbir satır silinmez (yedek alınır); yeni firmalar tüm ekranlar işaretli
+   eklenir. Luca'da kapanışı boş olan firmanın tablodaki kapanışı korunur, kapanış tarihi dönem sonuysa
+   (31/12) firma açık sayılır. Okunan ham liste `indirilenler\luca-musteri-listesi.json`'a, ekran
+   görüntüsü ve sayfa kaynağı günlük klasörün `tani` klasörüne kaydedilir. Komut satırından:
+   `python luca_bot.py --firma-listesi-cek --yil 2026`.
    **Beyannameden Devir Al** ile KDV1 beyannamesi PDF'leri (birden çok seçilebilir) okunur, devir
    tabloya yazılır. Kontrol edilen dönem Eylül ise **Ağustos** beyannamesinin "Sonraki Döneme
    Devreden" satırı ya da Eylül beyannamesinin "101 - Önceki Dönemden Devreden" satırı alınır (ikisi
@@ -280,7 +290,8 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | `fatura_analiz.py` | İnen Excel/ZIP'ten tevkifat, iptal/itiraz, matrah/KDV |
 | `rapor.py`, `rapor_excel.py` | **Raporlama**: `rapor.json` / `rapor.csv` / `rapor.xlsx` |
 | `gostergeler.py` | Arayüzün alt kutuları (tevkifat KDV, SMM, interaktif farkı, KDV ödemesi); arayüzün kendisi `luca_arayuz.py` |
-| `firma_tablosu.py` | `firmalar.xlsx` şablonu ve arayüzdeki Firma / Ekran Seçimi tablosunun okunup yazılması |
+| `firma_tablosu.py` | `firmalar.xlsx` şablonu, arayüzdeki Firma / Ekran Seçimi tablosunun okunup yazılması, Luca listesiyle karşılaştırma/birleştirme |
+| `musteri_listesi.py` | Luca'nın Yönetici › Müşteri Listesi ekranından firma (açılış/kapanış dahil) okuma |
 | `eposta.py` | Özet e-postası (Outlook / SMTP) |
 | `beyanname.py` | KDV1 beyanname PDF'lerinden devreden KDV'yi okuma ve firmayla eşleştirme |
 | `ekran_isleyici.py` | Bir firmanın bir ekranını baştan sona işleyen akış (adım adım metotlar) |

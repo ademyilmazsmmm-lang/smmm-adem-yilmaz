@@ -8,16 +8,18 @@ degisir; diger sutunlar, sayfalar ve bicimler korunur, once yedek alinir.
 """
 
 import shutil
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
-from .ortak import KOK, sadelestir
+from .musteri_listesi import tarih_metni
+from .ortak import KOK, karsilastir, sadelestir
 from .sabitler import ATLA_DEGERLERI, EKRAN_SUTUNLARI
 
 SORGULA = "✓"
 ATLA = "X"
 AD_SUTUNU = "Kısa Adı"
 KAPANIS_SUTUNU = "Kapanış Tarihi"
+ACILIS_SUTUNU = "Açılış Tarihi"
 DEVREDEN_SUTUNU = "Devreden KDV"
 SABLON_SUTUNLARI = [AD_SUTUNU, KAPANIS_SUTUNU, DEVREDEN_SUTUNU] + list(EKRAN_SUTUNLARI)
 
@@ -204,3 +206,134 @@ def _sayi_ya_da_metin(metin):
         t = t.replace(".", "")  # "5.000" binlik nokta
     deger = tutar_cozumle(t)
     return deger if deger or t.strip("0,.") == "" else metin
+
+
+# --- Luca musteri listesiyle birlestirme ---------------------------------------------
+
+def luca_kaydi_bul(ad, kayitlar):
+    """Tablodaki kisa adin Luca musteri listesindeki kaydi; bulunamaz ya da belirsizse None.
+
+    Once kisa ad / unvanla birebir, sonra (Luca adlari kisaltabildigi icin) en az
+    8 harflik baslangic eslesmesi; ikinci kisi de uyuyorsa belirsiz sayilir.
+    """
+    k = karsilastir(ad)
+    if not k:
+        return None
+    for alan in ("ad", "unvan"):
+        tam = [r for r in kayitlar if karsilastir(r.get(alan, "")) == k]
+        if len(tam) == 1:
+            return tam[0]
+        if len(tam) > 1:
+            return None
+    adaylar = []
+    for r in kayitlar:
+        for alan in ("ad", "unvan"):
+            d = karsilastir(r.get(alan, ""))
+            if d and min(len(d), len(k)) >= 8 and (d.startswith(k) or k.startswith(d)):
+                adaylar.append(r)
+                break
+    return adaylar[0] if len(adaylar) == 1 else None
+
+
+def _kapanis(kayit, yil):
+    """Firmayi gercekten kapatan tarih; donem sonu (31/12/yil) ya da sonrasi 'acik' sayilir."""
+    metin = kayit.get("kapanis", "")
+    if not metin:
+        return ""
+    gun, ay, y = (int(x) for x in metin.split("/"))
+    return "" if date(y, ay, gun) >= date(yil, 12, 31) else metin
+
+
+def luca_plani(yol, yil, kayitlar):
+    """Tabloyla Luca musteri listesinin farki; dosya degismez.
+
+    Dondurur: {"guncellenecek": [{ad, kayit, kapanis: (eski, yeni), acilis: (eski, yeni)}],
+               "yeni": [kayit], "luca_da_yok": [tablodaki ad], "ayni": sayi}
+    Luca'da kapanisi bos olan firmanin tablodaki kapanisi silinmez.
+    """
+    from openpyxl import load_workbook
+    wb = load_workbook(_yol(yol), data_only=True)
+    try:
+        ws = wb.worksheets[0]
+        satir_no, basliklar = _baslik_satiri(ws)
+        if satir_no is None:
+            raise ValueError("Dosyada başlık satırı bulunamadı")
+        ad_i = _ad_sutunu(basliklar)
+        kap_i, acil_i = _sutun(basliklar, KAPANIS_SUTUNU), _sutun(basliklar, ACILIS_SUTUNU)
+        satirlar = []
+        for satir in ws.iter_rows(min_row=satir_no + 1, values_only=True):
+            ad = str(satir[ad_i]).strip() if ad_i < len(satir) and satir[ad_i] is not None else ""
+            if ad:
+                def deger(i):
+                    return tarih_metni(satir[i]) if i is not None and i < len(satir) else ""
+                satirlar.append((ad, deger(kap_i), deger(acil_i)))
+    finally:
+        wb.close()
+
+    plan = {"guncellenecek": [], "yeni": [], "luca_da_yok": [], "ayni": 0}
+    eslesen = set()
+    for ad, kap, acil in satirlar:
+        r = luca_kaydi_bul(ad, kayitlar)
+        if r is None:
+            plan["luca_da_yok"].append(ad)
+            continue
+        eslesen.add(id(r))
+        yeni_kap = _kapanis(r, yil) or kap
+        yeni_acil = r.get("acilis", "") or acil
+        if (yeni_kap, yeni_acil) == (kap, acil):
+            plan["ayni"] += 1
+        else:
+            plan["guncellenecek"].append({"ad": ad, "kayit": r, "kapanis": (kap, yeni_kap),
+                                          "acilis": (acil, yeni_acil)})
+    plan["yeni"] = [dict(r, kapanis=_kapanis(r, yil)) for r in kayitlar
+                    if id(r) not in eslesen and r.get("ad")]
+    return plan
+
+
+def luca_plani_uygula(yol, plan, yeni_ekle=True):
+    """Plani dosyaya yazar: kapanis/acilis guncellenir, yeni firmalar tum ekranlar isaretli eklenir.
+
+    Mevcut firmalarin ekran secimleri ve Devreden KDV'sine dokunulmaz, hicbir
+    satir silinmez; once yedek alinir. Yedegin yolunu dondurur.
+    """
+    from openpyxl import load_workbook
+    yol = _yol(yol)
+    wb = load_workbook(yol)
+    ws = wb.worksheets[0]
+    satir_no, basliklar = _baslik_satiri(ws)
+    if satir_no is None:
+        raise ValueError("Dosyada başlık satırı bulunamadı")
+    ad_i = _ad_sutunu(basliklar)
+
+    def sutun(ad):
+        i = _sutun(basliklar, ad)
+        if i is None:
+            basliklar.append(ad)
+            i = len(basliklar) - 1
+            ws.cell(row=satir_no, column=i + 1, value=ad)
+        return i
+
+    kap_i, acil_i = sutun(KAPANIS_SUTUNU), sutun(ACILIS_SUTUNU)
+    ekran_i = {tip: sutun(baslik) for baslik, tip in EKRAN_SUTUNLARI.items()}
+    degisecek = {g["ad"]: g for g in plan["guncellenecek"]}
+    son_satir = ws.max_row
+    for satir in ws.iter_rows(min_row=satir_no + 1):
+        hucre = satir[ad_i] if ad_i < len(satir) else None
+        ad = str(hucre.value).strip() if hucre is not None and hucre.value is not None else ""
+        g = degisecek.get(ad)
+        if g:
+            ws.cell(row=hucre.row, column=kap_i + 1, value=g["kapanis"][1] or None)
+            ws.cell(row=hucre.row, column=acil_i + 1, value=g["acilis"][1] or None)
+    if yeni_ekle:
+        for r in plan["yeni"]:
+            son_satir += 1
+            ws.cell(row=son_satir, column=ad_i + 1, value=r["ad"])
+            ws.cell(row=son_satir, column=kap_i + 1, value=r.get("kapanis") or None)
+            ws.cell(row=son_satir, column=acil_i + 1, value=r.get("acilis") or None)
+            for i in ekran_i.values():
+                ws.cell(row=son_satir, column=i + 1, value=SORGULA)
+
+    yedek = yol.with_name(f"{yol.stem}.yedek-{datetime.now():%Y%m%d-%H%M%S}{yol.suffix}")
+    shutil.copy2(yol, yedek)
+    wb.save(yol)
+    return yedek
