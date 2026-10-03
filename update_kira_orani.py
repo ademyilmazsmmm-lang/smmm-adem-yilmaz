@@ -17,7 +17,7 @@ from datetime import date, timedelta
 
 import requests
 
-SERIES = "TP.FG.J0"
+SERIES = "TP.TUKFIY2025.GENEL"  # GEÇİCİ TEST: yeni (2025=100) baz yıllı TÜFE serisi adayı
 INDEX_HTML = "index.html"
 
 AY_ADLARI = [
@@ -62,6 +62,7 @@ def fetch_series(api_key: str) -> list[tuple[date, float]]:
     data = _get_json(url, api_key)
 
     items = data.get("items", [])
+    print(f"DEBUG: seri={SERIES}, toplam {len(items)} kayıt, ilk 2 ve son 5 ham kayıt: {items[:2]} ... {items[-5:]}", file=sys.stderr)
     series_key = SERIES.replace(".", "_")
 
     points: list[tuple[date, float]] = []
