@@ -537,14 +537,48 @@ def _kutu_bilgileri(kutular):
     return bilgiler
 
 
-def _tarih_kutulari(kapsayici):
+def _tarih_kutulari(kapsayici, yalniz_yeni=False):
+    secici = "input[type=text], input:not([type])"
+    if yalniz_yeni:
+        secici = ", ".join(f"{x}:not([{ESKI_KUTU}])" for x in secici.split(", "))
     try:
-        kutular = kapsayici.locator("input[type=text], input:not([type])")
+        kutular = kapsayici.locator(secici)
     except Exception:
         return []
     return [kutular.nth(i) for i, b in enumerate(_kutu_bilgileri(kutular))
             if b.get("g") and (TARIH_DESENI.search(b.get("d") or "")
                                or TARIH_NITELIGI.search(b.get("n") or ""))]
+
+
+# Bir pencere acilmadan once ekranda gorunen kutular isaretlenir; pencere acilinca
+# isaretsiz (yeni) tarih kutulari o pencereye aittir. Luca'nin GİB'den Getir tarih
+# penceresi bilinen bir pencere sinifi tasimadigi icin pencere beklemesi her
+# seferinde 5 sn'yi doldurup kutular sonra butun sayfada araniyordu.
+ESKI_KUTU = "data-lucabot-eski"
+ESKI_KUTULARI_ISARETLE_JS = """isaret => {
+  document.querySelectorAll('input').forEach(e => {
+    if (e.offsetParent || e.getClientRects().length) e.setAttribute(isaret, '1');
+    else e.removeAttribute(isaret);  // gizli pencere yeniden acilirsa kutulari yeni sayilsin
+  });
+}"""
+
+
+def eski_kutulari_isaretle(page):
+    """Simdi gorunen kutulari isaretler (bkz. yeni_tarih_kutulari)."""
+    for fr in cerceveler(page):
+        try:
+            fr.evaluate(ESKI_KUTULARI_ISARETLE_JS, ESKI_KUTU)
+        except Exception:
+            continue
+
+
+def yeni_tarih_kutulari(page):
+    """eski_kutulari_isaretle'den sonra gorunur olan tarih kutulari (en az 2 ise), yoksa None."""
+    for fr in cerceveler(page):
+        kutular = _tarih_kutulari(fr, yalniz_yeni=True)
+        if len(kutular) >= 2:
+            return kutular
+    return None
 
 
 @olculur("tarih kutularını arama")

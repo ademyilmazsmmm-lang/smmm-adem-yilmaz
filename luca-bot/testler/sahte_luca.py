@@ -193,6 +193,8 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
 <!-- gercek Luca'da oldugu gibi: sayfada gizli bir pencere de durur ve ilk sirada -->
 <div class="luca-open-window gizli">Her hangi bir fatura bulunamadı <button>Tamam</button></div>
 <div id="pencere" class="luca-open-window gizli"></div>
+<!-- gercek Luca'da GİB'den Getir'in tarih penceresi .luca-open-window degil -->
+<div id="tarihPenceresi" class="tarih-dialog gizli" style="position:fixed;top:120px;left:160px;background:#fff;border:1px solid #888;padding:12px"></div>
 <script>
  const TIP = '__TIP__', FIRMA = '__FIRMA__';
  const q = 'tip=' + TIP + '&firma=' + encodeURIComponent(FIRMA);
@@ -240,10 +242,14 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
      g().innerHTML += '<div>İşlem sona erdi.</div>' + kapatDugmesi(); if (sonrasi) sonrasi(); });
  }
  const eylem = {
-   getir: () => sonra(400, () => ac('<span>GİB\\'den fatura getir</span> '
+   getir: () => sonra(400, () => { const t = document.getElementById('tarihPenceresi');
+       t.innerHTML = '<span>GİB\\'den fatura getir</span> '
        + 'Başlangıç <input type="text" name="baslangicTarihi" value="01/08/2026"> '
        + 'Bitiş <input type="text" name="bitisTarihi" value="31/08/2026"> '
-       + '<button onclick="islemTakip(\\'/api/sorgula?\\'+q)">Belgeleri Getir</button>' + kapatDugmesi())),
+       + '<button onclick="document.getElementById(\\'tarihPenceresi\\').classList.add(\\'gizli\\');'
+       + ' islemTakip(\\'/api/sorgula?\\'+q)">Belgeleri Getir</button>'
+       + '<button onclick="document.getElementById(\\'tarihPenceresi\\').classList.add(\\'gizli\\')">Kapat</button>';
+       t.classList.remove('gizli'); }),
    yenile: () => sonra(600, yukle),
    ara: () => sonra(400, () => ac('<span>Tarih Aralığı</span> '
        + '<input type="text" name="ilkTarih" value="01/08/2026"> <input type="text" name="sonTarih" value="31/08/2026">'

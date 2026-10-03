@@ -11,7 +11,8 @@ import time
 
 from .bekleme import (degisiklik_baslat, degisip_durulsun, geri_cekil, kosulu_bekle,
                       nabiz, sayfa_durulsun)
-from .luca_ekran import (TANI, acik_pencere, acik_pencereleri_kapat,
+from .luca_ekran import (TANI, acik_pencere, acik_pencereleri_kapat, eski_kutulari_isaretle,
+                         yeni_tarih_kutulari,
                          bilgi_penceresini_kapat, cerceveler, diyalog_bekle,
                          dugmeye_bas, ekranda_gib_hatasi,
                          fatura_yok_penceresini_kapat, menu_metinleri,
@@ -132,18 +133,19 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
 
     while True:
         gecen = time.time() - basla
+        gunluk = islem_gunlugu(page)
 
-        if gecen >= en_az_saniye and fatura_yok_penceresini_kapat(page):
-            yaz(f"    Luca: fatura bulunamadi ({int(gecen)} sn)", log)
-            return 0
-
-        if gecen >= en_az_saniye:  # "... adet fatura bulundu" da sorgunun bittigini soyler
-            bilgi = bilgi_penceresini_kapat(page)
+        # Islem Takip acikken bitis onun yazisindan anlasilir; "fatura bulunamadi" /
+        # "fatura bulundu" uyari pencerelerine yalnizca o yokken bakilir (her saniye
+        # bu iki aramayi yapmak sorgu basina saniyeler tutuyordu)
+        if not gunluk and gecen >= en_az_saniye:
+            if fatura_yok_penceresini_kapat(page):
+                yaz(f"    Luca: fatura bulunamadi ({int(gecen)} sn)", log)
+                return 0
+            bilgi = bilgi_penceresini_kapat(page)  # "... adet fatura bulundu" de bitis
             if bilgi:
                 yaz(f"    Luca: {bilgi} ({int(gecen)} sn)", log)
                 return 0
-
-        gunluk = islem_gunlugu(page)
 
         if gunluk:
             if not pencere_goruldu:
@@ -234,13 +236,22 @@ def _gibden_getir(page, baslangic, bitis, log):
     yaz(f"    GİB'den Getir aciliyor ({baslangic} - {bitis})", log)
     acik_pencereleri_kapat(page, log)  # onceki sorgudan kalan pencere tiklamayi engelliyor
     fatura_yok_penceresini_kapat(page)  # onceki sorgunun bildirimi yeni sorguya karismasin
+    eski_kutulari_isaretle(page)
     if not dugmeye_bas(page, GIB_GETIR):
         raise LookupError("'GİB'den Getir' butonuna basilamadi")
 
-    # tarih penceresi acilana kadar beklenir; kutular pencerenin icinde aranir
+    # tarih penceresi: yeni beliren tarih kutulari ya da bilinen bir Luca penceresi
+    # (hangisi once gelirse); kutular o pencerenin icinde aranir
     with olc("tarih penceresinin açılması"):
-        pencere = kosulu_bekle(page, lambda: acik_pencere(page)[1], 5000, aralik_ms=200)
-    kutular = tarih_kutulari(page, pencere)
+        bulunan = kosulu_bekle(page, lambda: yeni_tarih_kutulari(page) or acik_pencere(page)[1],
+                               5000, aralik_ms=150)
+    if isinstance(bulunan, list):
+        kutular, pencere = bulunan, acik_pencere(page)[1]
+    else:
+        if bulunan is None:  # gercek Luca'da neden gorulmedigi anlasilsin diye
+            gunluge_yaz(f"    TANI: tarih penceresi 5 sn'de gorulmedi; {_cerceve_ozeti(page)}", log)
+        pencere = bulunan
+        kutular = tarih_kutulari(page, pencere)
     if len(kutular) < 2:
         yaz(f"    UYARI: tarih kutulari bulunamadi ({len(kutular)} adet"
             + (f", son hata: {TANI['son_kutu_hatasi']}" if TANI["son_kutu_hatasi"] else "")
@@ -260,6 +271,29 @@ def _gibden_getir(page, baslangic, bitis, log):
                                      eski_gunluk=eski_gunluk)
     acik_pencereleri_kapat(page, log)
     return basarisiz
+
+
+CERCEVE_OZETI_JS = """() => {
+  const gor = e => !!(e.offsetParent || e.getClientRects().length);
+  const k = Array.from(document.querySelectorAll('input')).filter(gor);
+  const yeni = k.filter(e => !e.hasAttribute('data-lucabot-eski'));
+  const p = Array.from(document.querySelectorAll('div,table,form')).filter(e => {
+    const s = getComputedStyle(e); return gor(e) && (s.position === 'fixed' || s.position === 'absolute')
+      && e.querySelector('input'); }).slice(0, 3).map(e => (e.tagName + '.' + e.className).slice(0, 60));
+  return location.pathname.split('/').pop() + ': ' + k.length + ' kutu, ' + yeni.length + ' yeni'
+    + (p.length ? ', pencere adaylari ' + p.join(' ; ') : '');
+}"""
+
+
+def _cerceve_ozeti(page):
+    """Tani: gorunur cercevelerde kac kutu var, kaci yeni, hangi pencereler acik."""
+    parcalar = []
+    for fr in cerceveler(page):
+        try:
+            parcalar.append(fr.evaluate(CERCEVE_OZETI_JS))
+        except Exception as e:
+            parcalar.append(type(e).__name__)
+    return " | ".join(parcalar)[:600]
 
 
 def listenin_yuklenmesini_bekle(page, baslangic, azami_ms=15000):
