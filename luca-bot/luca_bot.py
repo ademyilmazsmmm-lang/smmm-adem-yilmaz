@@ -25,7 +25,7 @@ from lucabot import eposta, konsol
 from lucabot.calisma import Calisma
 from lucabot.firma_listesi import bugun_tamamlananlar, firmalari_suz
 from lucabot.giris import luca_oturumu_ac
-from lucabot.luca_gezinme import firma_secici
+from lucabot.luca_gezinme import firma_secici_bekle
 from lucabot.ortak import (AYAR, DURDUR_DOSYASI, ayarlari_oku, gunluge_yaz, icinde_bulunulan_ay,
                            indirme_koku, tarih_araliklari, tarih_cozumle, yaz)
 from lucabot.sabitler import BELGE_TIPLERI, TUM_BELGELER
@@ -222,7 +222,7 @@ def calistir(args, ayarlar, p):
 
         # 3. firmalar
         konsol.bolum("2/4  FIRMA LISTESI", log)
-        _, _, luca_firmalari = firma_secici(page)
+        _, _, luca_firmalari = firma_secici_bekle(page)
         yaz(f"Luca'da {len(luca_firmalari)} firma bulundu", log)
 
         if args.listele:

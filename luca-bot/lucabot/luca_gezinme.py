@@ -69,6 +69,17 @@ def firma_secici(page):
     raise LookupError("Firma listesi ayirt edilemedi")
 
 
+def firma_secici_bekle(page, sure=60000):
+    """firma_secici; giristen hemen sonra sayfa yuklenirken liste henuz yoksa en fazla `sure` ms bekler.
+
+    Gece calismasinda "muhasebe ekrani bulundu" dendikten saniyeler sonra liste
+    bulunamayinca butun calisma 'Firma listesi (select) bulunamadi' ile
+    basliyordu; Luca bazen firma listesini birkac sn gec dolduruyor.
+    """
+    kosulu_bekle(page, lambda: firma_sayisi(page) > 0, sure, aralik_ms=1500)
+    return firma_secici(page)
+
+
 def firma_sayisi(page):
     """Sayfadaki firma listesinde kac firma var (liste yuklenmis mi kontrolu)."""
     try:

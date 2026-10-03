@@ -220,6 +220,18 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertEqual(sonuc["fatura_sayisi"], 3)
         self.assertEqual(sonuc["durum"], "tamam")
 
+    def test_firma_listesi_gec_gelirse_beklenir(self):
+        """Giristen hemen sonra firma listesi henuz yoksa gece calismasi cokmemeli, liste gelince devam etmeli."""
+        from lucabot.luca_gezinme import firma_secici, firma_secici_bekle
+        self.page.set_content("""<div id="k">yukleniyor</div><script>setTimeout(() => {
+          const s = document.createElement('select');
+          for (let i = 1; i <= 8; i++) { const o = document.createElement('option'); o.text = 'FIRMA ' + i; s.add(o); }
+          document.body.appendChild(s); }, 2500);</script>""")
+        with self.assertRaises(LookupError):
+            firma_secici(self.page)               # eskiden dogrudan boyle dusuyordu
+        _, _, firmalar = firma_secici_bekle(self.page, sure=15000)
+        self.assertEqual(len(firmalar), 8)
+
     def test_gizli_sekmelerdeki_cerceveler_taranmaz(self):
         """Luca'nin gizli sekmelerinde biriken eski ekranlar aramaya girmemeli."""
         from lucabot.luca_ekran import cerceveler, gorunur_mu
@@ -295,6 +307,12 @@ class CalismaDayanikliligi(unittest.TestCase):
                                  eski_bildirim=eski)
         self.assertEqual(sonuc, 0)
         self.assertGreaterEqual(sure, 3.0)  # bildirim bitis sayilmadi, pencere_bekleme beklendi
+        # eski bildirim goruldugunde bekleme ESKI_BILDIRIM_BEKLEME_SANIYE ile sinirli (12 sn'nin tamami degil)
+        sonuc, sure = self._sure(islem_takibini_bekle, self.page, None, pencere_bekleme=12,
+                                 eski_bildirim=eski)
+        self.assertEqual(sonuc, 0)
+        self.assertGreaterEqual(sure, 5.0)
+        self.assertLess(sure, 8.0)
         self.assertEqual(self.page.locator("#b").count(), 1)  # bildirim kapatilmaya calisilmadi
 
     def test_yeni_sorgunun_bildirimi_hemen_bitis_sayilir(self):

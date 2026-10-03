@@ -35,6 +35,10 @@ TAKIP_ARALIGI_MS = 500
 ESKI_GUNLUK_SANIYE = 3
 # "sona erdi" gunlugun sonunda degilse bu kadar sure yeni satir gelmezse bitmis sayilir
 BITTI_SUKUNET_SANIYE = 5
+# Islem Takip penceresi hic acilmayan sorguda ekranda sorgudan once kalmis ayni bildirim
+# duruyorsa (sorgunun kendi sonucu ondan ayirt edilemez) pencere_bekleme'nin tamami
+# beklenmez: Islem Takip penceresi acilan sorgularda pencere ilk saniyede gorunuyor.
+ESKI_BILDIRIM_BEKLEME_SANIYE = 5
 
 
 def gib_hatasi(metin):
@@ -128,6 +132,7 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
     (aksi halde sorgu bitmeden sonraki tarihe geciliyor, faturalar eksik iniyordu).
     """
     eski_kayboldu = not eski_bildirim
+    eski_bildirim_goruldu = False
     basla = time.time()
     pencere_goruldu = False
     son_gunluk = ""
@@ -146,7 +151,7 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
             if not yazi:
                 eski_kayboldu = True
             elif yazi == eski_bildirim and not eski_kayboldu:
-                pass  # sorgudan once kalmis bildirim: bu sorgunun sonucu degil
+                eski_bildirim_goruldu = True  # sorgudan once kalmis bildirim: bu sorgunun sonucu degil
             else:
                 if fatura_yok_penceresini_kapat(page):
                     yaz(f"    Luca: fatura bulunamadi ({int(gecen)} sn)", log)
@@ -212,7 +217,8 @@ def islem_takibini_bekle(page, log, azami_saniye=900, durgunluk_saniye=180,
             acik_pencereleri_kapat(page)
             return GIB_HATASI
 
-        elif gecen > pencere_bekleme:
+        elif gecen > (min(pencere_bekleme, ESKI_BILDIRIM_BEKLEME_SANIYE) if eski_bildirim_goruldu
+                      else pencere_bekleme):
             yaz(f"    İşlem Takip penceresi {int(gecen)} sn icinde gorunmedi, devam ediliyor", log)
             return 0
 

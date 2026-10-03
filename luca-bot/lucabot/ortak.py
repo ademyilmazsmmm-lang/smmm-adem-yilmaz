@@ -87,7 +87,14 @@ def yaz(mesaj, log_dosyasi=None):
     try:
         print(mesaj, flush=True)
     except UnicodeEncodeError:  # eski Windows konsolu (chcp 65001 yapilmamis)
-        print(mesaj.encode("ascii", "replace").decode("ascii"), flush=True)
+        try:
+            print(mesaj.encode("ascii", "replace").decode("ascii"), flush=True)
+        except (OSError, ValueError):
+            pass
+    except (OSError, ValueError):
+        # konsol penceresi kapatilmis / pipe kopmus ("[Errno 22] Invalid argument"):
+        # ekrana yazilamaz ama calisma ve gunluk surer
+        pass
     gunluge_yaz(mesaj, log_dosyasi)
 
 

@@ -580,6 +580,19 @@ class DurdurDosyasiTestleri(unittest.TestCase):
         self.bekleme.nabiz(Sayfa(), 1)  # tekrar durdurmaz
 
 
+class YazTestleri(unittest.TestCase):
+    def test_konsol_kapaninca_yazma_calismayi_durdurmaz(self):
+        """Konsol penceresi kapaninca print "[Errno 22] Invalid argument" verir; gunluge yine yazilir."""
+        from unittest import mock
+        from lucabot import ortak
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "calisma.log"
+            for hata in (OSError(22, "Invalid argument"), ValueError("I/O operation on closed file")):
+                with mock.patch("builtins.print", side_effect=hata):
+                    ortak.yaz("deneme mesaji", log)  # hata firlatmamali
+            self.assertEqual(log.read_text(encoding="utf-8").count("deneme mesaji"), 2)
+
+
 class GecisAraciTestleri(unittest.TestCase):
     """gecis_rapor_birlestir.py: eski gunluk rapor.json'lari tek surekli rapora birlestirir."""
 
