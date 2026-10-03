@@ -250,27 +250,31 @@ class CalismaDayanikliligi(unittest.TestCase):
         musteri_listesi.kaydet(yol, 2026, kayitlar)
         self.assertEqual(musteri_listesi.oku(yol), (2026, kayitlar))
 
-    def test_beyanname_kontrolden_pdfler_alinir(self):
-        """Menu taranip Beyanname Kontrol bulunur; yalniz KDV1'in onayli PDF'leri (sekmede acilan ya da inen) kaydedilir."""
+    def test_gib_beyanname_takipten_pdfler_alinir(self):
+        """Muhasebe > Beyannameler > GİB Beyanname Takip: donem/durum/tur suzulur, hepsi secilip tek ZIP inip PDF'ler cikarilir."""
+        from datetime import date
         from lucabot import luca_beyanname
-        adlar = {"1111111111": "AKIN COBAN", "5555555555": "KEREM TICARET"}
-        yollar, alinamayan = luca_beyanname.ekrandan_al(
-            self.page, self.klasor / "pdf", self.klasor / "tani", adlar, None, None)
-        adlari = sorted(y.name for y in yollar)
-        self.assertEqual(adlari[0], "AKIN COBAN_1111111111_KDV1_2026-08_1.pdf")
-        self.assertEqual(adlari[1], "KEREM TICARET_5555555555_KDV1_2026-08_1.pdf")
-        self.assertTrue(adlari[2].startswith("MERT "), adlari)      # listede yok: satirdaki ad
-        self.assertEqual(len(yollar), 3)                      # KDV2 sutunu ve Tahakkuk tiklanmadi
-        self.assertEqual(alinamayan, [])
+        yollar, sayi = luca_beyanname.ekrandan_al(
+            self.page, self.klasor / "pdf", self.klasor / "tani", date(2026, 9, 1), None, None)
+        # eylul kontrolu: agustos donemi, yalniz onayli KDV1 (hatali ve temmuz elenir)
+        self.assertEqual(sayi, 3)
+        adlar = sorted(y.name for y in yollar)
+        self.assertEqual([a.split("_034252_")[0] for a in adlar], ["AKIN_COBAN", "KEREM_TICARET", "MERT_INSAAT"])
+        self.assertTrue(all("_BYN_" in a for a in adlar))        # tahakkuk dosyalari atildi
         for y in yollar:
             self.assertTrue(y.read_bytes().startswith(b"%PDF"))
-            self.assertNotIn(b"yanlis", y.read_bytes())
-        self.assertEqual(len(self.ctx.pages), 1)              # acilan PDF sekmeleri kapandi
-        self.assertTrue(list((self.klasor / "tani").glob("beyanname-kontrol*.png")))
+        self.assertEqual(len(self.ctx.pages), 1)
+        self.assertTrue(list((self.klasor / "tani").glob("beyanname-takip*.png")))
 
     def test_beyanname_menu_yolu_ayardan_izlenir(self):
         from lucabot import luca_beyanname
-        self.assertTrue(luca_beyanname.ekrani_ac(self.page, "Denetim/Analiz > Beyanname Kontrol"))
+        self.assertTrue(luca_beyanname.ekrani_ac(self.page, "Muhasebe > Beyannameler > GİB Beyanname Takip"))
+
+    def test_beyanname_donemi_bir_onceki_ay(self):
+        from datetime import date
+        from lucabot.luca_beyanname import donem_filtresi
+        self.assertEqual(donem_filtresi(date(2026, 9, 1)), (8, 2026))
+        self.assertEqual(donem_filtresi(date(2026, 1, 1)), (12, 2025))
 
     def test_musteri_listesi_baska_yil(self):
         from lucabot import musteri_listesi

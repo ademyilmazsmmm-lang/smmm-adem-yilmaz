@@ -40,12 +40,16 @@ MUSTERILER = [
     ("NUMARASIZ KISI", "NUMARASIZ KİŞİ", "", "01/02/2026", "", (2026,)),
 ]
 
-# Denetim/Analiz > Beyanname Kontrol: (mukellef adi, TCKN, VKN, KDV1'in PDF'i nasil gelir)
-BEYANNAME_SATIRLARI = [
-    ("AKIN ÇOBAN", "56221452838", "1111111111", "sekme"),
-    ("KEREM TİCARET", "12345678901", "5555555555", "sekme"),
-    ("MERT İNŞAAT SANAYİ", "23456789012", "6666666666", "indirme"),
+# Muhasebe > Beyannameler > GİB Beyanname Takip: (kisa ad, uzun ad, TCKN, VKN, ay, durum)
+BEYANNAMELER = [
+    ("AKIN COBAN", "AKIN ÇOBAN", "56221452838", "2581374902", 8, "Onaylanmış"),
+    ("KEREM TICARET", "KEREM TİCARET", "12345678901", "5555555555", 8, "Onaylanmış"),
+    ("MERT INSAAT", "MERT İNŞAAT SANAYİ", "", "6666666666", 8, "Onaylanmış"),
+    ("MERT INSAAT", "MERT İNŞAAT SANAYİ", "", "6666666666", 8, "Hatalı"),       # durum suzgecinde elenir
+    ("YENI FIRMA LTD", "YENİ FİRMA LİMİTED", "", "7777777777", 7, "Onaylanmış"),  # donem suzgecinde elenir
 ]
+AYLAR_TR = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM",
+            "KASIM", "ARALIK"]
 
 AEN_EKRANLARI = {
     "e-Arşiv Alış Faturaları": "e-arsiv-alis",
@@ -151,8 +155,12 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
   </select>
   <span id="onay" class="gizli">Seçim değişti <button id="tamam">Tamam</button></span>
   <span class="menu" style="display:inline-block;vertical-align:top">
-    <a id="denetim">Denetim/Analiz</a>
-    <div id="denetimMenu" class="gizli"><a id="beyKontrol">Beyanname Kontrol</a><a>Mizan Analizi</a></div>
+    <a id="muhasebe">Muhasebe</a>
+    <div id="muhasebeMenu" class="gizli">
+      <a>Hesap Planı İşlemleri</a>
+      <a id="beyannameler">Beyannameler</a>
+      <div id="beyannameMenu" class="gizli" style="margin-left:14px"><a>KDV</a><a id="gibTakip">GİB Beyanname Takip</a></div>
+    </div>
   </span>
   <span class="menu" style="display:inline-block;vertical-align:top">
     <a id="yonetici">Yönetici</a>
@@ -210,11 +218,14 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
    document.getElementById('yoneticiMenu').classList.add('gizli');
    sonra(300, () => sekmeAc('/musteri-listesi?t=' + Date.now()));
  };
- document.getElementById('denetim').onclick = () =>
-   sonra(150, () => document.getElementById('denetimMenu').classList.toggle('gizli'));
- document.getElementById('beyKontrol').onclick = () => {
-   document.getElementById('denetimMenu').classList.add('gizli');
-   sonra(300, () => sekmeAc('/beyanname-kontrol?t=' + Date.now()));
+ document.getElementById('muhasebe').onclick = () =>
+   sonra(150, () => document.getElementById('muhasebeMenu').classList.toggle('gizli'));
+ const by = document.getElementById('beyannameler');
+ by.onmouseenter = by.onclick = () =>
+   sonra(150, () => document.getElementById('beyannameMenu').classList.remove('gizli'));
+ document.getElementById('gibTakip').onclick = () => {
+   document.getElementById('muhasebeMenu').classList.add('gizli');
+   sonra(300, () => sekmeAc('/gib-beyanname-takip?t=' + Date.now()));
  };
  const aen = document.getElementById('aen');
  aen.onmouseenter = aen.onclick = () =>
@@ -397,23 +408,71 @@ MUSTERI_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Mü
  };
 </script></body></html>"""
 
-def beyanname_sayfasi():
-    satirlar = ""
-    for ad, tc, vkn, tur in BEYANNAME_SATIRLARI:
-        hedef = f"/beyanname.pdf?vkn={vkn}&tur={tur}"
-        onay = (f'<a href="#" onclick="window.open(\'{hedef}\', \'_blank\'); return false">'
-                f'Onaylanmış<br>Beyanname<br>(PDF)</a>')
-        if tur == "indirme":
-            onay = f'<a href="{hedef}">Onaylanmış Beyanname (PDF)</a>'
-        iptal = '<span>İptal Edilmiş Beyanname (PDF)</span>' if vkn == "5555555555" else ""
-        satirlar += (f"<tr><td>{ad}</td><td>2026/08</td><td>{tc}</td><td>{vkn}</td>"
-                     f"<td>{iptal}{onay}<br><span>Tahakkuk (PDF)</span></td>"
-                     f'<td><a href="#" onclick="window.open(\'/beyanname.pdf?vkn=yanlis\'); return false">'
-                     f"Onaylanmış Beyanname (PDF)</a></td></tr>")
-    return ("<!doctype html><html><head><meta charset='utf-8'><title>Beyanname Kontrol</title></head><body>"
-            "<h3>Beyanname Kontrol</h3><table border=1><thead><tr><th>Mükellef Adı</th><th>Dönem</th>"
-            "<th>TCKN</th><th>VKN</th><th>KDV1</th><th>KDV2</th></tr></thead><tbody>" + satirlar +
-            "</tbody></table><button>GİB'den Getir</button><button>Filtre</button></body></html>")
+BEYANNAME_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>GİB Beyanname Takip</title>
+""" + ORTAK_STIL + """</head><body>
+<h3>GİB Beyanname Takip</h3>
+<table id="liste"><thead><tr><th><input type="checkbox" id="hepsi"></th><th>TCKN</th><th>VKN</th><th>Mükellef Adı</th>
+<th>Tip</th><th>Beyanname Durum</th><th>Dönem</th></tr></thead><tbody></tbody></table>
+<div id="araclar"><button id="filtre">Filtre</button> <button>GİB'den Getir</button>
+<button>Sorgula</button> <button id="toplu">Toplu İşlemler</button></div>
+<div id="bildirim" class="luca-open-window gizli" style="top:auto;bottom:10px;left:auto;right:10px;min-width:100px"></div>
+<div id="arama" class="luca-open-window gizli">
+  <b>BEYANNAME ARAMA</b>
+  <table>
+   <tr><td>Paket Yükleme Tarihi</td><td><input type="text" id="t1" value="01/09/2026"><input type="text" id="t2" value="04/10/2026"></td></tr>
+   <tr><td>Beyanname Dönemi</td><td><select id="ay">__AYLAR__</select><select id="yil"><option>2025</option><option selected>2026</option></select></td></tr>
+   <tr><td>Paket Durum</td><td><select><option>Tümü</option></select></td></tr>
+   <tr><td>Beyanname Durum</td><td><select id="durum"><option>Tümü</option><option>Onaylanmış</option><option>Hatalı</option></select></td></tr>
+   <tr><td>Onaylanabilir Durumda mı?</td><td><select><option>Tümü</option></select></td></tr>
+   <tr><td>Beyanname</td><td><select id="tur"><option>Tümü</option><option>KDV1</option><option>KDV2</option></select></td></tr>
+   <tr><td>TCKN/VKN</td><td><input type="text"></td></tr>
+  </table>
+  <button id="listele">Beyannameleri Listele</button>
+</div>
+<div id="toplupencere" class="luca-open-window gizli">
+  <b>TOPLU İŞLEMLER</b>
+  <ul><li>Seçili olan onaylanmış beyannamelerin beyanname ve tahakkuk dosyalarını indirmek için <a href="#" id="indir">buraya</a> tıklayınız.</li>
+  <li>Seçili olan onaylanabilir beyannameleri onaylamak için <a href="#">buraya</a> tıklayınız.</li></ul>
+</div>
+<script>
+ let sorgu = '';
+ const g = id => document.getElementById(id);
+ g('filtre').onclick = () => setTimeout(() => g('arama').classList.remove('gizli'), 300);
+ g('hepsi').onchange = () => document.querySelectorAll('#liste tbody input').forEach(k => k.checked = g('hepsi').checked);
+ g('listele').onclick = async () => {
+   sorgu = 'ay=' + g('ay').selectedIndex + '&yil=' + g('yil').value + '&durum=' + encodeURIComponent(g('durum').value)
+     + '&tur=' + g('tur').value;
+   g('arama').classList.add('gizli');
+   const liste = await (await fetch('/api/beyannameler?' + sorgu)).json();
+   const tb = document.querySelector('#liste tbody'); tb.innerHTML = '';
+   setTimeout(() => {
+     for (const b of liste) tb.insertAdjacentHTML('beforeend', '<tr><td><input type="checkbox"></td><td>' + b[2]
+       + '</td><td>' + b[3] + '</td><td>' + b[1] + '</td><td>KDV1</td><td>' + b[5] + '</td><td>2026/0' + b[4] + '</td></tr>');
+     const x = g('bildirim'); x.textContent = liste.length + ' adet beyanname kaydı listelendi.';
+     x.classList.remove('gizli');
+   }, 700);
+ };
+ g('toplu').onclick = () => setTimeout(() => g('toplupencere').classList.remove('gizli'), 300);
+ g('indir').onclick = e => { e.preventDefault(); g('toplupencere').classList.add('gizli');
+   setTimeout(() => { location.href = '/indir/beyannameler?' + sorgu; }, 1200); };
+</script></body></html>"""
+
+
+def beyanname_listesi(ay, yil, durum, tur):
+    """Suzgece uyan satirlar (yalniz KDV1 ve 2026 verisi var)."""
+    if tur not in ("Tümü", "KDV1") or yil != 2026:
+        return []
+    return [b for b in BEYANNAMELER if b[4] == ay + 1 and durum in ("Tümü", b[5])]
+
+
+def beyanname_zip(satirlar):
+    tampon = io.BytesIO()
+    with zipfile.ZipFile(tampon, "w") as z:
+        for ad, _uzun, _tc, vkn, ay, _durum in satirlar:
+            on = ad.replace(" ", "_")
+            z.writestr(f"{on}_034252_{vkn}_KDV1_45_0{ay}082026-3108{ay}_BYN_17.pdf", b"%PDF-1.4 beyanname " + vkn.encode())
+            z.writestr(f"{on}_034252_{vkn}_KDV1_45_0{ay}082026-3108{ay}_THK_17.pdf", b"%PDF-1.4 tahakkuk " + vkn.encode())
+    return tampon.getvalue()
 
 
 AEN_ARAC = """<button data-e="getir" title="Alt+g">GİB'den Getir</button>
@@ -466,13 +525,18 @@ class Isleyici(BaseHTTPRequestHandler):
             html = (ANA_SAYFA.replace("__FIRMALAR__", secenek).replace("__AEN__", aen)
                     .replace("__ESKI__", ESKI_DONEMLI))
             return self._yanit(html)
-        if yol == "/beyanname-kontrol":
-            return self._yanit(beyanname_sayfasi())
-        if yol == "/beyanname.pdf":
-            vkn = (parse_qs(urlparse(self.path).query).get("vkn") or [""])[0]
-            ek = ({"Content-Disposition": f'attachment; filename="kdv1-{vkn}.pdf"'}
-                  if "tur=indirme" in self.path else None)
-            return self._yanit(b"%PDF-1.4\n% sahte beyanname " + vkn.encode(), "application/pdf", ek)
+        if yol == "/gib-beyanname-takip":
+            aylar = "".join(f"<option>{a}</option>" for a in AYLAR_TR)
+            return self._yanit(BEYANNAME_SAYFASI.replace("__AYLAR__", aylar))
+        if yol in ("/api/beyannameler", "/indir/beyannameler"):
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+            satirlar = beyanname_listesi(int(q.get("ay", 0)), int(q.get("yil", 0)),
+                                         q.get("durum", "Tümü"), q.get("tur", "Tümü"))
+            if yol == "/api/beyannameler":
+                return self._yanit(json.dumps(satirlar), "application/json")
+            time.sleep(1.5)  # Luca toplu dosyayi hazirlarken bekletir
+            return self._yanit(beyanname_zip(satirlar), "application/zip",
+                               {"Content-Disposition": 'attachment; filename="beyannameler.zip"'})
         if yol == "/musteri-listesi":
             return self._yanit(MUSTERI_SAYFASI)
         if yol == "/api/musteriler":

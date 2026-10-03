@@ -663,16 +663,12 @@ class Arayuz:
         dugme(satir, "Değiştir", self.giris_penceresi).pack(side="right")
 
         bolum_basligi(p, "Firma Listesi").pack(fill="x")
-        self.liste_etiketi = tk.Label(p, text="", font=KUCUK, fg=ETIKET, bg=KUTU, anchor="w",
-                                      padx=8, pady=6, highlightthickness=1, highlightbackground=KENAR)
-        self.liste_etiketi.pack(fill="x", pady=(6, 6))
         self.luca_liste_dugmesi = dugme(p, "Luca'dan Firma Listesini Çek…", self.firma_listesi_cek)
-        self.luca_liste_dugmesi.pack(fill="x")
+        self.luca_liste_dugmesi.pack(fill="x", pady=(6, 0))
         dugme(p, "KDV Devri ve Ekran Seçimi…", self.firma_ekran_penceresi).pack(fill="x", pady=(6, 0))
         tk.Label(p, text="Sadece bu firma (boş = listedeki hepsi)", font=KUCUK, fg=ETIKET,
                  bg=ZEMIN, anchor="w").pack(fill="x", pady=(10, 3))
         giris_kutusu(p, self.v_firma).pack(fill="x", ipady=4)
-        self._liste_etiketini_yaz()
 
         bolum_basligi(p, "Tarih Aralığı").pack(fill="x", pady=(16, 0))
         t = tk.Frame(p, bg=ZEMIN)
@@ -776,10 +772,6 @@ class Arayuz:
         else:
             self.giris_ozeti.configure(text="Giriş bilgisi girilmedi", fg=TURUNCU)
 
-    def _liste_etiketini_yaz(self):
-        yol = self.v_liste.get()
-        self.liste_etiketi.configure(text=Path(yol).name if yol else "Seçilmedi (tüm Luca firmaları)")
-
     def giris_penceresi(self):
         w = tk.Toplevel(self.kok, bg=ZEMIN, padx=24, pady=20)
         w.title("Luca Giriş Bilgileri")
@@ -825,7 +817,6 @@ class Arayuz:
         self.v_liste.set(yol)
         self.ayarlar["firma_listesi"] = yol
         ayarlari_kaydet(self.ayarlar)
-        self._liste_etiketini_yaz()
         self.gostergeleri_yenile()
 
     def firma_ekran_penceresi(self):
@@ -927,22 +918,30 @@ class Arayuz:
         self._baslat(komut, f"Luca'dan {yil} firma listesi çekiliyor…", mod="firma_listesi")
 
     def beyanname_cek(self, pencere):
-        """Luca'nin Beyanname Kontrol ekranindan KDV1 PDF'lerini indirir; bitince devirler pencereye yazilir."""
+        """Luca'nin GIB Beyanname Takip ekranindan KDV1 PDF'lerini indirir; bitince devirler pencereye yazilir."""
         if self.surec:
             messagebox.showinfo("Çalışıyor", "Önce çalışan işlem bitsin ya da Durdur'a basın.", parent=pencere.w)
             return
         if not self._giris_tamam_mi():
             return
+        donem = self.secili_donem()
+        if not donem:
+            messagebox.showwarning("Tarih aralığı", "Ana penceredeki tarih aralığını kontrol edin;"
+                                   " hangi dönemin devri alınacağı buradan anlaşılıyor.", parent=pencere.w)
+            return
+        hedef = tarih_cozumle(donem.split("-")[0])
+        onceki = (hedef - timedelta(days=1)).replace(day=1)
         if not messagebox.askyesno(
                 "Devri Luca'dan çek",
-                "Luca'nın Beyanname Kontrol ekranındaki onaylı KDV1 beyannameleri tek tek açılıp okunacak"
-                " (firma sayısına göre birkaç dakika sürer).\n\n"
-                "Ekranda hangi dönem listeleniyorsa o dönemin beyannameleri alınır; kontrol ettiğiniz dönem"
-                " Eylül ise Ağustos beyannamelerinin listelenmiş olması gerekir. Devreden KDV'ler"
-                " tabloya yazılır, Kaydet'e kadar dosyaya geçmez. Devam edilsin mi?", parent=pencere.w):
+                f"Kontrol edilen dönem {hedef:%m/%Y}: Luca'nın Muhasebe › Beyannameler › GİB Beyanname Takip"
+                f" ekranında {onceki:%m/%Y} dönemi, KDV1, Onaylanmış olarak listelenip tüm beyannameler tek"
+                " seferde indirilecek ve devreden KDV'ler okunacak (birkaç dakika sürebilir).\n\n"
+                "Devreden KDV'ler tabloya yazılır, Kaydet'e kadar dosyaya geçmez. Devam edilsin mi?",
+                parent=pencere.w):
             return
         self.beyanname_penceresi = pencere
-        komut = [python_komutu(), "-u", str(self.BOT), "--bitince-kapat", "--beyanname-cek"]
+        komut = [python_komutu(), "-u", str(self.BOT), "--bitince-kapat", "--beyanname-cek",
+                 "--baslangic", hedef.strftime(TARIH_BICIMI), "--bitis", donem.split("-")[1]]
         self._baslat(komut, "Luca'dan beyannameler alınıyor…", mod="beyanname")
 
     def _beyannameler_alindi(self):

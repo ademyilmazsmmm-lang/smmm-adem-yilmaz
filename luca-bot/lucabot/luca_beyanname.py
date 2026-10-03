@@ -1,153 +1,176 @@
 # -*- coding: utf-8 -*-
-"""Luca'daki "Beyanname Kontrol" ekranindan KDV1 beyanname PDF'lerini toplu alma.
+"""Luca'daki "GİB Beyanname Takip" ekranindan KDV1 beyanname PDF'lerini toplu alma.
 
-Ekran butun mukellefleri tek listede gosterir (Mükellef Adı, Dönem, TCKN, VKN,
-KDV1 ...); KDV1 sutunundaki "Onaylanmış Beyanname (PDF)" baglantisi beyannameyi
-acar. Bot her baglantiya tiklar, acilan/inen PDF'i yakalar ve
-`<kisa ad>_<vkn>_KDV1_<donem>_<n>.pdf` adiyla kaydeder; devreden KDV'yi okumak
-beyanname.py'nin isidir (arayuzdeki "Beyannameden Devir Al" ile ayni yol).
-
-Ekranin menudeki yeri gercek Luca'da henuz bilinmiyor: ayarlar.json'daki
-"beyanname_menusu" ("Denetim/Analiz > Beyanname Kontrol" gibi) varsa o izlenir,
-yoksa ust menuler sirayla taranir.
+Yol: Muhasebe > Beyannameler > GİB Beyanname Takip. Filtre penceresi
+("BEYANNAME ARAMA") donem, beyanname durumu (Onaylanmış) ve beyanname turu
+(KDV1) ile suzer; "Beyannameleri Listele" listeyi getirir. Basliktaki kutu
+hepsini secer, Toplu İşlemler > "onaylanmış beyannamelerin beyanname ve
+tahakkuk dosyalarını indirmek için buraya" baglantisi hepsini tek ZIP olarak
+indirir. ZIP'ten tahakkuk dosyalari atilir, kalan beyanname PDF'leri klasore
+yazilir; devreden KDV'yi okumak beyanname.py'nin isidir ("Beyannameden Devir Al"
+ile ayni yol).
 """
 
+import io
 import re
 import tempfile
+import zipfile
+from datetime import date, timedelta
 from pathlib import Path
 
-from .bekleme import kosulu_bekle, nabiz, sayfa_durulsun
-from .luca_ekran import (acik_pencereleri_kapat, gorunur_mu, menu_metinleri,
-                         metinle_bul)
+from .bekleme import kosulu_bekle, sayfa_durulsun
+from .beyanname import AYLAR
+from .luca_ekran import (acik_pencereleri_kapat, cerceveler, dugmeye_bas, gorunur_mu,
+                         menu_metinleri, metinle_bul)
 from .luca_gezinme import menu_ogesini_ac
 from .musteri_listesi import tani_kaydet
-from .ortak import dosya_adi_yap, yaz
+from .ortak import dosya_adi_yap, sadelestir, yaz
 
-EKRAN_ADI = "Beyanname Kontrol"
-UST_MENULER = ["Denetim/Analiz", "Muhasebe", "Müşteri", "Yönetici", "Personel", "Kişisel"]
-ARA_MENULER = ["Beyanname", "Beyannameler", "Beyanname İşlemleri", "Kontrol", "Raporlar", "Denetim"]
-HIZLI_ERISIM_JS = """ad => {
-  for (const s of document.querySelectorAll('select')) {
-    const o = [...s.options].find(o => o.text.trim().toLowerCase().includes(ad.toLowerCase()));
-    if (o) { s.setAttribute('data-lucabot-hizli', o.text); return o.text; }
-  }
-  return '';
-}"""
+MENU_YOLU = "Muhasebe > Beyannameler > GİB Beyanname Takip"
+EKRAN_ADI = "GİB Beyanname Takip"
+ARAMA_PENCERESI = "BEYANNAME ARAMA"
+LISTELE_DUGMESI = "Beyannameleri Listele"
+TOPLU_ISLEMLER = "Toplu İşlemler"
+LISTELENDI_DESENI = re.compile(r"(\d+)\s+adet\s+beyanname\s+kayd[ıi]\s+listelendi", re.I)
+TAHAKKUK_DESENI = re.compile(r"_THK_|tahakkuk", re.I)
 
-# "Onaylanmış Beyanname (PDF)" baglantilari: yaprak ogeler isaretlenir, satirdaki
-# mukellef bilgisiyle dondurulur. KDV1 basligi bulunursa yalniz o sutundakiler alinir.
-BAGLANTILAR_JS = r"""() => {
-  const duz = e => (e.textContent || '').replace(/\s+/g, ' ').trim();
-  // satir sonu / <br> ile bolunmus yazi da taninsin: tum bosluklar atilarak karsilastirilir
-  const bitisik = e => (e.innerText || e.textContent || '').replace(/\s+/g, '');
-  const desen = /^onaylanm[ıi]şbeyanname\(pdf\)$/i;
-  document.querySelectorAll('[data-lucabot-bey]').forEach(e => e.removeAttribute('data-lucabot-bey'));
-  const adaylar = [...document.querySelectorAll('a, span, div, td, font, u, b')]
-    .filter(e => desen.test(bitisik(e)) && ![...e.children].some(c => desen.test(bitisik(c))));
-  let kdvSutunu = null;
-  for (const e of document.querySelectorAll('th, td, div, span')) {
-    if (duz(e) === 'KDV1' && !e.children.length) {
-      const hucre = e.closest('th, td') || e;
-      const satir = hucre.parentElement;
-      kdvSutunu = [...satir.children].indexOf(hucre);
-      break;
+# Filtre penceresindeki alanlar: etiketi satirdaki ilk metin olan satirin kutulari
+# data-lucabot-alan="<etiket>#<sira>" ile isaretlenir
+ALANLAR_JS = r"""etiketler => {
+  document.querySelectorAll('[data-lucabot-alan]').forEach(e => e.removeAttribute('data-lucabot-alan'));
+  const gorunur = e => !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length);
+  const duz = e => (e.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const bulunan = {};
+  // yalniz arama penceresine bakilir: liste basliginda da "Beyanname Durum" yaziyor
+  const baslik = [...document.querySelectorAll('td, th, div, span, b')]
+    .find(e => gorunur(e) && !e.children.length && duz(e) === 'beyanname arama');
+  if (!baslik) return bulunan;
+  let kap = baslik.parentElement;
+  while (kap && !kap.querySelector('select') && kap.parentElement) kap = kap.parentElement;
+  for (const etiket of etiketler) {
+    const aranan = etiket.toLowerCase();
+    const el = [...kap.querySelectorAll('td, th, label, span, div, b')]
+      .find(e => gorunur(e) && !e.children.length && duz(e) === aranan);
+    if (!el) continue;
+    let satir = el.closest('tr') || el.parentElement;
+    let kutular = [...satir.querySelectorAll('select, input[type=text], input:not([type])')].filter(gorunur);
+    if (!kutular.length && satir.parentElement) {
+      satir = satir.parentElement;
+      kutular = [...satir.querySelectorAll('select, input[type=text], input:not([type])')].filter(gorunur);
     }
+    kutular.forEach((k, i) => k.setAttribute('data-lucabot-alan', etiket + '#' + i));
+    bulunan[etiket] = kutular.length;
   }
-  const sonuc = [];
-  adaylar.forEach(e => {
-    const hucre = e.closest('td, [role=gridcell]');
-    const satir = e.closest('tr, [role=row]');
-    const cocuklar = satir ? [...satir.children] : [];
-    const sutun = hucre ? cocuklar.indexOf(hucre) : -1;
-    const metinler = cocuklar.map(duz);
-    sonuc.push({sutun, ad: metinler[0] || '',
-      vkn: metinler.find(m => /^\d{10}$/.test(m)) || '',
-      tc: metinler.find(m => /^\d{11}$/.test(m)) || '',
-      donem: metinler.find(m => /^\d{4}\/\d{2}$/.test(m)) || '', e});
-  });
-  const secilen = kdvSutunu === null ? sonuc : sonuc.filter(s => s.sutun === kdvSutunu);
-  const kullan = secilen.length ? secilen : sonuc;
-  return kullan.map((s, i) => {
-    s.e.setAttribute('data-lucabot-bey', String(i));
-    return {i, ad: s.ad, vkn: s.vkn, tc: s.tc, donem: s.donem};
-  });
+  return bulunan;
 }"""
 
 
 # --- ekrani acma -------------------------------------------------------------------
 
-def _ekran_hazir(page, sure=15000):
+def _ekran_hazir(page, sure=20000):
     return bool(kosulu_bekle(page, lambda: gorunur_mu(page, "Mükellef Adı", sure=0)
-                             or gorunur_mu(page, "Onaylanmış", sure=0), sure, aralik_ms=500))
-
-
-def _ekrani_tikla(page):
-    _, madde = metinle_bul(page, EKRAN_ADI, sure=4000)
-    madde.click(timeout=8000)
-    return _ekran_hazir(page)
-
-
-def _hizli_erisimden_ac(page):
-    """Ust cubuktaki "Hızlı Erişim" listesinde ekran varsa onu secer."""
-    for fr in page.frames:
-        try:
-            metin = fr.evaluate(HIZLI_ERISIM_JS, EKRAN_ADI)
-            if metin:
-                fr.locator("[data-lucabot-hizli]").select_option(label=metin, timeout=5000)
-                return _ekran_hazir(page, sure=10000)
-        except Exception:
-            continue
-    return False
-
-
-def _yoldan_ac(page, yol):
-    """'Denetim/Analiz > Beyanname Kontrol' gibi yolu sirayla acar."""
-    parcalar = [p.strip() for p in yol.split(">") if p.strip()]
-    for sonraki, parca in zip(parcalar[1:] + [None], parcalar):
-        dogrula = (lambda m=sonraki: gorunur_mu(page, m, sure=1200)) if sonraki else None
-        if sonraki is None:
-            _, madde = metinle_bul(page, parca, sure=5000)
-            madde.click(timeout=8000)
-            return _ekran_hazir(page)
-        menu_ogesini_ac(page, parca, sure=6000, dogrula=dogrula)
-    return False
+                             and gorunur_mu(page, "Filtre", sure=0), sure, aralik_ms=500))
 
 
 def ekrani_ac(page, yol=None, log=None):
-    """Beyanname Kontrol ekranini acar; ekran listesi gorunene kadar. Bulunamazsa LookupError."""
+    """'Muhasebe > Beyannameler > GİB Beyanname Takip' yolunu izler; ekran gelene kadar bekler."""
     acik_pencereleri_kapat(page)
-    if yol:
+    parcalar = [p.strip() for p in (yol or MENU_YOLU).split(">") if p.strip()]
+    for _ in range(3):
+        for sonraki, parca in zip(parcalar[1:], parcalar[:-1]):
+            menu_ogesini_ac(page, parca, sure=6000, dogrula=lambda m=sonraki: gorunur_mu(page, m, sure=1200))
         try:
-            if _yoldan_ac(page, yol):
-                return True
-        except LookupError:
-            yaz(f"    '{yol}' menu yolu izlenemedi, ust menuler taranacak", log)
-    if _hizli_erisimden_ac(page):
-        return True
-    gorunur = lambda: gorunur_mu(page, EKRAN_ADI, sure=900)
-    for ust in UST_MENULER:
-        menu_ogesini_ac(page, ust, sure=3000, dogrula=gorunur)
-        if not gorunur():
-            for ara in ARA_MENULER:
-                if gorunur_mu(page, ara, sure=300):
-                    menu_ogesini_ac(page, ara, sure=2000, dogrula=gorunur)
-                    if gorunur():
-                        break
-        if gorunur():
+            _, madde = metinle_bul(page, parcalar[-1], sure=5000)
+            madde.click(timeout=8000)
+        except Exception:
+            sayfa_durulsun(page, azami_ms=1000)
+            continue
+        if _ekran_hazir(page):
+            return True
+    raise LookupError(f"'{' > '.join(parcalar)}' menusu acilamadi")
+
+
+# --- filtre ------------------------------------------------------------------------
+
+def _secenek_sec(secici, metin):
+    """Select'te sadelestirilmis metni tutan secenegi secer; bulunamazsa False."""
+    hedef = sadelestir(metin)
+    secenekler = secici.locator("option").all_inner_texts()
+    for i, s in enumerate(secenekler):
+        if sadelestir(s) == hedef:
+            secici.select_option(index=i, timeout=8000)
+            return True
+    return False
+
+
+def donem_filtresi(hedef_bas):
+    """Devir icin bakilacak beyanname donemi: kontrol edilen donemin bir onceki ayi."""
+    onceki = (hedef_bas - timedelta(days=1)).replace(day=1)
+    return onceki.month, onceki.year
+
+
+def filtrele(page, ay, yil, log=None):
+    """Filtre penceresini doldurup 'Beyannameleri Listele'ye basar; ekrandaki cerceve ya da None."""
+    dugmeye_bas(page, "Filtre", sure=8000)
+    if not gorunur_mu(page, ARAMA_PENCERESI, sure=8000):
+        dugmeye_bas(page, "Filtre", sure=4000)
+        if not gorunur_mu(page, ARAMA_PENCERESI, sure=8000):
+            raise LookupError(f"'{ARAMA_PENCERESI}' penceresi acilmadi")
+    etiketler = ["Paket Yükleme Tarihi", "Beyanname Dönemi", "Beyanname Durum", "Beyanname"]
+    cerceve = None
+    for fr in cerceveler(page):
+        try:
+            bulunan = fr.evaluate(ALANLAR_JS, etiketler)
+        except Exception:
+            continue
+        if bulunan.get("Beyanname Dönemi"):
+            cerceve = fr
+            break
+    if cerceve is None:
+        raise LookupError("Filtre penceresindeki alanlar bulunamadi")
+
+    def alan(ad, sira=0):
+        return cerceve.locator(f'[data-lucabot-alan="{ad}#{sira}"]')
+
+    # sirayla: bos kalan zorunlu alan yanlis beyanname indirmesin
+    zorunlu = [("Beyanname Dönemi", 0, AYLAR[ay - 1]), ("Beyanname Dönemi", 1, str(yil)),
+               ("Beyanname Durum", 0, "Onaylanmış"), ("Beyanname", 0, "KDV1")]
+    for ad, sira, deger in zorunlu:
+        if not _secenek_sec(alan(ad, sira), deger):
+            raise LookupError(f"'{ad}' listesinde '{deger}' secenegi bulunamadi")
+    # yukleme tarihi: dönem ayinin basindan bugune (beyannameler ertesi ay yuklenir)
+    bas, bit = date(yil, ay, 1), date.today()
+    for sira, d in enumerate((bas, bit)):
+        try:
+            kutu = alan("Paket Yükleme Tarihi", sira)
+            kutu.fill(f"{d:%d/%m/%Y}", timeout=5000)
+            kutu.press("Tab")
+        except Exception:
+            yaz("    Paket yükleme tarihi yazilamadi (varsayilan aralik kalir)", log)
+    if not dugmeye_bas(page, LISTELE_DUGMESI, sure=8000):
+        raise LookupError(f"'{LISTELE_DUGMESI}' dugmesine basilamadi")
+    return cerceve
+
+
+def listelenen_sayi(page, sure_ms=90000):
+    """'N adet beyanname kaydı listelendi.' bildirimindeki N; gelmezse None."""
+    def oku():
+        for fr in cerceveler(page):
             try:
-                if _ekrani_tikla(page):
-                    yaz(f"Ekran '{ust}' menusunden acildi", log)
-                    return True
+                m = LISTELENDI_DESENI.search(fr.locator("body").inner_text(timeout=2000))
             except Exception:
-                pass
-        acik_pencereleri_kapat(page)
-    raise LookupError(f"'{EKRAN_ADI}' menusu bulunamadi")
+                continue
+            if m:
+                return int(m.group(1))
+        return None
+    sonuc = kosulu_bekle(page, lambda: oku() is not None, sure_ms, aralik_ms=700)
+    return oku() if sonuc else None
 
 
-# --- PDF yakalama ------------------------------------------------------------------
+# --- indirme -----------------------------------------------------------------------
 
-class PdfYakalayici:
-    """Tiklamadan sonra acilan sekmeye ya da inen dosyaya bakar; PDF baytlarini toplar."""
+class DosyaYakalayici:
+    """Tiklamadan sonra inen (ya da sekmede acilan) ZIP/PDF baytlarini toplar."""
 
     def __init__(self, page):
         self.page = page
@@ -170,7 +193,7 @@ class PdfYakalayici:
                 p.remove_listener("download", self._indirme)
             except Exception:
                 pass
-        for p in list(self.ctx.pages):  # tiklamayla acilan PDF sekmeleri kapanir
+        for p in list(self.ctx.pages):  # indirme icin acilan bos sekmeler kapanir
             if p not in self._onceki:
                 try:
                     p.close()
@@ -182,7 +205,7 @@ class PdfYakalayici:
 
     def _indirme(self, d):
         try:
-            gecici = Path(tempfile.mkdtemp()) / "indirme.pdf"
+            gecici = Path(tempfile.mkdtemp()) / "indirme.bin"
             d.save_as(str(gecici))
             self.alinan.append(gecici.read_bytes())
         except Exception:
@@ -193,103 +216,97 @@ class PdfYakalayici:
             basliklar = {k.lower(): v for k, v in (r.headers or {}).items()}
             tur = basliklar.get("content-type", "").lower()
             ek = basliklar.get("content-disposition", "").lower()
-            if "pdf" not in tur and ".pdf" not in ek:
+            if not any(k in tur or k in ek for k in ("pdf", "zip")):
                 return
             veri = b""
             try:
                 veri = r.body()
             except Exception:
                 pass
-            if veri[:4] != b"%PDF":  # yeni sekmenin ilk yanitinda govde bazen yanlis gelir: ayni adres yeniden istenir
+            if veri[:4] not in (b"%PDF", b"PK\x03\x04"):  # yeni sekmenin ilk yanitinda govde bazen yanlis gelir
                 veri = self.ctx.request.get(r.url).body()
-            if veri[:4] == b"%PDF":
+            if veri[:4] in (b"%PDF", b"PK\x03\x04"):
                 self.alinan.append(veri)
         except Exception:
             pass
 
-    def bekle(self, sure_ms=25000):
-        """Ilk PDF gelene kadar bekler; baytlar ya da None."""
-        kosulu_bekle(self.page, lambda: bool(self.alinan), sure_ms, aralik_ms=300)
+    def bekle(self, sure_ms):
+        kosulu_bekle(self.page, lambda: bool(self.alinan), sure_ms, aralik_ms=400)
         return self.alinan[0] if self.alinan else None
 
 
-# --- toplu alma --------------------------------------------------------------------
+def toplu_indir(page, cerceve, sure_ms=300000, log=None):
+    """Hepsini secip Toplu İşlemler'deki ilk 'buraya' baglantisiyla ZIP'i indirir; baytlar ya da None."""
+    try:
+        cerceve.locator("input[type=checkbox]").first.check(timeout=8000)  # baslik kutusu: hepsi
+    except Exception as e:
+        raise LookupError(f"Hepsini sec kutusu isaretlenemedi ({type(e).__name__})")
+    sayfa_durulsun(page, azami_ms=800)
+    if not dugmeye_bas(page, TOPLU_ISLEMLER, sure=8000):
+        raise LookupError(f"'{TOPLU_ISLEMLER}' dugmesine basilamadi")
+    if not gorunur_mu(page, "buraya", sure=8000):
+        raise LookupError("Toplu işlemler penceresi acilmadi")
+    yakalayici = DosyaYakalayici(page)
+    try:
+        for fr in cerceveler(page):
+            try:
+                bag = fr.get_by_text("buraya", exact=True).first
+                if bag.count() and bag.is_visible():
+                    bag.click(timeout=8000)  # ilk madde: beyanname ve tahakkuk dosyalarini indir
+                    break
+            except Exception:
+                continue
+        else:
+            raise LookupError("'buraya' baglantisi bulunamadi")
+        yaz("    Toplu indirme istendi; Luca dosyayi hazirlarken bekleniyor…", log)
+        return yakalayici.bekle(sure_ms)
+    finally:
+        yakalayici.kapat()
 
-def baglantilari_bul(page):
-    """Ekrandaki 'Onaylanmış Beyanname (PDF)' baglantilari: (cerceve, [{i, ad, vkn, tc, donem}])."""
-    from .luca_ekran import cerceveler
-    en_iyi = (None, [])
-    for fr in cerceveler(page):
-        try:
-            bulunan = fr.evaluate(BAGLANTILAR_JS)
-        except Exception:
-            continue
-        if len(bulunan) > len(en_iyi[1]):
-            en_iyi = (fr, bulunan)
-    return en_iyi
 
-
-def dosya_adi(kisa_ad, vkn, donem, sira):
-    donem = (donem or "").replace("/", "-")
-    return f"{dosya_adi_yap(kisa_ad)}_{vkn or 'x'}_KDV1_{donem or 'x'}_{sira}.pdf"
-
-
-def hepsini_al(page, klasor, adlar=None, log=None, sure_ms=25000):
-    """Her mukellefin onayli KDV1 beyannamesini klasore indirir.
-
-    adlar: {vkn ya da tc: kisa ad} (Luca musteri listesinden); yoksa satirdaki
-    Mükellef Adı kullanilir. Dondurur: (kaydedilen yollar, alinamayan satir adlari).
-    """
+def arsivden_pdfler(veri, klasor, log=None):
+    """ZIP (ya da tek PDF) baytlarindan beyanname PDF'lerini klasore yazar; tahakkuk dosyalari atilir."""
     klasor.mkdir(parents=True, exist_ok=True)
-    adlar = adlar or {}
-    fr, baglantilar = baglantilari_bul(page)
-    yaz(f"{len(baglantilar)} onaylı beyanname bağlantısı bulundu", log)
-    kaydedilen, alinamayan, sayac = [], [], {}
-    for n, b in enumerate(baglantilar, 1):
-        nabiz(page, 50)  # Durdur istegi gelmisse KeyboardInterrupt
-        ad = adlar.get(b["vkn"]) or adlar.get(b["tc"]) or b["ad"] or b["vkn"] or f"firma{n}"
-        sayac[ad] = sayac.get(ad, 0) + 1
-        yakalayici = PdfYakalayici(page)
-        veri = None
-        try:
-            hedef = fr.locator(f'[data-lucabot-bey="{b["i"]}"]').first
-            hedef.scroll_into_view_if_needed(timeout=5000)
-            hedef.click(timeout=8000)
-            veri = yakalayici.bekle(sure_ms)
-        except Exception as e:
-            yaz(f"    [{n}/{len(baglantilar)}] {ad}: tıklanamadı ({type(e).__name__})", log)
-        finally:
-            yakalayici.kapat()
-        if veri is None:
-            alinamayan.append(ad)
-            yaz(f"    [{n}/{len(baglantilar)}] {ad}: PDF alınamadı", log)
-            sayfa_durulsun(page, azami_ms=500)
+    yollar = []
+    if veri[:4] == b"%PDF":
+        adlar = {"beyanname.pdf": veri}
+    else:
+        with zipfile.ZipFile(io.BytesIO(veri)) as z:
+            adlar = {Path(i.filename).name: z.read(i) for i in z.infolist()
+                     if i.filename.lower().endswith(".pdf") and not i.is_dir()}
+    for ad, icerik in sorted(adlar.items()):
+        if TAHAKKUK_DESENI.search(ad):
             continue
-        yol = klasor / dosya_adi(ad, b["vkn"] or b["tc"], b["donem"], sayac[ad])
-        yol.write_bytes(veri)
-        kaydedilen.append(yol)
-        yaz(f"    [{n}/{len(baglantilar)}] {ad}: {yol.name} ({len(veri) // 1024} KB)", log)
-    return kaydedilen, alinamayan
+        yol = klasor / dosya_adi_yap(ad)
+        yol.write_bytes(icerik)
+        yollar.append(yol)
+    return yollar
 
 
-def ekrandan_al(page, klasor, tani_klasoru, adlar=None, yol=None, log=None):
-    """Ekrani acip butun PDF'leri alir; ekran goruntusu/kaynak tani klasorune kaydedilir."""
+def ekrandan_al(page, klasor, tani_klasoru, hedef_bas, yol=None, log=None):
+    """Ekrani acar, donemi suzer, ZIP'i indirip PDF'leri klasore cikarir. Dondurur: (yollar, listelenen sayi)."""
     try:
         ekrani_ac(page, yol, log)
     except LookupError:
         yaz(f"    Gorunen menuler: {menu_metinleri(page)}", log)
-        tani_kaydet(page, tani_klasoru, log, "-menu", "beyanname-kontrol")
+        tani_kaydet(page, tani_klasoru, log, "-menu", "beyanname-takip")
         raise
-    sayfa_durulsun(page, azami_ms=1500)
-    tani_kaydet(page, tani_klasoru, log, "", "beyanname-kontrol")
-    return hepsini_al(page, klasor, adlar, log)
-
-
-def adlar_haritasi(kayitlar):
-    """Luca musteri listesi kayitlarindan {vkn / tc: kisa ad}."""
-    harita = {}
-    for k in kayitlar:
-        for anahtar in (k.get("vkn"), k.get("tc")):
-            if anahtar:
-                harita[anahtar] = k["ad"]
-    return harita
+    ay, yil = donem_filtresi(hedef_bas)
+    yaz(f"Beyanname dönemi: {AYLAR[ay - 1].title()} {yil} (KDV1, onaylanmış)", log)
+    try:
+        cerceve = filtrele(page, ay, yil, log)
+        sayi = listelenen_sayi(page)
+        tani_kaydet(page, tani_klasoru, log, "", "beyanname-takip")
+        if not sayi:
+            raise LookupError(f"{AYLAR[ay - 1].title()} {yil} için onaylı KDV1 beyannamesi listelenmedi")
+        yaz(f"{sayi} beyanname kaydı listelendi", log)
+        veri = toplu_indir(page, cerceve, log=log)
+    except LookupError:
+        tani_kaydet(page, tani_klasoru, log, "-hata", "beyanname-takip")
+        raise
+    if veri is None:
+        tani_kaydet(page, tani_klasoru, log, "-indirme", "beyanname-takip")
+        raise LookupError("Toplu indirme dosyası gelmedi")
+    yollar = arsivden_pdfler(veri, klasor, log)
+    yaz(f"{len(yollar)} beyanname PDF'i çıkarıldı (liste: {sayi} kayıt)", log)
+    return yollar, sayi
