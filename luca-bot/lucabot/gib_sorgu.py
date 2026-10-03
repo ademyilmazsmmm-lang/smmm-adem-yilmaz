@@ -12,6 +12,7 @@ import time
 from .bekleme import (degisiklik_baslat, degisip_durulsun, geri_cekil, kosulu_bekle,
                       nabiz, sayfa_durulsun)
 from .luca_ekran import (TANI, acik_pencere, acik_pencereleri_kapat, eski_kutulari_isaretle,
+                         getir_dugmesi,
                          yeni_tarih_kutulari,
                          bilgi_penceresini_kapat, cerceveler, diyalog_bekle,
                          dugmeye_bas, ekranda_gib_hatasi,
@@ -237,8 +238,9 @@ def _gibden_getir(page, baslangic, bitis, log):
     acik_pencereleri_kapat(page, log)  # onceki sorgudan kalan pencere tiklamayi engelliyor
     fatura_yok_penceresini_kapat(page)  # onceki sorgunun bildirimi yeni sorguya karismasin
     eski_kutulari_isaretle(page)
-    if not dugmeye_bas(page, GIB_GETIR):
-        raise LookupError("'GİB'den Getir' butonuna basilamadi")
+    getir = getir_dugmesi(page, sure=8000) or GIB_GETIR  # ekrana gore GİB'den / TÜRMOB'dan Getir
+    if not dugmeye_bas(page, getir):
+        raise LookupError(f"'{getir}' butonuna basilamadi. Gorunen ogeler: {menu_metinleri(page, 20)}")
 
     # tarih penceresi: yeni beliren tarih kutulari ya da bilinen bir Luca penceresi
     # (hangisi once gelirse); kutular o pencerenin icinde aranir

@@ -10,7 +10,7 @@ from .luca_ekran import (acik_pencereleri_kapat, cerceveler, gorunur_mu,
                          varsa_tikla)
 from .ortak import AYAR, karsilastir, sadelestir, tarih_cozumle, yaz
 from .sure_olcer import olculur
-from .sabitler import (BELGE_TIPLERI, DONEM_DESENI, GIB_GETIR, IKI_KADEMELI,
+from .sabitler import (BELGE_TIPLERI, DONEM_DESENI, GETIR_DUGMELERI, IKI_KADEMELI,
                        INTERAKTIF_LISTELE, KAPAT_METINLERI, MENU_KELIMELERI,
                        MODUL_ADAYLARI, UST_MENU)
 
@@ -368,7 +368,7 @@ def menuye_git(page, belge_tipi):
     """
     hedef = BELGE_TIPLERI[belge_tipi]
     # Ekran acildiginda mutlaka gorunen buton: bekleme bunu gorunce biter
-    isaret = INTERAKTIF_LISTELE if belge_tipi in IKI_KADEMELI else GIB_GETIR
+    isaret = INTERAKTIF_LISTELE if belge_tipi in IKI_KADEMELI else GETIR_DUGMELERI
     if belge_tipi in IKI_KADEMELI:
         return modul_menusunden_git(page, hedef, isaret)
     ust_gorunur = lambda: gorunur_mu(page, UST_MENU, sure=1200)

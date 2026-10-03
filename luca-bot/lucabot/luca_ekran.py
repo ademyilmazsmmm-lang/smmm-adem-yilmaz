@@ -78,7 +78,13 @@ def metinle_bul(page, metin, sure=15000):
 
 
 def gorunur_mu(page, metin, sure=1500):
-    """Sadece varlik kontrolu; tiklama icin kullanilmadigindan tek (hizli) arama yeter."""
+    """Sadece varlik kontrolu; tiklama icin kullanilmadigindan tek (hizli) arama yeter.
+
+    metin bir liste ise herhangi biri gorunur olunca True doner.
+    """
+    if not isinstance(metin, str):
+        return bool(kosulu_bekle(page, lambda: any(gorunur_mu(page, m, sure=0) for m in metin),
+                                 sure, aralik_ms=200))
     try:
         bul(page, lambda f: f.get_by_text(metin, exact=False), sure=sure)
         return True
@@ -87,6 +93,14 @@ def gorunur_mu(page, metin, sure=1500):
 
 
 @olculur("buton arama/tıklama", genel=True)
+def getir_dugmesi(page, sure=3000):
+    """Ekranin sorguyu baslatan dugmesinin yazisi (GİB'den Getir / TÜRMOB'dan Getir); yoksa None."""
+    from .sabitler import GETIR_DUGMELERI
+    return kosulu_bekle(
+        page, lambda: next((m for m in GETIR_DUGMELERI if gorunur_mu(page, m, sure=0)), None),
+        sure, aralik_ms=200)
+
+
 def varsa_tikla(page, metinler, sure=1500, durul=True):
     """Metinlerden ilk bulunana tiklar; hicbiri yoksa None doner (hata firlatmaz).
 

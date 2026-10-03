@@ -207,6 +207,19 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertTrue(all(len(f) == 3 and f[2] for f in sonuc["faturalar"]))  # tutarlar dolu
 
 
+    def test_turmob_ekraninda_turmobdan_getir_dugmesi_taninir(self):
+        """TÜRMOB ekranlarinda sorgu dugmesi 'TÜRMOB'dan Getir'; ekran acilmadi sanilmamali."""
+        from lucabot.ekran_isleyici import firma_isle
+        from lucabot.ortak import AYAR
+        sahte_luca.sifirla()
+        AYAR.update(azami_saniye=120, durgunluk_saniye=60, indirme_saniye=15)
+        araliklar = tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("05/08/2026"))
+        sonuc = firma_isle(self.page, "AKIN COBAN", "turmob-alis", araliklar, self.klasor,
+                           self.klasor / "calisma.log")
+        self.assertNotEqual(sonuc["durum"], "ekran acilmadi", sonuc)
+        self.assertEqual(sonuc["fatura_sayisi"], 3)
+        self.assertEqual(sonuc["durum"], "tamam")
+
     def test_gizli_sekmelerdeki_cerceveler_taranmaz(self):
         """Luca'nin gizli sekmelerinde biriken eski ekranlar aramaya girmemeli."""
         from lucabot.luca_ekran import cerceveler, gorunur_mu

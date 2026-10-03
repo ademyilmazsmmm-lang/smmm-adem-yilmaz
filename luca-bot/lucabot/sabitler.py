@@ -96,6 +96,9 @@ KAYIT_SAYISI_DESENI = re.compile(r"Toplam\s*Kay[ıi]t\s*Say[ıi]s[ıi]\s*[:=]?\s
 # --- pencereler ve butonlar -------------------------------------------------
 KAPAT_METINLERI = ["Bir daha gösterme"]  # sayfadaki "Tamam"/"Kapat" baska islevlere ait olabiliyor
 GIB_GETIR = "GİB'den Getir"
+# TÜRMOB Entegratörlük ekranlarında aynı işlevin düğmesi "TÜRMOB'dan Getir" (kıvrık ve düz
+# kesme işareti); ekranın açıldığını ve sorgunun başlayacağı düğmeyi bunlardan biri gösterir.
+GETIR_DUGMELERI = [GIB_GETIR, "TÜRMOB'dan Getir", "TÜRMOB’dan Getir"]
 DIYALOG_ONAY = ["Belgeleri Getir", "Sorgula", "Onayla", "Uygula"]
 INDIRME_ONAY = ["Seçilenleri İndir", "Belgeleri İndir", "Dosyaları İndir", "İndir", "Onayla"]
 DIYALOG_CAPASI = "Tüm faturaları seçmek için"

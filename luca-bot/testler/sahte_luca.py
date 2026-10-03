@@ -349,6 +349,8 @@ class Isleyici(BaseHTTPRequestHandler):
         if yol == "/ekran":
             baslik = next((ad for ad, t in AEN_EKRANLARI.items() if t == tip), "E-Arşiv Faturaları Sorgulama")
             arac = INTERAKTIF_ARAC if tip == "e-arsiv-interaktif" else AEN_ARAC
+            if tip.startswith("turmob"):  # gercek Luca'da bu ekranlarin dugmesi "TÜRMOB'dan Getir"
+                arac = arac.replace("GİB'den Getir", "TÜRMOB'dan Getir")
             if firma == "MERT INSAAT" and tip == "esmm-alis":
                 arac = "<i>Bu modul firmada tanimli degil</i>"  # ekran bos gelir
             html = (EKRAN.replace("__BASLIK__", baslik).replace("__ARAC__", arac)
