@@ -62,6 +62,7 @@ def fetch_series(api_key: str) -> list[tuple[date, float]]:
     data = _get_json(url, api_key)
 
     items = data.get("items", [])
+    print(f"DEBUG: toplam {len(items)} kayıt, son 5 ham kayıt: {items[-5:]}", file=sys.stderr)
     series_key = SERIES.replace(".", "_")
 
     points: list[tuple[date, float]] = []
