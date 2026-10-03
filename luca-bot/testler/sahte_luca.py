@@ -40,6 +40,13 @@ MUSTERILER = [
     ("NUMARASIZ KISI", "NUMARASIZ KİŞİ", "", "01/02/2026", "", (2026,)),
 ]
 
+# Denetim/Analiz > Beyanname Kontrol: (mukellef adi, TCKN, VKN, KDV1'in PDF'i nasil gelir)
+BEYANNAME_SATIRLARI = [
+    ("AKIN ÇOBAN", "56221452838", "1111111111", "sekme"),
+    ("KEREM TİCARET", "12345678901", "5555555555", "sekme"),
+    ("MERT İNŞAAT SANAYİ", "23456789012", "6666666666", "indirme"),
+]
+
 AEN_EKRANLARI = {
     "e-Arşiv Alış Faturaları": "e-arsiv-alis",
     "e-Arşiv Satış Faturaları": "e-arsiv-satis",
@@ -144,6 +151,10 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
   </select>
   <span id="onay" class="gizli">Seçim değişti <button id="tamam">Tamam</button></span>
   <span class="menu" style="display:inline-block;vertical-align:top">
+    <a id="denetim">Denetim/Analiz</a>
+    <div id="denetimMenu" class="gizli"><a id="beyKontrol">Beyanname Kontrol</a><a>Mizan Analizi</a></div>
+  </span>
+  <span class="menu" style="display:inline-block;vertical-align:top">
     <a id="yonetici">Yönetici</a>
     <div id="yoneticiMenu" class="gizli">
       <a id="musteriIslemleri">Müşteri İşlemleri</a>
@@ -198,6 +209,12 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
  document.getElementById('musteriListesi').onclick = () => {
    document.getElementById('yoneticiMenu').classList.add('gizli');
    sonra(300, () => sekmeAc('/musteri-listesi?t=' + Date.now()));
+ };
+ document.getElementById('denetim').onclick = () =>
+   sonra(150, () => document.getElementById('denetimMenu').classList.toggle('gizli'));
+ document.getElementById('beyKontrol').onclick = () => {
+   document.getElementById('denetimMenu').classList.add('gizli');
+   sonra(300, () => sekmeAc('/beyanname-kontrol?t=' + Date.now()));
  };
  const aen = document.getElementById('aen');
  aen.onmouseenter = aen.onclick = () =>
@@ -380,6 +397,25 @@ MUSTERI_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Mü
  };
 </script></body></html>"""
 
+def beyanname_sayfasi():
+    satirlar = ""
+    for ad, tc, vkn, tur in BEYANNAME_SATIRLARI:
+        hedef = f"/beyanname.pdf?vkn={vkn}&tur={tur}"
+        onay = (f'<a href="#" onclick="window.open(\'{hedef}\', \'_blank\'); return false">'
+                f'Onaylanmış<br>Beyanname<br>(PDF)</a>')
+        if tur == "indirme":
+            onay = f'<a href="{hedef}">Onaylanmış Beyanname (PDF)</a>'
+        iptal = '<span>İptal Edilmiş Beyanname (PDF)</span>' if vkn == "5555555555" else ""
+        satirlar += (f"<tr><td>{ad}</td><td>2026/08</td><td>{tc}</td><td>{vkn}</td>"
+                     f"<td>{iptal}{onay}<br><span>Tahakkuk (PDF)</span></td>"
+                     f'<td><a href="#" onclick="window.open(\'/beyanname.pdf?vkn=yanlis\'); return false">'
+                     f"Onaylanmış Beyanname (PDF)</a></td></tr>")
+    return ("<!doctype html><html><head><meta charset='utf-8'><title>Beyanname Kontrol</title></head><body>"
+            "<h3>Beyanname Kontrol</h3><table border=1><thead><tr><th>Mükellef Adı</th><th>Dönem</th>"
+            "<th>TCKN</th><th>VKN</th><th>KDV1</th><th>KDV2</th></tr></thead><tbody>" + satirlar +
+            "</tbody></table><button>GİB'den Getir</button><button>Filtre</button></body></html>")
+
+
 AEN_ARAC = """<button data-e="getir" title="Alt+g">GİB'den Getir</button>
 <button data-e="yenile">Yenile</button><button data-e="ara">Belge Ara</button>
 <button data-e="sec">Belge Seç</button><button data-e="indir">Seçilenleri İndir</button>
@@ -430,6 +466,13 @@ class Isleyici(BaseHTTPRequestHandler):
             html = (ANA_SAYFA.replace("__FIRMALAR__", secenek).replace("__AEN__", aen)
                     .replace("__ESKI__", ESKI_DONEMLI))
             return self._yanit(html)
+        if yol == "/beyanname-kontrol":
+            return self._yanit(beyanname_sayfasi())
+        if yol == "/beyanname.pdf":
+            vkn = (parse_qs(urlparse(self.path).query).get("vkn") or [""])[0]
+            ek = ({"Content-Disposition": f'attachment; filename="kdv1-{vkn}.pdf"'}
+                  if "tur=indirme" in self.path else None)
+            return self._yanit(b"%PDF-1.4\n% sahte beyanname " + vkn.encode(), "application/pdf", ek)
         if yol == "/musteri-listesi":
             return self._yanit(MUSTERI_SAYFASI)
         if yol == "/api/musteriler":

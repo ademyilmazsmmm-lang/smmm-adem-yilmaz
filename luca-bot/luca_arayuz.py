@@ -290,6 +290,7 @@ class FirmaEkranPenceresi:
         dugme(alt, "Kaydet", self.kaydet, ana=True).pack(side="right")
         dugme(alt, "Vazgeç", w.destroy).pack(side="right", padx=8)
         dugme(alt, "Beyannameden Devir Al…", self.beyannameden_al).pack(side="right", padx=(0, 8))
+        dugme(alt, "Luca'dan Devir Çek…", lambda: arayuz.beyanname_cek(self)).pack(side="right", padx=(0, 8))
 
         baslik = tk.Frame(w, bg=KUTU)
         baslik.pack(fill="x")
@@ -569,6 +570,7 @@ class Arayuz:
         self.durdurma_istendi = False
         self.mod = "calisma"  # "firma_listesi": surec Luca'dan musteri listesi cekiyor
         self.liste_yili = None
+        self.beyanname_penceresi = None  # "Luca'dan Devir Çek"i baslatan KDV Devri penceresi
         self.luca_penceresi = None  # son acilan "Luca'dan firma listesi" onizleme penceresi
         self.son_islem = ("", 0.0)  # (son log satiri, geldigi an): "su an ne yapiyor"
         self.gostergeler = {"tevkifat": [], "smm": [], "fark": [], "kdv": []}
@@ -924,6 +926,42 @@ class Arayuz:
                  "--firma-listesi-cek", "--yil", str(yil)]
         self._baslat(komut, f"Luca'dan {yil} firma listesi çekiliyor…", mod="firma_listesi")
 
+    def beyanname_cek(self, pencere):
+        """Luca'nin Beyanname Kontrol ekranindan KDV1 PDF'lerini indirir; bitince devirler pencereye yazilir."""
+        if self.surec:
+            messagebox.showinfo("Çalışıyor", "Önce çalışan işlem bitsin ya da Durdur'a basın.", parent=pencere.w)
+            return
+        if not self._giris_tamam_mi():
+            return
+        if not messagebox.askyesno(
+                "Devri Luca'dan çek",
+                "Luca'nın Beyanname Kontrol ekranındaki onaylı KDV1 beyannameleri tek tek açılıp okunacak"
+                " (firma sayısına göre birkaç dakika sürer).\n\n"
+                "Ekranda hangi dönem listeleniyorsa o dönemin beyannameleri alınır; kontrol ettiğiniz dönem"
+                " Eylül ise Ağustos beyannamelerinin listelenmiş olması gerekir. Devreden KDV'ler"
+                " tabloya yazılır, Kaydet'e kadar dosyaya geçmez. Devam edilsin mi?", parent=pencere.w):
+            return
+        self.beyanname_penceresi = pencere
+        komut = [python_komutu(), "-u", str(self.BOT), "--bitince-kapat", "--beyanname-cek"]
+        self._baslat(komut, "Luca'dan beyannameler alınıyor…", mod="beyanname")
+
+    def _beyannameler_alindi(self):
+        dosya = indirme_koku(self.ayarlar) / "luca-beyannameler.json"
+        pencere, self.beyanname_penceresi = self.beyanname_penceresi, None
+        try:
+            veri = json.loads(dosya.read_text(encoding="utf-8"))
+            yollar = [y for y in veri["dosyalar"] if Path(y).exists()]
+        except (OSError, ValueError, KeyError):
+            messagebox.showerror("Beyannameler okunamadı", f"{dosya.name} okunamadı.", parent=self.kok)
+            return
+        if pencere is None or not pencere.w.winfo_exists():
+            messagebox.showinfo("Beyannameler alındı", f"{len(yollar)} beyanname PDF'i alındı; devirleri"
+                                " yazmak için KDV Devri penceresinde \"Beyannameden Devir Al\"ı kullanın.",
+                                parent=self.kok)
+            return
+        pencere.w.lift()
+        pencere.beyannameden_al(yollar)
+
     def luca_listesini_goster(self):
         """Cekilen Luca listesini firmalar.xlsx ile karsilastirip onizleme penceresini acar."""
         dosya = indirme_koku(self.ayarlar) / musteri_listesi.MUSTERI_LISTESI_DOSYASI
@@ -1096,6 +1134,19 @@ class Arayuz:
             else:
                 self.ilerleme_etiketi.configure(
                     text="Firma listesi alınamadı — log'a bakın (indirilenler\\…\\tani klasöründe ekran görüntüsü var).")
+                self._durum("Hata", "#B3443A", "#FFFFFF")
+        elif mod == "beyanname":
+            if kod == 0 and not self.durdurma_istendi:
+                self.ilerleme.configure(value=100)
+                self.ilerleme_etiketi.configure(text="Luca'dan beyannameler alındı.")
+                self._durum("Tamamlandı", YESIL, "#FFFFFF")
+                self._beyannameler_alindi()
+            elif self.durdurma_istendi or kod in (130, -2):
+                self.ilerleme_etiketi.configure(text="Beyanname alma durduruldu.")
+                self._durum("Durduruldu", TURUNCU, ALTIN_YAZI)
+            else:
+                self.ilerleme_etiketi.configure(
+                    text="Beyannameler alınamadı — log'a bakın (günlük klasörün tani klasöründe ekran görüntüsü var).")
                 self._durum("Hata", "#B3443A", "#FFFFFF")
         elif kod == 0 and not self.durdurma_istendi:
             self.ilerleme.configure(value=100)

@@ -58,6 +58,22 @@ SAHTE_LISTE_BOTU = textwrap.dedent('''
 ''')
 
 
+# --beyanname-cek ile cagrilinca PDF'leri indirmis gibi dosya + JSON yazar
+SAHTE_BEYANNAME_BOTU = textwrap.dedent('''
+    import json, os, sys
+    from pathlib import Path
+    print("ARGS " + " ".join(sys.argv[1:]), flush=True)
+    kok = Path(json.loads(Path(os.environ["LUCA_BOT_AYAR"]).read_text(encoding="utf-8"))["indirme_klasoru"])
+    (kok / "beyannameler").mkdir()
+    yollar = []
+    for ad in ("CAGRI DENE_1_KDV1_2026-08_1.pdf", "BIRLIK TICARET_2_KDV1_2026-08_1.pdf"):
+        (kok / "beyannameler" / ad).write_bytes(b"%PDF-1.4")
+        yollar.append(str(kok / "beyannameler" / ad))
+    (kok / "luca-beyannameler.json").write_text(json.dumps({"dosyalar": yollar + [str(kok / "yok.pdf")]}))
+    print("[OK] 2 beyanname PDF'i alindi", flush=True)
+''')
+
+
 @unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")
 class ArayuzTestleri(unittest.TestCase):
     def setUp(self):
@@ -292,6 +308,26 @@ class ArayuzTestleri(unittest.TestCase):
         self.assertEqual(okunan["BIRLIK TICARET"][0], date(2026, 3, 31))
         self.assertIn("YENI FIRMA LTD", okunan)
         self.assertEqual(self.app.mod, "calisma")
+
+    def test_luca_dan_devir_cekilir_ve_beyannameden_alinir(self):
+        from lucabot import firma_tablosu
+        from tkinter import messagebox
+        firma_tablosu.sablon_olustur(self.d / "firmalar.xlsx", ["BIRLIK TICARET", "CAGRI DENE"])
+        self.bot.write_text(SAHTE_BEYANNAME_BOTU, encoding="utf-8")
+        fp = self.app.firma_ekran_penceresi()
+        alinan = []
+        fp.beyannameden_al = lambda yollar=None: alinan.append([Path(y).name for y in yollar])
+        eski, messagebox.askyesno = messagebox.askyesno, lambda *a, **k: True
+        try:
+            self.app.beyanname_cek(fp)
+        finally:
+            messagebox.askyesno = eski
+        self.assertTrue(self._bekle(lambda: self.app.surec is None))
+        self.assertIn("--beyanname-cek", self.app.log_metni())
+        # yalniz var olan dosyalar iletilir
+        self.assertEqual(alinan, [["CAGRI DENE_1_KDV1_2026-08_1.pdf", "BIRLIK TICARET_2_KDV1_2026-08_1.pdf"]])
+        self.assertEqual(self.app.mod, "calisma")
+        fp.w.destroy()
 
     def test_luca_listesi_cekilemezse_hata_gosterilir(self):
         from tkinter import messagebox

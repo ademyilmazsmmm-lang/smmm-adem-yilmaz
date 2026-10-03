@@ -250,6 +250,28 @@ class CalismaDayanikliligi(unittest.TestCase):
         musteri_listesi.kaydet(yol, 2026, kayitlar)
         self.assertEqual(musteri_listesi.oku(yol), (2026, kayitlar))
 
+    def test_beyanname_kontrolden_pdfler_alinir(self):
+        """Menu taranip Beyanname Kontrol bulunur; yalniz KDV1'in onayli PDF'leri (sekmede acilan ya da inen) kaydedilir."""
+        from lucabot import luca_beyanname
+        adlar = {"1111111111": "AKIN COBAN", "5555555555": "KEREM TICARET"}
+        yollar, alinamayan = luca_beyanname.ekrandan_al(
+            self.page, self.klasor / "pdf", self.klasor / "tani", adlar, None, None)
+        adlari = sorted(y.name for y in yollar)
+        self.assertEqual(adlari[0], "AKIN COBAN_1111111111_KDV1_2026-08_1.pdf")
+        self.assertEqual(adlari[1], "KEREM TICARET_5555555555_KDV1_2026-08_1.pdf")
+        self.assertTrue(adlari[2].startswith("MERT "), adlari)      # listede yok: satirdaki ad
+        self.assertEqual(len(yollar), 3)                      # KDV2 sutunu ve Tahakkuk tiklanmadi
+        self.assertEqual(alinamayan, [])
+        for y in yollar:
+            self.assertTrue(y.read_bytes().startswith(b"%PDF"))
+            self.assertNotIn(b"yanlis", y.read_bytes())
+        self.assertEqual(len(self.ctx.pages), 1)              # acilan PDF sekmeleri kapandi
+        self.assertTrue(list((self.klasor / "tani").glob("beyanname-kontrol*.png")))
+
+    def test_beyanname_menu_yolu_ayardan_izlenir(self):
+        from lucabot import luca_beyanname
+        self.assertTrue(luca_beyanname.ekrani_ac(self.page, "Denetim/Analiz > Beyanname Kontrol"))
+
     def test_musteri_listesi_baska_yil(self):
         from lucabot import musteri_listesi
         kayitlar = musteri_listesi.listeyi_oku(self.page, 2025, self.klasor / "tani", None, bekleme_ms=15000)

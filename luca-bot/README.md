@@ -51,6 +51,13 @@ kendisini konsolsuz yeniden başlatır. Hiçbiri olmazsa küçültülmüş bir s
    (31/12) firma açık sayılır. Okunan ham liste `indirilenler\luca-musteri-listesi.json`'a, ekran
    görüntüsü ve sayfa kaynağı günlük klasörün `tani` klasörüne kaydedilir. Komut satırından:
    `python luca_bot.py --firma-listesi-cek --yil 2026`.
+   **Luca'dan Devir Çek** (KDV Devri penceresinde) Luca'nın **Beyanname Kontrol** ekranındaki
+   "Onaylanmış Beyanname (PDF)" bağlantılarına (yalnız KDV1 sütunu) tek tek tıklar, açılan/inen PDF'leri
+   `indirilenler\beyannameler\<tarih>` klasörüne `<kısa ad>_<vkn>_KDV1_<dönem>_<n>.pdf` adıyla kaydeder ve
+   aşağıdaki "Beyannameden Devir Al" mantığıyla devirleri tabloya yazar (Kaydet'e kadar dosyaya geçmez).
+   Ekranda hangi dönem listeleniyorsa o dönemin beyannameleri alınır. Ekranın menüdeki yeri
+   bilinmiyorsa üst menüler taranır; bulamazsa `ayarlar.json`'a `"beyanname_menusu": "Denetim/Analiz >
+   Beyanname Kontrol"` gibi yol yazılabilir. Komut satırından: `python luca_bot.py --beyanname-cek`.
    **Beyannameden Devir Al** ile KDV1 beyannamesi PDF'leri (birden çok seçilebilir) okunur, devir
    tabloya yazılır. Kontrol edilen dönem Eylül ise **Ağustos** beyannamesinin "Sonraki Döneme
    Devreden" satırı ya da Eylül beyannamesinin "101 - Önceki Dönemden Devreden" satırı alınır (ikisi
@@ -290,6 +297,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | `rapor.py`, `rapor_excel.py` | **Raporlama**: `rapor.json` / `rapor.csv` / `rapor.xlsx` |
 | `gostergeler.py` | Arayüzün alt kutuları (tevkifat KDV, SMM, interaktif farkı, KDV ödemesi); arayüzün kendisi `luca_arayuz.py` |
 | `firma_tablosu.py` | `firmalar.xlsx` şablonu, arayüzdeki Firma / Ekran Seçimi tablosunun okunup yazılması, Luca listesiyle karşılaştırma/birleştirme |
+| `luca_beyanname.py` | Luca'nın Beyanname Kontrol ekranından KDV1 PDF'lerini toplu indirme |
 | `musteri_listesi.py` | Luca'nın Yönetici › Müşteri Listesi ekranından firma (açılış/kapanış dahil) okuma |
 | `eposta.py` | Özet e-postası (Outlook / SMTP) |
 | `beyanname.py` | KDV1 beyanname PDF'lerinden devreden KDV'yi okuma ve firmayla eşleştirme |

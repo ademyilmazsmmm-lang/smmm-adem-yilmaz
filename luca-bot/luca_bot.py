@@ -25,8 +25,10 @@ from lucabot import eposta, konsol
 from lucabot.calisma import Calisma
 from lucabot.firma_listesi import bugun_tamamlananlar, firmalari_suz
 from lucabot.giris import luca_oturumu_ac
+from lucabot.luca_beyanname import adlar_haritasi, ekrandan_al
 from lucabot.luca_gezinme import firma_secici_bekle
 from lucabot.musteri_listesi import MUSTERI_LISTESI_DOSYASI, kaydet as musteri_listesini_kaydet, listeyi_oku
+from lucabot.musteri_listesi import oku as musteri_listesini_oku
 from lucabot.ortak import (AYAR, DURDUR_DOSYASI, ayarlari_oku, gunluge_yaz, icinde_bulunulan_ay,
                            indirme_koku, tarih_araliklari, tarih_cozumle, yaz)
 from lucabot.sabitler import BELGE_TIPLERI, TUM_BELGELER
@@ -68,6 +70,8 @@ def arguman_ayristirici():
                    help="Is bitince ENTER beklemeden tarayiciyi kapat (gece calistirma icin)")
     p.add_argument("--firma-listesi-cek", action="store_true",
                    help="Luca'nin Musteri Listesi'nden firma bilgilerini (acilis/kapanis dahil) cek ve kaydet")
+    p.add_argument("--beyanname-cek", action="store_true",
+                   help="Luca'nin Beyanname Kontrol ekranindan KDV1 beyanname PDF'lerini indir")
     p.add_argument("--yil", type=int,
                    help="--firma-listesi-cek icin hangi yilin firmalari (varsayilan: bu yil)")
     p.add_argument("--bastan", action="store_true",
@@ -231,6 +235,56 @@ def firma_listesini_cek(args, ayarlar):
     return 0
 
 
+BEYANNAME_LISTESI_DOSYASI = "luca-beyannameler.json"
+
+
+def beyannameleri_cek(args, ayarlar):
+    """Luca > Beyanname Kontrol ekranindan onayli KDV1 PDF'lerini indirilenler/beyannameler'e indirir.
+
+    Dosya listesi indirilenler/luca-beyannameler.json'a yazilir (arayuz buradan okur).
+    """
+    import json
+    ayarlari_uygula(args, ayarlar)
+    gece_modu = bool(args.bitince_kapat)
+    klasor = calisma_klasoru(ayarlar)
+    log = klasor / "calisma.log"
+    kok = indirme_koku(ayarlar)
+    pdf_klasoru = kok / "beyannameler" / date.today().isoformat()
+    konsol.bolum("LUCA BEYANNAME KONTROL (KDV1 PDF)", log)
+    try:  # vkn / tc -> kisa ad: beyanname firmasi kesin eslessin
+        adlar = adlar_haritasi(musteri_listesini_oku(kok / MUSTERI_LISTESI_DOSYASI)[1])
+    except ValueError:
+        adlar = {}
+        yaz("Not: Luca firma listesi henuz cekilmemis; firmalar unvanla eslestirilecek", log)
+    profil = profil_klasoru(log)
+
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as pw:
+        ctx = tarayici_ac(pw, profil, log, AYAR["chrome_gunlugu"])
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        page = luca_oturumu_ac(ctx, page, ayarlar, gece_modu, klasor / "tani", log)
+        if page is None:
+            tarayiciyi_kapat(ctx)
+            return 1
+        try:
+            firma_secici_bekle(page)
+            yollar, alinamayan = ekrandan_al(page, pdf_klasoru, klasor / "tani", adlar,
+                                             ayarlar.get("beyanname_menusu"), log)
+        except LookupError as e:
+            yaz(f"HATA: {e}", log)
+            yollar, alinamayan = [], []
+        finally:
+            tarayiciyi_kapat(ctx)
+    if not yollar:
+        yaz("Beyanname PDF'i alinamadi; tani dosyalari: " + str(klasor / "tani"), log)
+        return 1
+    (kok / BEYANNAME_LISTESI_DOSYASI).write_text(
+        json.dumps({"klasor": str(pdf_klasoru), "dosyalar": [str(y) for y in yollar],
+                    "alinamayan": alinamayan}, ensure_ascii=False, indent=1), encoding="utf-8")
+    yaz(f"[OK] {len(yollar)} beyanname PDF'i alindi ({len(alinamayan)} alinamadi): {pdf_klasoru}", log)
+    return 0
+
+
 # --- ana akis --------------------------------------------------------------
 
 def calistir(args, ayarlar, p):
@@ -332,6 +386,8 @@ def main():
     try:
         if args.firma_listesi_cek:
             return firma_listesini_cek(args, ayarlar)
+        if args.beyanname_cek:
+            return beyannameleri_cek(args, ayarlar)
         return calistir(args, ayarlar, p)
     except KeyboardInterrupt:
         print("\nKullanici tarafindan durduruldu.")

@@ -240,14 +240,14 @@ def toplam_kayit(page):
     return None
 
 
-def tani_kaydet(page, klasor, log, ek=""):
+def tani_kaydet(page, klasor, log, ek="", ad="musteri-listesi"):
     """Ekran goruntusu ve butun cercevelerin kaynagi: ekran gercekte nasil, sonradan bakilabilsin."""
     try:
         klasor.mkdir(parents=True, exist_ok=True)
-        page.screenshot(path=str(klasor / f"musteri-listesi{ek}.png"))
+        page.screenshot(path=str(klasor / f"{ad}{ek}.png"))
         for no, fr in enumerate(page.frames):
             try:
-                (klasor / f"musteri-listesi{ek}-cerceve{no}.html").write_text(fr.content(), encoding="utf-8")
+                (klasor / f"{ad}{ek}-cerceve{no}.html").write_text(fr.content(), encoding="utf-8")
             except Exception:
                 continue
         yaz(f"    Tani dosyalari kaydedildi: {klasor}", log)
