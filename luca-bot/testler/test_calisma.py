@@ -220,6 +220,34 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertFalse(gorunur_mu(self.page, "GİB den Getir 1", sure=500))
 
 
+    def test_islem_takip_satiri_fatura_yok_uyarisi_sanilmaz(self):
+        """Sorgu surerken Islem Takip'e dusen 'fatura bulunamadi' satiri sorguyu bitirmemeli."""
+        from lucabot.luca_ekran import bilgi_penceresini_kapat, fatura_yok_penceresini_kapat
+        takip = ('<div class="luca-open-window" style="width:600px;height:200px"><b>İşlem Takip</b>'
+                 '<div>[71/82] EF02026000000588 numaralı belge sistemde kayıtlıdır.</div>'
+                 '<div style="color:red">Sorgulama Tarihi: 26/09/2026 Hata mesajı: Belirtilen tarih'
+                 ' aralığında fatura bulunamadı. Bu hata GİB servislerinden alınmıştır.</div>'
+                 '<label><input type=checkbox>Otomatik aşağı kaydır</label><button>Kapat</button></div>')
+        uyari = ('<div class="luca-open-window" style="width:300px;height:80px">'
+                 '<span>Her hangi bir fatura bulunamadı.</span><button>Tamam</button></div>')
+        self.page.set_content(takip)
+        self.assertFalse(fatura_yok_penceresini_kapat(self.page))
+        self.assertEqual(bilgi_penceresini_kapat(self.page), "")
+        self.page.set_content(takip + uyari)  # gercek uyari yine yakalanir
+        self.assertTrue(fatura_yok_penceresini_kapat(self.page))
+
+    def test_gizli_pencere_ilk_siradayken_acik_pencere_bulunur(self):
+        """Sayfada gizli bir .luca-open-window once gelse de acik olan bulunmali."""
+        from lucabot.luca_ekran import acik_pencere
+        self.page.set_content('<div class="luca-open-window" style="display:none">eski</div>'
+                              '<div class="luca-open-window" style="width:200px;height:80px">'
+                              'GİB\'den Getir <input value="01/09/2026"></div>')
+        _, pencere = acik_pencere(self.page)
+        self.assertIsNotNone(pencere)
+        self.assertIn("Getir", pencere.inner_text())
+        self.page.set_content('<div class="luca-open-window" style="display:none">eski</div>')
+        self.assertIsNone(acik_pencere(self.page)[1])
+
     def test_excel_icin_acilan_sekme_kapanir(self):
         """Excel yeni sekmede acilir; dosya alindiktan sonra o sekme kapanmali."""
         from lucabot.ekran_isleyici import firma_isle

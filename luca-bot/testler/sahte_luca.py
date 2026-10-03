@@ -190,6 +190,8 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
 <div id="sayac"></div>
 <div id="uyari"></div>
 <div id="perde" class="perde gizli"></div>
+<!-- gercek Luca'da oldugu gibi: sayfada gizli bir pencere de durur ve ilk sirada -->
+<div class="luca-open-window gizli">Her hangi bir fatura bulunamadı <button>Tamam</button></div>
 <div id="pencere" class="luca-open-window gizli"></div>
 <script>
  const TIP = '__TIP__', FIRMA = '__FIRMA__';
@@ -223,9 +225,14 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
  function islemTakip(url, sonrasi){
    ac('<b>İşlem Takip</b><div id="gunluk"></div><label><input type=checkbox checked>Otomatik aşağı kaydır</label>');
    const g = () => document.getElementById('gunluk');
+   const bu = g();  // pencere kapatilirsa (bot erken cikarsa) sorgu yarida kalir
    sonra(500, () => g().innerHTML += '<div>Tarih aralığı sorgulandı</div>');
+   // gercek Luca'daki gibi: faturasiz gunler icin sorgu SURERKEN kirmizi satir yazar
+   sonra(900, () => { if (g() === bu) g().innerHTML += '<div style="color:red">Sorgulama Tarihi: 01/08/2026'
+     + ' Hata mesajı: Belirtilen tarih aralığında fatura bulunamadı. Bu hata GİB servislerinden alınmıştır.</div>'; });
    let hata = false;
-   sonra(1200, async () => { const j = await (await fetch(url, {method:'POST'})).json();
+   sonra(2000, async () => { if (g() !== bu) return;
+     const j = await (await fetch(url, {method:'POST'})).json();
      if (j.hata) { hata = true;  // gercek Luca'daki gibi: hata yazar, pencere kapanmaz, "sona erdi" gelmez
        g().innerHTML += '<div style="color:red">' + j.hata + '</div>' + kapatDugmesi(); return; }
      g().innerHTML += '<div>belge kaydı bulundu</div>'; });

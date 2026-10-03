@@ -14,8 +14,8 @@ from .bekleme import (geri_cekil, gorunur_cerceveler, kaybolana_kadar_bekle,
 from .sure_olcer import olculur
 from .ortak import dosya_adi_yap, karsilastir, yaz
 from .sabitler import (BILGI_CAPALARI, DIYALOG_CAPASI, FATURA_YOK_CAPASI,
-                       GIB_HATA_METINLERI, KISAYOLLAR, TARIH_DESENI,
-                       TARIH_NITELIGI)
+                       GIB_HATA_METINLERI, ISLEM_BITTI, ISLEM_ISARETLERI, KISAYOLLAR,
+                       TARIH_DESENI, TARIH_NITELIGI)
 
 
 def cerceveler(page):
@@ -195,13 +195,69 @@ def ekranda_gib_hatasi(page):
 
 # --- Luca pencereleri (.luca-open-window) -----------------------------------
 
+# Gorunur .luca-open-window'larin en sonuncusunun sirasi (yoksa -1). Luca sayfada
+# gizli pencereler de tutuyor; yalnizca ilkine bakmak, yeni acilan pencere
+# ikinci sirada oldugunda onu hic gormuyordu (tarih penceresi her seferinde
+# 5 sn bekletiyordu).
+GORUNUR_PENCERE_JS = """() => {
+  const ws = Array.from(document.querySelectorAll('.luca-open-window'));
+  for (let i = ws.length - 1; i >= 0; i--) {
+    const el = ws[i];
+    if (!(el.offsetParent || el.getClientRects().length)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden') return i;
+  }
+  return -1;
+}"""
+
+# Cercevede (gorunur yazida) bu metin var mi; Turkce harf ve buyuk/kucuk farki yok sayilir.
+# Diyalog aramadan once bakilir: yoksa her cercevede div/table/form taramak gereksiz.
+METIN_VAR_JS = """capa => {
+  const n = s => (s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/\\u0131/g, 'i').toLowerCase().replace(/\\s+/g, ' ');
+  return n(document.body ? document.body.innerText : '').includes(n(capa));
+}"""
+
+
+# Bulunan yazi Islem Takip penceresinin bir satiri mi. Sorgu surerken Luca faturasiz
+# gunler icin "Sorgulama Tarihi: 26/09/2026 ... Hata mesajı: Belirtilen tarih
+# aralığında fatura bulunamadı. Bu hata GİB servislerinden alınmıştır." yaziyor;
+# bu satir "fatura bulunamadi" uyarisi sanilip sorgu bitmeden sonraki tarihe
+# geciliyor, faturalar eksik iniyordu.
+ISLEM_TAKIP_SATIRI_JS = """(el, isaretler) => {
+  const n = s => (s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/\\u0131/g, 'i').toLowerCase().replace(/\\s+/g, ' ');
+  const kendi = n(el.innerText || el.textContent);
+  if (['sorgulama tarihi', 'hata mesaj', 'servislerinden alin'].some(x => kendi.includes(x))) return true;
+  const w = el.closest('.luca-open-window');
+  if (!w) return false;
+  const t = n(w.innerText || w.textContent);
+  return isaretler.some(i => t.includes(n(i)));
+}"""
+
+
+def islem_takip_satiri_mi(oge):
+    """Oge Islem Takip penceresinin icinde mi (ayri bir uyari penceresi degil)."""
+    try:
+        return bool(oge.evaluate(ISLEM_TAKIP_SATIRI_JS, ISLEM_ISARETLERI + [ISLEM_BITTI]))
+    except Exception:
+        return False
+
+
 def acik_pencere(page):
-    """Acik Luca penceresi. Kapanmazsa arkadaki butonlar tiklanamiyor."""
+    """Acik (gorunur) Luca penceresi; birden fazlaysa en son acilan. Kapanmazsa arkadaki butonlar tiklanamiyor."""
     for fr in cerceveler(page):
         try:
+            sira = fr.evaluate(GORUNUR_PENCERE_JS)
+        except Exception:
+            sira = None  # cerceve yeniden yukleniyor: eski (yavas) yol
+        try:
             loc = fr.locator(".luca-open-window")
-            if loc.count() and loc.first.is_visible():
-                return fr, loc.first
+            if sira is None:
+                if loc.count() and loc.first.is_visible():
+                    return fr, loc.first
+            elif sira >= 0:
+                return fr, loc.nth(sira)
         except Exception:
             continue
     return None, None
@@ -216,14 +272,32 @@ def pencere_acik_mi(pencere):
         return False
 
 
-def metinli_diyalog(page, capa):
-    """Diyalogu sinif adina degil, icindeki yaziya gore bulur."""
+def metinli_diyalog(page, capa, islem_takip_haric=False):
+    """Diyalogu sinif adina degil, icindeki yaziya gore bulur.
+
+    islem_takip_haric: yazi Islem Takip penceresinin bir satirindaysa sayilmaz
+    (ayri bir uyari penceresi aranirken).
+    """
     for fr in cerceveler(page):
+        try:
+            if not fr.evaluate(METIN_VAR_JS, capa):
+                continue  # yazi bu cercevede gorunmuyor
+        except Exception:
+            pass  # okunamadi: eski yoldan bakilir
         for secici in ("div", "table", "form"):
             try:
                 loc = fr.locator(secici).filter(has_text=capa)
-                if loc.count() and loc.last.is_visible():
-                    return fr, loc.last
+                sayi = loc.count()
+                # en icteki (sondaki) eslesmeden geriye: Islem Takip satiri atlanir
+                for i in range(sayi - 1, max(sayi - 6, -1), -1):
+                    oge = loc.nth(i)
+                    if not oge.is_visible():
+                        if not islem_takip_haric:
+                            break  # eski davranis: yalnizca sondaki eslesmeye bakilir
+                        continue
+                    if islem_takip_haric and islem_takip_satiri_mi(oge):
+                        continue
+                    return fr, oge
             except Exception:
                 continue
     return None, None
@@ -318,7 +392,7 @@ def bilgi_penceresini_kapat(page):
     devam etmek bosuna zaman kaybi oluyordu.
     """
     for capa in BILGI_CAPALARI:
-        _, pencere = metinli_diyalog(page, capa)
+        _, pencere = metinli_diyalog(page, capa, islem_takip_haric=True)
         if pencere is None:
             continue
         try:
@@ -333,7 +407,7 @@ def bilgi_penceresini_kapat(page):
 @olculur("'fatura yok' penceresi kontrolü")
 def fatura_yok_penceresini_kapat(page):
     """'Her hangi bir fatura bulunamadi' penceresi Tamam beklerken akisi kilitliyor."""
-    _, pencere = metinli_diyalog(page, FATURA_YOK_CAPASI)
+    _, pencere = metinli_diyalog(page, FATURA_YOK_CAPASI, islem_takip_haric=True)
     if pencere is None:
         return False
     if not pencerede_tikla(page, pencere, ["Tamam"]):
