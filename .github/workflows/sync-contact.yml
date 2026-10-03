@@ -34,5 +34,6 @@ jobs:
             echo "Senkronize edilecek bir değişiklik yok, push atlanıyor."
           else
             git commit -m "Auto-sync contact info from index.html"
+            git pull --rebase origin main
             git push
           fi
