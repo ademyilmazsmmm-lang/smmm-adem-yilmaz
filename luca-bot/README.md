@@ -30,8 +30,8 @@ python -m playwright install chromium
 ## Arayüz (en kolay yol): `luca-arayuz.bat`
 
 Komut satırı kullanmadan, pencereden çalıştırmak için `luca-arayuz.bat`'a çift tıklayın
-(arkada siyah pencere kalmaz; arayüz konsolsuz açılır. `pythonw` bulunamazsa eski yöntemle küçültülmüş
-bir siyah pencere kalır, onu kapatmayın).
+(arkada siyah pencere kalmaz: arayüz konsolsuz `pythonw` ile açılır; `.bat` bunu bulamazsa arayüz
+kendisini konsolsuz yeniden başlatır. Hiçbiri olmazsa küçültülmüş bir siyah pencere kalır, onu kapatmayın).
 
 1. **Luca Girişi › Değiştir**: Üye No, Kullanıcı Adı, Parola (ve varsa iki aşamalı giriş
    anahtarı) bir kez girilir, `ayarlar.json`'a kaydedilir. Program Luca'ya kendisi girer.

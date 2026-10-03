@@ -112,6 +112,35 @@ def dosya_ac(yol):
         subprocess.Popen(["xdg-open", yol])
 
 
+def konsolsuz_yeniden_baslat():
+    """Windows'ta arayuz konsollu python.exe ile acildiysa (arkada siyah pencere kalir)
+    pythonw.exe ile yeniden baslatir. True: konsolsuz surec basladi, bu surec cikmali.
+
+    .bat'in pythonw'yi bulamadigi kurulumlarda da (orn. AppData altindaki yeni tip Python)
+    siyah pencere kalmasin diye arayuzun kendisi yapar. Yeni surec 1,5 sn icinde
+    kapanirsa (calismadi) False doner ve arayuz bu surecte acilir.
+    """
+    if not sys.platform.startswith("win"):
+        return False
+    try:
+        import ctypes
+        if not ctypes.windll.kernel32.GetConsoleWindow():
+            return False  # zaten konsolsuz
+        exe = Path(sys.executable)
+        pyw = exe.with_name("pythonw.exe")
+        if exe.name.lower() == "pythonw.exe" or not pyw.exists():
+            return False
+        DETACHED_PROCESS, CREATE_NEW_PROCESS_GROUP = 0x00000008, 0x00000200
+        yeni = subprocess.Popen([str(pyw), str(Path(__file__).resolve()), *sys.argv[1:]],
+                                cwd=str(KOK), close_fds=True, stdin=subprocess.DEVNULL,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
+        time.sleep(1.5)
+        return yeni.poll() is None
+    except Exception:
+        return False
+
+
 def python_komutu():
     """Botu calistiracak python; arayuz pythonw ile acildiysa konsollu python.exe."""
     exe = Path(sys.executable)
@@ -1185,6 +1214,8 @@ class Arayuz:
 
 
 def main():
+    if konsolsuz_yeniden_baslat():
+        return
     if sys.platform.startswith("win"):
         try:  # yuksek cozunurluklu ekranlarda bulanik yazi olmasin
             import ctypes

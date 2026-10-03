@@ -207,6 +207,34 @@ class ArayuzTestleri(unittest.TestCase):
         self.assertTrue(DURDUR_DOSYASI.exists())   # bot bunu gorup duracak
         self.assertTrue(self._bekle(lambda: self.app.surec is None))
 
+    def test_konsolsuz_yeniden_baslatma(self):
+        """Konsollu python.exe ile acilan arayuz pythonw ile yeniden baslar (arkada siyah pencere kalmaz)."""
+        import types
+        from unittest import mock
+        self.assertFalse(self.mod.konsolsuz_yeniden_baslat())  # Windows disi: dokunmaz
+        d = Path(tempfile.mkdtemp())
+        (d / "python.exe").write_text("")
+        (d / "pythonw.exe").write_text("")
+
+        def dene(konsol, calisti=True, exe="python.exe"):
+            sahte_ctypes = types.SimpleNamespace(windll=types.SimpleNamespace(
+                kernel32=types.SimpleNamespace(GetConsoleWindow=lambda: konsol)))
+            with mock.patch.dict(sys.modules, {"ctypes": sahte_ctypes}), \
+                    mock.patch.object(sys, "platform", "win32"), \
+                    mock.patch.object(sys, "executable", str(d / exe)), \
+                    mock.patch("subprocess.Popen") as popen, mock.patch("time.sleep"):
+                popen.return_value.poll.return_value = None if calisti else 1
+                sonuc = self.mod.konsolsuz_yeniden_baslat()
+                return sonuc, popen
+        sonuc, popen = dene(konsol=123)
+        self.assertTrue(sonuc)
+        self.assertTrue(popen.call_args[0][0][0].endswith("pythonw.exe"))
+        self.assertFalse(dene(konsol=0)[0])                    # zaten konsolsuz: yeniden baslatmaz
+        self.assertFalse(dene(konsol=123, calisti=False)[0])   # yeni surec dustuyse bu surecte acilir
+        self.assertFalse(dene(konsol=123, exe="pythonw.exe")[0])
+        (d / "pythonw.exe").unlink()
+        self.assertFalse(dene(konsol=123)[0])                  # pythonw yoksa eski yontem
+
     def test_firma_ekran_penceresi_kaydeder(self):
         from lucabot import firma_tablosu
         from lucabot.firma_listesi import firma_listesini_oku
