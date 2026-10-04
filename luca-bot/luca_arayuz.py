@@ -1306,7 +1306,7 @@ class Arayuz:
                 for yazi, etiket in ((x["eksik"], "e-Arşiv’de eksik"), (x["fazla"], "e-Arşiv’de fazla")):
                     for unvan, no, *kalan in yazi:
                         tutar = kalan[0] if kalan else 0
-                        satirlar.append((f"      ↳ {unvan or '?'}  …{no[-5:]}"
+                        satirlar.append((f"      ↳ {unvan or '?'}  {gostergeler.kisa_fatura_no(no)}"
                                          + (f"  {tl(tutar)}" if tutar else ""), "", "", etiket))
                 if x["eslesmedi"]:
                     satirlar.append(("      ↳ iki listenin fatura numaraları tutmuyor; tek tek gösterilemiyor",
@@ -1315,7 +1315,7 @@ class Arayuz:
                     satirlar.append(("      ↳ sayı farkı var ama hangi fatura olduğu belirlenemedi", "", "", ""))
             toplam = ("Toplam", sum(x["interaktif"] for x in g), sum(x["earsiv"] for x in g),
                       f"{sum(abs(x['fark']) for x in g)} fatura")
-            notlar = ["Fatura satırı: ismin ilk kelimesi, fatura numarasının son 5 hanesi ve tutar."
+            notlar = ["Fatura satırı: ismin ilk kelimesi, fatura numarası (ilk 3 karakter..son 3 hane, örn. GIB..756) ve tutar."
                       " Tüm liste rapor.xlsx › İndirilen Faturalar sayfasında da yazar."]
             return self._detay_penceresi(baslik, sutunlar, satirlar, toplam, notlar, yazi_sutunu=1,
                                          genislik=[430, 90, 110, 220])

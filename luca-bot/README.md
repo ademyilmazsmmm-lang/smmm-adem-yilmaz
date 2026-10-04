@@ -79,8 +79,8 @@ kendisini konsolsuz yeniden başlatır. Hiçbiri olmazsa küçültülmüş bir s
      yoksa faturanın KDV'si gösterilir ve `*` ile işaretlenir.
    - **Alış SMM**: e-SMM alış makbuzları.
    - **İnteraktif Farkı**: İnteraktif V.D. ile e-Arşiv Alış'ın fatura sayısı tutmayan firmalar.
-     Her firmanın altında eksik/fazla faturalar tek tek yazar: ismin ilk kelimesi, fatura numarasının
-     son 5 hanesi ve tutar (listeler farklı numaralanmışsa bunu söyler).
+     Her firmanın altında eksik/fazla faturalar tek tek yazar: ismin ilk kelimesi, kısaltılmış fatura
+     numarası (`GIB..756`: ilk 3 karakter, son 3 hane) ve tutar (listeler farklı numaralanmışsa bunu söyler).
    - **Hata / İnmeyen**: hata alan, belge paketi/Excel'i inmeyen ya da bazı faturaları kaynak
      sunucudan inmeyen firma/ekranlar (neden ve inmeyen fatura sayısıyla). **Bunları Tekrar Sorgula**
      yalnızca bu firma ve ekranları, ana penceredeki tarih aralığı için yeniden çalıştırır
@@ -274,7 +274,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | Firma / Dönem / Durum | firma, hedef dönem, en kötü durum (hata > dosya inmedi > kaynaktan inmedi > dönem dışı > atlandı > tamam > fatura yok) |
 | Aksiyon | ne yapmanız gerektiği; boşsa o firmada iş yok |
 | Ekran sütunları | her ekrandan gelen fatura adedi |
-| Fark / Eksik-Fazla Faturalar | İnteraktif V.D. − e-Arşiv Alış; eksik/fazla faturalar ünvanın ilk kelimesi + fatura numarasının son 5 hanesi + tutarla |
+| Fark / Eksik-Fazla Faturalar | İnteraktif V.D. − e-Arşiv Alış; eksik/fazla faturalar ünvanın ilk kelimesi + kısa fatura numarası (`GIB..756`) + tutarla |
 | İptal/İtiraz, Tevkifatlı Alış, İnmeyen | adetler (tevkifat yalnızca alış ekranlarından, KDV2 için) |
 | Alış/Satış Matrah ve KDV | iptal/itiraz hariç toplamlar; aynı faturalar iki kez sayılmaz: TÜRMOB Alış = e-Fatura Alış, İnteraktif V.D. = e-Arşiv Alış, GİB 5000/30000 = e-Arşiv Satış, TÜRMOB Satış = e-Arşiv Satış + e-Fatura Satış (TÜRMOB ekranı açılmayan firmada iki parça toplanır) |
 

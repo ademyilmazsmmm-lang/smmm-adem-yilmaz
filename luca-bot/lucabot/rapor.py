@@ -248,13 +248,19 @@ def _ortak_fatura_var(kayit):
     return bool(luca & gib)
 
 
+def kisa_fatura_no(no):
+    """'GIB2026000000756' -> 'GIB..756' (ilk 3 karakter + son 3 hane)."""
+    no = (no or "").strip()
+    return f"{no[:3]}..{no[-3:]}" if len(no) > 6 else no
+
+
 def _fatura_listesi(kayitlar, sinir):
-    """Cikti: "Unvanin ilk kelimesi + fatura numarasinin son 5 hanesi (tutar)"."""
+    """Cikti: "Unvanin ilk kelimesi + kisa fatura no (GIB..756) (tutar)"."""
     parcalar = []
     for satir in kayitlar[:sinir]:
         unvan, no = satir[0], satir[1]
         tutar = _tutar(satir)
-        parca = f"{unvan or '?'} {no[-5:]}"
+        parca = f"{unvan or '?'} {kisa_fatura_no(no)}"
         if tutar:
             parca += f" ({_tutar_yaz(tutar)} TL)"
         parcalar.append(parca)

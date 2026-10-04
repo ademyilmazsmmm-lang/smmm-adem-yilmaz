@@ -358,7 +358,7 @@ class ArayuzTestleri(unittest.TestCase):
         satirlar = [agac.item(i, "values") for i in agac.get_children()]
         self.assertEqual(satirlar[0][0], "ALEV SEZEN")
         self.assertIn("VODAFONE", satirlar[1][0])
-        self.assertIn("…00007", satirlar[1][0])
+        self.assertIn("AAA..007", satirlar[1][0])
         self.assertIn("1.200,50 TL", satirlar[1][0])
         self.assertIn("eksik", satirlar[1][3])
         # sutunlar sigacak genislikte (sayi sutunu kesilmesin)

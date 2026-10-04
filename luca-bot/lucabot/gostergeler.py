@@ -77,6 +77,9 @@ def toplamlar(g):
     }
 
 
+kisa_fatura_no = rapor.kisa_fatura_no  # arayuz ve rapor ayni gosterimi kullanir
+
+
 def tl(x):
     """1234.5 -> '1.234,50 TL'."""
     return f"{x:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".") + " TL"

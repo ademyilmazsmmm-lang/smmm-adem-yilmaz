@@ -436,6 +436,12 @@ class ArayuzOzetTestleri(unittest.TestCase):
         self.assertEqual(f["eksik"], [["VODAFONE", "AAA2026000000007", 1200.5]])
         self.assertEqual((f["fazla"], f["eslesmedi"]), ([], False))
 
+    def test_kisa_fatura_no(self):
+        from lucabot.gostergeler import kisa_fatura_no
+        self.assertEqual(kisa_fatura_no("GIB2026000000756"), "GIB..756")
+        self.assertEqual(kisa_fatura_no("ABC123"), "ABC123")
+        self.assertEqual(kisa_fatura_no(""), "")
+
     def test_hata_alan_ve_inmeyen_ekranlar(self):
         from lucabot import gostergeler
         donem = "01/09/2026-30/09/2026"
