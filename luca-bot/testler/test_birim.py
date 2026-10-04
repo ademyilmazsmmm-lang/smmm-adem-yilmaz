@@ -216,6 +216,18 @@ class FirmaListesiTestleri(unittest.TestCase):
             self.assertEqual(bugun_tamamlananlar(d, ["e-arsiv-alis"]), {})
 
 
+class EtkinFirmaTestleri(unittest.TestCase):
+    def test_tum_ekrani_x_ya_da_tamam_olan_firma_elenir(self):
+        from lucabot.calisma import etkin_firmalar
+        tipler = ["e-arsiv-alis", "e-fatura-alis", "gib-5000"]
+        atlanan = {"A": {"e-arsiv-alis", "e-fatura-alis", "gib-5000"},   # hepsi X
+                   "B": {"e-fatura-alis"},                                # bir kismi X
+                   "C": {"gib-5000"}}
+        tamam = {"C": {"e-arsiv-alis", "e-fatura-alis"}}                  # kalan X, geri kalani bugun bitmis
+        self.assertEqual(etkin_firmalar(["A", "B", "C", "D"], tipler, atlanan, tamam), ["B", "D"])
+        self.assertEqual(etkin_firmalar([], tipler, {}, {}), [])
+
+
 class RaporTestleri(unittest.TestCase):
     def _sonuc(self, firma, tip, **alanlar):
         s = yeni_sonuc(firma, tip)

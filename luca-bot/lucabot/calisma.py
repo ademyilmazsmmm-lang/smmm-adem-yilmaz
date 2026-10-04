@@ -87,6 +87,21 @@ def ozetle(sonuclar, sure=0):
     return oz
 
 
+def etkin_firmalar(firmalar, belge_tipleri, atlanan_ekranlar, bugun_tamam):
+    """Sorgulanacak en az bir ekrani kalan firmalar.
+
+    Tum ekranlari firmalar.xlsx'te X ya da bugun zaten tamamlanmis olan firmanin
+    Luca'da acilacak bir sey yok; bunlar listeye alinmazsa ilerleme sayaci ve
+    tahmini sure bos firmalarla sisiyor, gunluk yuzlerce "atlanmis" satiriyla doluyordu.
+    """
+    etkin = []
+    for f in firmalar:
+        kapali = atlanan_ekranlar.get(f, set()) | bugun_tamam.get(f, set())
+        if any(t not in kapali for t in belge_tipleri):
+            etkin.append(f)
+    return etkin
+
+
 class Calisma:
     def __init__(self, pw, ctx, page, profil, ayarlar, secim, belge_tipleri, araliklar,
                  klasor, log, azami_deneme=3, hata_siniri=5, bugun_tamam=None, rapor_klasoru=None):
@@ -186,14 +201,19 @@ class Calisma:
     def _islenecek_ekranlar(self, firma):
         atlanacak = self.atlanan_ekranlar.get(firma, set())
         tamamlanmis = self.bugun_tamam.get(firma, set())
-        ekranlar = []
+        ekranlar, listede, bitmis = [], [], []
         for tip in self.belge_tipleri:
             if tip in atlanacak:  # firmalar.xlsx'te X isaretli ekran
-                yaz(f"  -- {BELGE_TIPLERI[tip]}: listede atlanmis", self.log)
+                listede.append(BELGE_TIPLERI[tip])
             elif tip in tamamlanmis:  # yarida kalan calismadan zaten tamamlanmis
-                yaz(f"  -- {BELGE_TIPLERI[tip]}: bugun tamamlanmis, atlaniyor", self.log)
+                bitmis.append(BELGE_TIPLERI[tip])
             else:
                 ekranlar.append(tip)
+        # her ekran icin ayri satir yerine firma basina tek satir
+        if listede:
+            yaz(f"  -- listede atlanan ekran ({len(listede)}): {', '.join(listede)}", self.log)
+        if bitmis:
+            yaz(f"  -- bugun tamamlanmis, atlaniyor ({len(bitmis)}): {', '.join(bitmis)}", self.log)
         return ekranlar
 
     def _ekranlari_isle(self, firma, ekranlar, biten):

@@ -22,7 +22,7 @@ import traceback
 from datetime import date
 
 from lucabot import eposta, konsol
-from lucabot.calisma import Calisma
+from lucabot.calisma import Calisma, etkin_firmalar
 from lucabot.firma_listesi import bugun_tamamlananlar, firmalari_suz
 from lucabot.giris import luca_oturumu_ac
 from lucabot.luca_beyanname import ekrandan_al
@@ -346,6 +346,17 @@ def calistir(args, ayarlar, p):
             bugun_tamam = {}
         else:
             bugun_tamam = devam_mi_bastan_mi(ctx, rapor_klasoru, belge_tipleri, gece_modu, log)
+        etkin = etkin_firmalar(secim.firmalar, belge_tipleri, secim.atlanan_ekranlar, bugun_tamam)
+        if len(etkin) < len(secim.firmalar):
+            yaz(f"Tum ekranlari X isaretli ya da bugun tamamlanmis {len(secim.firmalar) - len(etkin)} firma"
+                " atlandi (Luca'da acilmayacak)", log)
+        secim.firmalar = etkin
+        if not etkin:
+            yaz("\nIslenecek firma yok: secili ekranlarin hepsi firmalar.xlsx'te X ya da bugun tamamlanmis.", log)
+            if not gece_modu:
+                kullanici_bekle(ctx, ">>> Kapatmak icin ENTER: ")
+            tarayiciyi_kapat(ctx)
+            return 0
         yaz(f"Islenecek firma sayisi: {len(secim.firmalar)} | ekran: {len(belge_tipleri)}", log)
 
         # 4. islem
