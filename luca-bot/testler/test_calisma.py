@@ -251,11 +251,15 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertEqual(musteri_listesi.oku(yol), (2026, kayitlar))
 
     def test_gib_beyanname_takipten_pdfler_alinir(self):
-        """Muhasebe > Beyannameler > GİB Beyanname Takip: donem/durum/tur suzulur, hepsi secilip tek ZIP inip PDF'ler cikarilir."""
+        """Isletme firmasinda menu yok: genel muhasebe firmasina gecilir; ekran ayri pencerede acilir;
+        donem/durum/tur suzulur, hepsi secilip tek ZIP inip PDF'ler cikarilir."""
         from datetime import date
         from lucabot import luca_beyanname
+        bilgi = {}
         yollar, sayi = luca_beyanname.ekrandan_al(
-            self.page, self.klasor / "pdf", self.klasor / "tani", date(2026, 9, 1), None, None)
+            self.page, self.klasor / "pdf", self.klasor / "tani", date(2026, 9, 1), None, None, None, bilgi)
+        # secili firma (AKIN COBAN) ve DENTAL isletme: ESKI DONEM LTD'de menu var
+        self.assertEqual(bilgi["firma"], "ESKI DONEM LTD")
         # eylul kontrolu: agustos donemi, yalniz onayli KDV1 (hatali ve temmuz elenir)
         self.assertEqual(sayi, 3)
         adlar = sorted(y.name for y in yollar)
@@ -263,12 +267,44 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertTrue(all("_BYN_" in a for a in adlar))        # tahakkuk dosyalari atildi
         for y in yollar:
             self.assertTrue(y.read_bytes().startswith(b"%PDF"))
-        self.assertEqual(len(self.ctx.pages), 1)
+        self.assertEqual(len(self.ctx.pages), 1)                 # ekran icin acilan pencere kapandi
         self.assertTrue(list((self.klasor / "tani").glob("beyanname-takip*.png")))
+
+    def test_beyanname_tercih_edilen_firmadan_dogrudan_acilir(self):
+        from datetime import date
+        from lucabot import luca_beyanname
+        bilgi = {}
+        yollar, _ = luca_beyanname.ekrandan_al(
+            self.page, self.klasor / "pdf", self.klasor / "tani", date(2026, 9, 1), None, None,
+            "KEREM TICARET", bilgi)
+        self.assertEqual(bilgi["firma"], "KEREM TICARET")
+        self.assertEqual(len(yollar), 3)
+        # listede olmayan (eski) tercih yok sayilir, arama yine calisir
+        bilgi2 = {}
+        luca_beyanname.menusu_olan_firmayi_sec(self.page, None, "SILINMIS FIRMA")
+        self.assertEqual(bilgi2, {})
+
+    def test_beyanname_menusu_hicbir_firmada_yoksa_anlasilir_hata(self):
+        from lucabot import luca_beyanname
+        with self.assertRaises(LookupError) as e:
+            luca_beyanname.menusu_olan_firmayi_sec(self.page, None, None, None, azami=2)   # yalniz AKIN, DENTAL
+        self.assertIn("genel muhasebe", str(e.exception))
+
+    def test_beyanname_menusu_var_mi(self):
+        from lucabot import luca_beyanname
+        from lucabot.luca_gezinme import firma_sec
+        self.assertFalse(luca_beyanname.menu_var_mi(self.page))       # ilk firma isletme
+        firma_sec(self.page, "KEREM TICARET")
+        self.assertTrue(luca_beyanname.menu_var_mi(self.page))
 
     def test_beyanname_menu_yolu_ayardan_izlenir(self):
         from lucabot import luca_beyanname
-        self.assertTrue(luca_beyanname.ekrani_ac(self.page, "Muhasebe > Beyannameler > GİB Beyanname Takip"))
+        from lucabot.luca_gezinme import firma_sec
+        firma_sec(self.page, "KEREM TICARET")
+        ekran = luca_beyanname.ekrani_ac(self.page, "Muhasebe > Beyannameler > GİB Beyanname Takip")
+        self.assertIsNot(ekran, self.page)                            # ayri pencerede acildi
+        self.assertTrue(ekran.get_by_text("Mükellef Adı").first.is_visible())
+        self.assertEqual(len(self.ctx.pages), 2)
 
     def test_beyanname_donemi_bir_onceki_ay(self):
         from datetime import date

@@ -270,8 +270,17 @@ def beyannameleri_cek(args, ayarlar, p):
             return 1
         try:
             firma_secici_bekle(page)
+            # beyanname menusu yalniz genel muhasebe firmalarinda var: en son isleyen firma hatirlanir
+            onbellek = kok / "beyanname-firmasi.txt"
+            try:
+                tercih = ayarlar.get("beyanname_firmasi") or onbellek.read_text(encoding="utf-8").strip() or None
+            except OSError:
+                tercih = None
+            bilgi = {}
             yollar, sayi = ekrandan_al(page, pdf_klasoru, klasor / "tani", hedef_bas,
-                                       ayarlar.get("beyanname_menusu"), log)
+                                       ayarlar.get("beyanname_menusu"), log, tercih, bilgi)
+            if bilgi.get("firma"):
+                onbellek.write_text(bilgi["firma"], encoding="utf-8")
         except LookupError as e:
             yaz(f"HATA: {e}", log)
             yollar, sayi = [], 0

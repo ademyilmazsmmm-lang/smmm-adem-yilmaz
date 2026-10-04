@@ -24,6 +24,8 @@ FIRMALAR = ["AKIN COBAN", "DENTAL SAGLIK", "ESKI DONEM LTD", "FATURASIZ AS",
             "KEREM TICARET", "MERT INSAAT"]
 # Bu firma Luca'da en son 2025 doneminde birakilmis gibi acilir
 ESKI_DONEMLI = "ESKI DONEM LTD"
+# Bu firmalar isletme/SMK: Muhasebe menusunde Beyannameler yok (yalniz genel muhasebe firmalarinda var)
+ISLETME_FIRMALARI = {"AKIN COBAN", "DENTAL SAGLIK"}
 # Bu firmada hic fatura yok
 FATURASIZ = "FATURASIZ AS"
 
@@ -186,6 +188,9 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
  const onay = document.getElementById('onay');
  let seciliFirma = firma.value;
  const ESKI = '__ESKI__';
+ const ISLETME = __ISLETME__;
+ function menuGuncelle(){ document.getElementById('beyannameler').style.display =
+   ISLETME.includes(seciliFirma) ? 'none' : ''; }
  function sonra(ms, f){ setTimeout(f, ms); }
  firma.onchange = () => { onay.classList.remove('gizli'); };
  donem.onchange = () => { onay.classList.remove('gizli'); };
@@ -197,6 +202,7 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
      if (yeni) donem.selectedIndex = (seciliFirma === ESKI) ? 1 : 0;
      document.title = seciliFirma + ' [ ' + donem.value.slice(-4) + ' ]';
      document.getElementById('sekmeler').innerHTML = '';  // firma degisince sekmeler kapanir
+     menuGuncelle();
    });
  };
  document.getElementById('modul').onclick = () =>
@@ -220,12 +226,14 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
  };
  document.getElementById('muhasebe').onclick = () =>
    sonra(150, () => document.getElementById('muhasebeMenu').classList.toggle('gizli'));
+ menuGuncelle();
  const by = document.getElementById('beyannameler');
  by.onmouseenter = by.onclick = () =>
    sonra(150, () => document.getElementById('beyannameMenu').classList.remove('gizli'));
  document.getElementById('gibTakip').onclick = () => {
    document.getElementById('muhasebeMenu').classList.add('gizli');
-   sonra(300, () => sekmeAc('/gib-beyanname-takip?t=' + Date.now()));
+   // gercek Luca'da bu ekran ana sayfanin icinde degil ayri pencerede aciliyor
+   sonra(300, () => window.open('/gib-beyanname-takip?t=' + Date.now(), '_blank', 'popup,width=1100,height=750'));
  };
  const aen = document.getElementById('aen');
  aen.onmouseenter = aen.onclick = () =>
@@ -523,7 +531,8 @@ class Isleyici(BaseHTTPRequestHandler):
             secenek = "".join(f"<option>{f}</option>" for f in FIRMALAR)
             aen = "".join(f'<a data-tip="{t}">{ad}</a>' for ad, t in AEN_EKRANLARI.items())
             html = (ANA_SAYFA.replace("__FIRMALAR__", secenek).replace("__AEN__", aen)
-                    .replace("__ESKI__", ESKI_DONEMLI))
+                    .replace("__ESKI__", ESKI_DONEMLI)
+                    .replace("__ISLETME__", json.dumps(sorted(ISLETME_FIRMALARI))))
             return self._yanit(html)
         if yol == "/gib-beyanname-takip":
             aylar = "".join(f"<option>{a}</option>" for a in AYLAR_TR)

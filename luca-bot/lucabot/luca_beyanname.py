@@ -22,7 +22,7 @@ from .bekleme import kosulu_bekle, sayfa_durulsun
 from .beyanname import AYLAR
 from .luca_ekran import (acik_pencereleri_kapat, cerceveler, dugmeye_bas, gorunur_mu,
                          menu_metinleri, metinle_bul)
-from .luca_gezinme import menu_ogesini_ac
+from .luca_gezinme import firma_sec, firma_secici, menu_ogesini_ac
 from .musteri_listesi import tani_kaydet
 from .ortak import dosya_adi_yap, sadelestir, yaz
 
@@ -67,15 +67,80 @@ ALANLAR_JS = r"""etiketler => {
 
 # --- ekrani acma -------------------------------------------------------------------
 
-def _ekran_hazir(page, sure=20000):
-    return bool(kosulu_bekle(page, lambda: gorunur_mu(page, "Mükellef Adı", sure=0)
-                             and gorunur_mu(page, "Filtre", sure=0), sure, aralik_ms=500))
+def _ekran_sayfasi(page, onceki):
+    """Ekran listesi gelmis sayfa ya da None.
+
+    Luca bu ekrani ana sayfanin icinde degil AYRI PENCERE (popup) olarak aciyor;
+    yalniz ana sayfaya bakilirsa ekran acildigi halde "acilmadi" sanilip menu
+    tekrar tekrar tiklaniyor (her seferinde yeni pencere) ve is orada takiliyordu.
+    """
+    for p in [page] + [x for x in page.context.pages if x is not page and x not in onceki]:
+        try:
+            if gorunur_mu(p, "Mükellef Adı", sure=0) and gorunur_mu(p, "Filtre", sure=0):
+                return p
+        except Exception:
+            continue
+    return None
+
+
+def _yol_parcalari(yol):
+    return [p.strip() for p in (yol or MENU_YOLU).split(">") if p.strip()]
+
+
+def menu_var_mi(page, yol=None):
+    """Secili firmada yolun ikinci basamagi ('Beyannameler') gorunuyor mu.
+
+    Isletme defteri / serbest meslek (SMK) firmalarinda Muhasebe menusunde
+    Beyannameler yok; yalniz genel muhasebe firmalarinda var.
+    """
+    parcalar = _yol_parcalari(yol)
+    if len(parcalar) < 2:
+        return True
+    acik_pencereleri_kapat(page)
+    menu_ogesini_ac(page, parcalar[0], sure=4000, dogrula=lambda: gorunur_mu(page, parcalar[1], sure=1200))
+    var = gorunur_mu(page, parcalar[1], sure=1500)
+    try:
+        page.keyboard.press("Escape")
+    except Exception:
+        pass
+    return var
+
+
+def menusu_olan_firmayi_sec(page, yol=None, tercih=None, log=None, azami=15):
+    """Beyanname menusu olan (genel muhasebe) bir firmaya gecer.
+
+    Ekran firmadan bagimsiz (tum musterileri listeler) ama menude yalniz genel muhasebe
+    firmalarinda gorunur. Dondurur: gecilen firma adi; secili firma yeterliyse None.
+    tercih: once denenecek firma (ayarlar.json "beyanname_firmasi" ya da onceki basarili calisma).
+    """
+    firmalar = firma_secici(page)[2]
+    tercih = tercih if tercih in firmalar else None  # listede olmayan (eski) tercih yok sayilir
+    if not tercih and menu_var_mi(page, yol):
+        return None
+    yaz("    Beyanname menüsü için genel muhasebe firması aranıyor…", log)
+    adaylar = ([tercih] if tercih else []) + [f for f in firmalar if f != tercih]
+    denenen = 0
+    for f in adaylar[:azami]:
+        denenen += 1
+        try:
+            firma_sec(page, f, log)
+        except LookupError:
+            continue
+        if menu_var_mi(page, yol):
+            yaz(f"    '{f}' firmasından devam ediliyor", log)
+            return f
+    raise LookupError(f"Denenen {denenen} firmanın hiçbirinde '{_yol_parcalari(yol)[1]}' menüsü yok"
+                      " (genel muhasebe firması gerekir; ayarlar.json'a \"beyanname_firmasi\" yazılabilir)")
 
 
 def ekrani_ac(page, yol=None, log=None):
-    """'Muhasebe > Beyannameler > GİB Beyanname Takip' yolunu izler; ekran gelene kadar bekler."""
+    """'Muhasebe > Beyannameler > GİB Beyanname Takip' yolunu izler; ekranin acildigi sayfayi dondurur.
+
+    Ekran ana sayfada ya da yeni pencerede acilabilir; hangisinde ise o Page doner.
+    """
     acik_pencereleri_kapat(page)
-    parcalar = [p.strip() for p in (yol or MENU_YOLU).split(">") if p.strip()]
+    parcalar = _yol_parcalari(yol)
+    onceki = list(page.context.pages)
     for _ in range(3):
         for sonraki, parca in zip(parcalar[1:], parcalar[:-1]):
             menu_ogesini_ac(page, parca, sure=6000, dogrula=lambda m=sonraki: gorunur_mu(page, m, sure=1200))
@@ -85,8 +150,15 @@ def ekrani_ac(page, yol=None, log=None):
         except Exception:
             sayfa_durulsun(page, azami_ms=1000)
             continue
-        if _ekran_hazir(page):
-            return True
+        ekran = kosulu_bekle(page, lambda: _ekran_sayfasi(page, onceki), 20000, aralik_ms=500)
+        if ekran:
+            if ekran is not page:
+                yaz("    Ekran ayrı pencerede açıldı", log)
+                try:
+                    ekran.bring_to_front()
+                except Exception:
+                    pass
+            return ekran
     raise LookupError(f"'{' > '.join(parcalar)}' menusu acilamadi")
 
 
@@ -283,30 +355,47 @@ def arsivden_pdfler(veri, klasor, log=None):
     return yollar
 
 
-def ekrandan_al(page, klasor, tani_klasoru, hedef_bas, yol=None, log=None):
-    """Ekrani acar, donemi suzer, ZIP'i indirip PDF'leri klasore cikarir. Dondurur: (yollar, listelenen sayi)."""
+def ekrandan_al(page, klasor, tani_klasoru, hedef_bas, yol=None, log=None, tercih_firma=None, bilgi=None):
+    """Ekrani acar, donemi suzer, ZIP'i indirip PDF'leri klasore cikarir. Dondurur: (yollar, listelenen sayi).
+
+    Secili firmada menu yoksa genel muhasebe firmasina gecilir (bilgi["firma"] o firmayi
+    tasir; sonraki calismada tercih_firma olarak verilirse arama atlanir). Ekran yeni
+    pencerede acildiysa isi bitince o pencere kapatilir.
+    """
+    onceki = list(page.context.pages)
     try:
-        ekrani_ac(page, yol, log)
-    except LookupError:
-        yaz(f"    Gorunen menuler: {menu_metinleri(page)}", log)
-        tani_kaydet(page, tani_klasoru, log, "-menu", "beyanname-takip")
-        raise
-    ay, yil = donem_filtresi(hedef_bas)
-    yaz(f"Beyanname dönemi: {AYLAR[ay - 1].title()} {yil} (KDV1, onaylanmış)", log)
-    try:
-        cerceve = filtrele(page, ay, yil, log)
-        sayi = listelenen_sayi(page)
-        tani_kaydet(page, tani_klasoru, log, "", "beyanname-takip")
-        if not sayi:
-            raise LookupError(f"{AYLAR[ay - 1].title()} {yil} için onaylı KDV1 beyannamesi listelenmedi")
-        yaz(f"{sayi} beyanname kaydı listelendi", log)
-        veri = toplu_indir(page, cerceve, log=log)
-    except LookupError:
-        tani_kaydet(page, tani_klasoru, log, "-hata", "beyanname-takip")
-        raise
-    if veri is None:
-        tani_kaydet(page, tani_klasoru, log, "-indirme", "beyanname-takip")
-        raise LookupError("Toplu indirme dosyası gelmedi")
-    yollar = arsivden_pdfler(veri, klasor, log)
-    yaz(f"{len(yollar)} beyanname PDF'i çıkarıldı (liste: {sayi} kayıt)", log)
-    return yollar, sayi
+        try:
+            firma = menusu_olan_firmayi_sec(page, yol, tercih_firma, log)
+            if firma and bilgi is not None:
+                bilgi["firma"] = firma
+            ekran = ekrani_ac(page, yol, log)
+        except LookupError:
+            yaz(f"    Gorunen menuler: {menu_metinleri(page)}", log)
+            tani_kaydet(page, tani_klasoru, log, "-menu", "beyanname-takip")
+            raise
+        ay, yil = donem_filtresi(hedef_bas)
+        yaz(f"Beyanname dönemi: {AYLAR[ay - 1].title()} {yil} (KDV1, onaylanmış)", log)
+        try:
+            cerceve = filtrele(ekran, ay, yil, log)
+            sayi = listelenen_sayi(ekran)
+            tani_kaydet(ekran, tani_klasoru, log, "", "beyanname-takip")
+            if not sayi:
+                raise LookupError(f"{AYLAR[ay - 1].title()} {yil} için onaylı KDV1 beyannamesi listelenmedi")
+            yaz(f"{sayi} beyanname kaydı listelendi", log)
+            veri = toplu_indir(ekran, cerceve, log=log)
+        except LookupError:
+            tani_kaydet(ekran, tani_klasoru, log, "-hata", "beyanname-takip")
+            raise
+        if veri is None:
+            tani_kaydet(ekran, tani_klasoru, log, "-indirme", "beyanname-takip")
+            raise LookupError("Toplu indirme dosyası gelmedi")
+        yollar = arsivden_pdfler(veri, klasor, log)
+        yaz(f"{len(yollar)} beyanname PDF'i çıkarıldı (liste: {sayi} kayıt)", log)
+        return yollar, sayi
+    finally:
+        for p in list(page.context.pages):  # ekran icin acilan pencereler kapanir
+            if p not in onceki:
+                try:
+                    p.close()
+                except Exception:
+                    pass
