@@ -24,7 +24,7 @@ from .bekleme import sayfa_canli
 from .ekran_isleyici import FirmaSecilemedi, firma_isle
 from .giris import giris_bilgileri, luca_oturumu_ac, oturumu_yenile
 from .luca_ekran import hata_kaydet, sayfayi_toparla
-from .ortak import gunluge_yaz, yaz, yeni_sonuc
+from .ortak import gunluge_yaz, karsilastir, yaz, yeni_sonuc
 from .sabitler import BELGE_TIPLERI, COKME_DENEMESI
 from .tarayici import sayfayi_kurtar, tarayiciyi_yeniden_baslat
 
@@ -85,6 +85,30 @@ def ozetle(sonuclar, sure=0):
     oz.tevkifat = sum(tevkifat.values())
     oz.iptal = sum(iptal.values())
     return oz
+
+
+def tekrar_listesini_oku(yol):
+    """--tekrar-listesi dosyasi ({firma: [belge tipi]}) -> {firma: {belge tipi}}; arayuz yazar."""
+    import json
+    with open(yol, encoding="utf-8") as f:
+        return {str(ad): set(tipler) for ad, tipler in json.load(f).items()}
+
+
+def tekrar_secimi(firmalar, tekrar, belge_tipleri):
+    """Tekrar listesindeki firmalari ve her firmada YALNIZCA listedeki ekranlari secer.
+
+    Dondurur: (firmalar, {firma: o firmada acilmayacak belge tipleri}). Firma adi birebir
+    (harf/bosluk farki yok sayilarak) eslesir; "ADEM" yazinca "ADEM MERGE" gelmez.
+    """
+    hedef = {karsilastir(ad): tipler for ad, tipler in tekrar.items()}
+    secilen, atlanan = [], {}
+    for f in firmalar:
+        tipler = hedef.get(karsilastir(f))
+        if tipler is None:
+            continue
+        secilen.append(f)
+        atlanan[f] = {t for t in belge_tipleri if t not in tipler}
+    return secilen, atlanan
 
 
 def etkin_firmalar(firmalar, belge_tipleri, atlanan_ekranlar, bugun_tamam):

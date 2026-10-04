@@ -79,7 +79,13 @@ kendisini konsolsuz yeniden başlatır. Hiçbiri olmazsa küçültülmüş bir s
      yoksa faturanın KDV'si gösterilir ve `*` ile işaretlenir.
    - **Alış SMM**: e-SMM alış makbuzları.
    - **İnteraktif Farkı**: İnteraktif V.D. ile e-Arşiv Alış'ın fatura sayısı tutmayan firmalar.
-   - **KDV Ödemesi Çıkabilir**: Satış KDV − Alış KDV − Devreden KDV > 0 olan firmalar. Devreden
+     Her firmanın altında eksik/fazla faturalar tek tek yazar: ismin ilk kelimesi, fatura numarasının
+     son 5 hanesi ve tutar (listeler farklı numaralanmışsa bunu söyler).
+   - **Hata / İnmeyen**: hata alan, belge paketi/Excel'i inmeyen ya da bazı faturaları kaynak
+     sunucudan inmeyen firma/ekranlar (neden ve inmeyen fatura sayısıyla). **Bunları Tekrar Sorgula**
+     yalnızca bu firma ve ekranları, ana penceredeki tarih aralığı için yeniden çalıştırır
+     (komut satırı: `--tekrar-listesi dosya.json`, içeriği `{"firma": ["e-arsiv-alis", ...]}`).
+   - **KDV Ödemesi**: Satış KDV − Alış KDV − Devreden KDV > 0 olan firmalar. Devreden
      KDV'yi `firmalar.xlsx`'e **"Devreden KDV"** adlı bir sütun açıp elle yazın; boşsa 0 sayılır.
      Tahmindir (diğer beyan kalemleri girmez).
 

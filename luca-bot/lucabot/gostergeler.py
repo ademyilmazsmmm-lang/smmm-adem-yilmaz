@@ -20,7 +20,7 @@ def hesapla(kayitlar, devreden=None, donem=None):
     devreden: firmalar.xlsx'ten {kisa ad: tutar}; donem verilirse yalnizca o donemin firmalari.
     """
     devreden = devreden or {}
-    sonuc = {"tevkifat": [], "smm": [], "fark": [], "kdv": []}
+    sonuc = {"tevkifat": [], "smm": [], "fark": [], "kdv": [], "hata": []}
     for firma in sorted(kayitlar):
         k = rapor._tamamla(dict(kayitlar[firma]))
         if donem and k.get("donem") != donem:
@@ -39,10 +39,18 @@ def hesapla(kayitlar, devreden=None, donem=None):
 
         fark = rapor._fark(k)
         if isinstance(fark, int) and fark and not rapor._okunamadi(k):
+            eksik, fazla = rapor.fatura_farklari(k)
+            eksik, fazla = eksik or [], fazla or []
+            # hicbir numara tutmuyorsa listeler farkli numaralanmis: tek tek gosterilemez
+            eslesmedi = bool(eksik and fazla and not rapor._ortak_fatura_var(k))
             sonuc["fark"].append({"firma": firma,
                                   "interaktif": k["sayilar"].get("e-arsiv-interaktif") or 0,
                                   "earsiv": k["sayilar"].get("e-arsiv-alis") or 0,
-                                  "fark": fark})
+                                  "fark": fark, "eslesmedi": eslesmedi,
+                                  "eksik": [] if eslesmedi else eksik, "fazla": [] if eslesmedi else fazla})
+
+        for h in rapor.yeniden_denenecek(k):
+            sonuc["hata"].append({"firma": firma, **h})
 
         satis = rapor._grup_toplami(k, "kdv", rapor.SATIS_EKRANLARI)
         alis = rapor._grup_toplami(k, "kdv", rapor.ALIS_EKRANLARI)
@@ -65,6 +73,7 @@ def toplamlar(g):
         "fark": sum(abs(x["fark"]) for x in g["fark"]),
         "kdv_firma": len(g["kdv"]),
         "kdv": sum(x["odeme"] for x in g["kdv"]),
+        "hata": len(g["hata"]),
     }
 
 

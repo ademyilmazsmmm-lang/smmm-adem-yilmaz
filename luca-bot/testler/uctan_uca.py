@@ -63,7 +63,6 @@ def main():
              "--baslangic", "01/08/2026", "--bitis", "10/08/2026", "--bitince-kapat"]
     print("Calistiriliyor:", " ".join(komut))
     sonuc = subprocess.run(komut, env=ortam, cwd=str(KOK))
-    sunucu.shutdown()
 
     # rapor.xlsx/json artik gunluk degil, indirilenler/ kokunde tek dosya (bkz. luca_bot.py);
     # indirilen dosyalar ise hala gunun alt klasorunde
@@ -97,6 +96,25 @@ def main():
     bekle("e-Arşiv'de YOK (İnteraktif'te var)" in mutabakat,
           f"mutabakat sutunu eksik fatura gostermeli: {mutabakat}")
     print("Calisma klasoru:", gun)
+
+    # ikinci tur: yalniz AKIN COBAN / e-Arsiv Alis tekrar sorgulanir (arayuzdeki "Tekrar Sorgula")
+    tekrar = klasor / "tekrar.json"
+    tekrar.write_text(json.dumps({"AKIN COBAN": ["e-arsiv-alis"]}), encoding="utf-8")
+    komut2 = [sys.executable, str(KOK / "luca_bot.py"), "--tekrar-listesi", str(tekrar),
+              "--baslangic", "01/08/2026", "--bitis", "10/08/2026", "--bitince-kapat"]
+    print("\nTekrar sorgu:", " ".join(komut2))
+    sonuc2 = subprocess.run(komut2, env=ortam, cwd=str(KOK), capture_output=True, text=True,
+                            encoding="utf-8", errors="replace")
+    print(sonuc2.stdout[-1500:])
+    sunucu.shutdown()
+    bekle(sonuc2.returncode == 0, f"tekrar sorgu cikis kodu {sonuc2.returncode}")
+    bekle("Yeniden sorgulanacak: 1 firma, 1 ekran turu" in sonuc2.stdout, "tekrar listesi secimi")
+    bekle("Islenen firma        : 1" in sonuc2.stdout and "Islenen ekran        : 1" in sonuc2.stdout,
+          "tekrar sorguda yalniz 1 firma / 1 ekran islenmeli")
+    rapor2 = json.loads((kok / "rapor.json").read_text(encoding="utf-8"))
+    bekle(set(rapor2) == set(rapor), f"tekrar sorgu diger firmalarin raporunu bozdu: {sorted(rapor2)}")
+    bekle(rapor2["AKIN COBAN"]["durumlar"].get("e-arsiv-interaktif") == "tamam",
+          "tekrar sorgu firmanin diger ekranlarini silmemeli")
     if hatalar:
         print("\nBASARISIZ:\n  - " + "\n  - ".join(hatalar))
         return 1

@@ -36,7 +36,7 @@ from lucabot import beyanname, firma_tablosu, gostergeler, musteri_listesi  # no
 from lucabot.firma_listesi import devreden_kdvleri  # noqa: E402
 from lucabot.ortak import (AYAR_DOSYASI, DURDUR_DOSYASI, ORNEK_AYAR, TARIH_BICIMI,  # noqa: E402
                            hedef_ay_araligi, indirme_koku, sadelestir, tarih_cozumle)
-from lucabot.sabitler import EKRAN_SUTUNLARI, TUM_BELGELER  # noqa: E402
+from lucabot.sabitler import BELGE_TIPLERI, EKRAN_SUTUNLARI, TUM_BELGELER  # noqa: E402
 
 # --- gorunum (smmmyilmaz.com ile ayni: lacivert + altin) -------------------
 ZEMIN = "#0B1426"
@@ -64,6 +64,7 @@ SERIF = ("Georgia", 16, "bold")
 KONSOL_YAZI = ("Consolas", 10)
 
 EKRAN_ADLARI = {tip: ad for ad, tip in EKRAN_SUTUNLARI.items()}
+BELGE_ADLARI = dict(BELGE_TIPLERI)
 UZUN_BEKLEME = 30  # "Şu an" satiri bu kadar saniye degismezse turuncu, 3 katinda kirmizi
 ILERLEME = re.compile(r"^\[(\d+)/(\d+)\]\s+(.+?)(?:\s+\|\s+tahmini kalan:\s*(.+))?$")
 AZAMI_SATIR = 4000  # log penceresinde tutulan satir (uzun gecelerde pencere sismesin)
@@ -231,12 +232,12 @@ class OzetKutusu(tk.Frame):
 
     def __init__(self, ebeveyn, baslik, komut, renk=YAZI):
         super().__init__(ebeveyn, bg=PANEL, highlightthickness=1, highlightbackground=CIZGI,
-                         cursor="hand2", padx=12, pady=9)
+                         cursor="hand2", padx=10, pady=9)
         self.komut = komut
         self.baslik = tk.Label(self, text=baslik.upper(), font=BOLUM, fg=ETIKET if renk == YAZI else renk,
                                bg=PANEL, anchor="w")
         self.deger = tk.Label(self, text="—", font=("Segoe UI", 15, "bold"), fg=renk, bg=PANEL, anchor="w")
-        self.alt = tk.Label(self, text="Firmaları gör ›", font=KUCUK, fg=ALTIN, bg=PANEL, anchor="w")
+        self.alt = tk.Label(self, text="Gör ›", font=KUCUK, fg=ALTIN, bg=PANEL, anchor="w")
         for w in (self.baslik, self.deger, self.alt):
             w.pack(fill="x")
         for w in (self, self.baslik, self.deger, self.alt):
@@ -244,7 +245,7 @@ class OzetKutusu(tk.Frame):
             w.bind("<Enter>", lambda _e: self.configure(highlightbackground=ALTIN))
             w.bind("<Leave>", lambda _e: self.configure(highlightbackground=CIZGI))
 
-    def ayarla(self, deger, alt="Firmaları gör ›"):
+    def ayarla(self, deger, alt="Gör ›"):
         self.deger.configure(text=deger)
         self.alt.configure(text=alt)
 
@@ -743,7 +744,8 @@ class Arayuz:
             "tevkifat": OzetKutusu(sira, "Alış Tevkifat KDV", lambda: self.detay("tevkifat")),
             "smm": OzetKutusu(sira, "Alış SMM", lambda: self.detay("smm")),
             "fark": OzetKutusu(sira, "İnteraktif Farkı", lambda: self.detay("fark"), TURUNCU),
-            "kdv": OzetKutusu(sira, "KDV Ödemesi Çıkabilir", lambda: self.detay("kdv"), KIRMIZI),
+            "kdv": OzetKutusu(sira, "KDV Ödemesi", lambda: self.detay("kdv"), KIRMIZI),
+            "hata": OzetKutusu(sira, "Hata / İnmeyen", lambda: self.detay("hata"), TURUNCU),
         }
         for i, k in enumerate(self.kutu.values()):
             k.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 8, 0))
@@ -1220,14 +1222,57 @@ class Arayuz:
         self.gostergeler = gostergeler.hesapla(kayitlar, devreden, donem)
         t = gostergeler.toplamlar(self.gostergeler)
         tl = gostergeler.tl
-        self.kutu["tevkifat"].ayarla(tl(t["tevkifat"]), f"{t['tevkifat_adet']} fatura · Firmaları gör ›")
-        self.kutu["smm"].ayarla(tl(t["smm"]), f"{t['smm_adet']} makbuz · Firmaları gör ›")
+        self.kutu["tevkifat"].ayarla(tl(t["tevkifat"]), f"{t['tevkifat_adet']} fatura ›")
+        self.kutu["smm"].ayarla(tl(t["smm"]), f"{t['smm_adet']} makbuz ›")
         self.kutu["fark"].ayarla(f"{t['fark']} fatura")
         self.kutu["kdv"].ayarla(f"{t['kdv_firma']} firma")
+        self.kutu["hata"].ayarla(f"{t['hata']} ekran", "Gör / tekrarla ›")
         if donem:
             bas, bit = donem.split("-")
             self.donem_etiketi.configure(text=f"Dönem özeti: {bas} – {bit}   (iptal/itiraz edilen"
                                               " faturalar tutarlara dahil değildir)")
+
+    @staticmethod
+    def _durum_metni(x):
+        durum = x["durum"]
+        if durum == "tamam" or durum.startswith("tamam"):
+            if x["inmeyen"]:
+                return "Bazı faturalar inmedi"
+            return {"tamam (excel eksik)": "Excel inmedi", "tamam (iptal eksik)": "İptal/itiraz eksik"}.get(
+                durum, durum)
+        return {"kaynaktan inmedi": "Kaynaktan inmedi", "dosya inmedi": "Belge paketi inmedi",
+                "excel inmedi": "Excel inmedi", "ekran acilmadi": "Ekran açılmadı"}.get(durum, durum)
+
+    def tekrar_sorgula(self, liste, pencere=None):
+        """Hata alan firma/ekranlari (yalniz bunlari) ana penceredeki tarih aralığı için yeniden calistirir."""
+        if self.surec:
+            messagebox.showinfo("Çalışıyor", "Önce çalışan işlem bitsin ya da Durdur'a basın.", parent=self.kok)
+            return
+        if not self._giris_tamam_mi():
+            return
+        bas, bit = self.v_bas.get().strip(), self.v_bit.get().strip()
+        try:
+            if tarih_cozumle(bit) < tarih_cozumle(bas):
+                raise ValueError
+        except ValueError:
+            messagebox.showwarning("Tarih aralığı", "Ana penceredeki tarih aralığını kontrol edin"
+                                   " (GG/AA/YYYY).", parent=self.kok)
+            return
+        istek = {}
+        for x in liste:
+            istek.setdefault(x["firma"], []).append(x["ekran"])
+        if not messagebox.askyesno(
+                "Tekrar sorgula",
+                f"{len(istek)} firmada {len(liste)} ekran yeniden sorgulanacak ({bas} – {bit}).\n"
+                "Yalnızca bu ekranlar çalışır; sonuçlar rapora işlenir. Devam edilsin mi?", parent=self.kok):
+            return
+        yol = indirme_koku(self.ayarlar) / "tekrar-listesi.json"
+        yol.write_text(json.dumps(istek, ensure_ascii=False, indent=1), encoding="utf-8")
+        if pencere is not None:
+            pencere.destroy()
+        komut = [python_komutu(), "-u", str(self.BOT), "--bitince-kapat", "--baslangic", bas, "--bitis", bit,
+                 "--tekrar-listesi", str(yol)]
+        self._baslat(komut, "Hatalı ekranlar yeniden sorgulanıyor…")
 
     def detay(self, tur):
         tl = gostergeler.tl
@@ -1252,13 +1297,40 @@ class Arayuz:
             notlar = []
         elif tur == "fark":
             baslik = "İnteraktif V.D. − e-Arşiv Alış farkı"
-            sutunlar = ("Firma", "İnteraktif", "e-Arşiv Alış", "Fark")
-            satirlar = [(x["firma"], x["interaktif"], x["earsiv"],
-                         f"{x['fark']:+d}  ({'e-Arşiv’de eksik' if x['fark'] > 0 else 'e-Arşiv’de fazla'})")
-                        for x in g]
+            sutunlar = ("Firma / Eksik-fazla fatura", "İnteraktif", "e-Arşiv Alış", "Fark")
+            satirlar = []
+            for x in g:
+                satirlar.append((x["firma"], x["interaktif"], x["earsiv"],
+                                 f"{x['fark']:+d}  ({'e-Arşiv’de eksik' if x['fark'] > 0 else 'e-Arşiv’de fazla'})"))
+                # fatura satiri: ismin ilk kelimesi, fatura no sonu, tutar
+                for yazi, etiket in ((x["eksik"], "e-Arşiv’de eksik"), (x["fazla"], "e-Arşiv’de fazla")):
+                    for unvan, no, *kalan in yazi:
+                        tutar = kalan[0] if kalan else 0
+                        satirlar.append((f"      ↳ {unvan or '?'}  …{no[-5:]}"
+                                         + (f"  {tl(tutar)}" if tutar else ""), "", "", etiket))
+                if x["eslesmedi"]:
+                    satirlar.append(("      ↳ iki listenin fatura numaraları tutmuyor; tek tek gösterilemiyor",
+                                     "", "", ""))
+                elif not x["eksik"] and not x["fazla"]:
+                    satirlar.append(("      ↳ sayı farkı var ama hangi fatura olduğu belirlenemedi", "", "", ""))
             toplam = ("Toplam", sum(x["interaktif"] for x in g), sum(x["earsiv"] for x in g),
                       f"{sum(abs(x['fark']) for x in g)} fatura")
-            notlar = ["Hangi faturaların eksik olduğu rapor.xlsx › İndirilen Faturalar sayfasında yazar."]
+            notlar = ["Fatura satırı: ismin ilk kelimesi, fatura numarasının son 5 hanesi ve tutar."
+                      " Tüm liste rapor.xlsx › İndirilen Faturalar sayfasında da yazar."]
+            return self._detay_penceresi(baslik, sutunlar, satirlar, toplam, notlar, yazi_sutunu=1,
+                                         genislik=[430, 90, 110, 220])
+        elif tur == "hata":
+            baslik = "Hata alınan / inmeyen ekranlar"
+            sutunlar = ("Firma", "Ekran", "Durum", "İnmeyen", "Not")
+            satirlar = [(x["firma"], BELGE_ADLARI.get(x["ekran"], x["ekran"]), self._durum_metni(x),
+                         x["inmeyen"] or "", x["not"]) for x in g]
+            toplam = ("Toplam", f"{len(g)} ekran", "", sum(x["inmeyen"] for x in g), "")
+            notlar = ["İnmeyen: GİB'de olup Luca/kaynak sunucudan inmeyen fatura sayısı. \"Tekrar Sorgula\" yalnızca"
+                      " bu firma ve ekranları, ana penceredeki tarih aralığı için yeniden çalıştırır."]
+            return self._detay_penceresi(
+                baslik, sutunlar, satirlar, toplam, notlar, yazi_sutunu={0, 1, 2, 4},
+                genislik=[190, 190, 200, 80, 330],
+                ek_dugme=("Bunları Tekrar Sorgula", lambda w, g=g: self.tekrar_sorgula(g, w)) if g else None)
         else:
             baslik = "KDV ödemesi çıkabilecek firmalar"
             sutunlar = ("Firma", "Satış KDV", "Alış KDV", "Devreden", "Tahmini Ödeme")
@@ -1272,12 +1344,18 @@ class Arayuz:
                       " boşsa 0 sayılır."]
         self._detay_penceresi(baslik, sutunlar, satirlar, toplam, notlar)
 
-    def _detay_penceresi(self, baslik, sutunlar, satirlar, toplam, notlar, yazi_sutunu=1):
-        """yazi_sutunu: bastaki bu kadar sutun yazidir (sola yaslanir), kalanlar tutar (saga)."""
+    def _detay_penceresi(self, baslik, sutunlar, satirlar, toplam, notlar, yazi_sutunu=1,
+                         genislik=None, ek_dugme=None):
+        """yazi_sutunu: bastaki bu kadar sutun yazidir (sola yaslanir), kalanlar tutar (saga);
+        sutun numaralari kumesi de verilebilir. genislik: sutun basina piksel (yoksa varsayilan).
+        ek_dugme: (yazi, komut(pencere)) altta ayrica gosterilir."""
+        yazilar = set(range(yazi_sutunu)) if isinstance(yazi_sutunu, int) else set(yazi_sutunu)
+        if genislik is None:
+            genislik = [260 if i == 0 else 170 if i in yazilar else 130 for i in range(len(sutunlar))]
         w = tk.Toplevel(self.kok, bg=ZEMIN, padx=20, pady=16)
         w.title(baslik)
         w.transient(self.kok)
-        w.geometry(f"{240 + 140 * len(sutunlar) + 40 * (yazi_sutunu - 1)}x460")
+        w.geometry(f"{min(sum(genislik) + 70, 1500)}x520")
         tk.Label(w, text=baslik, font=("Georgia", 14, "bold"), fg="#F2F4F8", bg=ZEMIN,
                  anchor="w").pack(fill="x")
         donem = self.secili_donem()
@@ -1288,21 +1366,27 @@ class Arayuz:
         alt.pack(side="bottom", fill="x", pady=(10, 0))
         for n in notlar:
             tk.Label(w, text=n, font=KUCUK, fg=SOLUK, bg=ZEMIN, anchor="w", justify="left",
-                     wraplength=700).pack(side="bottom", fill="x", pady=(4, 0))
-        agac = ttk.Treeview(w, columns=sutunlar, show="headings", style="Liste.Treeview")
+                     wraplength=max(sum(genislik), 600)).pack(side="bottom", fill="x", pady=(4, 0))
+        cerceve = tk.Frame(w, bg=ZEMIN)
+        cerceve.pack(fill="both", expand=True)
+        agac = ttk.Treeview(cerceve, columns=sutunlar, show="headings", style="Liste.Treeview")
+        kaydir = ttk.Scrollbar(cerceve, orient="vertical", command=agac.yview)
+        agac.configure(yscrollcommand=kaydir.set)
         for i, s in enumerate(sutunlar):
-            yon = "w" if i < yazi_sutunu else "e"
+            yon = "w" if i in yazilar else "e"
             agac.heading(s, text=s, anchor=yon)
-            agac.column(s, anchor=yon, width=240 if i == 0 else 170 if i < yazi_sutunu else 130,
-                        stretch=i < yazi_sutunu)
+            # ilk sutun artan yeri alir; digerleri sabit ve sigacak genislikte
+            agac.column(s, anchor=yon, width=genislik[i], minwidth=genislik[i], stretch=(i == 0))
         agac.tag_configure("toplam", foreground=ALTIN, font=GOVDE_KALIN)
+        agac.tag_configure("alt", foreground=ETIKET)
         if not satirlar:
             agac.insert("", "end", values=("Bu dönemde kayıt yok",) + ("",) * (len(sutunlar) - 1))
         for s in satirlar:
-            agac.insert("", "end", values=s)
+            agac.insert("", "end", values=s, tags=("alt",) if str(s[0]).startswith("      ") else ())
         if satirlar:
             agac.insert("", "end", values=toplam, tags=("toplam",))
-        agac.pack(fill="both", expand=True)
+        kaydir.pack(side="right", fill="y")
+        agac.pack(side="left", fill="both", expand=True)
 
         def excele_indir():
             ad = re.sub(r"[^\w-]+", "-", sadelestir(baslik.split("—")[0]).lower()).strip("-")
@@ -1322,7 +1406,10 @@ class Arayuz:
             dosya_ac(yol)
 
         dugme(alt, "Kapat", w.destroy).pack(side="right")
-        dugme(alt, "Excel olarak indir", excele_indir, ana=True).pack(side="right", padx=8)
+        dugme(alt, "Excel olarak indir", excele_indir, ana=not ek_dugme).pack(side="right", padx=8)
+        if ek_dugme:
+            dugme(alt, ek_dugme[0], lambda: ek_dugme[1](w), ana=True).pack(side="right")
+        return w
 
     # -- dosyalar / kapanis -------------------------------------------------------
 

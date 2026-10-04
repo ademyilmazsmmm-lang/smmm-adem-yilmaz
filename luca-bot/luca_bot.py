@@ -22,7 +22,7 @@ import traceback
 from datetime import date
 
 from lucabot import eposta, konsol
-from lucabot.calisma import Calisma, etkin_firmalar
+from lucabot.calisma import Calisma, etkin_firmalar, tekrar_listesini_oku, tekrar_secimi
 from lucabot.firma_listesi import bugun_tamamlananlar, firmalari_suz
 from lucabot.giris import luca_oturumu_ac
 from lucabot.luca_beyanname import ekrandan_al
@@ -73,12 +73,17 @@ def arguman_ayristirici():
                    help="Luca'nin GIB Beyanname Takip ekranindan KDV1 beyanname PDF'lerini indir (--baslangic: kontrol edilen donem)")
     p.add_argument("--yil", type=int,
                    help="--firma-listesi-cek icin hangi yilin firmalari (varsayilan: bu yil)")
+    p.add_argument("--tekrar-listesi",
+                   help="Yalniz bu dosyadaki firma/ekranlari yeniden sorgula ({firma: [belge tipi]} JSON; arayuz yazar)")
     p.add_argument("--bastan", action="store_true",
                    help="Bugun tamamlanan ekranlar da yeniden taransin (sormadan)")
     return p
 
 
 def belge_tiplerini_belirle(args, ayarlar):
+    if args.tekrar_listesi:  # listedeki ekranlarin birlesimi, menudeki sirayla
+        istenen = set().union(*tekrar_listesini_oku(args.tekrar_listesi).values())
+        return [t for t in TUM_BELGELER if t in istenen]
     if args.hepsi:
         return list(TUM_BELGELER)
     if args.karsilastir:
@@ -329,6 +334,14 @@ def calistir(args, ayarlar, p):
             return 0
 
         secim = firmalari_suz(luca_firmalari, ayarlar, args.firma, args.limit, baslangic, log)
+        if args.tekrar_listesi and secim.firmalar:
+            # yalniz listedeki firmalar ve her birinde yalniz listedeki ekranlar yeniden sorgulanir
+            secim.firmalar, ek_atlanan = tekrar_secimi(
+                secim.firmalar, tekrar_listesini_oku(args.tekrar_listesi), belge_tipleri)
+            for f, tipler in ek_atlanan.items():
+                secim.atlanan_ekranlar.setdefault(f, set()).update(tipler)
+            secim.bos_sebep = "tekrar listesindeki firmalar Luca listesinde / firma listesinde bulunamadi"
+            yaz(f"Yeniden sorgulanacak: {len(secim.firmalar)} firma, {len(belge_tipleri)} ekran turu", log)
         if not secim.firmalar:
             yaz(f"\nIslenecek firma yok: {secim.bos_sebep}.", log)
             if args.firma:
@@ -341,8 +354,9 @@ def calistir(args, ayarlar, p):
             tarayiciyi_kapat(ctx)
             return 1
 
-        if args.bastan:
-            yaz("Bugun tamamlanan ekranlar da yeniden taranacak (--bastan)", log)
+        if args.bastan or args.tekrar_listesi:
+            yaz("Bugun tamamlanan ekranlar da yeniden taranacak"
+                + (" (yeniden sorgulama)" if args.tekrar_listesi else " (--bastan)"), log)
             bugun_tamam = {}
         else:
             bugun_tamam = devam_mi_bastan_mi(ctx, rapor_klasoru, belge_tipleri, gece_modu, log)

@@ -289,6 +289,27 @@ def _eksik_faturalar(kayit, sinir=10):
     return " | ".join(parcalar)
 
 
+# bu durumdaki ekranlar tekrar sorgulanmali (bkz. yeniden_denenecek)
+SORUNLU_DURUMLAR = ("hata", "ekran acilmadi", "dosya inmedi", "excel inmedi", "kaynaktan inmedi",
+                    "tamam (excel", "tamam (iptal")
+
+
+def yeniden_denenecek(kayit):
+    """Firmada tekrar sorgulanmasi gereken ekranlar: [{ekran, durum, inmeyen, not}].
+
+    Hata alan, dosyasi/Excel'i inmeyen ekranlar ve "tamam" gorunup bazi faturalari
+    kaynak sunucudan inmemis ekranlar (inmeyen > 0). Ekran sirasi menudeki sirayla.
+    """
+    sira = {tip: i for i, (tip, _) in enumerate(SUTUNLAR)}
+    liste = []
+    for tip, durum in (kayit.get("durumlar") or {}).items():
+        inmeyen = (kayit.get("inmeyen") or {}).get(tip) or 0
+        if durum.startswith(SORUNLU_DURUMLAR) or inmeyen:
+            liste.append({"ekran": tip, "durum": durum, "inmeyen": inmeyen,
+                          "not": (kayit.get("notlar") or {}).get(tip, "")})
+    return sorted(liste, key=lambda h: sira.get(h["ekran"], 99))
+
+
 def _aksiyon(kayit):
     isler = []
     durum = _genel_durum(kayit["durumlar"])

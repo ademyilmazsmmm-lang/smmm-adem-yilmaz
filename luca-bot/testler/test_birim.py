@@ -413,7 +413,8 @@ class ArayuzOzetTestleri(unittest.TestCase):
         self.assertEqual(g["tevkifat"], [{"firma": "BIRLIK TIC", "adet": 2, "tutar": 700,
                                           "tahmini": True}])
         self.assertEqual(g["smm"], [{"firma": "BIRLIK TIC", "adet": 2, "tutar": 3000}])
-        self.assertEqual(g["fark"], [{"firma": "BIRLIK TIC", "interaktif": 5, "earsiv": 3, "fark": 2}])
+        self.assertEqual(g["fark"], [{"firma": "BIRLIK TIC", "interaktif": 5, "earsiv": 3, "fark": 2,
+                                      "eslesmedi": False, "eksik": [], "fazla": []}])
         # satis 1500 - alis 600 - devreden 200 = 700; Luca'da kisaltilmis ad listedeki tam adla eslesir
         self.assertEqual(g["kdv"], [
             {"firma": "BIRLIK TIC", "satis": 1500, "alis": 600, "devreden": 200, "odeme": 700},
@@ -421,6 +422,53 @@ class ArayuzOzetTestleri(unittest.TestCase):
         t = gostergeler.toplamlar(g)
         self.assertEqual((t["tevkifat"], t["smm"], t["fark"], t["kdv_firma"]), (700, 3000, 2, 2))
         self.assertEqual(gostergeler.tl(1234.5), "1.234,50 TL")
+
+    def test_fark_ayrintisinda_eksik_ve_fazla_faturalar(self):
+        from lucabot import gostergeler
+        donem = "01/09/2026-30/09/2026"
+        kayitlar = {"ALEV SEZEN": {
+            "donem": donem, "sayilar": {"e-arsiv-alis": 2, "e-arsiv-interaktif": 3},
+            "faturalar": {
+                "e-arsiv-alis": [["TURKCELL", "AAA2026000000001", 100.0], ["SHELL", "AAA2026000000002", 50.0]],
+                "e-arsiv-interaktif": [["TURKCELL", "AAA2026000000001", 100.0], ["SHELL", "AAA2026000000002", 50.0],
+                                       ["VODAFONE", "AAA2026000000007", 1200.5]]}}}
+        f = gostergeler.hesapla(kayitlar, None, donem)["fark"][0]
+        self.assertEqual(f["eksik"], [["VODAFONE", "AAA2026000000007", 1200.5]])
+        self.assertEqual((f["fazla"], f["eslesmedi"]), ([], False))
+
+    def test_hata_alan_ve_inmeyen_ekranlar(self):
+        from lucabot import gostergeler
+        donem = "01/09/2026-30/09/2026"
+        kayitlar = {
+            "ALEV SEZEN": {"donem": donem,
+                           "durumlar": {"e-arsiv-alis": "tamam", "gib-5000": "tamam", "e-fatura-alis": "tamam"},
+                           "inmeyen": {"e-arsiv-alis": 2, "gib-5000": 0},
+                           "notlar": {"e-arsiv-alis": "GIB hata verdi: 01/09/2026 - 08/09/2026"}},
+            "METIN BALT": {"donem": donem, "durumlar": {"e-arsiv-satis": "hata: LookupError",
+                                                       "esmm-alis": "tamam (excel eksik)",
+                                                       "e-fatura-satis": "fatura yok", "gib-5000": "bekliyor",
+                                                       "turmob-alis": "atlandi (cok fatura)"}},
+            "TEMIZ": {"donem": donem, "durumlar": {"e-arsiv-alis": "tamam"}, "inmeyen": {"e-arsiv-alis": 0}},
+        }
+        g = gostergeler.hesapla(kayitlar, None, donem)
+        self.assertEqual([(h["firma"], h["ekran"], h["durum"], h["inmeyen"]) for h in g["hata"]],
+                         [("ALEV SEZEN", "e-arsiv-alis", "tamam", 2),
+                          ("METIN BALT", "e-arsiv-satis", "hata: LookupError", 0),
+                          ("METIN BALT", "esmm-alis", "tamam (excel eksik)", 0)])
+        self.assertIn("GIB hata", g["hata"][0]["not"])
+        self.assertEqual(gostergeler.toplamlar(g)["hata"], 3)
+
+    def test_tekrar_listesi_firma_ve_ekran_secimi(self):
+        from lucabot.calisma import tekrar_listesini_oku, tekrar_secimi
+        with tempfile.TemporaryDirectory() as d:
+            yol = Path(d) / "tekrar.json"
+            yol.write_text(json.dumps({"ADEM": ["e-arsiv-alis"], "METİN BALT": ["e-arsiv-satis", "gib-5000"]}),
+                           encoding="utf-8")
+            tekrar = tekrar_listesini_oku(yol)
+        tipler = ["e-arsiv-alis", "e-arsiv-satis", "gib-5000"]
+        firmalar, atlanan = tekrar_secimi(["ADEM", "ADEM MERGE", "METIN BALT", "BASKA"], tekrar, tipler)
+        self.assertEqual(firmalar, ["ADEM", "METIN BALT"])            # "ADEM" yazinca "ADEM MERGE" gelmez
+        self.assertEqual(atlanan, {"ADEM": {"e-arsiv-satis", "gib-5000"}, "METIN BALT": {"e-arsiv-alis"}})
 
 
 class FirmaTablosuTestleri(unittest.TestCase):

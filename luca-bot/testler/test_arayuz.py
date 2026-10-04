@@ -329,6 +329,65 @@ class ArayuzTestleri(unittest.TestCase):
         self.assertEqual(self.app.mod, "calisma")
         fp.w.destroy()
 
+    @staticmethod
+    def _agac(pencere):
+        """Pencerenin icindeki ilk Treeview (ic ice cercevelerde aranir)."""
+        from tkinter import ttk
+        bekleyen = [pencere]
+        while bekleyen:
+            w = bekleyen.pop(0)
+            if isinstance(w, ttk.Treeview):
+                return w
+            bekleyen += w.winfo_children()
+
+    def _rapora_yaz(self, kayitlar):
+        (self.d / "indir" / "rapor.json").write_text(json.dumps(kayitlar), encoding="utf-8")
+        self.app.gostergeleri_yenile()
+
+    def test_fark_penceresi_eksik_faturalari_gosterir(self):
+        donem = "01/09/2026-30/09/2026"
+        self._rapora_yaz({"ALEV SEZEN": {
+            "donem": donem, "sayilar": {"e-arsiv-alis": 2, "e-arsiv-interaktif": 3},
+            "faturalar": {
+                "e-arsiv-alis": [["TURKCELL", "AAA2026000000001", 100.0], ["SHELL", "AAA2026000000002", 50.0]],
+                "e-arsiv-interaktif": [["TURKCELL", "AAA2026000000001", 100.0], ["SHELL", "AAA2026000000002", 50.0],
+                                       ["VODAFONE", "AAA2026000000007", 1200.5]]}}})
+        w = self.app.detay("fark")
+        self.kok.update()
+        agac = self._agac(w)
+        satirlar = [agac.item(i, "values") for i in agac.get_children()]
+        self.assertEqual(satirlar[0][0], "ALEV SEZEN")
+        self.assertIn("VODAFONE", satirlar[1][0])
+        self.assertIn("…00007", satirlar[1][0])
+        self.assertIn("1.200,50 TL", satirlar[1][0])
+        self.assertIn("eksik", satirlar[1][3])
+        # sutunlar sigacak genislikte (sayi sutunu kesilmesin)
+        self.assertGreaterEqual(int(agac.column("İnteraktif", "width")), 90)
+        w.destroy()
+
+    def test_hata_kutusu_ve_tekrar_sorgula(self):
+        from tkinter import messagebox
+        donem = "01/09/2026-30/09/2026"
+        self._rapora_yaz({
+            "ALEV SEZEN": {"donem": donem, "durumlar": {"e-arsiv-alis": "tamam"}, "inmeyen": {"e-arsiv-alis": 2}},
+            "METIN BALT": {"donem": donem, "durumlar": {"e-arsiv-satis": "hata: LookupError",
+                                                       "gib-5000": "tamam"}}})
+        self.assertIn("2 ekran", self.app.kutu["hata"].deger.cget("text"))
+        w = self.app.detay("hata")
+        self.kok.update()
+        eski, messagebox.askyesno = messagebox.askyesno, lambda *a, **k: True
+        try:
+            self.app.tekrar_sorgula(self.app.gostergeler["hata"], w)
+        finally:
+            messagebox.askyesno = eski
+        self.assertTrue(self._bekle(lambda: self.app.surec is None))
+        istek = json.loads((self.d / "indir" / "tekrar-listesi.json").read_text(encoding="utf-8"))
+        self.assertEqual(istek, {"ALEV SEZEN": ["e-arsiv-alis"], "METIN BALT": ["e-arsiv-satis"]})
+        log = self.app.log_metni()
+        self.assertIn("--tekrar-listesi", log)
+        self.assertIn("--baslangic 01/09/2026 --bitis 30/09/2026", log)
+        self.assertNotIn("--belge-tipi", log)
+
     def test_luca_listesi_cekilemezse_hata_gosterilir(self):
         from tkinter import messagebox
         self.bot.write_text("import sys\nprint('HATA: Filtre penceresi kullanilamadi')\nsys.exit(1)\n",
