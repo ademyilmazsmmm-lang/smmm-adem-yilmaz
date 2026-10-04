@@ -1,0 +1,13 @@
+{
+  "uye_no": "",
+  "kullanici_adi": "",
+  "parola": "",
+  "dogrulama_anahtari": "",
+  "dogrulama_bekleme_dakika": 5,
+  "firma_listesi": "",
+  "baslangic_tarihi": "01/07/2026",
+  "bitis_tarihi": "31/08/2026",
+  "atlanacak_firmalar": [],
+  "defterbeyan_kullanici": "",
+  "defterbeyan_sifre": ""
+}
