@@ -22,7 +22,7 @@ from .bekleme import kosulu_bekle, sayfa_durulsun
 from .beyanname import AYLAR
 from .luca_ekran import (acik_pencereleri_kapat, cerceveler, dugmeye_bas, gorunur_mu,
                          menu_metinleri, metinle_bul)
-from .luca_gezinme import firma_sec, firma_secici, menu_ogesini_ac
+from .luca_gezinme import donem_ayarla, firma_sec, firma_secici, menu_ogesini_ac, secili_metin
 from .musteri_listesi import tani_kaydet
 from .ortak import dosya_adi_yap, sadelestir, yaz
 
@@ -106,18 +106,31 @@ def menu_var_mi(page, yol=None):
     return var
 
 
-def menusu_olan_firmayi_sec(page, yol=None, tercih=None, log=None, azami=15):
-    """Beyanname menusu olan (genel muhasebe) bir firmaya gecer.
+def _donem_uygun(page, firma, yil, log=None):
+    """Firmanin calisma donemi istenen yili kapsiyor mu (gerekirse o yilin donemine gecilir).
+
+    Filtredeki 'Beyanname Dönemi' yillari secili firmanin donemine gore geliyor
+    (2025 firmasinda 2024/2025); 2026 beyannameleri icin 2026 donemi secili olmali.
+    """
+    if not yil:
+        return True
+    return donem_ayarla(page, firma, date(yil, 1, 1), date(yil, 12, 31), log)
+
+
+def menusu_olan_firmayi_sec(page, yol=None, tercih=None, log=None, azami=15, yil=None):
+    """Beyanname menusu olan ve istenen yilin donemi acik bir firmaya gecer.
 
     Ekran firmadan bagimsiz (tum musterileri listeler) ama menude yalniz genel muhasebe
-    firmalarinda gorunur. Dondurur: gecilen firma adi; secili firma yeterliyse None.
+    firmalarinda gorunur, yillari da secili firmanin donemine bagli. Dondurur: gecilen
+    firma adi; secili firma yeterliyse None.
     tercih: once denenecek firma (ayarlar.json "beyanname_firmasi" ya da onceki basarili calisma).
     """
-    firmalar = firma_secici(page)[2]
+    sec = firma_secici(page)
+    firmalar, mevcut = sec[2], secili_metin(sec[1])
     tercih = tercih if tercih in firmalar else None  # listede olmayan (eski) tercih yok sayilir
-    if not tercih and menu_var_mi(page, yol):
+    if not tercih and menu_var_mi(page, yol) and _donem_uygun(page, mevcut, yil, log):
         return None
-    yaz("    Beyanname menüsü için genel muhasebe firması aranıyor…", log)
+    yaz("    Beyanname ekranı için genel muhasebe firması ve uygun dönem aranıyor…", log)
     adaylar = ([tercih] if tercih else []) + [f for f in firmalar if f != tercih]
     denenen = 0
     for f in adaylar[:azami]:
@@ -126,11 +139,12 @@ def menusu_olan_firmayi_sec(page, yol=None, tercih=None, log=None, azami=15):
             firma_sec(page, f, log)
         except LookupError:
             continue
-        if menu_var_mi(page, yol):
+        if menu_var_mi(page, yol) and _donem_uygun(page, f, yil, log):
             yaz(f"    '{f}' firmasından devam ediliyor", log)
             return f
-    raise LookupError(f"Denenen {denenen} firmanın hiçbirinde '{_yol_parcalari(yol)[1]}' menüsü yok"
-                      " (genel muhasebe firması gerekir; ayarlar.json'a \"beyanname_firmasi\" yazılabilir)")
+    raise LookupError(f"Denenen {denenen} firmanın hiçbirinde '{_yol_parcalari(yol)[1]}' menüsü ve"
+                      f"{' ' + str(yil) if yil else ''} dönemi birlikte yok (genel muhasebe firması gerekir;"
+                      " ayarlar.json'a \"beyanname_firmasi\" yazılabilir)")
 
 
 def ekrani_ac(page, yol=None, log=None):
@@ -175,6 +189,26 @@ def _secenek_sec(secici, metin):
     return False
 
 
+def _tarih_yaz(kutu, d):
+    """Maskeli tarih kutusuna yazar: once dogrudan, olmazsa tus tus; kutudaki son degeri dondurur."""
+    metin = f"{d:%d/%m/%Y}"
+    rakam = f"{d:%d%m%Y}"
+    deger = ""
+    try:
+        kutu.fill(metin, timeout=5000)
+        kutu.press("Tab")
+        deger = kutu.input_value()
+        if deger.strip() != metin:  # kutunun kendi tus isleyicisi dogrudan yaziyi kabul etmedi
+            kutu.click(timeout=3000)
+            kutu.press("Control+A")
+            kutu.press_sequentially(rakam, delay=60)
+            kutu.press("Tab")
+            deger = kutu.input_value()
+    except Exception:
+        pass
+    return deger.strip()
+
+
 def donem_filtresi(hedef_bas):
     """Devir icin bakilacak beyanname donemi: kontrol edilen donemin bir onceki ayi."""
     onceki = (hedef_bas - timedelta(days=1)).replace(day=1)
@@ -209,16 +243,16 @@ def filtrele(page, ay, yil, log=None):
                ("Beyanname Durum", 0, "Onaylanmış"), ("Beyanname", 0, "KDV1")]
     for ad, sira, deger in zorunlu:
         if not _secenek_sec(alan(ad, sira), deger):
-            raise LookupError(f"'{ad}' listesinde '{deger}' secenegi bulunamadi")
+            mevcut = ", ".join(t.strip() for t in alan(ad, sira).locator("option").all_inner_texts())
+            ipucu = (" Listedeki yıllar seçili firmanın çalışma dönemine göre geliyor; o yıla ait dönemi olan bir"
+                     " firma seçili olmalı." if sira == 1 else "")
+            raise LookupError(f"'{ad}' listesinde '{deger}' secenegi bulunamadi (seçenekler: {mevcut}).{ipucu}")
     # yukleme tarihi: dönem ayinin basindan bugune (beyannameler ertesi ay yuklenir)
     bas, bit = date(yil, ay, 1), date.today()
+    yazilan = []
     for sira, d in enumerate((bas, bit)):
-        try:
-            kutu = alan("Paket Yükleme Tarihi", sira)
-            kutu.fill(f"{d:%d/%m/%Y}", timeout=5000)
-            kutu.press("Tab")
-        except Exception:
-            yaz("    Paket yükleme tarihi yazilamadi (varsayilan aralik kalir)", log)
+        yazilan.append(_tarih_yaz(alan("Paket Yükleme Tarihi", sira), d))
+    yaz(f"    Paket yükleme tarihi: {yazilan[0] or '?'} - {yazilan[1] or '?'}", log)
     if not dugmeye_bas(page, LISTELE_DUGMESI, sure=8000):
         raise LookupError(f"'{LISTELE_DUGMESI}' dugmesine basilamadi")
     return cerceve
@@ -363,9 +397,10 @@ def ekrandan_al(page, klasor, tani_klasoru, hedef_bas, yol=None, log=None, terci
     pencerede acildiysa isi bitince o pencere kapatilir.
     """
     onceki = list(page.context.pages)
+    ay, yil = donem_filtresi(hedef_bas)
     try:
         try:
-            firma = menusu_olan_firmayi_sec(page, yol, tercih_firma, log)
+            firma = menusu_olan_firmayi_sec(page, yol, tercih_firma, log, yil=yil)
             if firma and bilgi is not None:
                 bilgi["firma"] = firma
             ekran = ekrani_ac(page, yol, log)
@@ -373,7 +408,6 @@ def ekrandan_al(page, klasor, tani_klasoru, hedef_bas, yol=None, log=None, terci
             yaz(f"    Gorunen menuler: {menu_metinleri(page)}", log)
             tani_kaydet(page, tani_klasoru, log, "-menu", "beyanname-takip")
             raise
-        ay, yil = donem_filtresi(hedef_bas)
         yaz(f"Beyanname dönemi: {AYLAR[ay - 1].title()} {yil} (KDV1, onaylanmış)", log)
         try:
             cerceve = filtrele(ekran, ay, yil, log)

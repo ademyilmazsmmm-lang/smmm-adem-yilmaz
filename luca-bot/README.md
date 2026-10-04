@@ -62,6 +62,8 @@ kendisini konsolsuz yeniden başlatır. Hiçbiri olmazsa küçültülmüş bir s
    menüsündeki **Beyannameler yalnızca genel muhasebe firmalarında** görünür; işletme/SMK firması seçiliyse
    bot genel muhasebe firması bulana kadar firmaları dener ve bulduğunu `indirilenler\beyanname-firmasi.txt`'e
    yazıp sonraki seferde ilk onu dener (`ayarlar.json`'a `"beyanname_firmasi": "FİRMA ADI"` yazılarak da verilebilir).
+   Filtredeki yıl listesi seçili firmanın çalışma dönemine bağlıdır (2025 firmasında 2024/2025); bot bu yüzden
+   kontrol edilen yılın dönemi açık bir firma seçer, gerekirse firmanın o yılın dönemine geçer.
    Menü yolu değişirse `ayarlar.json`'a `"beyanname_menusu": "Muhasebe > Beyannameler > GİB Beyanname
    Takip"` biçiminde yeni yol yazılabilir. Komut satırından: `python luca_bot.py --beyanname-cek
    --baslangic 01/09/2026 --bitis 30/09/2026`.

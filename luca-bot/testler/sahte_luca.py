@@ -233,7 +233,7 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
  document.getElementById('gibTakip').onclick = () => {
    document.getElementById('muhasebeMenu').classList.add('gizli');
    // gercek Luca'da bu ekran ana sayfanin icinde degil ayri pencerede aciliyor
-   sonra(300, () => window.open('/gib-beyanname-takip?t=' + Date.now(), '_blank', 'popup,width=1100,height=750'));
+   sonra(300, () => window.open('/gib-beyanname-takip?yil=' + donem.value.slice(-4) + '&t=' + Date.now(), '_blank', 'popup,width=1100,height=750'));
  };
  const aen = document.getElementById('aen');
  aen.onmouseenter = aen.onclick = () =>
@@ -428,7 +428,7 @@ BEYANNAME_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>G
   <b>BEYANNAME ARAMA</b>
   <table>
    <tr><td>Paket Yükleme Tarihi</td><td><input type="text" id="t1" value="01/09/2026"><input type="text" id="t2" value="04/10/2026"></td></tr>
-   <tr><td>Beyanname Dönemi</td><td><select id="ay">__AYLAR__</select><select id="yil"><option>2025</option><option selected>2026</option></select></td></tr>
+   <tr><td>Beyanname Dönemi</td><td><select id="ay">__AYLAR__</select><select id="yil"><option value="">Tümü</option>__YILLAR__</select></td></tr>
    <tr><td>Paket Durum</td><td><select><option>Tümü</option></select></td></tr>
    <tr><td>Beyanname Durum</td><td><select id="durum"><option>Tümü</option><option>Onaylanmış</option><option>Hatalı</option></select></td></tr>
    <tr><td>Onaylanabilir Durumda mı?</td><td><select><option>Tümü</option></select></td></tr>
@@ -536,7 +536,10 @@ class Isleyici(BaseHTTPRequestHandler):
             return self._yanit(html)
         if yol == "/gib-beyanname-takip":
             aylar = "".join(f"<option>{a}</option>" for a in AYLAR_TR)
-            return self._yanit(BEYANNAME_SAYFASI.replace("__AYLAR__", aylar))
+            # gercek Luca'da yil listesi secili firmanin donem yilina gore geliyor (yil-1, yil)
+            yil = int((parse_qs(urlparse(self.path).query).get("yil") or ["2026"])[0])
+            yillar = "".join(f"<option>{y}</option>" for y in (yil - 1, yil))
+            return self._yanit(BEYANNAME_SAYFASI.replace("__AYLAR__", aylar).replace("__YILLAR__", yillar))
         if yol in ("/api/beyannameler", "/indir/beyannameler"):
             q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
             satirlar = beyanname_listesi(int(q.get("ay", 0)), int(q.get("yil", 0)),

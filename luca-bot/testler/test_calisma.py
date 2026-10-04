@@ -284,6 +284,17 @@ class CalismaDayanikliligi(unittest.TestCase):
         luca_beyanname.menusu_olan_firmayi_sec(self.page, None, "SILINMIS FIRMA")
         self.assertEqual(bilgi2, {})
 
+    def test_beyanname_yil_listesi_firmanin_donemine_bagli(self):
+        """2025 donemindeki firmada 2026 secenegi yok (gercek Luca'daki hata); bot uygun donemi secer."""
+        from lucabot import luca_beyanname
+        from lucabot.luca_gezinme import firma_sec
+        firma_sec(self.page, "ESKI DONEM LTD")                   # fake: bu firma 2025 donemiyle acilir
+        ekran = luca_beyanname.ekrani_ac(self.page)
+        with self.assertRaises(LookupError) as e:
+            luca_beyanname.filtrele(ekran, 8, 2026)
+        self.assertIn("seçenekler: Tümü, 2024, 2025", str(e.exception))
+        ekran.close()
+
     def test_beyanname_menusu_hicbir_firmada_yoksa_anlasilir_hata(self):
         from lucabot import luca_beyanname
         with self.assertRaises(LookupError) as e:
