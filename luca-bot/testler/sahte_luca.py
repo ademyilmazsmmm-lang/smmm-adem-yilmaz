@@ -24,7 +24,7 @@ FIRMALAR = ["AKIN COBAN", "DENTAL SAGLIK", "ESKI DONEM LTD", "FATURASIZ AS",
             "KEREM TICARET", "MERT INSAAT"]
 # Bu firma Luca'da en son 2025 doneminde birakilmis gibi acilir
 ESKI_DONEMLI = "ESKI DONEM LTD"
-# Bu firmalar isletme/SMK: Muhasebe menusunde Beyannameler yok (yalniz genel muhasebe firmalarinda var)
+# Bu firmalar isletme/SMK: ust cubukta "Muhasebe" yerine "Ser.Mes.Defteri" sekmesi var (Beyannameler onun altinda)
 ISLETME_FIRMALARI = {"AKIN COBAN", "DENTAL SAGLIK"}
 # Bu firmada hic fatura yok
 FATURASIZ = "FATURASIZ AS"
@@ -189,8 +189,8 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
  let seciliFirma = firma.value;
  const ESKI = '__ESKI__';
  const ISLETME = __ISLETME__;
- function menuGuncelle(){ document.getElementById('beyannameler').style.display =
-   ISLETME.includes(seciliFirma) ? 'none' : ''; }
+ function menuGuncelle(){ document.getElementById('muhasebe').textContent =
+   ISLETME.includes(seciliFirma) ? 'Ser.Mes.Defteri' : 'Muhasebe'; }
  function sonra(ms, f){ setTimeout(f, ms); }
  firma.onchange = () => { onay.classList.remove('gizli'); };
  donem.onchange = () => { onay.classList.remove('gizli'); };
@@ -423,7 +423,8 @@ BEYANNAME_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>G
 <th>Tip</th><th>Beyanname Durum</th><th>Dönem</th></tr></thead><tbody></tbody></table>
 <div id="araclar"><button id="filtre">Filtre</button> <button>GİB'den Getir</button>
 <button>Sorgula</button> <button id="toplu">Toplu İşlemler</button></div>
-<div id="bildirim" class="luca-open-window gizli" style="top:auto;bottom:10px;left:auto;right:10px;min-width:100px"></div>
+<!-- gercek Luca'da ekran acilirken varsayilan listenin bildirimi de gorunuyor ve birkac sn kaliyor -->
+<div id="bildirim" class="luca-open-window" style="top:auto;bottom:10px;left:auto;right:10px;min-width:100px">9 adet beyanname kaydı listelendi.</div>
 <div id="arama" class="luca-open-window gizli">
   <b>BEYANNAME ARAMA</b>
   <table>

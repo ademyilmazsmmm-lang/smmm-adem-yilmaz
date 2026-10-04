@@ -14,13 +14,14 @@ ile ayni yol).
 import io
 import re
 import tempfile
+import time
 import zipfile
 from datetime import date, timedelta
 from pathlib import Path
 
 from .bekleme import kosulu_bekle, sayfa_durulsun
 from .beyanname import AYLAR
-from .luca_ekran import (acik_pencereleri_kapat, cerceveler, dugmeye_bas, gorunur_mu,
+from .luca_ekran import (acik_pencereleri_kapat, bul, cerceveler, dugmeye_bas, gorunur_mu,
                          menu_metinleri, metinle_bul)
 from .luca_gezinme import donem_ayarla, firma_sec, firma_secici, menu_ogesini_ac, secili_metin
 from .musteri_listesi import tani_kaydet
@@ -87,23 +88,50 @@ def _yol_parcalari(yol):
     return [p.strip() for p in (yol or MENU_YOLU).split(">") if p.strip()]
 
 
-def menu_var_mi(page, yol=None):
-    """Secili firmada yolun ikinci basamagi ('Beyannameler') gorunuyor mu.
+# Ust cubuktaki modul sekmesi firmanin defter turune gore degisiyor; Beyannameler
+# hepsinde ayni yolla (<modul> > Beyannameler > GİB Beyanname Takip) bulunur
+MODUL_SEKMELERI = ["Muhasebe", "Ser.Mes.Defteri", "İşletme Defteri", "Serbest Meslek Defteri",
+                   "Basit Usül", "Basit Usul", "Genel Muhasebe", "Bilanço Defteri"]
 
-    Isletme defteri / serbest meslek (SMK) firmalarinda Muhasebe menusunde
-    Beyannameler yok; yalniz genel muhasebe firmalarinda var.
+
+def _tam_gorunur(page, metin):
+    """Yazisi BIREBIR bu olan gorunur oge var mi ('Defter Beyan Sistemi' gibi benzerleri sayilmaz)."""
+    try:
+        bul(page, lambda f: f.get_by_text(metin, exact=True), sure=300)
+        return True
+    except LookupError:
+        return False
+
+
+def modul_sekmesi(page, yol=None):
+    """Secili firmada 'Beyannameler' menusunu tasiyan ust sekme adi; yoksa None.
+
+    yol verilmisse yalniz onun ilk basamagi denenir; verilmezse ust cubukta gorunen
+    modul sekmeleri (Muhasebe, Ser.Mes.Defteri, İşletme Defteri ...) sirayla acilip
+    altinda 'Beyannameler' olan ilki alinir.
     """
     parcalar = _yol_parcalari(yol)
     if len(parcalar) < 2:
-        return True
+        return parcalar[0] if parcalar else None
+    aday_adlari = [parcalar[0]] if yol else MODUL_SEKMELERI
     acik_pencereleri_kapat(page)
-    menu_ogesini_ac(page, parcalar[0], sure=4000, dogrula=lambda: gorunur_mu(page, parcalar[1], sure=1200))
-    var = gorunur_mu(page, parcalar[1], sure=1500)
-    try:
-        page.keyboard.press("Escape")
-    except Exception:
-        pass
-    return var
+    for ad in aday_adlari:
+        if not _tam_gorunur(page, ad):
+            continue
+        menu_ogesini_ac(page, ad, sure=2500, dogrula=lambda: gorunur_mu(page, parcalar[1], sure=800))
+        bulundu = gorunur_mu(page, parcalar[1], sure=1000)
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+        if bulundu:
+            return ad
+    return None
+
+
+def menu_var_mi(page, yol=None):
+    """Secili firmada beyanname menusu (hangi modul sekmesinin altinda olursa olsun) var mi."""
+    return modul_sekmesi(page, yol) is not None
 
 
 def _donem_uygun(page, firma, yil, log=None):
@@ -120,8 +148,8 @@ def _donem_uygun(page, firma, yil, log=None):
 def menusu_olan_firmayi_sec(page, yol=None, tercih=None, log=None, azami=15, yil=None):
     """Beyanname menusu olan ve istenen yilin donemi acik bir firmaya gecer.
 
-    Ekran firmadan bagimsiz (tum musterileri listeler) ama menude yalniz genel muhasebe
-    firmalarinda gorunur, yillari da secili firmanin donemine bagli. Dondurur: gecilen
+    Ekran firmadan bagimsiz (tum musterileri listeler); menu firmanin modul sekmesinin altinda
+    (Muhasebe / Ser.Mes.Defteri / İşletme Defteri), yil listesi de secili firmanin donemine bagli. Dondurur: gecilen
     firma adi; secili firma yeterliyse None.
     tercih: once denenecek firma (ayarlar.json "beyanname_firmasi" ya da onceki basarili calisma).
     """
@@ -130,7 +158,7 @@ def menusu_olan_firmayi_sec(page, yol=None, tercih=None, log=None, azami=15, yil
     tercih = tercih if tercih in firmalar else None  # listede olmayan (eski) tercih yok sayilir
     if not tercih and menu_var_mi(page, yol) and _donem_uygun(page, mevcut, yil, log):
         return None
-    yaz("    Beyanname ekranı için genel muhasebe firması ve uygun dönem aranıyor…", log)
+    yaz("    Beyanname ekranı için menüsü ve dönemi uygun bir firma aranıyor…", log)
     adaylar = ([tercih] if tercih else []) + [f for f in firmalar if f != tercih]
     denenen = 0
     for f in adaylar[:azami]:
@@ -142,8 +170,8 @@ def menusu_olan_firmayi_sec(page, yol=None, tercih=None, log=None, azami=15, yil
         if menu_var_mi(page, yol) and _donem_uygun(page, f, yil, log):
             yaz(f"    '{f}' firmasından devam ediliyor", log)
             return f
-    raise LookupError(f"Denenen {denenen} firmanın hiçbirinde '{_yol_parcalari(yol)[1]}' menüsü ve"
-                      f"{' ' + str(yil) if yil else ''} dönemi birlikte yok (genel muhasebe firması gerekir;"
+    raise LookupError(f"Denenen {denenen} firmanın hiçbirinde '{_yol_parcalari(yol)[1]}' menüsü (modül sekmesi altında) ve"
+                      f"{' ' + str(yil) if yil else ''} dönemi birlikte yok (menüsü ve dönemi açık bir firma gerekir;"
                       " ayarlar.json'a \"beyanname_firmasi\" yazılabilir)")
 
 
@@ -154,6 +182,10 @@ def ekrani_ac(page, yol=None, log=None):
     """
     acik_pencereleri_kapat(page)
     parcalar = _yol_parcalari(yol)
+    if not yol:  # isletme/SMK firmalarinda ilk basamak "Muhasebe" degil modulun adi
+        parcalar[0] = modul_sekmesi(page) or parcalar[0]
+        if parcalar[0] != MENU_YOLU.split(">")[0].strip():
+            yaz(f"    Menü '{parcalar[0]}' sekmesinden açılıyor", log)
     onceki = list(page.context.pages)
     for _ in range(3):
         for sonraki, parca in zip(parcalar[1:], parcalar[:-1]):
@@ -215,7 +247,7 @@ def donem_filtresi(hedef_bas):
     return onceki.month, onceki.year
 
 
-def filtrele(page, ay, yil, log=None):
+def filtrele(page, ay, yil, log=None, durum=None):
     """Filtre penceresini doldurup 'Beyannameleri Listele'ye basar; ekrandaki cerceve ya da None."""
     dugmeye_bas(page, "Filtre", sure=8000)
     if not gorunur_mu(page, ARAMA_PENCERESI, sure=8000):
@@ -253,24 +285,41 @@ def filtrele(page, ay, yil, log=None):
     for sira, d in enumerate((bas, bit)):
         yazilan.append(_tarih_yaz(alan("Paket Yükleme Tarihi", sira), d))
     yaz(f"    Paket yükleme tarihi: {yazilan[0] or '?'} - {yazilan[1] or '?'}", log)
+    if durum is not None:  # Listele'ye basmadan onceki bildirim: bayat bildirim yeni sanilmasin
+        durum["eski_sayi"] = bildirim_sayisi(page)
     if not dugmeye_bas(page, LISTELE_DUGMESI, sure=8000):
         raise LookupError(f"'{LISTELE_DUGMESI}' dugmesine basilamadi")
     return cerceve
 
 
-def listelenen_sayi(page, sure_ms=90000):
-    """'N adet beyanname kaydı listelendi.' bildirimindeki N; gelmezse None."""
-    def oku():
-        for fr in cerceveler(page):
-            try:
-                m = LISTELENDI_DESENI.search(fr.locator("body").inner_text(timeout=2000))
-            except Exception:
-                continue
-            if m:
-                return int(m.group(1))
-        return None
-    sonuc = kosulu_bekle(page, lambda: oku() is not None, sure_ms, aralik_ms=700)
-    return oku() if sonuc else None
+def bildirim_sayisi(page):
+    """Ekrandaki 'N adet beyanname kaydı listelendi.' bildirimindeki N; yoksa None."""
+    for fr in cerceveler(page):
+        try:
+            m = LISTELENDI_DESENI.search(fr.locator("body").inner_text(timeout=2000))
+        except Exception:
+            continue
+        if m:
+            return int(m.group(1))
+    return None
+
+
+def listelenen_sayi(page, sure_ms=90000, eski=None):
+    """Yeni listenin bildirimindeki N; gelmezse None.
+
+    Ekran acilirken kendi varsayilan listesini de getirip bildirimini gosteriyor ve bildirim
+    birkac sn kaliyor. `eski` (Listele'ye basmadan onceki bildirim sayisi) ile ayni sayi gorunuyorsa
+    yeni bildirim beklenir (en cok 8 sn; liste gercekten ayni sayida cikmis olabilir).
+    """
+    basla = time.monotonic()
+
+    def hazir():
+        n = bildirim_sayisi(page)
+        if n is None:
+            return False
+        return n != eski or eski is None or time.monotonic() - basla > 8
+    sonuc = kosulu_bekle(page, hazir, sure_ms, aralik_ms=700)
+    return bildirim_sayisi(page) if sonuc else None
 
 
 # --- indirme -----------------------------------------------------------------------
@@ -410,8 +459,9 @@ def ekrandan_al(page, klasor, tani_klasoru, hedef_bas, yol=None, log=None, terci
             raise
         yaz(f"Beyanname dönemi: {AYLAR[ay - 1].title()} {yil} (KDV1, onaylanmış)", log)
         try:
-            cerceve = filtrele(ekran, ay, yil, log)
-            sayi = listelenen_sayi(ekran)
+            durum = {}
+            cerceve = filtrele(ekran, ay, yil, log, durum)
+            sayi = listelenen_sayi(ekran, eski=durum.get("eski_sayi"))
             tani_kaydet(ekran, tani_klasoru, log, "", "beyanname-takip")
             if not sayi:
                 raise LookupError(f"{AYLAR[ay - 1].title()} {yil} için onaylı KDV1 beyannamesi listelenmedi")

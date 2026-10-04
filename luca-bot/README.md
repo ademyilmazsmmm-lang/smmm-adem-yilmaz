@@ -58,10 +58,11 @@ kendisini konsolsuz yeniden başlatır. Hiçbiri olmazsa küçültülmüş bir s
    dosyalarını indirmek için buraya" bağlantısıyla hepsini tek ZIP olarak indirir. ZIP'ten tahakkuk
    dosyaları atılır, beyanname PDF'leri `indirilenler\beyannameler\<tarih>` klasörüne çıkarılır ve
    aşağıdaki "Beyannameden Devir Al" mantığıyla devirler tabloya yazılır (Kaydet'e kadar dosyaya geçmez).
-   Bu ekran Luca'da **ayrı pencerede** açılır (bot onu kendisi bulur, iş bitince kapatır) ve Muhasebe
-   menüsündeki **Beyannameler yalnızca genel muhasebe firmalarında** görünür; işletme/SMK firması seçiliyse
-   bot genel muhasebe firması bulana kadar firmaları dener ve bulduğunu `indirilenler\beyanname-firmasi.txt`'e
-   yazıp sonraki seferde ilk onu dener (`ayarlar.json`'a `"beyanname_firmasi": "FİRMA ADI"` yazılarak da verilebilir).
+   Bu ekran Luca'da **ayrı pencerede** açılır (bot onu kendisi bulur, iş bitince kapatır). Menü yolu her
+   defter türünde aynıdır ama ilk basamak firmanın modul sekmesidir: genel muhasebede **Muhasebe**,
+   serbest meslekte **Ser.Mes.Defteri**, işletmede **İşletme Defteri**; bot bu sekmeyi kendisi bulur.
+   Menü hiç bulunamazsa bot firmaları dener ve bulduğunu `indirilenler\beyanname-firmasi.txt`'e yazıp sonraki
+   seferde ilk onu dener (`ayarlar.json`'a `"beyanname_firmasi": "FİRMA ADI"` yazılarak da verilebilir).
    Filtredeki yıl listesi seçili firmanın çalışma dönemine bağlıdır (2025 firmasında 2024/2025); bot bu yüzden
    kontrol edilen yılın dönemi açık bir firma seçer, gerekirse firmanın o yılın dönemine geçer.
    Menü yolu değişirse `ayarlar.json`'a `"beyanname_menusu": "Muhasebe > Beyannameler > GİB Beyanname

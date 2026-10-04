@@ -251,15 +251,15 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertEqual(musteri_listesi.oku(yol), (2026, kayitlar))
 
     def test_gib_beyanname_takipten_pdfler_alinir(self):
-        """Isletme firmasinda menu yok: genel muhasebe firmasina gecilir; ekran ayri pencerede acilir;
-        donem/durum/tur suzulur, hepsi secilip tek ZIP inip PDF'ler cikarilir."""
+        """Isletme/SMK firmasinda menu "Muhasebe" degil kendi modul sekmesinin altinda: firma degistirmeden acilir;
+        ekran ayri pencerede acilir; donem/durum/tur suzulur, hepsi secilip tek ZIP inip PDF'ler cikarilir."""
         from datetime import date
         from lucabot import luca_beyanname
         bilgi = {}
         yollar, sayi = luca_beyanname.ekrandan_al(
             self.page, self.klasor / "pdf", self.klasor / "tani", date(2026, 9, 1), None, None, None, bilgi)
-        # secili firma (AKIN COBAN) ve DENTAL isletme: ESKI DONEM LTD'de menu var
-        self.assertEqual(bilgi["firma"], "ESKI DONEM LTD")
+        # secili firma (AKIN COBAN) isletme/SMK: menu "Ser.Mes.Defteri" sekmesinde, firma degismez
+        self.assertEqual(bilgi, {})
         # eylul kontrolu: agustos donemi, yalniz onayli KDV1 (hatali ve temmuz elenir)
         self.assertEqual(sayi, 3)
         adlar = sorted(y.name for y in yollar)
@@ -296,17 +296,27 @@ class CalismaDayanikliligi(unittest.TestCase):
         ekran.close()
 
     def test_beyanname_menusu_hicbir_firmada_yoksa_anlasilir_hata(self):
+        from unittest import mock
         from lucabot import luca_beyanname
-        with self.assertRaises(LookupError) as e:
-            luca_beyanname.menusu_olan_firmayi_sec(self.page, None, None, None, azami=2)   # yalniz AKIN, DENTAL
-        self.assertIn("genel muhasebe", str(e.exception))
+        with mock.patch.object(luca_beyanname, "menu_var_mi", return_value=False):
+            with self.assertRaises(LookupError) as e:
+                luca_beyanname.menusu_olan_firmayi_sec(self.page, None, None, None, azami=2, yil=2026)
+        self.assertIn("modül sekmesi", str(e.exception))
 
-    def test_beyanname_menusu_var_mi(self):
+    def test_beyanname_modul_sekmesi_defter_turune_gore(self):
         from lucabot import luca_beyanname
         from lucabot.luca_gezinme import firma_sec
-        self.assertFalse(luca_beyanname.menu_var_mi(self.page))       # ilk firma isletme
-        firma_sec(self.page, "KEREM TICARET")
+        self.assertEqual(luca_beyanname.modul_sekmesi(self.page), "Ser.Mes.Defteri")   # ilk firma isletme/SMK
         self.assertTrue(luca_beyanname.menu_var_mi(self.page))
+        firma_sec(self.page, "KEREM TICARET")
+        self.assertEqual(luca_beyanname.modul_sekmesi(self.page), "Muhasebe")
+
+    def test_beyanname_isletme_firmasinda_menu_kendi_sekmesinden_acilir(self):
+        from lucabot import luca_beyanname
+        ekran = luca_beyanname.ekrani_ac(self.page)          # ilk firma isletme/SMK
+        self.assertIsNot(ekran, self.page)
+        self.assertTrue(ekran.get_by_text("Mükellef Adı").first.is_visible())
+        ekran.close()
 
     def test_beyanname_menu_yolu_ayardan_izlenir(self):
         from lucabot import luca_beyanname
