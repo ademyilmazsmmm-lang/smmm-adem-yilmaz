@@ -660,6 +660,56 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         self.assertIsNone(self.kz.surec)
         self.assertTrue(self.bilgi)
 
+    def test_tema_varsayilan_acik_ve_degisir(self):
+        import luca_arayuz
+        self.assertEqual(luca_arayuz.TEMA, "acik")
+        self.assertEqual(luca_arayuz.ZEMIN, luca_arayuz.TEMALAR["acik"]["ZEMIN"])
+        eski_kz = self.app.kz
+        self.app.v_bas.set("02/09/2026")  # ekrandaki degerler tema degisince kaybolmaz
+        self.app.tema_degistir()
+        self.assertEqual(luca_arayuz.TEMA, "koyu")
+        self.assertEqual(json.loads(self.ayar.read_text(encoding="utf-8"))["tema"], "koyu")
+        self.assertEqual(self.app.v_bas.get(), "02/09/2026")
+        self.assertIsNot(self.app.kz, eski_kz)                       # arayuz yeniden kuruldu
+        self.assertEqual(self.kok.cget("bg"), luca_arayuz.TEMALAR["koyu"]["ZEMIN"])
+        self.app.sekme_sec("kz")
+        self.kok.update()
+        self.assertTrue(self.app.kz.govde.winfo_ismapped())
+        self.app.tema_degistir()                                      # geri
+        self.assertEqual(luca_arayuz.TEMA, "acik")
+        self.assertEqual(self.kok.cget("bg"), luca_arayuz.TEMALAR["acik"]["ZEMIN"])
+
+    def test_tema_calisirken_degismez(self):
+        import luca_arayuz
+        self.app.calistir()
+        self.assertIsNotNone(self.app.surec)
+        bilgi = []
+        eski = luca_arayuz.messagebox.showinfo
+        luca_arayuz.messagebox.showinfo = lambda *a, **k: bilgi.append(a)
+        try:
+            self.app.tema_degistir()
+        finally:
+            luca_arayuz.messagebox.showinfo = eski
+        self.assertEqual(luca_arayuz.TEMA, "acik")
+        self.assertTrue(bilgi)
+
+    def test_baslik_metinleri(self):
+        yazilar = []
+
+        def tara(w):
+            for c in w.winfo_children():
+                try:
+                    yazilar.append(c.cget("text"))
+                except Exception:
+                    pass
+                tara(c)
+        tara(self.kok)
+        for beklenen in ("Dijital Stajyer", "SMMM OFİSİ - DİJİTAL ASİSTAN", "Lisans sahibi: S. Adem Yılmaz",
+                         "Luca · e-Fatura / e-Arşiv · Kâr / Zarar"):
+            self.assertIn(beklenen, yazilar)
+        self.assertEqual(self.kok.title(), "Dijital Stajyer")
+        self.assertNotIn("smmmyilmaz.com", yazilar)
+
     def test_firma_listesi_yenile_secenegi(self):
         self.assertNotIn("--listeyi-yenile", self.kz.komut())  # varsayilan: kayitli liste
         self.assertIn("Kayıtlı liste yok", self.kz.liste_bilgisi.cget("text"))

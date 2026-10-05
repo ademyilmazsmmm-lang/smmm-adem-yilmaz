@@ -201,18 +201,18 @@ class KarZararSekmesi:
         self.durum_yazisi.pack(side="right")
 
         # log kucuk tutulur; asil yer sonuc tablosunun
-        cerceve = tk.Frame(p, bg=u.KONSOL, highlightthickness=1, highlightbackground="#1B2944", height=130)
+        cerceve = tk.Frame(p, bg=u.KONSOL, highlightthickness=1, highlightbackground=u.KONSOL_KENAR, height=130)
         cerceve.pack(side="bottom", fill="x", pady=(10, 0))
         cerceve.pack_propagate(False)
-        self.log = tk.Text(cerceve, bg=u.KONSOL, fg="#CBD2DE", font=u.KONSOL_YAZI, relief="flat", wrap="none",
+        self.log = tk.Text(cerceve, bg=u.KONSOL, fg=u.KONSOL_FG, font=u.KONSOL_YAZI, relief="flat", wrap="none",
                            padx=12, pady=8, insertbackground=u.YAZI, state="disabled", highlightthickness=0, bd=0)
         kaydir = tk.Scrollbar(cerceve, command=self.log.yview, bg=u.KONSOL, troughcolor=u.KONSOL,
                               activebackground=u.KENAR, relief="flat", bd=0)
         self.log.configure(yscrollcommand=kaydir.set)
         kaydir.pack(side="right", fill="y")
         self.log.pack(side="left", fill="both", expand=True)
-        for etiket, renk in (("ok", "#8CE59A"), ("uyari", "#F2D98A"), ("soluk", "#7F8BA3"),
-                             ("hata", u.KIRMIZI), ("firma", u.ALTIN_ACIK), ("bilgi", "#9AA6BD")):
+        for etiket, renk in (("ok", u.YESIL_FG), ("uyari", u.UYARI_FG), ("soluk", u.LOG_SOLUK),
+                             ("hata", u.KIRMIZI), ("firma", u.LOG_FIRMA), ("bilgi", u.LOG_BILGI)):
             self.log.tag_configure(etiket, foreground=renk)
 
         self.donem_etiketi = tk.Label(p, text="", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w")
@@ -225,18 +225,18 @@ class KarZararSekmesi:
                                           font=u.GOVDE, width=26)
         self.fatura_kutusu.pack(side="left", padx=(10, 0), ipady=3)
         self.fatura_kutusu.bind("<<ComboboxSelected>>", self._ay_secildi)
-        self.fatura_etiketi = tk.Label(p, text="", font=u.KUCUK, fg=u.ALTIN, bg=u.ZEMIN, anchor="w",
+        self.fatura_etiketi = tk.Label(p, text="", font=u.KUCUK, fg=u.ALTIN_FG, bg=u.ZEMIN, anchor="w",
                                        justify="left", wraplength=700)
         self.fatura_etiketi.pack(fill="x", pady=(0, 6))
 
-        self.ozet_etiketi = tk.Label(p, text="", font=u.GOVDE_KALIN, fg=u.ALTIN, bg=u.ZEMIN, anchor="w",
+        self.ozet_etiketi = tk.Label(p, text="", font=u.GOVDE_KALIN, fg=u.ALTIN_FG, bg=u.ZEMIN, anchor="w",
                                      justify="left", wraplength=640)
         self.ozet_etiketi.pack(side="bottom", fill="x", pady=(6, 0))
         sutunlar = ("Firma", "Dönem", "Kaynak", "Dönem kârı / zararı", "Fatura farkı", "Faturalar dahil", "Not")
         genislik = (140, 150, 85, 150, 115, 150, 80)
         self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 2, 6},
                                          filtreler=("Dönem", "Kaynak"), degisti=self._toplam_yaz,
-                                         etiketler={"kar": "#8CE59A", "zarar": u.KIRMIZI, "hata": u.SOLUK})
+                                         etiketler={"kar": u.YESIL_FG, "zarar": u.KIRMIZI, "hata": u.SOLUK})
         self.tablo.pack(fill="both", expand=True)
         self.agac = self.tablo.agac
         self.agac.bind("<<TreeviewSelect>>", self._secildi)
@@ -612,10 +612,10 @@ class KarZararSekmesi:
             self.a._durum("Tamamlandı", u.YESIL, "#FFFFFF")
         elif self.durdurma_istendi or kod in (130, -2):
             self.ilerleme_etiketi.configure(text="Durduruldu; o ana kadarki sonuçlar tabloda.")
-            self.a._durum("Durduruldu", u.TURUNCU, u.ALTIN_YAZI)
+            self.a._durum("Durduruldu", u.TURUNCU_ZEMIN, u.ALTIN_YAZI)
         else:
             self.ilerleme_etiketi.configure(text="Hata ile bitti — log'un sonuna bakın.")
-            self.a._durum("Hata", "#B3443A", "#FFFFFF")
+            self.a._durum("Hata", u.HATA_ZEMIN, "#FFFFFF")
 
     def _son_islemi_goster(self):
         metin, an = self.son_islem

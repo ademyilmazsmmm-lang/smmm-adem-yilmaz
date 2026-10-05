@@ -22,7 +22,6 @@ import subprocess
 import sys
 import threading
 import time
-import webbrowser
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -40,23 +39,42 @@ from lucabot.ortak import (AYAR_DOSYASI, DURDUR_DOSYASI, ORNEK_AYAR, TARIH_BICIM
                            hedef_ay_araligi, indirme_koku, sadelestir, tarih_cozumle)
 from lucabot.sabitler import BELGE_TIPLERI, EKRAN_SUTUNLARI, TUM_BELGELER  # noqa: E402
 
-# --- gorunum (smmmyilmaz.com ile ayni: lacivert + altin) -------------------
-ZEMIN = "#0B1426"
+# --- gorunum: acik (varsayilan) ve koyu tema (smmmyilmaz.com: lacivert + altin) ----------
+TEMALAR = {
+    "koyu": dict(ZEMIN="#0B1426", PANEL="#111D35", KUTU="#0E1830", KENAR="#2A3A5C", CIZGI="#1F2C48",
+                 YAZI="#E8ECF4", BASLIK_FG="#F2F4F8", SOLUK="#9AA6BD", ETIKET="#B8C2D6",
+                 ALTIN_FG="#D4B263", TURUNCU="#F0B45A", KIRMIZI="#F2918A", YESIL_FG="#8CE59A",
+                 UYARI_FG="#F2D98A", LOG_SOLUK="#7F8BA3", LOG_BILGI="#9AA6BD", LOG_FIRMA="#E2C47A",
+                 KONSOL="#070D1A", KONSOL_FG="#CBD2DE", KONSOL_KENAR="#1B2944", SECIM="#2A3A5C",
+                 HOVER="#172443", DEVRE="#5B6782", TROUGH="#1B2944"),
+    "acik": dict(ZEMIN="#F2F4F8", PANEL="#FFFFFF", KUTU="#FFFFFF", KENAR="#C3CCDC", CIZGI="#DCE2EC",
+                 YAZI="#1C2538", BASLIK_FG="#12203A", SOLUK="#66718A", ETIKET="#4A5670",
+                 ALTIN_FG="#8A6410", TURUNCU="#B4690E", KIRMIZI="#C23B30", YESIL_FG="#1B7F3B",
+                 UYARI_FG="#8A6A00", LOG_SOLUK="#7A859D", LOG_BILGI="#5B6680", LOG_FIRMA="#8A6410",
+                 KONSOL="#FFFFFF", KONSOL_FG="#26324D", KONSOL_KENAR="#C3CCDC", SECIM="#D6E2F7",
+                 HOVER="#E7EDF7", DEVRE="#A3ACBF", TROUGH="#DCE2EC"),
+}
+# her iki temada ayni: ust bant (lacivert), altin dolgu/dugme, durum renkleri
 BASLIK_ZEMIN = "#091122"
-PANEL = "#111D35"
-KUTU = "#0E1830"
-KENAR = "#2A3A5C"
-CIZGI = "#1F2C48"
-YAZI = "#E8ECF4"
-SOLUK = "#9AA6BD"
-ETIKET = "#B8C2D6"
+BASLIK_YAZI = "#F2F4F8"
+BASLIK_ETIKET = "#B8C2D6"
 ALTIN = "#D4B263"
 ALTIN_ACIK = "#E2C47A"
 ALTIN_YAZI = "#1A1405"
 YESIL = "#13804F"
-TURUNCU = "#F0B45A"
-KIRMIZI = "#F2918A"
-KONSOL = "#070D1A"
+TURUNCU_ZEMIN = "#F0B45A"
+HATA_ZEMIN = "#B3443A"
+TEMA = "acik"
+
+
+def tema_uygula(ad):
+    """Renk sabitlerini secilen temaya cevirir (arayuz kurulurken okunur); gecersiz ad acik temaya duser."""
+    global TEMA
+    TEMA = ad if ad in TEMALAR else "acik"
+    globals().update(TEMALAR[TEMA])
+
+
+tema_uygula("acik")
 
 GOVDE = ("Segoe UI", 10)
 GOVDE_KALIN = ("Segoe UI", 10, "bold")
@@ -196,7 +214,7 @@ def liste_excel_yaz(yol, baslik, donem, sutunlar, satirlar, toplam, notlar):
 # --- kucuk parcalar ----------------------------------------------------------
 
 def bolum_basligi(ebeveyn, metin):
-    return tk.Label(ebeveyn, text=metin.upper(), font=BOLUM, fg=ALTIN, bg=ZEMIN, anchor="w")
+    return tk.Label(ebeveyn, text=metin.upper(), font=BOLUM, fg=ALTIN_FG, bg=ZEMIN, anchor="w")
 
 
 def giris_kutusu(ebeveyn, degisken, gizli=False, genislik=20):
@@ -210,9 +228,9 @@ def dugme(ebeveyn, metin, komut, ana=False, **kw):
         renk = dict(bg=ALTIN, fg=ALTIN_YAZI, activebackground=ALTIN_ACIK, activeforeground=ALTIN_YAZI,
                     font=("Segoe UI", 11, "bold"))
     else:
-        renk = dict(bg=PANEL, fg=YAZI, activebackground="#172443", activeforeground=YAZI, font=GOVDE)
+        renk = dict(bg=PANEL, fg=YAZI, activebackground=HOVER, activeforeground=YAZI, font=GOVDE)
     d = tk.Button(ebeveyn, text=metin, command=komut, relief="flat", cursor="hand2",
-                  bd=0, padx=14, pady=7, disabledforeground="#5B6782",
+                  bd=0, padx=14, pady=7, disabledforeground=DEVRE,
                   highlightthickness=1, highlightbackground=KENAR, **renk, **kw)
     return d
 
@@ -232,14 +250,15 @@ def logo(ebeveyn):
 class OzetKutusu(tk.Frame):
     """Alttaki tiklanabilir gosterge kutusu."""
 
-    def __init__(self, ebeveyn, baslik, komut, renk=YAZI):
+    def __init__(self, ebeveyn, baslik, komut, renk=None):
+        renk = renk or YAZI  # tema calisma aninda belli olur (varsayilan arguman import'ta sabitlenirdi)
         super().__init__(ebeveyn, bg=PANEL, highlightthickness=1, highlightbackground=CIZGI,
                          cursor="hand2", padx=10, pady=9)
         self.komut = komut
         self.baslik = tk.Label(self, text=baslik.upper(), font=BOLUM, fg=ETIKET if renk == YAZI else renk,
                                bg=PANEL, anchor="w")
         self.deger = tk.Label(self, text="—", font=("Segoe UI", 15, "bold"), fg=renk, bg=PANEL, anchor="w")
-        self.alt = tk.Label(self, text="Gör ›", font=KUCUK, fg=ALTIN, bg=PANEL, anchor="w")
+        self.alt = tk.Label(self, text="Gör ›", font=KUCUK, fg=ALTIN_FG, bg=PANEL, anchor="w")
         for w in (self.baslik, self.deger, self.alt):
             w.pack(fill="x")
         for w in (self, self.baslik, self.deger, self.alt):
@@ -269,7 +288,7 @@ class FirmaEkranPenceresi:
 
         ust = tk.Frame(w, bg=ZEMIN)
         ust.pack(fill="x")
-        tk.Label(ust, text="KDV Devri ve Ekran Seçimi", font=("Georgia", 14, "bold"), fg="#F2F4F8",
+        tk.Label(ust, text="KDV Devri ve Ekran Seçimi", font=("Georgia", 14, "bold"), fg=BASLIK_FG,
                  bg=ZEMIN).pack(side="left")
         self.v_ara = tk.StringVar()
         self.v_ara.trace_add("write", lambda *_: self._suz())
@@ -301,7 +320,7 @@ class FirmaEkranPenceresi:
                                                  for t in TUM_BELGELER] + [""]
         for i, ad in enumerate(basliklar):
             baslik.grid_columnconfigure(i, minsize=self.GENISLIK[i])
-            et = tk.Label(baslik, text=ad, font=BOLUM, fg=ALTIN, bg=KUTU,
+            et = tk.Label(baslik, text=ad, font=BOLUM, fg=ALTIN_FG, bg=KUTU,
                           anchor="w" if i < 2 else "center", justify="center", pady=6)
             et.grid(row=0, column=i, sticky="ew")
             if 2 <= i < 2 + len(TUM_BELGELER):
@@ -501,7 +520,7 @@ class LucaListesiPenceresi:
         w.transient(arayuz.kok)
         w.geometry("860x560")
         tk.Label(w, text=f"Luca'da {yil} yılında {luca_sayisi} firma var", font=("Georgia", 14, "bold"),
-                 fg="#F2F4F8", bg=ZEMIN, anchor="w").pack(fill="x")
+                 fg=BASLIK_FG, bg=ZEMIN, anchor="w").pack(fill="x")
         tk.Label(w, text=f"{yol.name} ile karşılaştırma: {len(plan['yeni'])} yeni firma,"
                          f" {len(plan['guncellenecek'])} firmada açılış/kapanış güncellenecek,"
                          f" {plan['ayni']} firma aynı, {len(plan['luca_da_yok'])} firma Luca'nın {yil}"
@@ -583,10 +602,17 @@ class Arayuz:
             messagebox.showerror("Ayar dosyası bozuk", f"{e}\n\nDosyayı Not Defteri ile düzeltin.")
             raise SystemExit(1)
 
-        kok.title("Dijital Stajyer — Adem Yılmaz SMMM Ofisi")
-        kok.configure(bg=ZEMIN)
+        kok.title("Dijital Stajyer")
         kok.geometry("1140x780")
         kok.minsize(1020, 720)
+        kok.protocol("WM_DELETE_WINDOW", self.kapat)
+        self._kur()
+
+    def _kur(self):
+        """Tum arayuzu secili temayla (yeniden) kurar; tema degisince de cagrilir."""
+        kok = self.kok
+        tema_uygula(self.ayarlar.get("tema") or "acik")
+        kok.configure(bg=ZEMIN)
         self._stiller()
         self._degiskenler()
         self._baslik()
@@ -602,8 +628,26 @@ class Arayuz:
         self._giris_ozetini_yaz()
         self.alt_sekme_sec("surec")
         self.gostergeleri_yenile()
-        kok.protocol("WM_DELETE_WINDOW", self.kapat)
         self.dongu_id = kok.after(100, self._dongu)
+
+    def tema_degistir(self):
+        """Acik <-> koyu: ayar kaydedilir, arayuz ayni pencerede yeniden kurulur (calisma sirasinda yapilmaz)."""
+        if self.surec or self.kz.calisiyor():
+            messagebox.showinfo("Çalışma sürüyor", "Tema, çalışma bitince değiştirilebilir.", parent=self.kok)
+            return
+        a = self.ayarlar
+        a["tema"] = "koyu" if TEMA == "acik" else "acik"
+        a["baslangic_tarihi"], a["bitis_tarihi"] = self.v_bas.get().strip(), self.v_bit.get().strip()
+        a["firma_listesi"] = self.v_liste.get()
+        a["arayuz_ekranlar"] = [t for t in TUM_BELGELER if self.v_ekran[t].get()]
+        try:
+            ayarlari_kaydet(a)
+        except OSError:
+            pass
+        self.kok.after_cancel(self.dongu_id)
+        for w in self.kok.winfo_children():
+            w.destroy()
+        self._kur()
 
     # -- kurulum ---------------------------------------------------------------
 
@@ -613,13 +657,13 @@ class Arayuz:
             s.theme_use("clam")
         except tk.TclError:
             pass
-        s.configure("Altin.Horizontal.TProgressbar", troughcolor="#1B2944", background=ALTIN,
-                    bordercolor="#1B2944", lightcolor=ALTIN, darkcolor=ALTIN, thickness=8)
+        s.configure("Altin.Horizontal.TProgressbar", troughcolor=TROUGH, background=ALTIN,
+                    bordercolor=TROUGH, lightcolor=ALTIN, darkcolor=ALTIN, thickness=8)
         s.configure("Liste.Treeview", background=PANEL, fieldbackground=PANEL, foreground=YAZI,
                     rowheight=26, font=GOVDE, bordercolor=CIZGI)
-        s.configure("Liste.Treeview.Heading", background=KUTU, foreground=ALTIN, font=BOLUM,
+        s.configure("Liste.Treeview.Heading", background=KUTU, foreground=ALTIN_FG, font=BOLUM,
                     relief="flat")
-        s.map("Liste.Treeview", background=[("selected", "#2A3A5C")])
+        s.map("Liste.Treeview", background=[("selected", SECIM)])
 
     def _degiskenler(self):
         a = self.ayarlar
@@ -642,28 +686,31 @@ class Arayuz:
         logo(sol).pack(side="left", pady=14)
         yazi = tk.Frame(sol, bg=BASLIK_ZEMIN)
         yazi.pack(side="left", padx=12)
-        tk.Label(yazi, text="Dijital Stajyer", font=SERIF, fg="#F2F4F8", bg=BASLIK_ZEMIN).pack(anchor="w")
-        tk.Label(yazi, text="ADEM YILMAZ SMMM OFİSİ · DİJİTAL ASİSTAN", font=("Segoe UI", 8, "bold"),
+        tk.Label(yazi, text="Dijital Stajyer", font=SERIF, fg=BASLIK_YAZI, bg=BASLIK_ZEMIN).pack(anchor="w")
+        tk.Label(yazi, text="SMMM OFİSİ - DİJİTAL ASİSTAN", font=("Segoe UI", 8, "bold"),
                  fg=ALTIN, bg=BASLIK_ZEMIN).pack(anchor="w")
         sag = tk.Frame(b, bg=BASLIK_ZEMIN)
         sag.pack(side="right", padx=22)
-        site = tk.Label(sag, text="smmmyilmaz.com", font=KUCUK, fg=ALTIN, bg=BASLIK_ZEMIN, cursor="hand2")
-        site.pack(side="right", padx=(12, 0))
-        site.bind("<Button-1>", lambda _e: webbrowser.open("https://smmmyilmaz.com"))
+        tk.Label(sag, text="Lisans sahibi: S. Adem Yılmaz", font=KUCUK, fg=ALTIN, bg=BASLIK_ZEMIN
+                 ).pack(side="right", padx=(12, 0))
+        tema = tk.Label(sag, text="🌙 Koyu tema" if TEMA == "acik" else "☀ Açık tema", font=KUCUK,
+                        fg=BASLIK_YAZI, bg="#16213A", padx=8, pady=3, cursor="hand2")
+        tema.pack(side="right", padx=(12, 0))
+        tema.bind("<Button-1>", lambda _e: self.tema_degistir())
         self.durum_etiketi = tk.Label(sag, text="  Hazır  ", font=("Segoe UI", 9, "bold"),
                                       fg="#FFFFFF", bg=YESIL, padx=6, pady=2)
         self.durum_etiketi.pack(side="right", padx=(12, 0))
         tk.Label(sag, text="Luca · e-Fatura / e-Arşiv · Kâr / Zarar", font=KUCUK,
-                 fg=ETIKET, bg=BASLIK_ZEMIN).pack(side="right")
+                 fg=BASLIK_ETIKET, bg=BASLIK_ZEMIN).pack(side="right")
         tk.Frame(self.kok, bg=CIZGI, height=1).pack(fill="x")
 
     def _sekme_cubugu(self):
-        cubuk = tk.Frame(self.kok, bg=BASLIK_ZEMIN)
+        cubuk = tk.Frame(self.kok, bg=PANEL)
         cubuk.pack(fill="x")
         self.sekme_dugmeleri = {}
         for anahtar, ad in (("fatura", "Fatura İndirme"), ("kz", "Kâr / Zarar"),
                             ("muavin", "Luca Mükerrer / Eksik Fatura Tespiti")):
-            d = tk.Label(cubuk, text=ad, font=GOVDE_KALIN, padx=22, pady=8, cursor="hand2", bg=BASLIK_ZEMIN)
+            d = tk.Label(cubuk, text=ad, font=GOVDE_KALIN, padx=22, pady=8, cursor="hand2", bg=PANEL)
             d.pack(side="left")
             d.bind("<Button-1>", lambda _e, k=anahtar: self.sekme_sec(k))
             self.sekme_dugmeleri[anahtar] = d
@@ -674,8 +721,8 @@ class Arayuz:
         g = tk.Frame(kok, bg=ZEMIN)
         orta = tk.Frame(g, bg=ZEMIN)
         orta.place(relx=0.5, rely=0.42, anchor="center")
-        tk.Label(orta, text="🛠", font=("Segoe UI Emoji", 40), fg=ALTIN, bg=ZEMIN).pack()
-        tk.Label(orta, text="Çalışma var", font=SERIF, fg="#F2F4F8", bg=ZEMIN).pack(pady=(8, 4))
+        tk.Label(orta, text="🛠", font=("Segoe UI Emoji", 40), fg=ALTIN_FG, bg=ZEMIN).pack()
+        tk.Label(orta, text="Çalışma var", font=SERIF, fg=BASLIK_FG, bg=ZEMIN).pack(pady=(8, 4))
         tk.Label(orta, text="Luca mükerrer / eksik fatura tespiti ekranı yapım aşamasında.\n"
                  "Gelen/giden faturalar Luca muavin dökümüyle karşılaştırılacak.", font=GOVDE, fg=SOLUK,
                  bg=ZEMIN, justify="center").pack()
@@ -688,7 +735,7 @@ class Arayuz:
         {"fatura": self.fatura_govde, "kz": self.kz.govde, "muavin": self.muavin_govde}[anahtar].pack(
             fill="both", expand=True)
         for k, d in self.sekme_dugmeleri.items():
-            d.configure(fg=ALTIN if k == anahtar else SOLUK)
+            d.configure(fg=ALTIN_FG if k == anahtar else SOLUK)
         self.aktif_sekme = anahtar
         if anahtar == "kz":
             self.kz.sonucu_goster()  # fatura indirme sekmesinde yeni ay indirilmis olabilir
@@ -768,7 +815,7 @@ class Arayuz:
             c.pack_forget()
         self.alt_cerceveler[anahtar].pack(fill="both", expand=True)
         for k, d in self.alt_dugmeler.items():
-            d.configure(fg=ALTIN if k == anahtar else SOLUK, bg=KUTU if k == anahtar else PANEL)
+            d.configure(fg=ALTIN_FG if k == anahtar else SOLUK, bg=ZEMIN if k == anahtar else CIZGI)
         if anahtar != "surec":
             self.gostergeleri_yenile()
 
@@ -821,9 +868,9 @@ class Arayuz:
             k.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 8, 0))
             sira.columnconfigure(i, weight=1, uniform="kutu")
 
-        cerceve = tk.Frame(p, bg=KONSOL, highlightthickness=1, highlightbackground="#1B2944")
+        cerceve = tk.Frame(p, bg=KONSOL, highlightthickness=1, highlightbackground=KONSOL_KENAR)
         cerceve.pack(fill="both", expand=True)
-        self.log = tk.Text(cerceve, bg=KONSOL, fg="#CBD2DE", font=KONSOL_YAZI, relief="flat",
+        self.log = tk.Text(cerceve, bg=KONSOL, fg=KONSOL_FG, font=KONSOL_YAZI, relief="flat",
                            wrap="none", padx=12, pady=10, insertbackground=YAZI, state="disabled",
                            highlightthickness=0, bd=0)
         kaydir = tk.Scrollbar(cerceve, command=self.log.yview, bg=KONSOL, troughcolor=KONSOL,
@@ -831,13 +878,15 @@ class Arayuz:
         self.log.configure(yscrollcommand=kaydir.set)
         kaydir.pack(side="right", fill="y")
         self.log.pack(side="left", fill="both", expand=True)
-        for etiket, renk in (("ok", "#8CE59A"), ("uyari", "#F2D98A"), ("soluk", "#7F8BA3"),
-                             ("hata", KIRMIZI), ("firma", ALTIN_ACIK), ("bilgi", "#9AA6BD")):
+        for etiket, renk in (("ok", YESIL_FG), ("uyari", UYARI_FG), ("soluk", LOG_SOLUK),
+                             ("hata", KIRMIZI), ("firma", LOG_FIRMA), ("bilgi", LOG_BILGI)):
             self.log.tag_configure(etiket, foreground=renk)
 
     # -- Firma Durumu / Hatali sekmeleri ---------------------------------------------------
 
-    DURUM_RENKLERI = {"tamam": "#8CE59A", "uyari": TURUNCU, "hata": KIRMIZI, "soluk": SOLUK}
+    @staticmethod
+    def durum_renkleri():
+        return {"tamam": YESIL_FG, "uyari": TURUNCU, "hata": KIRMIZI, "soluk": SOLUK}
 
     def _durum_sekmesi(self, p):
         """rapor.xlsx'teki 'firma durumu' tablosu: arama, Dönem/Durum filtresi, basliga tiklayinca siralama."""
@@ -855,7 +904,7 @@ class Arayuz:
         self.durum_tablosu = SiralaFiltreTablosu(
             p, sys.modules[__name__], rapor.BASLIKLAR, genislik, yazi=yazi, filtreler=("Dönem", "Durum"),
             varsayilan_filtre={"Dönem": self.secili_donem() or "Tümü"}, yatay=True,
-            etiketler=self.DURUM_RENKLERI)
+            etiketler=self.durum_renkleri())
         self.durum_tablosu.pack(fill="both", expand=True)
         self._durum_donemi = None
 
@@ -873,7 +922,7 @@ class Arayuz:
         dugme(alt, "Görünenleri Seç", lambda: self.hata_tablosu.hepsini_sec()).pack(side="left")
         self.hata_tablosu = SiralaFiltreTablosu(
             p, sys.modules[__name__], ("Firma", "Ekran", "Durum", "İnmeyen", "Not"), (200, 200, 170, 80, 300),
-            yazi={0, 1, 2, 4}, filtreler=("Ekran", "Durum"), secim="extended", etiketler=self.DURUM_RENKLERI)
+            yazi={0, 1, 2, 4}, filtreler=("Ekran", "Durum"), secim="extended", etiketler=self.durum_renkleri())
         self.hata_tablosu.pack(fill="both", expand=True)
         self.hata_listesi = []
 
@@ -1291,11 +1340,11 @@ class Arayuz:
                 self.luca_listesini_goster()
             elif self.durdurma_istendi or kod in (130, -2):
                 self.ilerleme_etiketi.configure(text="Firma listesi çekme durduruldu.")
-                self._durum("Durduruldu", TURUNCU, ALTIN_YAZI)
+                self._durum("Durduruldu", TURUNCU_ZEMIN, ALTIN_YAZI)
             else:
                 self.ilerleme_etiketi.configure(
                     text="Firma listesi alınamadı — log'a bakın (indirilenler\\…\\tani klasöründe ekran görüntüsü var).")
-                self._durum("Hata", "#B3443A", "#FFFFFF")
+                self._durum("Hata", HATA_ZEMIN, "#FFFFFF")
         elif mod == "beyanname":
             if kod == 0 and not self.durdurma_istendi:
                 self.ilerleme.configure(value=100)
@@ -1304,21 +1353,21 @@ class Arayuz:
                 self._beyannameler_alindi()
             elif self.durdurma_istendi or kod in (130, -2):
                 self.ilerleme_etiketi.configure(text="Beyanname alma durduruldu.")
-                self._durum("Durduruldu", TURUNCU, ALTIN_YAZI)
+                self._durum("Durduruldu", TURUNCU_ZEMIN, ALTIN_YAZI)
             else:
                 self.ilerleme_etiketi.configure(
                     text="Beyannameler alınamadı — log'a bakın (günlük klasörün tani klasöründe ekran görüntüsü var).")
-                self._durum("Hata", "#B3443A", "#FFFFFF")
+                self._durum("Hata", HATA_ZEMIN, "#FFFFFF")
         elif kod == 0 and not self.durdurma_istendi:
             self.ilerleme.configure(value=100)
             self.ilerleme_etiketi.configure(text="Tamamlandı. Rapor güncellendi.")
             self._durum("Tamamlandı", YESIL, "#FFFFFF")
         elif self.durdurma_istendi or kod in (130, -2):
             self.ilerleme_etiketi.configure(text="Durduruldu. Yeniden Çalıştır'a basınca kaldığı yerden sürer.")
-            self._durum("Durduruldu", TURUNCU, ALTIN_YAZI)
+            self._durum("Durduruldu", TURUNCU_ZEMIN, ALTIN_YAZI)
         else:
             self.ilerleme_etiketi.configure(text="Hata ile bitti — log'un sonuna bakın.")
-            self._durum("Hata", "#B3443A", "#FFFFFF")
+            self._durum("Hata", HATA_ZEMIN, "#FFFFFF")
 
     def _son_islemi_goster(self):
         """'Şu an: <son log satırı> — 14 sn' (çalışırken); uzun beklemede renk değişir."""
@@ -1538,7 +1587,7 @@ class Arayuz:
             agac.heading(s, text=s, anchor=yon)
             # ilk sutun artan yeri alir; digerleri sabit ve sigacak genislikte
             agac.column(s, anchor=yon, width=genislik[i], minwidth=genislik[i], stretch=(i == 0))
-        agac.tag_configure("toplam", foreground=ALTIN, font=GOVDE_KALIN)
+        agac.tag_configure("toplam", foreground=ALTIN_FG, font=GOVDE_KALIN)
         agac.tag_configure("alt", foreground=ETIKET)
         if not satirlar:
             agac.insert("", "end", values=("Bu dönemde kayıt yok",) + ("",) * (len(sutunlar) - 1))

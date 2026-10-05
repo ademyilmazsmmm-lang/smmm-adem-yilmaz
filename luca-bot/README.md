@@ -96,6 +96,10 @@ kendisini konsolsuz yeniden başlatır. Hiçbiri olmazsa küçültülmüş bir s
      KDV'yi `firmalar.xlsx`'e **"Devreden KDV"** adlı bir sütun açıp elle yazın; boşsa 0 sayılır.
      Tahmindir (diğer beyan kalemleri girmez).
 
+### Görünüm (açık / koyu tema)
+
+Program **açık temayla** açılır. Sağ üstteki **🌙 Koyu tema / ☀ Açık tema** düğmesi temayı değiştirir ve seçimi `ayarlar.json > tema` (`acik` / `koyu`) olarak hatırlar. Çalışma sürerken tema değiştirilemez. Başlık bandı: "Dijital Stajyer — SMMM OFİSİ - DİJİTAL ASİSTAN"; sağ üstte lisans sahibi yazar.
+
 ### Fatura İndirme sekmesinin alt ekranları
 
 Sağ panelde üç alt sekme vardır:

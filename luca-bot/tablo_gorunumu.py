@@ -67,7 +67,7 @@ class SiralaFiltreTablosu(tk.Frame):
         self.sayac = tk.Label(ust, text="", font=ui.KUCUK, fg=ui.SOLUK, bg=ui.ZEMIN)
         self.sayac.pack(side="right")
         tk.Button(ust, text="Temizle", command=self.temizle, relief="flat", bd=0, cursor="hand2", font=ui.KUCUK,
-                  bg=ui.PANEL, fg=ui.YAZI, activebackground="#172443", activeforeground=ui.YAZI,
+                  bg=ui.PANEL, fg=ui.YAZI, activebackground=ui.HOVER, activeforeground=ui.YAZI,
                   highlightthickness=1, highlightbackground=ui.KENAR, padx=8).pack(side="right", padx=(0, 10))
 
         if arama:
