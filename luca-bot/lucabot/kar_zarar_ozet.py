@@ -10,6 +10,7 @@ amortisman gibi yevmiyeyle girilen kalemler faturada olmaz: sonuc bir TAHMINDIR.
 
 import json
 import re
+from datetime import timedelta
 
 from . import rapor
 from .ortak import sadelestir, tarih_cozumle
@@ -98,17 +99,25 @@ def ozet_cumlesi(satir):
 
 
 
-def fatura_donemi(kayitlar):
-    """rapor.json'da en cok firmanin faturasi indirilmis donem: (donem metni, firma sayisi); yoksa ("", 0)."""
-    sayac = {}
-    for k in (kayitlar or {}).values():
-        d = (k or {}).get("donem") or ""
-        if donem_coz(d):
-            sayac[d] = sayac.get(d, 0) + 1
-    if not sayac:
-        return "", 0
-    donem = max(sayac, key=sayac.get)
-    return donem, sayac[donem]
+AYLAR = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim",
+         "Kasım", "Aralık")
+
+
+def donem_adi(donem):
+    """'01/09/2026-30/09/2026' -> 'Eylül 2026'; tam bir ay degilse tarih araligi."""
+    aralik = donem_coz(donem)
+    if not aralik:
+        return donem
+    bas, bit = aralik
+    if bas.day == 1 and (bit + timedelta(days=1)).day == 1 and (bas.year, bas.month) == (bit.year, bit.month):
+        return f"{AYLAR[bas.month - 1]} {bas.year}"
+    return f"{bas:%d/%m/%Y} – {bit:%d/%m/%Y}"
+
+
+def fatura_donemleri(donemler):
+    """{donem: {firma: kayit}} -> [(donem, firma sayisi)], tarihe gore eskiden yeniye (bozuk donemler atlanir)."""
+    liste = [(d, len(k)) for d, k in (donemler or {}).items() if donem_coz(d) and k]
+    return sorted(liste, key=lambda x: donem_coz(x[0]))
 
 
 def toplamlar(satirlar):

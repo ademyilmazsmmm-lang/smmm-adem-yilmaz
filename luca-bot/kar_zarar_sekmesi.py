@@ -24,7 +24,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from lucabot import gostergeler, kar_zarar_ozet
+from lucabot import gostergeler, kar_zarar_ozet, rapor
 from lucabot.ortak import TARIH_BICIMI, indirme_koku, tarih_cozumle
 
 KOK = Path(__file__).resolve().parent
@@ -125,6 +125,9 @@ class KarZararSekmesi:
         self.v_db_kod = tk.StringVar(value=kz.get("defterbeyan_kullanici", ""))
         self.v_db_sifre = tk.StringVar(value=kz.get("defterbeyan_sifre", ""))
         self.v_fatura = tk.BooleanVar(value=False)  # "Taranan Faturaları Dahil Et" düğmesiyle açılır
+        self.v_fatura_donem = tk.StringVar()        # dahil edilecek indirilmiş ay (kutudan seçilir)
+        self.elle_secildi = False                   # kullanıcı seçtiyse yeni indirilen ay seçimi bozmaz
+        self.donem_secenekleri = {}                 # kutudaki yazı -> {firma: kayit}
 
     def _sol_panel(self):
         u = self.ui
@@ -208,9 +211,14 @@ class KarZararSekmesi:
         satir.pack(fill="x", pady=(2, 6))
         self.fatura_dugmesi = u.dugme(satir, "Taranan Faturaları Dahil Et", self.fatura_degistir, ana=True)
         self.fatura_dugmesi.pack(side="left")
-        self.fatura_etiketi = tk.Label(satir, text="", font=u.KUCUK, fg=u.ALTIN, bg=u.ZEMIN, anchor="w",
-                                       justify="left", wraplength=420)
-        self.fatura_etiketi.pack(side="left", padx=12, fill="x", expand=True)
+        self.fatura_kutusu = ttk.Combobox(satir, textvariable=self.v_fatura_donem, state="readonly",
+                                          font=u.GOVDE, width=26)
+        self.fatura_kutusu.pack(side="left", padx=(10, 0), ipady=3)
+        self.fatura_kutusu.bind("<<ComboboxSelected>>", self._ay_secildi)
+        self.fatura_etiketi = tk.Label(p, text="", font=u.KUCUK, fg=u.ALTIN, bg=u.ZEMIN, anchor="w",
+                                       justify="left", wraplength=700)
+        self.fatura_etiketi.pack(fill="x", pady=(0, 6))
+
         self.ozet_etiketi = tk.Label(p, text="", font=u.GOVDE_KALIN, fg=u.ALTIN, bg=u.ZEMIN, anchor="w",
                                      justify="left", wraplength=640)
         self.ozet_etiketi.pack(side="bottom", fill="x", pady=(6, 0))
@@ -237,11 +245,21 @@ class KarZararSekmesi:
     def cikti_klasoru(self):
         return Path(os.environ.get("KARZARAR_CIKTI") or self.klasor / "cikti")
 
-    def _rapor_kayitlari(self):
+    def yenile_donemler(self, bit):
+        """Indirilmis aylari kutuya doldurur; secim korunur, yoksa kar/zarar doneminden sonraki en yeni ay secilir."""
         try:
-            return json.loads((indirme_koku(self.a.ayarlar) / "rapor.json").read_text(encoding="utf-8"))
+            donemler = rapor.donem_kayitlari(indirme_koku(self.a.ayarlar))
         except (OSError, ValueError):
-            return {}
+            donemler = {}
+        self.donem_secenekleri = {}
+        for donem, adet in kar_zarar_ozet.fatura_donemleri(donemler):
+            self.donem_secenekleri[f"{kar_zarar_ozet.donem_adi(donem)} · {adet} firma"] = donemler[donem]
+        yazilar = list(self.donem_secenekleri)
+        self.fatura_kutusu.configure(values=yazilar)
+        if not (self.elle_secildi and self.v_fatura_donem.get() in self.donem_secenekleri):
+            sonrasi = [y for y in yazilar
+                       if kar_zarar_ozet.donem_coz(next(iter(self.donem_secenekleri[y].values()))["donem"])[0] > bit]
+            self.v_fatura_donem.set((sonrasi or yazilar or [""])[-1])
 
     def sonucu_yukle(self):
         try:
@@ -255,8 +273,9 @@ class KarZararSekmesi:
         if self.klasor is None:
             return
         aralik = kar_zarar_ozet.donem_coz(self.donem_metni)
-        kayitlar = self._rapor_kayitlari() if self.v_fatura.get() else {}
         bit = aralik[1] if aralik else date.today()
+        self.yenile_donemler(bit)
+        kayitlar = self.donem_secenekleri.get(self.v_fatura_donem.get(), {}) if self.v_fatura.get() else {}
         self.satirlar = kar_zarar_ozet.satirlar(self.ham, kayitlar, bit)
         tl = gostergeler.tl
         self.agac.delete(*self.agac.get_children())
@@ -282,26 +301,28 @@ class KarZararSekmesi:
             self.donem_etiketi.configure(text="Henüz sonuç yok.")
         self._ust_ozet(kayitlar, aralik)
 
+    def _ay_secildi(self, _e=None):
+        self.elle_secildi = True
+        self.sonucu_goster()
+
     def fatura_degistir(self):
         """Dugme: indirilmis faturalari kar/zarara kat (ya da cikar)."""
         self.v_fatura.set(not self.v_fatura.get())
         self.sonucu_goster()
 
     def _ust_ozet(self, kayitlar, aralik):
-        """Fatura donemi bilgisi + toplam: 'dahil edilince ne olur' tek bakista gorunsun."""
-        donem, adet = kar_zarar_ozet.fatura_donemi(self._rapor_kayitlari())
+        """Secili ay bilgisi + toplam: 'dahil edilince ne olur' tek bakista gorunsun."""
+        secili = self.v_fatura_donem.get()
         self.fatura_dugmesi.configure(text="Faturaları Hariç Tut" if self.v_fatura.get()
                                       else "Taranan Faturaları Dahil Et")
-        if not self.v_fatura.get():
-            self.fatura_etiketi.configure(
-                text=(f"Faturalar hesaba katılmıyor. İndirilmiş: {donem.replace('-', ' – ')} ({adet} firma)"
-                      if donem else "Faturalar hesaba katılmıyor; indirilmiş fatura yok."))
-        elif not donem:
+        if not self.donem_secenekleri:
             self.fatura_etiketi.configure(text="İndirilmiş fatura yok; önce Fatura İndirme'den faturaları indirin.")
+        elif not self.v_fatura.get():
+            self.fatura_etiketi.configure(
+                text=f"Faturalar hesaba katılmıyor. Kutudan ayı seçip düğmeye basın (seçili: {secili}).")
         else:
             self.fatura_etiketi.configure(
-                text=f"İndirilmiş faturalar: {donem.replace('-', ' – ')} ({adet} firma) — "
-                     "Luca'ya işlenmemiş bu dönemin satış − alışı kâra eklenir.")
+                text=f"Dahil edilen: {secili} — Luca'ya işlenmemiş bu ayın satış − alışı (KDV hariç) kâra eklenir.")
         t = kar_zarar_ozet.toplamlar(self.satirlar)
         if not t["firma"]:
             self.ozet_etiketi.configure(text="")

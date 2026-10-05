@@ -12,6 +12,7 @@ import csv
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 
 # rapora sutun olarak giren belge tipleri (sira sutun sirasidir)
 SUTUNLAR = [
@@ -388,6 +389,30 @@ def _satir(kayit):
     return satir
 
 
+# Donem donem tutulan kopya: rapor.json firma basina yalniz SON donemi tutar; yeni aya gecilince eski ayin
+# tutarlari silinmesin diye (kar/zarar sekmesi hangi ayin faturalarini dahil edecegini buradan secer).
+DONEM_GECMISI = "rapor-donemler.json"
+_GECMIS_ALANLARI = ("donem", "durumlar", "sayilar", "matrah", "kdv", "iptal")
+
+
+def _gecmise_ekle(gecmis, kayit):
+    if kayit.get("donem"):
+        gecmis.setdefault(kayit["donem"], {})[kayit["firma"]] = {
+            a: json.loads(json.dumps(kayit.get(a))) for a in _GECMIS_ALANLARI}
+        gecmis[kayit["donem"]][kayit["firma"]]["firma"] = kayit["firma"]
+
+
+def donem_kayitlari(klasor):
+    """{donem: {firma: kayit}}: gecmis donemler + rapor.json'daki guncel donem(ler)."""
+    klasor = Path(klasor)
+    sonuc = _oku(klasor / DONEM_GECMISI)
+    for firma, kayit in _oku(klasor / "rapor.json").items():
+        kayit = _tamamla(dict(kayit))
+        kayit.setdefault("firma", firma)
+        _gecmise_ekle(sonuc, kayit)
+    return sonuc
+
+
 def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
     """Calisma sonuclarini surekli rapora isler; rapor.xlsx ve rapor.csv yazar.
 
@@ -400,9 +425,12 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
 
     for kayit in kayitlar.values():
         _tamamla(kayit)
+    gecmis = _oku(klasor / DONEM_GECMISI)
 
     for s in sonuclar:
         kayit = kayitlar.setdefault(s["firma"], _bos_kayit(s["firma"]))
+        if s.get("donem") and kayit["donem"] and kayit["donem"] != s["donem"]:
+            _gecmise_ekle(gecmis, kayit)  # yeni aya geciliyor: eski ayin tutarlari saklanir
         tip = s.get("belge_tipi", belge_tipi)
         kayit["durumlar"][tip] = s.get("durum", "")
         kayit["sayilar"][tip] = s.get("fatura_sayisi", 0)
@@ -436,6 +464,13 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
     for firma in bekleyenler:
         kayit = kayitlar.setdefault(firma, _bos_kayit(firma))
         kayit["durumlar"].setdefault(belge_tipi, "bekliyor")
+
+    for kayit in kayitlar.values():
+        _gecmise_ekle(gecmis, kayit)
+    gecmis_gecici = (klasor / DONEM_GECMISI).with_suffix(".json.tmp")
+    with open(gecmis_gecici, "w", encoding="utf-8") as f:
+        json.dump(gecmis, f, ensure_ascii=False, indent=1)
+    os.replace(gecmis_gecici, klasor / DONEM_GECMISI)
 
     # once gecici dosyaya yazilip yer degistirilir: yazarken elektrik/bilgisayar
     # kesilirse yarim kalan dosya yuzunden onceki gunun tum durumu kaybolmasin

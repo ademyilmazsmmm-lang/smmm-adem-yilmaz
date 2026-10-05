@@ -400,14 +400,32 @@ class KarZararOzetTestleri(unittest.TestCase):
         self.assertEqual(ko.ozet_cumlesi(s2).split("; ")[1].split("edilince ")[1], "1.300 TL zarar")
 
 
-    def test_fatura_donemi_ve_toplamlar(self):
+    def test_donemler_ve_toplamlar(self):
         from lucabot import kar_zarar_ozet as ko
-        kayitlar = {"A": self.EYLUL, "B": self.EYLUL, "C": {"donem": "01/08/2026-31/08/2026"}, "D": {}}
-        self.assertEqual(ko.fatura_donemi(kayitlar), ("01/09/2026-30/09/2026", 2))
-        self.assertEqual(ko.fatura_donemi({}), ("", 0))
+        ekim = {"A": {"donem": "01/10/2026-31/10/2026"}}
+        donemler = {"01/09/2026-30/09/2026": {"A": self.EYLUL, "B": self.EYLUL}, "01/10/2026-31/10/2026": ekim,
+                    "bozuk": {"A": {}}, "01/08/2026-31/08/2026": {}}
+        self.assertEqual(ko.fatura_donemleri(donemler),
+                         [("01/09/2026-30/09/2026", 2), ("01/10/2026-31/10/2026", 1)])
+        self.assertEqual(ko.fatura_donemleri({}), [])
+        self.assertEqual(ko.donem_adi("01/09/2026-30/09/2026"), "Eylül 2026")
+        self.assertEqual(ko.donem_adi("01/09/2026-15/10/2026"), "01/09/2026 – 15/10/2026")
         s = ko.satirlar([{"firma": "A", "kar": 100.0}, {"firma": "Z", "kar": -50.0}, {"firma": "H", "kar": None}],
-                        kayitlar, date(2026, 8, 31))
+                        {"A": self.EYLUL}, date(2026, 8, 31))
         self.assertEqual(ko.toplamlar(s), {"firma": 2, "kar": 50.0, "dahil": 750.0, "fatura_firma": 1})
+
+    def test_rapor_donem_gecmisi(self):
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            ilk = {"firma": "A LTD", "belge_tipi": "e-arsiv-satis", "durum": "tamam", "fatura_sayisi": 1,
+                   "matrah": 1000, "donem": "01/09/2026-30/09/2026"}
+            rapor.guncelle(d, [ilk], [], "e-arsiv-satis")
+            rapor.guncelle(d, [dict(ilk, matrah=300, donem="01/10/2026-31/10/2026")], [], "e-arsiv-satis")
+            donemler = rapor.donem_kayitlari(d)
+            self.assertEqual(sorted(donemler), ["01/09/2026-30/09/2026", "01/10/2026-31/10/2026"])
+            self.assertEqual(donemler["01/09/2026-30/09/2026"]["A LTD"]["matrah"]["e-arsiv-satis"], 1000)
+            self.assertEqual(rapor.fatura_kari(donemler["01/09/2026-30/09/2026"]["A LTD"])["satis"], 1000)
+            self.assertEqual(donemler["01/10/2026-31/10/2026"]["A LTD"]["matrah"]["e-arsiv-satis"], 300)
 
 
 class ArayuzOzetTestleri(unittest.TestCase):

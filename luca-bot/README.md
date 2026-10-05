@@ -108,11 +108,13 @@ Pencerenin üstündeki **Kâr / Zarar** sekmesi, repodaki ayrı `kar-zarar/` pro
 - Sonuç tablosu kârdan zarara sıralıdır; satıra tıklayınca özet cümle çıkar. **Excel olarak indir**
   tablonun tamamını (fatura sütunlarıyla) kaydeder; **Programın Excel Raporu** `kar-zarar` programının
   kendi raporunu açar.
-- **Faturalar dahil** (tablonun üstündeki **Taranan Faturaları Dahil Et** düğmesi; tekrar basınca çıkar): Luca'ya henüz işlenmemiş bir döneme ait indirilmiş faturalar (rapor.json'daki
+- **Faturalar dahil** (tablonun üstündeki **Taranan Faturaları Dahil Et** düğmesi; yanındaki kutudan **hangi ayın** faturalarının dahil edileceğini seçersiniz, tekrar basınca çıkar): Luca'ya henüz işlenmemiş bir döneme ait indirilmiş faturalar (rapor.json'daki
   dönem, kâr/zarar döneminden sonra başlıyorsa) varsa, KDV hariç satış − alış kâra eklenip ayrıca
   gösterilir: "1–8. ay kâr X; Eylül faturaları dahil edilince Y". Faturalardan mal alışı ile gider
   ayrılamadığı için alış tek kalem sayılır; maaş, amortisman gibi yevmiye kalemleri faturada olmaz — **tahmindir**.
-  Fatura dönemi kâr/zarar dönemiyle çakışıyorsa aynı ay iki kez sayılmaması için eklenmez.
+  Seçilen ay kâr/zarar dönemiyle çakışıyorsa aynı ay iki kez sayılmaması için eklenmez.
+  Kutudaki aylar `indirilenler/rapor-donemler.json`'dan gelir: yeni aya geçildiğinde eski ayın tutarları orada saklanır
+  (bu özellikten önce indirilip üzerine yazılmış aylar geri getirilemez; o ayı yeniden indirmek gerekir).
 - Fatura İndirme ve Kâr / Zarar aynı anda çalışmaz (ikisi de Luca'ya girer).
 
 İptal/itiraz edilen faturalar tutarlara dahil edilmez. Python'da pencere kütüphanesi (tkinter)

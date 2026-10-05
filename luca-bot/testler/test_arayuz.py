@@ -578,6 +578,12 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         veri = json.loads(rapor.read_text(encoding="utf-8"))
         veri["BIRLIK TIC"]["matrah"].update({"e-arsiv-satis": 1500, "e-fatura-alis": 500})
         rapor.write_text(json.dumps(veri), encoding="utf-8")
+        # gecmis donem kaydi: Ekim faturalari (satis 5000, alis yok) -> kutuda iki ay olur
+        (self.d / "indir" / "rapor-donemler.json").write_text(json.dumps({"01/10/2026-31/10/2026": {
+            "BIRLIK TIC": {"firma": "BIRLIK TIC", "donem": "01/10/2026-31/10/2026",
+                           "matrah": {"e-arsiv-satis": 5000}, "durumlar": {"e-arsiv-satis": "tamam"}}}}),
+            encoding="utf-8")
+        self.assertFalse(self.kz.v_fatura.get())  # baslangicta faturalar hesaba katilmaz
         self.kz.calistir()
         self.assertIsNotNone(self.kz.surec)
         self._bilgi_sustur()
@@ -592,6 +598,12 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         satirlar = [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()]
         self.assertEqual([s[0] for s in satirlar], ["BIRLIK TIC", "YILDIZ OTO", "HATALI LTD"])
         self.assertEqual(satirlar[0][4], "—")  # dugmeye basilmadan faturalar dahil degil
+        self.assertEqual(list(self.kz.fatura_kutusu.cget("values")),
+                         ["Eylül 2026 · 1 firma", "Ekim 2026 · 1 firma"])
+        self.assertEqual(self.kz.v_fatura_donem.get(), "Ekim 2026 · 1 firma")  # en yeni ay varsayilan
+        self.kz.v_fatura_donem.set("Eylül 2026 · 1 firma")  # kullanici ayi kendisi secer
+        self.kz.fatura_kutusu.event_generate("<<ComboboxSelected>>")
+        self.kok.update()
         self.kz.fatura_dugmesi.invoke()
         self.assertEqual(self.kz.fatura_dugmesi.cget("text"), "Faturaları Hariç Tut")
         satirlar = [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()]
@@ -599,10 +611,17 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         self.assertIn("-500,00 TL", satirlar[0][3])  # fatura farki (satis - alis)
         self.assertIn("99.500,00 TL kâr", satirlar[0][4])  # faturalar dahil
         self.assertIn("faturalar dahil edilince 96.500,00 TL kâr", self.kz.ozet_etiketi.cget("text"))
-        self.assertIn("01/09/2026", self.kz.fatura_etiketi.cget("text"))
+        self.assertIn("Dahil edilen: Eylül 2026", self.kz.fatura_etiketi.cget("text"))
         self.assertIn("zarar", satirlar[1][2])
         self.assertEqual(satirlar[1][4], "—")
         self.assertIn("mizan inmedi", satirlar[2][5])
+        self.kz.v_fatura.set(True)
+        self.kz.v_fatura_donem.set("Ekim 2026 · 1 firma")
+        self.kz.fatura_kutusu.event_generate("<<ComboboxSelected>>")
+        self.kok.update()
+        satirlar = [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()]
+        self.assertIn("100.000,00 TL kâr", satirlar[0][2])
+        self.assertIn("105.000,00 TL kâr", satirlar[0][4])  # Ekim: +5000
         self.kz.fatura_dugmesi.invoke()  # tekrar basinca faturalar cikarilir
         self.assertEqual(self.kz.fatura_dugmesi.cget("text"), "Taranan Faturaları Dahil Et")
         satirlar = [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()]
