@@ -591,15 +591,23 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         self.assertIn('"parola": "x"', log)  # luca-bot girisi kar-zarar ayarina aktarildi
         satirlar = [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()]
         self.assertEqual([s[0] for s in satirlar], ["BIRLIK TIC", "YILDIZ OTO", "HATALI LTD"])
-        self.assertIn("100.000,00 TL kâr", satirlar[0][2])
-        self.assertIn("99.500,00 TL kâr", satirlar[0][3])  # faturalar dahil
-        self.assertIn("zarar", satirlar[1][2])
-        self.assertEqual(satirlar[1][3], "—")
-        self.assertIn("mizan inmedi", satirlar[2][4])
-        self.kz.v_fatura.set(False)
-        self.kz.sonucu_goster()
+        self.assertEqual(satirlar[0][4], "—")  # dugmeye basilmadan faturalar dahil degil
+        self.kz.fatura_dugmesi.invoke()
+        self.assertEqual(self.kz.fatura_dugmesi.cget("text"), "Faturaları Hariç Tut")
         satirlar = [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()]
-        self.assertEqual(satirlar[0][3], "—")
+        self.assertIn("100.000,00 TL kâr", satirlar[0][2])
+        self.assertIn("-500,00 TL", satirlar[0][3])  # fatura farki (satis - alis)
+        self.assertIn("99.500,00 TL kâr", satirlar[0][4])  # faturalar dahil
+        self.assertIn("faturalar dahil edilince 96.500,00 TL kâr", self.kz.ozet_etiketi.cget("text"))
+        self.assertIn("01/09/2026", self.kz.fatura_etiketi.cget("text"))
+        self.assertIn("zarar", satirlar[1][2])
+        self.assertEqual(satirlar[1][4], "—")
+        self.assertIn("mizan inmedi", satirlar[2][5])
+        self.kz.fatura_dugmesi.invoke()  # tekrar basinca faturalar cikarilir
+        self.assertEqual(self.kz.fatura_dugmesi.cget("text"), "Taranan Faturaları Dahil Et")
+        satirlar = [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()]
+        self.assertEqual(satirlar[0][4], "—")
+        self.assertIn("hesaba katılmıyor", self.kz.fatura_etiketi.cget("text"))
         self.kz.agac.selection_set("0")
         self.kok.update()
         self.assertIn("BIRLIK TIC", self.kz.ozet_etiketi.cget("text"))

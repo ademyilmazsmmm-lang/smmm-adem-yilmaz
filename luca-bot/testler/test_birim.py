@@ -400,6 +400,16 @@ class KarZararOzetTestleri(unittest.TestCase):
         self.assertEqual(ko.ozet_cumlesi(s2).split("; ")[1].split("edilince ")[1], "1.300 TL zarar")
 
 
+    def test_fatura_donemi_ve_toplamlar(self):
+        from lucabot import kar_zarar_ozet as ko
+        kayitlar = {"A": self.EYLUL, "B": self.EYLUL, "C": {"donem": "01/08/2026-31/08/2026"}, "D": {}}
+        self.assertEqual(ko.fatura_donemi(kayitlar), ("01/09/2026-30/09/2026", 2))
+        self.assertEqual(ko.fatura_donemi({}), ("", 0))
+        s = ko.satirlar([{"firma": "A", "kar": 100.0}, {"firma": "Z", "kar": -50.0}, {"firma": "H", "kar": None}],
+                        kayitlar, date(2026, 8, 31))
+        self.assertEqual(ko.toplamlar(s), {"firma": 2, "kar": 50.0, "dahil": 750.0, "fatura_firma": 1})
+
+
 class ArayuzOzetTestleri(unittest.TestCase):
     """Arayuzun alt kutulari: tevkifat KDV, SMM, interaktif farki, KDV odemesi."""
 

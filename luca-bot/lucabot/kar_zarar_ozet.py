@@ -96,3 +96,33 @@ def ozet_cumlesi(satir):
         metin += f"; {satir['fatura_donem']} faturaları dahil edilince {tl(dahil)}"
     return metin
 
+
+
+def fatura_donemi(kayitlar):
+    """rapor.json'da en cok firmanin faturasi indirilmis donem: (donem metni, firma sayisi); yoksa ("", 0)."""
+    sayac = {}
+    for k in (kayitlar or {}).values():
+        d = (k or {}).get("donem") or ""
+        if donem_coz(d):
+            sayac[d] = sayac.get(d, 0) + 1
+    if not sayac:
+        return "", 0
+    donem = max(sayac, key=sayac.get)
+    return donem, sayac[donem]
+
+
+def toplamlar(satirlar):
+    """{"firma", "kar", "dahil", "fatura_firma"}: yalniz kar/zarari hesaplanmis firmalar; 'dahil' fatura
+    ozeti olmayan firmada dönem karini aynen tasir (toplam, tum firmalar icin karsilastirilabilsin)."""
+    t = {"firma": 0, "kar": 0.0, "dahil": 0.0, "fatura_firma": 0}
+    for s in satirlar:
+        if s.get("kar") is None:
+            continue
+        t["firma"] += 1
+        t["kar"] += s["kar"]
+        if s.get("kar_dahil") is not None:
+            t["fatura_firma"] += 1
+            t["dahil"] += s["kar_dahil"]
+        else:
+            t["dahil"] += s["kar"]
+    return {k: round(v, 2) if isinstance(v, float) else v for k, v in t.items()}

@@ -124,7 +124,7 @@ class KarZararSekmesi:
         self.v_kaynak = tk.StringVar(value=ad.get(kz.get("luca_kaynagi"), KAYNAKLAR[0][0]))
         self.v_db_kod = tk.StringVar(value=kz.get("defterbeyan_kullanici", ""))
         self.v_db_sifre = tk.StringVar(value=kz.get("defterbeyan_sifre", ""))
-        self.v_fatura = tk.BooleanVar(value=True)
+        self.v_fatura = tk.BooleanVar(value=False)  # "Taranan Faturaları Dahil Et" düğmesiyle açılır
 
     def _sol_panel(self):
         u = self.ui
@@ -160,8 +160,6 @@ class KarZararSekmesi:
         tk.Label(p, text="Güvenlik kodunu açılan tarayıcıda siz yazarsınız.", font=u.KUCUK, fg=u.SOLUK,
                  bg=u.ZEMIN, anchor="w", justify="left", wraplength=280).pack(fill="x", pady=(6, 0))
 
-        tk.Checkbutton(p, text="İndirilen faturaları da hesaba kat", variable=self.v_fatura,
-                       command=self.sonucu_goster, font=u.GOVDE, **self.a._kutu_renk()).pack(anchor="w", pady=(16, 0))
 
         alt = tk.Frame(p, bg=u.ZEMIN)
         alt.pack(side="bottom", fill="x")
@@ -205,21 +203,28 @@ class KarZararSekmesi:
             self.log.tag_configure(etiket, foreground=renk)
 
         self.donem_etiketi = tk.Label(p, text="", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w")
-        self.donem_etiketi.pack(fill="x", pady=(2, 4))
+        self.donem_etiketi.pack(fill="x", pady=(2, 0))
+        satir = tk.Frame(p, bg=u.ZEMIN)
+        satir.pack(fill="x", pady=(2, 6))
+        self.fatura_dugmesi = u.dugme(satir, "Taranan Faturaları Dahil Et", self.fatura_degistir, ana=True)
+        self.fatura_dugmesi.pack(side="left")
+        self.fatura_etiketi = tk.Label(satir, text="", font=u.KUCUK, fg=u.ALTIN, bg=u.ZEMIN, anchor="w",
+                                       justify="left", wraplength=420)
+        self.fatura_etiketi.pack(side="left", padx=12, fill="x", expand=True)
         self.ozet_etiketi = tk.Label(p, text="", font=u.GOVDE_KALIN, fg=u.ALTIN, bg=u.ZEMIN, anchor="w",
                                      justify="left", wraplength=640)
         self.ozet_etiketi.pack(side="bottom", fill="x", pady=(6, 0))
         tablo = tk.Frame(p, bg=u.ZEMIN)
         tablo.pack(fill="both", expand=True)
-        sutunlar = ("Firma", "Kaynak", "Dönem kârı / zararı", "Faturalar dahil", "Not")
-        genislik = (200, 100, 140, 140, 190)
+        sutunlar = ("Firma", "Kaynak", "Dönem kârı / zararı", "Fatura farkı", "Faturalar dahil", "Not")
+        genislik = (150, 90, 155, 120, 155, 80)
         self.agac = ttk.Treeview(tablo, columns=sutunlar, show="headings", style="Liste.Treeview")
         kay = ttk.Scrollbar(tablo, orient="vertical", command=self.agac.yview)
         self.agac.configure(yscrollcommand=kay.set)
         for i, (s, g) in enumerate(zip(sutunlar, genislik)):
-            yon = "e" if i in (2, 3) else "w"
+            yon = "e" if i in (2, 3, 4) else "w"
             self.agac.heading(s, text=s, anchor=yon)
-            self.agac.column(s, anchor=yon, width=g, minwidth=80, stretch=(i == 0 or i == 4))
+            self.agac.column(s, anchor=yon, width=g, minwidth=80, stretch=(i == 0 or i == 5))
         self.agac.tag_configure("kar", foreground="#8CE59A")
         self.agac.tag_configure("zarar", foreground=u.KIRMIZI)
         self.agac.tag_configure("hata", foreground=u.SOLUK)
@@ -257,23 +262,59 @@ class KarZararSekmesi:
         self.agac.delete(*self.agac.get_children())
         for i, s in enumerate(self.satirlar):
             kar, dahil = s.get("kar"), s.get("kar_dahil")
+            fark = (s["fatura_satis"] - s["fatura_alis"]) if s.get("fatura_satis") is not None else None
             if kar is None:
-                etiket, ilk, ikinci = "hata", "—", "—"
+                etiket, ilk, ikinci, ucuncu = "hata", "—", "—", "—"
                 not_ = s.get("hata") or ""
             else:
                 etiket = "kar" if kar >= 0 else "zarar"
                 ilk = tl(kar) + (" kâr" if kar >= 0 else " zarar")
-                ikinci = (tl(dahil) + (" kâr" if dahil >= 0 else " zarar")) if dahil is not None else "—"
+                ikinci = tl(fark) if fark is not None else "—"
+                ucuncu = (tl(dahil) + (" kâr" if dahil >= 0 else " zarar")) if dahil is not None else "—"
                 not_ = s.get("fatura_not") or ""
             self.agac.insert("", "end", iid=str(i), tags=(etiket,),
-                             values=(s["firma"], s.get("kaynak") or "", ilk, ikinci, not_))
+                             values=(s["firma"], s.get("kaynak") or "", ilk, ikinci, ucuncu, not_))
         if aralik:
             self.donem_etiketi.configure(
                 text=f"Sonuç dönemi: {aralik[0]:%d/%m/%Y} – {aralik[1]:%d/%m/%Y}   ({len(self.satirlar)} firma)"
                      "   Bu bir tahmindir; asıl inceleme firmada yapılır.")
         else:
             self.donem_etiketi.configure(text="Henüz sonuç yok.")
-        self.ozet_etiketi.configure(text="")
+        self._ust_ozet(kayitlar, aralik)
+
+    def fatura_degistir(self):
+        """Dugme: indirilmis faturalari kar/zarara kat (ya da cikar)."""
+        self.v_fatura.set(not self.v_fatura.get())
+        self.sonucu_goster()
+
+    def _ust_ozet(self, kayitlar, aralik):
+        """Fatura donemi bilgisi + toplam: 'dahil edilince ne olur' tek bakista gorunsun."""
+        donem, adet = kar_zarar_ozet.fatura_donemi(self._rapor_kayitlari())
+        self.fatura_dugmesi.configure(text="Faturaları Hariç Tut" if self.v_fatura.get()
+                                      else "Taranan Faturaları Dahil Et")
+        if not self.v_fatura.get():
+            self.fatura_etiketi.configure(
+                text=(f"Faturalar hesaba katılmıyor. İndirilmiş: {donem.replace('-', ' – ')} ({adet} firma)"
+                      if donem else "Faturalar hesaba katılmıyor; indirilmiş fatura yok."))
+        elif not donem:
+            self.fatura_etiketi.configure(text="İndirilmiş fatura yok; önce Fatura İndirme'den faturaları indirin.")
+        else:
+            self.fatura_etiketi.configure(
+                text=f"İndirilmiş faturalar: {donem.replace('-', ' – ')} ({adet} firma) — "
+                     "Luca'ya işlenmemiş bu dönemin satış − alışı kâra eklenir.")
+        t = kar_zarar_ozet.toplamlar(self.satirlar)
+        if not t["firma"]:
+            self.ozet_etiketi.configure(text="")
+            return
+        tl = gostergeler.tl
+
+        def kz(x):
+            return tl(x) + (" kâr" if x >= 0 else " zarar")
+
+        metin = f"Toplam ({t['firma']} firma): dönem {kz(t['kar'])}"
+        if t["fatura_firma"]:
+            metin += f"  →  faturalar dahil edilince {kz(t['dahil'])}  ({t['fatura_firma']} firmanın faturası eklendi)"
+        self.ozet_etiketi.configure(text=metin)
 
     def _secildi(self, _e=None):
         secili = self.agac.selection()
