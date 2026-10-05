@@ -69,7 +69,8 @@ def satirlar(sonuclar, kayitlar, bit):
     harita = {sadelestir(f): k for f, k in (kayitlar or {}).items()}
     cikti = []
     for s in sonuclar:
-        oz = fatura_ozeti(harita.get(sadelestir(s.get("firma"))), bit)
+        aralik = donem_coz(s.get("donem"))  # her sonucun kendi donemi (birden cok sorgu birikebilir)
+        oz = fatura_ozeti(harita.get(sadelestir(s.get("firma"))), aralik[1] if aralik else bit)
         satir = dict(s)
         satir["fatura_donem"] = oz.get("donem", "")
         satir["fatura_satis"] = oz.get("satis")

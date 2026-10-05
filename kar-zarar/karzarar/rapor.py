@@ -8,8 +8,8 @@ DB_KALEMLERI = {"hasilat": "Hasılat", "diger_gelir": "Diğer Gelir", "emtia_bas
                 "emtia_sonu": "Dönem Sonu Emtia", "giderler": "Giderler", "amortisman": "Amortisman"}
 BASLIKLAR = ["Firma", "VKN / TC", "Kaynak", "Defter", "Hasılat", "Diğer Gelir", "Toplam Gelir (Satış)",
              "Dönem Başı Emtia", "Mal Alışı", "Dönem Sonu Emtia", "Giderler", "Amortisman", "Toplam Gider",
-             "Kâr / Zarar", "Durum", "Not"]
-GENISLIK = [28, 14, 14, 16, 15, 15, 17, 16, 15, 16, 15, 15, 16, 16, 10, 60]
+             "Kâr / Zarar", "Durum", "Not", "Dönem"]
+GENISLIK = [28, 14, 14, 16, 15, 15, 17, 16, 15, 16, 15, 15, 16, 16, 10, 60, 24]
 DURUM_SUTUNU = 14  # BASLIKLAR icinde "Durum"un sirasi (0'dan)
 PARA_SUTUNLARI = range(4, 14)
 
@@ -44,7 +44,9 @@ def satirlar(sonuclar):
         cikti.append((s["firma"], s.get("vkn") or "", s.get("kaynak") or "", s.get("defter") or "",
                       k("hasilat"), k("diger_gelir"), s.get("satis"), k("emtia_basi"), s.get("mal_alis"),
                       k("emtia_sonu"), k("giderler"), k("amortisman"), toplam_gider(s), kar, durum,
-                      s.get("hata") or ""))
+                      " ".join(x for x in (s.get("hata"),
+                                           f"(Son sorguda hata: {s['son_hata']})" if s.get("son_hata") else "") if x),
+                      s.get("donem") or ""))
     return cikti
 
 

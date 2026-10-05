@@ -147,8 +147,9 @@ def kapanmislari_ele(firmalar, kayitlar, bas, log):
 def _kaydet(kayit_yolu, bas, bit, sonuclar):
     """kar-zarar.json + kar-zarar.xlsx (Excel acik/yazilamazsa json yine de yazilir); Excel yolunu dondurur."""
     hesaplama.kaydet(kayit_yolu, bas, bit, sonuclar)
-    try:
-        return rapor.excel_yaz(kayit_yolu.with_suffix(".xlsx"), bas, bit, sonuclar)
+    try:  # Excel, onceki sorgulari da icerir (json birlesik)
+        _, tum = hesaplama.oku(kayit_yolu)
+        return rapor.excel_yaz(kayit_yolu.with_suffix(".xlsx"), bas, bit, dict(enumerate(tum)))
     except Exception as e:
         return f"yazılamadı ({type(e).__name__})"
 

@@ -45,7 +45,7 @@ def siralama_anahtari(deger):
 
 class SiralaFiltreTablosu(tk.Frame):
     def __init__(self, ebeveyn, ui, sutunlar, genislik, yazi=(0,), filtreler=(), varsayilan_filtre=None,
-                 secim="browse", yatay=False, arama=True, etiketler=None):
+                 secim="browse", yatay=False, arama=True, etiketler=None, degisti=None):
         """sutunlar/genislik: baslik ve piksel; yazi: sola yasli sutun numaralari (digerleri saga);
         filtreler: kutu olarak sunulacak sutun adlari; secim: 'browse' (tek) ya da 'extended' (coklu);
         etiketler: {etiket adi: renk} satir renkleri."""
@@ -60,6 +60,7 @@ class SiralaFiltreTablosu(tk.Frame):
         self.filtre_kutulari = {}
         self.istenen_filtre = dict(varsayilan_filtre or {})
         self.arama_degiskeni = tk.StringVar()
+        self.degisti = degisti  # liste her yenilendiginde (filtre/arama/siralama dahil) cagrilir
 
         ust = tk.Frame(self, bg=ui.ZEMIN)
         ust.pack(fill="x", pady=(0, 6))
@@ -165,6 +166,8 @@ class SiralaFiltreTablosu(tk.Frame):
         except tk.TclError:
             pass
         self.sayac.configure(text=f"{len(gorunen)} / {len(self.satirlar)} kayıt")
+        if self.degisti:
+            self.degisti()
 
     # -- siralama ------------------------------------------------------------------------
 

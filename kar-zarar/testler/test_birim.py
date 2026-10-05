@@ -244,7 +244,8 @@ class KarZararTestleri(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             yol = Path(d) / "kz.json"
             kar_zarar.kaydet(yol, date(2026, 7, 1), date(2026, 8, 31), {"A": {"firma": "A", "kar": 5.0}})
-            self.assertEqual(kar_zarar.oku(yol), ("01/07/2026-31/08/2026", [{"firma": "A", "kar": 5.0}]))
+            self.assertEqual(kar_zarar.oku(yol), ("01/07/2026-31/08/2026",
+                                                   [{"firma": "A", "kar": 5.0, "donem": "01/07/2026-31/08/2026"}]))
             with self.assertRaises(ValueError):
                 kar_zarar.oku(Path(d) / "yok.json")
 
@@ -319,3 +320,55 @@ class MizanYenidenOynatmaTestleri(unittest.TestCase):
             self.assertFalse(_istegi_tekrarla({"url": adres + "/html", "yontem": "GET"}, "S=abc", yol2))
             self.assertFalse(yol2.exists())  # HTML doner: dosya yazilmaz
             self.assertFalse(_istegi_tekrarla({"url": "http://127.0.0.1:1/yok"}, "S=abc", yol2))
+
+
+class SonuclariBirlestirmeTestleri(unittest.TestCase):
+    def test_yeni_sorgu_oncekileri_silmez(self):
+        from karzarar import hesaplama
+        with tempfile.TemporaryDirectory() as d:
+            yol = Path(d) / "kar-zarar.json"
+            hesaplama.kaydet(yol, date(2026, 1, 1), date(2026, 8, 31),
+                             {"A": {"firma": "A", "kar": 10.0}, "B": {"firma": "B", "kar": -5.0}})
+            # ikinci sorgu yalniz C: A ve B yerinde kalir
+            hesaplama.kaydet(yol, date(2026, 1, 1), date(2026, 8, 31), {"C": {"firma": "C", "kar": 1.0}})
+            donem, firmalar = hesaplama.oku(yol)
+            self.assertEqual(donem, "01/01/2026-31/08/2026")
+            self.assertEqual(sorted(s["firma"] for s in firmalar), ["A", "B", "C"])
+            # ayni firma + ayni donem yeniden sorgulaninca guncellenir
+            hesaplama.kaydet(yol, date(2026, 1, 1), date(2026, 8, 31), {"A": {"firma": "A", "kar": 99.0}})
+            _, firmalar = hesaplama.oku(yol)
+            self.assertEqual({s["firma"]: s["kar"] for s in firmalar}, {"A": 99.0, "B": -5.0, "C": 1.0})
+            # baska donem: ayni firma iki kez tutulur
+            hesaplama.kaydet(yol, date(2026, 1, 1), date(2026, 9, 30), {"A": {"firma": "A", "kar": 5.0}})
+            donem, firmalar = hesaplama.oku(yol)
+            self.assertEqual(donem, "01/01/2026-30/09/2026")
+            self.assertEqual(sorted((s["firma"], s["donem"]) for s in firmalar),
+                             sorted([("A", "01/01/2026-30/09/2026"), ("A", "01/01/2026-31/08/2026"),
+                                     ("B", "01/01/2026-31/08/2026"), ("C", "01/01/2026-31/08/2026")]))
+
+    def test_hatali_yeni_sonuc_eski_basariliyi_bozmaz(self):
+        from karzarar import hesaplama
+        with tempfile.TemporaryDirectory() as d:
+            yol = Path(d) / "kar-zarar.json"
+            hesaplama.kaydet(yol, date(2026, 1, 1), date(2026, 8, 31), {"A": {"firma": "A", "kar": 10.0}})
+            hesaplama.kaydet(yol, date(2026, 1, 1), date(2026, 8, 31),
+                             {"A": {"firma": "A", "kar": None, "hata": "HATA: mizan inmedi"}})
+            _, firmalar = hesaplama.oku(yol)
+            self.assertEqual(firmalar[0]["kar"], 10.0)
+            self.assertEqual(firmalar[0]["son_hata"], "HATA: mizan inmedi")
+            # eski bir hata yeni basariyla degisir
+            hesaplama.kaydet(yol, date(2026, 1, 1), date(2026, 8, 31), {"A": {"firma": "A", "kar": 20.0}})
+            _, firmalar = hesaplama.oku(yol)
+            self.assertEqual(firmalar[0]["kar"], 20.0)
+            self.assertNotIn("son_hata", firmalar[0])
+
+    def test_eski_bicimli_dosya_donemi_ust_alandan_alinir(self):
+        from karzarar import hesaplama
+        with tempfile.TemporaryDirectory() as d:
+            yol = Path(d) / "kar-zarar.json"
+            yol.write_text('{"donem": "01/07/2026-31/08/2026", "firmalar": [{"firma": "Z", "kar": 1.0}]}',
+                           encoding="utf-8")
+            hesaplama.kaydet(yol, date(2026, 1, 1), date(2026, 8, 31), {"A": {"firma": "A", "kar": 2.0}})
+            _, firmalar = hesaplama.oku(yol)
+            self.assertEqual({s["firma"]: s["donem"] for s in firmalar},
+                             {"Z": "01/07/2026-31/08/2026", "A": "01/01/2026-31/08/2026"})

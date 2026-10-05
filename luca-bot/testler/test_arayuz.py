@@ -597,7 +597,7 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         self.assertIn('"parola": "x"', log)  # luca-bot girisi kar-zarar ayarina aktarildi
         satirlar = [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()]
         self.assertEqual([s[0] for s in satirlar], ["BIRLIK TIC", "YILDIZ OTO", "HATALI LTD"])
-        self.assertEqual(satirlar[0][4], "—")  # dugmeye basilmadan faturalar dahil degil
+        self.assertEqual(satirlar[0][5], "—")  # dugmeye basilmadan faturalar dahil degil
         self.assertEqual(list(self.kz.fatura_kutusu.cget("values")),
                          ["Eylül 2026 · 1 firma", "Ekim 2026 · 1 firma"])
         self.assertEqual(self.kz.v_fatura_donem.get(), "Ekim 2026 · 1 firma")  # en yeni ay varsayilan
@@ -607,29 +607,50 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         self.kz.fatura_dugmesi.invoke()
         self.assertEqual(self.kz.fatura_dugmesi.cget("text"), "Faturaları Hariç Tut")
         satirlar = [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()]
-        self.assertIn("100.000,00 TL kâr", satirlar[0][2])
-        self.assertIn("-500,00 TL", satirlar[0][3])  # fatura farki (satis - alis)
-        self.assertIn("99.500,00 TL kâr", satirlar[0][4])  # faturalar dahil
+        self.assertIn("100.000,00 TL kâr", satirlar[0][3])
+        self.assertIn("-500,00 TL", satirlar[0][4])  # fatura farki (satis - alis)
+        self.assertIn("99.500,00 TL kâr", satirlar[0][5])  # faturalar dahil
         self.assertIn("faturalar dahil edilince 96.500,00 TL kâr", self.kz.ozet_etiketi.cget("text"))
         self.assertIn("Dahil edilen: Eylül 2026", self.kz.fatura_etiketi.cget("text"))
-        self.assertIn("zarar", satirlar[1][2])
-        self.assertEqual(satirlar[1][4], "—")
-        self.assertIn("mizan inmedi", satirlar[2][5])
+        self.assertIn("zarar", satirlar[1][3])
+        self.assertEqual(satirlar[1][5], "—")
+        self.assertIn("mizan inmedi", satirlar[2][6])
         self.kz.v_fatura.set(True)
         self.kz.v_fatura_donem.set("Ekim 2026 · 1 firma")
         self.kz.fatura_kutusu.event_generate("<<ComboboxSelected>>")
         self.kok.update()
         satirlar = [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()]
-        self.assertIn("100.000,00 TL kâr", satirlar[0][2])
-        self.assertIn("105.000,00 TL kâr", satirlar[0][4])  # Ekim: +5000
+        self.assertIn("100.000,00 TL kâr", satirlar[0][3])
+        self.assertIn("105.000,00 TL kâr", satirlar[0][5])  # Ekim: +5000
         self.kz.fatura_dugmesi.invoke()  # tekrar basinca faturalar cikarilir
         self.assertEqual(self.kz.fatura_dugmesi.cget("text"), "Taranan Faturaları Dahil Et")
         satirlar = [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()]
-        self.assertEqual(satirlar[0][4], "—")
+        self.assertEqual(satirlar[0][5], "—")
         self.assertIn("hesaba katılmıyor", self.kz.fatura_etiketi.cget("text"))
         self.kz.agac.selection_set("0")
         self.kok.update()
         self.assertIn("BIRLIK TIC", self.kz.ozet_etiketi.cget("text"))
+
+    def test_eski_sorgular_tabloda_kalir_toplam_gorunenden(self):
+        cikti = self.kz.cikti_klasoru()
+        cikti.mkdir(parents=True, exist_ok=True)
+        (cikti / "kar-zarar.json").write_text(json.dumps({"donem": "01/01/2026-31/08/2026", "firmalar": [
+            {"firma": "ESKI FIRMA", "donem": "01/01/2026-31/07/2026", "kaynak": "Luca (Mizan)", "kar": 500.0},
+            {"firma": "BIRLIK TIC", "donem": "01/01/2026-31/08/2026", "kaynak": "Luca (Mizan)", "kar": 100.0},
+            {"firma": "YILDIZ OTO", "donem": "01/01/2026-31/08/2026", "kaynak": "Defter Beyan", "kar": -30.0,
+             "son_hata": "HATA: oturum"}]}), encoding="utf-8")
+        self.kz.sonucu_yukle()
+        t = self.kz.tablo
+        self.assertEqual(len(t.satirlar), 3)                       # eski sorgunun firmasi da duruyor
+        self.assertEqual(t.filtre_degiskenleri["Dönem"].get(), "01/01/2026-31/08/2026")  # son sorgu secili
+        self.assertEqual([t.satirlar[i][0] for i in t.gorunen_indeksler()], ["BIRLIK TIC", "YILDIZ OTO"])
+        self.assertIn("Toplam (2 firma): dönem 70,00 TL kâr", self.kz.ozet_etiketi.cget("text"))
+        yildiz = next(s for s in t.satirlar if s[0] == "YILDIZ OTO")
+        self.assertIn("Son sorguda hata: HATA: oturum", yildiz[6])
+        t.filtre_ayarla("Dönem", "Tümü")                           # iki donem birlikte: toplanmaz
+        self.assertIn("Birden fazla dönem", self.kz.ozet_etiketi.cget("text"))
+        t.filtre_ayarla("Dönem", "01/01/2026-31/07/2026")
+        self.assertIn("Toplam (1 firma): dönem 500,00 TL kâr", self.kz.ozet_etiketi.cget("text"))
 
     def test_fatura_calismasi_surerken_kar_zarar_baslamaz(self):
         self.app.calistir()

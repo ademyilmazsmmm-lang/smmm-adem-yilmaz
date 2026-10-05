@@ -89,11 +89,39 @@ def vkn_tamamla(harita, firmalar, ayarlar, log=None):
     return harita
 
 
-def kaydet(yol, bas, bit, sonuclar):
+def birlestir(onceki, sonuclar, donem):
+    """Onceki sorgularin sonuclari ({firma, donem} anahtarli liste) ile bu sorgununkini birlestirir.
+
+    Ayni firma + ayni donem yeniden sorgulaninca yeni sonuc eskisinin yerini alir; baska firma/donemler
+    silinmez. Yeni sorguda HATA olursa eski basarili sonuc korunur (hata 'son_hata' alanina yazilir)."""
+    cikti = {(s["firma"], s.get("donem") or ""): s for s in onceki}
+    for firma, yeni in sonuclar.items():
+        yeni = dict(yeni, donem=donem)
+        anahtar = (yeni["firma"], donem)
+        eski = cikti.get(anahtar)
+        if yeni.get("kar") is None and eski is not None and eski.get("kar") is not None:
+            eski = dict(eski)
+            eski["son_hata"] = yeni.get("hata") or "hata"
+            cikti[anahtar] = eski
+        else:
+            cikti[anahtar] = yeni
+    return list(cikti.values())
+
+
+def kaydet(yol, bas, bit, sonuclar, birlestir_onceki=True):
+    """kar-zarar.json'a yazar. Varsayilan: dosyadaki onceki sorgularin sonuclari korunur, bu sorgununkiler eklenir/guncellenir."""
+    donem = f"{bas:%d/%m/%Y}-{bit:%d/%m/%Y}"
+    onceki = []
+    if birlestir_onceki:
+        try:
+            eski_donem, eski = oku(yol)
+            onceki = [dict(s, donem=s.get("donem") or eski_donem) for s in eski]
+        except ValueError:
+            onceki = []
     yol.write_text(json.dumps({
-        "donem": f"{bas:%d/%m/%Y}-{bit:%d/%m/%Y}",
+        "donem": donem,
         "alinma": datetime.now().isoformat(timespec="seconds"),
-        "firmalar": list(sonuclar.values())}, ensure_ascii=False, indent=1), encoding="utf-8")
+        "firmalar": birlestir(onceki, sonuclar, donem)}, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 def oku(yol):

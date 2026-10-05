@@ -94,6 +94,7 @@ class KarZararSekmesi:
         self.son_islem = ("", 0.0)
         self.satirlar = []
         self.ham = []
+        self._son_sorgu_donemi = None
         self.donem_metni = ""
         self.govde = tk.Frame(ebeveyn, bg=ui.ZEMIN)
         self._degiskenler()
@@ -231,9 +232,10 @@ class KarZararSekmesi:
         self.ozet_etiketi = tk.Label(p, text="", font=u.GOVDE_KALIN, fg=u.ALTIN, bg=u.ZEMIN, anchor="w",
                                      justify="left", wraplength=640)
         self.ozet_etiketi.pack(side="bottom", fill="x", pady=(6, 0))
-        sutunlar = ("Firma", "Kaynak", "Dönem kârı / zararı", "Fatura farkı", "Faturalar dahil", "Not")
-        genislik = (150, 90, 155, 120, 155, 80)
-        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 5}, filtreler=("Kaynak",),
+        sutunlar = ("Firma", "Dönem", "Kaynak", "Dönem kârı / zararı", "Fatura farkı", "Faturalar dahil", "Not")
+        genislik = (140, 150, 85, 150, 115, 150, 80)
+        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 2, 6},
+                                         filtreler=("Dönem", "Kaynak"), degisti=self._toplam_yaz,
                                          etiketler={"kar": "#8CE59A", "zarar": u.KIRMIZI, "hata": u.SOLUK})
         self.tablo.pack(fill="both", expand=True)
         self.agac = self.tablo.agac
@@ -312,9 +314,16 @@ class KarZararSekmesi:
                 ikinci = tl(fark) if fark is not None else "—"
                 ucuncu = (tl(dahil) + (" kâr" if dahil >= 0 else " zarar")) if dahil is not None else "—"
                 not_ = s.get("fatura_not") or ""
-            satirlar.append((s["firma"], s.get("kaynak") or "", ilk, ikinci, ucuncu, not_))
+            if s.get("son_hata"):  # son sorguda hata aldi, onceki basarili sonuc korunuyor
+                not_ = f"Son sorguda hata: {s['son_hata']}" + (f" | {not_}" if not_ else "")
+            satirlar.append((s["firma"], s.get("donem") or self.donem_metni, s.get("kaynak") or "", ilk, ikinci,
+                             ucuncu, not_))
             etiketler.append(etiket)
         self.tablo.doldur(satirlar, etiketler)
+        if self.donem_metni != self._son_sorgu_donemi:  # yeni sorgu: Donem filtresi onun donemine gecer
+            self._son_sorgu_donemi = self.donem_metni
+            if self.donem_metni:
+                self.tablo.filtre_ayarla("Dönem", self.donem_metni)
         if aralik:
             self.donem_etiketi.configure(
                 text=f"Sonuç dönemi: {aralik[0]:%d/%m/%Y} – {aralik[1]:%d/%m/%Y}   ({len(self.satirlar)} firma)"
@@ -345,7 +354,16 @@ class KarZararSekmesi:
         else:
             self.fatura_etiketi.configure(
                 text=f"Dahil edilen: {secili} — Luca'ya işlenmemiş bu ayın satış − alışı (KDV hariç) kâra eklenir.")
-        t = kar_zarar_ozet.toplamlar(self.satirlar)
+        self._toplam_yaz()
+
+    def _toplam_yaz(self):
+        """Toplam, tabloda GORUNEN satirlardan hesaplanir (filtre/arama uygulanir); farkli donemler toplanmaz."""
+        gorunen = [self.satirlar[i] for i in self.tablo.gorunen_indeksler()]
+        donemler = {s.get("donem") or self.donem_metni for s in gorunen if s.get("kar") is not None}
+        if len(donemler) > 1:
+            self.ozet_etiketi.configure(text="Birden fazla dönem görünüyor; toplam için Dönem kutusundan bir dönem seçin.")
+            return
+        t = kar_zarar_ozet.toplamlar(gorunen)
         if not t["firma"]:
             self.ozet_etiketi.configure(text="")
             return

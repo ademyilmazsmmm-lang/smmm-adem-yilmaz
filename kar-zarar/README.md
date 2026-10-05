@@ -38,6 +38,10 @@ Excel'de `Kısa Adı` (ve/veya `Uzun Adı`/`Unvan`) ile `Vergi No` (ve/veya `TC 
 olmalı; `firma_listesi` Excel'i de bu sütunları taşıyorsa aynı şekilde kullanılır. Luca'dan bulunamayan
 firmaların VKN'si buradan tamamlanır.
 
+### Önceki sorgular silinmez
+
+`cikti\kar-zarar.json` ve `kar-zarar.xlsx` birikir: yeni bir sorgu önceki sorguların firmalarını silmez, yalnızca aynı **firma + aynı dönem** yeniden sorgulanırsa o satırı günceller. Her satırın **Dönem** sütunu vardır (Excel'in son sütunu). Yeni sorguda bir firma hata verirse eski başarılı sonucu korunur ve Not'a "Son sorguda hata" yazılır.
+
 ### Hangi firma nereden sorgulanır
 
 **Liste her sorguda çekilmez:** Müşteri Listesi (sınıf süzmeli) ilk sorguda Luca'dan okunup `cikti\musteri-listeleri.json`'a kaydedilir; aynı yıl için sonraki sorgularda Luca'ya hiç gidilmeden bu kayıttan okunur. Yeniden çekmek için `--listeyi-yenile` (arayüzde "Firma listesini Luca'dan yeniden çek").
