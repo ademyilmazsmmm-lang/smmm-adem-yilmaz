@@ -22,6 +22,7 @@ import subprocess
 import sys
 import threading
 import time
+import webbrowser
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -236,7 +237,9 @@ def dugme(ebeveyn, metin, komut, ana=False, **kw):
 
 
 VARLIKLAR = KOK / "varliklar"
-TELIF = "© 2026 Adem Yılmaz — Serbest Muhasebeci Mali Müşavir · Tüm Hakları Saklıdır."
+def telif():
+    """Alt cubuktaki telif satiri; yil kendiliginden guncellenir."""
+    return f"© {date.today().year} Adem Yılmaz — Serbest Muhasebeci Mali Müşavir · Tüm Hakları Saklıdır."
 
 
 def logo_resmi(boyut):
@@ -715,8 +718,9 @@ class Arayuz:
                  fg=ALTIN, bg=BASLIK_ZEMIN).pack(anchor="w")
         sag = tk.Frame(b, bg=BASLIK_ZEMIN)
         sag.pack(side="right", padx=22)
-        tk.Label(sag, text="Lisans sahibi: Adem Yılmaz, SMMM", font=KUCUK, fg=ALTIN, bg=BASLIK_ZEMIN
-                 ).pack(side="right", padx=(12, 0))
+        site = tk.Label(sag, text="smmmyilmaz.com", font=KUCUK, fg=ALTIN, bg=BASLIK_ZEMIN, cursor="hand2")
+        site.pack(side="right", padx=(12, 0))
+        site.bind("<Button-1>", lambda _e: webbrowser.open("https://smmmyilmaz.com"))
         tema = tk.Label(sag, text="🌙 Koyu tema" if TEMA == "acik" else "☀ Açık tema", font=KUCUK,
                         fg=BASLIK_YAZI, bg="#16213A", padx=8, pady=3, cursor="hand2")
         tema.pack(side="right", padx=(12, 0))
@@ -729,24 +733,32 @@ class Arayuz:
         tk.Frame(self.kok, bg=CIZGI, height=1).pack(fill="x")
 
     def _sekme_cubugu(self):
+        """Ust sekmeler: buyuk, kalin yazi; secili sekmenin altinda altin cizgi."""
         cubuk = tk.Frame(self.kok, bg=PANEL)
         cubuk.pack(fill="x")
-        self.sekme_dugmeleri = {}
-        for anahtar, ad in (("fatura", "Fatura İndirme"), ("kz", "Kâr / Zarar"),
-                            ("muavin", "Luca Mükerrer / Eksik Fatura Tespiti")):
-            d = tk.Label(cubuk, text=ad, font=GOVDE_KALIN, padx=22, pady=8, cursor="hand2", bg=PANEL)
-            d.pack(side="left")
-            d.bind("<Button-1>", lambda _e, k=anahtar: self.sekme_sec(k))
-            self.sekme_dugmeleri[anahtar] = d
-        tk.Frame(self.kok, bg=CIZGI, height=1).pack(fill="x")
+        self.sekme_dugmeleri, self.sekme_cizgileri = {}, {}
+        for anahtar, ad in (("fatura", "Fatura İndirme"), ("kz", "Kâr / Zarar"), ("muavin", "Muavin")):
+            hucre = tk.Frame(cubuk, bg=PANEL, cursor="hand2")
+            hucre.pack(side="left")
+            d = tk.Label(hucre, text=ad, font=("Segoe UI", 12, "bold"), padx=28, pady=11, cursor="hand2", bg=PANEL)
+            d.pack()
+            cizgi = tk.Frame(hucre, bg=PANEL, height=4)
+            cizgi.pack(fill="x")
+            for w in (hucre, d, cizgi):
+                w.bind("<Button-1>", lambda _e, k=anahtar: self.sekme_sec(k))
+            d.bind("<Enter>", lambda _e, k=anahtar: self.aktif_sekme != k and self.sekme_dugmeleri[k].configure(fg=YAZI))
+            d.bind("<Leave>", lambda _e, k=anahtar: self.aktif_sekme != k and self.sekme_dugmeleri[k].configure(fg=ETIKET))
+            self.sekme_dugmeleri[anahtar], self.sekme_cizgileri[anahtar] = d, cizgi
+        self.aktif_sekme = None
+        tk.Frame(self.kok, bg=KENAR, height=1).pack(fill="x")
 
     def _alt_cubuk(self):
         """Pencerenin en alti: telif satiri ve surum (tiklayinca Hakkinda)."""
-        tk.Frame(self.kok, bg=CIZGI, height=1).pack(side="bottom", fill="x")
-        c = tk.Frame(self.kok, bg=PANEL)
+        c = tk.Frame(self.kok, bg=BASLIK_ZEMIN)  # her iki temada koyu (ust bantla ayni)
         c.pack(side="bottom", fill="x")
-        tk.Label(c, text=TELIF, font=KUCUK, fg=SOLUK, bg=PANEL, anchor="w").pack(side="left", padx=18, pady=4)
-        s = tk.Label(c, text=f"Sürüm {SURUM}", font=KUCUK, fg=ALTIN_FG, bg=PANEL, cursor="hand2")
+        tk.Label(c, text=telif(), font=KUCUK, fg=BASLIK_ETIKET, bg=BASLIK_ZEMIN, anchor="w"
+                 ).pack(side="left", padx=18, pady=6)
+        s = tk.Label(c, text=f"Sürüm {SURUM}", font=KUCUK, fg=ALTIN, bg=BASLIK_ZEMIN, cursor="hand2")
         s.pack(side="right", padx=18)
         s.bind("<Button-1>", lambda _e: self.hakkinda())
 
@@ -755,7 +767,7 @@ class Arayuz:
             "Dijital Stajyer — Hakkında",
             f"Dijital Stajyer\nSürüm {SURUM}  ({SURUM_TARIHI})\n\n"
             "Luca e-Fatura / e-Arşiv indirme, kâr/zarar tahmini ve rapor aracı.\n\n"
-            f"Lisans sahibi: Adem Yılmaz, Serbest Muhasebeci Mali Müşavir\n{TELIF}", parent=self.kok)
+            f"Lisans sahibi: Adem Yılmaz, Serbest Muhasebeci Mali Müşavir\n{telif()}", parent=self.kok)
 
     def _muavin_taslagi(self, kok):
         """Henuz yapilmadi: Luca muavin dokumu ile gelen/giden faturalari karsilastirma ekrani icin yer tutucu."""
@@ -776,7 +788,8 @@ class Arayuz:
         {"fatura": self.fatura_govde, "kz": self.kz.govde, "muavin": self.muavin_govde}[anahtar].pack(
             fill="both", expand=True)
         for k, d in self.sekme_dugmeleri.items():
-            d.configure(fg=ALTIN_FG if k == anahtar else SOLUK)
+            d.configure(fg=ALTIN_FG if k == anahtar else ETIKET)
+            self.sekme_cizgileri[k].configure(bg=ALTIN if k == anahtar else PANEL)
         self.aktif_sekme = anahtar
         if anahtar == "kz":
             self.kz.sonucu_goster()  # fatura indirme sekmesinde yeni ay indirilmis olabilir

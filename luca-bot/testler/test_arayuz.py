@@ -706,13 +706,14 @@ class KarZararSekmesiTestleri(ArayuzZemini):
                     pass
                 tara(c)
         tara(self.kok)
-        for beklenen in ("Dijital Stajyer", "SMMM OFİSİ - DİJİTAL ASİSTAN", "Lisans sahibi: Adem Yılmaz, SMMM", luca_arayuz.TELIF, f"Sürüm {SURUM}",
+        for beklenen in ("Dijital Stajyer", "SMMM OFİSİ - DİJİTAL ASİSTAN", "smmmyilmaz.com", luca_arayuz.telif(), f"Sürüm {SURUM}", "Fatura İndirme", "Kâr / Zarar", "Muavin",
                          "Luca · e-Fatura / e-Arşiv · Kâr / Zarar"):
             self.assertIn(beklenen, yazilar)
         self.assertEqual(self.kok.title(), "Dijital Stajyer")
-        self.assertNotIn("smmmyilmaz.com", yazilar)
-        self.assertEqual(luca_arayuz.TELIF,
-                         "© 2026 Adem Yılmaz — Serbest Muhasebeci Mali Müşavir · Tüm Hakları Saklıdır.")
+        self.assertNotIn("Lisans sahibi", " ".join(yazilar))
+        from datetime import date
+        self.assertEqual(luca_arayuz.telif(), f"© {date.today().year} Adem Yılmaz — Serbest Muhasebeci Mali Müşavir"
+                                              " · Tüm Hakları Saklıdır.")
         self.assertRegex(SURUM, r"^\d+\.\d+\.\d+$")
 
     def test_logo_png_yuklenir_ve_hakkinda(self):
