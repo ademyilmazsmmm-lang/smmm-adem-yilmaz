@@ -18,7 +18,7 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import tkinter as tk
@@ -124,6 +124,7 @@ class KarZararSekmesi:
         self.v_kaynak = tk.StringVar(value=ad.get(kz.get("luca_kaynagi"), KAYNAKLAR[0][0]))
         self.v_db_kod = tk.StringVar(value=kz.get("defterbeyan_kullanici", ""))
         self.v_db_sifre = tk.StringVar(value=kz.get("defterbeyan_sifre", ""))
+        self.v_yenile = tk.BooleanVar(value=False)  # firma listesini Luca'dan yeniden cek (varsayilan: kayitli liste)
         self.v_fatura = tk.BooleanVar(value=False)  # "Taranan Faturaları Dahil Et" düğmesiyle açılır
         self.v_fatura_donem = tk.StringVar()        # dahil edilecek indirilmiş ay (kutudan seçilir)
         self.elle_secildi = False                   # kullanıcı seçtiyse yeni indirilen ay seçimi bozmaz
@@ -149,6 +150,13 @@ class KarZararSekmesi:
         tk.Label(p, text="Sadece bu firma (boş = hepsi)", font=u.KUCUK, fg=u.ETIKET, bg=u.ZEMIN,
                  anchor="w").pack(fill="x", pady=(14, 3))
         u.giris_kutusu(p, self.v_firma).pack(fill="x", ipady=4)
+
+        tk.Checkbutton(p, text="Firma listesini Luca'dan yeniden çek", variable=self.v_yenile,
+                       command=self.liste_bilgisi_yaz, font=u.KUCUK, **self.a._kutu_renk()).pack(anchor="w", pady=(8, 0))
+        self.liste_bilgisi = tk.Label(p, text="", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w", justify="left",
+                                      wraplength=280)
+        self.liste_bilgisi.pack(fill="x")
+        self.liste_bilgisi_yaz()
 
         u.bolum_basligi(p, "Luca firmaları (genel muhasebe)").pack(fill="x", pady=(16, 0))
         kutu = ttk.Combobox(p, textvariable=self.v_kaynak, values=[a for a, _ in KAYNAKLAR],
@@ -239,6 +247,28 @@ class KarZararSekmesi:
         kay.pack(side="right", fill="y")
         self.agac.pack(side="left", fill="both", expand=True)
         self.agac.bind("<<TreeviewSelect>>", self._secildi)
+
+    # -- firma listesi -------------------------------------------------------------
+
+    def kayitli_liste(self):
+        """(yil, alinma tarihi 'GG/AA/YYYY', firma sayisi) ya da None: kar-zarar'in kayitli Musteri Listesi'ni okur."""
+        try:
+            veri = json.loads((self.cikti_klasoru() / "musteri-listeleri.json").read_text(encoding="utf-8"))
+            sayi = len({k.get("ad") for liste in veri["siniflar"].values() for k in liste})
+            alinma = datetime.fromisoformat(veri["alinma"]).strftime(TARIH_BICIMI)
+            return veri["yil"], alinma, sayi
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            return None
+
+    def liste_bilgisi_yaz(self):
+        kayit = self.kayitli_liste()
+        if self.v_yenile.get():
+            metin = "Sonraki sorguda firma listesi Luca'dan yeniden okunur."
+        elif kayit:
+            metin = f"Kayıtlı liste kullanılır ({kayit[0]} yılı, {kayit[1]} tarihinde alındı, {kayit[2]} firma); Luca'dan çekilmez."
+        else:
+            metin = "Kayıtlı liste yok; ilk sorguda Luca'dan okunur ve kaydedilir, sonra çekilmez."
+        self.liste_bilgisi.configure(text=metin)
 
     # -- sonuc -------------------------------------------------------------------
 
@@ -432,6 +462,8 @@ class KarZararSekmesi:
                  "--tarih", f"{bas}-{bit}"]
         if self.v_firma.get().strip():
             komut += ["--firma", self.v_firma.get().strip()]
+        if self.v_yenile.get():
+            komut.append("--listeyi-yenile")
         return komut
 
     def calistir(self):
@@ -562,6 +594,7 @@ class KarZararSekmesi:
         self.a.calistir_dugmesi.configure(state="normal")
         self.a.luca_liste_dugmesi.configure(state="normal")
         self.sonucu_yukle()
+        self.liste_bilgisi_yaz()
         u = self.ui
         if kod == 0 and not self.durdurma_istendi:
             self.ilerleme.configure(value=100)

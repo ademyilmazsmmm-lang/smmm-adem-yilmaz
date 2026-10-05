@@ -247,12 +247,29 @@ def _rapor_dugmesi(page):
     raise LookupError("Mizan formunda 'Rapor' düğmesi bulunamadı")
 
 
-# Luca raporu yeni pencerede acip pencereyi kisa sure sonra kendisi kapatabilir; Playwright, indirmeyi baslatan sayfa
-# kapaninca henuz bitmemis indirmeyi iptal eder ("Download.save_as: Target page, context or browser has been closed").
-# Acilan pencerelerin kendini kapatmasi engellenir (yalniz window.opener olan pencereler); indirme bitince biz kapatiriz.
-POPUP_KAPANMASINI_ENGELLE_JS = ("try { window.__lbClose = window.close; if (window.opener) { window.close = function () {}; } }"
-                                " catch (e) {}")
+# Luca raporu yeni pencerede acip pencereyi kisa sure sonra kendisi kapatabilir (gercek kullanimda tum Chrome
+# kapandi: "Download.save_as: Target page, context or browser has been closed"). Playwright, indirmeyi baslatan
+# sayfa kapaninca henuz bitmemis indirmeyi iptal eder. Bu yuzden indirme surerken HIC BIR pencere (acan pencere
+# olsun olmasin) kendini window.close() ile kapatamaz; cagrilar console'a "LB_CLOSE" yazilir (tani) ve indirme
+# bitince pencereleri biz kapatiriz. Sayfa zaten yuklu oldugu icin hem init script hem canli cerçevelere uygulanir.
+POPUP_KAPANMASINI_ENGELLE_JS = (
+    "try { if (!window.__lbClose) { window.__lbClose = window.close; }"
+    " window.close = function () { console.log('LB_CLOSE ' + (window === window.top ? 'top' : 'frame') + ' '"
+    " + String(location.href).slice(0, 80)); }; } catch (e) {}")
 POPUP_KAPANMASINI_GERI_AL_JS = "try { if (window.__lbClose) { window.close = window.__lbClose; } } catch (e) {}"
+
+
+def _her_cerceveye(ctx, js):
+    """Acik tum sayfa ve cerçevelerde js calistirir (hatalar yutulur)."""
+    for p in list(ctx.pages):
+        try:
+            for fr in p.frames:
+                try:
+                    fr.evaluate("() => { " + js + " }")
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
 
 def indir(page, klasor, ad, sure_ms=120000, log=None):
@@ -274,18 +291,25 @@ def indir(page, klasor, ad, sure_ms=120000, log=None):
         except Exception as e:
             olaylar.append(f"kaydedilemedi: {type(e).__name__}: {str(e)[:90]}")
 
+    def konsol(m):
+        if m.text.startswith("LB_CLOSE"):
+            olaylar.append(f"Luca window.close() çağırdı, engellendi ({m.text[9:]})")
+
     def yeni_sayfa(p):
         olaylar.append(f"yeni pencere: {p.url[:60]}")
         p.on("download", al)
+        p.on("console", konsol)
         p.on("close", lambda *_: olaylar.append("pencere kapandı"))
     try:
         ctx.add_init_script(POPUP_KAPANMASINI_ENGELLE_JS)
     except Exception:
         pass
+    _her_cerceveye(ctx, POPUP_KAPANMASINI_ENGELLE_JS)  # zaten acik sayfalar (Mizan formu dahil)
     page.on("download", al)
     ctx.on("page", yeni_sayfa)
     try:
         for p in onceki:
+            p.on("console", konsol)
             if p is not page:
                 p.on("download", al)
         dugme.click(timeout=8000)
@@ -316,6 +340,12 @@ def indir(page, klasor, ad, sure_ms=120000, log=None):
             ctx.add_init_script(POPUP_KAPANMASINI_GERI_AL_JS)
         except Exception:
             pass
+        _her_cerceveye(ctx, POPUP_KAPANMASINI_GERI_AL_JS)
+        for p in list(ctx.pages):
+            try:
+                p.remove_listener("console", konsol)
+            except Exception:
+                pass
     if "yol" not in alinan:
         raise LookupError("Mizan indirilemedi (" + ("; ".join(olaylar) if olaylar else "Rapor'a basıldı ama dosya inmedi") + ")")
     return alinan["yol"]

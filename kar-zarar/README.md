@@ -40,6 +40,8 @@ firmaların VKN'si buradan tamamlanır.
 
 ### Hangi firma nereden sorgulanır
 
+**Liste her sorguda çekilmez:** Müşteri Listesi (sınıf süzmeli) ilk sorguda Luca'dan okunup `cikti\musteri-listeleri.json`'a kaydedilir; aynı yıl için sonraki sorgularda Luca'ya hiç gidilmeden bu kayıttan okunur. Yeniden çekmek için `--listeyi-yenile` (arayüzde "Firma listesini Luca'dan yeniden çek").
+
 Luca Müşteri Listesi iki kez okunur (Yıl = dönemin yılı):
 - **Sınıf = İşletme Defteri** (`musteri_sinifi`): bu firmaların VKN'si alınır, Defter Beyan'a sorulur.
 - **Sınıf = 1.Sınıf** (`luca_sinifi`): Luca hesap planı **yalnız bu listedeki** firmalar için sorgulanır.

@@ -639,6 +639,20 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         self.assertIsNone(self.kz.surec)
         self.assertTrue(self.bilgi)
 
+    def test_firma_listesi_yenile_secenegi(self):
+        self.assertNotIn("--listeyi-yenile", self.kz.komut())  # varsayilan: kayitli liste
+        self.assertIn("Kayıtlı liste yok", self.kz.liste_bilgisi.cget("text"))
+        cikti = self.kz.cikti_klasoru()
+        cikti.mkdir(parents=True, exist_ok=True)
+        (cikti / "musteri-listeleri.json").write_text(json.dumps({"yil": 2026, "alinma": "2026-10-05T10:00:00",
+            "siniflar": {"1.Sınıf": [{"ad": "A"}, {"ad": "B"}], "İşletme Defteri": [{"ad": "B"}]}}), encoding="utf-8")
+        self.kz.liste_bilgisi_yaz()
+        self.assertIn("05/10/2026 tarihinde alındı, 2 firma", self.kz.liste_bilgisi.cget("text"))
+        self.kz.v_yenile.set(True)
+        self.assertIn("--listeyi-yenile", self.kz.komut())
+        self.kz.liste_bilgisi_yaz()
+        self.assertIn("yeniden okunur", self.kz.liste_bilgisi.cget("text"))
+
     def test_varsayilan_donem(self):
         import kar_zarar_sekmesi
         from datetime import date

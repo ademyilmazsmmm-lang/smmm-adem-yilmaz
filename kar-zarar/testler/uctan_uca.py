@@ -39,11 +39,25 @@ def main():
              "--bitince-kapat"] + os.environ.get("KZ_EK_ARGUMAN", "").split()
     print("Calistiriliyor:", " ".join(komut))
     sonuc = subprocess.run(komut, env=ortam, cwd=str(KOK))
+    hatalar = []
+    # ikinci sorgu: Musteri Listesi kayitli listeden gelir (Luca'dan cekilmez), sonuc ayni kalir
+    onbellek = klasor / "cikti" / "musteri-listeleri.json"
+    if not onbellek.exists():
+        hatalar.append("musteri-listeleri.json (onbellek) yazilmadi")
+    ilk_json = (klasor / "cikti" / "kar-zarar.json").read_text(encoding="utf-8") if sonuc.returncode == 0 else ""
+    ikinci = subprocess.run(komut, env=ortam, cwd=str(KOK), capture_output=True, text=True, encoding="utf-8")
+    print(ikinci.stdout[-1500:])
+    if ikinci.stdout.count("kayıtlı liste kullanıldı") < 2:
+        hatalar.append("ikinci sorguda kayitli liste kullanilmadi")
+    yenile = subprocess.run(komut + ["--listeyi-yenile"], env=ortam, cwd=str(KOK), capture_output=True,
+                            text=True, encoding="utf-8")
+    if "kayıtlı liste kullanıldı" in yenile.stdout:
+        hatalar.append("--listeyi-yenile verildi ama kayitli liste kullanildi")
     sunucu.shutdown()
 
-    hatalar = []
-    if sonuc.returncode != 0:
-        hatalar.append(f"cikis kodu {sonuc.returncode}")
+    for ad, r in (("ilk", sonuc), ("ikinci", ikinci), ("yenile", yenile)):
+        if r.returncode != 0:
+            hatalar.append(f"{ad} calismanin cikis kodu {r.returncode}")
     try:
         veri = json.loads((klasor / "cikti" / "kar-zarar.json").read_text(encoding="utf-8"))
     except OSError:

@@ -251,3 +251,24 @@ class KarZararTestleri(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MusteriOnbellekTestleri(unittest.TestCase):
+    def test_onbellek_yil_ve_sinif(self):
+        import kar_zarar
+        with tempfile.TemporaryDirectory() as d:
+            yol = Path(d) / "musteri-listeleri.json"
+            self.assertEqual(kar_zarar.onbellek_oku(yol, 2026), {})            # yok
+            kar_zarar.onbellek_yaz(yol, 2026, {"1.Sınıf": [{"ad": "A", "vkn": "1"}], "": []})
+            self.assertEqual(kar_zarar.onbellek_oku(yol, 2026)["1.Sınıf"], [{"ad": "A", "vkn": "1"}])
+            self.assertEqual(kar_zarar.onbellek_oku(yol, 2027), {})            # baska yil kullanilmaz
+            yol.write_text("bozuk", encoding="utf-8")
+            self.assertEqual(kar_zarar.onbellek_oku(yol, 2026), {})
+
+    def test_kayitli_liste_varsa_luca_ya_gidilmez(self):
+        import kar_zarar
+        with tempfile.TemporaryDirectory() as d:
+            onbellek = {"1.Sınıf": [{"ad": "A"}]}
+            kayitlar = kar_zarar._musteri_listesi(None, 2026, Path(d), "1.Sınıf", Path(d) / "l.log", onbellek,
+                                                  Path(d) / "c.json")  # page=None: Luca'ya gidilirse AttributeError
+            self.assertEqual(kayitlar, [{"ad": "A"}])

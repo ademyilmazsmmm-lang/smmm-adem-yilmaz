@@ -10,12 +10,13 @@ Luca girisi icin ayarlar.json (ayarlar.ornek.json'dan kopyalanir). Ayrinti: READ
 """
 
 import argparse
+import json
 import os
 import re
 import signal
 import sys
 import traceback
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 KOK = Path(__file__).resolve().parent
@@ -51,6 +52,8 @@ def arguman_ayristirici():
     p.add_argument("--firma", action="append",
                    help="Sadece bu firma(lar); virgulle ayirarak birden fazla yazilabilir")
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
+    p.add_argument("--listeyi-yenile", action="store_true",
+                   help="Luca Musteri Listesi'ni yeniden oku (varsayilan: ayni yilin kayitli listesi kullanilir, Luca'dan cekilmez)")
     p.add_argument("--sadece-luca", action="store_true",
                    help="Tek firma denemesi: Musteri Listesi ve Defter Beyan'i atla, --firma ile secilen firmayi yalniz"
                         " Luca hesap planindan oku (her adimdan sonra tani dosyasi kaydedilir)")
@@ -150,13 +153,48 @@ def _kaydet(kayit_yolu, bas, bit, sonuclar):
         return f"yazılamadı ({type(e).__name__})"
 
 
-def _musteri_listesi(page, yil, tani, sinif, log):
-    """Luca Musteri Listesi (Yil + Sinif suzmeli); okunamazsa uyari yazip None."""
+ONBELLEK = "musteri-listeleri.json"  # cikti/ altinda: {"yil", "alinma", "siniflar": {sinif: [kayit]}}
+
+
+def onbellek_oku(yol, yil):
+    """Ayni yilin kayitli Musteri Listesi'ni {sinif: [kayit]} dondurur; yok/eski/bozuksa {}."""
     try:
-        return musteri_listesini_oku(page, yil, tani, log, sinif=sinif)
+        veri = json.loads(Path(yol).read_text(encoding="utf-8"))
+        if veri.get("yil") == yil and isinstance(veri.get("siniflar"), dict):
+            return veri["siniflar"]
+    except (OSError, ValueError, AttributeError):
+        pass
+    return {}
+
+
+def onbellek_yaz(yol, yil, siniflar):
+    gecici = Path(yol).with_suffix(".json.tmp")
+    gecici.write_text(json.dumps({"yil": yil, "alinma": datetime.now().isoformat(timespec="seconds"),
+                                  "siniflar": siniflar}, ensure_ascii=False, indent=1), encoding="utf-8")
+    gecici.replace(yol)
+
+
+def _musteri_listesi(page, yil, tani, sinif, log, onbellek=None, onbellek_yolu=None):
+    """Luca Musteri Listesi (Yil + Sinif suzmeli); okunamazsa uyari yazip None.
+
+    `onbellek` ({sinif: [kayit]}) verilirse ve sinif orada varsa Luca'ya gidilmez; Luca'dan okunan liste
+    onbellege yazilir (sonraki sorgularda tekrar cekilmez)."""
+    if onbellek is not None and sinif in onbellek:
+        yaz(f"Müşteri listesi ({sinif or 'sınıfsız'}): kayıtlı liste kullanıldı, {len(onbellek[sinif])} firma"
+            " (Luca'dan çekilmedi)", log)
+        return onbellek[sinif]
+    try:
+        kayitlar = musteri_listesini_oku(page, yil, tani, log, sinif=sinif)
     except LookupError as e:
         yaz(f"UYARI: Luca müşteri listesi ({sinif or 'sınıfsız'}) okunamadı ({e})", log)
         return None
+    if onbellek is not None and onbellek_yolu is not None:
+        onbellek[sinif] = kayitlar
+        try:
+            onbellek_yaz(onbellek_yolu, yil, onbellek)
+        except OSError:
+            pass
+    return kayitlar
 
 
 def _luca_firmalari(adaylar, birinci, sinif, yil, log):
@@ -214,13 +252,15 @@ def kar_zarar_cek(args, ayarlar, p):
                 # VKN/TC ve kapanis tarihleri: Luca > Yonetici > Musteri Listesi (donem yili)
                 # 1) Sinif=Isletme Defteri: Defter Beyan'a sorulacak firmalar; 2) Sinif=1.Sinif: Luca hesap plani firmalari
                 musteriler = []
+                onbellek_yolu = CIKTI / ONBELLEK
+                onbellek = {} if args.listeyi_yenile else onbellek_oku(onbellek_yolu, bit.year)
                 siniflar = ayarlar.get("musteri_sinifi", MUSTERI_SINIFI)
                 for sira, sinif in enumerate([siniflar] if isinstance(siniflar, str) else siniflar):
                     musteriler += _musteri_listesi(page, bit.year, klasor / (f"tani-{sira}" if sira else "tani"),
-                                                   sinif, log) or []
+                                                   sinif, log, onbellek, onbellek_yolu) or []
                 luca_sinifi = "" if args.sadece_defterbeyan else ayarlar.get("luca_sinifi", LUCA_SINIFI)
-                birinci = (_musteri_listesi(page, bit.year, klasor / "tani-1sinif", luca_sinifi, log)
-                           if luca_sinifi else None)
+                birinci = (_musteri_listesi(page, bit.year, klasor / "tani-1sinif", luca_sinifi, log,
+                                            onbellek, onbellek_yolu) if luca_sinifi else None)
                 acik_pencereleri_kapat(page)
                 kayitlar = musteriler + (birinci or [])
                 firmalar = kapanmislari_ele(secim.firmalar, kayitlar, bas, log)

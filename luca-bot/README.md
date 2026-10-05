@@ -115,6 +115,7 @@ Pencerenin üstündeki **Kâr / Zarar** sekmesi, repodaki ayrı `kar-zarar/` pro
   Seçilen ay kâr/zarar dönemiyle çakışıyorsa aynı ay iki kez sayılmaması için eklenmez.
   Kutudaki aylar `indirilenler/rapor-donemler.json`'dan gelir: yeni aya geçildiğinde eski ayın tutarları orada saklanır
   (bu özellikten önce indirilip üzerine yazılmış aylar geri getirilemez; o ayı yeniden indirmek gerekir).
+- Firma listesi her sorguda çekilmez: ilk sorguda Luca'dan okunup kaydedilir, sonra kayıttan yüklenir; "Firma listesini Luca'dan yeniden çek" kutusu işaretlenirse yenilenir.
 - Fatura İndirme ve Kâr / Zarar aynı anda çalışmaz (ikisi de Luca'ya girer).
 
 İptal/itiraz edilen faturalar tutarlara dahil edilmez. Python'da pencere kütüphanesi (tkinter)

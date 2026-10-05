@@ -250,6 +250,8 @@ MIZAN_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Mizan
    // gercek Luca: rapor yeni pencerede acilir, pencere kisa sure sonra kendini kapatir (indirme o sirada surerken)
    const w = window.open('/mizan.xlsx?firma=__FIRMA__&bas=' + v('tarih_ilk') + '&bit=' + v('tarih_son'), '_blank');
    setTimeout(() => { try { w.close(); } catch (e) {} }, 500);
+   // gercek kullanimda form sayfasinin kendisi de kapanip indirmeyi yarida kesebildi (Chrome kapandi)
+   setTimeout(() => { try { window.close(); } catch (e) {} }, 700);
  };
 </script></body></html>"""
 
