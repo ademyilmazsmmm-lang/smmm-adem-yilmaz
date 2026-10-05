@@ -583,7 +583,7 @@ class Arayuz:
             messagebox.showerror("Ayar dosyası bozuk", f"{e}\n\nDosyayı Not Defteri ile düzeltin.")
             raise SystemExit(1)
 
-        kok.title("Luca Bot — SMMM Adem Yılmaz")
+        kok.title("Dijital Stajyer — Adem Yılmaz SMMM Ofisi")
         kok.configure(bg=ZEMIN)
         kok.geometry("1140x780")
         kok.minsize(1020, 720)
@@ -642,8 +642,8 @@ class Arayuz:
         logo(sol).pack(side="left", pady=14)
         yazi = tk.Frame(sol, bg=BASLIK_ZEMIN)
         yazi.pack(side="left", padx=12)
-        tk.Label(yazi, text="SMMM Adem Yılmaz", font=SERIF, fg="#F2F4F8", bg=BASLIK_ZEMIN).pack(anchor="w")
-        tk.Label(yazi, text="SERBEST MUHASEBECİ MALİ MÜŞAVİR", font=("Segoe UI", 8, "bold"),
+        tk.Label(yazi, text="Dijital Stajyer", font=SERIF, fg="#F2F4F8", bg=BASLIK_ZEMIN).pack(anchor="w")
+        tk.Label(yazi, text="ADEM YILMAZ SMMM OFİSİ · DİJİTAL ASİSTAN", font=("Segoe UI", 8, "bold"),
                  fg=ALTIN, bg=BASLIK_ZEMIN).pack(anchor="w")
         sag = tk.Frame(b, bg=BASLIK_ZEMIN)
         sag.pack(side="right", padx=22)
@@ -653,7 +653,7 @@ class Arayuz:
         self.durum_etiketi = tk.Label(sag, text="  Hazır  ", font=("Segoe UI", 9, "bold"),
                                       fg="#FFFFFF", bg=YESIL, padx=6, pady=2)
         self.durum_etiketi.pack(side="right", padx=(12, 0))
-        tk.Label(sag, text="Luca Bot · e-Fatura / e-Arşiv Otomatik İndirme", font=KUCUK,
+        tk.Label(sag, text="Luca · e-Fatura / e-Arşiv · Kâr / Zarar", font=KUCUK,
                  fg=ETIKET, bg=BASLIK_ZEMIN).pack(side="right")
         tk.Frame(self.kok, bg=CIZGI, height=1).pack(fill="x")
 
