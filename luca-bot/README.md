@@ -96,6 +96,23 @@ kendisini konsolsuz yeniden başlatır. Hiçbiri olmazsa küçültülmüş bir s
      KDV'yi `firmalar.xlsx`'e **"Devreden KDV"** adlı bir sütun açıp elle yazın; boşsa 0 sayılır.
      Tahmindir (diğer beyan kalemleri girmez).
 
+### Fatura İndirme sekmesinin alt ekranları
+
+Sağ panelde üç alt sekme vardır:
+
+- **Süreç**: çalışırken ilerleme çubuğu, canlı log ve altta özet kutuları (eskisi gibi).
+- **Firma Durumu**: `rapor.xlsx`'teki firma satırlarının aynısı (durum, aksiyon, ekran başına fatura sayısı, matrahlar, not, son işlem).
+  Satır renkleri: yeşil = tamam, turuncu = aksiyon gerekiyor, kırmızı = hata, gri = bekliyor. **Ara** kutusu tüm sütunlarda
+  arar (Türkçe harf/büyük-küçük farkı yok), **Dönem** ve **Durum** kutularıyla süzülür, bir **başlığa tıklayınca** sıralanır
+  (tekrar tıklayınca ters, üçüncüde kalkar; tutarlar ve tarihler sayı/tarih olarak sıralanır). Varsayılan dönem filtresi
+  ana penceredeki tarih aralığıdır.
+- **Hatalı / İnmeyen**: sorgulamada hata alan ya da faturaları kaynaktan inmeyen firma/ekranlar. Ekran ve Durum kutularıyla
+  süzüp satırları (Ctrl / Shift ile birden çok) seçin; **Seçilenleri Tekrar Sorgula** yalnızca bunları, **Görünenlerin Hepsini
+  Tekrar Sorgula** süzülmüş listenin tamamını ana penceredeki tarih aralığı için yeniden çalıştırır.
+
+Kâr / Zarar sekmesindeki tabloda da aynı arama, Kaynak filtresi ve sıralama vardır. Üçüncü sekme
+(**Luca Mükerrer / Eksik Fatura Tespiti**) şimdilik "Çalışma var" yer tutucusudur.
+
 ### Kâr / Zarar sekmesi
 
 Pencerenin üstündeki **Kâr / Zarar** sekmesi, repodaki ayrı `kar-zarar/` programını
@@ -333,6 +350,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | `indirme.py` | **Fatura indirme**: belge paketi (zip) ve Excel |
 | `fatura_analiz.py` | İnen Excel/ZIP'ten tevkifat, iptal/itiraz, matrah/KDV |
 | `rapor.py`, `rapor_excel.py` | **Raporlama**: `rapor.json` / `rapor.csv` / `rapor.xlsx` |
+| `tablo_gorunumu.py` | Arayüzün ortak tablo bileşeni: arama, sütun filtresi, başlığa tıklayınca sıralama |
 | `kar_zarar_sekmesi.py`, `lucabot/kar_zarar_ozet.py` | Arayüzün Kâr / Zarar sekmesi; sonuç + indirilen faturalar ("faturalar dahil") hesabı |
 | `gostergeler.py` | Arayüzün alt kutuları (tevkifat KDV, SMM, interaktif farkı, KDV ödemesi); arayüzün kendisi `luca_arayuz.py` |
 | `firma_tablosu.py` | `firmalar.xlsx` şablonu, arayüzdeki Firma / Ekran Seçimi tablosunun okunup yazılması, Luca listesiyle karşılaştırma/birleştirme |

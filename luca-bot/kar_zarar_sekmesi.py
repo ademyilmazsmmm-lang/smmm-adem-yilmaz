@@ -25,6 +25,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from lucabot import gostergeler, kar_zarar_ozet, rapor
+from tablo_gorunumu import SiralaFiltreTablosu
 from lucabot.ortak import TARIH_BICIMI, indirme_koku, tarih_cozumle
 
 KOK = Path(__file__).resolve().parent
@@ -230,22 +231,12 @@ class KarZararSekmesi:
         self.ozet_etiketi = tk.Label(p, text="", font=u.GOVDE_KALIN, fg=u.ALTIN, bg=u.ZEMIN, anchor="w",
                                      justify="left", wraplength=640)
         self.ozet_etiketi.pack(side="bottom", fill="x", pady=(6, 0))
-        tablo = tk.Frame(p, bg=u.ZEMIN)
-        tablo.pack(fill="both", expand=True)
         sutunlar = ("Firma", "Kaynak", "Dönem kârı / zararı", "Fatura farkı", "Faturalar dahil", "Not")
         genislik = (150, 90, 155, 120, 155, 80)
-        self.agac = ttk.Treeview(tablo, columns=sutunlar, show="headings", style="Liste.Treeview")
-        kay = ttk.Scrollbar(tablo, orient="vertical", command=self.agac.yview)
-        self.agac.configure(yscrollcommand=kay.set)
-        for i, (s, g) in enumerate(zip(sutunlar, genislik)):
-            yon = "e" if i in (2, 3, 4) else "w"
-            self.agac.heading(s, text=s, anchor=yon)
-            self.agac.column(s, anchor=yon, width=g, minwidth=80, stretch=(i == 0 or i == 5))
-        self.agac.tag_configure("kar", foreground="#8CE59A")
-        self.agac.tag_configure("zarar", foreground=u.KIRMIZI)
-        self.agac.tag_configure("hata", foreground=u.SOLUK)
-        kay.pack(side="right", fill="y")
-        self.agac.pack(side="left", fill="both", expand=True)
+        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 5}, filtreler=("Kaynak",),
+                                         etiketler={"kar": "#8CE59A", "zarar": u.KIRMIZI, "hata": u.SOLUK})
+        self.tablo.pack(fill="both", expand=True)
+        self.agac = self.tablo.agac
         self.agac.bind("<<TreeviewSelect>>", self._secildi)
 
     # -- firma listesi -------------------------------------------------------------
@@ -308,8 +299,8 @@ class KarZararSekmesi:
         kayitlar = self.donem_secenekleri.get(self.v_fatura_donem.get(), {}) if self.v_fatura.get() else {}
         self.satirlar = kar_zarar_ozet.satirlar(self.ham, kayitlar, bit)
         tl = gostergeler.tl
-        self.agac.delete(*self.agac.get_children())
-        for i, s in enumerate(self.satirlar):
+        satirlar, etiketler = [], []
+        for s in self.satirlar:
             kar, dahil = s.get("kar"), s.get("kar_dahil")
             fark = (s["fatura_satis"] - s["fatura_alis"]) if s.get("fatura_satis") is not None else None
             if kar is None:
@@ -321,8 +312,9 @@ class KarZararSekmesi:
                 ikinci = tl(fark) if fark is not None else "—"
                 ucuncu = (tl(dahil) + (" kâr" if dahil >= 0 else " zarar")) if dahil is not None else "—"
                 not_ = s.get("fatura_not") or ""
-            self.agac.insert("", "end", iid=str(i), tags=(etiket,),
-                             values=(s["firma"], s.get("kaynak") or "", ilk, ikinci, ucuncu, not_))
+            satirlar.append((s["firma"], s.get("kaynak") or "", ilk, ikinci, ucuncu, not_))
+            etiketler.append(etiket)
+        self.tablo.doldur(satirlar, etiketler)
         if aralik:
             self.donem_etiketi.configure(
                 text=f"Sonuç dönemi: {aralik[0]:%d/%m/%Y} – {aralik[1]:%d/%m/%Y}   ({len(self.satirlar)} firma)"

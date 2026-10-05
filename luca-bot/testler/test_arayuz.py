@@ -660,5 +660,109 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         self.assertEqual(kar_zarar_sekmesi.varsayilan_donem(date(2027, 1, 10)), ("01/01/2026", "30/11/2026"))
 
 
+@unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")
+class TablolarVeSekmelerTestleri(ArayuzZemini):
+    """Fatura Indirme alt sekmeleri (Surec / Firma Durumu / Hatali), siralama-filtre ve yer tutucu sekme."""
+
+    def setUp(self):
+        super().setUp()
+        donem = "01/09/2026-30/09/2026"
+        (self.d / "indir" / "rapor.json").write_text(json.dumps({
+            "BIRLIK TIC": {"firma": "BIRLIK TIC", "donem": donem,
+                           "durumlar": {"e-arsiv-alis": "tamam", "e-arsiv-satis": "tamam"},
+                           "sayilar": {"e-arsiv-alis": 12, "e-arsiv-satis": 3},
+                           "matrah": {"e-arsiv-satis": 15000, "e-arsiv-alis": 2500}},
+            "YILDIZ OTO": {"firma": "YILDIZ OTO", "donem": donem,
+                           "durumlar": {"e-arsiv-alis": "hata: zaman asimi", "e-fatura-alis": "tamam"},
+                           "sayilar": {"e-arsiv-alis": 0, "e-fatura-alis": 40}, "inmeyen": {"e-fatura-alis": 2},
+                           "notlar": {"e-arsiv-alis": "zaman asimi"}},
+            "ZEYTIN LTD": {"firma": "ZEYTIN LTD", "donem": donem,
+                           "durumlar": {"e-fatura-satis": "excel inmedi"}, "sayilar": {"e-fatura-satis": 7}},
+            "ESKI AS": {"firma": "ESKI AS", "donem": "01/08/2026-31/08/2026", "durumlar": {"e-arsiv-alis": "tamam"},
+                        "sayilar": {"e-arsiv-alis": 5}},
+        }), encoding="utf-8")
+        self.app.gostergeleri_yenile()
+
+    def test_firma_durumu_tablosu_rapordaki_verilerle_dolu(self):
+        t = self.app.durum_tablosu
+        self.assertEqual(t.sutunlar[:4], ["Firma", "Dönem", "Durum", "Aksiyon"])
+        # varsayilan Donem filtresi ana penceredeki ay (Eylul): Agustos'a ait ESKI AS gorunmez
+        gorunen = [t.satirlar[i][0] for i in t.gorunen_indeksler()]
+        self.assertEqual(sorted(gorunen), ["BIRLIK TIC", "YILDIZ OTO", "ZEYTIN LTD"])
+        t.filtre_ayarla("Dönem", "Tümü")
+        self.assertEqual(len(t.gorunen_indeksler()), 4)
+        self.assertIn("4 / 4", t.sayac.cget("text"))
+        etiket = {t.satirlar[i][0]: t.satir_etiketleri[i] for i in range(4)}
+        self.assertEqual(etiket["BIRLIK TIC"], "tamam")
+        self.assertEqual(etiket["YILDIZ OTO"], "hata")
+
+    def test_arama_filtre_ve_siralama(self):
+        t = self.app.durum_tablosu
+        t.filtre_ayarla("Dönem", "Tümü")
+        t.arama_degiskeni.set("yildiz")  # Turkce harf/buyuk-kucuk fark etmez
+        self.assertEqual([t.satirlar[i][0] for i in t.gorunen_indeksler()], ["YILDIZ OTO"])
+        t.arama_degiskeni.set("")
+        t.filtre_ayarla("Durum", "tamam")
+        self.assertTrue(all(t.satirlar[i][2] == "tamam" for i in t.gorunen_indeksler()))
+        t.temizle()
+        t.filtre_ayarla("Dönem", "Tümü")
+        t.sirala(0)  # Firma artan
+        self.assertEqual([t.satirlar[i][0] for i in t.gorunen_indeksler()],
+                         ["BIRLIK TIC", "ESKI AS", "YILDIZ OTO", "ZEYTIN LTD"])
+        t.sirala(0)  # azalan
+        self.assertEqual([t.satirlar[i][0] for i in t.gorunen_indeksler()][0], "ZEYTIN LTD")
+        t.sirala(0)  # siralama kalkar
+        self.assertIsNone(t.siralama)
+
+    def test_siralama_anahtari_sayi_tutar_tarih(self):
+        from tablo_gorunumu import siralama_anahtari as a
+        self.assertLess(a("9"), a("12"))                       # sayisal, metin degil
+        self.assertLess(a("1.234,50 TL"), a("10.000,00 TL"))   # Turk bicimli tutar
+        self.assertLess(a("-3.000,00 TL zarar"), a("100,00 TL kâr"))
+        self.assertLess(a("30/08/2026"), a("01/09/2026"))
+        self.assertLess(a("12"), a("abc"))                     # sayilar metinden once
+        self.assertLess(a("zeytin"), a(""))                    # bos degerler sonda
+
+    def test_hatali_sekmesi_ve_tekrar_sorgu(self):
+        t = self.app.hata_tablosu
+        firmalar = sorted(t.satirlar[i][0] for i in range(len(t.satirlar)))
+        self.assertEqual(firmalar, ["YILDIZ OTO", "YILDIZ OTO", "ZEYTIN LTD"])  # hata + inmeyen + excel inmedi
+        self.assertIn("3 ekranda sorun var", self.app.hata_bilgisi.cget("text"))
+        istekler = []
+        self.app.tekrar_sorgula = lambda liste, pencere=None: istekler.append(liste)
+        # hicbiri secili degil: uyari, sorgu yok
+        import luca_arayuz
+        bilgi = []
+        eski = luca_arayuz.messagebox.showinfo
+        luca_arayuz.messagebox.showinfo = lambda *a, **k: bilgi.append(a)
+        try:
+            self.app._hatalilari_sorgula(False)
+        finally:
+            luca_arayuz.messagebox.showinfo = eski
+        self.assertTrue(bilgi)
+        self.assertEqual(istekler, [])
+        t.filtre_ayarla("Durum", "Excel inmedi")                 # gorunenlerin hepsi
+        self.app._hatalilari_sorgula(True)
+        self.assertEqual([(x["firma"], x["ekran"]) for x in istekler[0]], [("ZEYTIN LTD", "e-fatura-satis")])
+        t.temizle()
+        t.agac.selection_set([str(i) for i in t.gorunen_indeksler()[:2]])   # secilenler
+        self.app._hatalilari_sorgula(False)
+        self.assertEqual(len(istekler[1]), 2)
+
+    def test_alt_sekmeler_ve_yer_tutucu(self):
+        for ad in ("durum", "hata", "surec"):
+            self.app.alt_sekme_sec(ad)
+            self.kok.update()
+            self.assertTrue(self.app.alt_cerceveler[ad].winfo_ismapped())
+            self.assertEqual([c for k, c in self.app.alt_cerceveler.items() if c.winfo_ismapped()],
+                             [self.app.alt_cerceveler[ad]])
+        self.app.sekme_sec("muavin")
+        self.kok.update()
+        self.assertTrue(self.app.muavin_govde.winfo_ismapped())
+        yazilar = [w.cget("text") for w in self.app.muavin_govde.winfo_children()[0].winfo_children()]
+        self.assertIn("Çalışma var", yazilar)
+        self.assertFalse(self.app.fatura_govde.winfo_ismapped())
+
+
 if __name__ == "__main__":
     unittest.main()

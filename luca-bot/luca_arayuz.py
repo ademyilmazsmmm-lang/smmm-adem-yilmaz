@@ -33,7 +33,8 @@ KOK = Path(__file__).resolve().parent
 sys.path.insert(0, str(KOK))
 
 from kar_zarar_sekmesi import KarZararSekmesi  # noqa: E402
-from lucabot import beyanname, firma_tablosu, gostergeler, musteri_listesi  # noqa: E402
+from lucabot import beyanname, firma_tablosu, gostergeler, musteri_listesi, rapor  # noqa: E402
+from tablo_gorunumu import SiralaFiltreTablosu  # noqa: E402
 from lucabot.firma_listesi import devreden_kdvleri  # noqa: E402
 from lucabot.ortak import (AYAR_DOSYASI, DURDUR_DOSYASI, ORNEK_AYAR, TARIH_BICIMI,  # noqa: E402
                            hedef_ay_araligi, indirme_koku, sadelestir, tarih_cozumle)
@@ -596,8 +597,10 @@ class Arayuz:
         tk.Frame(govde, bg=CIZGI, width=1).pack(side="left", fill="y")
         self._sag_panel(govde)
         self.kz = KarZararSekmesi(self, kok, sys.modules[__name__])
+        self.muavin_govde = self._muavin_taslagi(kok)
         self.sekme_sec("fatura")
         self._giris_ozetini_yaz()
+        self.alt_sekme_sec("surec")
         self.gostergeleri_yenile()
         kok.protocol("WM_DELETE_WINDOW", self.kapat)
         self.dongu_id = kok.after(100, self._dongu)
@@ -658,20 +661,37 @@ class Arayuz:
         cubuk = tk.Frame(self.kok, bg=BASLIK_ZEMIN)
         cubuk.pack(fill="x")
         self.sekme_dugmeleri = {}
-        for anahtar, ad in (("fatura", "Fatura İndirme"), ("kz", "Kâr / Zarar")):
+        for anahtar, ad in (("fatura", "Fatura İndirme"), ("kz", "Kâr / Zarar"),
+                            ("muavin", "Luca Mükerrer / Eksik Fatura Tespiti")):
             d = tk.Label(cubuk, text=ad, font=GOVDE_KALIN, padx=22, pady=8, cursor="hand2", bg=BASLIK_ZEMIN)
             d.pack(side="left")
             d.bind("<Button-1>", lambda _e, k=anahtar: self.sekme_sec(k))
             self.sekme_dugmeleri[anahtar] = d
         tk.Frame(self.kok, bg=CIZGI, height=1).pack(fill="x")
 
+    def _muavin_taslagi(self, kok):
+        """Henuz yapilmadi: Luca muavin dokumu ile gelen/giden faturalari karsilastirma ekrani icin yer tutucu."""
+        g = tk.Frame(kok, bg=ZEMIN)
+        orta = tk.Frame(g, bg=ZEMIN)
+        orta.place(relx=0.5, rely=0.42, anchor="center")
+        tk.Label(orta, text="🛠", font=("Segoe UI Emoji", 40), fg=ALTIN, bg=ZEMIN).pack()
+        tk.Label(orta, text="Çalışma var", font=SERIF, fg="#F2F4F8", bg=ZEMIN).pack(pady=(8, 4))
+        tk.Label(orta, text="Luca mükerrer / eksik fatura tespiti ekranı yapım aşamasında.\n"
+                 "Gelen/giden faturalar Luca muavin dökümüyle karşılaştırılacak.", font=GOVDE, fg=SOLUK,
+                 bg=ZEMIN, justify="center").pack()
+        return g
+
     def sekme_sec(self, anahtar):
         self.fatura_govde.pack_forget()
         self.kz.govde.pack_forget()
-        (self.fatura_govde if anahtar == "fatura" else self.kz.govde).pack(fill="both", expand=True)
+        self.muavin_govde.pack_forget()
+        {"fatura": self.fatura_govde, "kz": self.kz.govde, "muavin": self.muavin_govde}[anahtar].pack(
+            fill="both", expand=True)
         for k, d in self.sekme_dugmeleri.items():
             d.configure(fg=ALTIN if k == anahtar else SOLUK)
         self.aktif_sekme = anahtar
+        if anahtar == "kz":
+            self.kz.sonucu_goster()  # fatura indirme sekmesinde yeni ay indirilmis olabilir
 
     def _sol_panel(self, govde):
         p = tk.Frame(govde, bg=ZEMIN, width=330, padx=22, pady=16)
@@ -732,9 +752,36 @@ class Arayuz:
         return dict(bg=ZEMIN, fg=YAZI, selectcolor=KUTU, activebackground=ZEMIN,
                     activeforeground=YAZI, highlightthickness=0, bd=0, anchor="w")
 
+    def _alt_sekmeler(self, ebeveyn):
+        """Sag panelin 'Süreç / Firma Durumu / Hatalı' alt sekmeleri."""
+        cubuk = tk.Frame(ebeveyn, bg=ZEMIN)
+        cubuk.pack(fill="x", padx=22, pady=(10, 0))
+        self.alt_dugmeler = {}
+        for anahtar, ad in (("surec", "Süreç"), ("durum", "Firma Durumu"), ("hata", "Hatalı / İnmeyen")):
+            d = tk.Label(cubuk, text=ad, font=GOVDE_KALIN, padx=14, pady=6, cursor="hand2", bg=PANEL)
+            d.pack(side="left", padx=(0, 4))
+            d.bind("<Button-1>", lambda _e, k=anahtar: self.alt_sekme_sec(k))
+            self.alt_dugmeler[anahtar] = d
+
+    def alt_sekme_sec(self, anahtar):
+        for k, c in self.alt_cerceveler.items():
+            c.pack_forget()
+        self.alt_cerceveler[anahtar].pack(fill="both", expand=True)
+        for k, d in self.alt_dugmeler.items():
+            d.configure(fg=ALTIN if k == anahtar else SOLUK, bg=KUTU if k == anahtar else PANEL)
+        if anahtar != "surec":
+            self.gostergeleri_yenile()
+
     def _sag_panel(self, govde):
-        p = tk.Frame(govde, bg=ZEMIN, padx=22, pady=16)
-        p.pack(side="left", fill="both", expand=True)
+        dis = tk.Frame(govde, bg=ZEMIN)
+        dis.pack(side="left", fill="both", expand=True)
+        self._alt_sekmeler(dis)
+        p = tk.Frame(dis, bg=ZEMIN, padx=22, pady=16)
+        self.alt_cerceveler = {"surec": p,
+                               "durum": tk.Frame(dis, bg=ZEMIN, padx=22, pady=12),
+                               "hata": tk.Frame(dis, bg=ZEMIN, padx=22, pady=12)}
+        self._durum_sekmesi(self.alt_cerceveler["durum"])
+        self._hata_sekmesi(self.alt_cerceveler["hata"])
 
         ust = tk.Frame(p, bg=ZEMIN)
         ust.pack(fill="x")
@@ -787,6 +834,91 @@ class Arayuz:
         for etiket, renk in (("ok", "#8CE59A"), ("uyari", "#F2D98A"), ("soluk", "#7F8BA3"),
                              ("hata", KIRMIZI), ("firma", ALTIN_ACIK), ("bilgi", "#9AA6BD")):
             self.log.tag_configure(etiket, foreground=renk)
+
+    # -- Firma Durumu / Hatali sekmeleri ---------------------------------------------------
+
+    DURUM_RENKLERI = {"tamam": "#8CE59A", "uyari": TURUNCU, "hata": KIRMIZI, "soluk": SOLUK}
+
+    def _durum_sekmesi(self, p):
+        """rapor.xlsx'teki 'firma durumu' tablosu: arama, Dönem/Durum filtresi, basliga tiklayinca siralama."""
+        tk.Label(p, text="Firma durumu — rapor.xlsx ile aynı veri; başlığa tıklayınca sıralanır, kutulardan süzülür.",
+                 font=KUCUK, fg=SOLUK, bg=ZEMIN, anchor="w").pack(fill="x", pady=(0, 6))
+        alt = tk.Frame(p, bg=ZEMIN)
+        alt.pack(side="bottom", fill="x", pady=(8, 0))
+        dugme(alt, "Rapor Dosyasını Aç", self.raporu_ac).pack(side="left")
+        dugme(alt, "İndirilenler Klasörü", self.klasoru_ac).pack(side="left", padx=8)
+        yazi = {0, 1, 2, 3, rapor.BASLIKLAR.index("Eksik/Fazla Faturalar"), rapor.BASLIKLAR.index("Not"),
+                rapor.BASLIKLAR.index("Son İşlem")}
+        genislik = [{0: 190, 1: 175, 2: 150, 3: 300}.get(i, 90) for i in range(len(rapor.BASLIKLAR))]
+        for ad in ("Eksik/Fazla Faturalar", "Not", "Son İşlem"):
+            genislik[rapor.BASLIKLAR.index(ad)] = 200
+        self.durum_tablosu = SiralaFiltreTablosu(
+            p, sys.modules[__name__], rapor.BASLIKLAR, genislik, yazi=yazi, filtreler=("Dönem", "Durum"),
+            varsayilan_filtre={"Dönem": self.secili_donem() or "Tümü"}, yatay=True,
+            etiketler=self.DURUM_RENKLERI)
+        self.durum_tablosu.pack(fill="both", expand=True)
+        self._durum_donemi = None
+
+    def _hata_sekmesi(self, p):
+        """Sorgulamada hata alan / faturasi inmeyen ekranlar; secilenler (ya da gorunenlerin hepsi) tekrar sorgulanir."""
+        self.hata_bilgisi = tk.Label(p, text="", font=KUCUK, fg=SOLUK, bg=ZEMIN, anchor="w", justify="left",
+                                     wraplength=760)
+        self.hata_bilgisi.pack(fill="x", pady=(0, 6))
+        alt = tk.Frame(p, bg=ZEMIN)
+        alt.pack(side="bottom", fill="x", pady=(8, 0))
+        dugme(alt, "Seçilenleri Tekrar Sorgula", lambda: self._hatalilari_sorgula(False), ana=True
+              ).pack(side="left")
+        dugme(alt, "Görünenlerin Hepsini Tekrar Sorgula", lambda: self._hatalilari_sorgula(True)
+              ).pack(side="left", padx=8)
+        dugme(alt, "Görünenleri Seç", lambda: self.hata_tablosu.hepsini_sec()).pack(side="left")
+        self.hata_tablosu = SiralaFiltreTablosu(
+            p, sys.modules[__name__], ("Firma", "Ekran", "Durum", "İnmeyen", "Not"), (200, 200, 170, 80, 300),
+            yazi={0, 1, 2, 4}, filtreler=("Ekran", "Durum"), secim="extended", etiketler=self.DURUM_RENKLERI)
+        self.hata_tablosu.pack(fill="both", expand=True)
+        self.hata_listesi = []
+
+    def _hatalilari_sorgula(self, gorunenlerin_hepsi):
+        t = self.hata_tablosu
+        sira = t.gorunen_indeksler() if gorunenlerin_hepsi else t.secili_indeksler()
+        if not sira:
+            messagebox.showinfo("Satır seçin", "Tekrar sorgulanacak satırları seçin (Ctrl / Shift ile birden çok)"
+                                " ya da 'Görünenlerin Hepsini Tekrar Sorgula'yı kullanın.", parent=self.kok)
+            return
+        self.tekrar_sorgula([self.hata_listesi[i] for i in sira])
+
+    def _tablolari_yenile(self, kayitlar, donem):
+        """rapor.json'dan Firma Durumu ve Hatali tablolarini doldurur (her firmadan sonra cagrilir)."""
+        satirlar, etiketler = [], []
+        for firma in sorted(kayitlar):
+            k = rapor._tamamla(dict(kayitlar[firma]))
+            k.setdefault("firma", firma)
+            satir = rapor._satir(k)
+            durum = rapor._genel_durum(k["durumlar"])
+            if durum.startswith(rapor.SORUNLU_DURUMLAR):
+                etiket = "hata"
+            elif satir[3]:
+                etiket = "uyari"
+            elif not durum or durum.startswith("bekliyor"):
+                etiket = "soluk"
+            else:
+                etiket = "tamam"
+            satirlar.append(tuple(satir))
+            etiketler.append(etiket)
+        self.durum_tablosu.doldur(satirlar, etiketler)
+        if donem != self._durum_donemi:  # ana penceredeki tarih araligi degisti: Donem filtresi ona gecer
+            self._durum_donemi = donem
+            ad = donem if any(str(s[1]) == donem for s in satirlar) else "Tümü"
+            self.durum_tablosu.filtre_ayarla("Dönem", ad)
+
+        self.hata_listesi = list(self.gostergeler.get("hata", []))
+        hata_satirlari = [(x["firma"], BELGE_ADLARI.get(x["ekran"], x["ekran"]), self._durum_metni(x),
+                           x["inmeyen"] or "", x["not"]) for x in self.hata_listesi]
+        self.hata_tablosu.doldur(hata_satirlari, ["hata" if str(x["durum"]).startswith("hata") else "uyari"
+                                                  for x in self.hata_listesi])
+        self.hata_bilgisi.configure(
+            text=(f"Dönem: {donem.replace('-', ' – ')} (ana penceredeki tarih aralığı). " if donem else "")
+                 + f"{len(self.hata_listesi)} ekranda sorun var. Satırları seçip tekrar sorgulatın;"
+                   " yalnızca seçilen firma ve ekranlar çalışır, sonuçlar rapora işlenir.")
 
     # -- ayarlar ---------------------------------------------------------------
 
@@ -1248,6 +1380,7 @@ class Arayuz:
         except Exception:
             devreden = {}
         self.gostergeler = gostergeler.hesapla(kayitlar, devreden, donem)
+        self._tablolari_yenile(kayitlar, donem)
         t = gostergeler.toplamlar(self.gostergeler)
         tl = gostergeler.tl
         self.kutu["tevkifat"].ayarla(tl(t["tevkifat"]), f"{t['tevkifat_adet']} fatura ›")
