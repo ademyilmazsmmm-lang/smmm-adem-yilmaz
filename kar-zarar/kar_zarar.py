@@ -284,7 +284,8 @@ def kar_zarar_cek(args, ayarlar, p):
             page.bring_to_front()
             hesaplama.luca_asamasi(page, luca_gidecek, bas, bit, sonuclar, vkn_hepsi,
                                    klasor / "tani", kaydet_fn, log, tani_hep=bool(args.sadece_luca),
-                                   kaynak=args.luca_kaynagi or ayarlar.get("luca_kaynagi", LUCA_KAYNAGI))
+                                   kaynak=args.luca_kaynagi or ayarlar.get("luca_kaynagi", LUCA_KAYNAGI),
+                                   yedek_hesap_plani=bool(ayarlar.get("mizan_yedek_hesap_plani", False)))
         finally:
             tarayiciyi_kapat(ctx)
     tamam = sum(1 for s in sonuclar.values() if s["kar"] is not None)

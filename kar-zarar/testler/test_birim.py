@@ -272,3 +272,50 @@ class MusteriOnbellekTestleri(unittest.TestCase):
             kayitlar = kar_zarar._musteri_listesi(None, 2026, Path(d), "1.Sınıf", Path(d) / "l.log", onbellek,
                                                   Path(d) / "c.json")  # page=None: Luca'ya gidilirse AttributeError
             self.assertEqual(kayitlar, [{"ad": "A"}])
+
+
+class MizanYenidenOynatmaTestleri(unittest.TestCase):
+    def _sunucu(self, yanitlar):
+        import http.server
+        import threading
+        gelenler = []
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def _ver(self):
+                uzunluk = int(self.headers.get("Content-Length") or 0)
+                gelenler.append((self.command, self.path, self.headers.get("Cookie"), self.rfile.read(uzunluk)))
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(yanitlar[self.path])
+            do_GET = do_POST = _ver
+
+            def log_message(self, *a):
+                pass
+
+        sunucu = http.server.HTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=sunucu.serve_forever, daemon=True).start()
+        self.addCleanup(sunucu.shutdown)
+        return f"http://127.0.0.1:{sunucu.server_port}", gelenler
+
+    def test_cerez_basligi_alan_adina_gore(self):
+        from karzarar.luca_mizan import _cerez_basligi
+        cerezler = [{"name": "A", "value": "1", "domain": ".luca.com.tr"},
+                    {"name": "B", "value": "2", "domain": "auygs.luca.com.tr"},
+                    {"name": "C", "value": "3", "domain": "baska.com"}]
+        self.assertEqual(_cerez_basligi(cerezler, "https://auygs.luca.com.tr/Luca/x.do"), "A=1; B=2")
+        self.assertEqual(_cerez_basligi(cerezler), "A=1; B=2; C=3")
+
+    def test_istek_tarayicisiz_tekrarlanir(self):
+        from karzarar.luca_mizan import _istegi_tekrarla
+        adres, gelenler = self._sunucu({"/rapor": b"PK\x03\x04excel", "/html": b"<html>oturum yok</html>"})
+        with tempfile.TemporaryDirectory() as d:
+            yol = Path(d) / "m.xlsx"
+            kayit = {"url": adres + "/rapor", "yontem": "POST", "govde": b"a=1",
+                     "basliklar": {"Content-Type": "application/x-www-form-urlencoded", "X-Gereksiz": "1"}}
+            self.assertTrue(_istegi_tekrarla(kayit, "S=abc", yol))
+            self.assertEqual(yol.read_bytes(), b"PK\x03\x04excel")
+            self.assertEqual(gelenler[0], ("POST", "/rapor", "S=abc", b"a=1"))
+            yol2 = Path(d) / "h.xlsx"
+            self.assertFalse(_istegi_tekrarla({"url": adres + "/html", "yontem": "GET"}, "S=abc", yol2))
+            self.assertFalse(yol2.exists())  # HTML doner: dosya yazilmaz
+            self.assertFalse(_istegi_tekrarla({"url": "http://127.0.0.1:1/yok"}, "S=abc", yol2))

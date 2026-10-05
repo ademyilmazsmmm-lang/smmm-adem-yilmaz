@@ -76,7 +76,7 @@ kendi hesabıdır. Defter dönemi istenen dönemden önce bitmiş (dönem sonu) 
 `ayarlar.json > luca_kaynagi` (`mizan` / `hesap-plani`, komut satırında `--luca-kaynagi`). Mizan: Muhasebe › Raporlar › Genel Raporlar › Mizan
 formu doldurulur (`tarih_ilk`/`tarih_son`, Bakiye Göster, Bakiyesiz Hesapları Gösterme, Rapor Türü = Excel Liste (xlsx); Hesap Tipi "Tümü" bırakılır),
 **Rapor** ile inen Excel `cikti\<tarih>\mizan\` klasörüne kaydedilip okunur; Excel'deki "Tarih Aralığı" istenenle uyuşmazsa sonuç
-kabul edilmez. Mizan alınamazsa o firma için Hesap Planı yöntemine dönülür. Excel raporunda Kaynak sütunu `Luca (Mizan)` /
+kabul edilmez. Mizan alınamazsa o firma HATA olarak işaretlenir (Hesap Planı'na kendiliğinden geçilmez; isteyen `ayarlar.json > mizan_yedek_hesap_plani: true` yapabilir). Tarayıcı indirmeyi bitiremeden kapanırsa rapor isteği tarayıcısız tekrarlanıp dosya yine alınmaya çalışılır. Excel raporunda Kaynak sütunu `Luca (Mizan)` /
 `Luca (Hesap Planı)` olarak görünür. Hesaplama iki yöntemde de aynıdır.
 
 ## Kullanım

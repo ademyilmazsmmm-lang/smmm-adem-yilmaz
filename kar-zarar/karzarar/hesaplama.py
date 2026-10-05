@@ -175,21 +175,22 @@ def defter_beyan_asamasi(page, ayarlar, firmalar, vkn_map, bas, bit, sonuclar, k
     return luca_gidecek
 
 
-def _luca_ozeti(page, firma, bas, bit, kaynak, tani_klasoru, log, tani_hep):
-    """(ozet, kaynak adi). kaynak 'mizan': Mizan Excel'i indirilir, alinamazsa Hesap Plani'na donulur."""
+def _luca_ozeti(page, firma, bas, bit, kaynak, tani_klasoru, log, tani_hep, yedek_hesap_plani=False):
+    """(ozet, kaynak adi). kaynak 'mizan': Mizan Excel'i indirilir; alinamazsa firma HATA olur
+    (yedek_hesap_plani=True ise Hesap Plani'na donulur; varsayilan kapali: Mizan tercih edilen yontemdir)."""
     if kaynak == "mizan":
         try:
             return (luca_mizan.mizan_oku(page, firma, bas, bit, tani_klasoru.parent / "mizan", tani_klasoru, log, tani_hep),
                     "Luca (Mizan)")
         except Exception as e:
-            if not sayfa_canli(page):
+            if not yedek_hesap_plani or not sayfa_canli(page):
                 raise
             yaz(f"    Mizan alınamadı ({type(e).__name__}: {str(e)[:120]}); Hesap Planı'ndan okunacak", log)
     return luca_hesap_plani.hesap_plani_oku(page, bas, bit, tani_klasoru, log, tani_hep), "Luca (Hesap Planı)"
 
 
 def luca_asamasi(page, firmalar, bas, bit, sonuclar, vkn_map, tani_klasoru, kaydet_fn, log, tani_hep=False,
-                 kaynak="hesap-plani"):
+                 kaynak="hesap-plani", yedek_hesap_plani=False):
     """kaynak: 'mizan' (Mizan Excel'i, hata olursa Hesap Plani) ya da 'hesap-plani'."""
     ardisik = 0
     for i, firma in enumerate(firmalar, 1):
@@ -202,7 +203,7 @@ def luca_asamasi(page, firmalar, bas, bit, sonuclar, vkn_map, tani_klasoru, kayd
             firma_sec(page, firma, log)
             if not donem_ayarla(page, firma, bas, bit, log):
                 raise DonemYok("firmanın bu döneme uygun çalışma dönemi yok")
-            ozet, kaynak_adi = _luca_ozeti(page, firma, bas, bit, kaynak, tani_klasoru, log, tani_hep)
+            ozet, kaynak_adi = _luca_ozeti(page, firma, bas, bit, kaynak, tani_klasoru, log, tani_hep, yedek_hesap_plani)
             sonuclar[firma] = _sonuc(firma, vkn_map.get(firma, ""), kaynak_adi, "Genel muhasebe", ozet)
             _ozet_yaz(ozet, log)
             ardisik = 0

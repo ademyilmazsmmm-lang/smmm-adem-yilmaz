@@ -11,6 +11,8 @@ satirlari (sinif, 2 haneli ve 3 haneli ana hesaplar). Hesaplama Hesap Plani ile 
 """
 
 import re
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 from lucabot.bekleme import kosulu_bekle, sayfa_durulsun
@@ -272,17 +274,65 @@ def _her_cerceveye(ctx, js):
             pass
 
 
+def _cerez_basligi(cerezler, url=""):
+    """Cookie basligi; url verilirse yalniz o sunucuya ait cerezler (alan adi eslesmesi)."""
+    host = urllib.parse.urlparse(url).hostname or ""
+    secili = [c for c in cerezler if not host or host.endswith((c.get("domain") or "").lstrip(".") or host)]
+    return "; ".join(f"{c['name']}={c['value']}" for c in secili)
+
+
+def _istegi_tekrarla(kayit, cerez, yol, log=None, sure=60):
+    """Tarayici indirmeyi tamamlayamadan kapandiysa, raporu veren istegi tarayicidan bagimsiz (urllib) tekrarlar.
+
+    kayit: {"url", "yontem", "govde", "basliklar"}; cerez: indirme baslamadan once alinmis Cookie basligi.
+    Dosya xlsx degilse (oturum/belirteç gecersiz: HTML doner) False dondurur."""
+    basliklar = {k: v for k, v in (kayit.get("basliklar") or {}).items()
+                 if k.lower() in ("content-type", "referer", "user-agent", "accept", "accept-language")}
+    basliklar["Cookie"] = cerez
+    govde = kayit.get("govde")
+    istek = urllib.request.Request(kayit["url"], data=govde.encode("utf-8") if isinstance(govde, str) else govde,
+                                   headers=basliklar, method=kayit.get("yontem") or "GET")
+    try:
+        with urllib.request.urlopen(istek, timeout=sure) as yanit:
+            veri = yanit.read()
+    except Exception as e:
+        yaz(f"    İstek tarayıcısız tekrarlanamadı ({type(e).__name__}: {str(e)[:80]})", log)
+        return False
+    if not veri.startswith(b"PK"):  # xlsx = zip
+        yaz(f"    Tekrarlanan istek Excel döndürmedi ({len(veri)} bayt, ilk baytlar: {veri[:40]!r})", log)
+        return False
+    yol.write_bytes(veri)
+    return True
+
+
 def indir(page, klasor, ad, sure_ms=120000, log=None):
-    """'Rapor' dugmesine basip inen dosyayi klasor/ad olarak kaydeder (pencere/sekme acilsa da yakalanir)."""
+    """'Rapor' dugmesine basip inen dosyayi klasor/ad olarak kaydeder (pencere/sekme acilsa da yakalanir).
+
+    Tarayici indirme sirasinda kapanirsa (gercek Luca'da bazi firmalarda oluyor) rapor istegi tarayicidan
+    bagimsiz tekrarlanir; ayrica tani icin istekler, cokme ve kapanma olaylari loga yazilir."""
     dugme = _rapor_dugmesi(page)
     ctx = page.context
     klasor.mkdir(parents=True, exist_ok=True)
     yol = klasor / ad
-    alinan, olaylar = {}, []
+    alinan, olaylar, istekler = {}, [], []
     onceki = list(ctx.pages)
+    try:
+        cerezler = ctx.cookies()  # tarayici kapanirsa alinamaz: indirme baslamadan once saklanir
+    except Exception:
+        cerezler = []
+
+    def istek_kaydet(r):
+        try:
+            if r.resource_type in ("document", "other", "xhr", "fetch"):
+                istekler.append({"url": r.url, "yontem": r.method, "govde": r.post_data_buffer or r.post_data,
+                                 "basliklar": r.headers})
+                del istekler[:-40]
+        except Exception:
+            pass
 
     def al(d):
-        olaylar.append(f"indirme başladı: {d.suggested_filename}")
+        olaylar.append(f"indirme başladı: {d.suggested_filename} ({d.url[:100]})")
+        alinan["url"] = d.url
         if "yol" in alinan:
             return
         try:  # hemen kaydet (indirme bitene kadar bekler); pencere kapanirsa indirme yarim kalir
@@ -295,35 +345,41 @@ def indir(page, klasor, ad, sure_ms=120000, log=None):
         if m.text.startswith("LB_CLOSE"):
             olaylar.append(f"Luca window.close() çağırdı, engellendi ({m.text[9:]})")
 
-    def yeni_sayfa(p):
-        olaylar.append(f"yeni pencere: {p.url[:60]}")
+    def sayfaya_bagla(p, ad_):
         p.on("download", al)
         p.on("console", konsol)
-        p.on("close", lambda *_: olaylar.append("pencere kapandı"))
+        p.on("crash", lambda *_: olaylar.append(f"{ad_} sayfası ÇÖKTÜ"))
+        p.on("close", lambda *_: olaylar.append(f"{ad_} sayfası kapandı"))
+        p.on("framenavigated", lambda f: olaylar.append(f"{ad_} yönlendi: {f.url[:80]}") if f == p.main_frame else None)
+
+    def yeni_sayfa(p):
+        olaylar.append(f"yeni pencere: {p.url[:60]}")
+        sayfaya_bagla(p, "yeni")
     try:
         ctx.add_init_script(POPUP_KAPANMASINI_ENGELLE_JS)
     except Exception:
         pass
     _her_cerceveye(ctx, POPUP_KAPANMASINI_ENGELLE_JS)  # zaten acik sayfalar (Mizan formu dahil)
-    page.on("download", al)
     ctx.on("page", yeni_sayfa)
+    ctx.on("request", istek_kaydet)
     try:
         for p in onceki:
-            p.on("console", konsol)
-            if p is not page:
-                p.on("download", al)
+            sayfaya_bagla(p, "ana" if p is page else "diğer")
+        olaylar.append(f"tıklamadan önce {len(onceki)} pencere")
         dugme.click(timeout=8000)
         kosulu_bekle(page, lambda: "yol" in alinan, sure_ms, aralik_ms=300)
     finally:
         for p in list(ctx.pages):
+            for olay, isleyici in (("download", al), ("console", konsol)):
+                try:
+                    p.remove_listener(olay, isleyici)
+                except Exception:
+                    pass
+        for olay, isleyici in (("page", yeni_sayfa), ("request", istek_kaydet)):
             try:
-                p.remove_listener("download", al)
+                ctx.remove_listener(olay, isleyici)
             except Exception:
                 pass
-        try:
-            ctx.remove_listener("page", yeni_sayfa)
-        except Exception:
-            pass
         try:  # tani: rapor sonrasi pencerelerin durumu (ana pencere kapandi mi?)
             olaylar.append(f"ana pencere {'KAPANDI' if page.is_closed() else 'açık'}; açık pencere sayısı: "
                            f"{len([p for p in ctx.pages if not p.is_closed()])}")
@@ -341,11 +397,13 @@ def indir(page, klasor, ad, sure_ms=120000, log=None):
         except Exception:
             pass
         _her_cerceveye(ctx, POPUP_KAPANMASINI_GERI_AL_JS)
-        for p in list(ctx.pages):
-            try:
-                p.remove_listener("console", konsol)
-            except Exception:
-                pass
+    if "yol" not in alinan and "url" in alinan and cerezler:
+        # tarayici indirmeyi bitiremedi: raporu veren istek tarayicisiz tekrarlanir
+        kayit = next((k for k in reversed(istekler) if k["url"] == alinan["url"]), None) \
+            or {"url": alinan["url"], "yontem": "GET"}
+        yaz(f"    Tarayıcı indirmeyi bitiremedi; rapor isteği tarayıcısız tekrarlanıyor ({kayit['yontem']})", log)
+        if _istegi_tekrarla(kayit, _cerez_basligi(cerezler, kayit["url"]), yol, log):
+            alinan["yol"] = yol
     if "yol" not in alinan:
         raise LookupError("Mizan indirilemedi (" + ("; ".join(olaylar) if olaylar else "Rapor'a basıldı ama dosya inmedi") + ")")
     return alinan["yol"]
