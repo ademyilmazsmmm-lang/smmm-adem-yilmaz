@@ -360,6 +360,46 @@ class FaturaKariTestleri(unittest.TestCase):
         self.assertEqual(rapor.fatura_kari({}), {"satis": 0, "alis": 0, "fark": 0})
 
 
+class KarZararOzetTestleri(unittest.TestCase):
+    EYLUL = {"donem": "01/09/2026-30/09/2026",
+             "matrah": {"e-arsiv-satis": 1000, "gib-5000": 1000, "e-fatura-alis": 300, "turmob-alis": 300},
+             "durumlar": {"e-arsiv-satis": "tamam", "e-fatura-alis": "tamam"}}
+
+    def test_donem_coz(self):
+        from lucabot.kar_zarar_ozet import donem_coz
+        self.assertEqual(donem_coz("01/01/2026-31/08/2026"), (date(2026, 1, 1), date(2026, 8, 31)))
+        self.assertIsNone(donem_coz("bozuk"))
+        self.assertIsNone(donem_coz("01/01/2026"))
+
+    def test_fatura_donemi_sonrasiysa_kara_eklenir(self):
+        from lucabot import kar_zarar_ozet as ko
+        sonuclar = [{"firma": "A LTD", "kar": 100000.0, "kaynak": "Luca (Mizan)"},
+                    {"firma": "B LTD", "kar": -5000.0, "kaynak": "Defter Beyan"},
+                    {"firma": "C LTD", "kar": None, "hata": "HATA: x"},
+                    {"firma": "D LTD", "kar": 7.0}]
+        kayitlar = {"a ltd": self.EYLUL, "B LTD": dict(self.EYLUL, donem="01/08/2026-31/08/2026")}
+        satirlar = ko.satirlar(sonuclar, kayitlar, date(2026, 8, 31))
+        self.assertEqual([s["firma"] for s in satirlar], ["A LTD", "D LTD", "B LTD", "C LTD"])
+        a = satirlar[0]
+        self.assertEqual((a["fatura_satis"], a["fatura_alis"], a["kar_dahil"]), (1000, 300, 100700.0))
+        self.assertEqual(ko.ozet_cumlesi(a),
+                         "100.000 TL kâr; 01/09/2026-30/09/2026 faturaları dahil edilince 100.700 TL kâr")
+        self.assertIn("fatura indirilmemiş", satirlar[1]["fatura_not"])
+        self.assertIsNone(satirlar[1]["kar_dahil"])
+        self.assertIn("çakışıyor", satirlar[2]["fatura_not"])  # ayni ay iki kez sayilmaz
+        self.assertIsNone(satirlar[2]["kar_dahil"])
+        self.assertEqual(ko.ozet_cumlesi(satirlar[3]), "HATA: x")
+
+    def test_eksik_ekran_notu_ve_zarar(self):
+        from lucabot import kar_zarar_ozet as ko
+        k = dict(self.EYLUL, durumlar={"e-arsiv-satis": "tamam", "e-fatura-alis": "hata: x"})
+        s = ko.satirlar([{"firma": "A", "kar": -50.0}], {"A": k}, date(2026, 8, 31))[0]
+        self.assertEqual(s["kar_dahil"], 650.0)
+        self.assertIn("eksik", s["fatura_not"])
+        s2 = ko.satirlar([{"firma": "A", "kar": -2000.0}], {"A": self.EYLUL}, date(2026, 8, 31))[0]
+        self.assertEqual(ko.ozet_cumlesi(s2).split("; ")[1].split("edilince ")[1], "1.300 TL zarar")
+
+
 class ArayuzOzetTestleri(unittest.TestCase):
     """Arayuzun alt kutulari: tevkifat KDV, SMM, interaktif farki, KDV odemesi."""
 

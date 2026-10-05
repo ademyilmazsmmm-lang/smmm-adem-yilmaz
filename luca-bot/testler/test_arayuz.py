@@ -73,9 +73,31 @@ SAHTE_BEYANNAME_BOTU = textwrap.dedent('''
     print("[OK] 2 beyanname PDF'i alindi", flush=True)
 ''')
 
+# kar-zarar/kar_zarar.py yerine: ilerleme satirlari basar, cikti/kar-zarar.json yazar
+SAHTE_KAR_ZARAR = textwrap.dedent('''
+    import json, os, sys
+    from pathlib import Path
+    print("ARGS " + " ".join(sys.argv[1:]), flush=True)
+    ayar = json.loads(Path(os.environ["LUCA_BOT_AYAR"]).read_text(encoding="utf-8"))
+    print("AYAR " + json.dumps({k: ayar.get(k) for k in ("parola", "defterbeyan_kullanici", "luca_kaynagi")}), flush=True)
+    firmalar = [
+        {"firma": "BIRLIK TIC", "kaynak": "Luca (Mizan)", "kar": 100000.0, "satis": 200000.0, "mal_alis": 40000.0, "gider": 60000.0},
+        {"firma": "YILDIZ OTO", "kaynak": "Defter Beyan", "kar": -3000.0, "satis": 1.0, "mal_alis": 1.0, "gider": 1.0},
+        {"firma": "HATALI LTD", "kaynak": "Luca (Mizan)", "kar": None, "hata": "HATA: mizan inmedi"},
+    ]
+    cikti = Path(__file__).resolve().parent / "cikti"
+    cikti.mkdir(exist_ok=True)
+    for i in range(1, 4):
+        print(f"[{i}/3] {firmalar[i - 1]['firma']}  (Luca mizan)", flush=True)
+        (cikti / "kar-zarar.json").write_text(json.dumps({
+            "donem": sys.argv[sys.argv.index("--tarih") + 1], "alinma": "x", "firmalar": firmalar[:i]}), encoding="utf-8")
+    print("[OK] 2 firmanin kar/zarar tahmini hazir", flush=True)
+''')
 
-@unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")
-class ArayuzTestleri(unittest.TestCase):
+
+class ArayuzZemini(unittest.TestCase):
+    """Ortak kurulum (sahte ayarlar, rapor.json, sahte bot); kendi testi yok."""
+
     def setUp(self):
         from openpyxl import Workbook
         import luca_arayuz
@@ -127,6 +149,9 @@ class ArayuzTestleri(unittest.TestCase):
             time.sleep(0.05)
         return False
 
+
+@unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")
+class ArayuzTestleri(ArayuzZemini):
     def test_kutular_rapordan_doluyor(self):
         k = self.app.kutu
         self.assertEqual(k["tevkifat"].deger.cget("text"), "700,00 TL")
@@ -498,6 +523,100 @@ class ArayuzTestleri(unittest.TestCase):
             luca_arayuz.messagebox.showwarning = eski
         self.assertIsNone(self.app.surec)
         self.assertTrue(uyari)
+
+
+@unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")
+class KarZararSekmesiTestleri(ArayuzZemini):
+    """Kâr / Zarar sekmesi: kar-zarar/kar_zarar.py yerine sahte program calisir."""
+
+    def setUp(self):
+        import kar_zarar_sekmesi
+        self.kz_klasor = Path(tempfile.mkdtemp(prefix="kz-test-"))
+        (self.kz_klasor / "kar_zarar.py").write_text(SAHTE_KAR_ZARAR, encoding="utf-8")
+        (self.kz_klasor / "ayarlar.ornek.json").write_text(json.dumps({"luca_kaynagi": "mizan"}), encoding="utf-8")
+        self._eski = kar_zarar_sekmesi.ADAYLAR
+        kar_zarar_sekmesi.ADAYLAR = (self.kz_klasor,)
+        super().setUp()
+        self.kz = self.app.kz
+
+    def tearDown(self):
+        import kar_zarar_sekmesi
+        if self.kz.surec:
+            self.kz.surec.kill()
+            self.kz.surec.wait()
+            self.kz.surec.stdout.close()
+        kar_zarar_sekmesi.ADAYLAR = self._eski
+        super().tearDown()
+
+    def _bilgi_sustur(self):
+        """showinfo modal pencere acip testi bekletir; cagrilari toplar."""
+        import luca_arayuz
+        import kar_zarar_sekmesi
+        self.bilgi = []
+        for mod in (luca_arayuz, kar_zarar_sekmesi):
+            eski = mod.messagebox.showinfo
+            mod.messagebox.showinfo = lambda *a, **k: self.bilgi.append(a)
+            self.addCleanup(setattr, mod.messagebox, "showinfo", eski)
+
+    def test_sekme_gecisi(self):
+        self.app.sekme_sec("kz")
+        self.kok.update()
+        self.assertTrue(self.kz.govde.winfo_ismapped())
+        self.assertFalse(self.app.fatura_govde.winfo_ismapped())
+        self.app.sekme_sec("fatura")
+        self.kok.update()
+        self.assertTrue(self.app.fatura_govde.winfo_ismapped())
+
+    def test_calistir_tablo_ve_faturalar_dahil(self):
+        self.app.sekme_sec("kz")
+        self.kz.v_bas.set("01/01/2026")
+        self.kz.v_bit.set("31/08/2026")
+        self.kz.v_db_kod.set("dbkod")
+        self.kz.v_kaynak.set("Hesap Planı Listesi")
+        # Eylul faturalari: satis 1500 - alis (500 e-fatura + 1500 e-SMM) => -500
+        rapor = self.d / "indir" / "rapor.json"
+        veri = json.loads(rapor.read_text(encoding="utf-8"))
+        veri["BIRLIK TIC"]["matrah"].update({"e-arsiv-satis": 1500, "e-fatura-alis": 500})
+        rapor.write_text(json.dumps(veri), encoding="utf-8")
+        self.kz.calistir()
+        self.assertIsNotNone(self.kz.surec)
+        self._bilgi_sustur()
+        self.app.calistir()  # fatura calismasi basindan engellenir
+        self.assertIsNone(self.app.surec)
+        self.assertTrue(self._bekle(lambda: self.kz.surec is None))
+        log = self.kz.log_metni()
+        self.assertIn("--tarih 01/01/2026-31/08/2026", log)
+        self.assertIn('"defterbeyan_kullanici": "dbkod"', log)
+        self.assertIn('"luca_kaynagi": "hesap-plani"', log)
+        self.assertIn('"parola": "x"', log)  # luca-bot girisi kar-zarar ayarina aktarildi
+        satirlar = [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()]
+        self.assertEqual([s[0] for s in satirlar], ["BIRLIK TIC", "YILDIZ OTO", "HATALI LTD"])
+        self.assertIn("100.000,00 TL kâr", satirlar[0][2])
+        self.assertIn("99.500,00 TL kâr", satirlar[0][3])  # faturalar dahil
+        self.assertIn("zarar", satirlar[1][2])
+        self.assertEqual(satirlar[1][3], "—")
+        self.assertIn("mizan inmedi", satirlar[2][4])
+        self.kz.v_fatura.set(False)
+        self.kz.sonucu_goster()
+        satirlar = [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()]
+        self.assertEqual(satirlar[0][3], "—")
+        self.kz.agac.selection_set("0")
+        self.kok.update()
+        self.assertIn("BIRLIK TIC", self.kz.ozet_etiketi.cget("text"))
+
+    def test_fatura_calismasi_surerken_kar_zarar_baslamaz(self):
+        self.app.calistir()
+        self.assertIsNotNone(self.app.surec)
+        self._bilgi_sustur()
+        self.kz.calistir()
+        self.assertIsNone(self.kz.surec)
+        self.assertTrue(self.bilgi)
+
+    def test_varsayilan_donem(self):
+        import kar_zarar_sekmesi
+        from datetime import date
+        self.assertEqual(kar_zarar_sekmesi.varsayilan_donem(date(2026, 10, 5)), ("01/01/2026", "31/08/2026"))
+        self.assertEqual(kar_zarar_sekmesi.varsayilan_donem(date(2027, 1, 10)), ("01/01/2026", "30/11/2026"))
 
 
 if __name__ == "__main__":

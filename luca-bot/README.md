@@ -96,6 +96,25 @@ kendisini konsolsuz yeniden başlatır. Hiçbiri olmazsa küçültülmüş bir s
      KDV'yi `firmalar.xlsx`'e **"Devreden KDV"** adlı bir sütun açıp elle yazın; boşsa 0 sayılır.
      Tahmindir (diğer beyan kalemleri girmez).
 
+### Kâr / Zarar sekmesi
+
+Pencerenin üstündeki **Kâr / Zarar** sekmesi, repodaki ayrı `kar-zarar/` programını
+(`luca-bot` klasörünün yanında durmalı) arka planda çalıştırır; ayrıntı için `kar-zarar/README.md`.
+
+- Dönem (varsayılan: Ocak başından Luca'ya işlenmiş son ay sonuna), isteğe bağlı tek firma, Luca
+  kaynağı (Mizan / Hesap Planı) ve Defter Beyan kullanıcı kodu/şifresi girilir. Luca girişi
+  Fatura İndirme'deki bilgilerden her çalıştırmada `kar-zarar/ayarlar.json`'a aktarılır.
+  **Defter Beyan güvenlik kodunu açılan tarayıcıda siz yazarsınız.**
+- Sonuç tablosu kârdan zarara sıralıdır; satıra tıklayınca özet cümle çıkar. **Excel olarak indir**
+  tablonun tamamını (fatura sütunlarıyla) kaydeder; **Programın Excel Raporu** `kar-zarar` programının
+  kendi raporunu açar.
+- **Faturalar dahil**: Luca'ya henüz işlenmemiş bir döneme ait indirilmiş faturalar (rapor.json'daki
+  dönem, kâr/zarar döneminden sonra başlıyorsa) varsa, KDV hariç satış − alış kâra eklenip ayrıca
+  gösterilir: "1–8. ay kâr X; Eylül faturaları dahil edilince Y". Faturalardan mal alışı ile gider
+  ayrılamadığı için alış tek kalem sayılır; maaş, amortisman gibi yevmiye kalemleri faturada olmaz — **tahmindir**.
+  Fatura dönemi kâr/zarar dönemiyle çakışıyorsa aynı ay iki kez sayılmaması için eklenmez.
+- Fatura İndirme ve Kâr / Zarar aynı anda çalışmaz (ikisi de Luca'ya girer).
+
 İptal/itiraz edilen faturalar tutarlara dahil edilmez. Python'da pencere kütüphanesi (tkinter)
 yoksa `.bat` bunu söyler; python.org'dan kurarken "tcl/tk and IDLE" işaretli olmalı (varsayılan).
 
@@ -311,6 +330,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | `indirme.py` | **Fatura indirme**: belge paketi (zip) ve Excel |
 | `fatura_analiz.py` | İnen Excel/ZIP'ten tevkifat, iptal/itiraz, matrah/KDV |
 | `rapor.py`, `rapor_excel.py` | **Raporlama**: `rapor.json` / `rapor.csv` / `rapor.xlsx` |
+| `kar_zarar_sekmesi.py`, `lucabot/kar_zarar_ozet.py` | Arayüzün Kâr / Zarar sekmesi; sonuç + indirilen faturalar ("faturalar dahil") hesabı |
 | `gostergeler.py` | Arayüzün alt kutuları (tevkifat KDV, SMM, interaktif farkı, KDV ödemesi); arayüzün kendisi `luca_arayuz.py` |
 | `firma_tablosu.py` | `firmalar.xlsx` şablonu, arayüzdeki Firma / Ekran Seçimi tablosunun okunup yazılması, Luca listesiyle karşılaştırma/birleştirme |
 | `luca_beyanname.py` | Luca'nın GİB Beyanname Takip ekranından KDV1 PDF'lerini toplu indirme |

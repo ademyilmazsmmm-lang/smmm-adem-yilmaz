@@ -32,6 +32,7 @@ from tkinter import filedialog, messagebox, ttk
 KOK = Path(__file__).resolve().parent
 sys.path.insert(0, str(KOK))
 
+from kar_zarar_sekmesi import KarZararSekmesi  # noqa: E402
 from lucabot import beyanname, firma_tablosu, gostergeler, musteri_listesi  # noqa: E402
 from lucabot.firma_listesi import devreden_kdvleri  # noqa: E402
 from lucabot.ortak import (AYAR_DOSYASI, DURDUR_DOSYASI, ORNEK_AYAR, TARIH_BICIMI,  # noqa: E402
@@ -588,11 +589,14 @@ class Arayuz:
         self._stiller()
         self._degiskenler()
         self._baslik()
+        self._sekme_cubugu()
         govde = tk.Frame(kok, bg=ZEMIN)
-        govde.pack(fill="both", expand=True)
+        self.fatura_govde = govde
         self._sol_panel(govde)
         tk.Frame(govde, bg=CIZGI, width=1).pack(side="left", fill="y")
         self._sag_panel(govde)
+        self.kz = KarZararSekmesi(self, kok, sys.modules[__name__])
+        self.sekme_sec("fatura")
         self._giris_ozetini_yaz()
         self.gostergeleri_yenile()
         kok.protocol("WM_DELETE_WINDOW", self.kapat)
@@ -649,6 +653,25 @@ class Arayuz:
         tk.Label(sag, text="Luca Bot · e-Fatura / e-Arşiv Otomatik İndirme", font=KUCUK,
                  fg=ETIKET, bg=BASLIK_ZEMIN).pack(side="right")
         tk.Frame(self.kok, bg=CIZGI, height=1).pack(fill="x")
+
+    def _sekme_cubugu(self):
+        cubuk = tk.Frame(self.kok, bg=BASLIK_ZEMIN)
+        cubuk.pack(fill="x")
+        self.sekme_dugmeleri = {}
+        for anahtar, ad in (("fatura", "Fatura İndirme"), ("kz", "Kâr / Zarar")):
+            d = tk.Label(cubuk, text=ad, font=GOVDE_KALIN, padx=22, pady=8, cursor="hand2", bg=BASLIK_ZEMIN)
+            d.pack(side="left")
+            d.bind("<Button-1>", lambda _e, k=anahtar: self.sekme_sec(k))
+            self.sekme_dugmeleri[anahtar] = d
+        tk.Frame(self.kok, bg=CIZGI, height=1).pack(fill="x")
+
+    def sekme_sec(self, anahtar):
+        self.fatura_govde.pack_forget()
+        self.kz.govde.pack_forget()
+        (self.fatura_govde if anahtar == "fatura" else self.kz.govde).pack(fill="both", expand=True)
+        for k, d in self.sekme_dugmeleri.items():
+            d.configure(fg=ALTIN if k == anahtar else SOLUK)
+        self.aktif_sekme = anahtar
 
     def _sol_panel(self, govde):
         p = tk.Frame(govde, bg=ZEMIN, width=330, padx=22, pady=16)
@@ -1000,6 +1023,10 @@ class Arayuz:
         return False
 
     def _baslat(self, komut, ilk_etiket, mod="calisma"):
+        if self.kz.calisiyor():
+            messagebox.showinfo("Başka çalışma sürüyor", "Kâr / Zarar çalışıyor; bitince başlatın "
+                                "(ikisi aynı anda Luca'ya girmemeli).", parent=self.kok)
+            return
         ortam = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
         bayrak = 0
         if sys.platform.startswith("win"):
@@ -1079,6 +1106,7 @@ class Arayuz:
                 and self.kuyruk.empty()):
             self._bitti(self.surec.returncode)
         self._son_islemi_goster()
+        self.kz.tikla()
         self.dongu_id = self.kok.after(150, self._dongu)
 
     def _metni_isle(self, metin):
@@ -1425,6 +1453,11 @@ class Arayuz:
         dosya_ac(indirme_koku(self.ayarlar))
 
     def kapat(self):
+        if self.kz.calisiyor():
+            if not messagebox.askyesno("Çalışma sürüyor", "Kâr / Zarar çalışıyor. Durdurup çıkılsın mı?",
+                                       parent=self.kok):
+                return
+            self.kz.kapat()
         if self.surec:
             if not messagebox.askyesno("Çalışma sürüyor", "Program çalışıyor. Durdurup çıkılsın mı?",
                                        parent=self.kok):
