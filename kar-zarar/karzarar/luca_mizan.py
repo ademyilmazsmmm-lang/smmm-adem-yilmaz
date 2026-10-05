@@ -274,6 +274,9 @@ def _her_cerceveye(ctx, js):
             pass
 
 
+_SON_BEKLEME_YAPILDI = []  # calisma basina bir kez
+
+
 def _cerez_basligi(cerezler, url=""):
     """Cookie basligi; url verilirse yalniz o sunucuya ait cerezler (alan adi eslesmesi)."""
     host = urllib.parse.urlparse(url).hostname or ""
@@ -368,6 +371,13 @@ def indir(page, klasor, ad, sure_ms=120000, log=None):
         olaylar.append(f"tıklamadan önce {len(onceki)} pencere")
         dugme.click(timeout=8000)
         kosulu_bekle(page, lambda: "yol" in alinan, sure_ms, aralik_ms=300)
+        if "yol" in alinan and not _SON_BEKLEME_YAPILDI:
+            # tani (calismada bir kez): indirme bitince Chrome'u kim kapatiyor? Dinleyiciler acikken biraz beklenir
+            _SON_BEKLEME_YAPILDI.append(True)
+            try:
+                page.wait_for_timeout(3000)
+            except Exception:
+                pass
     finally:
         for p in list(ctx.pages):
             for olay, isleyici in (("download", al), ("console", konsol)):
