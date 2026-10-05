@@ -1,0 +1,6 @@
+ayarlar.json
+cikti/
+.tarayici-profili*/
+*.log
+__pycache__/
+durdur.istek

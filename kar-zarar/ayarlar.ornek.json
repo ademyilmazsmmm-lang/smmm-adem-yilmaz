@@ -1,0 +1,17 @@
+{
+  "uye_no": "",
+  "kullanici_adi": "",
+  "parola": "",
+  "dogrulama_anahtari": "",
+  "dogrulama_bekleme_dakika": 5,
+  "firma_listesi": "",
+  "vkn_listesi": "",
+  "musteri_sinifi": ["İşletme Defteri", "Serbest Meslek Defteri"],
+  "luca_sinifi": "1.Sınıf",
+  "luca_kaynagi": "mizan",
+  "baslangic_tarihi": "01/07/2026",
+  "bitis_tarihi": "31/08/2026",
+  "atlanacak_firmalar": [],
+  "defterbeyan_kullanici": "",
+  "defterbeyan_sifre": ""
+}
