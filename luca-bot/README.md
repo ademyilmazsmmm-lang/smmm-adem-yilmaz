@@ -96,7 +96,9 @@ kendisini konsolsuz yeniden başlatır. Hiçbiri olmazsa küçültülmüş bir s
      KDV'yi `firmalar.xlsx`'e **"Devreden KDV"** adlı bir sütun açıp elle yazın; boşsa 0 sayılır.
      Tahmindir (diğer beyan kalemleri girmez).
 
-### Görünüm (açık / koyu tema)
+### Görünüm (açık / koyu tema), logo, sürüm
+
+Logo **Robot Stajyer**'dir (`varliklar/logo.svg`, program `logo-48/96/256.png` dosyalarını kullanır; pencere simgesi de odur). Pencerenin altındaki satırda telif notu ve **Sürüm** yazar; sürüme tıklayınca *Hakkında* penceresi açılır. Sürüm numarası `lucabot/__init__.py` içindeki `SURUM`'dür.
 
 Program **açık temayla** açılır. Sağ üstteki **🌙 Koyu tema / ☀ Açık tema** düğmesi temayı değiştirir ve seçimi `ayarlar.json > tema` (`acik` / `koyu`) olarak hatırlar. Çalışma sürerken tema değiştirilemez. Başlık bandı: "Dijital Stajyer — SMMM OFİSİ - DİJİTAL ASİSTAN"; sağ üstte lisans sahibi yazar.
 

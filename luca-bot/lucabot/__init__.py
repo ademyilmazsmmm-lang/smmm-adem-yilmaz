@@ -26,3 +26,6 @@ Program taslari (her biri tek bir isten sorumludur):
     rapor_excel.py    RAPORLAMA: rapor.xlsx (Ozet, Firma Durumu, Faturalar, Hatalar)
     eposta.py         calisma bitince ozet e-postasi (Outlook / SMTP)
 """
+
+SURUM = "1.0.0"  # arayuzde (alt cubuk, Hakkinda) gosterilir; surum degisince burasi guncellenir
+SURUM_TARIHI = "2026-10-05"

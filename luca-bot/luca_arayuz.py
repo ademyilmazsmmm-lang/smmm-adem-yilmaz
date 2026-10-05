@@ -32,7 +32,7 @@ KOK = Path(__file__).resolve().parent
 sys.path.insert(0, str(KOK))
 
 from kar_zarar_sekmesi import KarZararSekmesi  # noqa: E402
-from lucabot import beyanname, firma_tablosu, gostergeler, musteri_listesi, rapor  # noqa: E402
+from lucabot import SURUM, SURUM_TARIHI, beyanname, firma_tablosu, gostergeler, musteri_listesi, rapor  # noqa: E402
 from tablo_gorunumu import SiralaFiltreTablosu  # noqa: E402
 from lucabot.firma_listesi import devreden_kdvleri  # noqa: E402
 from lucabot.ortak import (AYAR_DOSYASI, DURDUR_DOSYASI, ORNEK_AYAR, TARIH_BICIMI,  # noqa: E402
@@ -235,8 +235,25 @@ def dugme(ebeveyn, metin, komut, ana=False, **kw):
     return d
 
 
+VARLIKLAR = KOK / "varliklar"
+TELIF = "© 2026 Adem Yılmaz — Serbest Muhasebeci Mali Müşavir · Tüm Hakları Saklıdır."
+
+
+def logo_resmi(boyut):
+    """varliklar/logo-<boyut>.png (Robot Stajyer) ya da None; PhotoImage'i cagiran tutmalidir."""
+    try:
+        return tk.PhotoImage(file=str(VARLIKLAR / f"logo-{boyut}.png"))
+    except tk.TclError:
+        return None
+
+
 def logo(ebeveyn):
-    """smmmyilmaz.com'daki altin 'AY' kutusu."""
+    """Robot Stajyer logosu (PNG); dosya yoksa eski altin 'AY' kutusu."""
+    resim = logo_resmi(48)
+    if resim is not None:
+        et = tk.Label(ebeveyn, image=resim, bg=BASLIK_ZEMIN, bd=0, highlightthickness=0)
+        et.resim = resim  # Tk, PhotoImage'i tutmaz
+        return et
     c = tk.Canvas(ebeveyn, width=46, height=46, bg=BASLIK_ZEMIN, highlightthickness=0)
     ust, alt = (0xEA, 0xD2, 0x93), (0xC4, 0x9A, 0x45)
     for y in range(46):
@@ -603,6 +620,12 @@ class Arayuz:
             raise SystemExit(1)
 
         kok.title("Dijital Stajyer")
+        try:  # pencere/gorev cubugu simgesi
+            self._simge = logo_resmi(256) or logo_resmi(96)
+            if self._simge is not None:
+                kok.iconphoto(True, self._simge)
+        except tk.TclError:
+            pass
         kok.geometry("1140x780")
         kok.minsize(1020, 720)
         kok.protocol("WM_DELETE_WINDOW", self.kapat)
@@ -617,6 +640,7 @@ class Arayuz:
         self._degiskenler()
         self._baslik()
         self._sekme_cubugu()
+        self._alt_cubuk()  # govdeden once paketlenir ki her zaman en altta kalsin
         govde = tk.Frame(kok, bg=ZEMIN)
         self.fatura_govde = govde
         self._sol_panel(govde)
@@ -691,7 +715,7 @@ class Arayuz:
                  fg=ALTIN, bg=BASLIK_ZEMIN).pack(anchor="w")
         sag = tk.Frame(b, bg=BASLIK_ZEMIN)
         sag.pack(side="right", padx=22)
-        tk.Label(sag, text="Lisans sahibi: S. Adem Yılmaz", font=KUCUK, fg=ALTIN, bg=BASLIK_ZEMIN
+        tk.Label(sag, text="Lisans sahibi: Adem Yılmaz, SMMM", font=KUCUK, fg=ALTIN, bg=BASLIK_ZEMIN
                  ).pack(side="right", padx=(12, 0))
         tema = tk.Label(sag, text="🌙 Koyu tema" if TEMA == "acik" else "☀ Açık tema", font=KUCUK,
                         fg=BASLIK_YAZI, bg="#16213A", padx=8, pady=3, cursor="hand2")
@@ -715,6 +739,23 @@ class Arayuz:
             d.bind("<Button-1>", lambda _e, k=anahtar: self.sekme_sec(k))
             self.sekme_dugmeleri[anahtar] = d
         tk.Frame(self.kok, bg=CIZGI, height=1).pack(fill="x")
+
+    def _alt_cubuk(self):
+        """Pencerenin en alti: telif satiri ve surum (tiklayinca Hakkinda)."""
+        tk.Frame(self.kok, bg=CIZGI, height=1).pack(side="bottom", fill="x")
+        c = tk.Frame(self.kok, bg=PANEL)
+        c.pack(side="bottom", fill="x")
+        tk.Label(c, text=TELIF, font=KUCUK, fg=SOLUK, bg=PANEL, anchor="w").pack(side="left", padx=18, pady=4)
+        s = tk.Label(c, text=f"Sürüm {SURUM}", font=KUCUK, fg=ALTIN_FG, bg=PANEL, cursor="hand2")
+        s.pack(side="right", padx=18)
+        s.bind("<Button-1>", lambda _e: self.hakkinda())
+
+    def hakkinda(self):
+        messagebox.showinfo(
+            "Dijital Stajyer — Hakkında",
+            f"Dijital Stajyer\nSürüm {SURUM}  ({SURUM_TARIHI})\n\n"
+            "Luca e-Fatura / e-Arşiv indirme, kâr/zarar tahmini ve rapor aracı.\n\n"
+            f"Lisans sahibi: Adem Yılmaz, Serbest Muhasebeci Mali Müşavir\n{TELIF}", parent=self.kok)
 
     def _muavin_taslagi(self, kok):
         """Henuz yapilmadi: Luca muavin dokumu ile gelen/giden faturalari karsilastirma ekrani icin yer tutucu."""

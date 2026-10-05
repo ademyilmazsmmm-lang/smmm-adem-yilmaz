@@ -694,6 +694,8 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         self.assertTrue(bilgi)
 
     def test_baslik_metinleri(self):
+        import luca_arayuz
+        from lucabot import SURUM
         yazilar = []
 
         def tara(w):
@@ -704,11 +706,30 @@ class KarZararSekmesiTestleri(ArayuzZemini):
                     pass
                 tara(c)
         tara(self.kok)
-        for beklenen in ("Dijital Stajyer", "SMMM OFİSİ - DİJİTAL ASİSTAN", "Lisans sahibi: S. Adem Yılmaz",
+        for beklenen in ("Dijital Stajyer", "SMMM OFİSİ - DİJİTAL ASİSTAN", "Lisans sahibi: Adem Yılmaz, SMMM", luca_arayuz.TELIF, f"Sürüm {SURUM}",
                          "Luca · e-Fatura / e-Arşiv · Kâr / Zarar"):
             self.assertIn(beklenen, yazilar)
         self.assertEqual(self.kok.title(), "Dijital Stajyer")
         self.assertNotIn("smmmyilmaz.com", yazilar)
+        self.assertEqual(luca_arayuz.TELIF,
+                         "© 2026 Adem Yılmaz — Serbest Muhasebeci Mali Müşavir · Tüm Hakları Saklıdır.")
+        self.assertRegex(SURUM, r"^\d+\.\d+\.\d+$")
+
+    def test_logo_png_yuklenir_ve_hakkinda(self):
+        import luca_arayuz
+        resim = luca_arayuz.logo_resmi(48)
+        self.assertIsNotNone(resim)
+        self.assertEqual((resim.width(), resim.height()), (48, 48))
+        self.assertIsNotNone(luca_arayuz.logo_resmi(256))
+        bilgi = []
+        eski = luca_arayuz.messagebox.showinfo
+        luca_arayuz.messagebox.showinfo = lambda *a, **k: bilgi.append(a)
+        try:
+            self.app.hakkinda()
+        finally:
+            luca_arayuz.messagebox.showinfo = eski
+        self.assertIn("Sürüm", bilgi[0][1])
+        self.assertIn("Tüm Hakları Saklıdır", bilgi[0][1])
 
     def test_firma_listesi_yenile_secenegi(self):
         self.assertNotIn("--listeyi-yenile", self.kz.komut())  # varsayilan: kayitli liste
