@@ -207,6 +207,17 @@ def _grup_toplami(kayit, alan, ekranlar):
     return birlesik(kayit.get(alan) or {}, ekranlar=ekranlar)
 
 
+def fatura_kari(kayit):
+    """Indirilen faturalardan (KDV haric matrah) satis, alis ve aradaki fark.
+
+    Luca'ya henuz islenmemis donemin faturalari icin kar/zarar tahmini; mal
+    alisi ile gider faturalardan ayrilamadigi icin alis tek kalem sayilir.
+    """
+    satis = _grup_toplami(kayit, "matrah", SATIS_EKRANLARI)
+    alis = _grup_toplami(kayit, "matrah", ALIS_EKRANLARI)
+    return {"satis": satis, "alis": alis, "fark": satis - alis}
+
+
 def fatura_adedi(kayit):
     """Firmanin mukerrersiz fatura adedi (ayni fatura iki ekranda sayilmaz)."""
     return birlesik(kayit.get("sayilar") or {})

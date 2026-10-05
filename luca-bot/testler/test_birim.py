@@ -347,6 +347,19 @@ class RaporTestleri(unittest.TestCase):
         self.assertNotIn("*", metin)
 
 
+class FaturaKariTestleri(unittest.TestCase):
+    def test_satis_alis_mukerrer_sayilmaz(self):
+        kayit = {"matrah": {"turmob-alis": 400, "e-fatura-alis": 400,
+                            "e-arsiv-alis": 100, "e-arsiv-interaktif": 100,
+                            "e-arsiv-satis": 1000, "gib-5000": 1000,
+                            "e-fatura-satis": 500}}
+        self.assertEqual(rapor.fatura_kari(kayit),
+                         {"satis": 1500, "alis": 500, "fark": 1000})
+
+    def test_bos_kayit(self):
+        self.assertEqual(rapor.fatura_kari({}), {"satis": 0, "alis": 0, "fark": 0})
+
+
 class ArayuzOzetTestleri(unittest.TestCase):
     """Arayuzun alt kutulari: tevkifat KDV, SMM, interaktif farki, KDV odemesi."""
 
