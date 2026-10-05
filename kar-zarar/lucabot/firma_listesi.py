@@ -107,7 +107,7 @@ def listede_bul(ad, liste):
     """Luca adi listedeki hangi kisa ada denk geliyor (kisaltilmis adlar icin).
 
     Once birebir eslesme aranir; yoksa bas kismi tutanlardan EN UZUN olani
-    secilir. Aksi halde "ADEM", "ADEM MERGE" firmasiyla da esleserek yanlis
+    secilir. Aksi halde "ALI", "ALI VELI" firmasiyla da esleserek yanlis
     firmanin ayarlarini uyguluyordu.
     """
     k = karsilastir(ad)
@@ -121,7 +121,7 @@ def listede_bul(ad, liste):
         if a == k:
             return liste_adi
         # Luca adlari kisaltarak gosterdigi icin listedeki daha uzun ad da tutar.
-        # Ters yon ("ADEM" listedeki ad, Luca'da "ADEM AKÇAY") ancak yeterince
+        # Ters yon ("ALI" listedeki ad, Luca'da "ALI VELI") ancak yeterince
         # uzun adlarda kabul edilir; kisa adlar baska firmalara yapisiyordu.
         if (a.startswith(k) or (len(a) >= 8 and k.startswith(a))) and len(a) > en_uzun:
             en_iyi, en_uzun = liste_adi, len(a)

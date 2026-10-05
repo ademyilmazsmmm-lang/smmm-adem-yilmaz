@@ -15,7 +15,7 @@ import json
 import re
 from datetime import date, datetime
 
-from .bekleme import kosulu_bekle, sayfa_durulsun
+from .bekleme import CERCEVE_GORUNUR_JS, kosulu_bekle, sayfa_durulsun
 from .luca_ekran import (acik_pencereleri_kapat, cerceveler, dugmeye_bas, gorunur_mu,
                          menu_metinleri, metinle_bul)
 from .luca_gezinme import menu_ogesini_ac
@@ -71,6 +71,58 @@ YIL_LISTESI_JS = """yil => {
   adaylar.sort((x, y) => y[0] - x[0]);
   adaylar[0][1].setAttribute('data-lucabot-yil', '1');
   return adaylar.length;
+}"""
+
+# Sinif listesini bulur: "Dönem Durumu" yazisi yakinindaki (arama penceresindeki) select'lerde
+# secenegi hedeflerden birine uyan ilk secenek; bosluk/nokta/Turkce harf farki yok sayilir.
+# Bulunani isaretler; {secilen, secenekler} dondurur (secenekler: pencereye ait tum listeler, tani icin).
+SINIF_LISTESI_JS = """hedefler => {
+  document.querySelectorAll('[data-lucabot-sinif]').forEach(e => e.removeAttribute('data-lucabot-sinif'));
+  const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\\s.\\-()]/g, '');
+  const gorunur = e => !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length);
+  const listeler = [...document.querySelectorAll('select')].filter(s => {
+    if (!gorunur(s)) return false;
+    let a = s;
+    for (let i = 0; i < 8 && a; i++, a = a.parentElement)
+      if ((a.innerText || '').includes('Dönem Durumu')) return true;
+    return false;
+  });
+  const sonuc = {secilen: '', secenekler: listeler.map(s => [...s.options].map(o => o.text.trim()).join(' | '))};
+  for (const h of hedefler.map(duz).filter(Boolean)) {
+    for (const s of listeler) {
+      const ops = [...s.options];
+      const o = ops.find(o => duz(o.text) === h) || ops.find(o => duz(o.text).startsWith(h))
+        || ops.find(o => duz(o.text).includes(h));
+      if (o) { s.setAttribute('data-lucabot-sinif', '1'); sonuc.secilen = o.text.trim(); return sonuc; }
+    }
+  }
+  return sonuc;
+}"""
+
+
+# Gercek Luca: YIL ve SINIF listelerinin onchange'i gonder('yil') cagirir; bu islev iki listenin o anki degerlerini
+# okuyup sayfayi (listSirketAction.do?yil=..&sinif=..) YENIDEN YUKLER ve Musteri Arama penceresini kapatir. Bu yuzden
+# pencereyi acip tek tek secmek yerine iki degeri birden ayarlayip gonder('yil') bir kez cagrilir.
+FILTRE_UYGULA_JS = """arg => {
+  const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\\s.\\-()]/g, '');
+  const sec = (id, hedefler) => {
+    const s = document.getElementById(id);
+    if (!s) return null;
+    const ops = [...s.options];
+    for (const h of hedefler.map(duz).filter(Boolean)) {
+      const o = ops.find(o => duz(o.text) === h) || ops.find(o => duz(o.text).startsWith(h))
+        || ops.find(o => duz(o.text).includes(h));
+      if (o) { s.value = o.value; return o.text.trim(); }
+    }
+    return '';
+  };
+  const sonuc = {hazir: typeof gonder === 'function' && !!document.getElementById('YIL'), yil: '', sinif: null, siniflar: ''};
+  if (!sonuc.hazir) return sonuc;
+  sonuc.yil = sec('YIL', [arg.yil]);
+  const s = document.getElementById('SINIF');
+  sonuc.siniflar = s ? [...s.options].map(o => o.text.trim()).join(' | ') : '';
+  if (arg.sinif.length) sonuc.sinif = sec('SINIF', arg.sinif);
+  return sonuc;
 }"""
 
 
@@ -275,9 +327,70 @@ def musteri_listesini_ac(page, log=None):
     raise LookupError(f"'{YONETICI_MENUSU} > {MUSTERI_ISLEMLERI} > {MUSTERI_LISTESI}' menusu acilamadi")
 
 
-def yili_filtrele(page, yil, log=None):
-    """Filtre penceresinde Yıl'ı secip Ara'ya basar; False: pencere ya da Yıl listesi bulunamadi."""
+def _filtreyi_dogrudan_uygula(page, yil, sinif, log=None):
+    """Gercek Luca'da Yıl/Sınıf'ı JS ile ayarlayip gonder('yil') ile listeyi yeniden yukler; sayfa yenilenene kadar bekler.
+
+    Musteri Listesi ikinci kez acildiginda yeni bir sekmede/cercevede gelebilir; filtre o sirada gorunen eski cerceveye
+    uygulanirsa sekme degisince gizlenir. Bu yuzden uygulandiktan sonra cercevenin hala gorunur oldugu dogrulanir,
+    degilse gorunur olana yeniden uygulanir.
+
+    Dondurur: True (uygulandi); False: bu ekran Luca'nin Musteri Listesi'ne benzemiyor (eski yola gecilir).
+    """
+    hedefler = [sinif] if isinstance(sinif, str) and sinif else list(sinif or [])
+    for deneme in range(4):
+        uygulandi = False
+        for fr in page.frames:
+            try:
+                if fr.evaluate(CERCEVE_GORUNUR_JS) is False:  # gizli sekmede kalan eski Musteri Listesi
+                    continue
+                sonuc = fr.evaluate(FILTRE_UYGULA_JS, {"yil": yil, "sinif": hedefler})
+            except Exception:
+                continue
+            if not sonuc or not sonuc.get("hazir"):
+                continue
+            if not sonuc["yil"]:
+                yaz(f"    UYARI: Yıl listesinde '{yil}' seçeneği bulunamadı", log)
+                return False
+            if hedefler and not sonuc["sinif"]:
+                yaz(f"    UYARI: Sınıf listesinde {' / '.join(hedefler)} seçeneği bulunamadı; Sınıf filtresiz devam"
+                    f" ediliyor. Sınıf seçenekleri: {sonuc['siniflar']}", log)
+            elif hedefler and deneme == 0:
+                yaz(f"    Sınıf={sonuc['sinif']} seçildi", log)
+            try:
+                fr.evaluate("() => { window.__lucabot_eski = 1; gonder('yil'); }")
+            except Exception:
+                pass  # sayfa yeniden yuklenirken baglam kopabilir
+
+            def yenilendi(fr=fr):
+                try:
+                    return not fr.evaluate("() => window.__lucabot_eski === 1")
+                except Exception:
+                    return True  # baglam koptu: sayfa yenileniyor
+            if not kosulu_bekle(page, yenilendi, 30000, aralik_ms=400):
+                yaz("    UYARI: filtre sonrasi liste yenilenmedi", log)
+                return False
+            sayfa_durulsun(page, azami_ms=3000, sessizlik_ms=700)
+            uygulandi = True
+            try:
+                if fr.evaluate(CERCEVE_GORUNUR_JS) is False:  # baska bir sekme one gecti: gorunur olana yeniden uygula
+                    break
+            except Exception:
+                pass
+            return True
+        if not uygulandi:
+            return False
+    return False
+
+
+def yili_filtrele(page, yil, log=None, sinif=""):  # sinif: metin ya da alternatif metinler listesi
+    """Filtre penceresinde Yıl'ı (ve verilmisse Sınıf'ı) secip Ara'ya basar.
+
+    False: pencere ya da Yıl listesi bulunamadi. Sınıf listesi/secenegi bulunamazsa uyarilir,
+    Sınıf filtresiz devam edilir.
+    """
     yil = str(yil)
+    if _filtreyi_dogrudan_uygula(page, yil, sinif, log):
+        return True
     for _ in range(2):
         dugmeye_bas(page, FILTRE_DUGMESI, sure=8000)
         if gorunur_mu(page, ARAMA_PENCERESI, sure=8000):
@@ -306,6 +419,8 @@ def yili_filtrele(page, yil, log=None):
         except Exception as e:
             yaz(f"    Yıl secilemedi ({type(e).__name__})", log)
             return False
+    if sinif:
+        _sinifi_sec(page, secici, sinif, log)
 
     for kurucu in (lambda: secici.get_by_role("button", name="Ara", exact=True),
                    lambda: secici.get_by_text("Ara", exact=True)):
@@ -317,16 +432,43 @@ def yili_filtrele(page, yil, log=None):
     return dugmeye_bas(page, "Ara", sure=5000)
 
 
-def listeyi_oku(page, yil, tani_klasoru, log=None, bekleme_ms=30000):
-    """Musteri Listesi ekranini acar, yili suzer ve firma kayitlarini dondurur."""
+def _sinifi_sec(page, cerceve, sinif, log=None):
+    """sinif: metin ya da alternatif metinler listesi; ilk uyan secilir. Bulunamazsa False (secenekler loga yazilir).
+
+    Yil/Sinif listeleri secilince Luca formu yeniden yukluyor (onchange=gonder): isaretlenen oge kaybolabilir,
+    bu yuzden sayfa durulunca islem birkac kez denenir.
+    """
+    hedefler = [sinif] if isinstance(sinif, str) else list(sinif)
+    son = None
+    for _ in range(4):
+        sayfa_durulsun(page, azami_ms=3000, sessizlik_ms=700)
+        try:
+            sonuc = cerceve.evaluate(SINIF_LISTESI_JS, hedefler)
+            if not sonuc["secilen"]:
+                yaz(f"    UYARI: Sınıf listesinde {' / '.join(hedefler)} seçeneği bulunamadı; Sınıf filtresiz devam"
+                    f" ediliyor. Penceredeki listeler: {sonuc['secenekler']}", log)
+                return False
+            cerceve.locator("[data-lucabot-sinif]").select_option(label=sonuc["secilen"], timeout=4000)
+            sayfa_durulsun(page, azami_ms=3000, sessizlik_ms=700)  # secim formu yeniden yukleyebilir
+            yaz(f"    Sınıf={sonuc['secilen']} seçildi", log)
+            return True
+        except Exception as e:
+            son = e
+    yaz(f"    UYARI: Sınıf seçilemedi ({type(son).__name__}); Sınıf filtresiz devam ediliyor", log)
+    return False
+
+
+def listeyi_oku(page, yil, tani_klasoru, log=None, bekleme_ms=30000, sinif=""):
+    """Musteri Listesi ekranini acar, yili (ve Sınıf'i) suzer ve firma kayitlarini dondurur."""
     try:
         musteri_listesini_ac(page, log)
     except LookupError:
         yaz(f"    Gorunen menuler: {menu_metinleri(page)}", log)
         tani_kaydet(page, tani_klasoru, log, "-menu")
         raise
-    yaz(f"Müşteri Listesi acildi; Yıl={yil} filtreleniyor", log)
-    if not yili_filtrele(page, yil, log):
+    yaz(f"Müşteri Listesi acildi; Yıl={yil}{', Sınıf=' + (sinif if isinstance(sinif, str) else '/'.join(sinif)) if sinif else ''}"
+        " filtreleniyor", log)
+    if not yili_filtrele(page, yil, log, sinif):
         tani_kaydet(page, tani_klasoru, log, "-filtre")
         raise LookupError("Filtre penceresi kullanilamadi (tani klasorune bakin)")
 

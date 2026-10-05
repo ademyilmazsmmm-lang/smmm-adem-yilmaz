@@ -14,14 +14,21 @@ Sonuclar her firmadan sonra indirilenler/kar-zarar.json'a yazilir.
 """
 
 import json
+import re
 from datetime import datetime
+from pathlib import Path
 
-from . import defterbeyan, luca_hesap_plani
+from . import defterbeyan, luca_hesap_plani, luca_mizan
 from lucabot.bekleme import sayfa_canli
+from lucabot.fatura_analiz import excelden_tablo, sutun_indeksi
 from lucabot.firma_tablosu import luca_kaydi_bul
 from lucabot.luca_ekran import acik_pencereleri_kapat
 from lucabot.luca_gezinme import donem_ayarla, firma_sec
-from lucabot.ortak import yaz
+from lucabot.ortak import KOK, yaz
+
+class DonemYok(LookupError):
+    """Firmanin istenen doneme uygun calisma donemi yok: hata sayilmaz, firma atlanir."""
+
 
 DOSYA = "kar-zarar.json"
 ARDISIK_HATA_SINIRI = 5
@@ -34,6 +41,51 @@ def vkn_haritasi(firmalar, kayitlar):
         k = luca_kaydi_bul(f, kayitlar)
         if k and (k.get("vkn") or k.get("tc")):
             harita[f] = k.get("vkn") or k.get("tc")
+    return harita
+
+
+def _kimlik_no(deger):
+    """Excel hucresinden VKN (10) / TC (11) haneli numara; Excel'in sondaki '.0'i ve bastaki sifir kaybi duzeltilir."""
+    m = re.sub(r"\D", "", re.sub(r"\.0+$", "", str(deger or "").strip()))
+    if len(m) in (10, 11):
+        return m
+    return m.zfill(10) if 8 <= len(m) < 10 else ""
+
+
+def excel_kayitlari(yol, log=None):
+    """VKN iceren Excel'den [{ad, unvan, vkn, tc}]; ad/VKN sutunu yoksa [].
+
+    Aranan basliklar: 'Kisa Adi', 'Uzun Adi'/'Unvan', 'Vergi No'/'VKN', 'TC Kimlik'. Luca'nin
+    Musteri Listesi Excel'i ya da firma_listesi dosyasi bu sutunlari tasiyorsa dogrudan kullanilir.
+    """
+    yol = Path(yol)
+    if not yol.is_absolute():
+        yol = KOK / yol
+    if not yol.exists():
+        yaz(f"UYARI: VKN listesi bulunamadı: {yol}", log)
+        return []
+    basliklar, satirlar = excelden_tablo(yol, log, sadece_ilk=True, satir_en_az=1)
+    ad_i, unvan_i = sutun_indeksi(basliklar, "KISA AD"), sutun_indeksi(basliklar, "UZUN AD", "UNVAN")
+    vkn_i, tc_i = sutun_indeksi(basliklar, "VERGI NO", "VKN"), sutun_indeksi(basliklar, "TC KIMLIK", "TCKN")
+    if (ad_i is None and unvan_i is None) or (vkn_i is None and tc_i is None):
+        return []
+    al = lambda satir, i: satir[i].strip() if i is not None and i < len(satir) else ""
+    return [{"ad": al(s, ad_i), "unvan": al(s, unvan_i), "vkn": _kimlik_no(al(s, vkn_i)), "tc": _kimlik_no(al(s, tc_i))}
+            for s in satirlar]
+
+
+def vkn_tamamla(harita, firmalar, ayarlar, log=None):
+    """Luca'dan VKN'si bulunamayan firmalari ayarlar'daki Excel'lerden (vkn_listesi, firma_listesi) tamamlar."""
+    eksik = [f for f in firmalar if f not in harita]
+    for anahtar in ("vkn_listesi", "firma_listesi"):
+        if not eksik or not ayarlar.get(anahtar):
+            continue
+        kayitlar = excel_kayitlari(ayarlar[anahtar], log)
+        bulunan = vkn_haritasi(eksik, kayitlar)
+        if bulunan:
+            yaz(f"{ayarlar[anahtar]} dosyasından {len(bulunan)} firmanın VKN'si tamamlandı", log)
+            harita.update(bulunan)
+            eksik = [f for f in eksik if f not in harita]
     return harita
 
 
@@ -55,9 +107,10 @@ def oku(yol):
 
 def _sonuc(firma, vkn, kaynak, defter, ozet=None, hata=""):
     s = {"firma": firma, "vkn": vkn, "kaynak": kaynak, "defter": defter, "hata": hata,
-         "satis": None, "mal_alis": None, "gider": None, "kar": None, "ayrinti": {}}
+         "satis": None, "mal_alis": None, "gider": None, "toplam_gider": None, "kar": None, "ayrinti": {}}
     if ozet:
         s.update({k: ozet[k] for k in ("satis", "mal_alis", "gider", "kar", "ayrinti")})
+        s["toplam_gider"] = ozet.get("toplam_gider")
     return s
 
 
@@ -66,7 +119,7 @@ def _ozet_yaz(ozet, log):
         f" | {'KÂR' if ozet['kar'] >= 0 else 'ZARAR'} {abs(ozet['kar']):,.2f}", log)
 
 
-def defter_beyan_asamasi(page, ayarlar, firmalar, vkn_map, bas, bit, sonuclar, kaydet_fn, log):
+def defter_beyan_asamasi(page, ayarlar, firmalar, vkn_map, bas, bit, sonuclar, kaydet_fn, log, tani_klasoru=None, tani_hep=False):
     """Isletme firmalarini Defter Beyan'dan okur; Luca'ya birakilacak firmalari dondurur."""
     luca_gidecek = []
     girdi = defterbeyan.giris_yap(page, ayarlar.get("defterbeyan_kullanici", ""),
@@ -79,32 +132,38 @@ def defter_beyan_asamasi(page, ayarlar, firmalar, vkn_map, bas, bit, sonuclar, k
         yaz(f"[{i}/{len(firmalar)}] {firma}  (Defter Beyan)", log)
         vkn = vkn_map.get(firma)
         if not vkn:
-            yaz("    Luca firma listesinde VKN bulunamadı; Luca'dan denenecek", log)
+            yaz("    İşletme defteri müşteri listesinde (VKN) yok; Luca'dan denenecek", log)
             luca_gidecek.append(firma)
             continue
         try:
-            tur = defterbeyan.mukellef_sec(page, vkn, log)
+            tur = defterbeyan.mukellef_sec(page, vkn, log, tani_klasoru, tani_hep)
             if tur is None:
                 yaz("    Defter Beyan mükellef listesinde yok; Luca'dan denenecek", log)
                 luca_gidecek.append(firma)
-            elif not defterbeyan.isletme_mi(tur):
+            elif defterbeyan.bilanco_mu(tur):
                 yaz(f"    Defter türü {tur}; Luca'dan denenecek", log)
                 luca_gidecek.append(firma)
+            elif not (defterbeyan.isletme_mi(tur) or defterbeyan.smk_mi(tur)):  # diger turler: tahmin yapilmaz
+                yaz(f"    Defter türü {tur}; kâr/zarar tahmini yapılmaz, atlandı", log)
             else:
-                ozet = defterbeyan.hesap_ozeti_oku(page, bas, bit, log)
-                sonuclar[firma] = _sonuc(firma, vkn, "Defter Beyan", "İşletme", ozet)
+                ozet = defterbeyan.hesap_ozeti_oku(page, bas, bit, log, tani_klasoru, tani_hep)
+                sonuclar[firma] = _sonuc(firma, vkn, "Defter Beyan",
+                                         "Serbest meslek" if defterbeyan.smk_mi(tur) else "İşletme", ozet)
                 _ozet_yaz(ozet, log)
             ardisik = 0
+        except defterbeyan.MukellefAtlandi as e:  # bilinen sorun: bekleme/oturum hatasi sayilmaz, siradakine gec
+            yaz(f"    ATLANDI: {e}", log)
+            sonuclar[firma] = _sonuc(firma, vkn, "Defter Beyan", "", hata=f"ATLANDI: {e}")
         except (LookupError, TimeoutError, RuntimeError) as e:
             ardisik += 1
             yaz(f"    HATA: {e}", log)
-            sonuclar[firma] = _sonuc(firma, vkn, "Defter Beyan", "İşletme", hata=str(e))
+            sonuclar[firma] = _sonuc(firma, vkn, "Defter Beyan", "", hata=str(e))
         except Exception as e:  # playwright hatalari (zaman asimi, sayfa kapandi ...)
             if not sayfa_canli(page):
                 raise
             ardisik += 1
             yaz(f"    HATA: {type(e).__name__}: {str(e)[:150]}", log)
-            sonuclar[firma] = _sonuc(firma, vkn, "Defter Beyan", "İşletme", hata=f"{type(e).__name__}")
+            sonuclar[firma] = _sonuc(firma, vkn, "Defter Beyan", "", hata=f"{type(e).__name__}")
         finally:
             defterbeyan.mukelleften_cik(page)
         kaydet_fn()
@@ -116,25 +175,46 @@ def defter_beyan_asamasi(page, ayarlar, firmalar, vkn_map, bas, bit, sonuclar, k
     return luca_gidecek
 
 
-def luca_asamasi(page, firmalar, bas, bit, sonuclar, vkn_map, tani_klasoru, kaydet_fn, log):
+def _luca_ozeti(page, firma, bas, bit, kaynak, tani_klasoru, log, tani_hep):
+    """(ozet, kaynak adi). kaynak 'mizan': Mizan Excel'i indirilir, alinamazsa Hesap Plani'na donulur."""
+    if kaynak == "mizan":
+        try:
+            return (luca_mizan.mizan_oku(page, firma, bas, bit, tani_klasoru.parent / "mizan", tani_klasoru, log, tani_hep),
+                    "Luca (Mizan)")
+        except Exception as e:
+            if not sayfa_canli(page):
+                raise
+            yaz(f"    Mizan alınamadı ({type(e).__name__}: {str(e)[:120]}); Hesap Planı'ndan okunacak", log)
+    return luca_hesap_plani.hesap_plani_oku(page, bas, bit, tani_klasoru, log, tani_hep), "Luca (Hesap Planı)"
+
+
+def luca_asamasi(page, firmalar, bas, bit, sonuclar, vkn_map, tani_klasoru, kaydet_fn, log, tani_hep=False,
+                 kaynak="hesap-plani"):
+    """kaynak: 'mizan' (Mizan Excel'i, hata olursa Hesap Plani) ya da 'hesap-plani'."""
     ardisik = 0
     for i, firma in enumerate(firmalar, 1):
-        yaz(f"[{i}/{len(firmalar)}] {firma}  (Luca hesap planı)", log)
+        if page.is_closed():  # Luca ana penceresi kapandi (orn. rapor penceresi): kalan firmalar yapilamaz, sonuclar korunur
+            yaz("UYARI: Luca ana penceresi kapandı; kalan firmalar atlandı (o ana kadarki sonuçlar kaydedildi)", log)
+            break
+        yaz(f"[{i}/{len(firmalar)}] {firma}  (Luca {'mizan' if kaynak == 'mizan' else 'hesap planı'})", log)
         try:
             acik_pencereleri_kapat(page)
             firma_sec(page, firma, log)
             if not donem_ayarla(page, firma, bas, bit, log):
-                raise LookupError("firmanın bu döneme uygun çalışma dönemi yok")
-            ozet = luca_hesap_plani.hesap_plani_oku(page, bas, bit, tani_klasoru, log)
-            sonuclar[firma] = _sonuc(firma, vkn_map.get(firma, ""), "Luca", "Genel muhasebe", ozet)
+                raise DonemYok("firmanın bu döneme uygun çalışma dönemi yok")
+            ozet, kaynak_adi = _luca_ozeti(page, firma, bas, bit, kaynak, tani_klasoru, log, tani_hep)
+            sonuclar[firma] = _sonuc(firma, vkn_map.get(firma, ""), kaynak_adi, "Genel muhasebe", ozet)
             _ozet_yaz(ozet, log)
             ardisik = 0
         except LookupError as e:
-            ardisik += 1
-            yaz(f"    HATA: {e}", log)
+            atlandi = isinstance(e, DonemYok)
+            if not atlandi:  # donem yok = firma bu doneme ait degil, sistem hatasi degil
+                ardisik += 1
+            yaz(f"    {'ATLANDI' if atlandi else 'HATA'}: {e}", log)
             eski = sonuclar.get(firma)
             if eski is None or eski.get("kar") is None:  # Defter Beyan hatasi varsa ustune yazilir
-                sonuclar[firma] = _sonuc(firma, vkn_map.get(firma, ""), "Luca", "?", hata=str(e))
+                sonuclar[firma] = _sonuc(firma, vkn_map.get(firma, ""), "Luca", "?",
+                                         hata=f"ATLANDI: {e}" if atlandi else str(e))
         except Exception as e:
             if not sayfa_canli(page):
                 raise

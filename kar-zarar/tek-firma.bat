@@ -2,8 +2,12 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 echo ============================================
-echo   Kar / Zarar Tahmini
+echo   Kar / Zarar - TEK FIRMA DENEMESI
 echo ============================================
+echo   Tum musterileri gezmez; yalniz yazdiginiz firmayi okur ve her adimdan
+echo   sonra ekran goruntusu kaydeder.
+echo     1 = Luca Mizan / hesap plani (1.Sinif / bilanco firmalari)
+echo     2 = Defter Beyan       (isletme defteri firmalari; guvenlik kodunu siz yazarsiniz)
 echo.
 
 call "%~dp0_python-bul.bat"
@@ -27,6 +31,9 @@ if not exist ayarlar.json (
 
 set "aralik="
 set "firma="
+set "kaynak=1"
+set /p kaynak="Kaynak 1=Luca, 2=Defter Beyan (ENTER = 1): "
+if "%kaynak%"=="" set "kaynak=1"
 :tarihsor
 set "aralik="
 set /p aralik="Tarih araligi (ornek 01/07/2026-31/08/2026): "
@@ -34,19 +41,21 @@ if "%aralik%"=="" (
   echo Tarih araligi girmelisiniz.
   goto tarihsor
 )
-echo.
-echo Belirli firmalar icin adlarinin bir kismini yazin (virgulle ayirin), TUM firmalar icin ENTER.
-set /p firma="Firma adi: "
-echo.
-echo NOT: Defter Beyan giris sayfasi acilinca GUVENLIK KODUNU tarayicida siz yazip GIRIS YAP'a basin.
-echo.
 set TARIH=--tarih "%aralik%"
+set /p firma="Firma adi (Luca listesindeki gibi, ornek DENTAL): "
 if "%firma%"=="" (
-  %PY% kar_zarar.py %TARIH%
-) else (
-  %PY% kar_zarar.py %TARIH% --firma "%firma%"
+  echo Firma adi yazmadiniz.
+  pause
+  exit /b 1
 )
 echo.
+if "%kaynak%"=="2" (
+  %PY% kar_zarar.py --sadece-defterbeyan %TARIH% --firma "%firma%"
+) else (
+  %PY% kar_zarar.py --sadece-luca %TARIH% --firma "%firma%"
+)
+echo.
+echo Tani dosyalari: cikti\^<tarih^>\tani\mizan-*.png, hesap-plani-*.png veya defterbeyan-*.png ^(ve *.html^); indirilen Mizan: cikti\^<tarih^>\mizan
 pause
 exit /b 0
 

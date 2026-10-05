@@ -20,8 +20,8 @@ import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-FIRMALAR = ["AKIN COBAN", "DENTAL SAGLIK", "ESKI DONEM LTD", "FATURASIZ AS",
-            "KEREM TICARET", "MERT INSAAT"]
+FIRMALAR = ["ALFA ISLETME", "DENTAL SAGLIK", "ESKI DONEM LTD", "FATURASIZ AS",
+            "KEREM TICARET", "MERT INSAAT", "SERBEST KISI"]
 # Bu firma Luca'da en son 2025 doneminde birakilmis gibi acilir
 ESKI_DONEMLI = "ESKI DONEM LTD"
 # Bu firmada hic fatura yok
@@ -29,20 +29,24 @@ FATURASIZ = "FATURASIZ AS"
 
 # Yönetici > Müşteri İşlemleri > Müşteri Listesi: (kisa ad, unvan, VKN, acilis, kapanis, yillar)
 MUSTERILER = [
-    ("AKIN COBAN", "AKIN ÇOBAN", "1111111111", "01/01/2020", "31/12/2026", (2025, 2026)),
+    ("ALFA ISLETME", "ALFA İŞLETME", "1111111111", "01/01/2020", "31/12/2026", (2025, 2026)),
     ("DENTAL SAGLIK", "DENTAL SAĞLIK HİZMETLERİ LTD. ŞTİ.", "2222222222", "15/04/2026", "", (2026,)),
     ("ESKI DONEM LTD", "ESKİ DÖNEM LİMİTED ŞİRKETİ", "3333333333", "01/01/2015", "", (2025,)),
     ("FATURASIZ AS", "FATURASIZ ANONİM ŞİRKETİ", "4444444444", "01/01/2018", "", (2025, 2026)),
     ("KEREM TICARET", "KEREM TİCARET", "5555555555", "01/01/2019", "28/02/2026", (2025, 2026)),
     ("MERT INSAAT", "MERT İNŞAAT SANAYİ", "6666666666", "01/01/2021", "", (2025, 2026)),
     ("YENI FIRMA LTD", "YENİ FİRMA LİMİTED ŞİRKETİ", "7777777777", "01/06/2026", "", (2026,)),
+    ("SERBEST KISI", "SERBEST KİŞİ", "9999999999", "01/01/2022", "", (2026,)),
     # gercek Luca'da vergi no'su ve TC'si bos firma da listede
     ("NUMARASIZ KISI", "NUMARASIZ KİŞİ", "", "01/02/2026", "", (2026,)),
 ]
 
+SMK_VKN = {"9999999999"}  # Musteri Listesi'nde Sinif=Serbest Meslek Defteri olanlar
+BILANCO_VKN = {"2222222222", "3333333333", "6666666666"}  # Musteri Listesi'nde Sinif=1.Sinif olanlar (digerleri Isletme Defteri)
+
 # Muhasebe > Beyannameler > GİB Beyanname Takip: (kisa ad, uzun ad, TCKN, VKN, ay, durum)
 BEYANNAMELER = [
-    ("AKIN COBAN", "AKIN ÇOBAN", "56221452838", "2581374902", 8, "Onaylanmış"),
+    ("ALFA ISLETME", "ALFA İŞLETME", "12345678902", "1111111111", 8, "Onaylanmış"),
     ("KEREM TICARET", "KEREM TİCARET", "12345678901", "5555555555", 8, "Onaylanmış"),
     ("MERT INSAAT", "MERT İNŞAAT SANAYİ", "", "6666666666", 8, "Onaylanmış"),
     ("MERT INSAAT", "MERT İNŞAAT SANAYİ", "", "6666666666", 8, "Hatalı"),       # durum suzgecinde elenir
@@ -145,7 +149,7 @@ ORTAK_STIL = """
 </style>"""
 
 
-ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBAN [ 2026 ]</title>
+ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>ALFA ISLETME [ 2026 ]</title>
 """ + ORTAK_STIL + """</head><body>
 <div id="ust" style="padding:6px;background:#eef">
   <select id="firma">__FIRMALAR__</select>
@@ -374,39 +378,45 @@ EKRAN = """<!doctype html><html><head><meta charset="utf-8"><title>__BASLIK__</t
    sonra(300, () => ac('<span>Her hangi bir fatura bulunamadı.</span> <button onclick="kapat()">Tamam</button>')); });
 </script></body></html>"""
 
-MUSTERI_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Müşteri Listesi</title>
-""" + ORTAK_STIL + """</head><body>
+# Gercek Luca'daki gibi: liste sunucuda cizilir; YIL/SINIF listelerinin onchange'i gonder('yil') ile sayfayi
+# yeniden yukler (pencere kapanir, secimler sunucudan gelir). Sinif kodlari: ""=Tumu, 1=1.Sinif, 3=Isletme Defteri, 4=Serbest Meslek
+SINIF_KODLARI = [("", "Tümü"), ("1", "1.Sınıf"), ("2", "2.Sınıf"), ("3", "İşletme Defteri"),
+                 ("4", "Serbest Meslek Defteri"), ("5", "Basit Usül")]
+
+
+def musteri_sayfasi(q):
+    yil, sinif = q.get("yil", ""), q.get("sinif", "")
+    kod = lambda mm: "1" if mm[2] in BILANCO_VKN else ("4" if mm[2] in SMK_VKN else "3")
+    liste = [[m[0], m[1], "ÜMRANİYE VERGİ DAİRESİ", m[2], "", "", m[3], m[4]] for m in MUSTERILER
+             if yil and yil.isdigit() and int(yil) in m[5] and (sinif == "" or kod(m) == sinif)]
+    satirlar = "".join('<tr><td><input type="checkbox"></td>' + "".join(f"<td>{x}</td>" for x in m) + "</tr>"
+                       for m in liste)
+    yillar = "".join(f'<option value="{y}"{" selected" if y == yil else ""}>{y}</option>' for y in ("", "2026", "2025"))
+    siniflar = "".join(f'<option value="{k}"{" selected" if k == sinif else ""}>{v}</option>' for k, v in SINIF_KODLARI)
+    return """<!doctype html><html><head><meta charset="utf-8"><title>Müşteri Listesi</title>
+""" + ORTAK_STIL + f"""</head><body>
 <h3>Müşteri Listesi</h3>
 <table id="liste"><thead><tr><th></th><th>Kısa Adı</th><th>Uzun Adı</th><th>Vergi Dairesi</th><th>Vergi No</th>
-<th>TC Kimlik No</th><th>Açıklama</th><th>Kuruluş Tarihi</th><th>Kapanış Tarihi</th></tr></thead><tbody></tbody></table>
-<div id="sayac"></div>
+<th>TC Kimlik No</th><th>Açıklama</th><th>Kuruluş Tarihi</th><th>Kapanış Tarihi</th></tr></thead><tbody>{satirlar}</tbody></table>
+<div id="sayac">Kayıt Sayısı: {len(liste)}</div>
 <div id="araclar"><button>Yeni</button> <button id="filtre">Filtre</button> <button>Şirket Sil</button>
 <button>Mükellef Bilgi</button> <button>Yetki Tablosu</button> <button>Diğer İşlemler</button></div>
 <div id="pencere" class="luca-open-window gizli">
-  <b>Müşteri Arama</b>
-  <p>Yıl <select id="yil"><option></option><option>2025</option><option>2026</option></select></p>
-  <p>Sınıf <select><option>Tümü</option><option>A</option></select></p>
-  <p>Dönem Durumu <select><option>Tümü</option><option>Açık</option></select></p>
-  <button id="ara">Ara</button> <button onclick="document.getElementById('pencere').classList.add('gizli')">Kapat</button>
-</div>
+  <div class="header">Müşteri Arama</div>
+  <table><tr><th>Yıl</th><td><select name="YIL" id="YIL" onchange="gonder('yil')">{yillar}</select></td></tr>
+  <tr><th>Sınıf</th><td><select name="SINIF" id="SINIF" onchange="gonder('yil')">{siniflar}</select></td></tr>
+  <tr><th>Dönem Durumu</th><td><select name="DURUM" id="DURUM"><option value="">Tümü</option><option value="1">Aktif</option>
+  <option value="0">Pasif</option></select></td></tr></table>
+  <button id="ara" onclick="gonder('yil')">Ara</button></div>
 <script>
+ function gonder(hedef) {{
+   if (hedef == 'yil') window.location = '/musteri-listesi?yil=' + document.getElementById('YIL').value
+     + '&sinif=' + document.getElementById('SINIF').value;
+ }}
  document.getElementById('filtre').onclick = () =>
    setTimeout(() => document.getElementById('pencere').classList.remove('gizli'), 400);
- document.getElementById('ara').onclick = async () => {
-   const yil = document.getElementById('yil').value;
-   document.getElementById('pencere').classList.add('gizli');
-   const liste = await (await fetch('/api/musteriler?yil=' + yil)).json();
-   const tb = document.querySelector('#liste tbody'); tb.innerHTML = '';
-   setTimeout(() => {
-     for (const m of liste) {
-       const tr = document.createElement('tr');
-       tr.innerHTML = '<td><input type="checkbox"></td>' + m.map(x => '<td>' + x + '</td>').join('');
-       tb.appendChild(tr);
-     }
-     document.getElementById('sayac').textContent = 'Kayıt Sayısı: ' + liste.length;
-   }, 800);
- };
 </script></body></html>"""
+
 
 BEYANNAME_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>GİB Beyanname Takip</title>
 """ + ORTAK_STIL + """</head><body>
@@ -538,11 +548,18 @@ class Isleyici(BaseHTTPRequestHandler):
             return self._yanit(beyanname_zip(satirlar), "application/zip",
                                {"Content-Disposition": 'attachment; filename="beyannameler.zip"'})
         if yol == "/musteri-listesi":
-            return self._yanit(MUSTERI_SAYFASI)
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
+            return self._yanit(musteri_sayfasi(q))
         if yol == "/api/musteriler":
             yil = int((parse_qs(urlparse(self.path).query).get("yil") or ["0"])[0] or 0)
+            sinif = (parse_qs(urlparse(self.path).query).get("sinif") or ["Tümü"])[0]
+            bilanco = lambda mm: mm[2] in BILANCO_VKN
+            smk = lambda mm: mm[2] in SMK_VKN
             liste = [[m[0], m[1], "ÜMRANİYE VERGİ DAİRESİ", m[2], "", "", m[3], m[4]] for m in
-                     [mm for mm in MUSTERILER if yil in mm[5]]] if yil else []
+                     [mm for mm in MUSTERILER if yil in mm[5]
+                      and (sinif == "Tümü" or (sinif == "Serbest Meslek Defteri" and smk(mm))
+                           or (sinif == "1.Sınıf" and bilanco(mm))
+                           or (sinif == "İşletme Defteri" and not bilanco(mm) and not smk(mm)))]] if yil else []
             return self._yanit(json.dumps(liste), "application/json")
         if yol == "/ekran":
             baslik = next((ad for ad, t in AEN_EKRANLARI.items() if t == tip), "E-Arşiv Faturaları Sorgulama")

@@ -3,7 +3,7 @@
 
     python testler/uctan_uca.py      # Linux'ta: xvfb-run -a python ...
 
-Beklenen dagilim (01/07/2026 - 31/08/2026): AKIN COBAN ve FATURASIZ AS Defter Beyan'dan
+Beklenen dagilim (01/07/2026 - 31/08/2026): ALFA ISLETME ve FATURASIZ AS Defter Beyan'dan
 (isletme), DENTAL SAGLIK (bilanco), MERT INSAAT (Defter Beyan'da yok) ve ESKI DONEM LTD
 (Luca musteri listesinde yok) Luca hesap planindan; KEREM TICARET donemden once kapanmis.
 """
@@ -36,7 +36,7 @@ def main():
     ortam = dict(os.environ, LUCA_BOT_AYAR=str(ayar_yolu), LOCALAPPDATA=str(klasor / "yerel"),
                  KARZARAR_CIKTI=str(klasor / "cikti"), PYTHONIOENCODING="utf-8")
     komut = [sys.executable, str(KOK / "kar_zarar.py"), "--baslangic", "01/07/2026", "--bitis", "31/08/2026",
-             "--bitince-kapat"]
+             "--bitince-kapat"] + os.environ.get("KZ_EK_ARGUMAN", "").split()
     print("Calistiriliyor:", " ".join(komut))
     sonuc = subprocess.run(komut, env=ortam, cwd=str(KOK))
     sunucu.shutdown()
@@ -50,9 +50,9 @@ def main():
         veri = {"donem": "", "firmalar": []}
         hatalar.append("kar-zarar.json yok")
     bulunan = {f["firma"]: (f["kar"], f["kaynak"]) for f in veri["firmalar"]}
-    beklenen = {"AKIN COBAN": (200000.0, "Defter Beyan"), "FATURASIZ AS": (100000.0, "Defter Beyan"),
-                "DENTAL SAGLIK": (100000.0, "Luca"), "MERT INSAAT": (-30000.0, "Luca"),
-                "ESKI DONEM LTD": (40000.0, "Luca")}
+    beklenen = {"ALFA ISLETME": (200000.0, "Defter Beyan"), "FATURASIZ AS": (100000.0, "Defter Beyan"),
+                "SERBEST KISI": (100000.0, "Defter Beyan"),   # SMK: ozette Kar satiri yok, gelir - gider
+                "DENTAL SAGLIK": (100000.0, "Luca (Mizan)"), "MERT INSAAT": (-30000.0, "Luca (Mizan)")}   # ESKI DONEM LTD'nin 2026 donemi yok: 1.Sinif/2026 listesinde olmadigi icin sorgulanmaz
     if bulunan != beklenen:
         hatalar.append(f"sonuclar: {bulunan}")
     if veri["donem"] != "01/07/2026-31/08/2026":

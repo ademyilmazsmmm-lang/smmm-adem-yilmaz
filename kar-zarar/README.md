@@ -30,6 +30,26 @@ Luca hesap planı hesabı:
 
 Sınıf satırı (`6`, `7`) listede yoksa bir alt düzeyden (60, 61 … ya da 3 haneli ana hesaplar) toplanır.
 
+### VKN'si Luca'dan bulunamayan firmalar
+
+Müşteri Listesi'nden VKN/TC okunamayan firmalar Defter Beyan'a sorulamaz. Bunun için bir Excel
+(ör. Luca'dan indirilen müşteri listesi) hazırlayıp `ayarlar.json > vkn_listesi` alanına yolunu yazın.
+Excel'de `Kısa Adı` (ve/veya `Uzun Adı`/`Unvan`) ile `Vergi No` (ve/veya `TC Kimlik No`) sütunları
+olmalı; `firma_listesi` Excel'i de bu sütunları taşıyorsa aynı şekilde kullanılır. Luca'dan bulunamayan
+firmaların VKN'si buradan tamamlanır.
+
+### Hangi firma nereden sorgulanır
+
+Luca Müşteri Listesi iki kez okunur (Yıl = dönemin yılı):
+- **Sınıf = İşletme Defteri** (`musteri_sinifi`): bu firmaların VKN'si alınır, Defter Beyan'a sorulur.
+- **Sınıf = 1.Sınıf** (`luca_sinifi`): Luca hesap planı **yalnız bu listedeki** firmalar için sorgulanır.
+  2.Sınıf, Serbest Meslek (SMK), Basit Usul ve dönemi olmayan firmalar atlanır. `""` yazılırsa süzülmez.
+
+Luca'da hesap planı denemesi için tek firma: `tek-firma.bat` ya da `python kar_zarar.py --sadece-luca --firma "FIRMA ADI"`
+(Müşteri Listesi ve Defter Beyan atlanır, güvenlik kodu beklenmez; her adımdan sonra tanı dosyası kaydedilir).
+Defter Beyan için tek firma: `tek-firma.bat` (Kaynak 2) ya da `python kar_zarar.py --sadece-defterbeyan --firma "FIRMA ADI"`
+(VKN Luca Müşteri Listesi'nden alınır, Luca hesap planı atlanır; güvenlik kodunu siz yazarsınız). Hata olursa `cikti\<tarih>\tani\hesap-plani-*.png/html` kaydedilir.
+
 ## Akış
 
 1. Luca'ya otomatik girilir, firma listesi alınır (`--firma`, `--limit`; isteğe bağlı
@@ -41,13 +61,29 @@ Sınıf satırı (`6`, `7`) listede yoksa bir alt düzeyden (60, 61 … ya da 3 
    (5 dakika beklenir). Her firma VKN ile aranıp seçilir; üst çubukta `İŞLETME` yazıyorsa Hesap Özeti
    okunur. Defter Beyan'da olmayan ya da işletme olmayan firmalar Luca'ya bırakılır.
 4. Luca'da kalan firmalar için hesap planı okunur.
-5. Sonuç her firmadan sonra `cikti\kar-zarar.json`'a yazılır (Durdur/Ctrl+C'de o ana kadarkiler kalır).
+5. Sonuç her firmadan sonra `cikti\kar-zarar.xlsx` (kârdan zarara sıralı, renkli Excel raporu) ve `cikti\kar-zarar.json`'a yazılır (Durdur/Ctrl+C'de o ana kadarkiler kalır).
+
+### Excel raporu sütunları
+
+Defter Beyan firmalarında Mali Hesap Özeti'nin kalemleri ayrı sütundadır (özette yoksa/boşsa hücre boş kalır):
+Hasılat, Diğer Gelir, Dönem Başı Emtia, Mal Alışı, Dönem Sonu Emtia, Giderler, Amortisman. Kâr/Zarar Defter Beyan'ın
+kendi hesabıdır. Defter dönemi istenen dönemden önce bitmiş (dönem sonu) mükellefler **ATLANDI** olarak işaretlenir.
+
+### Luca firmalarında tutarlar: Mizan (varsayılan) ya da Hesap Planı
+
+`ayarlar.json > luca_kaynagi` (`mizan` / `hesap-plani`, komut satırında `--luca-kaynagi`). Mizan: Muhasebe › Raporlar › Genel Raporlar › Mizan
+formu doldurulur (`tarih_ilk`/`tarih_son`, Bakiye Göster, Bakiyesiz Hesapları Gösterme, Rapor Türü = Excel Liste (xlsx); Hesap Tipi "Tümü" bırakılır),
+**Rapor** ile inen Excel `cikti\<tarih>\mizan\` klasörüne kaydedilip okunur; Excel'deki "Tarih Aralığı" istenenle uyuşmazsa sonuç
+kabul edilmez. Mizan alınamazsa o firma için Hesap Planı yöntemine dönülür. Excel raporunda Kaynak sütunu `Luca (Mizan)` /
+`Luca (Hesap Planı)` olarak görünür. Hesaplama iki yöntemde de aynıdır.
 
 ## Kullanım
 
 ```
 kar-zarar.bat
-python kar_zarar.py --baslangic 01/07/2026 --bitis 31/08/2026 [--firma ADEM,AKIN] [--limit 5]
+python kar_zarar.py --tarih 01/07/2026-31/08/2026 [--firma ADEM,AKIN] [--limit 5]
+(--baslangic/--bitis ayrı ayrı da verilebilir). `.bat` dosyaları ve konsoldan tarihsiz çalıştırma **tarih aralığını sorar**, girilmeden devam etmez;
+ayarlar.json'daki tarihler yalnızca otomatik/gece (`--bitince-kapat`) çalışmada kullanılır
 ```
 
 Diğer seçenekler: `--tarayici chrome|edge|chromium`, `--profil-yerel`, `--chrome-gunlugu`, `--bitince-kapat`.
