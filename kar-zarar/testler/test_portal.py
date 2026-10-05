@@ -97,7 +97,7 @@ class KarZararPortalTestleri(unittest.TestCase):
                          (200000.0, 40000.0, 60000.0, 100000.0))
 
     def test_mizan_excel_ile_kar_zarar(self):
-        """Luca'da tutarlar Mizan Excel'inden; hesap planiyla ayni sonuc. Mizan alinamazsa Hesap Plani'na donulur."""
+        """Luca'da tutarlar Mizan Excel'inden; hesap planiyla ayni sonuc. Mizan alinamazsa HATA; istenirse Hesap Plani yedegi."""
         from datetime import date
         from unittest import mock
         from karzarar import hesaplama, luca_mizan
@@ -109,12 +109,19 @@ class KarZararPortalTestleri(unittest.TestCase):
                          {"DENTAL SAGLIK": (100000.0, "Luca (Mizan)"), "MERT INSAAT": (-30000.0, "Luca (Mizan)")})
         self.assertEqual(sonuclar["DENTAL SAGLIK"]["toplam_gider"], 100000.0)   # mal alisi 40.000 + gider 60.000
         self.assertTrue((self.klasor / "mizan" / "mizan_DENTAL SAGLIK.xlsx").exists())
-        # Mizan alinamazsa (orn. dugme/indirme sorunu) Hesap Plani'ndan okunur
+        # Mizan alinamazsa varsayilan: firma HATA olur (Hesap Plani'na kendiliginden gecilmez)
         sonuclar2 = {}
         with mock.patch.object(luca_mizan, "mizan_oku", side_effect=LookupError("indirilemedi")):
             hesaplama.luca_asamasi(self.page, ["DENTAL SAGLIK"], bas, bit, sonuclar2, {}, self.klasor / "tani",
                                    lambda: None, None, kaynak="mizan")
-        self.assertEqual((sonuclar2["DENTAL SAGLIK"]["kar"], sonuclar2["DENTAL SAGLIK"]["kaynak"]),
+        self.assertIsNone(sonuclar2["DENTAL SAGLIK"]["kar"])
+        self.assertIn("indirilemedi", sonuclar2["DENTAL SAGLIK"]["hata"])
+        # yedek_hesap_plani=True (ayarlar.json > mizan_yedek_hesap_plani) ile Hesap Plani'ndan okunur
+        sonuclar3 = {}
+        with mock.patch.object(luca_mizan, "mizan_oku", side_effect=LookupError("indirilemedi")):
+            hesaplama.luca_asamasi(self.page, ["DENTAL SAGLIK"], bas, bit, sonuclar3, {}, self.klasor / "tani",
+                                   lambda: None, None, kaynak="mizan", yedek_hesap_plani=True)
+        self.assertEqual((sonuclar3["DENTAL SAGLIK"]["kar"], sonuclar3["DENTAL SAGLIK"]["kaynak"]),
                          (100000.0, "Luca (Hesap Planı)"))
 
     def test_kar_zarar_iki_asama(self):
