@@ -102,6 +102,17 @@ Logo **Robot Stajyer**'dir (`varliklar/logo.svg`, program `logo-48/96/256.png` d
 
 Program **açık temayla** açılır. Sağ üstteki **🌙 Koyu tema / ☀ Açık tema** düğmesi temayı değiştirir ve seçimi `ayarlar.json > tema` (`acik` / `koyu`) olarak hatırlar. Çalışma sürerken tema değiştirilemez. Başlık bandı: "Dijital Stajyer — SMMM OFİSİ - DİJİTAL ASİSTAN"; sağ üstte lisans sahibi yazar.
 
+### Otomatik ikinci tur ve özet e-postası
+
+- **Otomatik ikinci tur:** Fatura indirme çalışması bitince, hata alan / dosyası ya da Excel'i inmeyen / bazı faturaları
+  kaynaktan inmeyen ekranlar **ayrıca bir kez**, aynı Luca oturumunda yeniden sorgulanır (zaman aşımı gibi geçici hatalar çoğu
+  zaman düzelir). "Ekran açılmadı" (firmada o ekran yok) tekrarlanmaz. Kullanıcı çalışmayı durdurduysa ya da Luca oturumu bozulduğu
+  için çalışma yarıda kaldıysa ikinci tur yapılmaz. Kapatmak için `ayarlar.json > "otomatik_tekrar": false` ya da komut satırında
+  `--otomatik-tekrar-yok`. Sonuçlar raporu ve **Hatalı / İnmeyen** sekmesini günceller.
+- **Özet e-postası** (Outlook/SMTP ayarları aynı; bkz. `eposta.py`): konu satırı `[3 firmada hata]` ya da `[Sorunsuz]` ile başlar.
+  Gövde şunları içerir: kaç firmanın sorunsuz / hatalı olduğu, otomatik ikinci turda kaç ekranın düzeldiği, **tekrar sorgulanması
+  gereken ekranların listesi** (firma, ekran, hata nedeni), tevkifat / e-SMM / iptal uyarıları; rapor.xlsx ektedir.
+
 ### Fatura İndirme sekmesinin alt ekranları
 
 Sağ panelde üç alt sekme vardır:

@@ -87,6 +87,47 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertTrue(Path(hatali["ekran_goruntusu"]).exists())
         self.assertEqual(c.ardisik_hata, 0)  # ekranlarin cogu calisti, firma basarisiz sayilmaz
 
+    def test_hatali_ekranlar_ikinci_turda_bir_kez_tekrarlanir(self):
+        """Ana calisma bitince hata alan ekranlar ayni oturumda bir kez daha sorgulanir; duzelen rapora yansir."""
+        from lucabot.firma_listesi import FirmaSecimi
+        sayac = {}
+
+        def sahte(page, firma, tip, *a, **k):
+            sayac[(firma, tip)] = sayac.get((firma, tip), 0) + 1
+            if firma == "B" and tip == "gib-5000" and sayac[(firma, tip)] == 1:
+                raise LookupError("gecici hata")                    # ikinci turda duzelir
+            if firma == "A" and tip == "esmm-alis":
+                raise LookupError("kalici hata")                    # ikinci turda da bozuk kalir
+            return self._tamam(firma, tip)
+
+        c, ozet = self._calistir(["A", "B"], ["e-arsiv-alis", "gib-5000", "esmm-alis"], sahte)
+        self.assertEqual(sum(sayac.values()), 6)
+        sonuc = calisma_modulu.hatalilari_tekrarla(
+            c, FirmaSecimi(["A", "B"]), ["e-arsiv-alis", "gib-5000", "esmm-alis"],
+            tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("10/08/2026")),
+            self.klasor, self.klasor / "calisma.log")
+        ikinci, ozet2, bilgi = sonuc
+        # yalniz hatali 3 ekran tekrarlandi (B/gib-5000, A/esmm-alis ve B/esmm-alis degil: o ilk turda tamamdi)
+        self.assertEqual(sorted(k for k, v in sayac.items() if v == 2), [("A", "esmm-alis"), ("B", "gib-5000")])
+        self.assertEqual(bilgi, {"denenen": 2, "duzelen": 1})
+        durumlar = {(s["firma"], s["belge_tipi"]): s["durum"] for s in c.sonuclar}
+        self.assertEqual(durumlar[("B", "gib-5000")], "tamam")
+        self.assertEqual(durumlar[("A", "esmm-alis")], "hata: LookupError")
+        # rapor.json son durumu yansitir
+        import json
+        rapor = json.loads((self.klasor / "rapor.json").read_text(encoding="utf-8"))
+        self.assertEqual(rapor["B"]["durumlar"]["gib-5000"], "tamam")
+        self.assertIn("OTOMATIK IKINCI TUR", (self.klasor / "calisma.log").read_text(encoding="utf-8")
+                      if (self.klasor / "calisma.log").exists() else "OTOMATIK IKINCI TUR")
+
+    def test_hata_yoksa_ikinci_tur_yapilmaz(self):
+        from lucabot.firma_listesi import FirmaSecimi
+        c, _ = self._calistir(["A"], ["e-arsiv-alis"], lambda page, firma, tip, *a, **k: self._tamam(firma, tip))
+        self.assertIsNone(calisma_modulu.hatalilari_tekrarla(
+            c, FirmaSecimi(["A"]), ["e-arsiv-alis"],
+            tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("10/08/2026")),
+            self.klasor, self.klasor / "calisma.log"))
+
     def test_firma_secilemezse_kalan_ekranlar_denenmez(self):
         def sahte(page, firma, tip, *a, **k):
             self.cagrilar.append((firma, tip))

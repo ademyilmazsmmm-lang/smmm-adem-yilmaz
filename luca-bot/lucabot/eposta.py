@@ -24,6 +24,7 @@ from email.message import EmailMessage
 from pathlib import Path
 
 from .rapor import TEVKIFAT_EKRANLARI  # tevkifat uyarisi sadece alis ekranlarindan
+from .sabitler import BELGE_TIPLERI
 
 # e-postada firma firma listelenen basliklar
 TEVKIFAT_BASLIGI = "TEVKIFATLI ALIS FATURALARI (KDV2 kontrol)"
@@ -82,8 +83,36 @@ def _bolum(baslik, satirlar, birim="fatura"):
     return metin
 
 
-def ozet_metni(sonuclar, donem=""):
-    """E-posta govdesi: once uyari gerektirenler, sonra genel sayilar."""
+def sorunlu_ekranlar(sonuclar):
+    """[(firma, ekran adi, aciklama)]: hata alan ya da faturalari kaynaktan inmeyen ekranlar ("fatura yok" sorun degil)."""
+    liste = []
+    for s in sonuclar:
+        durum = str(s.get("durum") or "")
+        inmeyen = s.get("indirilemeyen") or 0
+        if durum in ("tamam", "fatura yok") and not inmeyen:
+            continue
+        aciklama = durum if durum not in ("tamam", "") else "bazı faturalar inmedi"
+        if inmeyen:
+            aciklama += f" ({inmeyen} fatura inmedi)"
+        if s.get("not"):
+            aciklama += f" - {s['not']}"
+        liste.append((s.get("firma", "?"), BELGE_TIPLERI.get(s.get("belge_tipi"), s.get("belge_tipi") or "?"),
+                      aciklama))
+    liste.sort(key=lambda r: (r[0], r[1]))
+    return liste
+
+
+def firma_sayilari(sonuclar):
+    """(toplam firma, sorunsuz firma, sorunlu firma): firma, hic sorunlu ekrani yoksa sorunsuzdur."""
+    firmalar = {s.get("firma") for s in sonuclar}
+    sorunlu = {f for f, _, _ in sorunlu_ekranlar(sonuclar)}
+    return len(firmalar), len(firmalar) - len(sorunlu), len(sorunlu)
+
+
+def ozet_metni(sonuclar, donem="", ikinci_tur=None):
+    """E-posta govdesi: once uyari gerektirenler, sonra genel sayilar.
+
+    ikinci_tur: {"denenen": N, "duzelen": M} (otomatik ikinci tur yapildiysa)."""
     tevkifatli = _firma_basina(
         [s for s in sonuclar if s.get("belge_tipi") in TEVKIFAT_EKRANLARI], "tevkifat")
     esmm = _esmm_alislari(sonuclar)
@@ -97,11 +126,25 @@ def ozet_metni(sonuclar, donem=""):
     satirlar = []
     if donem:
         satirlar.append(f"Donem: {donem}")
+    toplam_firma, tamam_firma, hatali_firma = firma_sayilari(sonuclar)
     satirlar += [
-        f"{len(firmalar)} firma, {len(sonuclar)} ekran islendi.",
+        f"{toplam_firma} firma, {len(sonuclar)} ekran islendi.",
+        f"FIRMA DURUMU: {tamam_firma} firma sorunsuz, {hatali_firma} firmada hata/inmeyen fatura var.",
         f"Fatura inen ekran: {inen} | Bos: {bos} | Sorunlu: {sorunlu}",
-        "",
     ]
+    if ikinci_tur and ikinci_tur.get("denenen"):
+        satirlar.append(f"Otomatik ikinci tur: {ikinci_tur['denenen']} ekran tekrar sorgulandi,"
+                        f" {ikinci_tur.get('duzelen', 0)} tanesi duzeldi.")
+    satirlar.append("")
+    hatalilar = sorunlu_ekranlar(sonuclar)
+    if hatalilar:
+        satirlar += [f"TEKRAR SORGULANMASI GEREKEN EKRANLAR - {len(hatalilar)} ekran", "-" * 52]
+        for firma, ekran, aciklama in hatalilar[:40]:
+            satirlar.append(f"  {firma:<14} {ekran}: {aciklama}")
+        if len(hatalilar) > 40:
+            satirlar.append(f"  ... (+{len(hatalilar) - 40})")
+        satirlar.append("  (Arayuzde 'Hatali / Inmeyen' sekmesinden secip tekrar sorgulatabilirsiniz.)")
+        satirlar.append("")
     satirlar += _bolum(TEVKIFAT_BASLIGI, tevkifatli)
     satirlar += _bolum(ESMM_BASLIGI, esmm)
     satirlar += _bolum(IPTAL_BASLIGI, iptaller)
@@ -293,7 +336,7 @@ def _smtp_ile_gonder(ayarlar, alicilar, konu, govde, ek_yolu, bildir):
     return True
 
 
-def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem=""):
+def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem="", ikinci_tur=None):
     """Ozet e-postasini gonderir. Gonderildiyse (ya da taslak acildiysa) True doner.
 
     Hicbir hata calismayi durdurmaz; sebep gunluge yazilir.
@@ -318,12 +361,14 @@ def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem=""):
         bildir("E-posta gonderilmedi: mail_alici bos (ayarlar.json)")
         return False
 
-    govde, uyari_var = ozet_metni(sonuclar, donem)
+    govde, uyari_var = ozet_metni(sonuclar, donem, ikinci_tur)
     if _ayar(ayarlar, "mail_sadece_uyari", False) and not uyari_var:
         bildir("Tevkifatli/e-SMM kaydi yok, e-posta gonderilmedi (mail_sadece_uyari)")
         return False
 
-    konu = f"Luca Bot ozeti{' - ' + donem if donem else ''}"
+    _, _, hatali_firma = firma_sayilari(sonuclar)
+    konu = (f"{'[' + str(hatali_firma) + ' firmada hata] ' if hatali_firma else '[Sorunsuz] '}"
+            f"Dijital Stajyer ozeti{' - ' + donem if donem else ''}")
     rapor_yolu = Path(klasor) / "rapor.xlsx"
     ek_yolu = rapor_yolu if rapor_yolu.exists() else None
 

@@ -337,6 +337,36 @@ class RaporTestleri(unittest.TestCase):
             isler = rapor._aksiyon(kayitlar["A"])
             self.assertFalse(any("TEVKIFAT" in i for i in isler))
 
+    def test_eposta_firma_durumu_ve_hatali_liste(self):
+        sonuclar = [self._sonuc("A", "e-arsiv-alis", durum="tamam", fatura_sayisi=3),
+                    self._sonuc("A", "e-arsiv-satis", durum="fatura yok"),
+                    self._sonuc("B", "e-fatura-alis", durum="hata: TimeoutError", **{"not": "zaman asimi"}),
+                    self._sonuc("C", "gib-5000", durum="tamam", fatura_sayisi=4, indirilemeyen=2)]
+        self.assertEqual(eposta.firma_sayilari(sonuclar), (3, 1, 2))
+        liste = eposta.sorunlu_ekranlar(sonuclar)
+        self.assertEqual([(f, e) for f, e, _ in liste], [("B", "e-Fatura Alış Faturaları"), ("C", "GİB 5000/30000")])
+        self.assertIn("zaman asimi", liste[0][2])
+        self.assertIn("2 fatura inmedi", liste[1][2])
+        metin, _ = eposta.ozet_metni(sonuclar, "01/08/2026-31/08/2026", {"denenen": 3, "duzelen": 1})
+        self.assertIn("FIRMA DURUMU: 1 firma sorunsuz, 2 firmada hata", metin)
+        self.assertIn("TEKRAR SORGULANMASI GEREKEN EKRANLAR - 2 ekran", metin)
+        self.assertIn("Otomatik ikinci tur: 3 ekran tekrar sorgulandi, 1 tanesi duzeldi", metin)
+        temiz, _ = eposta.ozet_metni([self._sonuc("A", "e-arsiv-alis", durum="tamam", fatura_sayisi=1)])
+        self.assertNotIn("TEKRAR SORGULANMASI", temiz)
+
+    def test_tekrar_istegi_hatali_ekranlari_secer(self):
+        from lucabot.calisma import tekrar_istegi
+        kayitlar = {
+            "A": {"durumlar": {"e-arsiv-alis": "hata: X", "e-arsiv-satis": "tamam", "gib-5000": "ekran acilmadi"},
+                  "inmeyen": {}},
+            "B": {"durumlar": {"e-fatura-alis": "tamam", "esmm-alis": "tamam"}, "inmeyen": {"e-fatura-alis": 3}},
+            "C": {"durumlar": {"e-arsiv-alis": "dosya inmedi"}},
+            "D": {"durumlar": {"e-arsiv-alis": "tamam"}}}
+        istek = tekrar_istegi(kayitlar, ["A", "B", "D", "YOK"],
+                              ["e-arsiv-alis", "e-arsiv-satis", "gib-5000", "e-fatura-alis", "esmm-alis"])
+        # C bu calismada islenmedi; ekran acilmadi tekrarlanmaz; B'de kaynaktan inmeyen faturalar var
+        self.assertEqual(istek, {"A": ["e-arsiv-alis"], "B": ["e-fatura-alis"]})
+
     def test_eposta_metni(self):
         sonuclar = [self._sonuc("A", "e-arsiv-alis", durum="tamam", fatura_sayisi=3, tevkifat=2),
                     self._sonuc("B", "esmm-alis", durum="tamam", fatura_sayisi=1)]

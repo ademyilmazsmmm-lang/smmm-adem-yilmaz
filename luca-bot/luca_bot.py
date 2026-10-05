@@ -22,7 +22,8 @@ import traceback
 from datetime import date
 
 from lucabot import eposta, konsol
-from lucabot.calisma import Calisma, etkin_firmalar, tekrar_listesini_oku, tekrar_secimi
+from lucabot.calisma import (Calisma, etkin_firmalar, hatalilari_tekrarla, ozetle,
+                             tekrar_listesini_oku, tekrar_secimi)
 from lucabot.firma_listesi import bugun_tamamlananlar, firmalari_suz
 from lucabot.giris import luca_oturumu_ac
 from lucabot.luca_beyanname import ekrandan_al
@@ -75,6 +76,9 @@ def arguman_ayristirici():
                    help="--firma-listesi-cek icin hangi yilin firmalari (varsayilan: bu yil)")
     p.add_argument("--tekrar-listesi",
                    help="Yalniz bu dosyadaki firma/ekranlari yeniden sorgula ({firma: [belge tipi]} JSON; arayuz yazar)")
+    p.add_argument("--otomatik-tekrar-yok", action="store_true",
+                   help="Calisma bitince hatali ekranlari kendiliginden bir kez daha sorgulama"
+                        " (ayarlar.json: otomatik_tekrar=false ile ayni)")
     p.add_argument("--bastan", action="store_true",
                    help="Bugun tamamlanan ekranlar da yeniden taransin (sormadan)")
     return p
@@ -183,7 +187,7 @@ def devam_mi_bastan_mi(ctx, rapor_klasoru, belge_tipleri, gece_modu, log):
 
 # --- 5. raporlama ----------------------------------------------------------
 
-def sonucu_bildir(calisma, ozet, ayarlar, klasor, rapor_klasoru, log):
+def sonucu_bildir(calisma, ozet, ayarlar, klasor, rapor_klasoru, log, ikinci_tur=None):
     konsol.son_ozet(ozet, log)
     yaz(f"  Rapor    : {rapor_klasoru / 'rapor.xlsx'}  (surekli - her calismada guncellenir)", log)
     yaz("             (Özet | Firma Durumu | İndirilen Faturalar | Dosyalar | Hatalar ve Uyarılar)", log)
@@ -197,7 +201,7 @@ def sonucu_bildir(calisma, ozet, ayarlar, klasor, rapor_klasoru, log):
     # ozet e-postasi: gonderilemezse calisma yine de tamamlanmis sayilir
     donem_metni = next((s["donem"] for s in calisma.sonuclar if s.get("donem")), "")
     try:
-        eposta.gonder(ayarlar, rapor_klasoru, calisma.sonuclar, lambda m: yaz(m, log), donem_metni)
+        eposta.gonder(ayarlar, rapor_klasoru, calisma.sonuclar, lambda m: yaz(m, log), donem_metni, ikinci_tur)
     except Exception as e:
         yaz(f"UYARI: e-posta adimi hata verdi ({type(e).__name__}: {e})", log)
 
@@ -388,9 +392,21 @@ def calistir(args, ayarlar, p):
                           klasor, log, azami_deneme, hata_siniri, bugun_tamam, rapor_klasoru)
         ozet = calisma.calistir()
 
+        # 4b. hatali ekranlar: bir kez daha (ayni oturumda); sonuclar birinciyi gunceller
+        ikinci_tur = None
+        if (not ozet.durduruldu and not args.tekrar_listesi and not args.otomatik_tekrar_yok
+                and ayarlar.get("otomatik_tekrar", True)):
+            sonuc_tur = hatalilari_tekrarla(calisma, secim, belge_tipleri, araliklar, klasor, log,
+                                            azami_deneme, hata_siniri)
+            if sonuc_tur:
+                _, ozet2, ikinci_tur = sonuc_tur
+                durduruldu = ozet.durduruldu or ozet2.durduruldu
+                ozet = ozetle(calisma.sonuclar, calisma.ilerleme.gecen())  # son durumu gostersin
+                ozet.durduruldu = durduruldu
+
         # 5. raporlama
         konsol.bolum("4/4  RAPOR", log)  # rapor her firmadan sonra zaten guncellendi
-        sonucu_bildir(calisma, ozet, ayarlar, klasor, rapor_klasoru, log)
+        sonucu_bildir(calisma, ozet, ayarlar, klasor, rapor_klasoru, log, ikinci_tur)
 
         if not gece_modu:
             kullanici_bekle(calisma.ctx, ">>> Tarayiciyi kapatmak icin ENTER'a basin: ")

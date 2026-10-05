@@ -111,6 +111,62 @@ def tekrar_secimi(firmalar, tekrar, belge_tipleri):
     return secilen, atlanan
 
 
+# kendiliginden tekrar denemenin anlamsiz oldugu durumlar: firmada o ekran hic yok
+TEKRAR_ATLANAN_DURUMLAR = ("ekran acilmadi",)
+
+
+def tekrar_istegi(kayitlar, firmalar, belge_tipleri):
+    """Calisma bittikten sonra yeniden sorgulanacak {firma: [ekran]} (rapor.json kayitlarindan).
+
+    Hata alan, dosyasi/Excel'i inmeyen ve bazi faturalari kaynaktan inmeyen ekranlar; yalniz bu calismada
+    islenen firma ve ekranlar. 'ekran acilmadi' (firmada ekran yok) tekrarlanmaz."""
+    istek = {}
+    for firma in firmalar:
+        kayit = (kayitlar or {}).get(firma)
+        if not kayit:
+            continue
+        kayit = rapor._tamamla(dict(kayit))
+        ekranlar = [h["ekran"] for h in rapor.yeniden_denenecek(kayit)
+                    if h["ekran"] in belge_tipleri and not str(h["durum"]).startswith(TEKRAR_ATLANAN_DURUMLAR)]
+        if ekranlar:
+            istek[firma] = ekranlar
+    return istek
+
+
+def hatalilari_tekrarla(calisma, secim, belge_tipleri, araliklar, klasor, log, azami_deneme=3, hata_siniri=5):
+    """Ana calisma bitince hatali ekranlari BIR KEZ ayni tarayici oturumunda yeniden sorgular.
+
+    Dondurur: (ikinci Calisma, CalismaOzeti, {"denenen": N, "duzelen": M}) ya da hatali ekran yoksa None.
+    Ikinci turun sonuclari birinciyi gunceller (calisma.sonuclar son durumu gosterir)."""
+    import copy
+    kayitlar = rapor._oku(calisma.rapor_klasoru / "rapor.json")
+    istek = tekrar_istegi(kayitlar, secim.firmalar, belge_tipleri)
+    if not istek:
+        return None
+    denenen = sum(len(v) for v in istek.values())
+    yaz(f"\nOTOMATIK IKINCI TUR: {len(istek)} firmada {denenen} hatali ekran bir kez daha sorgulanacak", log)
+    secim2 = copy.copy(secim)
+    secim2.firmalar, ek_atlanan = tekrar_secimi(secim.firmalar, {f: set(t) for f, t in istek.items()},
+                                                belge_tipleri)
+    secim2.atlanan_ekranlar = {f: set(v) for f, v in (secim.atlanan_ekranlar or {}).items()}
+    for f, tipler in ek_atlanan.items():
+        secim2.atlanan_ekranlar.setdefault(f, set()).update(tipler)
+    ikinci = Calisma(calisma.pw, calisma.ctx, calisma.page, calisma.profil, calisma.ayarlar, secim2,
+                     belge_tipleri, araliklar, klasor, log, azami_deneme, hata_siniri, {}, calisma.rapor_klasoru)
+    ozet2 = ikinci.calistir()
+    duzelen = 0
+    for (firma, tip), yeni in ikinci._sonuclar.items():
+        eski = calisma._sonuclar.get((firma, tip))
+        if eski is not None and str(eski.get("durum", "")) not in ("tamam", "fatura yok") \
+                and str(yeni.get("durum", "")) in ("tamam", "fatura yok") and not yeni.get("indirilemeyen"):
+            duzelen += 1
+        calisma._sonuclar[(firma, tip)] = yeni
+    calisma.ctx, calisma.page = ikinci.ctx, ikinci.page
+    yaz(f"Otomatik ikinci tur bitti: {denenen} ekranin {duzelen} tanesi duzeldi,"
+        f" {denenen - duzelen} tanesi hala sorunlu.", log)
+    return ikinci, ozet2, {"denenen": denenen, "duzelen": duzelen}
+
+
 def etkin_firmalar(firmalar, belge_tipleri, atlanan_ekranlar, bugun_tamam):
     """Sorgulanacak en az bir ekrani kalan firmalar.
 
