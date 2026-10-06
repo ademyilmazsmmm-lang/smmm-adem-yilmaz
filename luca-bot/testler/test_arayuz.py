@@ -946,6 +946,28 @@ class KurulumSihirbaziTestleri(ArayuzZemini):
         self.assertTrue(self._bekle(lambda: cagrilar == [1], 3))   # firma listesi sihirbazdan sonra cekilir
         luca_arayuz.tema_uygula("acik")
 
+    def test_sihirbazdan_eksik_bilesenler_kurulur(self):
+        """'Eksik bilesenleri kur': komutlar arka planda calisir, cikti gorunur, bitince ortam yeniden kontrol edilir."""
+        from lucabot import kurulum
+        sahte = [("Deneme adımı", [sys.executable, "-c", "print('merhaba kurulum')"]),
+                 ("Başarısız adım", [sys.executable, "-c", "import sys; print('bozuk'); sys.exit(3)"])]
+        eski = kurulum.kurulum_komutlari
+        kurulum.kurulum_komutlari = lambda *a, **k: sahte
+        self.addCleanup(setattr, kurulum, "kurulum_komutlari", eski)
+        self.app.sihirbazi_ac()
+        w = self.app.sihirbaz
+        self.kok.update()
+        self.assertEqual(str(w.kur_dugmesi.cget("state")), "normal")
+        w.eksikleri_kur()
+        self.assertTrue(w.kuruluyor())
+        self.assertEqual(str(w.ileri_dugmesi.cget("state")), "disabled")      # kurulum sirasinda ilerlenmez
+        self.assertTrue(self._bekle(lambda: not w.kuruluyor() and str(w.ileri_dugmesi.cget("state")) == "normal", 20))
+        log = w.kur_logu.get("1.0", "end")
+        self.assertIn(">>> Deneme adımı", log)
+        self.assertIn("merhaba kurulum", log)
+        self.assertIn("[HATA] komut 3 koduyla bitti", log)
+        self.assertIn("Kurulum tamamlanamadı", w.kur_bilgisi.cget("text"))     # bir adim basarisiz: kullaniciya soylenir
+
     def test_ayni_anda_tek_sihirbaz(self):
         self.app.sihirbazi_ac()
         ilk = self.app.sihirbaz

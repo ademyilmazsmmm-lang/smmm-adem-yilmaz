@@ -119,7 +119,7 @@ Programı başka bir bilgisayara ya da başka bir Luca kullanıcısı için kura
 (**"Add python.exe to PATH"** işaretli), `kurulum.bat`'ı çalıştırın, `luca-arayuz.bat` ile açın. **Luca giriş bilgileri
 hiç girilmemişse sihirbaz kendiliğinden açılır**; sonradan sol paneldeki **Kurulum Sihirbazı…** düğmesiyle de açılır.
 
-1. **Hoş geldiniz:** ortam kontrolü (Python, Playwright, openpyxl, Chromium, `kar-zarar` klasörü); eksik olan ne yapılacağını söyler.
+1. **Hoş geldiniz:** ortam kontrolü (Python, Playwright, openpyxl, Chromium, `kar-zarar` klasörü). Eksik bileşen varsa **Eksik bileşenleri şimdi kur** düğmesi `kurulum.bat`'ın işini pencerenin içinde yapar (`pip install -r requirements.txt`, gerekirse `playwright install chromium`); çıktısı canlı akar, bitince ortam yeniden kontrol edilir. (Python'un kendisi önceden kurulu olmalıdır; sihirbaz onu kuramaz.)
 2. **Luca girişi:** üye no, kullanıcı adı, parola, isteğe bağlı doğrulama anahtarı.
 3. **Defter Beyan** (isteğe bağlı): kod ve şifre (güvenlik kodunu yine siz yazarsınız).
 4. **Tercihler:** indirme klasörü, özet e-postası (alıcı), otomatik ikinci tur, açık/koyu görünüm.

@@ -5,7 +5,14 @@ Luca bilgileri hic girilmemisse program acilinca kendiliginden acilir; sonradan 
 "Kurulum Sihirbazi" dugmesiyle de acilir. Mantik lucabot/kurulum.py'dadir (pencere gerektirmez).
 """
 
+import importlib
+import os
+import queue
+import subprocess
+import sys
+import threading
 import tkinter as tk
+from pathlib import Path
 from tkinter import messagebox
 
 from lucabot import kurulum
@@ -94,19 +101,123 @@ class KurulumSihirbazi:
         u = self.ui
         self._baslik("Hoş geldiniz", "Birkaç adımda programı bu bilgisayar ve bu Luca kullanıcısı için hazırlayacağız. "
                                      "Bilgiler yalnızca bu bilgisayardaki ayarlar.json dosyasına kaydedilir.")
+        self.ortam_alani = tk.Frame(self.icerik, bg=u.ZEMIN)
+        self.ortam_alani.pack(fill="x")
+        self.kur_bilgisi = tk.Label(self.icerik, text="", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w",
+                                    justify="left", wraplength=610)
+        satir = tk.Frame(self.icerik, bg=u.ZEMIN)
+        satir.pack(fill="x", pady=(10, 4))
+        self.kur_dugmesi = u.dugme(satir, "Eksik bileşenleri şimdi kur", self.eksikleri_kur)
+        self.kur_dugmesi.pack(side="left")
+        tk.Label(satir, text="(kurulum.bat'ın yaptığı iş; internet gerekir)", font=u.KUCUK, fg=u.SOLUK,
+                 bg=u.ZEMIN).pack(side="left", padx=10)
+        self.kur_bilgisi.pack(fill="x")
+        self.kur_logu = tk.Text(self.icerik, height=8, bg=u.KONSOL, fg=u.KONSOL_FG, font=u.KONSOL_YAZI, relief="flat",
+                                wrap="word", state="disabled", highlightthickness=1, highlightbackground=u.KENAR)
+        self.ortam_yenile()
+
+    def ortam_yenile(self):
+        """Ortam durum satirlarini yeniden okuyup cizer (kurulumdan sonra da cagrilir)."""
+        u = self.ui
+        importlib.invalidate_caches()  # yeni kurulan paketler bulunsun
         self.ortam = kurulum.ortam_kontrol(self.a.kz.klasor)
+        for c in self.ortam_alani.winfo_children():
+            c.destroy()
         for ad, durum, aciklama in self.ortam:
-            satir = tk.Frame(self.icerik, bg=u.ZEMIN)
+            satir = tk.Frame(self.ortam_alani, bg=u.ZEMIN)
             satir.pack(fill="x", pady=2)
             renk = {"tamam": u.YESIL_FG, "uyari": u.TURUNCU, "hata": u.KIRMIZI}[durum]
             tk.Label(satir, text=DURUM_SIMGE[durum], font=u.GOVDE_KALIN, fg=renk, bg=u.ZEMIN, width=2).pack(side="left")
             tk.Label(satir, text=ad, font=u.GOVDE_KALIN, fg=u.YAZI, bg=u.ZEMIN, width=30, anchor="w").pack(side="left")
             tk.Label(satir, text=aciklama, font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w", justify="left",
                      wraplength=300).pack(side="left", fill="x", expand=True)
+        eksik = bool(kurulum.kurulum_komutlari(self._python(), self._kok(), self.ortam))
+        self.kur_dugmesi.configure(state="normal" if eksik and not self.kuruluyor() else "disabled")
         if any(d == "hata" for _, d, _ in self.ortam):
-            tk.Label(self.icerik, text="Kırmızı ✖ satırlar giderilmeden program çalışmaz: önce kurulum.bat'ı çalıştırın.",
-                     font=u.KUCUK, fg=u.KIRMIZI, bg=u.ZEMIN, anchor="w", wraplength=610, justify="left"
-                     ).pack(fill="x", pady=(12, 0))
+            self.kur_bilgisi.configure(text="Kırmızı ✖ satırlar giderilmeden devam edilemez: yukarıdaki düğmeyle kurun.",
+                                       fg=u.KIRMIZI)
+        elif eksik:
+            self.kur_bilgisi.configure(text="Sarı ! satırlar isteğe bağlıdır; kurmak ister misiniz? (Chromium yoksa bilgisayardaki "
+                                            "Chrome/Edge denenir.)", fg=u.SOLUK)
+        else:
+            self.kur_bilgisi.configure(text="Her şey hazır.", fg=u.YESIL_FG)
+
+    # -- kurulum calistirma (kurulum.bat'in isi) ---------------------------------------------
+
+    def _python(self):
+        return self.ui.python_komutu()
+
+    def _kok(self):
+        return Path(self.ui.KOK)
+
+    def kuruluyor(self):
+        return getattr(self, "kur_kuyrugu", None) is not None and getattr(self, "kur_is_parcacigi", None) is not None \
+            and self.kur_is_parcacigi.is_alive()
+
+    def eksikleri_kur(self):
+        komutlar = kurulum.kurulum_komutlari(self._python(), self._kok(), self.ortam)
+        if not komutlar or self.kuruluyor():
+            return
+        self.kur_logu.pack(fill="both", expand=True, pady=(6, 0))
+        self.kur_dugmesi.configure(state="disabled")
+        self.ileri_dugmesi.configure(state="disabled")
+        self.kur_bilgisi.configure(text="Kuruluyor… pencereyi kapatmayın.", fg=self.ui.TURUNCU)
+        self.kur_kuyrugu = queue.Queue()
+        self.kur_is_parcacigi = threading.Thread(target=self._kur_calistir, args=(komutlar, self.kur_kuyrugu),
+                                                 daemon=True)
+        self.kur_is_parcacigi.start()
+        self.w.after(150, self._kur_oku)
+
+    def _kur_calistir(self, komutlar, kuyruk):
+        bayrak = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform.startswith("win") else 0
+        ortam = dict(os.environ, PYTHONIOENCODING="utf-8", PIP_DISABLE_PIP_VERSION_CHECK="1")
+        basarili = True
+        for aciklama, argv in komutlar:
+            kuyruk.put(("log", f"\n>>> {aciklama}\n"))
+            try:
+                with subprocess.Popen(argv, cwd=str(self._kok()), env=ortam, stdout=subprocess.PIPE,
+                                      stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, creationflags=bayrak,
+                                      text=True, encoding="utf-8", errors="replace") as surec:
+                    for satir in surec.stdout:
+                        kuyruk.put(("log", satir))
+                    kod = surec.wait()
+                if kod != 0:
+                    basarili = False
+                    kuyruk.put(("log", f"[HATA] komut {kod} koduyla bitti\n"))
+            except OSError as e:
+                basarili = False
+                kuyruk.put(("log", f"[HATA] komut başlatılamadı: {e}\n"))
+        kuyruk.put(("bitti", basarili))
+
+    def _kur_oku(self):
+        try:
+            if not self.w.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        bitti = None
+        try:
+            while True:
+                tur, veri = self.kur_kuyrugu.get_nowait()
+                if tur == "log":
+                    self.kur_logu.configure(state="normal")
+                    self.kur_logu.insert("end", veri)
+                    self.kur_logu.see("end")
+                    self.kur_logu.configure(state="disabled")
+                else:
+                    bitti = veri
+        except queue.Empty:
+            pass
+        if bitti is None:
+            self.w.after(150, self._kur_oku)
+            return
+        self.kur_is_parcacigi = None
+        self.ileri_dugmesi.configure(state="normal")
+        self.ortam_yenile()
+        if not bitti:
+            self.kur_bilgisi.configure(text="Kurulum tamamlanamadı: yukarıdaki kayda bakın (internet bağlantısı ya da "
+                                            "yetki sorunu olabilir). Gerekirse kurulum.bat'ı yönetici olarak çalıştırın.",
+                                       fg=self.ui.KIRMIZI)
 
     def _luca(self):
         self._baslik("Luca giriş bilgileri", "Program Luca'ya bu bilgilerle kendisi girer.")

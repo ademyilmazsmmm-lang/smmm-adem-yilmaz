@@ -466,6 +466,23 @@ class KurulumMantigiTestleri(unittest.TestCase):
         self.assertFalse(sihirbaz_gerekli({"uye_no": "1", "kullanici_adi": "a", "parola": "x"}))
         self.assertFalse(sihirbaz_gerekli({"kurulum_tamam": True}))                    # daha once bitirilmis
 
+    def test_kurulum_komutlari(self):
+        from lucabot.kurulum import kurulum_komutlari
+        tamam = [("Python", "tamam", ""), ("Playwright (tarayıcı otomasyonu)", "tamam", ""),
+                 ("openpyxl (Excel okuma/yazma)", "tamam", ""), ("pypdf (beyanname PDF'leri)", "tamam", ""),
+                 ("pyotp (iki aşamalı doğrulama kodu)", "tamam", ""), ("Chromium (tarayıcı)", "tamam", "")]
+        self.assertEqual(kurulum_komutlari("py", "/k", tamam), [])                       # her sey hazir
+        eksik_paket = [(a, "hata" if a.startswith("openpyxl") else d, m) for a, d, m in tamam]
+        k = kurulum_komutlari("py", "/k", eksik_paket)
+        self.assertEqual(len(k), 1)
+        self.assertEqual(k[0][1][:4], ["py", "-m", "pip", "install"])
+        self.assertTrue(k[0][1][-1].endswith("requirements.txt"))
+        eksik_tarayici = [(a, "uyari" if a.startswith("Chromium") else d, m) for a, d, m in tamam]
+        k = kurulum_komutlari("py", "/k", eksik_tarayici)
+        self.assertEqual([c[1][1:] for c in k], [["-m", "playwright", "install", "chromium"]])
+        hepsi_yok = [(a, "hata" if "Playwright" in a else d, m) for a, d, m in tamam]
+        self.assertEqual([c[1][2] for c in kurulum_komutlari("py", "/k", hepsi_yok)], ["pip", "playwright"])
+
     def test_dogrulama(self):
         from lucabot.kurulum import dogrula
         self.assertEqual(len(dogrula("luca", {})), 3)

@@ -53,16 +53,34 @@ def ortam_kontrol(kar_zarar_klasoru=None):
     for modul, ad, zorunlu in PAKETLER:
         var = importlib.util.find_spec(modul) is not None
         sonuc.append((ad, "tamam" if var else ("hata" if zorunlu else "uyari"),
-                      "kurulu" if var else "kurulu değil — kurulum.bat dosyasını çalıştırın"))
+                      "kurulu" if var else "kurulu değil — 'Eksik bileşenleri kur'a basın"))
     chromium = chromium_yolu()
     sonuc.append(("Chromium (tarayıcı)", "tamam" if chromium else "uyari",
-                  "kurulu" if chromium else "bulunamadı — tarayici-indir.bat çalıştırın "
-                                            "(bilgisayarda Chrome/Edge varsa onlar da denenir)"))
+                  "kurulu" if chromium else "bulunamadı — 'Eksik bileşenleri kur'a basın "
+                                            "(Chrome/Edge varsa onlar da denenir)"))
     var = bool(kar_zarar_klasoru)
-    sonuc.append(("Kâr / Zarar programı (kar-zarar klasörü)", "tamam" if var else "uyari",
+    sonuc.append(("Kâr / Zarar programı", "tamam" if var else "uyari",
                   str(kar_zarar_klasoru) if var else "luca-bot klasörünün yanında bulunamadı — "
                                                       "Kâr / Zarar sekmesi çalışmaz"))
     return sonuc
+
+
+def kurulum_komutlari(python, kok, ortam=None):
+    """Eksik bilesenleri kuracak komutlar: [(aciklama, [argv...])] (kurulum.bat'in yaptigi isin aynisi).
+
+    Paketler eksikse pip install -r requirements.txt; Chromium bulunamadiysa playwright install chromium
+    (yalniz playwright kuruluysa). Hicbir sey eksik degilse bos liste."""
+    ortam = ortam if ortam is not None else ortam_kontrol(None)
+    durum = {ad: d for ad, d, _ in ortam}
+    komutlar = []
+    if any(d != "tamam" for ad, d in durum.items() if ad.split(" ")[0] in ("Playwright", "openpyxl", "pypdf", "pyotp")):
+        komutlar.append(("Python paketleri kuruluyor (pip install -r requirements.txt)",
+                         [python, "-m", "pip", "install", "-r", str(Path(kok) / "requirements.txt")]))
+    if durum.get("Chromium (tarayıcı)") != "tamam" or any(
+            d != "tamam" for ad, d in durum.items() if ad.startswith("Playwright")):
+        komutlar.append(("Chromium tarayıcısı indiriliyor (playwright install chromium; yaklaşık 150 MB)",
+                         [python, "-m", "playwright", "install", "chromium"]))
+    return komutlar
 
 
 def _epostalar(metin):
