@@ -51,7 +51,7 @@ pause
 exit /b 0
 
 :pythonyok
-echo HATA: Python bulunamadi. python.org'dan Python kurup tekrar deneyin.
+echo HATA: Python bulunamadi. python.org'dan Python kurup tekrar deneyin (adim adim: ..\luca-bot\OKU-BENI-ONCE.txt).
 pause
 exit /b 1
 

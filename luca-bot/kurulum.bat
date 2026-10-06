@@ -25,16 +25,7 @@ pause
 exit /b 0
 
 :pythonyok
-echo.
-echo HATA: Python bulunamadi.
-echo.
-echo Komut istemine su komutu yazip deneyin:
-echo     py install
-echo.
-echo Yine olmazsa python.org/downloads adresinden
-echo klasik "Windows installer (64-bit)" dosyasini kurun
-echo ve kurulumda "Add python.exe to PATH" kutusunu isaretleyin.
-pause
+call "%~dp0_python-yok.bat"
 exit /b 1
 
 :hata

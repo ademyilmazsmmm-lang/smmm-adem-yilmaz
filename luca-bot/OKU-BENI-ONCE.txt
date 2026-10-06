@@ -1,0 +1,80 @@
+﻿DİJİTAL STAJYER — İLK KURULUM REHBERİ
+=====================================
+Bu dosya, programı ilk kez bir bilgisayara kuracak kişi içindir. Bilgisayar bilginiz
+olmasa da adımları sırayla izlemeniz yeterli. Toplam süre yaklaşık 10-15 dakikadır.
+
+BAŞLAMADAN ÖNCE
+  - Windows 10 ya da 11, internet bağlantısı.
+  - Kurum bilgisayarıysa program kurma yetkiniz olmayabilir; bu durumda BT sorumlusuna
+    "Python 3.12 kurulumu" için bu rehberi gösterin.
+  - Gönderilen ZIP dosyasını MASAÜSTÜNE ya da Belgeler'e çıkarın:
+    ZIP'e sağ tıklayın → "Tümünü ayıkla". (ZIP'in içinden doğrudan çalıştırmayın.)
+    Çıkan klasörde "luca-bot" ve "kar-zarar" klasörleri YAN YANA durmalıdır.
+
+
+ADIM 1 — PYTHON'U KURUN (bir kez)
+  1. Tarayıcıda https://www.python.org/downloads/windows/ adresini açın.
+  2. "Windows installer (64-bit)" bağlantısını indirin (Python 3.12 ya da daha yenisi).
+     (Sitede "Python install manager" öneriyorsa onu da kullanabilirsiniz: kurduktan sonra
+     Komut İstemi'ne "py install" yazın.)
+  3. İndirilen dosyaya çift tıklayın. İLK EKRANDA, en alttaki
+         [x] Add python.exe to PATH
+     kutusunu İŞARETLEYİN (en sık yapılan hata budur), sonra "Install Now" deyin.
+  4. "Setup was successful" yazısını görünce "Close" deyin.
+
+  Kontrol: Başlat menüsüne "cmd" yazıp Komut İstemi'ni açın, şunu yazıp Enter'a basın:
+         python --version
+  "Python 3.12.x" gibi bir sürüm yazmalı. "tanınmıyor" derse aşağıdaki "SORUN GİDERME"ye bakın.
+
+  Alternatif (Windows 10/11'de hızlı yol): Komut İstemi'ne şunu yazın:
+         winget install Python.Python.3.12
+
+
+ADIM 2 — PROGRAMI AÇIN
+  1. "luca-bot" klasöründeki  luca-arayuz.bat  dosyasına çift tıklayın.
+  2. Pencere birkaç saniye içinde açılır. İlk açılışta "KURULUM SİHİRBAZI" kendiliğinden çıkar.
+
+
+ADIM 3 — KURULUM SİHİRBAZI
+  1. Hoş geldiniz: eksik bileşen varsa "Eksik bileşenleri şimdi kur" düğmesine basın
+     (internetten birkaç paket ve tarayıcı indirir; 5-10 dakika sürebilir, pencereyi kapatmayın).
+  2. Luca girişi: üye no, kullanıcı adı ve parolanızı yazın.
+  3. Defter Beyan (isteğe bağlı): kullanmayacaksanız boş geçin.
+  4. Tercihler: varsayılanlar çoğu zaman uygundur.
+  5. Hazır: "Bitirince Luca'dan firma listesini çek" işaretliyken Bitir'e basın.
+     Luca'ya giriş yapılırken ekrana iki aşamalı doğrulama kodu gelirse yazın.
+
+Bundan sonra programı her seferinde luca-arayuz.bat ile açarsınız. Kurulum bir daha gerekmez.
+
+
+SORUN GİDERME
+  * "python tanınmıyor" / "Python bulunamadı" (Python'u kurdunuz ama program bulamıyor):
+      - Büyük olasılıkla "Add python.exe to PATH" işaretlenmemiş. En kolayı: Başlat → Ayarlar →
+        Uygulamalar'dan Python'u kaldırın, sonra 1. adımı bu kez kutuyu İŞARETLEYEREK yeniden yapın.
+      - Kurulumdan sonra açık duran pencereleri kapatın; bilgisayarı yeniden başlatmak da yardımcı olur.
+
+  * "python" yazınca Microsoft Store açılıyor:
+      Ayarlar → Uygulamalar → Gelişmiş uygulama ayarları → Uygulama yürütme takma adları →
+      "python.exe" ve "python3.exe" anahtarlarını KAPATIN. Sonra Python'u python.org'dan kurun.
+
+  * "Windows bilgisayarınızı korudu" (SmartScreen) uyarısı:
+      "Ek bilgi" → "Yine de çalıştır".
+
+  * Kurulum yönetici izni istiyor / izin vermiyor:
+      BT sorumlusundan Python 3.12 kurulumunu isteyin (rehber: bu dosya).
+
+  * Sihirbazda "Eksik bileşenleri kur" hata veriyor:
+      - İnternet bağlantısını ve şirket güvenlik duvarını/vekil sunucuyu (proxy) kontrol edin.
+      - Alt kutudaki kırmızı [HATA] satırının ekran görüntüsünü gönderin.
+      - Alternatif: luca-bot klasöründeki kurulum.bat dosyasını (gerekirse sağ tıklayıp
+        "Yönetici olarak çalıştır") çalıştırın.
+
+  * "Python'da pencere kütüphanesi (tkinter) yok" uyarısı:
+      Python'u yeniden kurun; özel kurulumda "tcl/tk and IDLE" kutusu işaretli olmalı
+      (Install Now ile varsayılan olarak zaten işaretlidir).
+
+  * Antivirüs / güvenlik yazılımı (örn. HP Sure Click) indirmeyi ya da tarayıcıyı engelliyor:
+      Programın klasörüne izin verin. Program kendi Chromium'unu kullanır (Chrome'u değil).
+
+  * Hâlâ olmuyor:
+      Açılan siyah pencerenin ya da hata kutusunun ekran görüntüsünü gönderin.

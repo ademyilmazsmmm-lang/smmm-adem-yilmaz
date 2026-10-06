@@ -8,6 +8,8 @@ bot Luca'ya kendisi girer, girilmezse tarayıcıyı açar ve girişi **siz elle*
 
 ## Kurulum (tek seferlik)
 
+> **Hiç bilgisayar bilgisi olmayan biri için adım adım rehber: `OKU-BENI-ONCE.txt`** (Python'u nasıl kuracağınız, sihirbaz ve sorun giderme). Python kurulu değilken herhangi bir .bat dosyasını çalıştırırsanız program bunu söyler, Python indirme sayfasını ve bu rehberi kendisi açar.
+
 1. **Python kurun:** https://www.python.org/downloads/ — kurulum ekranındaki
    **"Add python.exe to PATH"** kutusunu mutlaka işaretleyin, sonra "Install Now".
 2. **`kurulum.bat`** dosyasına çift tıklayın. Gerekli her şeyi kendisi kurar.
