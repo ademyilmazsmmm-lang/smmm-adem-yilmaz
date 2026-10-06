@@ -857,5 +857,101 @@ class TablolarVeSekmelerTestleri(ArayuzZemini):
         self.assertFalse(self.app.fatura_govde.winfo_ismapped())
 
 
+@unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")
+class KurulumSihirbaziTestleri(ArayuzZemini):
+    def _doldur(self, w, **alanlar):
+        for k, v in alanlar.items():
+            w.v[k].set(v)
+
+    def test_giris_bilgisi_yoksa_sihirbaz_kendiliginden_acilir(self):
+        ayar = json.loads(self.ayar.read_text(encoding="utf-8"))
+        ayar.pop("parola")
+        self.ayar.write_text(json.dumps(ayar), encoding="utf-8")
+        import luca_arayuz
+        kok2 = tk.Tk()
+        try:
+            app2 = luca_arayuz.Arayuz(kok2)
+            self.assertTrue(self._bekle_kok(kok2, lambda: getattr(app2, "sihirbaz", None) is not None))
+            self.assertTrue(app2.sihirbaz.w.winfo_exists())
+            kok2.after_cancel(app2.dongu_id)
+        finally:
+            kok2.destroy()
+
+    def _bekle_kok(self, kok, kosul, saniye=5):
+        son = time.time() + saniye
+        while time.time() < son:
+            kok.update()
+            if kosul():
+                return True
+            time.sleep(0.05)
+        return False
+
+    def test_giris_bilgisi_varsa_sihirbaz_acilmaz(self):
+        self.kok.update()
+        time.sleep(0.6)
+        self.kok.update()
+        self.assertIsNone(getattr(self.app, "sihirbaz", None))
+
+    def test_adimlar_dogrulanir_ve_ayarlar_kaydedilir(self):
+        import luca_arayuz
+        self.app.ayarlar.update(uye_no="", kullanici_adi="", parola="")
+        self.app.sihirbazi_ac()
+        w = self.app.sihirbaz
+        self.kok.update()
+        self.assertEqual(w.adim, 0)
+        self.assertTrue(w.ortam)                                  # ortam durum satirlari gosterildi
+        w.ileri()                                                  # hos -> luca (zorunlu paketler kurulu: sorun yok)
+        self.assertEqual(w.adim, 1)
+        w.ileri()                                                  # bos alan: ilerlemez
+        self.assertEqual(w.adim, 1)
+        self.assertIn("Üye No boş olamaz", w.hata_etiketi.cget("text"))
+        self._doldur(w, uye_no="77", kullanici_adi="ayse", parola="gizli", dogrulama_anahtari="")
+        w.ileri()
+        self.assertEqual(w.adim, 2)                                # defter beyan (istege bagli)
+        self._doldur(w, defterbeyan_kullanici="dbk", defterbeyan_sifre="dbs")
+        w.ileri()
+        self.assertEqual(w.adim, 3)
+        self._doldur(w, mail_alici="yanlis", mail_gonder=True)
+        w.ileri()
+        self.assertEqual(w.adim, 3)
+        self.assertIn("E-posta adresi geçersiz", w.hata_etiketi.cget("text"))
+        self._doldur(w, mail_alici="a@b.com", otomatik_tekrar=False, liste_cek=False)
+        w.ileri()
+        self.assertEqual(w.adim, 4)
+        w.geri()
+        self.assertEqual(w.adim, 3)
+        w.ileri()
+        w.ileri()                                                  # Bitir
+        kayitli = json.loads(self.ayar.read_text(encoding="utf-8"))
+        self.assertEqual((kayitli["uye_no"], kayitli["kullanici_adi"], kayitli["parola"]), ("77", "ayse", "gizli"))
+        self.assertEqual((kayitli["defterbeyan_kullanici"], kayitli["mail_alici"]), ("dbk", "a@b.com"))
+        self.assertEqual((kayitli["otomatik_tekrar"], kayitli["kurulum_tamam"], kayitli["baska_ayar"]),
+                         (False, True, 42))                        # eski ayarlar korunur
+        self.assertEqual(self.app.kz.v_db_kod.get(), "dbk")
+        self.assertIn("ayse", self.app.giris_ozeti.cget("text"))
+        self.kok.update()
+        self.assertFalse(w.w.winfo_exists())
+        self.assertEqual(luca_arayuz.TEMA, "acik")
+
+    def test_bitirince_firma_listesi_cekilir_ve_tema_degisir(self):
+        import luca_arayuz
+        cagrilar = []
+        self.app.firma_listesi_cek = lambda: cagrilar.append(1)
+        self.app.sihirbazi_ac()
+        w = self.app.sihirbaz
+        self._doldur(w, uye_no="1", kullanici_adi="x", parola="y", tema="koyu", liste_cek=True)
+        w.adim = 4
+        w.ileri()                                                  # Bitir
+        self.assertEqual(luca_arayuz.TEMA, "koyu")                 # arayuz yeniden kuruldu
+        self.assertTrue(self._bekle(lambda: cagrilar == [1], 3))   # firma listesi sihirbazdan sonra cekilir
+        luca_arayuz.tema_uygula("acik")
+
+    def test_ayni_anda_tek_sihirbaz(self):
+        self.app.sihirbazi_ac()
+        ilk = self.app.sihirbaz
+        self.app.sihirbazi_ac()
+        self.assertIs(self.app.sihirbaz, ilk)
+
+
 if __name__ == "__main__":
     unittest.main()

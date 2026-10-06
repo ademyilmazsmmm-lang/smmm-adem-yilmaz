@@ -33,8 +33,10 @@ KOK = Path(__file__).resolve().parent
 sys.path.insert(0, str(KOK))
 
 from kar_zarar_sekmesi import KarZararSekmesi  # noqa: E402
+from kurulum_sihirbazi import KurulumSihirbazi  # noqa: E402
 from lucabot import SURUM, SURUM_TARIHI, beyanname, firma_tablosu, gostergeler, musteri_listesi, rapor  # noqa: E402
 from tablo_gorunumu import SiralaFiltreTablosu  # noqa: E402
+from lucabot import kurulum as kurulum_mantigi  # noqa: E402
 from lucabot.firma_listesi import devreden_kdvleri  # noqa: E402
 from lucabot.ortak import (AYAR_DOSYASI, DURDUR_DOSYASI, ORNEK_AYAR, TARIH_BICIMI,  # noqa: E402
                            hedef_ay_araligi, indirme_koku, sadelestir, tarih_cozumle)
@@ -242,17 +244,17 @@ def telif():
     return f"© {date.today().year} Adem Yılmaz — Serbest Muhasebeci Mali Müşavir · Tüm Hakları Saklıdır."
 
 
-def logo_resmi(boyut):
+def logo_resmi(boyut, master=None):
     """varliklar/logo-<boyut>.png (Robot Stajyer) ya da None; PhotoImage'i cagiran tutmalidir."""
     try:
-        return tk.PhotoImage(file=str(VARLIKLAR / f"logo-{boyut}.png"))
+        return tk.PhotoImage(master=master, file=str(VARLIKLAR / f"logo-{boyut}.png"))
     except tk.TclError:
         return None
 
 
 def logo(ebeveyn):
     """Robot Stajyer logosu (PNG); dosya yoksa eski altin 'AY' kutusu."""
-    resim = logo_resmi(48)
+    resim = logo_resmi(48, ebeveyn)
     if resim is not None:
         et = tk.Label(ebeveyn, image=resim, bg=BASLIK_ZEMIN, bd=0, highlightthickness=0)
         et.resim = resim  # Tk, PhotoImage'i tutmaz
@@ -624,7 +626,7 @@ class Arayuz:
 
         kok.title("Dijital Stajyer")
         try:  # pencere/gorev cubugu simgesi
-            self._simge = logo_resmi(256) or logo_resmi(96)
+            self._simge = logo_resmi(256, kok) or logo_resmi(96, kok)
             if self._simge is not None:
                 kok.iconphoto(True, self._simge)
         except tk.TclError:
@@ -633,6 +635,8 @@ class Arayuz:
         kok.minsize(1020, 720)
         kok.protocol("WM_DELETE_WINDOW", self.kapat)
         self._kur()
+        if kurulum_mantigi.sihirbaz_gerekli(self.ayarlar):  # yeni kullanici: Luca bilgileri hic girilmemis
+            kok.after(400, self.sihirbazi_ac)
 
     def _kur(self):
         """Tum arayuzu secili temayla (yeniden) kurar; tema degisince de cagrilir."""
@@ -656,6 +660,17 @@ class Arayuz:
         self.alt_sekme_sec("surec")
         self.gostergeleri_yenile()
         self.dongu_id = kok.after(100, self._dongu)
+
+    def sihirbazi_ac(self):
+        """Yeni kullanici kurulum sihirbazi (Luca/Defter Beyan bilgileri, tercihler, firma listesi)."""
+        if getattr(self, "sihirbaz", None) is not None:
+            try:
+                if self.sihirbaz.w.winfo_exists():
+                    self.sihirbaz.w.lift()
+                    return
+            except tk.TclError:
+                pass
+        self.sihirbaz = KurulumSihirbazi(self, sys.modules[__name__])
 
     def tema_degistir(self):
         """Acik <-> koyu: ayar kaydedilir, arayuz ayni pencerede yeniden kurulur (calisma sirasinda yapilmaz)."""
@@ -806,6 +821,7 @@ class Arayuz:
                                     justify="left")
         self.giris_ozeti.pack(side="left", fill="x", expand=True)
         dugme(satir, "Değiştir", self.giris_penceresi).pack(side="right")
+        dugme(p, "Kurulum Sihirbazı…", self.sihirbazi_ac).pack(fill="x", pady=(0, 12))
 
         bolum_basligi(p, "Firma Listesi").pack(fill="x")
         self.luca_liste_dugmesi = dugme(p, "Luca'dan Firma Listesini Çek…", self.firma_listesi_cek)

@@ -124,8 +124,9 @@ class KarZararSekmesi:
         self.v_firma = tk.StringVar()
         ad = {d: a for a, d in KAYNAKLAR}
         self.v_kaynak = tk.StringVar(value=ad.get(kz.get("luca_kaynagi"), KAYNAKLAR[0][0]))
-        self.v_db_kod = tk.StringVar(value=kz.get("defterbeyan_kullanici", ""))
-        self.v_db_sifre = tk.StringVar(value=kz.get("defterbeyan_sifre", ""))
+        ana = self.a.ayarlar  # kurulum sihirbazi Defter Beyan bilgilerini ana ayarlara da yazar
+        self.v_db_kod = tk.StringVar(value=kz.get("defterbeyan_kullanici") or ana.get("defterbeyan_kullanici", ""))
+        self.v_db_sifre = tk.StringVar(value=kz.get("defterbeyan_sifre") or ana.get("defterbeyan_sifre", ""))
         self.v_yenile = tk.BooleanVar(value=False)  # firma listesini Luca'dan yeniden cek (varsayilan: kayitli liste)
         self.v_fatura = tk.BooleanVar(value=False)  # "Taranan Faturaları Dahil Et" düğmesiyle açılır
         self.v_fatura_donem = tk.StringVar()        # dahil edilecek indirilmiş ay (kutudan seçilir)

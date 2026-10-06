@@ -113,6 +113,23 @@ Program **açık temayla** açılır. Sağ üstteki **🌙 Koyu tema / ☀ Açı
   Gövde şunları içerir: kaç firmanın sorunsuz / hatalı olduğu, otomatik ikinci turda kaç ekranın düzeldiği, **tekrar sorgulanması
   gereken ekranların listesi** (firma, ekran, hata nedeni), tevkifat / e-SMM / iptal uyarıları; rapor.xlsx ektedir.
 
+### Yeni kullanıcı / yeni bilgisayar: Kurulum Sihirbazı
+
+Programı başka bir bilgisayara ya da başka bir Luca kullanıcısı için kurarken: zip'i açın, Python'u kurun
+(**"Add python.exe to PATH"** işaretli), `kurulum.bat`'ı çalıştırın, `luca-arayuz.bat` ile açın. **Luca giriş bilgileri
+hiç girilmemişse sihirbaz kendiliğinden açılır**; sonradan sol paneldeki **Kurulum Sihirbazı…** düğmesiyle de açılır.
+
+1. **Hoş geldiniz:** ortam kontrolü (Python, Playwright, openpyxl, Chromium, `kar-zarar` klasörü); eksik olan ne yapılacağını söyler.
+2. **Luca girişi:** üye no, kullanıcı adı, parola, isteğe bağlı doğrulama anahtarı.
+3. **Defter Beyan** (isteğe bağlı): kod ve şifre (güvenlik kodunu yine siz yazarsınız).
+4. **Tercihler:** indirme klasörü, özet e-postası (alıcı), otomatik ikinci tur, açık/koyu görünüm.
+5. **Hazır:** özet; **Bitirince Luca'dan firma listesini çek** kutusu işaretliyse liste hemen çekilir (giriş bilgisi de böylece denenir).
+
+Her kopya kendi `ayarlar.json`'unu, tarayıcı oturumunu ve `indirilenler` klasörünü kullanır; bu yüzden aynı bilgisayarda ikinci bir
+Luca kullanıcısı için klasörü başka bir adla kopyalamanız yeterlidir. Bir kopyayı başkasına verirken içindeki `ayarlar.json`,
+`indirilenler`, `.tarayici-profili` ve `kar-zarar\ayarlar.json`'u **vermeyin** (şifre ve müşteri verisi içerir).
+`mail_gonder: false` özet e-postasını kapatır.
+
 ### Fatura İndirme sekmesinin alt ekranları
 
 Sağ panelde üç alt sekme vardır:

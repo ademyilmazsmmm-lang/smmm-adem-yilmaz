@@ -458,6 +458,61 @@ class KarZararOzetTestleri(unittest.TestCase):
             self.assertEqual(donemler["01/10/2026-31/10/2026"]["A LTD"]["matrah"]["e-arsiv-satis"], 300)
 
 
+class KurulumMantigiTestleri(unittest.TestCase):
+    def test_sihirbaz_ne_zaman_acilir(self):
+        from lucabot.kurulum import sihirbaz_gerekli
+        self.assertTrue(sihirbaz_gerekli({}))
+        self.assertTrue(sihirbaz_gerekli({"uye_no": "1", "kullanici_adi": "a"}))      # parola yok
+        self.assertFalse(sihirbaz_gerekli({"uye_no": "1", "kullanici_adi": "a", "parola": "x"}))
+        self.assertFalse(sihirbaz_gerekli({"kurulum_tamam": True}))                    # daha once bitirilmis
+
+    def test_dogrulama(self):
+        from lucabot.kurulum import dogrula
+        self.assertEqual(len(dogrula("luca", {})), 3)
+        self.assertEqual(dogrula("luca", {"uye_no": "1", "kullanici_adi": "a", "parola": "x"}), [])
+        self.assertTrue(dogrula("luca", {"uye_no": "1", "kullanici_adi": "a", "parola": "x",
+                                          "dogrulama_anahtari": "abc"}))
+        self.assertEqual(dogrula("luca", {"uye_no": "1", "kullanici_adi": "a", "parola": "x",
+                                          "dogrulama_anahtari": "JBSW Y3DP EHPK 3PXP"}), [])  # bosluklu da olur
+        self.assertTrue(dogrula("tercihler", {"indirme_klasoru": "x", "mail_gonder": True, "mail_alici": "a@b"}))
+        self.assertEqual(dogrula("tercihler", {"indirme_klasoru": "x", "mail_gonder": True,
+                                               "mail_alici": "a@b.com; c@d.org"}), [])
+        self.assertEqual(dogrula("tercihler", {"indirme_klasoru": "x", "mail_gonder": False,
+                                               "mail_alici": "yanlis"}), [])    # kapaliyken alici sorulmaz
+        self.assertTrue(dogrula("tercihler", {"indirme_klasoru": " "}))
+
+    def test_ayarlari_olustur_digerlerine_dokunmaz(self):
+        from lucabot.kurulum import ayarlari_olustur
+        mevcut = {"belge_tipi": "gib-5000", "smtp": {"port": 25}, "parola": "eski"}
+        yeni = ayarlari_olustur(mevcut, {
+            "uye_no": " 12 ", "kullanici_adi": "ayse", "parola": " p w ", "dogrulama_anahtari": "AB CD EF GH",
+            "defterbeyan_kullanici": "dk", "defterbeyan_sifre": "ds", "indirme_klasoru": "",
+            "mail_gonder": True, "mail_alici": "a@b.com;c@d.org", "otomatik_tekrar": False, "tema": "koyu"})
+        self.assertEqual((yeni["uye_no"], yeni["kullanici_adi"], yeni["parola"]), ("12", "ayse", " p w "))
+        self.assertEqual(yeni["dogrulama_anahtari"], "ABCDEFGH")
+        self.assertEqual(yeni["indirme_klasoru"], "indirilenler")
+        self.assertEqual(yeni["mail_alici"], "a@b.com, c@d.org")
+        self.assertEqual((yeni["otomatik_tekrar"], yeni["tema"], yeni["kurulum_tamam"]), (False, "koyu", True))
+        self.assertEqual((yeni["belge_tipi"], yeni["smtp"]), ("gib-5000", {"port": 25}))   # eski ayarlar korunur
+        self.assertEqual(ayarlari_olustur({}, {"tema": "bozuk"})["tema"], "acik")
+
+    def test_ortam_kontrol_satirlari(self):
+        from lucabot.kurulum import ortam_kontrol
+        satirlar = ortam_kontrol(None)
+        adlar = [a for a, _, _ in satirlar]
+        self.assertIn("Python", adlar)
+        self.assertTrue(any("Kâr / Zarar" in a for a in adlar))
+        kz = next(d for a, d, _ in satirlar if "Kâr / Zarar" in a)
+        self.assertEqual(kz, "uyari")                                      # klasor yoksa yalniz uyari
+        self.assertEqual(next(d for a, d, _ in ortam_kontrol(Path(".")) if "Kâr / Zarar" in a), "tamam")
+        self.assertTrue(all(d in ("tamam", "uyari", "hata") for _, d, _ in satirlar))
+
+    def test_eposta_kapaliysa_gonderilmez(self):
+        mesajlar = []
+        self.assertFalse(eposta.gonder({"mail_gonder": False}, Path("."), [], mesajlar.append))
+        self.assertIn("mail_gonder kapali", mesajlar[0])
+
+
 class ArayuzOzetTestleri(unittest.TestCase):
     """Arayuzun alt kutulari: tevkifat KDV, SMM, interaktif farki, KDV odemesi."""
 

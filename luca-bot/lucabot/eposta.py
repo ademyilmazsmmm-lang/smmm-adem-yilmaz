@@ -7,6 +7,7 @@ iptal/itiraz kayitlari firma firma listelenir.
 
 Ayarlar (ayarlar.json):
     mail_yontemi         : "outlook" (varsayilan) / "smtp"
+    mail_gonder          : true/false  - false ise ozet e-postasi hic hazirlanmaz (varsayilan true)
     mail_otomatik_gonder : true/false
         - outlook yonteminde: true (ya da hic yazilmamissa) doğrudan gonderilir, false ise
           Outlook'ta taslak olarak acilir (siz kontrol edip gonderirsiniz)
@@ -344,6 +345,10 @@ def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem="", ikinci_tur=None):
     def bildir(mesaj):
         if log_yaz:
             log_yaz(mesaj)
+
+    if not _ayar(ayarlar, "mail_gonder", True):  # kurulum sihirbazinda "ozet e-postasi gonderme" secilmis
+        bildir("E-posta gonderilmedi: mail_gonder kapali (ayarlar.json)")
+        return False
 
     yontem = str(_ayar(ayarlar, "mail_yontemi", "outlook")).strip().lower()
     if yontem not in ("outlook", "smtp"):
