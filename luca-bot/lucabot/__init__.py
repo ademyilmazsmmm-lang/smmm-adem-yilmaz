@@ -28,4 +28,4 @@ Program taslari (her biri tek bir isten sorumludur):
 """
 
 SURUM = "1.0.0"  # arayuzde (alt cubuk, Hakkinda) gosterilir; surum degisince burasi guncellenir
-SURUM_TARIHI = "2026-10-05"
+SURUM_TARIHI = "2026-10-07"

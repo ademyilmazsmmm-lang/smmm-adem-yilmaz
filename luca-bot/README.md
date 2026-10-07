@@ -6,6 +6,13 @@ tüm firmalar için sırayla otomatik yapar. İndirilen dosyaları ve fatura lis
 **Giriş bilgileri yalnızca bu bilgisayardaki `ayarlar.json`'da tutulur** (başka yere gönderilmez); girilirse
 bot Luca'ya kendisi girer, girilmezse tarayıcıyı açar ve girişi **siz elle** yaparsınız. Sonrasındaki tekrar eden işi bot devralır.
 
+## Lisans ve kurulum paketi
+
+Program imzalı bir lisans dosyasıyla (`lisans.json`) çalışır; bitiş tarihinden sonra `luca_bot.py` ve arayüzdeki
+"Çalıştır" düğmeleri durur, bitime 30 gün kala açılışta uyarılır. Yeni lisans: alttaki **Sürüm** yazısına tıklayın →
+Hakkında → Evet → lisans dosyasını seçin. Müşavirlere dağıtılacak `setup.exe` ve lisans üretimi için
+[`../setup/README.md`](../setup/README.md).
+
 ## Kurulum (tek seferlik)
 
 > **Hiç bilgisayar bilgisi olmayan biri için adım adım rehber: `OKU-BENI-ONCE.txt`** (Python'u nasıl kuracağınız, sihirbaz ve sorun giderme). Python kurulu değilken herhangi bir .bat dosyasını çalıştırırsanız program bunu söyler, Python indirme sayfasını ve bu rehberi kendisi açar.

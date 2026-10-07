@@ -57,7 +57,8 @@ def main():
     }
     ayar_yolu = klasor / "ayarlar.json"
     ayar_yolu.write_text(json.dumps(ayar), encoding="utf-8")
-    ortam = dict(os.environ, LUCA_BOT_AYAR=str(ayar_yolu), LOCALAPPDATA=str(klasor / "yerel"),
+    ortam = dict(os.environ, LUCA_TEST_LISANS_ATLA="1", LUCA_BOT_AYAR=str(ayar_yolu),
+                 LOCALAPPDATA=str(klasor / "yerel"),
                  PYTHONIOENCODING="utf-8")
     komut = [sys.executable, str(KOK / "luca_bot.py"), "--karsilastir",
              "--baslangic", "01/08/2026", "--bitis", "10/08/2026", "--bitince-kapat"]

@@ -12,6 +12,7 @@ import tempfile
 import textwrap
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 KOK = Path(__file__).resolve().parent.parent
@@ -120,6 +121,7 @@ class ArayuzZemini(unittest.TestCase):
             "indirme_klasoru": str(self.d / "indir"), "firma_listesi": str(self.d / "firmalar.xlsx"),
             "baslangic_tarihi": "01/09/2026", "bitis_tarihi": "30/09/2026"}), encoding="utf-8")
         os.environ["LUCA_BOT_AYAR"] = str(self.ayar)
+        os.environ["LUCA_TEST_LISANS_ATLA"] = "1"  # lisans testleri bunu kendileri kaldirir
         self.bot = self.d / "sahte_bot.py"
         self.bot.write_text(SAHTE_BOT, encoding="utf-8")
         self.kok = tk.Tk()
@@ -137,8 +139,10 @@ class ArayuzZemini(unittest.TestCase):
             self.app.surec.wait()
             self.app.surec.stdout.close()
         self.kok.after_cancel(self.app.dongu_id)
+        self.kok.after_cancel(self.app.acilis_id)
         self.kok.destroy()
         os.environ.pop("LUCA_BOT_AYAR", None)
+        os.environ.pop("LUCA_TEST_LISANS_ATLA", None)
 
     def _bekle(self, kosul, saniye=20):
         son = time.time() + saniye
@@ -723,14 +727,44 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         self.assertEqual((resim.width(), resim.height()), (48, 48))
         self.assertIsNotNone(luca_arayuz.logo_resmi(256))
         bilgi = []
-        eski = luca_arayuz.messagebox.showinfo
-        luca_arayuz.messagebox.showinfo = lambda *a, **k: bilgi.append(a)
-        try:
+        with mock.patch.object(luca_arayuz.messagebox, "askyesno",
+                               side_effect=lambda *a, **k: bilgi.append(a) or False):
             self.app.hakkinda()
-        finally:
-            luca_arayuz.messagebox.showinfo = eski
         self.assertIn("Sürüm", bilgi[0][1])
         self.assertIn("Tüm Hakları Saklıdır", bilgi[0][1])
+        self.assertIn("Lisans:", bilgi[0][1])
+
+    def test_lisans_gecersizse_calisma_baslamaz(self):
+        import luca_arayuz
+        sorular = []
+        with mock.patch.dict(os.environ, {"LUCA_TEST_LISANS_ATLA": "0"}), \
+                mock.patch.object(luca_arayuz.lisans, "durum", return_value={
+                    "gecerli": False, "mesaj": "Lisans süresi 31.12.2026 tarihinde doldu.", "uyari": "",
+                    "sahip": "", "bitis": None}), \
+                mock.patch.object(luca_arayuz.messagebox, "askyesno",
+                                  side_effect=lambda *a, **k: sorular.append(a[1]) or False), \
+                mock.patch.object(luca_arayuz.subprocess, "Popen") as popen:
+            self.assertFalse(self.app._giris_tamam_mi())
+            self.app.calistir()
+        self.assertTrue(sorular and "doldu" in sorular[0] and "lisans.json" in sorular[0])
+        popen.assert_not_called()
+        self.assertIsNone(self.app.surec)
+
+    def test_acilista_lisans_bitmek_uzereyse_uyarir_gecerliyse_sessiz(self):
+        import luca_arayuz
+        bilgi = []
+        d = {"gecerli": True, "mesaj": "", "uyari": "Lisansınızın bitmesine 12 gün kaldı", "sahip": "X",
+             "bitis": None}
+        with mock.patch.dict(os.environ, {"LUCA_TEST_LISANS_ATLA": "0"}), \
+                mock.patch.object(luca_arayuz.lisans, "durum", return_value=d), \
+                mock.patch.object(luca_arayuz.messagebox, "showinfo",
+                                  side_effect=lambda *a, **k: bilgi.append(a[1])):
+            self.app._acilis_kontrolleri()
+            self.assertEqual(len(bilgi), 1)
+            self.assertIn("12 gün", bilgi[0])
+            d["uyari"] = ""
+            self.app._acilis_kontrolleri()
+        self.assertEqual(len(bilgi), 1)
 
     def test_firma_listesi_yenile_secenegi(self):
         self.assertNotIn("--listeyi-yenile", self.kz.komut())  # varsayilan: kayitli liste
@@ -874,6 +908,7 @@ class KurulumSihirbaziTestleri(ArayuzZemini):
             self.assertTrue(self._bekle_kok(kok2, lambda: getattr(app2, "sihirbaz", None) is not None))
             self.assertTrue(app2.sihirbaz.w.winfo_exists())
             kok2.after_cancel(app2.dongu_id)
+            kok2.after_cancel(app2.acilis_id)
         finally:
             kok2.destroy()
 

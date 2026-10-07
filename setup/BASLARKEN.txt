@@ -1,0 +1,30 @@
+DİJİTAL STAJYER — BAŞLARKEN
+============================
+
+1) Masaüstündeki "Dijital Stajyer" simgesiyle programı açın.
+   (İlk açılışta Kurulum Sihirbazı kendiliğinden gelir.)
+
+2) Sihirbazda sırasıyla:
+   - Luca Üye No, Kullanıcı adı, Parola (iki aşamalı doğrulama kullanıyorsanız doğrulama anahtarı da),
+   - İsterseniz Defter Beyan bilgileri (Kâr / Zarar sekmesi için),
+   - İndirme klasörü, özet e-postası tercihleri
+   girilir. Bilgiler yalnızca bu bilgisayardaki "luca-bot\ayarlar.json" dosyasında durur.
+
+3) Firma listesi: "Luca'dan firma listesi çek" ile çekilir; sonra "Çalıştır".
+
+4) Sekmeler:
+   - Fatura İndirme : e-Arşiv / e-Fatura / GİB 5000 / TÜRMOB / e-SMM faturalarını toplu indirir,
+                      Süreç, Firma Durumu ve Hatalı/İnmeyen alt sekmeleri vardır.
+   - Kâr / Zarar    : Luca Mizan'dan dönem kâr/zarar tahmini; "Taranan Faturaları Dahil Et" ile fatura farkı.
+   - Muavin         : yapım aşamasında.
+
+Lisans
+------
+Lisans bilgisi pencerenin altında yazar. Süresi dolmaya yaklaşınca program uyarır. Yeni lisans dosyası
+(lisans.json) aldığınızda alttaki "Sürüm" yazısına tıklayıp "Evet" diyerek yükleyebilirsiniz.
+
+Sorun olursa
+------------
+- Bileşenler eksik görünürse: Kurulum Sihirbazı → "Eksik bileşenleri şimdi kur".
+- Program klasörü: Başlat menüsü → Dijital Stajyer → "Program klasörünü aç".
+- Destek ve lisans: smmmyilmaz.com

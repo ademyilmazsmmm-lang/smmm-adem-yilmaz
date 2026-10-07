@@ -34,7 +34,7 @@ sys.path.insert(0, str(KOK))
 
 from kar_zarar_sekmesi import KarZararSekmesi  # noqa: E402
 from kurulum_sihirbazi import KurulumSihirbazi  # noqa: E402
-from lucabot import SURUM, SURUM_TARIHI, beyanname, firma_tablosu, gostergeler, musteri_listesi, rapor  # noqa: E402
+from lucabot import SURUM, SURUM_TARIHI, beyanname, firma_tablosu, gostergeler, lisans, musteri_listesi, rapor  # noqa: E402
 from tablo_gorunumu import SiralaFiltreTablosu  # noqa: E402
 from lucabot import kurulum as kurulum_mantigi  # noqa: E402
 from lucabot.firma_listesi import devreden_kdvleri  # noqa: E402
@@ -635,8 +635,41 @@ class Arayuz:
         kok.minsize(1020, 720)
         kok.protocol("WM_DELETE_WINDOW", self.kapat)
         self._kur()
+        self.acilis_id = kok.after(300, self._acilis_kontrolleri)
+
+    def _acilis_kontrolleri(self):
+        """Pencere acilinca: once lisans (gecersizse yukleme teklifi, bitmek uzereyse uyari), sonra kurulum sihirbazi."""
+        tamam, metin = lisans.kontrol()
+        if not tamam:
+            self._lisans_gecerli_mi()
+        elif metin:
+            messagebox.showinfo("Lisans süresi bitiyor", metin, parent=self.kok)
         if kurulum_mantigi.sihirbaz_gerekli(self.ayarlar):  # yeni kullanici: Luca bilgileri hic girilmemis
-            kok.after(400, self.sihirbazi_ac)
+            self.sihirbazi_ac()
+
+    def _lisans_gecerli_mi(self):
+        """Lisans gecerliyse True; degilse nedenini gosterip lisans dosyasi yuklemeyi teklif eder."""
+        tamam, metin = lisans.kontrol()
+        if tamam:
+            return True
+        if messagebox.askyesno("Lisans", f"{metin}\n\nLisans dosyası (lisans.json) yüklemek ister misiniz?",
+                               parent=self.kok):
+            self.lisans_yukle()
+        return lisans.kontrol()[0]
+
+    def lisans_yukle(self):
+        yol = filedialog.askopenfilename(parent=self.kok, title="Lisans dosyasını seçin",
+                                         filetypes=[("Lisans dosyası", "*.json"), ("Tümü", "*.*")])
+        if not yol:
+            return
+        tamam, mesaj = lisans.kur(yol)
+        (messagebox.showinfo if tamam else messagebox.showerror)("Lisans", mesaj, parent=self.kok)
+        self._lisans_etiketini_yaz()
+
+    def _lisans_etiketini_yaz(self):
+        etiket = getattr(self, "lisans_etiketi", None)
+        if etiket is not None and etiket.winfo_exists():
+            etiket.configure(text="Lisans: " + lisans.ozet())
 
     def _kur(self):
         """Tum arayuzu secili temayla (yeniden) kurar; tema degisince de cagrilir."""
@@ -776,13 +809,18 @@ class Arayuz:
         s = tk.Label(c, text=f"Sürüm {SURUM}", font=KUCUK, fg=ALTIN, bg=BASLIK_ZEMIN, cursor="hand2")
         s.pack(side="right", padx=18)
         s.bind("<Button-1>", lambda _e: self.hakkinda())
+        self.lisans_etiketi = tk.Label(c, text="", font=KUCUK, fg=BASLIK_ETIKET, bg=BASLIK_ZEMIN)
+        self.lisans_etiketi.pack(side="right", padx=(0, 6))
+        self._lisans_etiketini_yaz()
 
     def hakkinda(self):
-        messagebox.showinfo(
-            "Dijital Stajyer — Hakkında",
-            f"Dijital Stajyer\nSürüm {SURUM}  ({SURUM_TARIHI})\n\n"
-            "Luca e-Fatura / e-Arşiv indirme, kâr/zarar tahmini ve rapor aracı.\n\n"
-            f"Lisans sahibi: Adem Yılmaz, Serbest Muhasebeci Mali Müşavir\n{telif()}", parent=self.kok)
+        if messagebox.askyesno(
+                "Dijital Stajyer — Hakkında",
+                f"Dijital Stajyer\nSürüm {SURUM}  ({SURUM_TARIHI})\n\n"
+                "Luca e-Fatura / e-Arşiv indirme, kâr/zarar tahmini ve rapor aracı.\n\n"
+                f"Lisans: {lisans.ozet()}\n{telif()}\n\n"
+                "Yeni bir lisans dosyası (lisans.json) yüklemek ister misiniz?", parent=self.kok):
+            self.lisans_yukle()
 
     def _muavin_taslagi(self, kok):
         """Henuz yapilmadi: Luca muavin dokumu ile gelen/giden faturalari karsilastirma ekrani icin yer tutucu."""
@@ -1264,6 +1302,9 @@ class Arayuz:
         return self.luca_penceresi
 
     def _giris_tamam_mi(self):
+        """Calisma baslamadan once: lisans gecerli mi, Luca giris bilgileri girilmis mi."""
+        if not self._lisans_gecerli_mi():
+            return False
         a = self.ayarlar
         if a.get("uye_no") and a.get("kullanici_adi") and a.get("parola"):
             return True
@@ -1720,6 +1761,7 @@ class Arayuz:
             except subprocess.TimeoutExpired:
                 self.surec.kill()
         self.kok.after_cancel(self.dongu_id)
+        self.kok.after_cancel(self.acilis_id)
         self.kok.destroy()
 
 

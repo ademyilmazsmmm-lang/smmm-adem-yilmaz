@@ -21,7 +21,7 @@ import sys
 import traceback
 from datetime import date
 
-from lucabot import eposta, konsol
+from lucabot import eposta, konsol, lisans
 from lucabot.calisma import (Calisma, etkin_firmalar, hatalilari_tekrarla, ozetle,
                              tekrar_listesini_oku, tekrar_secimi)
 from lucabot.firma_listesi import bugun_tamamlananlar, firmalari_suz
@@ -425,6 +425,12 @@ def main():
         signal.signal(signal.SIGBREAK, _durdurma_sinyali)
     p = arguman_ayristirici()
     args = p.parse_args()
+    lisans_tamam, lisans_metni = lisans.kontrol()
+    if not lisans_tamam:
+        print(f"LİSANS: {lisans_metni}")
+        return 3
+    if lisans_metni:
+        print(f"Uyarı: {lisans_metni}")
     ayarlar = ayarlari_oku()
     try:
         DURDUR_DOSYASI.unlink()  # onceki calismadan kalmis durdurma istegi yeni calismayi durdurmasin

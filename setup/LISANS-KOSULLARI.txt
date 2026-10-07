@@ -1,0 +1,44 @@
+DİJİTAL STAJYER — KULLANIM KOŞULLARI
+
+Telif hakkı © 2026 Adem Yılmaz — Serbest Muhasebeci Mali Müşavir. Tüm hakları saklıdır.
+Web: smmmyilmaz.com
+
+Programı kurmadan önce lütfen okuyun. Kurulumu sürdürmeniz bu koşulları kabul ettiğiniz anlamına gelir.
+
+1. KULLANIM HAKKI
+   Bu program size, lisans dosyasında (lisans.json) yazılı süre boyunca, kendi mesleki faaliyetinizde ve
+   çalıştığınız ofiste kullanmanız için devredilemez, münhasır olmayan bir kullanım hakkı verir. Program
+   satılmaz; yalnızca kullanım hakkı verilir.
+
+2. YASAKLAR
+   a) Programı veya bir kısmını kopyalayıp üçüncü kişilere dağıtmak, satmak, kiralamak, paylaşmak
+      ya da internet üzerinden yayımlamak,
+   b) Program kodunu değiştirerek, tersine mühendislikle ya da başka yolla lisans kontrolünü
+      devre dışı bırakmak veya lisans dosyasını değiştirmek,
+   c) Telif, sürüm ve lisans bilgilerini kaldırmak ya da değiştirmek
+   yasaktır.
+
+3. SÜRE
+   Lisans, lisans dosyasındaki bitiş tarihinde sona erer. Süre dolunca program yeni çalışma başlatmaz;
+   daha önce indirilen dosyalarınıza ve raporlarınıza erişiminiz devam eder. Yenileme için smmmyilmaz.com.
+
+4. ÜÇÜNCÜ TARAF YAZILIMLAR VE MARKALAR
+   Program; Python, Playwright, Chromium ve openpyxl gibi kendi lisanslarına tabi yazılımlardan yararlanır.
+   Luca, Gelir İdaresi Başkanlığı (GİB), Defter Beyan ve TÜRMOB adları ilgili sahiplerinin
+   hakkıdır; bu program bu kurumlarla resmî bir bağlantı içinde değildir.
+
+5. SORUMLULUK
+   Program "olduğu gibi" sunulur. Ürettiği tutarlar (fatura toplamları, KDV, kâr/zarar tahmini vb.)
+   yardımcı bilgidir; beyanname ve defter işlemlerinden önce kontrol etmek kullanıcının sorumluluğundadır.
+   Luca, GİB veya Defter Beyan ekranlarında yapılan değişiklikler programın çalışmasını etkileyebilir.
+   Kanunen sınırlanamayan haller dışında, programın kullanımından doğan dolaylı zararlardan program
+   sahibi sorumlu tutulamaz.
+
+6. GİZLİLİK VE VERİLER
+   Luca ve Defter Beyan giriş bilgileriniz ile mükellef verileri yalnızca bu bilgisayarda
+   (program klasöründeki ayarlar.json ve indirme klasöründe) tutulur; program bunları program sahibine
+   göndermez. Özet e-postası yalnızca sizin belirlediğiniz alıcılara, sizin Outlook/e-posta hesabınızla gider.
+   Kişisel verilerin korunmasına (KVKK) ilişkin yükümlülükler kullanıcıya aittir.
+
+7. İLETİŞİM
+   smmmyilmaz.com
