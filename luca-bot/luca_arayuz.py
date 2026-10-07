@@ -705,7 +705,7 @@ class Arayuz:
                     rowheight=26, font=GOVDE, bordercolor=CIZGI)
         s.configure("Liste.Treeview.Heading", background=KUTU, foreground=ALTIN_FG, font=BOLUM,
                     relief="flat")
-        s.map("Liste.Treeview", background=[("selected", SECIM)])
+        s.map("Liste.Treeview", background=[("selected", SECIM)], foreground=[("selected", YAZI)])
 
     def _degiskenler(self):
         a = self.ayarlar
