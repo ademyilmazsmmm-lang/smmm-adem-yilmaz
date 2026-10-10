@@ -798,7 +798,8 @@ class TablolarVeSekmelerTestleri(ArayuzZemini):
             "BIRLIK TIC": {"firma": "BIRLIK TIC", "donem": donem,
                            "durumlar": {"e-arsiv-alis": "tamam", "e-arsiv-satis": "tamam"},
                            "sayilar": {"e-arsiv-alis": 12, "e-arsiv-satis": 3},
-                           "matrah": {"e-arsiv-satis": 15000, "e-arsiv-alis": 2500}},
+                           "matrah": {"e-arsiv-satis": 15000, "e-arsiv-alis": 2500},
+                           "kdv": {"e-arsiv-satis": 1000, "e-arsiv-alis": 300}},
             "YILDIZ OTO": {"firma": "YILDIZ OTO", "donem": donem,
                            "durumlar": {"e-arsiv-alis": "hata: zaman asimi", "e-fatura-alis": "tamam"},
                            "sayilar": {"e-arsiv-alis": 0, "e-fatura-alis": 40}, "inmeyen": {"e-fatura-alis": 2},
@@ -822,6 +823,46 @@ class TablolarVeSekmelerTestleri(ArayuzZemini):
         etiket = {t.satirlar[i][0]: t.satir_etiketleri[i] for i in range(4)}
         self.assertEqual(etiket["BIRLIK TIC"], "tamam")
         self.assertEqual(etiket["YILDIZ OTO"], "hata")
+
+    def test_firma_durumunda_kdv_sonucu_sutunlari(self):
+        t = self.app.durum_tablosu
+        i = t.sutunlar.index("Satış KDV")
+        self.assertEqual(t.sutunlar[i + 1:i + 4], ["Önceki Dönem Devreden KDV", "Ödenecek KDV",
+                                                   "Sonraki Döneme Devreden KDV"])
+        satir = {s[0]: s for s in t.satirlar}["BIRLIK TIC"]
+        # satis KDV 1.000 - alis KDV 300 - firmalar.xlsx'teki devreden 200 = 500 odenecek
+        self.assertEqual(satir[i + 1:i + 4], ("200,00", "500,00", ""))
+        # devreden KDV'si listede olmayan firma: tutar yildizli (0 sayildi), okunamayan firmada bos
+        zeytin = {s[0]: s for s in t.satirlar}["ZEYTIN LTD"]
+        self.assertEqual(zeytin[i + 1], "")
+        self.assertNotIn("*", "".join(str(x) for x in satir))
+        # devreden daha buyukse sonraki doneme devreden gorunur
+        self.app._devreden_kdv = {"BIRLIK TICARET": 1500}
+        k = self.mod.rapor._tamamla(dict(json.loads(self.app.rapor_yolu().read_text(encoding="utf-8"))["BIRLIK TIC"]))
+        s2 = self.mod.durum_satiri(k, {"BIRLIK TICARET": 1500})
+        self.assertEqual(s2[i + 1:i + 4], ["1.500,00", "", "800,00"])
+        s3 = self.mod.durum_satiri(k, {})
+        self.assertEqual(s3[i + 1:i + 4], ["", "700,00 *", ""])
+
+    def test_firma_sutunu_sabit_secim_ve_kaydirma_birlikte(self):
+        t = self.app.durum_tablosu
+        self.assertIsNotNone(t.sabit_agac)
+        self.assertEqual(list(t.sabit_agac["columns"]), ["Firma"])
+        self.assertNotIn("Firma", list(t.agac["columns"]))
+        t.filtre_ayarla("Dönem", "Tümü")
+        self.assertEqual(t.sabit_agac.get_children(), t.agac.get_children())
+        self.kok.update()
+        ilk = t.sabit_agac.get_children()[1]
+        t.sabit_agac.selection_set(ilk)  # soldaki (sabit) tabloda secim
+        self.kok.update()
+        self.assertEqual(t.agac.selection(), (ilk,))
+        self.assertEqual(t.secili_indeksler(), [int(ilk)])
+        t.agac.selection_set(t.agac.get_children()[2])  # sagdakinde secim soldakine de yansir
+        self.kok.update()
+        self.assertEqual(t.sabit_agac.selection(), t.agac.selection())
+        self.assertEqual(t.sabit_agac.item(ilk)["values"][0], t.satirlar[int(ilk)][0])
+        t.sirala(0)  # sabit sutunun basligiyla siralama
+        self.assertTrue(t.sabit_agac.heading("Firma")["text"].endswith("▲"))
 
     def test_arama_filtre_ve_siralama(self):
         t = self.app.durum_tablosu

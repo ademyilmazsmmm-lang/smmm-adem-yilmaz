@@ -14,6 +14,20 @@ from . import rapor
 from .firma_listesi import listede_bul
 
 
+def kdv_sonucu(k, firma, devreden):
+    """Firmanin KDV durumu: satis KDV - alis KDV - onceki donemden devreden KDV.
+
+    fark > 0: odenecek KDV; fark < 0: sonraki doneme devreden KDV. onceki: firmalar.xlsx'te girilmemisse None
+    (hesapta 0 sayilir). veri: satis ya da alis KDV'si hic okunmamissa False (sonuc anlamsiz)."""
+    satis = rapor._grup_toplami(k, "kdv", rapor.SATIS_EKRANLARI)
+    alis = rapor._grup_toplami(k, "kdv", rapor.ALIS_EKRANLARI)
+    liste_adi = listede_bul(firma, devreden)
+    onceki = devreden.get(liste_adi) if liste_adi else None
+    fark = round(satis - alis - (onceki or 0), 2)
+    return {"satis": satis, "alis": alis, "onceki": onceki, "fark": fark, "veri": bool(satis or alis),
+            "odenecek": max(fark, 0), "devreden": max(-fark, 0)}
+
+
 def hesapla(kayitlar, devreden=None, donem=None):
     """{"tevkifat": [...], "smm": [...], "fark": [...], "kdv": [...]} (her biri firma sozlukleri).
 
@@ -52,14 +66,10 @@ def hesapla(kayitlar, devreden=None, donem=None):
         for h in rapor.yeniden_denenecek(k):
             sonuc["hata"].append({"firma": firma, **h})
 
-        satis = rapor._grup_toplami(k, "kdv", rapor.SATIS_EKRANLARI)
-        alis = rapor._grup_toplami(k, "kdv", rapor.ALIS_EKRANLARI)
-        liste_adi = listede_bul(firma, devreden)
-        dev = devreden.get(liste_adi) if liste_adi else None
-        odeme = round(satis - alis - (dev or 0), 2)
-        if odeme > 0:
-            sonuc["kdv"].append({"firma": firma, "satis": satis, "alis": alis,
-                                 "devreden": dev, "odeme": odeme})
+        kdv = kdv_sonucu(k, firma, devreden)
+        if kdv["odenecek"] > 0:
+            sonuc["kdv"].append({"firma": firma, "satis": kdv["satis"], "alis": kdv["alis"],
+                                 "devreden": kdv["onceki"], "odeme": kdv["odenecek"]})
     return sonuc
 
 

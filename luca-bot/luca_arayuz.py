@@ -239,6 +239,25 @@ def dugme(ebeveyn, metin, komut, ana=False, **kw):
 
 
 VARLIKLAR = KOK / "varliklar"
+KDV_SUTUNLARI = ("Önceki Dönem Devreden KDV", "Ödenecek KDV", "Sonraki Döneme Devreden KDV")
+# Firma Durumu tablosu: rapor.xlsx sutunlari + "Satış KDV"den sonra KDV sonucu
+DURUM_SUTUNLARI = list(rapor.BASLIKLAR)
+_i = DURUM_SUTUNLARI.index("Satış KDV") + 1
+DURUM_SUTUNLARI[_i:_i] = KDV_SUTUNLARI
+
+
+def durum_satiri(kayit, devreden):
+    """rapor.xlsx satiri + KDV sonucu: onceki donem devreden, odenecek, sonraki doneme devreden (TL metni)."""
+    satir = rapor._satir(kayit)
+    kdv = gostergeler.kdv_sonucu(kayit, kayit["firma"], devreden)
+    yildiz = "" if kdv["onceki"] is not None else " *"  # onceki devreden girilmemis: 0 sayildi
+    ekle = [rapor._tutar_yaz(kdv["onceki"]) if kdv["onceki"] is not None else "",
+            (rapor._tutar_yaz(kdv["odenecek"]) + yildiz) if kdv["veri"] and kdv["odenecek"] else "",
+            (rapor._tutar_yaz(kdv["devreden"]) + yildiz) if kdv["veri"] and kdv["devreden"] else ""]
+    i = rapor.BASLIKLAR.index("Satış KDV") + 1
+    return satir[:i] + ekle + satir[i:]
+
+
 def telif():
     """Alt cubuktaki telif satiri; yil kendiliginden guncellenir."""
     return f"© {date.today().year} Adem Yılmaz — Serbest Muhasebeci Mali Müşavir · Tüm Hakları Saklıdır."
@@ -998,20 +1017,23 @@ class Arayuz:
 
     def _durum_sekmesi(self, p):
         """rapor.xlsx'teki 'firma durumu' tablosu: arama, Dönem/Durum filtresi, basliga tiklayinca siralama."""
-        tk.Label(p, text="Firma durumu — rapor.xlsx ile aynı veri; başlığa tıklayınca sıralanır, kutulardan süzülür.",
+        tk.Label(p, text="Firma durumu — rapor verisi + KDV sonucu.  * = önceki dönem devreden KDV girilmemiş (0 sayıldı)",
                  font=KUCUK, fg=SOLUK, bg=ZEMIN, anchor="w").pack(fill="x", pady=(0, 6))
         alt = tk.Frame(p, bg=ZEMIN)
         alt.pack(side="bottom", fill="x", pady=(8, 0))
         dugme(alt, "Rapor Dosyasını Aç", self.raporu_ac).pack(side="left")
         dugme(alt, "İndirilenler Klasörü", self.klasoru_ac).pack(side="left", padx=8)
-        yazi = {0, 1, 2, 3, rapor.BASLIKLAR.index("Eksik/Fazla Faturalar"), rapor.BASLIKLAR.index("Not"),
-                rapor.BASLIKLAR.index("Son İşlem")}
-        genislik = [{0: 190, 1: 175, 2: 150, 3: 300}.get(i, 90) for i in range(len(rapor.BASLIKLAR))]
+        sutunlar = DURUM_SUTUNLARI
+        yazi = {0, 1, 2, 3, sutunlar.index("Eksik/Fazla Faturalar"), sutunlar.index("Not"),
+                sutunlar.index("Son İşlem")}
+        genislik = [{0: 190, 1: 175, 2: 150, 3: 300}.get(i, 90) for i in range(len(sutunlar))]
         for ad in ("Eksik/Fazla Faturalar", "Not", "Son İşlem"):
-            genislik[rapor.BASLIKLAR.index(ad)] = 200
+            genislik[sutunlar.index(ad)] = 200
+        for ad in KDV_SUTUNLARI:
+            genislik[sutunlar.index(ad)] = 190
         self.durum_tablosu = SiralaFiltreTablosu(
-            p, sys.modules[__name__], rapor.BASLIKLAR, genislik, yazi=yazi, filtreler=("Dönem", "Durum"),
-            varsayilan_filtre={"Dönem": self.secili_donem() or "Tümü"}, yatay=True,
+            p, sys.modules[__name__], sutunlar, genislik, yazi=yazi, filtreler=("Dönem", "Durum"),
+            varsayilan_filtre={"Dönem": self.secili_donem() or "Tümü"}, yatay=True, sabit=1,  # Firma yerinde kalır
             etiketler=self.durum_renkleri())
         self.durum_tablosu.pack(fill="both", expand=True)
         self._durum_donemi = None
@@ -1043,13 +1065,17 @@ class Arayuz:
             return
         self.tekrar_sorgula([self.hata_listesi[i] for i in sira])
 
-    def _tablolari_yenile(self, kayitlar, donem):
-        """rapor.json'dan Firma Durumu ve Hatali tablolarini doldurur (her firmadan sonra cagrilir)."""
+    def _tablolari_yenile(self, kayitlar, donem, devreden=None):
+        """rapor.json'dan Firma Durumu ve Hatali tablolarini doldurur (her firmadan sonra cagrilir).
+
+        devreden: firmalar.xlsx'ten {kisa ad: onceki donemden devreden KDV}; verilmezse son bilinen kullanilir."""
+        if devreden is not None:
+            self._devreden_kdv = devreden
         satirlar, etiketler = [], []
         for firma in sorted(kayitlar):
             k = rapor._tamamla(dict(kayitlar[firma]))
             k.setdefault("firma", firma)
-            satir = rapor._satir(k)
+            satir = durum_satiri(k, getattr(self, "_devreden_kdv", {}))
             durum = rapor._genel_durum(k["durumlar"])
             if durum.startswith(rapor.SORUNLU_DURUMLAR):
                 etiket = "hata"
@@ -1540,7 +1566,7 @@ class Arayuz:
         except Exception:
             devreden = {}
         self.gostergeler = gostergeler.hesapla(kayitlar, devreden, donem)
-        self._tablolari_yenile(kayitlar, donem)
+        self._tablolari_yenile(kayitlar, donem, devreden)
         t = gostergeler.toplamlar(self.gostergeler)
         tl = gostergeler.tl
         self.kutu["tevkifat"].ayarla(tl(t["tevkifat"]), f"{t['tevkifat_adet']} fatura ›")

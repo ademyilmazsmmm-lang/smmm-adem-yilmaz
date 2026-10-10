@@ -45,10 +45,12 @@ def siralama_anahtari(deger):
 
 class SiralaFiltreTablosu(tk.Frame):
     def __init__(self, ebeveyn, ui, sutunlar, genislik, yazi=(0,), filtreler=(), varsayilan_filtre=None,
-                 secim="browse", yatay=False, arama=True, etiketler=None, degisti=None):
+                 secim="browse", yatay=False, arama=True, etiketler=None, degisti=None, sabit=0):
         """sutunlar/genislik: baslik ve piksel; yazi: sola yasli sutun numaralari (digerleri saga);
         filtreler: kutu olarak sunulacak sutun adlari; secim: 'browse' (tek) ya da 'extended' (coklu);
-        etiketler: {etiket adi: renk} satir renkleri."""
+        etiketler: {etiket adi: renk} satir renkleri;
+        sabit: yatay kaydirmada yerinde kalacak ilk sutun sayisi (yalniz yatay=True; ayri bir tablo olarak cizilir,
+        secim ve dikey kaydirma ikisinde birlikte ilerler)."""
         super().__init__(ebeveyn, bg=ui.ZEMIN)
         self.ui = ui
         self.sutunlar = list(sutunlar)
@@ -86,23 +88,62 @@ class SiralaFiltreTablosu(tk.Frame):
             self.filtre_kutulari[ad] = kombo
         cerceve = tk.Frame(self, bg=ui.ZEMIN)
         cerceve.pack(fill="both", expand=True)
-        self.agac = ttk.Treeview(cerceve, columns=self.sutunlar, show="headings", style="Liste.Treeview",
-                                 selectmode=secim)
-        dikey = ttk.Scrollbar(cerceve, orient="vertical", command=self.agac.yview)
-        self.agac.configure(yscrollcommand=dikey.set)
+        self.sabit_sayisi = sabit if (yatay and 0 < sabit < len(self.sutunlar)) else 0
+        self.sabit_agac = None
+        self._esitleniyor = False
+        dikey = self.dikey = ttk.Scrollbar(cerceve, orient="vertical", command=self._dikey_kaydir)
+        if self.sabit_sayisi:
+            self.sabit_agac = ttk.Treeview(cerceve, columns=self.sutunlar[:self.sabit_sayisi], show="headings",
+                                           style="Liste.Treeview", selectmode=secim,
+                                           yscrollcommand=self._dikey_ayarla)
+        self.agac = ttk.Treeview(cerceve, columns=self.sutunlar[self.sabit_sayisi:], show="headings",
+                                 style="Liste.Treeview", selectmode=secim, yscrollcommand=self._dikey_ayarla)
+        self.agaclar = [a for a in (self.sabit_agac, self.agac) if a is not None]
         if yatay:
             yatay_k = ttk.Scrollbar(self, orient="horizontal", command=self.agac.xview)
             self.agac.configure(xscrollcommand=yatay_k.set)
         for i, (s, g) in enumerate(zip(self.sutunlar, genislik)):
             yon = "w" if i in self.yazi else "e"
-            self.agac.heading(s, text=s, anchor=yon, command=lambda i=i: self.sirala(i))
-            self.agac.column(s, anchor=yon, width=g, minwidth=60, stretch=(not yatay and i == 0))
+            agac = self._agac_of(i)
+            agac.heading(s, text=s, anchor=yon, command=lambda i=i: self.sirala(i))
+            agac.column(s, anchor=yon, width=g, minwidth=60, stretch=(not yatay and i == 0))
         for etiket, renk in (etiketler or {}).items():
-            self.agac.tag_configure(etiket, foreground=renk)
+            for agac in self.agaclar:
+                agac.tag_configure(etiket, foreground=renk)
         dikey.pack(side="right", fill="y")
+        if self.sabit_agac is not None:
+            self.sabit_agac.pack(side="left", fill="y")
+            tk.Frame(cerceve, bg=ui.KENAR, width=2).pack(side="left", fill="y")  # sabit sutunu ayiran cizgi
+            for agac in self.agaclar:
+                agac.bind("<<TreeviewSelect>>", lambda _e, a=agac: self._secimi_esitle(a), add="+")
         self.agac.pack(side="left", fill="both", expand=True)
         if yatay:
             yatay_k.pack(fill="x")
+
+    def _agac_of(self, sutun_no):
+        return self.sabit_agac if sutun_no < self.sabit_sayisi else self.agac
+
+    def _dikey_kaydir(self, *arg):
+        for agac in self.agaclar:
+            agac.yview(*arg)
+
+    def _dikey_ayarla(self, ilk, son):
+        """Tablolardan biri kayinca (fare tekerlegi dahil) scrollbar ve diger tablo da ayni yere gelir."""
+        self.dikey.set(ilk, son)
+        for agac in self.agaclar:
+            if abs(agac.yview()[0] - float(ilk)) > 1e-6:
+                agac.yview_moveto(ilk)
+
+    def _secimi_esitle(self, kaynak):
+        if self._esitleniyor:
+            return
+        self._esitleniyor = True
+        try:
+            for agac in self.agaclar:
+                if agac is not kaynak and tuple(agac.selection()) != tuple(kaynak.selection()):
+                    agac.selection_set(list(kaynak.selection()))
+        finally:
+            self._esitleniyor = False
 
     # -- veri ----------------------------------------------------------------------------
 
@@ -153,16 +194,24 @@ class SiralaFiltreTablosu(tk.Frame):
     def goster(self):
         secili = set(self.secili_indeksler())
         kaydirma = self.agac.yview()[0]
-        self.agac.delete(*self.agac.get_children())
+        self._esitleniyor = True  # asagidaki toplu degisiklikte secim esitleme olaylari tetiklenmesin
+        for agac in self.agaclar:
+            agac.delete(*agac.get_children())
         gorunen = self._gorunenler()
+        b = self.sabit_sayisi
         for n in gorunen:
-            self.agac.insert("", "end", iid=str(n), values=self.satirlar[n],
-                             tags=(self.satir_etiketleri[n],) if self.satir_etiketleri[n] else ())
+            etiket = (self.satir_etiketleri[n],) if self.satir_etiketleri[n] else ()
+            if self.sabit_agac is not None:
+                self.sabit_agac.insert("", "end", iid=str(n), values=self.satirlar[n][:b], tags=etiket)
+            self.agac.insert("", "end", iid=str(n), values=self.satirlar[n][b:], tags=etiket)
         yeniden = [str(n) for n in gorunen if n in secili]
         if yeniden:
-            self.agac.selection_set(yeniden)
+            for agac in self.agaclar:
+                agac.selection_set(yeniden)
+        self._esitleniyor = False
         try:
-            self.agac.yview_moveto(kaydirma)
+            for agac in self.agaclar:
+                agac.yview_moveto(kaydirma)
         except tk.TclError:
             pass
         self.sayac.configure(text=f"{len(gorunen)} / {len(self.satirlar)} kayıt")
@@ -187,7 +236,7 @@ class SiralaFiltreTablosu(tk.Frame):
             ok = ""
             if self.siralama is not None and self.siralama[0] == i:
                 ok = " ▼" if self.siralama[1] else " ▲"
-            self.agac.heading(s, text=s + ok)
+            self._agac_of(i).heading(s, text=s + ok)
 
     # -- secim ---------------------------------------------------------------------------
 
