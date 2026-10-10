@@ -1,0 +1,22 @@
+# Her satır bir hatırlatma:   ZAMAN | KAÇ GÜN ÖNCE | METİN
+# (# ile başlayan satırlar yoksayılır. Telefondan GitHub uygulamasında bu dosyayı düzenleyip kaydet.)
+#
+# ZAMAN biçimleri:
+#   2026-12-31             tek seferlik tarih
+#   2026-10-10 +4ay        tarihe 4 ay ekler   (+30gun ile gün de eklenebilir)
+#   her-ay 26              her ayın 26'sı (kısa aylarda ayın son günü)
+#   her-yil 03-15          her yıl 15 Mart
+# KAÇ GÜN ÖNCE: virgülle ayrılmış, 0 = olay günü. Örn: 7,1,0
+#
+# --- TASFİYE ŞABLONU (firma başına 3 satır kopyala, tarihleri doldur) ---
+# 1) Tasfiyeye giriş tarihi + 4 ay -> kurumlar beyanı
+# 2) 3. ilan tarihi               -> kapanışı ver
+# 3) Kapanış tarihi + 30 gün      -> kurumlar beyanı
+#
+# 2026-10-10 +4ay | 7,0 | ÖRNEK LTD: tasfiye dönemi kurumlar beyannamesi
+# 2027-01-15      | 0   | ÖRNEK LTD: 3. ilan tamam, kapanışı ver
+# 2027-03-01 +30gun | 7,0 | ÖRNEK LTD: kapanış sonrası kurumlar beyannamesi son gün
+#
+# --- Kendi satırların ---
+her-ay 26 | 3,0 | Muhtasar ve prim hizmet beyannamesi
+her-ay 28 | 3,0 | KDV beyannamesi
