@@ -1,0 +1,47 @@
+name: Hatırlatma Ekle
+
+# Telefondaki Kestirmeler uygulaması bu workflow'u tetikler.
+on:
+  workflow_dispatch:
+    inputs:
+      zaman:
+        description: "Örn: 2026-12-31 | 2026-10-10 +4ay | her-ay 26 | her-yil 03-15"
+        required: true
+      gunler:
+        description: "Kaç gün önce mail (virgülle): 7,1,0"
+        default: "0"
+      metin:
+        description: "Hatırlatma metni"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hatirlatma-ekle
+
+jobs:
+  ekle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Satırı ekle
+        env:
+          ZAMAN: ${{ inputs.zaman }}
+          GUNLER: ${{ inputs.gunler }}
+          METIN: ${{ inputs.metin }}
+        run: python ekle.py
+
+      - name: Commit & Push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add hatirlatmalar.txt
+          git commit -m "Hatırlatma eklendi (telefon)"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push
