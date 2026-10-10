@@ -80,7 +80,7 @@ def main():
             hatalar.append(mesaj)
 
     bekle(sonuc.returncode == 0, f"cikis kodu {sonuc.returncode}")
-    bekle(wb.sheetnames == ["Özet", "Firma Durumu", "İndirilen Faturalar", "Dosyalar",
+    bekle(wb.sheetnames == ["Özet", "Firma Durumu", "KDV Sonucu", "İndirilen Faturalar", "Dosyalar",
                             "Hatalar ve Uyarılar"], "sayfa adlari")
     bekle(set(rapor) == {"AKIN COBAN", "DENTAL SAGLIK", "ESKI DONEM LTD", "FATURASIZ AS"},
           f"islenen firmalar: {sorted(rapor)}")

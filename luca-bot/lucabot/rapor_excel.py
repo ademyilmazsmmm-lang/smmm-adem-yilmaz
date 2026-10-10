@@ -5,6 +5,8 @@ Sayfalar:
     Özet                  genel tablo: kac firma/ekran, kac fatura, toplam matrah/KDV,
                           ekran bazinda dagilim
     Firma Durumu          her firma tek satir; aksiyon gerekenler en ustte, renkli
+    KDV Sonucu            her firmanin satis KDV - alis KDV - onceki donem devreden KDV sonucu:
+                          odenecek KDV ya da sonraki doneme devreden KDV (devreden: firmalar.xlsx)
     İndirilen Faturalar   her fatura tek satir; e-Arsiv Alis <-> Interaktif V.D.
                           karsilastirmasi (Mutabakat sutunu)
     Dosyalar              inen her dosya ve klasoru (tiklayinca klasor acilir)
@@ -17,7 +19,7 @@ Veri rapor.json'dan gelir, yani ayni gun yapilan butun calismalari kapsar.
 from datetime import datetime
 from pathlib import Path
 
-from . import rapor
+from . import gostergeler, rapor
 
 BASLIK_RENGI = "1F4E78"
 UYARI_RENGI = "FFF2CC"
@@ -242,6 +244,60 @@ def _firma_durumu_sayfasi(ws, satirlar, stil):
             ws.cell(row=i, column=j + 1).number_format = PARA_BICIMI
 
 
+KDV_BASLIKLARI = ["Firma", "Dönem", "Satış KDV", "Alış KDV", "Önceki Dönem Devreden KDV", "Ödenecek KDV",
+                  "Sonraki Döneme Devreden KDV", "Not"]
+
+
+def _firmalar_devreden():
+    """firmalar.xlsx'teki "Devreden KDV" sutunu ({kisa ad: tutar}); okunamazsa bos (sayfa yine yazilir)."""
+    try:
+        from .firma_listesi import devreden_kdvleri
+        from .ortak import ayarlari_oku
+        return devreden_kdvleri(ayarlari_oku().get("firma_listesi"))
+    except (Exception, SystemExit):
+        return {}
+
+
+def _kdv_satirlari(kayitlar, devreden):
+    """[(firma, donem, satis, alis, onceki, odenecek, devreden, not)] (KDV'si okunamayanlarda tutarlar None)."""
+    satirlar = []
+    for firma in sorted(kayitlar):
+        k = kayitlar[firma]
+        kdv = gostergeler.kdv_sonucu(k, firma, devreden)
+        if not kdv["veri"]:
+            satirlar.append((firma, k.get("donem", ""), None, None, kdv["onceki"], None, None,
+                             "KDV tutarı okunamadı (Excel inmemiş ya da fatura yok)"))
+            continue
+        notlar = [] if kdv["onceki"] is not None else ["Önceki dönem devreden KDV girilmemiş (0 sayıldı)"]
+        satirlar.append((firma, k.get("donem", ""), kdv["satis"], kdv["alis"], kdv["onceki"],
+                         kdv["odenecek"], kdv["devreden"], "; ".join(notlar)))
+    return satirlar
+
+
+def _kdv_sayfasi(ws, kayitlar, devreden, stil):
+    ws.title = "KDV Sonucu"
+    satirlar = _kdv_satirlari(kayitlar, devreden)
+    _tablo(ws, KDV_BASLIKLARI, satirlar, [26, 22, 16, 16, 20, 16, 22, 52], stil)
+    for i, satir in enumerate(satirlar, 2):
+        for j in range(3, 8):
+            ws.cell(row=i, column=j).number_format = PARA_BICIMI
+        if satir[5]:  # odenecek KDV var
+            ws.cell(row=i, column=6).fill = stil["uyari"]
+        if satir[6]:  # sonraki doneme devreden KDV var
+            ws.cell(row=i, column=7).fill = stil["iyi"]
+    son = len(satirlar) + 1
+    toplam = son + 1
+    ws.cell(row=toplam, column=1, value="TOPLAM (süzülen satırlar)").font = stil["kalin"]
+    for j, harf in ((3, "C"), (4, "D"), (5, "E"), (6, "F"), (7, "G")):
+        h = ws.cell(row=toplam, column=j, value=f"=SUBTOTAL(109,{harf}2:{harf}{max(son, 2)})")
+        h.font = stil["kalin"]
+        h.number_format = PARA_BICIMI
+    aciklama = ws.cell(row=toplam + 2, column=1, value=(
+        "Ödenecek KDV = satış KDV - alış KDV - önceki dönem devreden KDV (pozitifse); negatifse sonraki döneme "
+        "devreden KDV olarak gösterilir. Önceki dönem devreden KDV firmalar.xlsx'teki \"Devreden KDV\" sütunundan gelir."))
+    aciklama.font = stil["kalin"].__class__(italic=True, color="595959")
+
+
 def _mutabakat_durumlari(kayit):
     """e-Arsiv Alis ile Interaktif V.D. listelerini fatura numarasiyla eslestirir."""
     eksik, fazla = rapor.fatura_farklari(kayit)
@@ -340,8 +396,10 @@ def _hata_sayfasi(ws, kayitlar, stil):
         h.fill = stil["iyi"]
 
 
-def yaz(yol, kayitlar, satirlar):
-    """rapor.xlsx'i bastan yazar; openpyxl yoksa None doner (rapor.csv yeterli)."""
+def yaz(yol, kayitlar, satirlar, devreden=None):
+    """rapor.xlsx'i bastan yazar; openpyxl yoksa None doner (rapor.csv yeterli).
+
+    devreden: {kisa ad: onceki donem devreden KDV}; verilmezse firmalar.xlsx'ten okunur."""
     try:
         from openpyxl import Workbook
     except ImportError:
@@ -352,6 +410,7 @@ def yaz(yol, kayitlar, satirlar):
     wb = Workbook()
     _ozet_sayfasi(wb.active, kayitlar, satirlar, stil)
     _firma_durumu_sayfasi(wb.create_sheet(), satirlar, stil)
+    _kdv_sayfasi(wb.create_sheet(), kayitlar, _firmalar_devreden() if devreden is None else devreden, stil)
     _fatura_sayfasi(wb.create_sheet(), kayitlar, stil)
     _dosya_sayfasi(wb.create_sheet(), kayitlar, stil)
     _hata_sayfasi(wb.create_sheet(), kayitlar, stil)

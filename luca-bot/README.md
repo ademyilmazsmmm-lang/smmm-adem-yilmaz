@@ -322,7 +322,7 @@ adımda ne zamandır beklediğini gösterir; 30 sn değişmezse turuncu, 90 sn'd
 
 ```
 indirilenler/
-  rapor.xlsx                   → TEK ve SÜREKLİ TOPLU RAPOR: Özet, Firma Durumu, İndirilen
+  rapor.xlsx                   → TEK ve SÜREKLİ TOPLU RAPOR: Özet, Firma Durumu, KDV Sonucu, İndirilen
                                   Faturalar, Dosyalar, Hatalar (her çalışmada güncellenir)
   rapor.csv                    → aynı raporun CSV hâli
   rapor.json                   → raporun ara/ham verisi (elle düzenlenmez)
@@ -353,6 +353,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | --- | --- |
 | **Özet** | Genel tablo: firma sayısı, fatura inen / boş / atlanan / sorunlu / bekleyen ekran, toplam fatura (aynı fatura iki ekranda iki kez sayılmaz), tevkifatlı alış, iptal/itiraz, alış–satış matrahı ve KDV'si; altında **ekran bazında** dağılım |
 | **Firma Durumu** | Her firma tek satır; aksiyon gerekenler en üstte ve renkli (kırmızı: hata, sarı: kontrol) |
+| **KDV Sonucu** | Her firmanın satış KDV − alış KDV − önceki dönem devreden KDV sonucu: **Ödenecek KDV** (pozitifse) ya da **Sonraki Döneme Devreden KDV** (negatifse); altında süzmeye duyarlı toplam. Önceki dönem devreden KDV `firmalar.xlsx`'teki "Devreden KDV" sütunundan gelir (girilmemişse 0 sayılır ve Not sütununda yazar). Aynı sütunlar arayüzde Firma Durumu tablosunda da vardır |
 | **İndirilen Faturalar** | Her fatura tek satır: firma, ekran, alış/satış, karşı taraf, fatura no, tutar ve **Mutabakat** sütunu — e-Arşiv Alış ile İnteraktif V.D. listeleri fatura numarasıyla eşleştirilir (`iki ekranda da var` / `e-Arşiv'de YOK` / `İnteraktif'te YOK`) |
 | **Dosyalar** | İnen her dosya; klasör sütununa tıklayınca klasör açılır |
 | **Hatalar ve Uyarılar** | Sorunlu ve bekleyen ekranlar: sebebi, **ne yapmanız gerektiği** ve hata anının ekran görüntüsü (tıklayınca açılır) |

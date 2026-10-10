@@ -298,7 +298,7 @@ class RaporTestleri(unittest.TestCase):
             ]
             rapor.guncelle(klasor, sonuclar, ["C"], "e-arsiv-alis")
             wb = load_workbook(klasor / "rapor.xlsx")
-            self.assertEqual(wb.sheetnames, ["Özet", "Firma Durumu", "İndirilen Faturalar",
+            self.assertEqual(wb.sheetnames, ["Özet", "Firma Durumu", "KDV Sonucu", "İndirilen Faturalar",
                                              "Dosyalar", "Hatalar ve Uyarılar"])
             mutabakat = {(r[0].value, r[1].value, r[4].value): r[6].value
                          for r in wb["İndirilen Faturalar"].iter_rows(min_row=2)}
@@ -315,6 +315,34 @@ class RaporTestleri(unittest.TestCase):
             self.assertEqual(degerler["A"], 1000)
             self.assertTrue((klasor / "rapor.csv").exists())
             self.assertFalse((klasor / "rapor.json.tmp").exists())
+
+    def test_rapor_xlsx_kdv_sonucu_sayfasi(self):
+        """KDV Sonucu sayfasi: satis - alis - onceki devreden = odenecek ya da sonraki doneme devreden."""
+        from openpyxl import load_workbook
+        from lucabot import rapor_excel
+
+        def kayit(ad, satis, alis):
+            return rapor._tamamla({"firma": ad, "donem": "01/09/2026-30/09/2026",
+                                   "durumlar": {"e-arsiv-alis": "tamam"}, "sayilar": {"e-arsiv-alis": 3},
+                                   "kdv": {"e-arsiv-satis": satis, "e-arsiv-alis": alis}})
+        kayitlar = {"BIRLIK TIC": kayit("BIRLIK TIC", 1000, 300), "YILDIZ OTO": kayit("YILDIZ OTO", 1620, 5400),
+                    "ZEYTIN LTD": kayit("ZEYTIN LTD", 800, 200), "BOS AS": kayit("BOS AS", 0, 0)}
+        with tempfile.TemporaryDirectory() as d:
+            yol = Path(d) / "rapor.xlsx"
+            rapor_excel.yaz(yol, kayitlar, [rapor._satir(k) for k in kayitlar.values()],
+                            devreden={"BIRLIK TICARET": 200, "YILDIZ OTOMOTIV": 5000})
+            ws = load_workbook(yol)["KDV Sonucu"]
+            basliklar = [c.value for c in ws[1]]
+            self.assertEqual(basliklar[2:7], ["Satış KDV", "Alış KDV", "Önceki Dönem Devreden KDV",
+                                              "Ödenecek KDV", "Sonraki Döneme Devreden KDV"])
+            satir = {r[0].value: [c.value for c in r] for r in ws.iter_rows(min_row=2, max_row=5)}
+            self.assertEqual(satir["BIRLIK TIC"][2:7], [1000, 300, 200, 500, 0])       # 1000-300-200 odenecek
+            self.assertEqual(satir["YILDIZ OTO"][2:7], [1620, 5400, 5000, 0, 8780])     # sonraki doneme devreden
+            self.assertEqual(satir["ZEYTIN LTD"][2:7], [800, 200, None, 600, 0])       # devreden girilmemis: 0 sayildi
+            self.assertIn("girilmemiş", satir["ZEYTIN LTD"][7])
+            self.assertEqual(satir["BOS AS"][2:7], [None] * 5)                         # KDV okunamadi
+            self.assertIn("okunamadı", satir["BOS AS"][7])
+            self.assertTrue(str(ws.cell(row=6, column=6).value).startswith("=SUBTOTAL(109,F2:F5"))
 
     def test_guncellenme_bugunku_tarihi_tasir(self):
         """rapor.guncelle() her ekran icin 'bugun islendi mi' kontrolune yarayan tarihi yazar."""
