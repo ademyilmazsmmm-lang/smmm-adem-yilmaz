@@ -34,8 +34,10 @@ Bu depoda (`smmm-adem-yilmaz`): Settings → Secrets and variables → Actions �
 | `MAIL_TO` | mailin geleceği adres |
 
 ## 4. Sayfayı aç
-PR birleştikten sonra `https://smmmyilmaz.com/hatirlatma.html` adresini aç, 2. adımdaki anahtarı yapıştır.
-Bu işlemi telefonda ve bilgisayarda ayrı ayrı bir kere yaparsın; sonra bir daha sorulmaz.
+`https://smmmyilmaz.com/hatirlatma.html` adresini aç. Sayfa sorar: GitHub anahtarı (2. adımdaki) ve belirleyeceğin bir **giriş şifresi**.
+Bu işlemi telefonda ve bilgisayarda ayrı ayrı bir kere yaparsın. Anahtar cihazda şifreyle kilitli saklanır;
+sonraki açılışlarda yalnızca şifreyi yazarsın (sekme açık kaldıkça tekrar sormaz, sayfadaki "Kilitle" ile elle kilitlenir).
+Şifreyi unutursan "Bu cihazdan çıkış" ile sıfırlayıp anahtarı yeniden yapıştırırsın.
 Telefonda Safari'de Paylaş → **Ana Ekrana Ekle**.
 
 Denemek için sayfadan ileri bir tarihe, şu andan birkaç dakika sonraki saatle bir kayıt ekle.
@@ -43,6 +45,9 @@ Actions → **Hatırlatma Maili** → Run workflow ile beklemeden de çalıştı
 
 ## Bilmen gerekenler
 - Mail, seçtiğin saatten birkaç dakika sonra gelebilir (GitHub zamanlayıcısı bazen nadiren yarım saate kadar geciktirir).
-- Anahtar yalnızca o tarayıcıda saklanır. Telefonu kaybedersen GitHub'da anahtarı sil (Revoke), yenisini üret.
+- Anahtar yalnızca o tarayıcıda, giriş şifrenden türetilen anahtarla şifrelenmiş olarak saklanır; şifre hiçbir yere gönderilmez.
+  Bu şifre, açık kalmış bir telefonu ya da bilgisayarı korur. Asıl veri koruması gizli depo ve anahtardır.
+  Telefonu kaybedersen GitHub'da anahtarı sil (Revoke), yenisini üret.
+- Mailin gideceği adres `MAIL_TO` secret'ında durur (koda yazılmaz). Değiştirmek için Settings → Secrets → Actions → `MAIL_TO` → düzenle.
 - Bu depoda Actions günlükleri herkese görünür. Programa hatırlatma metni ya da firma adı yazdırılmaz; yalnızca sayılar yazılır. Bunu değiştirme.
 - Gizli depodaki `hatirlatmalar.json` doğrudan GitHub'dan da düzenlenebilir, ama sayfayı kullanmak daha güvenlidir.
