@@ -43,7 +43,7 @@ def generate_report():
 
     for root, dirs, files in os.walk("."):
         for file in files:
-            if file.endswith(".html"):
+            if file.endswith(".html") and not file.startswith("hatirlatma"):
                 path = os.path.join(root, file)
                 results.append(analyze_html(path))
 
