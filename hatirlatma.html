@@ -50,11 +50,22 @@ a{color:var(--accent)}
 
 <section class="card" id="kurulum" hidden>
   <h2>Bağlantıyı kur (bir kere)</h2>
-  <p class="onizleme" style="white-space:normal">Bu cihaz için GitHub anahtarını yapıştır. Anahtar yalnızca bu tarayıcıda saklanır; bir daha sorulmaz. Telefonda ve bilgisayarda ayrı ayrı bir kere yapıştırman yeter.</p>
-  <form id="kurulumForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px">
-    <input type="password" id="anahtarGir" placeholder="github_pat_..." autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="GitHub anahtarı">
-    <button class="kaydet" type="submit">Bağlan</button>
+  <p class="onizleme" style="white-space:normal">Bu cihaz için GitHub anahtarını yapıştır ve bir giriş şifresi belirle. Anahtar bu cihazda şifreyle kilitli saklanır; sayfayı her açtığında yalnızca şifreyi yazarsın. Telefonda ve bilgisayarda ayrı ayrı kurulur.</p>
+  <form id="kurulumForm" autocomplete="on" style="display:flex;flex-direction:column;gap:12px">
+    <input type="password" id="anahtarGir" placeholder="GitHub anahtarı (github_pat_...)" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" aria-label="GitHub anahtarı">
+    <input type="password" id="sifre1" placeholder="Giriş şifresi (en az 6 karakter)" autocomplete="new-password" aria-label="Giriş şifresi">
+    <input type="password" id="sifre2" placeholder="Giriş şifresini tekrar yaz" autocomplete="new-password" aria-label="Giriş şifresi tekrar">
+    <button class="kaydet" type="submit">Kur</button>
     <div class="durum" id="kurulumDurum" role="status" aria-live="polite"></div>
+  </form>
+</section>
+
+<section class="card" id="kilit" hidden>
+  <h2>Giriş</h2>
+  <form id="kilitForm" autocomplete="on" style="display:flex;flex-direction:column;gap:12px">
+    <input type="password" id="sifreGir" placeholder="Giriş şifresi" autocomplete="current-password" aria-label="Giriş şifresi">
+    <button class="kaydet" type="submit">Aç</button>
+    <div class="durum" id="kilitDurum" role="status" aria-live="polite"></div>
   </form>
 </section>
 
@@ -107,14 +118,14 @@ a{color:var(--accent)}
 </details>
 
 <footer>Mail, seçtiğin saatte gelir. Kontrol 10 dakikada bir yapıldığı için birkaç dakika gecikebilir.
-<a href="#" id="yedek">Yedek indir</a> · <a href="#" id="cikis">Bu cihazdan çıkış</a></footer>
+<a href="#" id="kilitle">Kilitle</a> · <a href="#" id="yedek">Yedek indir</a> · <a href="#" id="cikis">Bu cihazdan çıkış</a></footer>
 </div>
 </main>
 
 <script>
 (function(){
   var DEPO = "ademyilmazsmmm-lang/hatirlatma", DOSYA = "hatirlatmalar.json", API = "https://api.github.com";
-  var ANAHTAR_ADI = "hatirlatma_anahtar";
+  var KASA_ADI = "hatirlatma_kasa", OTURUM_ADI = "hatirlatma_oturum", ESKI_ADI = "hatirlatma_anahtar", ITER = 600000;
   var AYLAR = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Eki","Kas","Ara"];
   var $ = function(id){ return document.getElementById(id); };
 
@@ -165,9 +176,37 @@ a{color:var(--accent)}
 
   /* ---------- GitHub (gizli depo) ---------- */
   function hata(m, kod){ var e=new Error(m); e.kod=kod; return e; }
-  function anahtar(){ try { return localStorage.getItem(ANAHTAR_ADI)||""; } catch(e){ return ""; } }
-  function anahtarKaydet(t){ try { localStorage.setItem(ANAHTAR_ADI,t); return true; } catch(e){ return false; } }
-  function anahtarSil(){ try { localStorage.removeItem(ANAHTAR_ADI); } catch(e){} }
+  var bellek = "";
+  function anahtar(){
+    if(bellek) return bellek;
+    try { bellek = sessionStorage.getItem(OTURUM_ADI)||""; } catch(e){}
+    return bellek;
+  }
+  function oturumaYaz(t){ bellek=t; try { sessionStorage.setItem(OTURUM_ADI,t); } catch(e){} }
+  function oturumuSil(){ bellek=""; try { sessionStorage.removeItem(OTURUM_ADI); } catch(e){} }
+  function kasaOku(){ try { return JSON.parse(localStorage.getItem(KASA_ADI)||"null"); } catch(e){ return null; } }
+  function kasaYaz(k){ try { localStorage.setItem(KASA_ADI, JSON.stringify(k)); return true; } catch(e){ return false; } }
+  function kasaSil(){ try { localStorage.removeItem(KASA_ADI); localStorage.removeItem(ESKI_ADI); } catch(e){} }
+
+  /* Anahtar, şifreden türetilen anahtarla AES-GCM ile şifrelenir (PBKDF2-SHA256). Şifre hiçbir yere gönderilmez. */
+  function b64b(u8){ var s=""; for(var i=0;i<u8.length;i++) s+=String.fromCharCode(u8[i]); return btoa(s); }
+  function b64u(s){ var b=atob(s), a=new Uint8Array(b.length); for(var i=0;i<b.length;i++) a[i]=b.charCodeAt(i); return a; }
+  function sifreAnahtari(sifre, tuz, iter){
+    return crypto.subtle.importKey("raw", new TextEncoder().encode(sifre), "PBKDF2", false, ["deriveKey"]).then(function(m){
+      return crypto.subtle.deriveKey({name:"PBKDF2", salt:tuz, iterations:iter, hash:"SHA-256"}, m, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
+    });
+  }
+  function kilitle(token, sifre){
+    var tuz=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
+    return sifreAnahtari(sifre, tuz, ITER).then(function(k){
+      return crypto.subtle.encrypt({name:"AES-GCM", iv:iv}, k, new TextEncoder().encode(token));
+    }).then(function(c){ return {v:1, i:ITER, s:b64b(tuz), n:b64b(iv), c:b64b(new Uint8Array(c))}; });
+  }
+  function ac(kasa, sifre){
+    return sifreAnahtari(sifre, b64u(kasa.s), kasa.i).then(function(k){
+      return crypto.subtle.decrypt({name:"AES-GCM", iv:b64u(kasa.n)}, k, b64u(kasa.c));
+    }).then(function(p){ return new TextDecoder().decode(p); });
+  }
   function gh(yol, secenek){
     secenek = secenek || {};
     secenek.headers = Object.assign({"Authorization":"Bearer "+anahtar(), "Accept":"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28"}, secenek.headers||{});
@@ -325,7 +364,7 @@ a{color:var(--accent)}
       durum("Kaydedildi.","ok");
       $("metin").value=""; $("saat").value=trSimdi().saat; guncelle(); yukle(); $("metin").focus();
     })
-    .catch(function(err){ durum(err.message||"Bağlantı hatası.","hata"); if(err.kod===401) kurulumGoster(); })
+    .catch(function(err){ durum(err.message||"Bağlantı hatası.","hata"); if(err.kod===401) anahtarGecersiz(); })
     .then(function(){ $("kaydet").disabled=false; });
   });
 
@@ -376,23 +415,44 @@ a{color:var(--accent)}
       $("gecmisKutu").hidden = !g;
     }).catch(function(err){
       $("liste").textContent = err.message||"Liste yüklenemedi.";
-      if(err.kod===401) kurulumGoster();
+      if(err.kod===401) anahtarGecersiz();
     });
   }
 
-  /* ---------- anahtar kurulumu ---------- */
-  function kurulumGoster(){ $("ana").hidden=true; $("kurulum").hidden=false; $("anahtarGir").focus(); }
-  function uygulamaGoster(){ $("kurulum").hidden=true; $("ana").hidden=false; }
+  /* ---------- kurulum ve giriş ---------- */
+  function gizle(){ ["kurulum","kilit","ana"].forEach(function(id){ $(id).hidden=true; }); }
+  function kurulumGoster(){ gizle(); $("kurulum").hidden=false; $("anahtarGir").focus(); }
+  function kilitGoster(){ gizle(); $("kilit").hidden=false; $("sifreGir").focus(); }
+  function uygulamaGoster(){ gizle(); $("ana").hidden=false; }
+  function anahtarGecersiz(){ kasaSil(); oturumuSil(); kurulumGoster(); $("kurulumDurum").textContent="Anahtar geçersiz ya da süresi dolmuş. Yeni anahtarı yapıştır."; }
+
   $("kurulumForm").addEventListener("submit", function(e){
     e.preventDefault();
-    var t=$("anahtarGir").value.trim();
-    if(!t){ $("kurulumDurum").textContent="Anahtarı yapıştır."; return; }
-    if(!anahtarKaydet(t)){ $("kurulumDurum").textContent="Tarayıcı anahtarı saklayamıyor (gizli sekme olabilir). Normal sekmede aç."; return; }
-    $("kurulumDurum").textContent="Kontrol ediliyor…";
-    oku().then(function(){ $("anahtarGir").value=""; $("kurulumDurum").textContent=""; uygulamaGoster(); yukle(); })
-      .catch(function(err){ anahtarSil(); $("kurulumDurum").textContent=err.message||"Bağlanılamadı."; });
+    var t=$("anahtarGir").value.trim(), s1=$("sifre1").value, s2=$("sifre2").value, d=$("kurulumDurum");
+    if(!window.crypto || !crypto.subtle){ d.textContent="Bu tarayıcı şifrelemeyi desteklemiyor (sayfa https ile açılmalı)."; return; }
+    if(!t){ d.textContent="GitHub anahtarını yapıştır."; return; }
+    if(s1.length<6){ d.textContent="Şifre en az 6 karakter olmalı."; return; }
+    if(s1!==s2){ d.textContent="Şifreler aynı değil."; return; }
+    d.textContent="Kontrol ediliyor…"; oturumaYaz(t);
+    oku().then(function(){ return kilitle(t, s1); }).then(function(kasa){
+      if(!kasaYaz(kasa)) throw hata("Tarayıcı kayıt yapamıyor (gizli sekme olabilir). Normal sekmede aç.");
+      try { localStorage.removeItem(ESKI_ADI); } catch(x){}
+      $("anahtarGir").value=""; $("sifre1").value=""; $("sifre2").value=""; d.textContent="";
+      uygulamaGoster(); yukle();
+    }).catch(function(err){ oturumuSil(); d.textContent=err.message||"Bağlanılamadı."; });
   });
-  $("cikis").addEventListener("click", function(e){ e.preventDefault(); anahtarSil(); kurulumGoster(); });
+  $("kilitForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var kasa=kasaOku(), s=$("sifreGir").value, d=$("kilitDurum");
+    if(!kasa){ kurulumGoster(); return; }
+    if(!s){ d.textContent="Şifreyi yaz."; return; }
+    d.textContent="Açılıyor…";
+    ac(kasa, s).then(function(t){
+      oturumaYaz(t); $("sifreGir").value=""; d.textContent=""; uygulamaGoster(); yukle();
+    }).catch(function(){ d.textContent="Şifre yanlış."; $("sifreGir").select(); });
+  });
+  $("kilitle").addEventListener("click", function(e){ e.preventDefault(); oturumuSil(); kilitGoster(); });
+  $("cikis").addEventListener("click", function(e){ e.preventDefault(); kasaSil(); oturumuSil(); kurulumGoster(); });
   $("yedek").addEventListener("click", function(e){
     e.preventDefault();
     oku().then(function(o){
@@ -406,7 +466,9 @@ a{color:var(--accent)}
   $("tarih").value = iso(gunEkle(bugun(),1));
   $("saat").value = trSimdi().saat;
   guncelle();
-  if(anahtar()){ uygulamaGoster(); yukle(); } else { kurulumGoster(); }
+  var eskiAnahtar=""; try { eskiAnahtar=localStorage.getItem(ESKI_ADI)||""; } catch(e){}
+  if(kasaOku()){ if(anahtar()){ uygulamaGoster(); yukle(); } else { kilitGoster(); } }
+  else { if(eskiAnahtar) $("anahtarGir").value=eskiAnahtar; kurulumGoster(); }
 })();
 </script>
 
