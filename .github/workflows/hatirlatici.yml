@@ -1,13 +1,18 @@
 name: Hatırlatma Maili
 
+# Bu depo herkese açık, günlükler de herkese görünür: hiçbir adımda hatırlatma metni yazdırılmaz.
+# Veriler gizli "hatirlatma" deposundadır; HATIRLATMA_TOKEN ile okunur.
 on:
   schedule:
-    - cron: "*/10 * * * *"   # Her 10 dakikada bir panele sorar; zamanı gelen hatırlatma varsa mail atar
+    - cron: "*/10 * * * *"   # Her 10 dakikada bir; zamanı gelen hatırlatma varsa mail atar
   workflow_dispatch:
 
 concurrency:
   group: hatirlatma-maili
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   mail:
@@ -16,12 +21,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Gizli veri deposunu al
+        id: veri
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: ademyilmazsmmm-lang/hatirlatma
+          token: ${{ secrets.HATIRLATMA_TOKEN }}
+          path: veri
+
       - name: Hatırlatmaları gönder
+        if: steps.veri.outcome == 'success'
         env:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
-          PANEL_URL: ${{ secrets.PANEL_URL }}
-        run: python3 hatirlatici.py
+        run: python3 hatirlatici.py --veri veri
+
+      - name: Gönderim kaydını kaydet
+        if: steps.veri.outcome == 'success'
+        working-directory: veri
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add gonderim.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Gönderim kaydı"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            sleep 3
+          done
+          exit 1
+
+      - name: Veriye ulaşılamadı uyarısı
+        if: steps.veri.outcome == 'failure'
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: python3 hatirlatici.py --uyari

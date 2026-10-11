@@ -1,55 +1,98 @@
 """
-Hatırlatma panelinden (PythonAnywhere) zamanı gelmiş hatırlatmaları çekip e-posta olarak yollar,
-ardından panele "gönderildi" bilgisini yazar (aynı hatırlatma tekrar gitmez).
-GitHub Actions her 10 dakikada bir çalıştırır.
+Gizli veri deposundaki (hatirlatma) hatirlatmalar.json dosyasından zamanı gelmiş hatırlatmaları
+bulup e-posta olarak yollar, gönderilenleri gonderim.json dosyasına işler (aynı hatırlatma
+tekrar gitmez). GitHub Actions her 10 dakikada bir çalıştırır.
 
-Panele ulaşılamazsa her sabah 08:00-08:09 arasındaki çalışmada tek bir uyarı maili atar
-(10 dakikada bir mail yağmasın diye diğer çalışmalar sessiz geçer).
+DİKKAT: Bu depo herkese açıktır ve Actions günlükleri herkese görünür. Bu yüzden ekrana
+hatırlatma metni, firma adı ya da adres YAZILMAZ; yalnızca sayılar yazılır.
 
-Gerekli ortam değişkenleri:
-  PANEL_URL   https://KULLANICI.pythonanywhere.com/h/ANAHTAR   (sonunda / olmadan)
-  SMTP_HOST, SMTP_USER, SMTP_PASS, MAIL_TO
+Gerekli ortam değişkenleri: SMTP_HOST, SMTP_USER, SMTP_PASS, MAIL_TO
 İsteğe bağlı: SMTP_PORT (587), MAIL_FROM (SMTP_USER)
 
 Kullanım:
-  python hatirlatici.py                              # mail atar, panele işler
-  python hatirlatici.py --dry-run                    # mail atmaz, panele yazmaz
-  python hatirlatici.py --simdi 2026-12-28T09:30 --dry-run
+  python hatirlatici.py --veri veri                    # mail atar, gonderim.json'u günceller
+  python hatirlatici.py --veri veri --dry-run          # mail atmaz, dosyaya yazmaz, içeriği yazdırır
+  python hatirlatici.py --veri veri --simdi 2026-12-28T09:30 --dry-run
+  python hatirlatici.py --uyari                        # veriye ulaşılamadı uyarısı (08:00-08:09 arası)
 """
 
 import argparse
+import calendar
 import json
 import os
 import smtplib
 import sys
-import urllib.error
-import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
 
-TR = timezone(timedelta(hours=3))
+TR = timezone(timedelta(hours=3))      # Türkiye yıl boyu UTC+3
+TOLERANS = timedelta(minutes=5)        # kayıt anından hemen önceki saat dilimi de geçerli sayılır
+GERI_DONUS = timedelta(hours=48)       # uzun kesintiden sonra en fazla 2 günlük gecikmiş mail gider
 
 
-def istek(url, yol, simdi=None, veri=None):
-    adres = url.rstrip("/") + yol + (f"?simdi={simdi}" if simdi else "")
-    basliklar = {"User-Agent": "hatirlatici/2.0"}
-    govde = None
-    if veri is not None:
-        govde = json.dumps(veri).encode()
-        basliklar["Content-Type"] = "application/json"
-    with urllib.request.urlopen(urllib.request.Request(adres, data=govde, headers=basliklar), timeout=30) as r:
-        return json.load(r)
+# ---------- tarih mantığı ----------
+
+def simdi_tr():
+    return datetime.now(TR).replace(tzinfo=None, second=0, microsecond=0)
 
 
-def mesaj(konu, govde, gonderen, alici):
+def gun_sec(y, a, g):
+    return date(y, a, min(g, calendar.monthrange(y, a)[1]))
+
+
+def olay_mi(k, hedef):
+    if k["tur"] == "tek":
+        return date.fromisoformat(k["tarih"]) == hedef
+    if k["tur"] == "aylik":
+        return gun_sec(hedef.year, hedef.month, k["gun"]) == hedef
+    return gun_sec(hedef.year, k["ay"], k["gun"]) == hedef
+
+
+def bekleyenler(hatirlatmalar, gonderilen, simdi):
+    """Zamanı gelmiş ama gönderilmemiş (hatırlatma, olay günü, kaç gün önce) kayıtları."""
+    sonuc = []
+    for k in hatirlatmalar:
+        saat = datetime.strptime(k["saat"], "%H:%M").time()
+        olusturma = datetime.fromisoformat(k["olusturma"])
+        for fark in sorted({int(x) for x in k["gunler"]}, reverse=True):
+            for geri in range(3):
+                gun = simdi.date() - timedelta(days=geri)
+                hedef = gun + timedelta(days=fark)
+                if not olay_mi(k, hedef):
+                    continue
+                slot = datetime.combine(gun, saat)
+                if slot > simdi or slot < simdi - GERI_DONUS or slot < olusturma - TOLERANS:
+                    continue
+                if (k["id"], hedef.isoformat(), fark) in gonderilen:
+                    continue
+                sonuc.append({"id": k["id"], "metin": k["metin"], "olay": hedef.isoformat(), "fark": fark})
+    return sonuc
+
+
+# ---------- dosyalar ----------
+
+def json_oku(yol, varsayilan):
+    try:
+        with open(yol, encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return varsayilan
+
+
+def json_yaz(yol, veri):
+    with open(yol, "w", encoding="utf-8") as f:
+        json.dump(veri, f, ensure_ascii=False, indent=1)
+        f.write("\n")
+
+
+# ---------- mail ----------
+
+def mesaj(konu, govde):
+    gonderen = os.environ.get("MAIL_FROM") or os.environ.get("SMTP_USER", "hatirlatici@localhost")
     msg = EmailMessage()
-    msg["From"], msg["To"], msg["Subject"] = gonderen, alici, konu
+    msg["From"], msg["To"], msg["Subject"] = gonderen, os.environ["MAIL_TO"], konu
     msg.set_content(govde)
     return msg
-
-
-def tr_tarih(iso):
-    return datetime.strptime(iso, "%Y-%m-%d").strftime("%d.%m.%Y")
 
 
 def smtp_gonder(msg):
@@ -59,41 +102,52 @@ def smtp_gonder(msg):
         s.send_message(msg)
 
 
+def tr_tarih(iso):
+    return datetime.strptime(iso, "%Y-%m-%d").strftime("%d.%m.%Y")
+
+
+def uyari(dry_run):
+    su = datetime.now(TR)
+    if not (su.hour == 8 and su.minute < 10) and not dry_run:
+        print("Veriye ulaşılamadı; uyarı maili yalnızca 08:00-08:09 arası gönderilir.")
+        return
+    msg = mesaj(
+        "Hatırlatma verisine ulaşılamıyor",
+        "Gizli depodaki hatırlatmalar okunamıyor, mailler gelmeyebilir.\n\n"
+        "Olası neden: GitHub anahtarının (HATIRLATMA_TOKEN) süresi doldu ya da iptal edildi.\n"
+        "Çözüm: github.com → Settings → Developer settings → Fine-grained tokens bölümünden yeni anahtar üret, "
+        "ana depodaki HATIRLATMA_TOKEN secret'ını güncelle, hatırlatma sayfasında da yeni anahtarı yapıştır.\n",
+    )
+    if dry_run:
+        print(msg["Subject"]); print(msg.get_content())
+    else:
+        smtp_gonder(msg)
+        print("Uyarı maili gönderildi.")
+
+
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--veri", default="veri", help="gizli veri deposunun klasörü")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--simdi", help="YYYY-AA-GGTSS:DD (test için)")
+    ap.add_argument("--uyari", action="store_true", help="veriye ulaşılamadı uyarı maili")
     args = ap.parse_args()
 
-    alici, panel = os.environ.get("MAIL_TO"), os.environ.get("PANEL_URL")
-    if not alici or not panel:
-        sys.exit("PANEL_URL ve MAIL_TO ortam değişkenleri tanımlı olmalı.")
-    gonderen = os.environ.get("MAIL_FROM") or os.environ.get("SMTP_USER", "hatirlatici@localhost")
+    if not os.environ.get("MAIL_TO"):
+        sys.exit("MAIL_TO ortam değişkeni tanımlı olmalı.")
+    if args.uyari:
+        return uyari(args.dry_run)
 
-    try:
-        veri = istek(panel, "/api/bekleyen", args.simdi)
-        liste = veri["hatirlatmalar"]
-    except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
-        su = datetime.now(TR)
-        print(f"Panele ulaşılamadı ({type(e).__name__}).")  # adres anahtar içerir, yazılmaz
-        if not (su.hour == 8 and su.minute < 10) and not args.dry_run:
-            return
-        msg = mesaj(
-            "Hatırlatma paneline ulaşılamadı",
-            "Hatırlatmalar kontrol edilemiyor, mailler gelmeyebilir.\n\n"
-            "Olası neden: PythonAnywhere'de panelin süresi doldu. pythonanywhere.com → Web sekmesi → "
-            "\"Run until ... from today\" düğmesine bas.\n\n"
-            f"Hata türü: {type(e).__name__}\n",
-            gonderen, alici,
-        )
-        if args.dry_run:
-            print(msg["Subject"]); print(msg.get_content())
-        else:
-            smtp_gonder(msg)
-        return
+    simdi = datetime.fromisoformat(args.simdi) if args.simdi else simdi_tr()
+    hat_yolu = os.path.join(args.veri, "hatirlatmalar.json")
+    log_yolu = os.path.join(args.veri, "gonderim.json")
+    veri = json_oku(hat_yolu, {"hatirlatmalar": []})
+    log = json_oku(log_yolu, [])
+    gonderilen = {(o["id"], o["olay"], o["fark"]) for o in log}
 
+    liste = bekleyenler(veri["hatirlatmalar"], gonderilen, simdi)
     if not liste:
-        print(f"{veri.get('simdi')}: gönderilecek hatırlatma yok.")
+        print("Gönderilecek hatırlatma yok.")
         return
 
     satirlar = [
@@ -101,17 +155,19 @@ def main():
         for k in liste
     ]
     konu = liste[0]["metin"] if len(liste) == 1 else f"{len(liste)} hatırlatma"
-    msg = mesaj(konu, "Hatırlatmalar:\n\n" + "\n".join(satirlar) + "\n", gonderen, alici)
+    msg = mesaj(konu, "Hatırlatmalar:\n\n" + "\n".join(satirlar) + "\n")
 
     if args.dry_run:
         print(msg["Subject"]); print(msg.get_content())
         return
 
     smtp_gonder(msg)
-    print("Mail gönderildi:", msg["Subject"])
-    istek(panel, "/api/gonderildi",
-          veri={"ogeler": [{"id": k["id"], "olay": k["olay"], "fark": k["fark"]} for k in liste]})
-    print("Panele işlendi.")
+    zaman = simdi.isoformat(timespec="minutes")
+    log += [{"id": k["id"], "olay": k["olay"], "fark": k["fark"], "zaman": zaman} for k in liste]
+    sinir = (simdi.date() - timedelta(days=7)).isoformat()
+    log = [o for o in log if o["olay"] >= sinir]  # çok eski kayıtlar dosyayı şişirmesin
+    json_yaz(log_yolu, log)
+    print(f"{len(liste)} hatırlatma gönderildi.")  # metin yazılmaz: günlük herkese açık
 
 
 if __name__ == "__main__":
