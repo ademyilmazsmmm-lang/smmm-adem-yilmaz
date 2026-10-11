@@ -41,7 +41,8 @@ jobs:
         run: python3 hatirlatici.py --veri veri
 
       - name: Gönderim kaydını kaydet
-        if: steps.veri.outcome == 'success'
+        # Gönderme adımı kısmen başarısız olsa bile gidenler kaydedilmeli (aynı mail tekrar gitmesin).
+        if: always() && steps.veri.outcome == 'success'
         working-directory: veri
         run: |
           git config user.name "github-actions"

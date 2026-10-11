@@ -108,6 +108,13 @@ def mesaj(konu, govde):
     return msg
 
 
+def hatirlatma_maili(k):
+    """Konu: hatırlatma metninin kendisi (başlık enjeksiyonuna karşı tek satıra indirilir)."""
+    konu = " ".join(str(k["metin"]).split()) or "Hatırlatma"
+    zaman = "BUGÜN" if k["fark"] == 0 else f"{k['fark']} gün kaldı"
+    return mesaj(konu, f"{konu}\n\nTarih: {tr_tarih(k['olay'])} ({zaman})\n")
+
+
 def smtp_gonder(msg):
     with smtplib.SMTP(os.environ["SMTP_HOST"], int(os.environ.get("SMTP_PORT") or 587), timeout=30) as s:
         s.starttls()
@@ -191,24 +198,37 @@ def main():
         print("Gönderilecek hatırlatma yok.")
         return
 
-    satirlar = [
-        f"- {k['metin']} ({tr_tarih(k['olay'])}) - {'BUGÜN' if k['fark'] == 0 else str(k['fark']) + ' gün kaldı'}"
-        for k in liste
-    ]
-    konu = liste[0]["metin"] if len(liste) == 1 else f"{len(liste)} hatırlatma"
-    msg = mesaj(konu, "Hatırlatmalar:\n\n" + "\n".join(satirlar) + "\n")
+    # Her hatırlatma kendi konusuyla AYRI bir mail olarak gider. Bir kesintiden sonra aynı hatırlatmanın
+    # birden fazla kaçmış slotu birikmişse (örn. "1 gün kaldı" ve "bugün") yalnızca en yakın olanı gönderilir,
+    # hepsi gönderildi sayılır.
+    gruplar = {}
+    for k in liste:
+        gruplar.setdefault((k["id"], k["olay"]), []).append(k)
+    gonderilecek = sorted((min(g, key=lambda x: x["fark"]) for g in gruplar.values()),
+                          key=lambda x: (x["olay"], x["id"]))
 
     if args.dry_run:
-        print(msg["Subject"]); print(msg.get_content())
+        for k in gonderilecek:
+            m = hatirlatma_maili(k); print("Konu:", m["Subject"]); print(m.get_content())
         return
 
-    smtp_gonder(msg)
     zaman = simdi.isoformat(timespec="minutes")
-    log += [{"id": k["id"], "olay": k["olay"], "fark": k["fark"], "zaman": zaman} for k in liste]
+    basarili, basarisiz = 0, 0
+    for k in gonderilecek:
+        try:
+            smtp_gonder(hatirlatma_maili(k))
+        except Exception as e:  # tek bir mail diğerlerini engellemesin; gönderilmeyen bir sonraki çalışmada denenir
+            basarisiz += 1
+            print(f"Bir hatırlatma gönderilemedi ({type(e).__name__}).")  # metin yazılmaz: günlük herkese açık
+            continue
+        basarili += 1
+        log += [{"id": s["id"], "olay": s["olay"], "fark": s["fark"], "zaman": zaman} for s in gruplar[(k["id"], k["olay"])]]
     sinir = (simdi.date() - timedelta(days=7)).isoformat()
     log = [o for o in log if o["olay"] >= sinir]  # çok eski kayıtlar dosyayı şişirmesin
     json_yaz(log_yolu, log)
-    print(f"{len(liste)} hatırlatma gönderildi.")  # metin yazılmaz: günlük herkese açık
+    print(f"{basarili} hatırlatma gönderildi." + (f" {basarisiz} gönderilemedi." if basarisiz else ""))
+    if basarisiz:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
