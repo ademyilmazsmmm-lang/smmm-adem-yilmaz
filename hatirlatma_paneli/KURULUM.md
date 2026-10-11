@@ -43,10 +43,13 @@ Depoda Settings → Secrets and variables → Actions → şu secret'ları ekle:
 | `SMTP_PASS` | Gmail "uygulama şifresi" |
 | `MAIL_TO` | mailin geleceği adres |
 
-Actions → **Hatırlatma Maili** → Run workflow ile elle dene.
+Actions → **Hatırlatma Maili** → Run workflow ile elle dene. Workflow her 10 dakikada bir kendiliğinden çalışır.
+
+Her hatırlatmanın kendi saati vardır (varsayılan: kaydettiğin an). Mail o saatte gelir; kontrol 10 dakikada bir
+yapıldığı ve GitHub zamanlayıcısı bazen geciktiği için birkaç dakika (nadiren yarım saate kadar) sapma olabilir.
 
 ## Önemli
 - Ücretsiz hesapta Web sekmesindeki **"Run until ... from today"** düğmesine düzenli bas. Basmazsan panel kapanır.
-  Panel kapalıyken sabah mailinde "panele ulaşılamadı" uyarısı gelir.
+  Panel kapalıyken her sabah 08:00'de (tek seferlik) "panele ulaşılamadı" uyarı maili gelir; gün içinde sessiz kalır.
 - Anahtarı kimseyle paylaşma. Sızarsa `hatirlatma_ayar.py`'de değiştir, WSGI'yi Reload et ve `PANEL_URL` secret'ını güncelle.
 - Veri `hatirlatma_paneli/hatirlatma.db` dosyasındadır, depoya girmez. Sayfanın altındaki "Yedek indir" bağlantısı metin yedeği verir.

@@ -2,18 +2,19 @@ name: Hatırlatma Maili
 
 on:
   schedule:
-    - cron: "0 5 * * *"   # Her gün 08:00 (TR saati)
+    - cron: "*/10 * * * *"   # Her 10 dakikada bir panele sorar; zamanı gelen hatırlatma varsa mail atar
   workflow_dispatch:
+
+concurrency:
+  group: hatirlatma-maili
+  cancel-in-progress: false
 
 jobs:
   mail:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
 
       - name: Hatırlatmaları gönder
         env:
@@ -23,4 +24,4 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
           PANEL_URL: ${{ secrets.PANEL_URL }}
-        run: python hatirlatici.py
+        run: python3 hatirlatici.py

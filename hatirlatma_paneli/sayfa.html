@@ -20,7 +20,7 @@ h1{font-size:1.4rem;margin:0}
 h2{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:600}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:12px}
 label,.lbl{font-size:.85rem;color:var(--muted);display:block;margin-bottom:4px}
-input[type=text],input[type=date],select{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);min-height:46px}
+input[type=text],input[type=date],input[type=time],select{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);min-height:46px}
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{font:inherit;font-size:.9rem;padding:8px 13px;min-height:40px;border:1px solid var(--line);border-radius:99px;background:var(--bg);color:var(--fg);cursor:pointer}
@@ -28,7 +28,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);ou
 .kaydet{font:inherit;font-weight:600;padding:13px;min-height:50px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);cursor:pointer}
 .kaydet:disabled{opacity:.6}
 .durum{min-height:1.4em;font-size:.9rem}.durum.hata{color:var(--danger)}.durum.ok{color:var(--accent)}
-.onizleme{font-size:.85rem;color:var(--muted)}
+.onizleme{font-size:.85rem;color:var(--muted);white-space:pre-line}
 .uyari{font-size:.85rem;background:var(--warn-soft);color:var(--warn);padding:8px 10px;border-radius:6px}
 .oge{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:12px 0;border-top:1px solid var(--line);align-items:start}
 .oge:first-child{border-top:0}
@@ -68,6 +68,10 @@ a{color:var(--accent)}
     <div class="chips" id="hizli" style="margin-top:8px"></div>
   </div>
   <div>
+    <label for="saat">Saat (mail bu saatte gelir)</label>
+    <input type="time" id="saat" required>
+  </div>
+  <div>
     <span class="lbl">Mail kaç gün önce gelsin?</span>
     <div class="chips" id="gunler"></div>
   </div>
@@ -90,12 +94,14 @@ a{color:var(--accent)}
   <div class="card gecmis" id="gecmis"></div>
 </details>
 
-<footer>Mailler her sabah 08:00'de gelir. <a href="yedek.txt">Yedek indir</a></footer>
+<footer>Mail, seçtiğin saatte gelir. Kontrol 10 dakikada bir yapıldığı için birkaç dakika gecikebilir. <a href="yedek.txt">Yedek indir</a></footer>
 </main>
 
 <script>
 (function(){
   var BUGUN = "{{ bugun }}";
+  var SIMDI_SAAT = "{{ saat }}";
+  var YUKLEME = Date.now();
   var AYLAR = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Eki","Kas","Ara"];
   var $ = function(id){ return document.getElementById(id); };
 
@@ -109,6 +115,13 @@ a{color:var(--accent)}
   }
   function goster(s){ var d=parse(s); return d.getDate()+" "+AYLAR[d.getMonth()]+" "+d.getFullYear(); }
   function farkGun(s){ return Math.round((parse(s)-parse(BUGUN))/86400000); }
+  function iki(n){ return String(n).padStart(2,"0"); }
+  function simdiTR(){
+    var p=SIMDI_SAAT.split(":"), d=parse(BUGUN); d.setHours(+p[0], +p[1], 0, 0);
+    return new Date(d.getTime() + (Date.now()-YUKLEME));
+  }
+  function dt(d){ return iso(d)+"T"+iki(d.getHours())+":"+iki(d.getMinutes()); }
+  function simdiSaat(){ var d=simdiTR(); return iki(d.getHours())+":"+iki(d.getMinutes()); }
   function goreli(n){ return n===0?"bugün":n===1?"yarın":n+" gün sonra"; }
 
   var secili = {gunler:{1:true,0:true}, tekrar:"yok"};
@@ -166,14 +179,21 @@ a{color:var(--accent)}
     Array.prototype.forEach.call($("gunler").children, function(b){ b.setAttribute("aria-pressed", secili.gunler[b.dataset.v]?"true":"false"); });
     Array.prototype.forEach.call($("tekrar").children, function(b){ b.setAttribute("aria-pressed", secili.tekrar===b.dataset.v?"true":"false"); });
     var et=etkinTarih(), m=etkinMetin(), uy=$("uyari");
-    $("onizleme").textContent = (et && m) ? ("Hatırlatma: "+goster(et)+" – "+m) : (sablon && et ? "Olay tarihi: "+goster(et) : "");
+    var satir1 = (et && m) ? ("Hatırlatma: "+goster(et)+" – "+m) : (sablon && et ? "Olay tarihi: "+goster(et) : "");
     uy.hidden = true;
-    if(et && secili.tekrar==="yok"){
-      var g=gunlerDizi();
-      var gelecek = g.some(function(f){ return farkGun(et)-f > 0; });
-      if(!g.length){ uy.textContent="En az bir gün seç."; uy.hidden=false; }
-      else if(!gelecek){ uy.textContent="Bu tarih için sabah 08:00 maili kalmadı; bugünkü mail çoktan gitti. Daha ileri bir tarih ya da daha erken gün seç."; uy.hidden=false; }
+    var satir2 = "";
+    var g=gunlerDizi(), sa=$("saat").value||"08:00";
+    if(!g.length){ uy.textContent="En az bir gün seç."; uy.hidden=false; }
+    else if(et && secili.tekrar==="yok"){
+      var sinir=dt(new Date(simdiTR().getTime()-5*60000));
+      var slotlar=g.map(function(f){ var d=gunEkle(parse(et),-f); return iso(d)+"T"+sa; })
+                   .filter(function(s){ return s>=sinir; }).sort();
+      if(!slotlar.length){ uy.textContent="Seçtiğin gün ve saatlerin hepsi geçmişte, hiç mail gelmeyecek. Saati ya da günleri değiştir."; uy.hidden=false; }
+      else satir2 = "Mailler: "+slotlar.map(function(s){ return goster(s.slice(0,10))+" "+s.slice(11); }).join(", ");
+    } else if(et){
+      satir2 = "Mail saati: "+sa;
     }
+    $("onizleme").textContent = [satir1, satir2].filter(Boolean).join("\n");
   }
 
   function durum(m,t){ var d=$("durum"); d.textContent=m; d.className="durum "+(t||""); }
@@ -185,6 +205,7 @@ a{color:var(--accent)}
   });
   $("metin").addEventListener("input", guncelle);
   $("tarih").addEventListener("input", guncelle);
+  $("saat").addEventListener("input", guncelle);
 
   $("form").addEventListener("submit", function(e){
     e.preventDefault();
@@ -194,12 +215,12 @@ a{color:var(--accent)}
     if(!g.length){ durum("En az bir gün seç.","hata"); return; }
     $("kaydet").disabled=true; durum("Kaydediliyor…");
     fetch("ekle", {method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({metin:m, tarih:et, gunler:g, tekrar:secili.tekrar})})
+      body:JSON.stringify({metin:m, tarih:et, saat:$("saat").value||simdiSaat(), gunler:g, tekrar:secili.tekrar})})
     .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
     .then(function(x){
       if(!x.ok) throw new Error(x.j.hata||"Kaydedilemedi.");
       durum("Kaydedildi.","ok");
-      $("metin").value=""; guncelle(); yukle(); $("metin").focus();
+      $("metin").value=""; $("saat").value=simdiSaat(); guncelle(); yukle(); $("metin").focus();
     })
     .catch(function(err){ durum(err.message||"Bağlantı hatası.","hata"); })
     .then(function(){ $("kaydet").disabled=false; });
@@ -214,7 +235,7 @@ a{color:var(--accent)}
     if(k.sonraki){
       var b=document.createElement("b"); b.textContent=goster(k.sonraki);
       t.appendChild(b);
-      t.appendChild(document.createTextNode(" ("+goreli(farkGun(k.sonraki))+") · "+tekrarAd+k.gunler.map(function(g){return g===0?"aynı gün":g+" gün önce";}).join(", ")));
+      t.appendChild(document.createTextNode(" ("+goreli(farkGun(k.sonraki))+") · "+k.saat+" · "+tekrarAd+k.gunler.map(function(g){return g===0?"aynı gün":g+" gün önce";}).join(", ")));
     } else {
       t.textContent = goster(k.tarih)+" (geçti)";
     }
@@ -248,6 +269,7 @@ a{color:var(--accent)}
   }
 
   $("tarih").value = iso(gunEkle(parse(BUGUN),1));
+  $("saat").value = SIMDI_SAAT;
   guncelle(); yukle();
 })();
 </script>

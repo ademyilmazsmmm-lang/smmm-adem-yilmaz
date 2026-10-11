@@ -37,8 +37,12 @@ app = Flask(__name__)
 
 # ---------- tarih yardımcıları ----------
 
+def simdi():
+    return datetime.now(TR).replace(tzinfo=None, second=0, microsecond=0)
+
+
 def bugun():
-    return datetime.now(TR).date()
+    return simdi().date()
 
 
 def ay_ekle(d, n):
@@ -86,8 +90,18 @@ def db():
             tur TEXT NOT NULL CHECK (tur IN ('tek','aylik','yillik')),
             tarih TEXT, ay INTEGER, gun INTEGER,
             gunler TEXT NOT NULL DEFAULT '0',
+            saat TEXT NOT NULL DEFAULT '08:00',
             metin TEXT NOT NULL,
             olusturma TEXT NOT NULL)"""
+    )
+    try:
+        c.execute("ALTER TABLE hatirlatma ADD COLUMN saat TEXT NOT NULL DEFAULT '08:00'")
+    except sqlite3.OperationalError:
+        pass  # sütun zaten var
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS gonderim (
+            id INTEGER NOT NULL, olay TEXT NOT NULL, fark INTEGER NOT NULL,
+            zaman TEXT NOT NULL, PRIMARY KEY (id, olay, fark))"""
     )
     return c
 
@@ -121,7 +135,8 @@ def baslik(resp):
 @app.get("/<anahtar>/")
 def sayfa(anahtar):
     kontrol(anahtar)
-    return render_template_string(SAYFA, bugun=bugun().isoformat())
+    s = simdi()
+    return render_template_string(SAYFA, bugun=s.date().isoformat(), saat=s.strftime("%H:%M"))
 
 
 @app.get("/<anahtar>/liste")
@@ -133,7 +148,7 @@ def liste(anahtar):
         cikti.append({
             "id": k["id"], "metin": k["metin"], "tur": k["tur"],
             "sonraki": s.isoformat() if s else None,
-            "tarih": k["tarih"], "gunler": gunler_listesi(k),
+            "tarih": k["tarih"], "gunler": gunler_listesi(k), "saat": k["saat"],
         })
     cikti.sort(key=lambda x: (x["sonraki"] is None, x["sonraki"] or "", x["id"]))
     return jsonify(cikti)
@@ -149,8 +164,9 @@ def ekle(anahtar):
     try:
         tarih = date.fromisoformat(str(v.get("tarih", "")))
         gunler = sorted({int(x) for x in v.get("gunler", [0])}, reverse=True)
+        saat = datetime.strptime(str(v.get("saat", "08:00")), "%H:%M").strftime("%H:%M")
     except (ValueError, TypeError):
-        return jsonify(hata="Tarih veya gün değeri geçersiz."), 400
+        return jsonify(hata="Tarih, saat veya gün değeri geçersiz."), 400
     if not gunler or any(g < 0 or g > 365 for g in gunler):
         return jsonify(hata="Kaç gün önce değeri geçersiz."), 400
     tekrar = v.get("tekrar", "yok")
@@ -166,8 +182,8 @@ def ekle(anahtar):
         return jsonify(hata="Tekrar değeri geçersiz."), 400
     with db() as c:
         c.execute(
-            "INSERT INTO hatirlatma (tur,tarih,ay,gun,gunler,metin,olusturma) VALUES (?,?,?,?,?,?,?)",
-            (tur, t, ay, gun, ",".join(map(str, gunler)), metin, datetime.now(TR).isoformat(timespec="seconds")),
+            "INSERT INTO hatirlatma (tur,tarih,ay,gun,gunler,saat,metin,olusturma) VALUES (?,?,?,?,?,?,?,?)",
+            (tur, t, ay, gun, ",".join(map(str, gunler)), saat, metin, simdi().isoformat(timespec="minutes")),
         )
     return jsonify(tamam=True)
 
@@ -177,24 +193,62 @@ def sil(anahtar, no):
     kontrol(anahtar)
     with db() as c:
         c.execute("DELETE FROM hatirlatma WHERE id=?", (no,))
+        c.execute("DELETE FROM gonderim WHERE id=?", (no,))
     return jsonify(tamam=True)
 
 
-@app.get("/<anahtar>/api/bugun")
-def api_bugun(anahtar):
-    """GitHub Actions her sabah buraya sorar. ?bugun=YYYY-AA-GG test içindir."""
+TOLERANS = timedelta(minutes=5)   # kayıt anından hemen önceki saat dilimi de geçerli sayılır
+GERI_DONUS = timedelta(hours=48)  # uzun kesintiden sonra en fazla 2 günlük gecikmiş mail gider
+
+
+def bekleyenler(simdi_):
+    """Zamanı gelmiş ama henüz gönderilmemiş (hatırlatma, olay günü, kaç gün önce) üçlüleri."""
+    with db() as c:
+        gonderilen = {(r["id"], r["olay"], r["fark"]) for r in c.execute("SELECT id, olay, fark FROM gonderim")}
+    sonuc = []
+    for k in satirlar():
+        saat = datetime.strptime(k["saat"], "%H:%M").time()
+        olusturma = datetime.fromisoformat(k["olusturma"])
+        for fark in gunler_listesi(k):
+            for geri in range(0, 3):
+                gun = simdi_.date() - timedelta(days=geri)
+                hedef = gun + timedelta(days=fark)
+                if not olay_mi(k, hedef):
+                    continue
+                slot = datetime.combine(gun, saat)
+                if slot > simdi_ or slot < simdi_ - GERI_DONUS or slot < olusturma - TOLERANS:
+                    continue
+                if (k["id"], hedef.isoformat(), fark) in gonderilen:
+                    continue
+                sonuc.append({"id": k["id"], "metin": k["metin"], "olay": hedef.isoformat(), "fark": fark,
+                              "saat": k["saat"]})
+    return sonuc
+
+
+@app.get("/<anahtar>/api/bekleyen")
+def api_bekleyen(anahtar):
+    """GitHub Actions her 10 dakikada buraya sorar. ?simdi=YYYY-AA-GGTSS:DD test içindir."""
     kontrol(anahtar)
     try:
-        b = date.fromisoformat(request.args["bugun"]) if "bugun" in request.args else bugun()
+        s = datetime.fromisoformat(request.args["simdi"]) if "simdi" in request.args else simdi()
     except ValueError:
-        return jsonify(hata="bugun geçersiz"), 400
-    cikti = []
-    for k in satirlar():
-        for fark in gunler_listesi(k):
-            hedef = b + timedelta(days=fark)
-            if olay_mi(k, hedef):
-                cikti.append({"metin": k["metin"], "olay": hedef.isoformat(), "fark": fark})
-    return jsonify(bugun=b.isoformat(), hatirlatmalar=cikti)
+        return jsonify(hata="simdi geçersiz"), 400
+    return jsonify(simdi=s.isoformat(timespec="minutes"), hatirlatmalar=bekleyenler(s))
+
+
+@app.post("/<anahtar>/api/gonderildi")
+def api_gonderildi(anahtar):
+    """Mail başarıyla gittikten sonra Actions çağırır; aynı kayıt tekrar gönderilmez."""
+    kontrol(anahtar)
+    v = request.get_json(silent=True) or {}
+    try:
+        kayit = [(int(o["id"]), date.fromisoformat(o["olay"]).isoformat(), int(o["fark"])) for o in v.get("ogeler", [])]
+    except (KeyError, ValueError, TypeError):
+        return jsonify(hata="ogeler geçersiz"), 400
+    with db() as c:
+        c.executemany("INSERT OR IGNORE INTO gonderim (id, olay, fark, zaman) VALUES (?,?,?,?)",
+                      [(i, o, f, simdi().isoformat(timespec="minutes")) for i, o, f in kayit])
+    return jsonify(tamam=True, sayi=len(kayit))
 
 
 @app.get("/<anahtar>/yedek.txt")
@@ -208,7 +262,7 @@ def yedek(anahtar):
             zaman = f"her-ay {k['gun']}"
         else:
             zaman = f"her-yil {k['ay']:02d}-{k['gun']:02d}"
-        sat.append(f"{zaman} | {k['gunler']} | {k['metin']}")
+        sat.append(f"{zaman} {k['saat']} | {k['gunler']} | {k['metin']}")
     r = make_response("\n".join(sat) + "\n")
     r.mimetype = "text/plain"
     return r
