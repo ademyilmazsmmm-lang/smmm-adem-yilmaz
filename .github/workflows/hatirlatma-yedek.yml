@@ -1,0 +1,39 @@
+name: Hatırlatma Yedeği
+
+# Her ayın 1'inde ve 16'sında (yaklaşık 15 günde bir) 08:17'de (TR) yedeği mail eki olarak gönderir.
+# Bu depo herkese açık, günlükler de herkese görünür: hiçbir adımda hatırlatma ya da görev metni yazdırılmaz.
+on:
+  schedule:
+    - cron: "17 5 1,16 * *"
+  workflow_dispatch:
+
+concurrency:
+  group: hatirlatma-yedek
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  yedek:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Gizli veri deposunu al
+        uses: actions/checkout@v4
+        with:
+          repository: ademyilmazsmmm-lang/hatirlatma
+          token: ${{ secrets.HATIRLATMA_TOKEN }}
+          path: veri
+          persist-credentials: false
+
+      - name: Yedeği gönder
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: python3 hatirlatici.py --veri veri --yedek
