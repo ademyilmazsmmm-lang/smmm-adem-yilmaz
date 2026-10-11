@@ -46,6 +46,8 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
+          # Hiç mail gitmediyse gonderim.json oluşmamış olabilir; yapacak bir şey yok.
+          [ -f gonderim.json ] || exit 0
           git add gonderim.json
           git diff --cached --quiet && exit 0
           git commit -m "Gönderim kaydı"
