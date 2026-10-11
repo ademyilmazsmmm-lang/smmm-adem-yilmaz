@@ -22,4 +22,5 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
+          PANEL_URL: ${{ secrets.PANEL_URL }}
         run: python hatirlatici.py

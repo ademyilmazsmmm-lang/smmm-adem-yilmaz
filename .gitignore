@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+
+hatirlatma_paneli/hatirlatma_ayar.py
+hatirlatma_paneli/hatirlatma.db
