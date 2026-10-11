@@ -139,15 +139,28 @@ a{color:var(--accent)}
   function farkGun(s){ return Math.round((parse(s)-bugun())/86400000); }
   function goreli(n){ return n===0?"bugün":n===1?"yarın":n+" gün sonra"; }
   function sonraki(k,d){
-    if(k.tur==="tek"){ var t=parse(k.tarih); return t.getTime()>=d.getTime() ? t : null; }
-    if(k.tur==="aylik"){
-      var x=gunSec(d.getFullYear(), d.getMonth()+1, k.gun);
-      if(x.getTime()>=d.getTime()) return x;
-      var n=ayEkle(new Date(d.getFullYear(), d.getMonth(), 1), 1);
-      return gunSec(n.getFullYear(), n.getMonth()+1, k.gun);
+    var bas = k.tarih ? parse(k.tarih) : null, i, x;
+    if(k.tur==="tek") return bas.getTime()>=d.getTime() ? bas : null;
+    if(k.tur==="haftalik"){
+      if(bas.getTime()>=d.getTime()) return bas;
+      return gunEkle(bas, Math.ceil(Math.round((d-bas)/86400000)/7)*7);
     }
-    var y=gunSec(d.getFullYear(), k.ay, k.gun);
-    return y.getTime()>=d.getTime() ? y : gunSec(d.getFullYear()+1, k.ay, k.gun);
+    if(k.tur==="aylik"){
+      var aralik=k.aralik||1;
+      for(i=0;i<48;i++){
+        var m=ayEkle(new Date(d.getFullYear(), d.getMonth(), 1), i);
+        x=gunSec(m.getFullYear(), m.getMonth()+1, k.gun);
+        if(x.getTime()<d.getTime() || (bas && x.getTime()<bas.getTime())) continue;
+        if(aralik>1 && bas && ((x.getFullYear()-bas.getFullYear())*12+x.getMonth()-bas.getMonth())%aralik!==0) continue;
+        return x;
+      }
+      return null;
+    }
+    for(i=0;i<4;i++){
+      x=gunSec(d.getFullYear()+i, k.ay, k.gun);
+      if(x.getTime()>=d.getTime() && (!bas || x.getTime()>=bas.getTime())) return x;
+    }
+    return null;
   }
 
   /* ---------- GitHub (gizli depo) ---------- */
@@ -216,7 +229,7 @@ a{color:var(--accent)}
     if(secili.gunler[o.v]) delete secili.gunler[o.v]; else secili.gunler[o.v]=true;
     guncelle();
   });
-  chipYap($("tekrar"), [{ad:"Yok",v:"yok"},{ad:"Her ay",v:"aylik"},{ad:"Her yıl",v:"yillik"}], function(o){
+  chipYap($("tekrar"), [{ad:"Yok",v:"yok"},{ad:"Her hafta",v:"haftalik"},{ad:"Her ay",v:"aylik"},{ad:"3 ayda bir",v:"ucaylik"},{ad:"Her yıl",v:"yillik"}], function(o){
     secili.tekrar=o.v; guncelle();
   });
 
@@ -262,7 +275,10 @@ a{color:var(--accent)}
       if(!slotlar.length){ uy.textContent="Seçtiğin gün ve saatlerin hepsi geçmişte, hiç mail gelmeyecek. Saati ya da günleri değiştir."; uy.hidden=false; }
       else satir2 = "Mailler: "+slotlar.map(function(x){ return goster(x.slice(0,10))+" "+x.slice(11); }).join(", ");
     } else if(et){
-      satir2 = "Mail saati: "+sa;
+      var tmp=tekrarVerisi(secili.tekrar, parse(et), et); tmp.gunler=g; tmp.saat=sa;
+      var sn=sonraki(tmp, bugun());
+      var ad={haftalik:"Her hafta "+HAFTA[parse(et).getDay()], aylik:"Her ay", ucaylik:"3 ayda bir", yillik:"Her yıl"}[secili.tekrar];
+      satir2 = (ad?ad+" · ":"")+(sn?"sıradaki: "+goster(iso(sn))+" · ":"")+"mail saati "+sa+" (başlangıç: "+goster(et)+")";
     }
     $("onizleme").textContent = [satir1, satir2].filter(Boolean).join("\n");
   }
@@ -275,13 +291,20 @@ a{color:var(--accent)}
   });
   ["metin","tarih","saat"].forEach(function(id){ $(id).addEventListener("input", guncelle); });
 
+  var HAFTA = ["Pazar","Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi"];
+  // Arayüzdeki tekrar seçimini veri biçimine çevirir. Tekrarlı kayıtlarda tarih = başlangıç.
+  function tekrarVerisi(tekrar, d, et){
+    if(tekrar==="yok") return {tur:"tek", tarih:et};
+    if(tekrar==="haftalik") return {tur:"haftalik", tarih:et};
+    if(tekrar==="aylik") return {tur:"aylik", aralik:1, gun:d.getDate(), tarih:et};
+    if(tekrar==="ucaylik") return {tur:"aylik", aralik:3, gun:d.getDate(), tarih:et};
+    return {tur:"yillik", ay:d.getMonth()+1, gun:d.getDate(), tarih:et};
+  }
   function kayitOlustur(veri, v){
     var n=trSimdi();
     var id=veri.sonraki_id||1; veri.sonraki_id=id+1;
-    var k={id:id, tur:v.tur, gunler:v.gunler, saat:v.saat, metin:v.metin, olusturma:n.tarih+"T"+n.saat};
-    if(v.tur==="tek") k.tarih=v.tarih;
-    else if(v.tur==="aylik") k.gun=v.gun;
-    else { k.ay=v.ay; k.gun=v.gun; }
+    var k={id:id, gunler:v.gunler, saat:v.saat, metin:v.metin, olusturma:n.tarih+"T"+n.saat};
+    Object.keys(v.tekrar).forEach(function(a){ k[a]=v.tekrar[a]; });
     veri.hatirlatmalar.push(k);
     return k;
   }
@@ -295,7 +318,7 @@ a{color:var(--accent)}
     if(!sa){ durum("Saat seç.","hata"); return; }
     var d=parse(et), tekrar=secili.tekrar;
     if(tekrar==="yok" && d.getTime()<bugun().getTime()){ durum("Geçmiş bir tarih seçilemez.","hata"); return; }
-    var v={tur: tekrar==="yok"?"tek":tekrar, tarih:et, gun:d.getDate(), ay:d.getMonth()+1, gunler:g, saat:sa, metin:m.slice(0,300)};
+    var v={tekrar:tekrarVerisi(tekrar,d,et), gunler:g, saat:sa, metin:m.slice(0,300)};
     $("kaydet").disabled=true; durum("Kaydediliyor…");
     degistir(function(veri){ kayitOlustur(veri, v); }, "Hatırlatma eklendi")
     .then(function(){
@@ -313,7 +336,7 @@ a{color:var(--accent)}
     var m=document.createElement("div"); m.textContent=k.metin;
     var t=document.createElement("div"); t.className="t";
     var s=sonraki(k, bugun());
-    var tekrarAd = k.tur==="aylik" ? "Her ay · " : k.tur==="yillik" ? "Her yıl · " : "";
+    var tekrarAd = k.tur==="haftalik" ? "Her hafta · " : k.tur==="aylik" ? ((k.aralik||1)===3 ? "3 ayda bir · " : "Her ay · ") : k.tur==="yillik" ? "Her yıl · " : "";
     if(s){
       var b=document.createElement("b"); b.textContent=goster(iso(s)); t.appendChild(b);
       t.appendChild(document.createTextNode(" ("+goreli(farkGun(iso(s)))+") · "+k.saat+" · "+tekrarAd+

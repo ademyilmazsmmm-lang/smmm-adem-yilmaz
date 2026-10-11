@@ -41,11 +41,23 @@ def gun_sec(y, a, g):
 
 
 def olay_mi(k, hedef):
-    if k["tur"] == "tek":
-        return date.fromisoformat(k["tarih"]) == hedef
-    if k["tur"] == "aylik":
-        return gun_sec(hedef.year, hedef.month, k["gun"]) == hedef
-    return gun_sec(hedef.year, k["ay"], k["gun"]) == hedef
+    """Hatırlatmanın olay günü `hedef` mi? Tekrarlı kayıtlarda `tarih` başlangıçtır (yoksa sınır yok)."""
+    bas = date.fromisoformat(k["tarih"]) if k.get("tarih") else None
+    if bas and hedef < bas:
+        return False
+    tur = k["tur"]
+    if tur == "tek":
+        return hedef == bas
+    if tur == "haftalik":
+        return (hedef - bas).days % 7 == 0
+    if tur == "aylik":
+        if gun_sec(hedef.year, hedef.month, k["gun"]) != hedef:
+            return False
+        aralik = int(k.get("aralik", 1))
+        if aralik > 1 and bas:
+            return ((hedef.year - bas.year) * 12 + hedef.month - bas.month) % aralik == 0
+        return True
+    return gun_sec(hedef.year, k["ay"], k["gun"]) == hedef  # yillik
 
 
 def bekleyenler(hatirlatmalar, gonderilen, simdi):
