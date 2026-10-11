@@ -42,6 +42,22 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);ou
 details summary{cursor:pointer;color:var(--muted);font-size:.9rem;min-height:40px;display:flex;align-items:center}
 footer{font-size:.8rem;color:var(--muted)}
 a{color:var(--accent)}
+.sekmeler{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px}
+.sekmeler button{font:inherit;min-height:44px;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
+.sekmeler button[aria-selected=true]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.rozet{display:inline-block;min-width:1.4em;padding:0 6px;margin-left:4px;border-radius:99px;background:var(--accent);color:var(--accent-fg);font-size:.75rem;line-height:1.5}
+.rozet:empty{display:none}
+.ekle{display:flex;gap:8px}
+.ekle input{flex:1;min-width:0}
+.ekle .kaydet{padding:0 18px}
+.gorev{display:grid;grid-template-columns:auto 1fr auto;gap:4px 8px;padding:6px 0;border-top:1px solid var(--line);align-items:start}
+.gorev:first-child{border-top:0}
+.kutu{display:flex;align-items:center;justify-content:center;width:44px;height:44px;margin:-2px 0 -2px -8px;cursor:pointer}
+.kutu input{width:24px;height:24px;margin:0;accent-color:var(--accent);cursor:pointer}
+.gorev .m{min-width:0;overflow-wrap:anywhere;padding-top:9px}
+.gorev .z{display:block;font-size:.8rem;color:var(--muted)}
+.gorev.bitti .m{text-decoration:line-through;color:var(--muted)}
+.gorev .sil{margin-top:2px}
 </style>
 </head>
 <body>
@@ -49,11 +65,11 @@ a{color:var(--accent)}
 <h1>Hatırlatma</h1>
 
 <section class="card" id="kurulum" hidden>
-  <h2>Bağlantıyı kur (bir kere)</h2>
-  <p class="onizleme" style="white-space:normal">Bu cihaz için GitHub anahtarını yapıştır ve bir giriş şifresi belirle. Anahtar bu cihazda şifreyle kilitli saklanır; sayfayı her açtığında yalnızca şifreyi yazarsın. Telefonda ve bilgisayarda ayrı ayrı kurulur.</p>
+  <h2>İlk kurulum (bir kere)</h2>
+  <p class="onizleme" style="white-space:normal">GitHub anahtarını yapıştır ve bir giriş şifresi belirle. Anahtar şifreyle şifrelenir. Kurulumdan sonra her cihazda yalnızca bu şifreyle girersin. Şifre en az 12 karakter olmalı ve tahmin edilmesi zor olmalı (dört beş kelimelik bir cümle iyi olur).</p>
   <form id="kurulumForm" autocomplete="on" style="display:flex;flex-direction:column;gap:12px">
     <input type="password" id="anahtarGir" placeholder="GitHub anahtarı (github_pat_...)" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" aria-label="GitHub anahtarı">
-    <input type="password" id="sifre1" placeholder="Giriş şifresi (en az 6 karakter)" autocomplete="new-password" aria-label="Giriş şifresi">
+    <input type="password" id="sifre1" placeholder="Giriş şifresi (en az 12 karakter)" autocomplete="new-password" aria-label="Giriş şifresi">
     <input type="password" id="sifre2" placeholder="Giriş şifresini tekrar yaz" autocomplete="new-password" aria-label="Giriş şifresi tekrar">
     <button class="kaydet" type="submit">Kur</button>
     <div class="durum" id="kurulumDurum" role="status" aria-live="polite"></div>
@@ -71,6 +87,20 @@ a{color:var(--accent)}
 
 <div id="ana" hidden style="display:flex;flex-direction:column;gap:20px">
 
+<section class="card" id="kasaKart" hidden>
+  <h2>Her cihazda yalnızca şifreyle girmek için</h2>
+  <p class="onizleme" style="white-space:normal">Aşağıdaki şifreli metni kopyala. Bu metin siteye <b>hatirlatma-kasa.json</b> adlı dosya olarak eklenince telefonda ve bilgisayarda yalnızca şifreyle girersin. Metin şifrelidir; şifreyi bilmeyen okuyamaz.</p>
+  <textarea id="kasaMetni" readonly rows="5" style="width:100%;font:12px/1.4 ui-monospace,monospace;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)" aria-label="Şifreli giriş metni"></textarea>
+  <div class="chips"><button type="button" class="chip" id="kasaKopya">Kopyala</button><button type="button" class="chip" id="kasaKapat">Kapat</button></div>
+  <div class="durum" id="kasaDurum" role="status" aria-live="polite"></div>
+</section>
+
+<nav class="sekmeler" role="tablist" aria-label="Bölümler">
+  <button type="button" role="tab" id="sekmeH" aria-selected="true">Hatırlatma</button>
+  <button type="button" role="tab" id="sekmeY" aria-selected="false">Yapılacaklar<span class="rozet" id="yRozet"></span></button>
+</nav>
+
+<div id="panelH" style="display:flex;flex-direction:column;gap:20px">
 <form class="card" id="form" autocomplete="off">
   <div>
     <label for="tur">Ne tür?</label>
@@ -116,16 +146,36 @@ a{color:var(--accent)}
   <summary>Geçmiş</summary>
   <div class="card gecmis" id="gecmis"></div>
 </details>
+</div>
+
+<div id="panelY" hidden style="display:flex;flex-direction:column;gap:20px">
+  <form class="card" id="yForm" autocomplete="off">
+    <div class="ekle">
+      <input type="text" id="yMetin" maxlength="300" placeholder="Yapılacak iş…" enterkeyhint="done" aria-label="Yapılacak iş">
+      <button class="kaydet" type="submit">Ekle</button>
+    </div>
+    <div class="durum" id="yDurum" role="status" aria-live="polite"></div>
+  </form>
+  <section>
+    <h2>Yapılacaklar</h2>
+    <div class="card" id="yListe"><div class="bos">Yükleniyor…</div></div>
+  </section>
+  <details id="yBitenKutu" hidden>
+    <summary id="yBitenBaslik">Tamamlananlar</summary>
+    <div class="card gecmis" id="yBiten"></div>
+    <button type="button" class="sil" id="yTemizle" style="margin-top:10px">Tamamlananları temizle</button>
+  </details>
+</div>
 
 <footer>Mail, seçtiğin saatte gelir. Kontrol 10 dakikada bir yapıldığı için birkaç dakika gecikebilir.
-<a href="#" id="kilitle">Kilitle</a> · <a href="#" id="yedek">Yedek indir</a> · <a href="#" id="cikis">Bu cihazdan çıkış</a></footer>
+<a href="#" id="kilitle">Kilitle</a> · <a href="#" id="kasaGoster">Giriş metnini göster</a> · <a href="#" id="sifreDegistir">Şifreyi değiştir</a> · <a href="#" id="yedek">Yedek indir</a> · <a href="#" id="cikis">Bu cihazdan çıkış</a></footer>
 </div>
 </main>
 
 <script>
 (function(){
   var DEPO = "ademyilmazsmmm-lang/hatirlatma", DOSYA = "hatirlatmalar.json", API = "https://api.github.com";
-  var KASA_ADI = "hatirlatma_kasa", OTURUM_ADI = "hatirlatma_oturum", ESKI_ADI = "hatirlatma_anahtar", ITER = 600000;
+  var KASA_ADI = "hatirlatma_kasa", OTURUM_ADI = "hatirlatma_oturum", ESKI_ADI = "hatirlatma_anahtar", ITER = 1000000, GENEL = null;
   var AYLAR = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Eki","Kas","Ara"];
   var $ = function(id){ return document.getElementById(id); };
 
@@ -217,31 +267,33 @@ a{color:var(--accent)}
   function b64yap(str){ var a=new TextEncoder().encode(str), s=""; for(var i=0;i<a.length;i++) s+=String.fromCharCode(a[i]); return btoa(s); }
   function bos(){ return {sonraki_id:1, hatirlatmalar:[]}; }
 
-  function oku(){
-    return gh("/repos/"+DEPO+"/contents/"+DOSYA+"?ref=main&_="+Date.now()).then(function(r){
+  function oku(dosya, bosFn){
+    dosya = dosya||DOSYA; bosFn = bosFn||bos;
+    return gh("/repos/"+DEPO+"/contents/"+dosya+"?ref=main&_="+Date.now()).then(function(r){
       if(r.status===401) throw hata("Anahtar geçersiz ya da süresi dolmuş.", 401);
       if(r.status===403) throw hata("Anahtarın bu depoya erişim izni yok.", 403);
       if(r.status===404){
         return gh("/repos/"+DEPO).then(function(rr){
           if(!rr.ok) throw hata("Gizli depo bulunamadı ya da anahtar bu depoya erişemiyor.", 404);
-          return {sha:null, veri:bos()};   // depo var, dosya henüz yok: ilk kayıtta oluşur
+          return {sha:null, veri:bosFn()};   // depo var, dosya henüz yok: ilk kayıtta oluşur
         });
       }
       if(!r.ok) throw hata("GitHub hatası ("+r.status+").", r.status);
       return r.json().then(function(j){ return {sha:j.sha, veri:JSON.parse(b64coz(j.content))}; });
     });
   }
-  function yaz(veri, sha, mesaj){
+  function yaz(veri, sha, mesaj, dosya){
     var govde = {message:mesaj, content:b64yap(JSON.stringify(veri,null,1)+"\n"), branch:"main"};
     if(sha) govde.sha = sha;
-    return gh("/repos/"+DEPO+"/contents/"+DOSYA, {method:"PUT", body:JSON.stringify(govde)});
+    return gh("/repos/"+DEPO+"/contents/"+(dosya||DOSYA), {method:"PUT", body:JSON.stringify(govde)});
   }
-  function degistir(fn, mesaj, deneme){
-    deneme = deneme||0;
-    return oku().then(function(o){
+  // fn(veri) veriyi değiştirir; çakışmada (409/422) dosya yeniden okunup fn tekrar uygulanır.
+  function degistir(fn, mesaj, secenek, deneme){
+    secenek = secenek||{}; deneme = deneme||0;
+    return oku(secenek.dosya, secenek.bos).then(function(o){
       var sonuc = fn(o.veri);
-      return yaz(o.veri, o.sha, mesaj).then(function(r){
-        if((r.status===409||r.status===422) && deneme<3) return degistir(fn, mesaj, deneme+1);
+      return yaz(o.veri, o.sha, mesaj, secenek.dosya).then(function(r){
+        if((r.status===409||r.status===422) && deneme<3) return degistir(fn, mesaj, secenek, deneme+1);
         if(r.status===401||r.status===403) throw hata("Yazma izni yok: anahtarda Contents → Read and write seçili olmalı.", r.status);
         if(!r.ok) throw hata("Kaydedilemedi ("+r.status+").", r.status);
         return sonuc;
@@ -424,51 +476,201 @@ a{color:var(--accent)}
   function kurulumGoster(){ gizle(); $("kurulum").hidden=false; $("anahtarGir").focus(); }
   function kilitGoster(){ gizle(); $("kilit").hidden=false; $("sifreGir").focus(); }
   function uygulamaGoster(){ gizle(); $("ana").hidden=false; }
-  function anahtarGecersiz(){ kasaSil(); oturumuSil(); kurulumGoster(); $("kurulumDurum").textContent="Anahtar geçersiz ya da süresi dolmuş. Yeni anahtarı yapıştır."; }
+  function gecerliKasa(k){ return k && k.c && k.s && k.n && k.i; }
+
+  // Açılış: bu cihazdaki kasa varsa onunla; yoksa sitedeki genel şifreli kasa (hatirlatma-kasa.json); o da yoksa ilk kurulum.
+  function baslat(mesaj){
+    GENEL = null;
+    if(anahtar()){ uygulamaGoster(); hepsiniYukle(); return; }      // bu oturumda zaten açılmış
+    if(kasaOku()){ kilitGoster(); $("kilitDurum").textContent=mesaj||""; return; }
+    var eskiAnahtar=""; try { eskiAnahtar=localStorage.getItem(ESKI_ADI)||""; } catch(e){}
+    fetch("hatirlatma-kasa.json?_="+Date.now(), {cache:"no-store"})
+      .then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; })
+      .then(function(k){
+        if(gecerliKasa(k)){ GENEL=k; kilitGoster(); $("kilitDurum").textContent=mesaj||""; }
+        else { if(eskiAnahtar) $("anahtarGir").value=eskiAnahtar; kurulumGoster(); $("kurulumDurum").textContent=mesaj||""; }
+      });
+  }
+  function anahtarGecersiz(){ kasaSil(); oturumuSil(); baslat("Anahtar geçersiz ya da süresi dolmuş. Yeni anahtarla kurulum gerekebilir."); }
+
+  function kasaMetniGoster(kasa){
+    $("kasaMetni").value = JSON.stringify(kasa); $("kasaDurum").textContent=""; $("kasaKart").hidden=false;
+  }
+  $("kasaKopya").addEventListener("click", function(){
+    var ta=$("kasaMetni"), d=$("kasaDurum");
+    var yedekKopya=function(){ ta.focus(); ta.select(); try { document.execCommand("copy"); d.textContent="Kopyalandı."; } catch(e){ d.textContent="Metni elle seçip kopyala."; } };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value).then(function(){ d.textContent="Kopyalandı."; }, yedekKopya);
+    } else { yedekKopya(); }
+  });
+  $("kasaKapat").addEventListener("click", function(){ $("kasaKart").hidden=true; });
+  $("kasaGoster").addEventListener("click", function(e){
+    e.preventDefault(); var k=kasaOku()||GENEL;
+    if(k) kasaMetniGoster(k); else { durum("Bu cihazda gösterilecek giriş metni yok.","hata"); }
+  });
+  $("sifreDegistir").addEventListener("click", function(e){ e.preventDefault(); kurulumGoster(); });
 
   $("kurulumForm").addEventListener("submit", function(e){
     e.preventDefault();
     var t=$("anahtarGir").value.trim(), s1=$("sifre1").value, s2=$("sifre2").value, d=$("kurulumDurum");
     if(!window.crypto || !crypto.subtle){ d.textContent="Bu tarayıcı şifrelemeyi desteklemiyor (sayfa https ile açılmalı)."; return; }
     if(!t){ d.textContent="GitHub anahtarını yapıştır."; return; }
-    if(s1.length<6){ d.textContent="Şifre en az 6 karakter olmalı."; return; }
+    if(s1.length<12){ d.textContent="Şifre en az 12 karakter olmalı."; return; }
+    if(/^\d+$/.test(s1) || /^(.)\1+$/.test(s1)){ d.textContent="Şifre yalnızca rakamlardan ya da tek harften oluşmasın."; return; }
     if(s1!==s2){ d.textContent="Şifreler aynı değil."; return; }
     d.textContent="Kontrol ediliyor…"; oturumaYaz(t);
     oku().then(function(){ return kilitle(t, s1); }).then(function(kasa){
       if(!kasaYaz(kasa)) throw hata("Tarayıcı kayıt yapamıyor (gizli sekme olabilir). Normal sekmede aç.");
       try { localStorage.removeItem(ESKI_ADI); } catch(x){}
       $("anahtarGir").value=""; $("sifre1").value=""; $("sifre2").value=""; d.textContent="";
-      uygulamaGoster(); yukle();
+      uygulamaGoster(); hepsiniYukle(); kasaMetniGoster(kasa);
     }).catch(function(err){ oturumuSil(); d.textContent=err.message||"Bağlanılamadı."; });
   });
   $("kilitForm").addEventListener("submit", function(e){
     e.preventDefault();
-    var kasa=kasaOku(), s=$("sifreGir").value, d=$("kilitDurum");
-    if(!kasa){ kurulumGoster(); return; }
+    var kasa=kasaOku()||GENEL, s=$("sifreGir").value, d=$("kilitDurum");
+    if(!kasa){ baslat(); return; }
     if(!s){ d.textContent="Şifreyi yaz."; return; }
     d.textContent="Açılıyor…";
     ac(kasa, s).then(function(t){
-      oturumaYaz(t); $("sifreGir").value=""; d.textContent=""; uygulamaGoster(); yukle();
+      oturumaYaz(t); $("sifreGir").value=""; d.textContent=""; uygulamaGoster(); hepsiniYukle();
     }).catch(function(){ d.textContent="Şifre yanlış."; $("sifreGir").select(); });
   });
-  $("kilitle").addEventListener("click", function(e){ e.preventDefault(); oturumuSil(); kilitGoster(); });
-  $("cikis").addEventListener("click", function(e){ e.preventDefault(); kasaSil(); oturumuSil(); kurulumGoster(); });
+  $("kilitle").addEventListener("click", function(e){ e.preventDefault(); oturumuSil(); baslat(); });
+  $("cikis").addEventListener("click", function(e){ e.preventDefault(); kasaSil(); oturumuSil(); baslat(); });
   $("yedek").addEventListener("click", function(e){
     e.preventDefault();
-    oku().then(function(o){
-      var url=URL.createObjectURL(new Blob([JSON.stringify(o.veri,null,1)],{type:"application/json"}));
+    Promise.all([oku(), oku(YDOSYA, yBos)]).then(function(r){
+      var url=URL.createObjectURL(new Blob([JSON.stringify({hatirlatmalar:r[0].veri, yapilacaklar:r[1].veri},null,1)],{type:"application/json"}));
       var a=document.createElement("a"); a.href=url; a.download="hatirlatma-yedek.json"; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
     }).catch(function(err){ durum(err.message||"Yedek alınamadı.","hata"); });
   });
 
+  /* ---------- yapılacaklar ---------- */
+  var YDOSYA = "yapilacaklar.json", yYerel = null, yIs = Promise.resolve(), ySeriNo = 0;
+  function yBos(){ return {sonraki_id:1, ogeler:[]}; }
+  // Yazmalar sırayla yapılır: hızlı art arda eklemede çakışma ve kayıp olmaz.
+  function ySirala(fn, mesaj){
+    var p = yIs.then(function(){ return degistir(fn, mesaj, {dosya:YDOSYA, bos:yBos}); });
+    yIs = p.catch(function(){});
+    return p;
+  }
+  function yDurum(m,t){ var d=$("yDurum"); d.textContent=m; d.className="durum "+(t||""); }
+  function yHata(err){
+    if(err && err.kod===401){ anahtarGecersiz(); return; }
+    yDurum((err && err.message) || "Kaydedilemedi.", "hata");
+  }
+  function yTarihSaat(){ var n=trSimdi(); return goster(n.tarih)+" "+n.saat; }
+
+  function yGorevYap(g){
+    var el=document.createElement("div"); el.className="gorev"+(g.tamam?" bitti":"");
+    var kutu=document.createElement("label"); kutu.className="kutu";
+    var cb=document.createElement("input"); cb.type="checkbox"; cb.checked=!!g.tamam; cb.setAttribute("aria-label", g.tamam?"Tamamlandı, geri al":"Tamamlandı olarak işaretle");
+    kutu.appendChild(cb);
+    var m=document.createElement("div"); m.className="m"; m.textContent=g.metin;
+    if(g.tamam && g.tamamlanma){ var z=document.createElement("span"); z.className="z"; z.textContent="Tamamlandı: "+g.tamamlanma; m.appendChild(z); }
+    var sil=document.createElement("button"); sil.type="button"; sil.className="sil"; sil.textContent="Sil";
+    var zaman;
+    if(g.id<0){ cb.disabled=true; sil.disabled=true; }   // henüz kaydedilmedi; kayıt bitince açılır
+    cb.addEventListener("change", function(){
+      var bitti=cb.checked, ts=bitti?yTarihSaat():null;
+      g.tamam=bitti; g.tamamlanma=ts; yCiz();
+      ySirala(function(v){ v.ogeler.forEach(function(x){ if(x.id===g.id){ x.tamam=bitti; if(bitti) x.tamamlanma=ts; else delete x.tamamlanma; } }); },
+              bitti?"Görev tamamlandı":"Görev geri alındı")
+        .catch(function(err){ yHata(err); yYukle(); });
+    });
+    sil.addEventListener("click", function(){
+      if(!sil.classList.contains("emin")){
+        sil.classList.add("emin"); sil.textContent="Emin misin?";
+        zaman=setTimeout(function(){ sil.classList.remove("emin"); sil.textContent="Sil"; }, 3000);
+        return;
+      }
+      clearTimeout(zaman);
+      yYerel.ogeler = yYerel.ogeler.filter(function(x){ return x.id!==g.id; }); yCiz();
+      ySirala(function(v){ v.ogeler = v.ogeler.filter(function(x){ return x.id!==g.id; }); }, "Görev silindi")
+        .catch(function(err){ yHata(err); yYukle(); });
+    });
+    el.appendChild(kutu); el.appendChild(m); el.appendChild(sil);
+    return el;
+  }
+  function yCiz(){
+    var acik=$("yListe"), biten=$("yBiten"); acik.textContent=""; biten.textContent="";
+    var a=[], b=[];
+    (yYerel ? yYerel.ogeler : []).forEach(function(g){ (g.tamam ? b : a).push(g); });
+    a.sort(function(x,y){ return y.id-x.id; });                                   // yenisi üstte
+    b.sort(function(x,y){ return (y.tamamlanma||"")<(x.tamamlanma||"") ? -1 : 1; });
+    a.forEach(function(g){ acik.appendChild(yGorevYap(g)); });
+    b.forEach(function(g){ biten.appendChild(yGorevYap(g)); });
+    if(!a.length){ var e=document.createElement("div"); e.className="bos"; e.textContent=b.length ? "Hepsi tamam." : "Henüz bir şey yok. Yukarıdan ekle."; acik.appendChild(e); }
+    $("yBitenKutu").hidden = !b.length;
+    $("yBitenBaslik").textContent = "Tamamlananlar ("+b.length+")";
+    $("yRozet").textContent = a.length ? String(a.length) : "";
+  }
+  function yYukle(){
+    return oku(YDOSYA, yBos).then(function(o){ yYerel=o.veri; yCiz(); })
+      .catch(function(err){
+        if(err.kod===401){ anahtarGecersiz(); return; }
+        $("yListe").textContent = err.message||"Liste yüklenemedi.";
+      });
+  }
+  $("yForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var m=$("yMetin").value.replace(/\s+/g," ").trim().slice(0,300);
+    if(!m){ yDurum("Bir şey yaz.","hata"); return; }
+    $("yMetin").value=""; $("yMetin").focus();
+    var geciciId = -(++ySeriNo);                       // sunucu kimliği gelene kadar ekranda göstermek için
+    var n=trSimdi(), yeni={id:geciciId, metin:m, tamam:false, olusturma:n.tarih+"T"+n.saat};
+    if(!yYerel) yYerel=yBos();
+    yYerel.ogeler.push(yeni); yCiz(); yDurum("Kaydediliyor…");
+    ySirala(function(v){
+      var id=v.sonraki_id||1; v.sonraki_id=id+1;
+      v.ogeler.push({id:id, metin:m, tamam:false, olusturma:yeni.olusturma});
+    }, "Görev eklendi")
+    .then(function(){ if(yIs===ySonIs){ yDurum("Kaydedildi.","ok"); return yYukle(); } })
+    .catch(function(err){ yYerel.ogeler=yYerel.ogeler.filter(function(x){ return x.id!==geciciId; }); yCiz(); yHata(err); });
+    var ySonIs=yIs;
+  });
+  var yTemizleZaman;
+  $("yTemizle").addEventListener("click", function(){
+    var d=$("yTemizle");
+    if(!d.classList.contains("emin")){
+      d.classList.add("emin"); d.textContent="Emin misin? Hepsi silinecek";
+      yTemizleZaman=setTimeout(function(){ d.classList.remove("emin"); d.textContent="Tamamlananları temizle"; }, 3000);
+      return;
+    }
+    clearTimeout(yTemizleZaman); d.classList.remove("emin"); d.textContent="Tamamlananları temizle";
+    yYerel.ogeler = yYerel.ogeler.filter(function(x){ return !x.tamam; }); yCiz();
+    ySirala(function(v){ v.ogeler = v.ogeler.filter(function(x){ return !x.tamam; }); }, "Tamamlananlar temizlendi")
+      .catch(function(err){ yHata(err); yYukle(); });
+  });
+
+  /* ---------- sekmeler ---------- */
+  function sekmeSec(ad, odaksiz){
+    var y = ad==="yapilacaklar";
+    $("panelH").hidden=y; $("panelY").hidden=!y;
+    $("sekmeH").setAttribute("aria-selected", y?"false":"true");
+    $("sekmeY").setAttribute("aria-selected", y?"true":"false");
+    try { history.replaceState(null,"","#"+(y?"yapilacaklar":"hatirlatma")); } catch(e){}
+    try { localStorage.setItem("hatirlatma_sekme", y?"yapilacaklar":"hatirlatma"); } catch(e){}
+    if(!odaksiz){ if(y) $("yMetin").focus(); else $("metin").focus(); }
+  }
+  function sekmeBaslangic(){
+    var ad="";
+    if(location.hash==="#yapilacaklar") ad="yapilacaklar";
+    else if(location.hash==="#hatirlatma") ad="hatirlatma";
+    else { try { ad=localStorage.getItem("hatirlatma_sekme")||""; } catch(e){} }
+    sekmeSec(ad==="yapilacaklar" ? "yapilacaklar" : "hatirlatma", true);
+  }
+  $("sekmeH").addEventListener("click", function(){ sekmeSec("hatirlatma"); });
+  $("sekmeY").addEventListener("click", function(){ sekmeSec("yapilacaklar"); });
+  function hepsiniYukle(){ sekmeBaslangic(); yukle(); yYukle(); }
+
   /* ---------- başlangıç ---------- */
   $("tarih").value = iso(gunEkle(bugun(),1));
   $("saat").value = trSimdi().saat;
   guncelle();
-  var eskiAnahtar=""; try { eskiAnahtar=localStorage.getItem(ESKI_ADI)||""; } catch(e){}
-  if(kasaOku()){ if(anahtar()){ uygulamaGoster(); yukle(); } else { kilitGoster(); } }
-  else { if(eskiAnahtar) $("anahtarGir").value=eskiAnahtar; kurulumGoster(); }
+  baslat();
 })();
 </script>
 

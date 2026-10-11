@@ -33,11 +33,14 @@ Bu depoda (`smmm-adem-yilmaz`): Settings → Secrets and variables → Actions �
 | `SMTP_PASS` | Gmail "uygulama şifresi" (Google Hesabı → Güvenlik → 2 Adımlı Doğrulama açık → Uygulama şifreleri) |
 | `MAIL_TO` | mailin geleceği adres |
 
-## 4. Sayfayı aç
-`https://smmmyilmaz.com/hatirlatma.html` adresini aç. Sayfa sorar: GitHub anahtarı (2. adımdaki) ve belirleyeceğin bir **giriş şifresi**.
-Bu işlemi telefonda ve bilgisayarda ayrı ayrı bir kere yaparsın. Anahtar cihazda şifreyle kilitli saklanır;
-sonraki açılışlarda yalnızca şifreyi yazarsın (sekme açık kaldıkça tekrar sormaz, sayfadaki "Kilitle" ile elle kilitlenir).
-Şifreyi unutursan "Bu cihazdan çıkış" ile sıfırlayıp anahtarı yeniden yapıştırırsın.
+## 4. Sayfayı aç ve giriş şifresini belirle (bir kere)
+`https://smmmyilmaz.com/hatirlatma.html` adresini bilgisayarda aç. İlk açılışta sayfa GitHub anahtarını (2. adımdaki) ve
+belirleyeceğin bir **giriş şifresini** (en az 12 karakter) sorar. Sayfa anahtarı şifreyle şifreler ve ekranda
+**şifreli bir metin** gösterir. Bu metni `hatirlatma-kasa.json` adıyla siteye ekleyince (Claude'a yapıştırarak ya da GitHub'da
+yeni dosya olarak) kurulum biter.
+
+Bundan sonra **her cihazda (telefon, bilgisayar) yalnızca giriş şifresi** sorulur; anahtar bir daha istenmez.
+Sekme açık kaldıkça tekrar sormaz, sayfadaki "Kilitle" ile elle kilitlenir.
 Telefonda Safari'de Paylaş → **Ana Ekrana Ekle**.
 
 Denemek için sayfadan ileri bir tarihe, şu andan birkaç dakika sonraki saatle bir kayıt ekle.
@@ -45,9 +48,10 @@ Actions → **Hatırlatma Maili** → Run workflow ile beklemeden de çalıştı
 
 ## Bilmen gerekenler
 - Mail, seçtiğin saatten birkaç dakika sonra gelebilir (GitHub zamanlayıcısı bazen nadiren yarım saate kadar geciktirir).
-- Anahtar yalnızca o tarayıcıda, giriş şifrenden türetilen anahtarla şifrelenmiş olarak saklanır; şifre hiçbir yere gönderilmez.
-  Bu şifre, açık kalmış bir telefonu ya da bilgisayarı korur. Asıl veri koruması gizli depo ve anahtardır.
-  Telefonu kaybedersen GitHub'da anahtarı sil (Revoke), yenisini üret.
+- Şifreli anahtar metni (`hatirlatma-kasa.json`) herkese açık sitede durur; şifreyi bilmeyen okuyamaz, ama çevrimdışı şifre
+  tahmini mümkündür. Bu yüzden şifre **en az 12 karakter ve tahmin edilmesi zor** olmalı (dört beş kelimelik bir cümle iyi olur).
+  Anahtar (PBKDF2, 1.000.000 tur + AES-GCM) yalnızca gizli `hatirlatma` deposuna yazabilir; site deposuna dokunamaz.
+  Şifren sızdığından şüphelenirsen GitHub'da anahtarı sil (Revoke), yeni anahtar ve şifreyle kurulumu tekrarla.
 - Mailin gideceği adres `MAIL_TO` secret'ında durur (koda yazılmaz). Değiştirmek için Settings → Secrets → Actions → `MAIL_TO` → düzenle.
 - Bu depoda Actions günlükleri herkese görünür. Programa hatırlatma metni ya da firma adı yazdırılmaz; yalnızca sayılar yazılır. Bunu değiştirme.
 - Gizli depodaki `hatirlatmalar.json` doğrudan GitHub'dan da düzenlenebilir, ama sayfayı kullanmak daha güvenlidir.
