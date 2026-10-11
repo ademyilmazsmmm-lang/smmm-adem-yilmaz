@@ -20,7 +20,7 @@ h1{font-size:1.4rem;margin:0}
 h2{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:600}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:12px}
 label,.lbl{font-size:.85rem;color:var(--muted);display:block;margin-bottom:4px}
-input[type=text],input[type=date],input[type=time],select{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);min-height:46px}
+input[type=text],input[type=password],input[type=date],input[type=time],select{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);min-height:46px}
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{font:inherit;font-size:.9rem;padding:8px 13px;min-height:40px;border:1px solid var(--line);border-radius:99px;background:var(--bg);color:var(--fg);cursor:pointer}
@@ -62,6 +62,7 @@ a{color:var(--accent)}
 .sifre-satir input{flex:1;min-width:0}
 .sifre-satir .chip{min-width:78px}
 .kullanici-gizli{position:absolute;left:-9999px;top:auto;width:1px;height:1px;opacity:0;overflow:hidden}
+.surum{font-size:.75rem;color:var(--muted);text-align:center}
 </style>
 </head>
 <body>
@@ -180,6 +181,8 @@ a{color:var(--accent)}
 <a href="#" id="kilitle">Kilitle</a> · <a href="#" id="kasaGoster">Giriş metnini göster</a> · <a href="#" id="sifreDegistir">Şifreyi değiştir</a> · <a href="#" id="yedek">Yedek indir</a> · <a href="#" id="cikis">Bu cihazdan çıkış</a></footer>
 </div>
 </main>
+
+<p class="surum" id="surum"></p>
 
 <script>
 (function(){
@@ -480,6 +483,24 @@ a{color:var(--accent)}
     });
   }
 
+  /* ---------- ana ekran modunda şifre kutusu ---------- */
+  // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
+  // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
+  var SURUM = "6";
+  var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
+  var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
+  var OZEL_SIFRE = ANA_EKRAN && MASKE;
+  function sifreAlaniHazirla(id){
+    var el=$(id); if(!el || !OZEL_SIFRE) return;
+    el.type="text"; el.style.webkitTextSecurity="disc";
+    el.setAttribute("autocomplete","off"); el.setAttribute("autocapitalize","off");
+    el.setAttribute("autocorrect","off"); el.setAttribute("spellcheck","false");
+    el.removeAttribute("name");
+  }
+  function sifreGorunur(el, goster){ if(OZEL_SIFRE) el.style.webkitTextSecurity = goster ? "none" : "disc"; else el.type = goster ? "text" : "password"; }
+  ["sifreGir","sifre1","sifre2"].forEach(sifreAlaniHazirla);
+  $("surum").textContent = "Sürüm "+SURUM+(ANA_EKRAN ? " · ana ekran modu" : "");
+
   /* ---------- kurulum ve giriş ---------- */
   function gizle(){ ["kurulum","kilit","ana"].forEach(function(id){ $(id).hidden=true; }); }
   // Dokunmatik cihazlarda (iPhone/iPad) kutuya kod ile odaklanmaz: klavye açılmaz ve sonraki dokunuş da işe yaramaz.
@@ -548,8 +569,8 @@ a{color:var(--accent)}
     }).catch(function(){ d.textContent="Şifre yanlış."; odakla($("sifreGir")); });
   });
   $("sifreGoster").addEventListener("click", function(){
-    var k=$("sifreGir"), gizli=k.type==="password";
-    k.type=gizli?"text":"password"; this.textContent=gizli?"Gizle":"Göster"; this.setAttribute("aria-label", gizli?"Şifreyi gizle":"Şifreyi göster");
+    var k=$("sifreGir"), gizli = OZEL_SIFRE ? (k.style.webkitTextSecurity!=="none") : (k.type==="password");
+    sifreGorunur(k, gizli); this.textContent=gizli?"Gizle":"Göster"; this.setAttribute("aria-label", gizli?"Şifreyi gizle":"Şifreyi göster");
   });
   $("kilitle").addEventListener("click", function(e){ e.preventDefault(); oturumuSil(); baslat(); });
   $("cikis").addEventListener("click", function(e){ e.preventDefault(); kasaSil(); oturumuSil(); baslat(); });
