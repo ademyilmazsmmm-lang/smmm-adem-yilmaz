@@ -14,6 +14,7 @@ Kullanım:
   python hatirlatici.py --veri veri --dry-run          # mail atmaz, dosyaya yazmaz, içeriği yazdırır
   python hatirlatici.py --veri veri --simdi 2026-12-28T09:30 --dry-run
   python hatirlatici.py --uyari                        # veriye ulaşılamadı uyarısı (08:00-08:09 arası)
+  python hatirlatici.py --veri veri --yedek            # hatırlatma + yapılacaklar yedeğini mail eki olarak yollar
 """
 
 import argparse
@@ -137,18 +138,46 @@ def uyari(dry_run):
         print("Uyarı maili gönderildi.")
 
 
+def yedek(veri_klasoru, dry_run):
+    """Hatırlatma ve yapılacaklar verisini JSON eki olarak mailler. Günlüğe yalnızca sayılar yazılır."""
+    hat = json_oku(os.path.join(veri_klasoru, "hatirlatmalar.json"), {"sonraki_id": 1, "hatirlatmalar": []})
+    yap = json_oku(os.path.join(veri_klasoru, "yapilacaklar.json"), {"sonraki_id": 1, "ogeler": []})
+    bugun = simdi_tr().date()
+    acik = sum(1 for g in yap["ogeler"] if not g.get("tamam"))
+    bitti = len(yap["ogeler"]) - acik
+    govde = (
+        "Hatırlatma ve yapılacaklar yedeği ekte.\n\n"
+        f"Hatırlatma: {len(hat['hatirlatmalar'])}\n"
+        f"Yapılacak: {acik} açık, {bitti} tamamlanmış\n\n"
+        "Geri yüklemek için ekteki dosyadaki \"hatirlatmalar\" ve \"yapilacaklar\" bölümlerini, gizli depodaki\n"
+        "hatirlatmalar.json ve yapilacaklar.json dosyalarına koy.\n"
+    )
+    msg = mesaj(f"Hatırlatma yedeği ({bugun.strftime('%d.%m.%Y')})", govde)
+    ek = json.dumps({"hatirlatmalar": hat, "yapilacaklar": yap}, ensure_ascii=False, indent=1).encode("utf-8")
+    ek_adi = f"hatirlatma-yedek-{bugun.isoformat()}.json"
+    msg.add_attachment(ek, maintype="application", subtype="json", filename=ek_adi)
+    if dry_run:
+        print(msg["Subject"]); print(govde); print("Ek:", ek_adi, len(ek), "bayt")
+        return
+    smtp_gonder(msg)
+    print(f"Yedek gönderildi: {len(hat['hatirlatmalar'])} hatırlatma, {len(yap['ogeler'])} yapılacak.")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--veri", default="veri", help="gizli veri deposunun klasörü")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--simdi", help="YYYY-AA-GGTSS:DD (test için)")
     ap.add_argument("--uyari", action="store_true", help="veriye ulaşılamadı uyarı maili")
+    ap.add_argument("--yedek", action="store_true", help="hatırlatma ve yapılacaklar yedeğini mail eki olarak gönder")
     args = ap.parse_args()
 
     if not os.environ.get("MAIL_TO"):
         sys.exit("MAIL_TO ortam değişkeni tanımlı olmalı.")
     if args.uyari:
         return uyari(args.dry_run)
+    if args.yedek:
+        return yedek(args.veri, args.dry_run)
 
     simdi = datetime.fromisoformat(args.simdi) if args.simdi else simdi_tr()
     hat_yolu = os.path.join(args.veri, "hatirlatmalar.json")
