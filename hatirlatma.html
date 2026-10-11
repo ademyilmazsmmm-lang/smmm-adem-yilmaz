@@ -58,6 +58,10 @@ a{color:var(--accent)}
 .gorev .z{display:block;font-size:.8rem;color:var(--muted)}
 .gorev.bitti .m{text-decoration:line-through;color:var(--muted)}
 .gorev .sil{margin-top:2px}
+.sifre-satir{display:flex;gap:8px;align-items:stretch}
+.sifre-satir input{flex:1;min-width:0}
+.sifre-satir .chip{min-width:78px}
+.kullanici-gizli{position:absolute;left:-9999px;top:auto;width:1px;height:1px;opacity:0;overflow:hidden}
 </style>
 </head>
 <body>
@@ -68,9 +72,10 @@ a{color:var(--accent)}
   <h2>İlk kurulum (bir kere)</h2>
   <p class="onizleme" style="white-space:normal">GitHub anahtarını yapıştır ve bir giriş şifresi belirle. Anahtar şifreyle şifrelenir. Kurulumdan sonra her cihazda yalnızca bu şifreyle girersin. Şifre en az 12 karakter olmalı ve tahmin edilmesi zor olmalı (dört beş kelimelik bir cümle iyi olur).</p>
   <form id="kurulumForm" autocomplete="on" style="display:flex;flex-direction:column;gap:12px">
+    <input type="text" name="username" class="kullanici-gizli" value="hatirlatma" autocomplete="username" tabindex="-1" aria-hidden="true">
     <input type="password" id="anahtarGir" placeholder="GitHub anahtarı (github_pat_...)" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" aria-label="GitHub anahtarı">
-    <input type="password" id="sifre1" placeholder="Giriş şifresi (en az 12 karakter)" autocomplete="new-password" aria-label="Giriş şifresi">
-    <input type="password" id="sifre2" placeholder="Giriş şifresini tekrar yaz" autocomplete="new-password" aria-label="Giriş şifresi tekrar">
+    <input type="password" id="sifre1" name="password" placeholder="Giriş şifresi (en az 12 karakter)" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Giriş şifresi">
+    <input type="password" id="sifre2" placeholder="Giriş şifresini tekrar yaz" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Giriş şifresi tekrar">
     <button class="kaydet" type="submit">Kur</button>
     <div class="durum" id="kurulumDurum" role="status" aria-live="polite"></div>
   </form>
@@ -79,7 +84,11 @@ a{color:var(--accent)}
 <section class="card" id="kilit" hidden>
   <h2>Giriş</h2>
   <form id="kilitForm" autocomplete="on" style="display:flex;flex-direction:column;gap:12px">
-    <input type="password" id="sifreGir" placeholder="Giriş şifresi" autocomplete="current-password" aria-label="Giriş şifresi">
+    <input type="text" name="username" class="kullanici-gizli" value="hatirlatma" autocomplete="username" tabindex="-1" aria-hidden="true">
+    <div class="sifre-satir">
+      <input type="password" id="sifreGir" name="password" placeholder="Giriş şifresi" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Giriş şifresi">
+      <button type="button" class="chip" id="sifreGoster" aria-label="Şifreyi göster">Göster</button>
+    </div>
     <button class="kaydet" type="submit">Aç</button>
     <div class="durum" id="kilitDurum" role="status" aria-live="polite"></div>
   </form>
@@ -403,7 +412,7 @@ a{color:var(--accent)}
   $("form").addEventListener("submit", function(e){
     e.preventDefault();
     var m=etkinMetin(), et=etkinTarih(), g=gunlerDizi(), sa=$("saat").value;
-    if(!m){ durum("Metin boş olamaz.","hata"); $("metin").focus(); return; }
+    if(!m){ durum("Metin boş olamaz.","hata"); return; }
     if(!et){ durum("Tarih seç.","hata"); return; }
     if(!g.length){ durum("En az bir gün seç.","hata"); return; }
     if(!sa){ durum("Saat seç.","hata"); return; }
@@ -414,7 +423,7 @@ a{color:var(--accent)}
     degistir(function(veri){ kayitOlustur(veri, v); }, "Hatırlatma eklendi")
     .then(function(){
       durum("Kaydedildi.","ok");
-      $("metin").value=""; $("saat").value=trSimdi().saat; guncelle(); yukle(); $("metin").focus();
+      $("metin").value=""; $("saat").value=trSimdi().saat; guncelle(); yukle(); odakla($("metin"));
     })
     .catch(function(err){ durum(err.message||"Bağlantı hatası.","hata"); if(err.kod===401) anahtarGecersiz(); })
     .then(function(){ $("kaydet").disabled=false; });
@@ -473,8 +482,10 @@ a{color:var(--accent)}
 
   /* ---------- kurulum ve giriş ---------- */
   function gizle(){ ["kurulum","kilit","ana"].forEach(function(id){ $(id).hidden=true; }); }
-  function kurulumGoster(){ gizle(); $("kurulum").hidden=false; $("anahtarGir").focus(); }
-  function kilitGoster(){ gizle(); $("kilit").hidden=false; $("sifreGir").focus(); }
+  // Dokunmatik cihazlarda (iPhone/iPad) kutuya kod ile odaklanmaz: klavye açılmaz ve sonraki dokunuş da işe yaramaz.
+  function odakla(el){ if(!(navigator.maxTouchPoints>0)) el.focus(); }
+  function kurulumGoster(){ gizle(); $("kurulum").hidden=false; odakla($("anahtarGir")); }
+  function kilitGoster(){ gizle(); $("kilit").hidden=false; odakla($("sifreGir")); }
   function uygulamaGoster(){ gizle(); $("ana").hidden=false; }
   function gecerliKasa(k){ return k && k.c && k.s && k.n && k.i; }
 
@@ -530,11 +541,15 @@ a{color:var(--accent)}
     e.preventDefault();
     var kasa=kasaOku()||GENEL, s=$("sifreGir").value, d=$("kilitDurum");
     if(!kasa){ baslat(); return; }
-    if(!s){ d.textContent="Şifreyi yaz."; return; }
+    if(!s){ d.textContent="Şifre kutusu boş. Kutuya dokunup şifreyi yaz (otomatik doldurma çalışmadıysa elle yaz, \"Göster\" ile kontrol et)."; return; }
     d.textContent="Açılıyor…";
     ac(kasa, s).then(function(t){
       oturumaYaz(t); $("sifreGir").value=""; d.textContent=""; uygulamaGoster(); hepsiniYukle();
-    }).catch(function(){ d.textContent="Şifre yanlış."; $("sifreGir").select(); });
+    }).catch(function(){ d.textContent="Şifre yanlış."; odakla($("sifreGir")); });
+  });
+  $("sifreGoster").addEventListener("click", function(){
+    var k=$("sifreGir"), gizli=k.type==="password";
+    k.type=gizli?"text":"password"; this.textContent=gizli?"Gizle":"Göster"; this.setAttribute("aria-label", gizli?"Şifreyi gizle":"Şifreyi göster");
   });
   $("kilitle").addEventListener("click", function(e){ e.preventDefault(); oturumuSil(); baslat(); });
   $("cikis").addEventListener("click", function(e){ e.preventDefault(); kasaSil(); oturumuSil(); baslat(); });
