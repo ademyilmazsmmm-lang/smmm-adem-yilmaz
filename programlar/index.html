@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Müşavir Otomasyon Sistemi — Tahakkuk Gönderimi | SMMM Adem Yılmaz</title>
+  <meta name="description" content="Tahakkuk fişlerini PDF'ten okuyup firma bazında birleştiren, vadeleri otomatik hesaplayan ve WhatsApp ile e-posta ile toplu gönderen mali müşavir programı. SMMM Adem Yılmaz.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://smmmyilmaz.com/programlar/">
+  <meta property="og:title" content="Müşavir Otomasyon Sistemi — Tahakkuk Gönderimi">
+  <meta property="og:description" content="Tahakkuk gönderimini otomatiğe bırakın: PDF'ten tutar, otomatik vade, tek mesajda tüm tahakkuklar, WhatsApp ve e-posta.">
+  <meta property="og:url" content="https://smmmyilmaz.com/programlar/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://smmmyilmaz.com/programlar/poster.jpg">
+  <link rel="icon" type="image/png" href="../logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --navy-950:#081222; --navy-900:#0f1e35; --navy-800:#1a3052; --navy-700:#1c3f63;
+      --gold:#d4af5a; --gold-light:#f0dfa8; --gold-dark:#b8943f;
+      --white:#fff; --gray-600:#5a6478; --gray-200:#d8dee8; --gray-100:#eef1f5; --off-white:#f6f7f9;
+      --shadow-gold:0 8px 32px rgba(212,175,90,.22);
+      --shadow-lg:0 24px 70px rgba(8,18,34,.14);
+      --transition:.35s cubic-bezier(.4,0,.2,1);
+      --radius-lg:22px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:'DM Sans',sans-serif;color:#2a3344;background:var(--off-white);line-height:1.65;-webkit-font-smoothing:antialiased}
+    a{color:inherit;text-decoration:none}
+    .container{width:min(1160px,92%);margin:0 auto}
+    h1,h2,h3{font-family:'Cormorant Garamond',serif;color:var(--navy-900);line-height:1.15}
+
+    /* üst bant */
+    .header{position:sticky;top:0;z-index:50;background:rgba(8,18,34,.96);backdrop-filter:blur(8px);border-bottom:1px solid rgba(212,175,90,.2)}
+    .header-inner{display:flex;align-items:center;justify-content:space-between;height:74px;gap:16px}
+    .logo{display:flex;align-items:center;gap:14px}
+    .logo-icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+      background:linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark));
+      font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:700;color:var(--navy-950);box-shadow:var(--shadow-gold)}
+    .logo-text{display:flex;flex-direction:column;line-height:1.2}
+    .logo-text span:first-child{font-family:'Cormorant Garamond',serif;font-size:1.28rem;font-weight:700;color:#fff}
+    .logo-text span:last-child{font-size:.68rem;color:var(--gold-light);letter-spacing:.14em;text-transform:uppercase;opacity:.9}
+    .nav{display:flex;align-items:center;gap:6px}
+    .nav a{color:rgba(255,255,255,.82);font-size:.88rem;font-weight:500;padding:8px 14px;border-radius:8px;transition:var(--transition)}
+    .nav a:hover{color:var(--gold-light)}
+    .nav .nav-cta{background:linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark));color:var(--navy-950);font-weight:700;box-shadow:var(--shadow-gold)}
+    @media(max-width:820px){.nav a:not(.nav-cta){display:none}}
+
+    /* butonlar */
+    .btn{display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:12px;font-weight:700;font-size:.95rem;transition:var(--transition);border:1px solid transparent}
+    .btn-gold{background:linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark));color:var(--navy-950);box-shadow:var(--shadow-gold)}
+    .btn-gold:hover{transform:translateY(-2px);filter:brightness(1.05)}
+    .btn-outline{color:#fff;border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.04)}
+    .btn-outline:hover{border-color:var(--gold);color:var(--gold-light)}
+
+    /* hero */
+    .hero{position:relative;color:#fff;padding:72px 0 88px;overflow:hidden;
+      background:radial-gradient(900px 420px at 88% -10%,rgba(212,175,90,.16),transparent 60%),
+                 radial-gradient(700px 360px at 0% 110%,rgba(28,63,99,.6),transparent 60%),
+                 linear-gradient(180deg,var(--navy-950),var(--navy-900))}
+    .hero::before{content:'';position:absolute;inset:0;pointer-events:none;
+      background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:56px 56px}
+    .hero .container{position:relative;display:grid;grid-template-columns:1fr 1.15fr;gap:52px;align-items:center}
+    @media(max-width:920px){.hero .container{grid-template-columns:1fr}}
+    .rozet{display:inline-flex;align-items:center;gap:10px;padding:8px 18px;border-radius:999px;font-size:.74rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+      color:var(--gold-light);background:rgba(255,255,255,.05);border:1px solid rgba(212,175,90,.35);margin-bottom:22px}
+    .rozet::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--gold)}
+    .hero h1{color:#fff;font-size:clamp(2.4rem,5vw,3.7rem);font-weight:700;margin-bottom:20px}
+    .hero h1 em{font-style:italic;color:var(--gold-light);font-weight:500}
+    .hero p.lead{color:rgba(255,255,255,.78);font-size:1.08rem;max-width:520px;margin-bottom:30px}
+    .hero-btns{display:flex;flex-wrap:wrap;gap:14px}
+    .video-kutu{border-radius:var(--radius-lg);overflow:hidden;border:1px solid rgba(212,175,90,.35);box-shadow:0 30px 80px rgba(0,0,0,.45);background:#000}
+    .video-kutu video{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#0b1626}
+    .video-not{margin-top:12px;font-size:.78rem;color:rgba(255,255,255,.55);text-align:center}
+
+    /* bölümler */
+    section{padding:84px 0}
+    .baslik{text-align:center;max-width:720px;margin:0 auto 52px}
+    .baslik .etiket{font-size:.74rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-dark);margin-bottom:12px}
+    .baslik h2{font-size:clamp(2rem,4vw,2.9rem);margin-bottom:14px}
+    .baslik p{color:var(--gray-600)}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+    @media(max-width:920px){.grid3{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:600px){.grid3{grid-template-columns:1fr}}
+    .kart{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:30px 28px;transition:var(--transition)}
+    .kart:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg);border-color:rgba(212,175,90,.6)}
+    .ikon{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;font-size:1.5rem;
+      background:linear-gradient(135deg,rgba(240,223,168,.45),rgba(212,175,90,.25));border:1px solid rgba(212,175,90,.45)}
+    .kart h3{font-size:1.45rem;margin-bottom:8px}
+    .kart p{color:var(--gray-600);font-size:.94rem}
+
+    .koyu{background:linear-gradient(180deg,var(--navy-900),var(--navy-950));color:#fff}
+    .koyu .baslik h2{color:#fff}.koyu .baslik p{color:rgba(255,255,255,.7)}
+    .adimlar{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;counter-reset:a}
+    @media(max-width:920px){.adimlar{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:560px){.adimlar{grid-template-columns:1fr}}
+    .adim{position:relative;padding:28px 22px;border-radius:var(--radius-lg);background:rgba(255,255,255,.04);border:1px solid rgba(212,175,90,.25)}
+    .adim::before{counter-increment:a;content:counter(a);display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;margin-bottom:16px;
+      font-family:'Cormorant Garamond',serif;font-weight:700;font-size:1.3rem;color:var(--navy-950);background:linear-gradient(135deg,var(--gold-light),var(--gold))}
+    .adim h3{color:#fff;font-size:1.3rem;margin-bottom:6px}
+    .adim p{color:rgba(255,255,255,.72);font-size:.9rem}
+
+    /* mesaj örneği */
+    .iki{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+    @media(max-width:900px){.iki{grid-template-columns:1fr}}
+    .mesaj{background:#e7f5e1;border-radius:18px;padding:22px 24px;font-size:.93rem;white-space:pre-line;color:#1b2a1b;
+      box-shadow:var(--shadow-lg);border:1px solid #cfe6c6;max-width:430px;margin:0 auto;line-height:1.55}
+    .liste{list-style:none;display:grid;gap:14px;margin-top:20px}
+    .liste li{display:flex;gap:12px;color:var(--gray-600)}
+    .liste li::before{content:'✓';flex:0 0 26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;
+      color:var(--navy-950);background:linear-gradient(135deg,var(--gold-light),var(--gold))}
+    .liste b{color:var(--navy-900)}
+
+    /* sss */
+    details{background:#fff;border:1px solid var(--gray-200);border-radius:14px;padding:18px 22px;margin-bottom:12px}
+    details[open]{border-color:rgba(212,175,90,.7)}
+    summary{cursor:pointer;font-weight:700;color:var(--navy-900);list-style:none;display:flex;justify-content:space-between;gap:12px}
+    summary::after{content:'+';color:var(--gold-dark);font-size:1.3rem;line-height:1}
+    details[open] summary::after{content:'–'}
+    details p{margin-top:12px;color:var(--gray-600);font-size:.94rem}
+    .sss{max-width:820px;margin:0 auto}
+
+    .cta{text-align:center;color:#fff;background:radial-gradient(800px 300px at 50% -20%,rgba(212,175,90,.2),transparent 60%),linear-gradient(180deg,var(--navy-900),var(--navy-950))}
+    .cta h2{color:#fff;font-size:clamp(2rem,4vw,2.8rem);margin-bottom:14px}
+    .cta p{color:rgba(255,255,255,.75);max-width:560px;margin:0 auto 28px}
+    footer{background:var(--navy-950);color:rgba(255,255,255,.6);text-align:center;padding:28px 0;font-size:.84rem;border-top:1px solid rgba(212,175,90,.18)}
+    footer a{color:var(--gold-light)}
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="container header-inner">
+    <a href="../" class="logo" aria-label="SMMM Adem Yılmaz ana sayfa">
+      <div class="logo-icon">AY</div>
+      <div class="logo-text"><span>SMMM Adem Yılmaz</span><span>Serbest Muhasebeci Mali Müşavir</span></div>
+    </a>
+    <nav class="nav">
+      <a href="../">Ana Sayfa</a>
+      <a href="#ozellikler">Özellikler</a>
+      <a href="#nasil">Nasıl çalışır?</a>
+      <a href="#sss">S.S.S.</a>
+      <a href="../#iletisim" class="nav-cta">İletişim</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero" style="padding-top:64px">
+  <div class="container">
+    <div>
+      <div class="rozet">Mali müşavirler için · Windows</div>
+      <h1>Tahakkuk gönderimini <em>otomatiğe</em> bırakın</h1>
+      <p class="lead">Klasörü seçin; program PDF'leri okusun, firmaya göre birleştirsin, vadeleri hesaplasın ve WhatsApp ile e-posta ile müşterilerinize göndersin.</p>
+      <div class="hero-btns">
+        <a href="../#iletisim" class="btn btn-gold">Bilgi ve lisans için iletişim →</a>
+        <a href="#ozellikler" class="btn btn-outline">Özellikleri gör</a>
+      </div>
+    </div>
+    <div>
+      <div class="video-kutu">
+        <video controls preload="metadata" playsinline poster="poster.jpg" aria-label="Müşavir Otomasyon Sistemi tanıtım videosu">
+          <source src="tanitim.mp4" type="video/mp4">
+          <source src="tanitim.webm" type="video/webm">
+          Tarayıcınız videoyu oynatamıyor.
+        </video>
+      </div>
+      <p class="video-not">Videodaki firmalar ve tutarlar örnek (kurgusal) verilerdir.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ozellikler">
+  <div class="container">
+    <div class="baslik">
+      <div class="etiket">Özellikler</div>
+      <h2>Ay sonu yükünü hafifleten her ayrıntı</h2>
+      <p>Her ay yüzlerce PDF'i tek tek açıp mesaj yazmak yerine, tek ekrandan kontrol edip gönderin.</p>
+    </div>
+    <div class="grid3">
+      <div class="kart"><div class="ikon">📄</div><h3>PDF'ten otomatik okuma</h3><p>Firma, vergi türü, dönem ve ödenecek tutar tahakkuk dosyasından okunur. KDV, muhtasar, geçici vergi, kurumlar, gelir ve SGK tahakkukları tanınır.</p></div>
+      <div class="kart"><div class="ikon">🗓️</div><h3>Otomatik vade hesabı</h3><p>Vergi türüne göre vade hesaplanır; hafta sonu, resmî tatil ve mali tatil kaydırması dahildir. İsterseniz tek tek ya da toplu değiştirirsiniz.</p></div>
+      <div class="kart"><div class="ikon">🧩</div><h3>Tek mesajda birleştirme</h3><p>Aynı firmanın KDV, muhtasar ve SGK tahakkukları tek mesaj ve tek gönderimde gider; müşteri bir kez bildirim alır.</p></div>
+      <div class="kart"><div class="ikon">💬</div><h3>WhatsApp: kişi ya da grup</h3><p>Telefon numarasına veya firma grubuna, PDF'ler ekli olarak gönderim. Yanlış kişiye gitmeyi önleyen güvenli mod vardır.</p></div>
+      <div class="kart"><div class="ikon">✉️</div><h3>E-posta (Outlook)</h3><p>Bilgisayarınızdaki Outlook üzerinden, firma başına birden fazla alıcıya, PDF'ler ekli e-posta gönderin.</p></div>
+      <div class="kart"><div class="ikon">🛡️</div><h3>Hata önleyici kontroller</h3><p>Vadesi ya da dönemi boş tahakkuk gönderilmez, daha önce gönderilene ikinci kez gönderirken uyarır, kayıtlı numaradan farklı VKN'yi işaretler.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="koyu" id="nasil">
+  <div class="container">
+    <div class="baslik">
+      <div class="etiket" style="color:var(--gold)">Nasıl çalışır?</div>
+      <h2>Dört adımda gönderim</h2>
+    </div>
+    <div class="adimlar">
+      <div class="adim"><h3>Klasörü seçin</h3><p>Tahakkuk PDF'lerinin bulunduğu klasörü seçin. Dosyaları yeniden adlandırmanız gerekmez.</p></div>
+      <div class="adim"><h3>Kontrol edin</h3><p>Firma, dönem, tutar ve vade tabloda hazır gelir. Gerekirse düzeltin, mesajı önizleyin.</p></div>
+      <div class="adim"><h3>Gönderin</h3><p>Tek firmaya ya da listedeki tüm firmalara WhatsApp veya e-posta ile gönderin.</p></div>
+      <div class="adim"><h3>Takip edin</h3><p>Gönderilenler tarih ve saatiyle kaydedilir; gönderilenleri gizleyerek kalanlara odaklanın.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container iki">
+    <div>
+      <div class="baslik" style="text-align:left;margin:0 0 6px"><div class="etiket">Müşterinize giden mesaj</div><h2>Düzenli, anlaşılır, size ait</h2></div>
+      <ul class="liste">
+        <li><span><b>Mesaj metnini siz belirlersiniz.</b> Giriş, başlık, satır biçimi ve kapanış cümlesi ayarlardan değişir.</span></li>
+        <li><span><b>Tutar ve toplam</b> PDF'ten okunarak mesaja eklenir.</span></li>
+        <li><span><b>Göndermeden önce önizleyin;</b> gerekirse mesajı elle düzenleyin.</span></li>
+        <li><span><b>Firma Rehberi</b> ile telefon, grup ve e-postaları tek yerden yönetin; Excel'den toplu aktarın.</span></li>
+      </ul>
+    </div>
+    <div class="mesaj">Değerli Mükellefimiz 👋
+
+👤 *ÖRNEK FİRMA LTD. ŞTİ.*
+📄 Ödeme tahakkuklarınız ekte yer almaktadır.
+
+📌 KDV             12.345,00 TL  🗓️ *28/09/2026*
+📌 STOPAJ (aylık)   1.250,50 TL  🗓️ *26/09/2026*
+📌 SSK              8.420,75 TL  🗓️ *30/09/2026*
+💵 Toplam: *22.016,25 TL*
+
+📅 Dönem: 2026/08
+
+İyi çalışmalar dileriz. 💼</div>
+  </div>
+</section>
+
+<section style="background:#fff" id="sss">
+  <div class="container">
+    <div class="baslik"><div class="etiket">S.S.S.</div><h2>Sık sorulanlar</h2></div>
+    <div class="sss">
+      <details><summary>Hangi bilgisayarlarda çalışır?</summary><p>Windows 10 ve Windows 11 (64 bit). WhatsApp gönderimi için WhatsApp Desktop, e-posta gönderimi için Outlook kurulu olmalıdır. Python ya da başka bir program kurmanız gerekmez.</p></details>
+      <details><summary>Verilerim nerede tutulur?</summary><p>Firma rehberiniz, ayarlarınız ve gönderim geçmişiniz yalnızca kendi bilgisayarınızda tutulur; herhangi bir sunucuya gönderilmez. İsterseniz iki bilgisayarda ortak kullanmak için kendi bulut klasörünüzü seçebilirsiniz.</p></details>
+      <details><summary>Gönderim sırasında bilgisayarı kullanabilir miyim?</summary><p>WhatsApp gönderimi sırasında program klavyeyi ve WhatsApp penceresini kullanır; bu süre boyunca bilgisayarda başka işlem yapmamanız gerekir. Gönderim bitince normal çalışmaya dönebilirsiniz.</p></details>
+      <details><summary>Lisans nasıl çalışır?</summary><p>Program bilgisayara özel lisansla çalışır. Süre dolduğunda size iletilen lisans dosyasını programa yüklemeniz yeterlidir; verileriniz silinmez.</p></details>
+      <details><summary>Tahakkuk dosya adlarını değiştirmem gerekir mi?</summary><p>Hayır. GİB ve SGK'dan indirdiğiniz dosya adları olduğu gibi tanınır. Firmanın kısa adı, dosya adının ilk bölümüdür ve Firma Rehberi'nde bir kez tanımlanır; sonraki aylarda VKN'den de eşleştirilir.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="cta" id="indir">
+  <div class="container">
+    <h2>Ay sonu gönderimini dakikalara indirin</h2>
+    <p>Kurulum dosyasını indirip çift tıklamanız yeterli; Python ya da başka bir program gerekmez. Windows 10/11 (64 bit).</p>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center">
+      <a href="MusavirOtomasyon_Kurulum.exe" download class="btn btn-gold">⬇ Kurulum dosyasını indir (9 MB)</a>
+      <a href="../#iletisim" class="btn btn-outline">Lisans için iletişime geç →</a>
+    </div>
+    <p style="margin-top:16px;font-size:.82rem;color:rgba(255,255,255,.55)">Windows "Bilinmeyen yayıncı" uyarısı verirse <b>Ek bilgi → Yine de çalıştır</b> deyin.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="container">© SMMM Adem Yılmaz · <a href="../">smmmyilmaz.com</a> · Müşavir Otomasyon Sistemi</div>
+</footer>
+
+</body>
+</html>
