@@ -553,7 +553,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "10";
+  var SURUM = "11";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -734,7 +734,10 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       "Gerçek Faydalanıcı Bilgi Formu (1 ay)","Yoklama sonrası stopaj dönem","Luca müşteri ve dönem açılışı",
       "Sözleşme SMMM girişi","Sermaye taahhüdü fişi kaydı","E-defter Başvurusu (3 ay)","Mali mühür başvurusu",
       "Kira Kontratı Damga Vergisi (15 gün)","UETS Aktivasyonu","SGK Tebligat başvurusu",
-      "Ortaklara e-imza (E-defter/Karar defteri için)","Yazarkasa/ÖKC işlemleri (1 ay)"].join("\n")},
+      "Ortaklara e-imza (E-defter/Karar defteri için)","Yazarkasa/ÖKC işlemleri (1 ay)",
+      "Şahıs / genç girişimci ise: genç girişimci yazısı geldi mi kontrol",
+      "Şahıs / genç girişimci ise: yazıyı Bağ-Kur'a postayla gönder",
+      "Şahıs / genç girişimci ise: Bağ-Kur onayı/cevabı takip (onaylanmadıysa yeniden başvur)"].join("\n")},
     {ad:"Nevi değişikliği", metin:[
       "E-fatura ve e-defter nevi değişikliği: vergi dairesi dilekçe yazalım, ekini gazeteye koyalım",
       "Kurumlar verelim hemen (30 gün)",
