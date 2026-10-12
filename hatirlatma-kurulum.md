@@ -67,3 +67,14 @@ Kuruluş, nevi değişikliği, tasfiye gibi tekrar eden işlemleri şablon olara
   Şablonlar gizli depoda `sablonlar.json` dosyasında durur ve yedek mailine girer.
 - Tekil bir işe de son tarih verebilirsin: Yapılacaklar kutusunun altındaki "Son tarih" alanı.
 
+## Tasfiye süreci (Yapılacaklar sekmesi → "Tasfiye süreci başlat")
+
+Sayfa tasfiye için şu tarihleri sorar; ilk tarih zorunludur, diğer ikisi sonradan da girilebilir:
+- **Tasfiyeye giriş tarihi** → Tasfiye beyannamesi (kurumlar vergisi): tasfiyeye girişi takip eden ayın sonu
+- **3. ilan tarihi** → Kapanış verilebilir: 3. ilan + 3 ay
+- **Kapanış tarihi** → Tasfiye sonu beyannamesi: kapanış + 30 gün; normal dönem kurumlar beyannamesi tasfiye sonu beyannamesinden önce verilecek, aynı son gün gösterilir
+
+Tarihi girilmemiş maddeler "Tarih bekleniyor" olarak durur. Süreç kartındaki **Tarihler** bölümünden sonradan girilir ya da düzeltilir; bağlı maddelerin tarihleri yeniden hesaplanır.
+Her maddenin altında hesabın nasıl yapıldığı yazar ("hesap: kapanış + 30 gün"). Tarihli maddeler son günden 3 gün önce ve son gün mail atar.
+Kuralları değiştirmek için kodda `TASFIYE_MADDELER` ve `tasfiyeSon` bölümüne bakılır.
+

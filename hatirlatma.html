@@ -71,6 +71,9 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
 .cubuk{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin:2px 0 4px}
 .cubuk span{display:block;height:100%;background:var(--accent)}
 .gorev .z.gecikti{color:var(--danger);font-weight:600}
+.tarih-paneli{border:1px solid var(--line);border-radius:6px;padding:0 10px;margin:4px 0 6px;background:var(--bg)}
+.tarih-paneli summary{cursor:pointer;font-size:.85rem;color:var(--muted);min-height:44px;display:flex;align-items:center}
+.tarih-paneli label{font-size:.85rem;color:var(--muted);display:block;margin-bottom:4px}
 </style>
 </head>
 <body>
@@ -191,6 +194,21 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       <div class="onizleme" id="surecOnizleme"></div>
       <button class="kaydet" type="submit" id="surecBaslat">Süreci başlat</button>
       <div class="durum" id="surecDurum" role="status" aria-live="polite"></div>
+    </form>
+  </details>
+
+  <details class="card" id="tasfiyeKutu">
+    <summary>Tasfiye süreci başlat (tarihleri sorar)</summary>
+    <form id="tasfiyeForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+      <div><label for="tasfiyeFirma">Firma adı</label><input type="text" id="tasfiyeFirma" maxlength="120" placeholder="Örn. ABC Ltd. Şti."></div>
+      <div><label for="tasfiyeGiris">Tasfiyeye giriş tarihi</label><input type="date" id="tasfiyeGiris" required></div>
+      <div><label for="tasfiyeIlan">3. ilan tarihi (biliyorsan, sonra da girebilirsin)</label><input type="date" id="tasfiyeIlan"></div>
+      <div><label for="tasfiyeKapanis">Kapanış tarihi (biliyorsan, sonra da girebilirsin)</label><input type="date" id="tasfiyeKapanis"></div>
+      <div><span class="lbl">Mail kaç gün önce gelsin?</span><div class="chips" id="tasfiyeGunler"></div></div>
+      <div><label for="tasfiyeSaat">Mail saati</label><input type="time" id="tasfiyeSaat" value="09:00"></div>
+      <div class="onizleme" id="tasfiyeOnizleme"></div>
+      <button class="kaydet" type="submit" id="tasfiyeBaslat">Tasfiye sürecini başlat</button>
+      <div class="durum" id="tasfiyeDurum" role="status" aria-live="polite"></div>
     </form>
   </details>
 
@@ -535,7 +553,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "7";
+  var SURUM = "8";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -636,7 +654,24 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   /* ---------- yapılacaklar ---------- */
   var YDOSYA = "yapilacaklar.json", SDOSYA = "sablonlar.json";
   var yYerel = null, yIs = Promise.resolve(), ySeriNo = 0;
-  function yBos(){ return {sonraki_id:1, sonraki_grup:1, ogeler:[]}; }
+  function yBos(){ return {sonraki_id:1, sonraki_grup:1, ogeler:[], gruplar:{}}; }
+
+  /* ----- Tasfiye kuralları -----
+     Bir maddenin tarihi, sürecin "tarihler" alanlarından kurala göre hesaplanır. Taban tarih girilmediyse madde "bekleniyor" olur. */
+  var TASFIYE_MADDELER = [
+    {metin:"Tasfiye beyannamesi (kurumlar vergisi)", kural:"tasfiye_beyan", etiket:"Son gün"},
+    {metin:"Kapanış verilebilir (3. ilandan 3 ay geçti)", kural:"kapanis_verilebilir", etiket:"Kapanış verilebilecek tarih"},
+    {metin:"Normal dönem kurumlar beyannamesi (tasfiye sonu beyannamesinden önce verilecek)", kural:"normal_beyan", etiket:"Son gün"},
+    {metin:"Tasfiye sonu beyannamesi", kural:"tasfiye_sonu", etiket:"Son gün"}
+  ];
+  var KURAL_ISTENEN = {tasfiye_beyan:"Tasfiyeye giriş tarihi", kapanis_verilebilir:"3. ilan tarihi", normal_beyan:"Kapanış tarihi", tasfiye_sonu:"Kapanış tarihi"};
+  function tasfiyeSon(kural, t){
+    t = t || {};
+    if(kural==="tasfiye_beyan" && t.giris){ var d=parse(t.giris); return {son: iso(new Date(d.getFullYear(), d.getMonth()+2, 0)), hesap:"tasfiyeye girişi takip eden ayın sonu"}; }
+    if(kural==="kapanis_verilebilir" && t.ilan3) return {son: iso(ayEkle(parse(t.ilan3),3)), hesap:"3. ilan + 3 ay"};
+    if((kural==="normal_beyan" || kural==="tasfiye_sonu") && t.kapanis) return {son: iso(gunEkle(parse(t.kapanis),30)), hesap:"kapanış + 30 gün"};
+    return null;
+  }
   function sBos(){ return {sonraki_id:1, sablonlar:[]}; }
   // Yazmalar sırayla yapılır: hızlı art arda eklemede çakışma ve kayıp olmaz.
   function ySirala(fn, mesaj){
@@ -799,11 +834,70 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     }).then(function(){ $("surecBaslat").disabled=false; });
   });
 
+  /* Tasfiye süreci */
+  var tasfiyeSecili = {3:true, 0:true};
+  chipYap($("tasfiyeGunler"), [{ad:"7 gün",v:7},{ad:"3 gün",v:3},{ad:"1 gün",v:1},{ad:"Aynı gün",v:0}], function(o){
+    if(tasfiyeSecili[o.v]) delete tasfiyeSecili[o.v]; else tasfiyeSecili[o.v]=true;
+    tasfiyeChipGuncelle();
+  });
+  function tasfiyeChipGuncelle(){
+    Array.prototype.forEach.call($("tasfiyeGunler").children, function(b){ b.setAttribute("aria-pressed", tasfiyeSecili[b.dataset.v]?"true":"false"); });
+  }
+  function tasfiyeGunler(){ return Object.keys(tasfiyeSecili).map(Number).sort(function(a,b){return b-a;}); }
+  function tasfiyeTarihler(){ return {giris:$("tasfiyeGiris").value||null, ilan3:$("tasfiyeIlan").value||null, kapanis:$("tasfiyeKapanis").value||null}; }
+  function tasfiyeOnizle(){
+    var t=tasfiyeTarihler(), satir=[];
+    TASFIYE_MADDELER.forEach(function(m){
+      var r=tasfiyeSon(m.kural,t);
+      satir.push("• "+m.metin.replace(/ \(.*\)$/,"")+": "+(r ? goster(r.son)+" ("+r.hesap+")" : KURAL_ISTENEN[m.kural].toLowerCase()+" girilince hesaplanır"));
+    });
+    $("tasfiyeOnizleme").textContent=satir.join("\n");
+  }
+  ["tasfiyeGiris","tasfiyeIlan","tasfiyeKapanis"].forEach(function(id){ $(id).addEventListener("input", tasfiyeOnizle); $(id).addEventListener("change", tasfiyeOnizle); });
+  $("tasfiyeForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var firma=$("tasfiyeFirma").value.replace(/\s+/g," ").trim().slice(0,120), t=tasfiyeTarihler(), saat=$("tasfiyeSaat").value||"09:00", gunler=tasfiyeGunler(), d=$("tasfiyeDurum");
+    var hata=function(m){ d.textContent=m; d.className="durum hata"; };
+    if(!firma){ hata("Firma adını yaz."); $("tasfiyeFirma").focus(); return; }
+    if(!t.giris){ hata("Tasfiyeye giriş tarihini seç."); return; }
+    if(t.ilan3 && t.ilan3<t.giris){ hata("3. ilan tarihi tasfiyeye girişten önce olamaz."); return; }
+    if(t.kapanis && t.ilan3 && t.kapanis<t.ilan3){ hata("Kapanış tarihi 3. ilandan önce olamaz."); return; }
+    if(!gunler.length){ hata("Mail için en az bir gün seç."); return; }
+    $("tasfiyeBaslat").disabled=true; d.textContent="Kaydediliyor…"; d.className="durum";
+    var n=trSimdi(), ts=n.tarih+"T"+n.saat, baslik=firma+" · Tasfiye süreci";
+    var sab=secilenSablonAdi("Tasfiye işlemi"), duzMaddeler = sab ? satirlar(sab.metin) : [];
+    ySirala(function(v){
+      var gid=v.sonraki_grup||1; v.sonraki_grup=gid+1;
+      if(!v.gruplar) v.gruplar={};
+      v.gruplar[gid]={tur:"tasfiye", tarihler:t, gunler:gunler, saat:saat};
+      TASFIYE_MADDELER.forEach(function(m){
+        var id=v.sonraki_id||1; v.sonraki_id=id+1;
+        var g={id:id, metin:m.metin, tamam:false, olusturma:ts, gid:gid, grup:baslik, firma:firma, sablon:"Tasfiye süreci", kural:m.kural, etiket:m.etiket};
+        var r=tasfiyeSon(m.kural,t); if(r){ g.son=r.son; g.gunler=gunler; g.saat=saat; g.hesap=r.hesap; }
+        v.ogeler.push(g);
+      });
+      duzMaddeler.forEach(function(x){
+        var id=v.sonraki_id||1; v.sonraki_id=id+1;
+        v.ogeler.push({id:id, metin:x.metin, tamam:false, olusturma:ts, gid:gid, grup:baslik, firma:firma, sablon:"Tasfiye süreci"});
+      });
+    }, "Tasfiye süreci başlatıldı").then(function(){
+      d.textContent="Tasfiye süreci eklendi. Girilmeyen tarihleri sürecin kartından sonra girebilirsin."; d.className="durum ok";
+      $("tasfiyeFirma").value=""; $("tasfiyeIlan").value=""; $("tasfiyeKapanis").value=""; $("tasfiyeKutu").open=false; return yYukle();
+    }).catch(function(err){
+      if(err && err.kod===401){ anahtarGecersiz(); return; }
+      d.textContent=(err && err.message) || "Kaydedilemedi."; d.className="durum hata";
+    }).then(function(){ $("tasfiyeBaslat").disabled=false; });
+  });
+  function secilenSablonAdi(ad){ var r=null; (sYerel||[]).forEach(function(s){ if(s.ad===ad) r=s; }); return r; }
+
   /* Görev satırı */
   function sonBilgi(g){
-    if(!g.son || g.tamam) return null;
+    if(g.tamam) return null;
+    if(!g.son){
+      return g.kural ? {metin:"Tarih bekleniyor: "+(KURAL_ISTENEN[g.kural]||"tarih")+" girilince hesaplanır", gecikti:false} : null;
+    }
     var f=farkGun(g.son);
-    return {metin:"Son: "+goster(g.son)+" · "+(f<0 ? (-f)+" gün geçti" : f===0 ? "bugün" : f+" gün kaldı"), gecikti:f<0};
+    return {metin:(g.etiket||"Son")+": "+goster(g.son)+" · "+(f<0 ? (-f)+" gün geçti" : f===0 ? "bugün" : f+" gün kaldı")+(g.hesap ? " (hesap: "+g.hesap+")" : ""), gecikti:f<0};
   }
   function yGorevYap(g){
     var el=document.createElement("div"); el.className="gorev"+(g.tamam?" bitti":"");
@@ -862,15 +956,53 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     });
     ust.appendChild(sol); ust.appendChild(sil);
     kart.appendChild(ust); kart.appendChild(cubuk);
+    if(G.meta && G.meta.tur==="tasfiye") kart.appendChild(tasfiyePaneli(G));
     G.ogeler.slice().sort(function(x,y){ return x.id-y.id; }).forEach(function(t){ kart.appendChild(yGorevYap(t)); });
     return kart;
+  }
+  // Tasfiye kartındaki tarih paneli: tarihler sonradan girilir/düzeltilir, bağlı maddelerin tarihleri yeniden hesaplanır.
+  function tasfiyePaneli(G){
+    var det=document.createElement("details"); det.className="tarih-paneli";
+    var t=G.meta.tarihler||{};
+    var ozet=document.createElement("summary"); ozet.textContent="Tarihler: giriş "+(t.giris?goster(t.giris):"—")+" · 3. ilan "+(t.ilan3?goster(t.ilan3):"—")+" · kapanış "+(t.kapanis?goster(t.kapanis):"—");
+    det.appendChild(ozet);
+    var kutu=document.createElement("div"); kutu.style.cssText="display:flex;flex-direction:column;gap:10px;padding:8px 0 4px";
+    var alanlar=[["giris","Tasfiyeye giriş tarihi"],["ilan3","3. ilan tarihi"],["kapanis","Kapanış tarihi"]], girdi={};
+    alanlar.forEach(function(a){
+      var w=document.createElement("div"), l=document.createElement("label"), i=document.createElement("input");
+      l.textContent=a[1]; i.type="date"; i.value=t[a[0]]||""; i.setAttribute("aria-label", a[1]); girdi[a[0]]=i;
+      w.appendChild(l); w.appendChild(i); kutu.appendChild(w);
+    });
+    var dur=document.createElement("div"); dur.className="durum"; dur.setAttribute("role","status");
+    var kay=document.createElement("button"); kay.type="button"; kay.className="chip"; kay.textContent="Tarihleri kaydet";
+    kay.addEventListener("click", function(){
+      var yeni={giris:girdi.giris.value||null, ilan3:girdi.ilan3.value||null, kapanis:girdi.kapanis.value||null};
+      var hata=function(m){ dur.textContent=m; dur.className="durum hata"; };
+      if(!yeni.giris){ hata("Tasfiyeye giriş tarihi boş olamaz."); return; }
+      if(yeni.ilan3 && yeni.ilan3<yeni.giris){ hata("3. ilan tarihi tasfiyeye girişten önce olamaz."); return; }
+      if(yeni.kapanis && yeni.ilan3 && yeni.kapanis<yeni.ilan3){ hata("Kapanış tarihi 3. ilandan önce olamaz."); return; }
+      kay.disabled=true; dur.textContent="Kaydediliyor…"; dur.className="durum";
+      ySirala(function(v){
+        var m=(v.gruplar||{})[G.gid]; if(!m) return;
+        m.tarihler=yeni;
+        v.ogeler.forEach(function(o){
+          if(o.gid!==G.gid || !o.kural) return;
+          var r=tasfiyeSon(o.kural, yeni);
+          if(r){ o.son=r.son; o.gunler=m.gunler; o.saat=m.saat; o.hesap=r.hesap; }
+          else { delete o.son; delete o.gunler; delete o.saat; delete o.hesap; }
+        });
+      }, "Tasfiye tarihleri güncellendi").then(function(){ return yYukle(); })
+        .catch(function(err){ if(err && err.kod===401){ anahtarGecersiz(); return; } hata((err&&err.message)||"Kaydedilemedi."); kay.disabled=false; });
+    });
+    kutu.appendChild(kay); kutu.appendChild(dur); det.appendChild(kutu);
+    return det;
   }
   function yCiz(){
     var acik=$("yListe"), biten=$("yBiten"), gr=$("yGruplar"); acik.textContent=""; biten.textContent=""; gr.textContent="";
     var tum=(yYerel ? yYerel.ogeler : []), a=[], b=[], gruplar={}, sira=[];
     tum.forEach(function(g){
       if(g.gid){
-        if(!gruplar[g.gid]){ gruplar[g.gid]={gid:g.gid, ad:g.grup||"Süreç", ogeler:[]}; sira.push(gruplar[g.gid]); }
+        if(!gruplar[g.gid]){ gruplar[g.gid]={gid:g.gid, ad:g.grup||"Süreç", ogeler:[], meta:((yYerel&&yYerel.gruplar)||{})[g.gid]}; sira.push(gruplar[g.gid]); }
         gruplar[g.gid].ogeler.push(g);
       } else { (g.tamam ? b : a).push(g); }
     });
@@ -958,7 +1090,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   }
   $("sekmeH").addEventListener("click", function(){ sekmeSec("hatirlatma"); });
   $("sekmeY").addEventListener("click", function(){ sekmeSec("yapilacaklar"); });
-  function hepsiniYukle(){ sekmeBaslangic(); yukle(); yYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; surecChipGuncelle(); }
+  function hepsiniYukle(){ sekmeBaslangic(); yukle(); yYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; $("tasfiyeGiris").value=trSimdi().tarih; surecChipGuncelle(); tasfiyeChipGuncelle(); tasfiyeOnizle(); }
 
   /* ---------- başlangıç ---------- */
   $("tarih").value = iso(gunEkle(bugun(),1));
