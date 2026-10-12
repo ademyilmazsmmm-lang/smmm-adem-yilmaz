@@ -28,6 +28,11 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);ou
 .kaydet{font:inherit;font-weight:600;padding:13px;min-height:50px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);cursor:pointer}
 .kaydet:disabled{opacity:.6}
 .durum{min-height:1.4em;font-size:.9rem}.durum.hata{color:var(--danger)}.durum.ok{color:var(--accent)}
+.kayitUyari{position:fixed;left:0;right:0;top:0;z-index:50;background:var(--danger);color:#fff;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;font-weight:600;box-shadow:0 2px 12px rgba(0,0,0,.35)}
+.kayitUyari[hidden]{display:none}.kayitUyari span{flex:1;line-height:1.35}
+.kayitUyari button{font:inherit;background:#fff;color:#000;border:0;border-radius:6px;padding:8px 12px;min-height:40px;cursor:pointer}
+.kayitOk{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:50;background:var(--accent);color:var(--accent-fg);padding:10px 18px;border-radius:99px;font-weight:600;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.kayitOk[hidden]{display:none}
 .onizleme{font-size:.85rem;color:var(--muted);white-space:pre-line}
 .uyari{font-size:.85rem;background:var(--warn-soft);color:var(--warn);padding:8px 10px;border-radius:6px}
 .oge{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:12px 0;border-top:1px solid var(--line);align-items:start}
@@ -77,6 +82,8 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
 </style>
 </head>
 <body>
+<div class="kayitUyari" id="kayitUyari" role="alert" hidden><span id="kayitUyariMetin"></span><button type="button" id="kayitUyariKapat">Tamam</button></div>
+<div class="kayitOk" id="kayitOk" role="status" aria-live="polite" hidden>✓ Kaydedildi</div>
 <main>
 <h1>Hatırlatma</h1>
 
@@ -367,12 +374,28 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     return gh("/repos/"+DEPO+"/contents/"+(dosya||DOSYA), {method:"PUT", body:JSON.stringify(govde)});
   }
   // fn(veri) veriyi değiştirir; çakışmada (409/422) dosya yeniden okunup fn tekrar uygulanır.
-  function degistir(fn, mesaj, secenek, deneme){
+  /* Her kayıt işlemi sonucu ekranda açıkça gösterilir: başarılıysa kısa "Kaydedildi", başarısızsa kapatılana kadar duran kırmızı uyarı. */
+  var okZaman = null;
+  function kayitOk(){
+    var e=$("kayitOk"); $("kayitUyari").hidden=true; e.hidden=false;
+    clearTimeout(okZaman); okZaman=setTimeout(function(){ e.hidden=true; }, 2500);
+  }
+  function kayitUyari(err){
+    var ag = !(err && err.kod);   // kod yoksa ağ/bağlantı sorunu
+    $("kayitOk").hidden=true;
+    $("kayitUyariMetin").textContent = "⚠ KAYDEDİLMEDİ! " + (ag ? "Bağlantı yok ya da sunucuya ulaşılamadı. " : ((err && err.message) ? err.message+" " : "")) + "Yaptığın işlem kaydolmadı; internetini kontrol edip tekrar dene.";
+    $("kayitUyari").hidden=false;
+  }
+  $("kayitUyariKapat").addEventListener("click", function(){ $("kayitUyari").hidden=true; });
+  function degistir(fn, mesaj, secenek){
+    return degistirIc(fn, mesaj, secenek).then(function(s){ kayitOk(); return s; }, function(err){ kayitUyari(err); throw err; });
+  }
+  function degistirIc(fn, mesaj, secenek, deneme){
     secenek = secenek||{}; deneme = deneme||0;
     return oku(secenek.dosya, secenek.bos).then(function(o){
       var sonuc = fn(o.veri);
       return yaz(o.veri, o.sha, mesaj, secenek.dosya).then(function(r){
-        if((r.status===409||r.status===422) && deneme<3) return degistir(fn, mesaj, secenek, deneme+1);
+        if((r.status===409||r.status===422) && deneme<3) return degistirIc(fn, mesaj, secenek, deneme+1);
         if(r.status===401||r.status===403) throw hata("Yazma izni yok: anahtarda Contents → Read and write seçili olmalı.", r.status);
         if(!r.ok) throw hata("Kaydedilemedi ("+r.status+").", r.status);
         return sonuc;
@@ -553,7 +576,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "11";
+  var SURUM = "12";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
