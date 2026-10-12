@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Programlar — Dijital Stajyer | SMMM Adem Yılmaz</title>
-  <meta name="description" content="Dijital Stajyer: Luca kullanan mali müşavir ofisleri için toplu e-fatura / e-arşiv indirme, kâr-zarar tahmini, KDV sonucu ve rapor programı. Tanıtım videosu ve indirme bağlantısı.">
-  <meta name="keywords" content="Luca e-fatura indirme, toplu e-arşiv indirme, mali müşavir programı, kâr zarar tahmini, KDV devreden ödenecek, Dijital Stajyer">
+  <title>Programlar | SMMM Adem Yılmaz</title>
+  <meta name="description" content="SMMM Adem Yılmaz'ın mali müşavirler ve muhasebe ofisleri için geliştirdiği programlar: Dijital Stajyer ve diğerleri.">
+  <meta name="keywords" content="mali müşavir programları, muhasebe ofisi programı, Luca e-fatura indirme, Dijital Stajyer">
   <meta name="author" content="Adem Yılmaz">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://smmmyilmaz.com/programlar.html">
-  <meta property="og:title" content="Dijital Stajyer — Mali müşavir ofisleri için program">
-  <meta property="og:description" content="Luca'dan toplu fatura indirme, kâr/zarar tahmini ve rapor. Tanıtım videosunu izleyin, programı indirin.">
+  <meta property="og:title" content="Programlar — SMMM Adem Yılmaz">
+  <meta property="og:description" content="Mali müşavirler ve muhasebe ofisleri için geliştirilen programlar.">
   <meta property="og:url" content="https://smmmyilmaz.com/programlar.html">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://smmmyilmaz.com/programlar/dijital-stajyer-poster.jpg">
@@ -61,6 +61,19 @@
     .uyari { background: #fff8e1; border-left: 4px solid #ffb300; padding: 10px 14px; border-radius: 8px; font-size: .9rem; margin: 14px 0 0; }
     ol.adim { padding-left: 22px; }
     ol.adim li { margin: .4rem 0; }
+    .program-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 22px; margin-top: 22px; }
+    .program-karti { background: #fff; border-radius: 16px; box-shadow: 0 6px 24px rgba(8,18,34,.10); overflow: hidden; display: flex; flex-direction: column; text-decoration: none; color: inherit; transition: transform .15s ease, box-shadow .15s ease; }
+    .program-karti:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(8,18,34,.16); }
+    .program-ust { background: linear-gradient(135deg, var(--navy), var(--navy-mid)); padding: 20px 22px; display: flex; gap: 14px; align-items: center; }
+    .program-ust img { width: 56px; height: 56px; border-radius: 14px; background: #fff1; }
+    .program-ust h2 { color: #fff; margin: 0; font-family: Georgia, serif; font-size: 1.3rem; }
+    .program-ust p { margin: .1rem 0 0; color: var(--gold-light); font-size: .82rem; }
+    .program-ic { padding: 18px 22px 22px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+    .program-ic p { margin: 0; font-size: .95rem; }
+    .etiketler { display: flex; flex-wrap: wrap; gap: 6px; }
+    .etiket { background: #eef1f7; color: var(--navy-mid); font-size: .76rem; padding: 3px 10px; border-radius: 999px; }
+    .incele { margin-top: auto; align-self: flex-start; font-weight: 700; color: var(--navy); background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); padding: 9px 20px; border-radius: 999px; font-size: .92rem; }
+    .yakinda { margin-top: 26px; color: #6b7c8f; font-size: .9rem; }
     footer { background: var(--navy); color: #aeb9c9; text-align: center; padding: 22px 16px; font-size: .88rem; }
     footer a { color: var(--gold); text-decoration: none; }
     @media (max-width: 800px) { .iki-sutun { grid-template-columns: 1fr; } h1 { font-size: 1.7rem; } nav a { margin-left: 12px; } }
@@ -87,72 +100,28 @@
     <div class="gold-rule"></div>
     <p class="lead">Muhasebe ofislerinin günlük işini hızlandırmak için geliştirdiğim programlar. Kendi ofisimde kullandığım araçları, benzer işi yapan meslektaşlarımla paylaşıyorum.</p>
 
-    <section class="urun" id="dijital-stajyer">
-      <div class="urun-ust">
-        <img src="programlar/dijital-stajyer-logo.png" alt="Dijital Stajyer robot logosu" width="72" height="72">
-        <div>
-          <h2>Dijital Stajyer</h2>
-          <p>SMMM ofisi · dijital asistan · Sürüm 1.0.0 (Ekim 2026)</p>
-        </div>
-      </div>
-
-      <div class="urun-ic">
-        <video controls preload="metadata" poster="programlar/dijital-stajyer-poster.jpg" playsinline>
-          <source src="programlar/dijital-stajyer-tanitim.mp4" type="video/mp4">
-          Tarayıcınız video oynatmayı desteklemiyor. <a href="programlar/dijital-stajyer-tanitim.mp4">Tanıtım videosunu indirin</a>.
-        </video>
-        <p class="video-not">Tanıtım videosu · 2 dk 06 sn · sesli anlatım</p>
-
-        <p>Luca kullanan ofisler için <strong>fatura indirme, kâr/zarar tahmini ve raporlama asistanı</strong>. Gece siz uyurken firmaları sırayla gezer, sabah raporunuz hazırdır.</p>
-
-        <div class="iki-sutun">
+    <div class="program-grid">
+      <!-- YENİ PROGRAM EKLEMEK İÇİN: aşağıdaki kartı kopyalayıp adı, açıklamayı ve bağlantıyı değiştirin;
+           programın kendi sayfasını (örn. yeni-program.html) dijital-stajyer.html'den kopyalayarak hazırlayın. -->
+      <a class="program-karti" href="dijital-stajyer.html">
+        <div class="program-ust">
+          <img src="programlar/dijital-stajyer-logo.png" alt="Dijital Stajyer robot logosu" width="56" height="56">
           <div>
-            <h2 style="margin-top:.4rem">Neler yapar?</h2>
-            <ul class="ozellik">
-              <li><strong>Toplu fatura indirme:</strong> Luca'dan e-Arşiv, e-Fatura, GİB 5000/30000, TÜRMOB ve e-SMM faturalarını tüm firmalar için indirir.</li>
-              <li><strong>Hatalıyı kendisi tekrar dener:</strong> Çalışma bitince hatalı ekranları bir kez daha sorgular; kalanları "Hatalı / İnmeyen" listesinden seçip yeniden sorgulatırsınız.</li>
-              <li><strong>Firma Durumu tablosu:</strong> Arama, süzme ve sıralama; fatura adetleri, matrah/KDV ve <em>ödenecek / sonraki döneme devreden KDV</em> sonucu.</li>
-              <li><strong>Kâr / Zarar:</strong> Luca mizanı ve Defter Beyan'dan dönem kârı; Luca'ya henüz işlenmemiş ayın faturalarını tek tıkla hesaba katar.</li>
-              <li><strong>Rapor ve e-posta:</strong> Özet, Firma Durumu, KDV Sonucu, fatura ve hata sayfalarıyla tek <code>rapor.xlsx</code>; sabah özet e-postası.</li>
-              <li><strong>Kolay kurulum:</strong> Kurulum sihirbazı eksikleri kendisi tamamlar; açık ve koyu tema.</li>
-            </ul>
-          </div>
-          <div>
-            <div class="kutu">
-              <h3>Gereksinimler</h3>
-              <ul>
-                <li>Windows 10 veya 11 (Windows 7/8 desteklenmez)</li>
-                <li>Internet bağlantısı</li>
-                <li>Geçerli Luca üyeliği ve kullanıcı bilgileriniz</li>
-                <li>Yönetici hakkı gerekmez</li>
-              </ul>
-            </div>
-            <div class="kutu" style="margin-top:14px">
-              <h3>Lisans</h3>
-              <ul>
-                <li>Kullanım lisansı <strong>28.02.2027</strong> tarihine kadar geçerlidir.</li>
-                <li>Yenileme ve ofisinize özel lisans için <a href="index.html#iletisim">iletişime geçin</a>.</li>
-              </ul>
-            </div>
+            <h2>Dijital Stajyer</h2>
+            <p>Sürüm 1.0.0 · Windows 10/11</p>
           </div>
         </div>
+        <div class="program-ic">
+          <p>Luca kullanan ofisler için toplu e-fatura / e-arşiv indirme, kâr/zarar tahmini, KDV sonucu ve rapor asistanı. Gece siz uyurken çalışır, sabah raporunuz hazırdır.</p>
+          <div class="etiketler">
+            <span class="etiket">Luca</span><span class="etiket">e-Fatura</span><span class="etiket">Kâr/Zarar</span><span class="etiket">KDV</span><span class="etiket">Rapor</span>
+          </div>
+          <span class="incele">İncele ve indir →</span>
+        </div>
+      </a>
+    </div>
 
-        <h2>İndir</h2>
-        <a class="indir" href="programlar/DijitalStajyer-Kurulum-1.0.0.zip" download>⬇ Dijital Stajyer'i indir (ZIP · 0,4 MB)</a>
-        <p class="kucuk">ZIP'in içinde: <strong>kurulum programı</strong> (DijitalStajyer-Kurulum-1.0.0.exe) ve <strong>kurulum talimatı</strong> (KURULUM-TALIMATI.txt).<br>SHA-256 (ZIP):<br><code>2b5c13da5de4e633561478af14f805d4d3431fd11d7e8671f8193fa3cf4c08e9</code></p>
-
-        <h2>Kurulum</h2>
-        <ol class="adim">
-          <li>İndirilen ZIP dosyasına sağ tıklayıp <strong>Tümünü ayıkla</strong> deyin; çıkan klasördeki <strong>KURULUM-TALIMATI.txt</strong> dosyasını okuyun.</li>
-          <li><strong>DijitalStajyer-Kurulum-1.0.0.exe</strong> dosyasına çift tıklayın, kullanım koşullarını onaylayıp ilerleyin.</li>
-          <li>Kurulum, bilgisayarınızda yoksa Python'u ve tarayıcı bileşenini internetten kendisi indirir (birkaç dakika sürebilir).</li>
-          <li>Masaüstündeki <strong>Dijital Stajyer</strong> simgesini açın; ilk açılışta Kurulum Sihirbazı Luca bilgilerinizi adım adım alır.</li>
-        </ol>
-        <p class="uyari">Windows "Bilgisayarınızı korudu" (SmartScreen) uyarısı gösterirse <strong>Ek bilgi → Yine de çalıştır</strong> deyin; program henüz kod imzası taşımadığı için bu uyarıyı verir. İndirdiğiniz ZIP dosyasının bozulmadığını yukarıdaki SHA-256 değeriyle doğrulayabilirsiniz.</p>
-
-        <p class="kucuk" style="margin-top:18px">© 2026 Adem Yılmaz — Serbest Muhasebeci Mali Müşavir · Tüm Hakları Saklıdır. Program, kullanım koşulları çerçevesinde lisanslanır; kopyalanıp dağıtılamaz. Luca, GİB, Defter Beyan ve TÜRMOB adları ilgili sahiplerine aittir; program bu kurumlarla resmî bir bağlantı içermez. Programın ürettiği tutarlar yardımcı bilgidir, beyan öncesi kontrol sorumluluğu kullanıcıya aittir.</p>
-      </div>
-    </section>
+    <p class="yakinda">Yeni programlar eklendikçe burada yayınlanacak.</p>
   </main>
 
   <footer>
