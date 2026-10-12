@@ -47,7 +47,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);ou
 details summary{cursor:pointer;color:var(--muted);font-size:.9rem;min-height:40px;display:flex;align-items:center}
 footer{font-size:.8rem;color:var(--muted)}
 a{color:var(--accent)}
-.sekmeler{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px}
+.sekmeler{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px}
 .sekmeler button{font:inherit;min-height:44px;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
 .sekmeler button[aria-selected=true]{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .rozet{display:inline-block;min-width:1.4em;padding:0 6px;margin-left:4px;border-radius:99px;background:var(--accent);color:var(--accent-fg);font-size:.75rem;line-height:1.5}
@@ -126,19 +126,12 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
 <nav class="sekmeler" role="tablist" aria-label="Bölümler">
   <button type="button" role="tab" id="sekmeH" aria-selected="true">Hatırlatma</button>
   <button type="button" role="tab" id="sekmeY" aria-selected="false">Yapılacaklar<span class="rozet" id="yRozet"></span></button>
+  <button type="button" role="tab" id="sekmeS" aria-selected="false">Süreçler<span class="rozet" id="sRozet"></span></button>
 </nav>
 
 <div id="panelH" style="display:flex;flex-direction:column;gap:20px">
 <form class="card" id="form" autocomplete="off">
-  <div>
-    <label for="tur">Ne tür?</label>
-    <select id="tur">
-      <option value="genel">Genel hatırlatma</option>
-      <option value="tasfiye">Tasfiye başladı (4 ay sonra kurumlar beyanı)</option>
-      <option value="ilan">3. ilan tamam (kapanışı ver)</option>
-      <option value="kapanis">Kapanış yapıldı (30 gün içinde kurumlar beyanı)</option>
-    </select>
-  </div>
+  <input type="hidden" id="tur" value="genel">
   <div>
     <label for="metin" id="metinEtiket">Ne hatırlatılsın?</label>
     <input type="text" id="metin" maxlength="300" enterkeyhint="done" autofocus>
@@ -182,18 +175,34 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       <input type="text" id="yMetin" maxlength="300" placeholder="Yapılacak iş…" enterkeyhint="done" aria-label="Yapılacak iş">
       <button class="kaydet" type="submit">Ekle</button>
     </div>
-    <div>
-      <label for="ySon">Son tarih (isteğe bağlı)</label>
-      <input type="date" id="ySon">
-      <div class="onizleme" style="white-space:normal;margin-top:6px">Son tarih girersen, son günden 3 gün önce ve son gün sabah 09:00'da mail gelir.</div>
-    </div>
+    <details>
+      <summary>Son tarih ekle (isteğe bağlı)</summary>
+      <div style="margin-top:8px">
+        <input type="date" id="ySon" aria-label="Son tarih">
+        <div class="onizleme" style="white-space:normal;margin-top:6px">Son tarih girersen, son günden 3 gün önce ve son gün sabah 09:00'da mail gelir.</div>
+      </div>
+    </details>
     <div class="durum" id="yDurum" role="status" aria-live="polite"></div>
   </form>
 
+  <section id="yListeBolum">
+    <h2>Yapılacaklar</h2>
+    <div class="card" id="yListe"><div class="bos">Yükleniyor…</div></div>
+  </section>
+  <details id="yBitenKutu" hidden>
+    <summary id="yBitenBaslik">Tamamlananlar</summary>
+    <div class="card gecmis" id="yBiten"></div>
+    <button type="button" class="sil" id="yTemizle" style="margin-top:10px">Tamamlananları temizle</button>
+  </details>
+
+</div>
+
+<div id="panelS" hidden style="display:flex;flex-direction:column;gap:20px">
+  <div class="chips" id="surecTur" role="group" aria-label="Süreç türü"></div>
   <details class="card" id="surecKutu">
     <summary>Yeni süreç başlat (şablondan)</summary>
     <form id="surecForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
-      <div><label for="surecSablon">Şablon</label><select id="surecSablon"></select></div>
+      <div id="surecSablonSatir"><label for="surecSablon">Şablon</label><select id="surecSablon"></select></div>
       <div><label for="surecFirma">Firma adı</label><input type="text" id="surecFirma" maxlength="120" placeholder="Örn. ABC Ltd. Şti."></div>
       <div><label for="surecTarih">Başlangıç tarihi (süreler bu tarihten sayılır)</label><input type="date" id="surecTarih" required></div>
       <div><span class="lbl">Süreli maddeler için mail kaç gün önce gelsin?</span><div class="chips" id="surecGunler"></div></div>
@@ -219,20 +228,9 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     </form>
   </details>
 
-  <section id="yListeBolum">
-    <h2>Yapılacaklar</h2>
-    <div class="card" id="yListe"><div class="bos">Yükleniyor…</div></div>
-  </section>
-  <section id="yGrupBolum" hidden>
-    <h2>Süreçler</h2>
+  <section id="yGrupBolum">
     <div id="yGruplar" style="display:flex;flex-direction:column;gap:14px"></div>
   </section>
-  <details id="yBitenKutu" hidden>
-    <summary id="yBitenBaslik">Tamamlananlar</summary>
-    <div class="card gecmis" id="yBiten"></div>
-    <button type="button" class="sil" id="yTemizle" style="margin-top:10px">Tamamlananları temizle</button>
-  </details>
-
   <details class="card" id="sablonKutu">
     <summary>Şablonları düzenle</summary>
     <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
@@ -427,10 +425,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   });
 
   var SABLON = {
-    genel:  {etiket:"Ne hatırlatılsın?", tarih:"Tarih"},
-    tasfiye:{etiket:"Firma adı", tarih:"Tasfiyeye giriş tarihi", ay:4, metin:function(f){return f+": tasfiye dönemi kurumlar beyannamesi";}, gunler:[7,0]},
-    ilan:   {etiket:"Firma adı", tarih:"3. ilanın tarihi", metin:function(f){return f+": 3. ilan tamam, kapanışı ver";}, gunler:[0]},
-    kapanis:{etiket:"Firma adı", tarih:"Kapanış tarihi", gun:30, metin:function(f){return f+": kapanış sonrası kurumlar beyannamesi son gün";}, gunler:[7,3,0]}
+    genel:  {etiket:"Ne hatırlatılsın?", tarih:"Tarih"}
   };
   function etkinTarih(){
     var t=$("tarih").value; if(!t) return "";
@@ -576,7 +571,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "12";
+  var SURUM = "13";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -757,10 +752,10 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       "Gerçek Faydalanıcı Bilgi Formu (1 ay)","Yoklama sonrası stopaj dönem","Luca müşteri ve dönem açılışı",
       "Sözleşme SMMM girişi","Sermaye taahhüdü fişi kaydı","E-defter Başvurusu (3 ay)","Mali mühür başvurusu",
       "Kira Kontratı Damga Vergisi (15 gün)","UETS Aktivasyonu","SGK Tebligat başvurusu",
-      "Ortaklara e-imza (E-defter/Karar defteri için)","Yazarkasa/ÖKC işlemleri (1 ay)",
-      "Şahıs / genç girişimci ise: genç girişimci yazısı geldi mi kontrol",
-      "Şahıs / genç girişimci ise: yazıyı Bağ-Kur'a postayla gönder",
-      "Şahıs / genç girişimci ise: Bağ-Kur onayı/cevabı takip (onaylanmadıysa yeniden başvur)"].join("\n")},
+      "Ortaklara e-imza (E-defter/Karar defteri için)","Yazarkasa/ÖKC işlemleri (1 ay)"].join("\n")},
+    {ad:"Genç girişimci (Bağ-Kur)", metin:[
+      "Genç girişimci yazısı geldi mi kontrol","Yazıyı Bağ-Kur'a postayla gönder",
+      "Bağ-Kur onayı/cevabı takip","Onaylanmadıysa: Bağ-Kur'a yeniden başvuru"].join("\n")},
     {ad:"Nevi değişikliği", metin:[
       "E-fatura ve e-defter nevi değişikliği: vergi dairesi dilekçe yazalım, ekini gazeteye koyalım",
       "Kurumlar verelim hemen (30 gün)",
@@ -779,7 +774,13 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   function sYukle(){
     return oku(SDOSYA, sBos).then(function(o){
       var l=(o.veri && o.veri.sablonlar) || [];
-      if(o.sha && l.length){ sYerel=l; sVarsayilan=false; }
+      if(o.sha && l.length){
+        sYerel=l; sVarsayilan=false;
+        SABLON_VARSAYILAN.forEach(function(d){
+          if(d.ad==="Genç girişimci (Bağ-Kur)" && !l.some(function(x){ return x.ad===d.ad; }))
+            sYerel.push({id:l.reduce(function(m,x){ return Math.max(m,+x.id||0); },0)+1, ad:d.ad, metin:d.metin});
+        });
+      }
       else { sYerel=SABLON_VARSAYILAN.map(function(s,i){ return {id:i+1, ad:s.ad, metin:s.metin}; }); sVarsayilan=true; }
       sablonlariDoldur();
     }).catch(function(err){ if(err && err.kod===401){ anahtarGecersiz(); } });
@@ -792,7 +793,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   }
   function sablonlariDoldur(){
     secenekDoldur($("surecSablon")); secenekDoldur($("sablonSec"));
-    sablonAlaniDoldur(); surecOnizle();
+    sablonAlaniDoldur(); surecOnizle(); surecTurSec(surecTur);
   }
   function secilenSablon(id){ var r=null; (sYerel||[]).forEach(function(s){ if(String(s.id)===String(id)) r=s; }); return r; }
   function sablonAlaniDoldur(){
@@ -1048,12 +1049,42 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     kutu.appendChild(kay); kutu.appendChild(dur); det.appendChild(kutu);
     return det;
   }
+  /* Süreçler sekmesi: tür seçimi hem formu hem listeyi belirler */
+  var SUREC_TURLERI = [
+    {v:"tumu", ad:"Tümü"},
+    {v:"kurulus", ad:"Kuruluş", sablon:"Kuruluş sonrası işlemler"},
+    {v:"nevi", ad:"Nevi değişikliği", sablon:"Nevi değişikliği"},
+    {v:"tasfiye", ad:"Tasfiye"},
+    {v:"genc", ad:"Genç girişimci", sablon:"Genç girişimci (Bağ-Kur)"}
+  ];
+  var surecTur = "tumu";
+  function surecTuruOf(G){
+    if((G.meta && G.meta.tur==="tasfiye") || /^Tasfiye/.test(G.sablon||"")) return "tasfiye";
+    var r=""; SUREC_TURLERI.forEach(function(x){ if(x.sablon && x.sablon===G.sablon) r=x.v; });
+    return r || "diger";
+  }
+  chipYap($("surecTur"), SUREC_TURLERI.map(function(x){ return {ad:x.ad, v:x.v}; }), function(o){ surecTurSec(o.v, true); });
+  function surecTurSec(v, ac){
+    surecTur = v;
+    Array.prototype.forEach.call($("surecTur").children, function(b){ b.setAttribute("aria-pressed", b.dataset.v===v?"true":"false"); });
+    var tasf = v==="tasfiye", sablonAd = "";
+    SUREC_TURLERI.forEach(function(x){ if(x.v===v && x.sablon) sablonAd=x.sablon; });
+    $("tasfiyeKutu").hidden = !(tasf || v==="tumu");
+    $("surecKutu").hidden = tasf;
+    $("surecSablonSatir").hidden = !!sablonAd;
+    if(sablonAd){
+      (sYerel||[]).forEach(function(s){ if(s.ad===sablonAd) $("surecSablon").value=String(s.id); });
+      surecOnizle();
+    }
+    if(ac){ if(tasf) $("tasfiyeKutu").open=true; else if(v!=="tumu") $("surecKutu").open=true; }
+    yCiz();
+  }
   function yCiz(){
     var acik=$("yListe"), biten=$("yBiten"), gr=$("yGruplar"); acik.textContent=""; biten.textContent=""; gr.textContent="";
     var tum=(yYerel ? yYerel.ogeler : []), a=[], b=[], gruplar={}, sira=[];
     tum.forEach(function(g){
       if(g.gid){
-        if(!gruplar[g.gid]){ gruplar[g.gid]={gid:g.gid, ad:g.grup||"Süreç", ogeler:[], meta:((yYerel&&yYerel.gruplar)||{})[g.gid]}; sira.push(gruplar[g.gid]); }
+        if(!gruplar[g.gid]){ gruplar[g.gid]={gid:g.gid, ad:g.grup||"Süreç", sablon:g.sablon||"", ogeler:[], meta:((yYerel&&yYerel.gruplar)||{})[g.gid]}; sira.push(gruplar[g.gid]); }
         gruplar[g.gid].ogeler.push(g);
       } else { (g.tamam ? b : a).push(g); }
     });
@@ -1066,18 +1097,22 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       if(xb!==yb) return xb ? 1 : -1;
       return y.gid-x.gid;                                                          // yeni süreç üstte
     });
-    sira.forEach(function(G){ gr.appendChild(grupYap(G)); });
-    $("yGrupBolum").hidden = !sira.length;
+    var gosterilen = sira.filter(function(G){ return surecTur==="tumu" || surecTuruOf(G)===surecTur; });
+    gosterilen.forEach(function(G){ gr.appendChild(grupYap(G)); });
+    if(!gosterilen.length){
+      var sb=document.createElement("div"); sb.className="bos"; sb.textContent = sira.length ? "Bu türde süreç yok." : "Henüz süreç yok. Yukarıdan başlat.";
+      gr.appendChild(sb);
+    }
     if(!a.length){
       var e=document.createElement("div"); e.className="bos";
-      e.textContent = (b.length || sira.length) ? "Tekil iş yok." : "Henüz bir şey yok. Yukarıdan ekle ya da şablondan süreç başlat.";
+      e.textContent = b.length ? "Açık iş yok." : "Henüz bir şey yok. Yukarıdan ekle.";
       acik.appendChild(e);
     }
-    $("yListeBolum").hidden = !a.length && sira.length>0;
     $("yBitenKutu").hidden = !b.length;
     $("yBitenBaslik").textContent = "Tamamlananlar ("+b.length+")";
-    var acikSayi = tum.filter(function(g){ return !g.tamam; }).length;
+    var acikSayi = a.length, surecSayi = tum.filter(function(g){ return g.gid && !g.tamam; }).length;
     $("yRozet").textContent = acikSayi ? String(acikSayi) : "";
+    $("sRozet").textContent = surecSayi ? String(surecSayi) : "";
   }
   function yYukle(){
     return oku(YDOSYA, yBos).then(function(o){ yYerel=o.veri; yCiz(); })
@@ -1123,25 +1158,26 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   });
 
   /* ---------- sekmeler ---------- */
+  var SEKMELER = {hatirlatma:["sekmeH","panelH"], yapilacaklar:["sekmeY","panelY"], surecler:["sekmeS","panelS"]};
   function sekmeSec(ad, odaksiz){
-    var y = ad==="yapilacaklar";
-    $("panelH").hidden=y; $("panelY").hidden=!y;
-    $("sekmeH").setAttribute("aria-selected", y?"false":"true");
-    $("sekmeY").setAttribute("aria-selected", y?"true":"false");
-    try { history.replaceState(null,"","#"+(y?"yapilacaklar":"hatirlatma")); } catch(e){}
-    try { localStorage.setItem("hatirlatma_sekme", y?"yapilacaklar":"hatirlatma"); } catch(e){}
-    if(!odaksiz){ if(y) $("yMetin").focus(); else $("metin").focus(); }
+    if(!SEKMELER[ad]) ad="hatirlatma";
+    Object.keys(SEKMELER).forEach(function(k){
+      $(SEKMELER[k][1]).hidden = k!==ad;
+      $(SEKMELER[k][0]).setAttribute("aria-selected", k===ad?"true":"false");
+    });
+    try { history.replaceState(null,"","#"+ad); } catch(e){}
+    try { localStorage.setItem("hatirlatma_sekme", ad); } catch(e){}
+    if(!odaksiz){ if(ad==="yapilacaklar") $("yMetin").focus(); else if(ad==="hatirlatma") $("metin").focus(); }
   }
   function sekmeBaslangic(){
-    var ad="";
-    if(location.hash==="#yapilacaklar") ad="yapilacaklar";
-    else if(location.hash==="#hatirlatma") ad="hatirlatma";
-    else { try { ad=localStorage.getItem("hatirlatma_sekme")||""; } catch(e){} }
-    sekmeSec(ad==="yapilacaklar" ? "yapilacaklar" : "hatirlatma", true);
+    var ad=(location.hash||"").slice(1);
+    if(!SEKMELER[ad]){ ad=""; try { ad=localStorage.getItem("hatirlatma_sekme")||""; } catch(e){} }
+    sekmeSec(ad, true);
   }
   $("sekmeH").addEventListener("click", function(){ sekmeSec("hatirlatma"); });
   $("sekmeY").addEventListener("click", function(){ sekmeSec("yapilacaklar"); });
-  function hepsiniYukle(){ sekmeBaslangic(); yukle(); yYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; $("tasfiyeGiris").value=trSimdi().tarih; surecChipGuncelle(); tasfiyeChipGuncelle(); tasfiyeOnizle(); }
+  $("sekmeS").addEventListener("click", function(){ sekmeSec("surecler"); });
+  function hepsiniYukle(){ sekmeBaslangic(); yukle(); yYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; $("tasfiyeGiris").value=trSimdi().tarih; surecChipGuncelle(); tasfiyeChipGuncelle(); tasfiyeOnizle(); surecTurSec("tumu"); }
 
   /* ---------- başlangıç ---------- */
   $("tarih").value = iso(gunEkle(bugun(),1));
