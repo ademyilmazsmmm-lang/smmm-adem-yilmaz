@@ -3,6 +3,7 @@ Unicode True
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
+!include "WinVer.nsh"
 !insertmacro GetParent
 
 !ifndef SURUM
@@ -26,6 +27,7 @@ OutFile "${CIKTI_EXE}"
 InstallDir "$LOCALAPPDATA\${KLASOR}"
 InstallDirRegKey HKCU "${KAYIT}" "InstallLocation"
 RequestExecutionLevel user
+ManifestSupportedOS all
 SetCompressor /SOLID lzma
 BrandingText "© ${YIL} ${YAYINCI} — Tüm Hakları Saklıdır"
 ShowInstDetails show
@@ -64,6 +66,14 @@ VIAddVersionKey /LANG=1055 "ProductVersion" "${SURUM}"
 
 Var PY
 Var PYW
+
+; Windows 7/8 desteklenmez: Python 3.9+ ve Playwright'in Chromium'u Windows 10+ ister.
+Function .onInit
+  ${IfNot} ${AtLeastWin10}
+    MessageBox MB_ICONSTOP|MB_OK "${AD}, Windows 7/8 üzerinde çalışmaz.$\r$\n$\r$\nProgramın kullandığı Python 3.9+ ve Chromium tarayıcısı Windows 10 veya 11 ister. Lütfen Windows 10/11 yüklü bir bilgisayarda kurun." /SD IDOK
+    Abort
+  ${EndIf}
+FunctionEnd
 
 ; --- Python bulma ----------------------------------------------------------------------------
 

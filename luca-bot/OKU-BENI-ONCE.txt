@@ -4,7 +4,8 @@ Bu dosya, programı ilk kez bir bilgisayara kuracak kişi içindir. Bilgisayar b
 olmasa da adımları sırayla izlemeniz yeterli. Toplam süre yaklaşık 10-15 dakikadır.
 
 BAŞLAMADAN ÖNCE
-  - Windows 10 ya da 11, internet bağlantısı.
+  - Windows 10 ya da 11 (Windows 7/8 DESTEKLENMEZ: Python 3.9+ ve Chromium tarayıcısı Windows 10+ ister),
+    internet bağlantısı.
   - Kurum bilgisayarıysa program kurma yetkiniz olmayabilir; bu durumda BT sorumlusuna
     "Python 3.12 kurulumu" için bu rehberi gösterin.
   - Gönderilen ZIP dosyasını MASAÜSTÜNE ya da Belgeler'e çıkarın:
