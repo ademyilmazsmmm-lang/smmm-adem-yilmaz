@@ -131,7 +131,7 @@ class LisansTest(unittest.TestCase):
         cikti = self.klasor / "uretilen.json"
         lisans_araci.main(["uret", "--anahtar", str(anahtar), "--sahip", "Ali Veli, SMMM", "--cikti", str(cikti)])
         veri = json.loads(cikti.read_text(encoding="utf-8"))
-        self.assertEqual((veri["lisans_sahibi"], veri["bitis"]), ("Ali Veli, SMMM", "2026-12-31"))
+        self.assertEqual((veri["lisans_sahibi"], veri["bitis"]), ("Ali Veli, SMMM", "2027-02-28"))
         self.assertTrue(lisans._dogrula(veri, ACIK)[0])
 
 

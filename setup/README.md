@@ -10,8 +10,8 @@ Müşavirlere verilecek `DijitalStajyer-Kurulum-<sürüm>.exe` buradan üretilir
 ## Paketi üretme
 ```
 python luca-bot/lisans_araci.py uret --anahtar lisans-ozel-anahtar.txt ^
-       --sahip "Dijital Stajyer 2026 Kullanıcısı" --bitis 2026-12-31 --cikti lisans-2026-genel.json
-python setup/derle.py --lisans lisans-2026-genel.json
+       --sahip "Dijital Stajyer Kullanıcısı" --bitis 2027-02-28 --cikti lisans-genel.json
+python setup/derle.py --lisans lisans-genel.json
 ```
 Çıktı: `setup/cikti/DijitalStajyer-Kurulum-<sürüm>.exe` ve `.sha256`. Paket çalışma klasöründeki
 (git'te izlenen + izlenmeyen ama `.gitignore`'da olmayan) dosyalardan kurulur; testler, `lisans_araci.py`,

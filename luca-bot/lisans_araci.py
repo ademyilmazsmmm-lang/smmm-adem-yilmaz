@@ -6,7 +6,7 @@
         acik anahtar ekrana basilir ve lucabot/lisans.py icindeki ACIK_ANAHTAR olarak girilir.
 
     python lisans_araci.py uret --anahtar lisans-ozel-anahtar.txt --sahip "Ad Soyad, SMMM"
-                                [--baslangic 2026-01-01] [--bitis 2026-12-31] [--cikti lisans.json]
+                                [--baslangic 2026-01-01] [--bitis 2027-02-28] [--cikti lisans.json]
         Imzali lisans dosyasi uretir; musteri bunu programin klasorune koyar ya da Hakkinda'dan yukler.
 
     python lisans_araci.py kontrol [lisans.json]
@@ -40,7 +40,7 @@ def main(argv=None):
     u.add_argument("--anahtar", required=True)
     u.add_argument("--sahip", required=True)
     u.add_argument("--baslangic", default="2026-01-01")
-    u.add_argument("--bitis", default="2026-12-31")
+    u.add_argument("--bitis", default="2027-02-28")
     u.add_argument("--cikti", default="lisans.json")
     k = alt.add_parser("kontrol")
     k.add_argument("dosya", nargs="?", default=str(lisans.LISANS_DOSYASI))
