@@ -153,6 +153,11 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     <span class="lbl">Tekrar</span>
     <div class="chips" id="tekrar"></div>
   </div>
+  <div id="kisiKutu">
+    <span class="lbl">Ayrıca kime gitsin? (isteğe bağlı)</span>
+    <div class="chips" id="kisiChips"></div>
+    <div class="onizleme" id="kisiIpucu" style="white-space:normal;margin-top:6px"></div>
+  </div>
   <div class="onizleme" id="onizleme"></div>
   <div class="uyari" id="uyari" hidden></div>
   <button class="kaydet" type="submit" id="kaydet">Kaydet</button>
@@ -166,6 +171,20 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
 <details id="gecmisKutu" hidden>
   <summary>Geçmiş</summary>
   <div class="card gecmis" id="gecmis"></div>
+</details>
+
+<details class="card" id="kisiYonet">
+  <summary>Kişiler (hatırlatmayı başkasına da göndermek için)</summary>
+  <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+    <div id="kisiListe"></div>
+    <form id="kisiForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px">
+      <div><label for="kisiAd">Adı</label><input type="text" id="kisiAd" maxlength="80" placeholder="Örn. Ahmet"></div>
+      <div><label for="kisiEposta">E-posta</label><input type="text" id="kisiEposta" maxlength="120" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ornek@mail.com"></div>
+      <button class="kaydet" type="submit" id="kisiEkle">Kişiyi ekle</button>
+      <div class="durum" id="kisiDurum" role="status" aria-live="polite"></div>
+    </form>
+    <div class="onizleme" style="white-space:normal">Seçtiğin kişiye, sana gelenle aynı konu ve içerikte AYRI bir mail gider; kimse başkasının adresini görmez. Altına "Saygılarımla, Adem Yılmaz, smmmyilmaz.com" yazılır.</div>
+  </div>
 </details>
 </div>
 
@@ -402,7 +421,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   }
 
   /* ---------- form ---------- */
-  var secili = {gunler:{1:true,0:true}, tekrar:"yok"};
+  var secili = {gunler:{1:true,0:true}, tekrar:"yok", kisi:{}};
 
   function chipYap(kap, liste, tikla){
     liste.forEach(function(o){
@@ -468,7 +487,9 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       var ad={haftalik:"Her hafta "+HAFTA[parse(et).getDay()], aylik:"Her ay", ucaylik:"3 ayda bir", yillik:"Her yıl"}[secili.tekrar];
       satir2 = (ad?ad+" · ":"")+(sn?"sıradaki: "+goster(iso(sn))+" · ":"")+"mail saati "+sa+" (başlangıç: "+goster(et)+")";
     }
-    $("onizleme").textContent = [satir1, satir2].filter(Boolean).join("\n");
+    var kime=Object.keys(secili.kisi).map(function(id){ return kisiAdi(+id); }).filter(Boolean);
+    var satir3 = kime.length ? "Ayrıca gidecek: "+kime.join(", ") : "";
+    $("onizleme").textContent = [satir1, satir2, satir3].filter(Boolean).join("\n");
   }
   function durum(m,t){ var d=$("durum"); d.textContent=m; d.className="durum "+(t||""); }
 
@@ -493,6 +514,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     var id=veri.sonraki_id||1; veri.sonraki_id=id+1;
     var k={id:id, gunler:v.gunler, saat:v.saat, metin:v.metin, olusturma:n.tarih+"T"+n.saat};
     Object.keys(v.tekrar).forEach(function(a){ k[a]=v.tekrar[a]; });
+    if(v.kisi && v.kisi.length) k.kisi=v.kisi;
     veri.hatirlatmalar.push(k);
     return k;
   }
@@ -506,15 +528,67 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     if(!sa){ durum("Saat seç.","hata"); return; }
     var d=parse(et), tekrar=secili.tekrar;
     if(tekrar==="yok" && d.getTime()<bugun().getTime()){ durum("Geçmiş bir tarih seçilemez.","hata"); return; }
-    var v={tekrar:tekrarVerisi(tekrar,d,et), gunler:g, saat:sa, metin:m.slice(0,300)};
+    var v={tekrar:tekrarVerisi(tekrar,d,et), gunler:g, saat:sa, metin:m.slice(0,300),
+           kisi:Object.keys(secili.kisi).map(Number).filter(function(id){ return kisiAdi(id); })};
     $("kaydet").disabled=true; durum("Kaydediliyor…");
     degistir(function(veri){ kayitOlustur(veri, v); }, "Hatırlatma eklendi")
     .then(function(){
-      durum("Kaydedildi.","ok");
+      durum("Kaydedildi.","ok"); secili.kisi={}; kisiCiz();
       $("metin").value=""; $("saat").value=trSimdi().saat; guncelle(); yukle(); odakla($("metin"));
     })
     .catch(function(err){ durum(err.message||"Bağlantı hatası.","hata"); if(err.kod===401) anahtarGecersiz(); })
     .then(function(){ $("kaydet").disabled=false; });
+  });
+
+  /* ---------- kişiler ---------- */
+  var KDOSYA = "kisiler.json", kYerel = {sonraki_id:1, kisiler:[]};
+  function kBos(){ return {sonraki_id:1, kisiler:[]}; }
+  var EPOSTA_RE = /^[^@\s,;<>"]+@[^@\s,;<>"]+\.[^@\s,;<>"]+$/;
+  function kisiAdi(id){ var r=""; kYerel.kisiler.forEach(function(c){ if(c.id===id) r=c.ad; }); return r; }
+  function kisiCiz(){
+    var ch=$("kisiChips"); ch.textContent="";
+    kYerel.kisiler.forEach(function(c){
+      var b=document.createElement("button"); b.type="button"; b.className="chip"; b.textContent=c.ad; b.dataset.v=String(c.id);
+      b.setAttribute("aria-pressed", secili.kisi[c.id]?"true":"false");
+      b.addEventListener("click", function(){ if(secili.kisi[c.id]) delete secili.kisi[c.id]; else secili.kisi[c.id]=true; kisiCiz(); guncelle(); });
+      ch.appendChild(b);
+    });
+    $("kisiIpucu").textContent = kYerel.kisiler.length ? "Seçilen kişiye de ayrı mail gider. Sana her zaman gelir." : "Henüz kişi yok. Aşağıdaki \"Kişiler\" bölümünden ekleyebilirsin.";
+    var l=$("kisiListe"); l.textContent="";
+    kYerel.kisiler.forEach(function(c){
+      var el=document.createElement("div"); el.className="oge";
+      var sol=document.createElement("div"); sol.className="m";
+      var a=document.createElement("div"); a.textContent=c.ad; var e=document.createElement("div"); e.className="t"; e.textContent=c.eposta;
+      sol.appendChild(a); sol.appendChild(e);
+      var sil=document.createElement("button"); sil.type="button"; sil.className="sil"; sil.textContent="Sil"; var zaman;
+      sil.addEventListener("click", function(){
+        if(!sil.classList.contains("emin")){ sil.classList.add("emin"); sil.textContent="Emin misin?"; zaman=setTimeout(function(){ sil.classList.remove("emin"); sil.textContent="Sil"; }, 3000); return; }
+        clearTimeout(zaman); sil.disabled=true; delete secili.kisi[c.id];
+        degistir(function(v){ v.kisiler=v.kisiler.filter(function(x){ return x.id!==c.id; }); }, "Kişi silindi", {dosya:KDOSYA, bos:kBos})
+          .then(kYukle).catch(function(err){ $("kisiDurum").textContent=err.message||"Silinemedi."; $("kisiDurum").className="durum hata"; sil.disabled=false; });
+      });
+      el.appendChild(sol); el.appendChild(sil); l.appendChild(el);
+    });
+  }
+  function kYukle(){
+    return oku(KDOSYA, kBos).then(function(o){ kYerel=o.veri; if(!kYerel.kisiler) kYerel.kisiler=[]; kisiCiz(); guncelle(); if(SON_VERI) yukle(); })
+      .catch(function(err){ if(err && err.kod===401) anahtarGecersiz(); });
+  }
+  $("kisiForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var ad=$("kisiAd").value.replace(/\s+/g," ").trim().slice(0,80), ep=$("kisiEposta").value.trim(), d=$("kisiDurum");
+    var h=function(m){ d.textContent=m; d.className="durum hata"; };
+    if(!ad){ h("Adını yaz."); return; }
+    if(!EPOSTA_RE.test(ep)){ h("E-posta adresi geçerli görünmüyor."); return; }
+    $("kisiEkle").disabled=true; d.textContent="Kaydediliyor…"; d.className="durum";
+    degistir(function(v){
+      if(!v.kisiler) v.kisiler=[];
+      var id=v.sonraki_id||1; v.sonraki_id=id+1;
+      v.kisiler.push({id:id, ad:ad, eposta:ep});
+    }, "Kişi eklendi", {dosya:KDOSYA, bos:kBos}).then(function(){
+      $("kisiAd").value=""; $("kisiEposta").value=""; d.textContent="Eklendi."; d.className="durum ok"; return kYukle();
+    }).catch(function(err){ if(err && err.kod===401){ anahtarGecersiz(); return; } h((err&&err.message)||"Kaydedilemedi."); })
+      .then(function(){ $("kisiEkle").disabled=false; });
   });
 
   /* ---------- liste ---------- */
@@ -530,6 +604,8 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       t.appendChild(document.createTextNode(" ("+goreli(farkGun(iso(s)))+") · "+k.saat+" · "+tekrarAd+
         k.gunler.map(function(g){return g===0?"aynı gün":g+" gün önce";}).join(", ")));
     } else { t.textContent = goster(k.tarih)+" (geçti)"; }
+    var kime=(k.kisi||[]).map(kisiAdi).filter(Boolean);
+    if(kime.length) t.appendChild(document.createTextNode(" · ayrıca: "+kime.join(", ")));
     sol.appendChild(m); sol.appendChild(t);
     var sil=document.createElement("button"); sil.type="button"; sil.className="sil"; sil.textContent="Sil";
     var zaman;
@@ -571,7 +647,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "13";
+  var SURUM = "14";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -1177,7 +1253,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   $("sekmeH").addEventListener("click", function(){ sekmeSec("hatirlatma"); });
   $("sekmeY").addEventListener("click", function(){ sekmeSec("yapilacaklar"); });
   $("sekmeS").addEventListener("click", function(){ sekmeSec("surecler"); });
-  function hepsiniYukle(){ sekmeBaslangic(); yukle(); yYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; $("tasfiyeGiris").value=trSimdi().tarih; surecChipGuncelle(); tasfiyeChipGuncelle(); tasfiyeOnizle(); surecTurSec("tumu"); }
+  function hepsiniYukle(){ sekmeBaslangic(); yukle(); kYukle(); yYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; $("tasfiyeGiris").value=trSimdi().tarih; surecChipGuncelle(); tasfiyeChipGuncelle(); tasfiyeOnizle(); surecTurSec("tumu"); }
 
   /* ---------- başlangıç ---------- */
   $("tarih").value = iso(gunEkle(bugun(),1));

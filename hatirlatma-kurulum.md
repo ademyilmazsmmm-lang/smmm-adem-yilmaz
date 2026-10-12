@@ -82,3 +82,7 @@ Tarihi girilmemiş maddeler "Tarih bekleniyor" olarak durur. Süreç kartındaki
 Her maddenin altında hesabın nasıl yapıldığı yazar. Tarihli maddeler son günden 3 gün önce ve son gün mail atar.
 Kurallar kodda `TASFIYE_MADDELER` ve `tasfiyeSon` bölümündedir. Süreler ikincil kaynaklardan doğrulandı; kesin tarihler için güncel mevzuat ve vergi dairesi görüşü esas alınmalıdır.
 Birden fazla takvim yılına yayılan tasfiyelerde sonraki yılların tasfiye dönemi beyannameleri otomatik eklenmez.
+
+## Hatırlatmayı başkasına da göndermek
+
+Hatırlatma sayfasında **Kişiler** bölümünden ad ve e-posta ekle. Hatırlatma eklerken "Ayrıca kime gitsin?" altından kişiyi seç: mail sana her zamanki gibi gelir, seçilen kişiye de aynı konu ve içerikle **ayrı bir mail** gider (kimse başkasının adresini görmez). Kişiler gizli depodaki `kisiler.json` dosyasında durur, yedek mailine de eklenir. Giden maillerin altında "Saygılarımla, Adem Yılmaz, https://smmmyilmaz.com" yazar.

@@ -21,6 +21,7 @@ import argparse
 import calendar
 import json
 import os
+import re
 import smtplib
 import sys
 from datetime import date, datetime, timedelta, timezone
@@ -79,7 +80,7 @@ def bekleyenler(hatirlatmalar, gonderilen, simdi):
                 if (k["id"], hedef.isoformat(), fark) in gonderilen:
                     continue
                 sonuc.append({"id": k["id"], "metin": k["metin"], "olay": hedef.isoformat(), "fark": fark,
-                              "etiket": k.get("etiket", "Tarih")})
+                              "etiket": k.get("etiket", "Tarih"), "alici": k.get("alici")})
     return sonuc
 
 
@@ -117,10 +118,30 @@ def json_yaz(yol, veri):
 
 # ---------- mail ----------
 
-def mesaj(konu, govde):
+IMZA = "\n\nSaygılarımla\nAdem Yılmaz\nhttps://smmmyilmaz.com\n"
+EPOSTA = re.compile(r"^[^@\s,;<>\"]+@[^@\s,;<>\"]+\.[^@\s,;<>\"]+$")
+
+
+def alicilari_ekle(hatirlatmalar, kisiler):
+    """Kişi seçilmiş hatırlatmalar için her kişiye AYRI bir kopya üretir (kimse başkasının adresini görmez).
+    Kopyanın kimliği '<id>|k<kisi>' olur; böylece gönderim kaydı, geri dönüş ve tekrar gönderimi engelleme aynen çalışır."""
+    adres = {}
+    for c in (kisiler or {}).get("kisiler", []):
+        e = str(c.get("eposta", "")).strip()
+        if EPOSTA.match(e):
+            adres[c.get("id")] = e
+    sonuc = list(hatirlatmalar)
+    for k in hatirlatmalar:
+        for kid in k.get("kisi") or []:
+            if kid in adres:
+                sonuc.append({**k, "id": f"{k['id']}|k{kid}", "alici": adres[kid]})
+    return sonuc
+
+
+def mesaj(konu, govde, alici=None):
     gonderen = os.environ.get("MAIL_FROM") or os.environ.get("SMTP_USER", "hatirlatici@localhost")
     msg = EmailMessage()
-    msg["From"], msg["To"], msg["Subject"] = gonderen, os.environ["MAIL_TO"], konu
+    msg["From"], msg["To"], msg["Subject"] = gonderen, alici or os.environ["MAIL_TO"], konu
     msg.set_content(govde)
     return msg
 
@@ -134,7 +155,7 @@ def hatirlatma_maili(k):
         zaman = f"{k['fark']} gün kaldı"
     else:
         zaman = f"{-k['fark']} gün önce"   # tarihten sonra gelen hatırlatma (negatif gün)
-    return mesaj(konu, f"{konu}\n\n{k.get('etiket', 'Tarih')}: {tr_tarih(k['olay'])} ({zaman})\n")
+    return mesaj(konu, f"{konu}\n\n{k.get('etiket', 'Tarih')}: {tr_tarih(k['olay'])} ({zaman})" + IMZA, k.get("alici"))
 
 
 def smtp_gonder(msg):
@@ -172,6 +193,7 @@ def yedek(veri_klasoru, dry_run):
     hat = json_oku(os.path.join(veri_klasoru, "hatirlatmalar.json"), {"sonraki_id": 1, "hatirlatmalar": []})
     yap = json_oku(os.path.join(veri_klasoru, "yapilacaklar.json"), {"sonraki_id": 1, "ogeler": []})
     sab = json_oku(os.path.join(veri_klasoru, "sablonlar.json"), None)
+    kis = json_oku(os.path.join(veri_klasoru, "kisiler.json"), None)
     bugun = simdi_tr().date()
     acik = sum(1 for g in yap["ogeler"] if not g.get("tamam"))
     bitti = len(yap["ogeler"]) - acik
@@ -179,13 +201,15 @@ def yedek(veri_klasoru, dry_run):
         "Hatırlatma ve yapılacaklar yedeği ekte.\n\n"
         f"Hatırlatma: {len(hat['hatirlatmalar'])}\n"
         f"Yapılacak: {acik} açık, {bitti} tamamlanmış\n\n"
-        "Geri yüklemek için ekteki dosyadaki \"hatirlatmalar\", \"yapilacaklar\" (ve varsa \"sablonlar\") bölümlerini,\n"
+        "Geri yüklemek için ekteki dosyadaki \"hatirlatmalar\", \"yapilacaklar\" (ve varsa \"sablonlar\", \"kisiler\") bölümlerini,\n"
         "gizli depodaki aynı adlı .json dosyalarına koy.\n"
     )
     msg = mesaj(f"Hatırlatma yedeği ({bugun.strftime('%d.%m.%Y')})", govde)
     icerik = {"hatirlatmalar": hat, "yapilacaklar": yap}
     if sab is not None:
         icerik["sablonlar"] = sab
+    if kis is not None:
+        icerik["kisiler"] = kis
     ek = json.dumps(icerik, ensure_ascii=False, indent=1).encode("utf-8")
     ek_adi = f"hatirlatma-yedek-{bugun.isoformat()}.json"
     msg.add_attachment(ek, maintype="application", subtype="json", filename=ek_adi)
@@ -220,7 +244,8 @@ def main():
     gonderilen = {(o["id"], o["olay"], o["fark"]) for o in log}
 
     yap = json_oku(os.path.join(args.veri, "yapilacaklar.json"), {"ogeler": []})
-    liste = bekleyenler(veri["hatirlatmalar"] + gorev_hatirlatmalari(yap), gonderilen, simdi)
+    kisiler = json_oku(os.path.join(args.veri, "kisiler.json"), {"kisiler": []})
+    liste = bekleyenler(alicilari_ekle(veri["hatirlatmalar"], kisiler) + gorev_hatirlatmalari(yap), gonderilen, simdi)
     if not liste:
         print("Gönderilecek hatırlatma yok.")
         return
@@ -236,7 +261,7 @@ def main():
 
     if args.dry_run:
         for k in gonderilecek:
-            m = hatirlatma_maili(k); print("Konu:", m["Subject"]); print(m.get_content())
+            m = hatirlatma_maili(k); print("Kime:", m["To"]); print("Konu:", m["Subject"]); print(m.get_content())
         return
 
     zaman = simdi.isoformat(timespec="minutes")
