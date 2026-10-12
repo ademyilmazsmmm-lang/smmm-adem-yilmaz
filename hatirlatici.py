@@ -94,7 +94,7 @@ def gorev_hatirlatmalari(yap):
             "id": f"g{g['id']}", "tur": "tek", "tarih": g["son"],
             "gunler": g.get("gunler") or [3, 0], "saat": g.get("saat") or "09:00",
             "metin": f"{firma}: {g['metin']}" if firma else g["metin"],
-            "olusturma": g["olusturma"], "etiket": "Son gün",
+            "olusturma": g["olusturma"], "etiket": g.get("etiket") or "Son gün",
         })
     return sonuc
 
