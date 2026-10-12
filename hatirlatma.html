@@ -63,6 +63,14 @@ a{color:var(--accent)}
 .sifre-satir .chip{min-width:78px}
 .kullanici-gizli{position:absolute;left:-9999px;top:auto;width:1px;height:1px;opacity:0;overflow:hidden}
 .surum{font-size:.75rem;color:var(--muted);text-align:center}
+details.card summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center}
+details.card[open] summary{margin-bottom:0}
+textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);resize:vertical}
+.grup-ust{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.grup-ad{font-weight:600;overflow-wrap:anywhere}
+.cubuk{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin:2px 0 4px}
+.cubuk span{display:block;height:100%;background:var(--accent)}
+.gorev .z.gecikti{color:var(--danger);font-weight:600}
 </style>
 </head>
 <body>
@@ -164,16 +172,57 @@ a{color:var(--accent)}
       <input type="text" id="yMetin" maxlength="300" placeholder="Yapılacak iş…" enterkeyhint="done" aria-label="Yapılacak iş">
       <button class="kaydet" type="submit">Ekle</button>
     </div>
+    <div>
+      <label for="ySon">Son tarih (isteğe bağlı)</label>
+      <input type="date" id="ySon">
+      <div class="onizleme" style="white-space:normal;margin-top:6px">Son tarih girersen, son günden 3 gün önce ve son gün sabah 09:00'da mail gelir.</div>
+    </div>
     <div class="durum" id="yDurum" role="status" aria-live="polite"></div>
   </form>
-  <section>
+
+  <details class="card" id="surecKutu">
+    <summary>Yeni süreç başlat (şablondan)</summary>
+    <form id="surecForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+      <div><label for="surecSablon">Şablon</label><select id="surecSablon"></select></div>
+      <div><label for="surecFirma">Firma adı</label><input type="text" id="surecFirma" maxlength="120" placeholder="Örn. ABC Ltd. Şti."></div>
+      <div><label for="surecTarih">Başlangıç tarihi (süreler bu tarihten sayılır)</label><input type="date" id="surecTarih" required></div>
+      <div><span class="lbl">Süreli maddeler için mail kaç gün önce gelsin?</span><div class="chips" id="surecGunler"></div></div>
+      <div><label for="surecSaat">Mail saati</label><input type="time" id="surecSaat" value="09:00"></div>
+      <div class="onizleme" id="surecOnizleme"></div>
+      <button class="kaydet" type="submit" id="surecBaslat">Süreci başlat</button>
+      <div class="durum" id="surecDurum" role="status" aria-live="polite"></div>
+    </form>
+  </details>
+
+  <section id="yListeBolum">
     <h2>Yapılacaklar</h2>
     <div class="card" id="yListe"><div class="bos">Yükleniyor…</div></div>
+  </section>
+  <section id="yGrupBolum" hidden>
+    <h2>Süreçler</h2>
+    <div id="yGruplar" style="display:flex;flex-direction:column;gap:14px"></div>
   </section>
   <details id="yBitenKutu" hidden>
     <summary id="yBitenBaslik">Tamamlananlar</summary>
     <div class="card gecmis" id="yBiten"></div>
     <button type="button" class="sil" id="yTemizle" style="margin-top:10px">Tamamlananları temizle</button>
+  </details>
+
+  <details class="card" id="sablonKutu">
+    <summary>Şablonları düzenle</summary>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+      <div><label for="sablonSec">Şablon</label><select id="sablonSec"></select></div>
+      <div><label for="sablonAd">Şablon adı</label><input type="text" id="sablonAd" maxlength="80"></div>
+      <div><label for="sablonMetin">Maddeler (her satır bir madde)</label>
+        <textarea id="sablonMetin" rows="12" spellcheck="false"></textarea></div>
+      <div class="onizleme" style="white-space:normal">Satır sonuna <b>(15 gün)</b> ya da <b>(1 ay)</b> yazarsan o madde için son tarih olur ve mail gelir. Notlarındaki "- [ ]" ve "•" işaretleri otomatik temizlenir, listeni olduğu gibi yapıştırabilirsin.</div>
+      <div class="chips">
+        <button type="button" class="chip" id="sablonKaydet">Kaydet</button>
+        <button type="button" class="chip" id="sablonYeni">Yeni şablon</button>
+        <button type="button" class="chip" id="sablonSil">Sil</button>
+      </div>
+      <div class="durum" id="sablonDurum" role="status" aria-live="polite"></div>
+    </div>
   </details>
 </div>
 
@@ -486,7 +535,7 @@ a{color:var(--accent)}
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "6";
+  var SURUM = "7";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -576,16 +625,19 @@ a{color:var(--accent)}
   $("cikis").addEventListener("click", function(e){ e.preventDefault(); kasaSil(); oturumuSil(); baslat(); });
   $("yedek").addEventListener("click", function(e){
     e.preventDefault();
-    Promise.all([oku(), oku(YDOSYA, yBos)]).then(function(r){
-      var url=URL.createObjectURL(new Blob([JSON.stringify({hatirlatmalar:r[0].veri, yapilacaklar:r[1].veri},null,1)],{type:"application/json"}));
+    Promise.all([oku(), oku(YDOSYA, yBos), oku(SDOSYA, sBos)]).then(function(r){
+      var icerik={hatirlatmalar:r[0].veri, yapilacaklar:r[1].veri}; if(r[2].sha) icerik.sablonlar=r[2].veri;
+      var url=URL.createObjectURL(new Blob([JSON.stringify(icerik,null,1)],{type:"application/json"}));
       var a=document.createElement("a"); a.href=url; a.download="hatirlatma-yedek.json"; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
     }).catch(function(err){ durum(err.message||"Yedek alınamadı.","hata"); });
   });
 
   /* ---------- yapılacaklar ---------- */
-  var YDOSYA = "yapilacaklar.json", yYerel = null, yIs = Promise.resolve(), ySeriNo = 0;
-  function yBos(){ return {sonraki_id:1, ogeler:[]}; }
+  var YDOSYA = "yapilacaklar.json", SDOSYA = "sablonlar.json";
+  var yYerel = null, yIs = Promise.resolve(), ySeriNo = 0;
+  function yBos(){ return {sonraki_id:1, sonraki_grup:1, ogeler:[]}; }
+  function sBos(){ return {sonraki_id:1, sablonlar:[]}; }
   // Yazmalar sırayla yapılır: hızlı art arda eklemede çakışma ve kayıp olmaz.
   function ySirala(fn, mesaj){
     var p = yIs.then(function(){ return degistir(fn, mesaj, {dosya:YDOSYA, bos:yBos}); });
@@ -599,12 +651,168 @@ a{color:var(--accent)}
   }
   function yTarihSaat(){ var n=trSimdi(); return goster(n.tarih)+" "+n.saat; }
 
+  /* Satır çözümleme: "- [ ] • E-Tebligat Başvuru Formu (15 gün)" -> {metin, son:{n:15, birim:"gun"}} */
+  function satirCoz(s){
+    s = s.replace(/^\s*(?:[-*•·]\s*)?(?:\[[ xX]?\]\s*)?(?:[•·]\s*)?/, "").trim();
+    var m = s.match(/\s*\(?\s*(\d+)\s*(gün|gun|ay)\s*\)?\s*$/i);
+    var son = null;
+    if(m && m.index>0){ son = {n:+m[1], birim: m[2].toLowerCase()==="ay" ? "ay" : "gun"}; s = s.slice(0,m.index).trim(); }
+    return {metin:s.slice(0,300), son:son};
+  }
+  function satirlar(metin){
+    return String(metin||"").split(/\r?\n/).map(satirCoz).filter(function(x){ return x.metin; }).slice(0,100);
+  }
+  function sonTarih(baslangic, son){
+    var d=parse(baslangic); d = son.birim==="ay" ? ayEkle(d,son.n) : gunEkle(d,son.n); return iso(d);
+  }
+
+  /* Şablonlar: dosya yoksa yerleşik varsayılanlar kullanılır; ilk kayıtta dosya oluşur. */
+  var SABLON_VARSAYILAN = [
+    {ad:"Kuruluş sonrası işlemler", metin:[
+      "E-tebligat mail/sms kontrol","Vergi Levhasının oluşturulması","E-Tebligat Başvuru Formu (15 gün)",
+      "Gerçek Faydalanıcı Bilgi Formu (1 ay)","Yoklama sonrası stopaj dönem","Luca müşteri ve dönem açılışı",
+      "Sözleşme SMMM girişi","Sermaye taahhüdü fişi kaydı","E-defter Başvurusu (3 ay)","Mali mühür başvurusu",
+      "Kira Kontratı Damga Vergisi (15 gün)","UETS Aktivasyonu","SGK Tebligat başvurusu",
+      "Ortaklara e-imza (E-defter/Karar defteri için)","Yazarkasa/ÖKC işlemleri (1 ay)"].join("\n")},
+    {ad:"Nevi değişikliği", metin:[
+      "E-fatura ve e-defter nevi değişikliği: vergi dairesi dilekçe yazalım, ekini gazeteye koyalım",
+      "Kurumlar verelim hemen (30 gün)",
+      "Kurum geçici son dönem verilecek: mükellefiyet kısmından bakalım ne zaman kapatılmış",
+      "Luca ayrı müşteri açalım","SGK (10 gün)",
+      "Son aya ait beratlar kurumlar vergisi beyannamesi verme süresine kadar verilmelidir",
+      "Yeni e-tebligat mail/sms kontrol (15 gün)","Gerçek Faydalanıcı Bilgi Formu (1 ay)",
+      "E-defter / e-fatura başvurusu (15 gün)"].join("\n")},
+    {ad:"Tasfiye işlemi", metin:[
+      "Vergi dairesi tasfiye halinde olduktan sonra gerçek faydalanıcı verelim",
+      "E-fatura ve e-defter değişikliğini bildirelim: interaktif vergi dairesi",
+      "Luca'ya yeni firma açalım"].join("\n")}
+  ];
+  var sYerel = null, sVarsayilan = true;
+  function sablonlar(){ return sYerel ? sYerel : SABLON_VARSAYILAN.map(function(s,i){ return {id:i+1, ad:s.ad, metin:s.metin}; }); }
+  function sYukle(){
+    return oku(SDOSYA, sBos).then(function(o){
+      var l=(o.veri && o.veri.sablonlar) || [];
+      if(o.sha && l.length){ sYerel=l; sVarsayilan=false; }
+      else { sYerel=SABLON_VARSAYILAN.map(function(s,i){ return {id:i+1, ad:s.ad, metin:s.metin}; }); sVarsayilan=true; }
+      sablonlariDoldur();
+    }).catch(function(err){ if(err && err.kod===401){ anahtarGecersiz(); } });
+  }
+  function secenekDoldur(sel, secili){
+    var onceki = secili!==undefined ? secili : sel.value;
+    sel.textContent="";
+    (sYerel||[]).forEach(function(s){ var o=document.createElement("option"); o.value=String(s.id); o.textContent=s.ad; sel.appendChild(o); });
+    if(onceki && Array.prototype.some.call(sel.options, function(o){ return o.value===String(onceki); })) sel.value=String(onceki);
+  }
+  function sablonlariDoldur(){
+    secenekDoldur($("surecSablon")); secenekDoldur($("sablonSec"));
+    sablonAlaniDoldur(); surecOnizle();
+  }
+  function secilenSablon(id){ var r=null; (sYerel||[]).forEach(function(s){ if(String(s.id)===String(id)) r=s; }); return r; }
+  function sablonAlaniDoldur(){
+    var s=secilenSablon($("sablonSec").value);
+    $("sablonAd").value = s ? s.ad : ""; $("sablonMetin").value = s ? s.metin : "";
+  }
+  function sablonDurum(m,t){ var d=$("sablonDurum"); d.textContent=m; d.className="durum "+(t||""); }
+  function sablonYaz(yeniListe, mesaj){
+    return degistir(function(v){ v.sablonlar = yeniListe; v.sonraki_id = Math.max.apply(null, [1].concat(yeniListe.map(function(s){ return s.id+1; }))); }, mesaj, {dosya:SDOSYA, bos:sBos});
+  }
+  $("sablonSec").addEventListener("change", sablonAlaniDoldur);
+  $("sablonYeni").addEventListener("click", function(){
+    var id = Math.max.apply(null, [0].concat((sYerel||[]).map(function(s){ return s.id; })))+1;
+    sYerel = (sYerel||[]).concat([{id:id, ad:"Yeni şablon", metin:""}]);
+    secenekDoldur($("surecSablon")); secenekDoldur($("sablonSec"), id); sablonAlaniDoldur();
+    $("sablonAd").focus(); $("sablonAd").select();
+  });
+  $("sablonKaydet").addEventListener("click", function(){
+    var id=$("sablonSec").value, ad=$("sablonAd").value.replace(/\s+/g," ").trim().slice(0,80), metin=$("sablonMetin").value;
+    if(!ad){ sablonDurum("Şablon adı boş olamaz.","hata"); return; }
+    if(!satirlar(metin).length){ sablonDurum("En az bir madde yaz.","hata"); return; }
+    var liste=(sYerel||[]).map(function(s){ return String(s.id)===String(id) ? {id:s.id, ad:ad, metin:metin} : s; });
+    sablonDurum("Kaydediliyor…");
+    sablonYaz(liste, "Şablon kaydedildi").then(function(){
+      sYerel=liste; sVarsayilan=false; secenekDoldur($("surecSablon"), $("surecSablon").value); secenekDoldur($("sablonSec"), id); surecOnizle();
+      sablonDurum("Kaydedildi.","ok");
+    }).catch(function(err){ if(err && err.kod===401){ anahtarGecersiz(); } else sablonDurum((err&&err.message)||"Kaydedilemedi.","hata"); });
+  });
+  var sSilZaman;
+  $("sablonSil").addEventListener("click", function(){
+    var b=$("sablonSil");
+    if(!b.classList.contains("emin")){
+      b.classList.add("emin"); b.textContent="Emin misin?";
+      sSilZaman=setTimeout(function(){ b.classList.remove("emin"); b.textContent="Sil"; }, 3000);
+      return;
+    }
+    clearTimeout(sSilZaman); b.classList.remove("emin"); b.textContent="Sil";
+    var id=$("sablonSec").value, liste=(sYerel||[]).filter(function(s){ return String(s.id)!==String(id); });
+    sablonDurum("Siliniyor…");
+    sablonYaz(liste, "Şablon silindi").then(function(){
+      sYerel=liste; sVarsayilan=false; sablonlariDoldur(); sablonDurum("Silindi.","ok");
+    }).catch(function(err){ if(err && err.kod===401){ anahtarGecersiz(); } else sablonDurum((err&&err.message)||"Silinemedi.","hata"); });
+  });
+
+  /* Süreç başlatma */
+  var surecSecili = {3:true, 0:true};
+  chipYap($("surecGunler"), [{ad:"7 gün",v:7},{ad:"3 gün",v:3},{ad:"1 gün",v:1},{ad:"Aynı gün",v:0}], function(o){
+    if(surecSecili[o.v]) delete surecSecili[o.v]; else surecSecili[o.v]=true;
+    surecChipGuncelle(); surecOnizle();
+  });
+  function surecChipGuncelle(){
+    Array.prototype.forEach.call($("surecGunler").children, function(b){ b.setAttribute("aria-pressed", surecSecili[b.dataset.v]?"true":"false"); });
+  }
+  function surecGunler(){ return Object.keys(surecSecili).map(Number).sort(function(a,b){return b-a;}); }
+  function surecOnizle(){
+    var s=secilenSablon($("surecSablon").value), t=$("surecTarih").value, o=$("surecOnizleme");
+    if(!s){ o.textContent="Şablon yok. Aşağıdan bir şablon ekle."; return; }
+    var l=satirlar(s.metin), sureli=l.filter(function(x){ return x.son; });
+    var satir=[l.length+" madde eklenecek, "+sureli.length+" tanesinin son tarihi var."];
+    if(t) sureli.slice(0,4).forEach(function(x){ satir.push("• "+x.metin+" → "+goster(sonTarih(t,x.son))); });
+    if(t && sureli.length>4) satir.push("• … ve "+(sureli.length-4)+" madde daha");
+    o.textContent=satir.join("\n");
+  }
+  ["surecSablon","surecTarih"].forEach(function(id){ $(id).addEventListener("input", surecOnizle); $(id).addEventListener("change", surecOnizle); });
+  $("surecForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var s=secilenSablon($("surecSablon").value), firma=$("surecFirma").value.replace(/\s+/g," ").trim().slice(0,120),
+        t=$("surecTarih").value, saat=$("surecSaat").value||"09:00", gunler=surecGunler(), d=$("surecDurum");
+    if(!s){ d.textContent="Önce bir şablon seç."; d.className="durum hata"; return; }
+    if(!firma){ d.textContent="Firma adını yaz."; d.className="durum hata"; $("surecFirma").focus(); return; }
+    if(!t){ d.textContent="Başlangıç tarihini seç."; d.className="durum hata"; return; }
+    var l=satirlar(s.metin);
+    if(!l.length){ d.textContent="Bu şablonda madde yok."; d.className="durum hata"; return; }
+    if(l.some(function(x){ return x.son; }) && !gunler.length){ d.textContent="Mail için en az bir gün seç."; d.className="durum hata"; return; }
+    $("surecBaslat").disabled=true; d.textContent="Kaydediliyor…"; d.className="durum";
+    var n=trSimdi(), ts=n.tarih+"T"+n.saat, baslik=firma+" · "+s.ad;
+    ySirala(function(v){
+      var gid=v.sonraki_grup||1; v.sonraki_grup=gid+1;
+      l.forEach(function(x){
+        var id=v.sonraki_id||1; v.sonraki_id=id+1;
+        var g={id:id, metin:x.metin, tamam:false, olusturma:ts, gid:gid, grup:baslik, firma:firma, sablon:s.ad};
+        if(x.son){ g.son=sonTarih(t,x.son); g.gunler=gunler; g.saat=saat; }
+        v.ogeler.push(g);
+      });
+    }, "Süreç başlatıldı").then(function(){
+      d.textContent=l.length+" madde eklendi.  Mailler son tarihli maddeler için gelecek."; d.className="durum ok";
+      $("surecFirma").value=""; $("surecKutu").open=false; return yYukle();
+    }).catch(function(err){
+      if(err && err.kod===401){ anahtarGecersiz(); return; }
+      d.textContent=(err && err.message) || "Kaydedilemedi."; d.className="durum hata";
+    }).then(function(){ $("surecBaslat").disabled=false; });
+  });
+
+  /* Görev satırı */
+  function sonBilgi(g){
+    if(!g.son || g.tamam) return null;
+    var f=farkGun(g.son);
+    return {metin:"Son: "+goster(g.son)+" · "+(f<0 ? (-f)+" gün geçti" : f===0 ? "bugün" : f+" gün kaldı"), gecikti:f<0};
+  }
   function yGorevYap(g){
     var el=document.createElement("div"); el.className="gorev"+(g.tamam?" bitti":"");
     var kutu=document.createElement("label"); kutu.className="kutu";
     var cb=document.createElement("input"); cb.type="checkbox"; cb.checked=!!g.tamam; cb.setAttribute("aria-label", g.tamam?"Tamamlandı, geri al":"Tamamlandı olarak işaretle");
     kutu.appendChild(cb);
     var m=document.createElement("div"); m.className="m"; m.textContent=g.metin;
+    var sb=sonBilgi(g);
+    if(sb){ var z2=document.createElement("span"); z2.className="z"+(sb.gecikti?" gecikti":""); z2.textContent=sb.metin; m.appendChild(z2); }
     if(g.tamam && g.tamamlanma){ var z=document.createElement("span"); z.className="z"; z.textContent="Tamamlandı: "+g.tamamlanma; m.appendChild(z); }
     var sil=document.createElement("button"); sil.type="button"; sil.className="sil"; sil.textContent="Sil";
     var zaman;
@@ -630,18 +838,63 @@ a{color:var(--accent)}
     el.appendChild(kutu); el.appendChild(m); el.appendChild(sil);
     return el;
   }
+  function grupYap(G){
+    var tamam=G.ogeler.filter(function(t){ return t.tamam; }).length, hepsi=G.ogeler.length, bitti=tamam===hepsi;
+    var kart=document.createElement("div"); kart.className="card grup"+(bitti?" gecmis":"");
+    var ust=document.createElement("div"); ust.className="grup-ust";
+    var sol=document.createElement("div"); sol.style.minWidth="0";
+    var ad=document.createElement("div"); ad.className="grup-ad"; ad.textContent=G.ad;
+    var ilerleme=document.createElement("div"); ilerleme.className="onizleme"; ilerleme.textContent=tamam+"/"+hepsi+(bitti?" · tamamlandı":"");
+    var cubuk=document.createElement("div"); cubuk.className="cubuk"; var dolgu=document.createElement("span"); dolgu.style.width=Math.round(100*tamam/hepsi)+"%"; cubuk.appendChild(dolgu);
+    sol.appendChild(ad); sol.appendChild(ilerleme);
+    var sil=document.createElement("button"); sil.type="button"; sil.className="sil"; sil.textContent="Süreci sil";
+    var zaman;
+    sil.addEventListener("click", function(){
+      if(!sil.classList.contains("emin")){
+        sil.classList.add("emin"); sil.textContent="Emin misin? Hepsi silinir";
+        zaman=setTimeout(function(){ sil.classList.remove("emin"); sil.textContent="Süreci sil"; }, 3000);
+        return;
+      }
+      clearTimeout(zaman);
+      yYerel.ogeler = yYerel.ogeler.filter(function(x){ return x.gid!==G.gid; }); yCiz();
+      ySirala(function(v){ v.ogeler = v.ogeler.filter(function(x){ return x.gid!==G.gid; }); }, "Süreç silindi")
+        .catch(function(err){ yHata(err); yYukle(); });
+    });
+    ust.appendChild(sol); ust.appendChild(sil);
+    kart.appendChild(ust); kart.appendChild(cubuk);
+    G.ogeler.slice().sort(function(x,y){ return x.id-y.id; }).forEach(function(t){ kart.appendChild(yGorevYap(t)); });
+    return kart;
+  }
   function yCiz(){
-    var acik=$("yListe"), biten=$("yBiten"); acik.textContent=""; biten.textContent="";
-    var a=[], b=[];
-    (yYerel ? yYerel.ogeler : []).forEach(function(g){ (g.tamam ? b : a).push(g); });
+    var acik=$("yListe"), biten=$("yBiten"), gr=$("yGruplar"); acik.textContent=""; biten.textContent=""; gr.textContent="";
+    var tum=(yYerel ? yYerel.ogeler : []), a=[], b=[], gruplar={}, sira=[];
+    tum.forEach(function(g){
+      if(g.gid){
+        if(!gruplar[g.gid]){ gruplar[g.gid]={gid:g.gid, ad:g.grup||"Süreç", ogeler:[]}; sira.push(gruplar[g.gid]); }
+        gruplar[g.gid].ogeler.push(g);
+      } else { (g.tamam ? b : a).push(g); }
+    });
     a.sort(function(x,y){ return y.id-x.id; });                                   // yenisi üstte
     b.sort(function(x,y){ return (y.tamamlanma||"")<(x.tamamlanma||"") ? -1 : 1; });
     a.forEach(function(g){ acik.appendChild(yGorevYap(g)); });
     b.forEach(function(g){ biten.appendChild(yGorevYap(g)); });
-    if(!a.length){ var e=document.createElement("div"); e.className="bos"; e.textContent=b.length ? "Hepsi tamam." : "Henüz bir şey yok. Yukarıdan ekle."; acik.appendChild(e); }
+    sira.sort(function(x,y){
+      var xb=x.ogeler.every(function(t){ return t.tamam; }), yb=y.ogeler.every(function(t){ return t.tamam; });
+      if(xb!==yb) return xb ? 1 : -1;
+      return y.gid-x.gid;                                                          // yeni süreç üstte
+    });
+    sira.forEach(function(G){ gr.appendChild(grupYap(G)); });
+    $("yGrupBolum").hidden = !sira.length;
+    if(!a.length){
+      var e=document.createElement("div"); e.className="bos";
+      e.textContent = (b.length || sira.length) ? "Tekil iş yok." : "Henüz bir şey yok. Yukarıdan ekle ya da şablondan süreç başlat.";
+      acik.appendChild(e);
+    }
+    $("yListeBolum").hidden = !a.length && sira.length>0;
     $("yBitenKutu").hidden = !b.length;
     $("yBitenBaslik").textContent = "Tamamlananlar ("+b.length+")";
-    $("yRozet").textContent = a.length ? String(a.length) : "";
+    var acikSayi = tum.filter(function(g){ return !g.tamam; }).length;
+    $("yRozet").textContent = acikSayi ? String(acikSayi) : "";
   }
   function yYukle(){
     return oku(YDOSYA, yBos).then(function(o){ yYerel=o.veri; yCiz(); })
@@ -652,16 +905,20 @@ a{color:var(--accent)}
   }
   $("yForm").addEventListener("submit", function(e){
     e.preventDefault();
-    var m=$("yMetin").value.replace(/\s+/g," ").trim().slice(0,300);
+    var m=$("yMetin").value.replace(/\s+/g," ").trim().slice(0,300), son=$("ySon").value;
     if(!m){ yDurum("Bir şey yaz.","hata"); return; }
-    $("yMetin").value=""; $("yMetin").focus();
+    if(son && parse(son).getTime()<bugun().getTime()){ yDurum("Son tarih geçmişte olamaz.","hata"); return; }
+    $("yMetin").value=""; $("ySon").value=""; $("yMetin").focus();
     var geciciId = -(++ySeriNo);                       // sunucu kimliği gelene kadar ekranda göstermek için
     var n=trSimdi(), yeni={id:geciciId, metin:m, tamam:false, olusturma:n.tarih+"T"+n.saat};
+    if(son){ yeni.son=son; yeni.gunler=[3,0]; yeni.saat="09:00"; }
     if(!yYerel) yYerel=yBos();
     yYerel.ogeler.push(yeni); yCiz(); yDurum("Kaydediliyor…");
     ySirala(function(v){
       var id=v.sonraki_id||1; v.sonraki_id=id+1;
-      v.ogeler.push({id:id, metin:m, tamam:false, olusturma:yeni.olusturma});
+      var g={id:id, metin:m, tamam:false, olusturma:yeni.olusturma};
+      if(son){ g.son=son; g.gunler=[3,0]; g.saat="09:00"; }
+      v.ogeler.push(g);
     }, "Görev eklendi")
     .then(function(){ if(yIs===ySonIs){ yDurum("Kaydedildi.","ok"); return yYukle(); } })
     .catch(function(err){ yYerel.ogeler=yYerel.ogeler.filter(function(x){ return x.id!==geciciId; }); yCiz(); yHata(err); });
@@ -676,8 +933,9 @@ a{color:var(--accent)}
       return;
     }
     clearTimeout(yTemizleZaman); d.classList.remove("emin"); d.textContent="Tamamlananları temizle";
-    yYerel.ogeler = yYerel.ogeler.filter(function(x){ return !x.tamam; }); yCiz();
-    ySirala(function(v){ v.ogeler = v.ogeler.filter(function(x){ return !x.tamam; }); }, "Tamamlananlar temizlendi")
+    var sil=function(x){ return !(x.tamam && !x.gid); };                           // süreçlerin maddelerine dokunulmaz
+    yYerel.ogeler = yYerel.ogeler.filter(sil); yCiz();
+    ySirala(function(v){ v.ogeler = v.ogeler.filter(sil); }, "Tamamlananlar temizlendi")
       .catch(function(err){ yHata(err); yYukle(); });
   });
 
@@ -700,7 +958,7 @@ a{color:var(--accent)}
   }
   $("sekmeH").addEventListener("click", function(){ sekmeSec("hatirlatma"); });
   $("sekmeY").addEventListener("click", function(){ sekmeSec("yapilacaklar"); });
-  function hepsiniYukle(){ sekmeBaslangic(); yukle(); yYukle(); }
+  function hepsiniYukle(){ sekmeBaslangic(); yukle(); yYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; surecChipGuncelle(); }
 
   /* ---------- başlangıç ---------- */
   $("tarih").value = iso(gunEkle(bugun(),1));

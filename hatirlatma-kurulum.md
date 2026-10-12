@@ -55,3 +55,15 @@ Actions → **Hatırlatma Maili** → Run workflow ile beklemeden de çalıştı
 - Mailin gideceği adres `MAIL_TO` secret'ında durur (koda yazılmaz). Değiştirmek için Settings → Secrets → Actions → `MAIL_TO` → düzenle.
 - Bu depoda Actions günlükleri herkese görünür. Programa hatırlatma metni ya da firma adı yazdırılmaz; yalnızca sayılar yazılır. Bunu değiştirme.
 - Gizli depodaki `hatirlatmalar.json` doğrudan GitHub'dan da düzenlenebilir, ama sayfayı kullanmak daha güvenlidir.
+
+## Süreç şablonları (Yapılacaklar sekmesi)
+
+Kuruluş, nevi değişikliği, tasfiye gibi tekrar eden işlemleri şablon olarak tutabilirsin.
+- **Yeni süreç başlat:** şablonu, firma adını ve başlangıç tarihini seç. Şablondaki bütün maddeler o firma için Yapılacaklar'a eklenir.
+- **Süreler:** Şablon satırının sonuna `(15 gün)` ya da `(1 ay)` yazarsan, o madde için son tarih = başlangıç + süre olur.
+  Son tarihi olan ve tamamlanmamış maddeler, son günden 3 gün önce ve son gün (seçtiğin gün ve saatlerde) mail atar.
+  Maddeyi işaretlersen mail gelmez. Mailin konusu "Firma: madde" biçimindedir.
+- **Şablonları düzenle:** notlarını olduğu gibi yapıştırabilirsin ("- [ ]" ve "•" işaretleri temizlenir, "15gun" gibi yazımlar da anlaşılır).
+  Şablonlar gizli depoda `sablonlar.json` dosyasında durur ve yedek mailine girer.
+- Tekil bir işe de son tarih verebilirsin: Yapılacaklar kutusunun altındaki "Son tarih" alanı.
+

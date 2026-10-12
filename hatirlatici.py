@@ -78,7 +78,24 @@ def bekleyenler(hatirlatmalar, gonderilen, simdi):
                     continue
                 if (k["id"], hedef.isoformat(), fark) in gonderilen:
                     continue
-                sonuc.append({"id": k["id"], "metin": k["metin"], "olay": hedef.isoformat(), "fark": fark})
+                sonuc.append({"id": k["id"], "metin": k["metin"], "olay": hedef.isoformat(), "fark": fark,
+                              "etiket": k.get("etiket", "Tarih")})
+    return sonuc
+
+
+def gorev_hatirlatmalari(yap):
+    """Son tarihi olan, tamamlanmamış yapılacaklar da hatırlatma gibi mail atar (yapılacaklar.json)."""
+    sonuc = []
+    for g in yap.get("ogeler", []):
+        if g.get("tamam") or not g.get("son") or g["id"] < 0:
+            continue
+        firma = g.get("firma")
+        sonuc.append({
+            "id": f"g{g['id']}", "tur": "tek", "tarih": g["son"],
+            "gunler": g.get("gunler") or [3, 0], "saat": g.get("saat") or "09:00",
+            "metin": f"{firma}: {g['metin']}" if firma else g["metin"],
+            "olusturma": g["olusturma"], "etiket": "Son gün",
+        })
     return sonuc
 
 
@@ -112,7 +129,7 @@ def hatirlatma_maili(k):
     """Konu: hatırlatma metninin kendisi (başlık enjeksiyonuna karşı tek satıra indirilir)."""
     konu = " ".join(str(k["metin"]).split()) or "Hatırlatma"
     zaman = "BUGÜN" if k["fark"] == 0 else f"{k['fark']} gün kaldı"
-    return mesaj(konu, f"{konu}\n\nTarih: {tr_tarih(k['olay'])} ({zaman})\n")
+    return mesaj(konu, f"{konu}\n\n{k.get('etiket', 'Tarih')}: {tr_tarih(k['olay'])} ({zaman})\n")
 
 
 def smtp_gonder(msg):
@@ -149,6 +166,7 @@ def yedek(veri_klasoru, dry_run):
     """Hatırlatma ve yapılacaklar verisini JSON eki olarak mailler. Günlüğe yalnızca sayılar yazılır."""
     hat = json_oku(os.path.join(veri_klasoru, "hatirlatmalar.json"), {"sonraki_id": 1, "hatirlatmalar": []})
     yap = json_oku(os.path.join(veri_klasoru, "yapilacaklar.json"), {"sonraki_id": 1, "ogeler": []})
+    sab = json_oku(os.path.join(veri_klasoru, "sablonlar.json"), None)
     bugun = simdi_tr().date()
     acik = sum(1 for g in yap["ogeler"] if not g.get("tamam"))
     bitti = len(yap["ogeler"]) - acik
@@ -156,11 +174,14 @@ def yedek(veri_klasoru, dry_run):
         "Hatırlatma ve yapılacaklar yedeği ekte.\n\n"
         f"Hatırlatma: {len(hat['hatirlatmalar'])}\n"
         f"Yapılacak: {acik} açık, {bitti} tamamlanmış\n\n"
-        "Geri yüklemek için ekteki dosyadaki \"hatirlatmalar\" ve \"yapilacaklar\" bölümlerini, gizli depodaki\n"
-        "hatirlatmalar.json ve yapilacaklar.json dosyalarına koy.\n"
+        "Geri yüklemek için ekteki dosyadaki \"hatirlatmalar\", \"yapilacaklar\" (ve varsa \"sablonlar\") bölümlerini,\n"
+        "gizli depodaki aynı adlı .json dosyalarına koy.\n"
     )
     msg = mesaj(f"Hatırlatma yedeği ({bugun.strftime('%d.%m.%Y')})", govde)
-    ek = json.dumps({"hatirlatmalar": hat, "yapilacaklar": yap}, ensure_ascii=False, indent=1).encode("utf-8")
+    icerik = {"hatirlatmalar": hat, "yapilacaklar": yap}
+    if sab is not None:
+        icerik["sablonlar"] = sab
+    ek = json.dumps(icerik, ensure_ascii=False, indent=1).encode("utf-8")
     ek_adi = f"hatirlatma-yedek-{bugun.isoformat()}.json"
     msg.add_attachment(ek, maintype="application", subtype="json", filename=ek_adi)
     if dry_run:
@@ -193,7 +214,8 @@ def main():
     log = json_oku(log_yolu, [])
     gonderilen = {(o["id"], o["olay"], o["fark"]) for o in log}
 
-    liste = bekleyenler(veri["hatirlatmalar"], gonderilen, simdi)
+    yap = json_oku(os.path.join(args.veri, "yapilacaklar.json"), {"ogeler": []})
+    liste = bekleyenler(veri["hatirlatmalar"] + gorev_hatirlatmalari(yap), gonderilen, simdi)
     if not liste:
         print("Gönderilecek hatırlatma yok.")
         return
@@ -205,7 +227,7 @@ def main():
     for k in liste:
         gruplar.setdefault((k["id"], k["olay"]), []).append(k)
     gonderilecek = sorted((min(g, key=lambda x: x["fark"]) for g in gruplar.values()),
-                          key=lambda x: (x["olay"], x["id"]))
+                          key=lambda x: (x["olay"], str(x["id"])))
 
     if args.dry_run:
         for k in gonderilecek:
