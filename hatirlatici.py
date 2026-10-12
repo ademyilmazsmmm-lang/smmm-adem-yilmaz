@@ -128,7 +128,12 @@ def mesaj(konu, govde):
 def hatirlatma_maili(k):
     """Konu: hatırlatma metninin kendisi (başlık enjeksiyonuna karşı tek satıra indirilir)."""
     konu = " ".join(str(k["metin"]).split()) or "Hatırlatma"
-    zaman = "BUGÜN" if k["fark"] == 0 else f"{k['fark']} gün kaldı"
+    if k["fark"] == 0:
+        zaman = "BUGÜN"
+    elif k["fark"] > 0:
+        zaman = f"{k['fark']} gün kaldı"
+    else:
+        zaman = f"{-k['fark']} gün önce"   # tarihten sonra gelen hatırlatma (negatif gün)
     return mesaj(konu, f"{konu}\n\n{k.get('etiket', 'Tarih')}: {tr_tarih(k['olay'])} ({zaman})\n")
 
 
