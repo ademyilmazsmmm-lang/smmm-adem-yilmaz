@@ -69,12 +69,16 @@ Kuruluş, nevi değişikliği, tasfiye gibi tekrar eden işlemleri şablon olara
 
 ## Tasfiye süreci (Yapılacaklar sekmesi → "Tasfiye süreci başlat")
 
-Sayfa tasfiye için şu tarihleri sorar; ilk tarih zorunludur, diğer ikisi sonradan da girilebilir:
-- **Tasfiyeye giriş tarihi** → Tasfiye beyannamesi (kurumlar vergisi): tasfiyeye girişi takip eden ayın sonu
-- **3. ilan tarihi** → Kapanış verilebilir: 3. ilan + 3 ay
-- **Kapanış tarihi** → Tasfiye sonu beyannamesi: kapanış + 30 gün; normal dönem kurumlar beyannamesi tasfiye sonu beyannamesinden önce verilecek, aynı son gün gösterilir
+Sayfa tasfiye için şu tarihleri sorar; ilk tarih zorunludur, diğer ikisi sonradan da girilebilir. Süreler şu kurallara göre hesaplanır:
+
+| Madde | Son tarih | Hangi tarihten | Dayanak |
+|---|---|---|---|
+| Normal dönem kurumlar vergisi beyannamesi (tasfiye öncesi) | Tasfiye başlangıç ayını izleyen 4. ayın 25'i; kapanış girildiyse ve tasfiye sonu beyannamesinden önce doluyorsa o tarih | Tasfiyeye giriş (+ kapanış) | KVK md. 14 |
+| Tasfiye dönemi kurumlar vergisi beyannamesi (başlangıç → yıl sonu) | Dönemin kapandığı yılı izleyen yılın 25 Nisan'ı; kapanış aynı yıldaysa "gerekmez" (tek dönem) | Tasfiyeye giriş (+ kapanış) | KVK md. 14 |
+| Kapanış verilebilir | 3. ilan + 3 ay | 3. ilan | TTK md. 541, 543 |
+| Tasfiye sonu beyannamesi | Kapanış + 30 gün | Kapanış | KVK md. 17 |
 
 Tarihi girilmemiş maddeler "Tarih bekleniyor" olarak durur. Süreç kartındaki **Tarihler** bölümünden sonradan girilir ya da düzeltilir; bağlı maddelerin tarihleri yeniden hesaplanır.
-Her maddenin altında hesabın nasıl yapıldığı yazar ("hesap: kapanış + 30 gün"). Tarihli maddeler son günden 3 gün önce ve son gün mail atar.
-Kuralları değiştirmek için kodda `TASFIYE_MADDELER` ve `tasfiyeSon` bölümüne bakılır.
-
+Her maddenin altında hesabın nasıl yapıldığı yazar. Tarihli maddeler son günden 3 gün önce ve son gün mail atar.
+Kurallar kodda `TASFIYE_MADDELER` ve `tasfiyeSon` bölümündedir. Süreler ikincil kaynaklardan doğrulandı; kesin tarihler için güncel mevzuat ve vergi dairesi görüşü esas alınmalıdır.
+Birden fazla takvim yılına yayılan tasfiyelerde sonraki yılların tasfiye dönemi beyannameleri otomatik eklenmez.
