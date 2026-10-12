@@ -32,7 +32,7 @@ from lucabot import SURUM, lisans  # noqa: E402
 HARIC_YOL = ("/testler/", "/birlestirme/", "/__pycache__/")
 HARIC_AD = {"lisans_araci.py", ".gitignore", ".gitattributes", "BIRLESTIRME.md", "kapali-firmalar.md",
             "giris-gunlugu.log", "luca_bot_sabahki.py", "sabahki-surum-testi.bat", "gecis_rapor_birlestir.py",
-            "gecis-rapor-birlestir.bat", "ayarlar.json", "lisans.json", "lisans-durum.json", "python-yolu.txt"}
+            "gecis-rapor-birlestir.bat", "ayarlar.json", "lisans.json", "lisans-paket.json", "lisans-durum.json", "python-yolu.txt"}
 
 
 def izlenen_dosyalar():

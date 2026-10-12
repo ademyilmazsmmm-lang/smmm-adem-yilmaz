@@ -837,7 +837,8 @@ class Arayuz:
                 "Dijital Stajyer — Hakkında",
                 f"Dijital Stajyer\nSürüm {SURUM}  ({SURUM_TARIHI})\n\n"
                 "Luca e-Fatura / e-Arşiv indirme, kâr/zarar tahmini ve rapor aracı.\n\n"
-                f"Lisans: {lisans.ozet()}\n{telif()}\n\n"
+                f"Lisans: {lisans.ozet()}\nLisans dosyası: {Path(lisans.durum(kaydet=False)['dosya']).name}\n"
+                f"{telif()}\n\n"
                 "Yeni bir lisans dosyası (lisans.json) yüklemek ister misiniz?", parent=self.kok):
             self.lisans_yukle()
 

@@ -100,6 +100,19 @@ class LisansTest(unittest.TestCase):
         self.assertFalse(tamam)
         self.assertIn("geçersiz", mesaj)
 
+    def test_baska_isimli_lisans_dosyasi_ve_en_gec_biten_kullanilir(self):
+        self.yaz(sahip="Genel 2026")                                  # lisans.json: 31.12.2026
+        self.yaz(sahip="Program Sahibi", bit="2099-12-31", dosya=self.klasor / "lisans-adem-sahip.json")
+        d = lisans.durum(bugun=date(2026, 10, 7), acik=ACIK, kaydet=False)
+        self.assertTrue(d["gecerli"])
+        self.assertEqual(d["sahip"], "Program Sahibi")
+        self.assertTrue(d["dosya"].endswith("lisans-adem-sahip.json"))
+        # lisans.json suresi dolmus olsa da digeri gecerliyse program calisir
+        d = lisans.durum(bugun=date(2027, 6, 1), acik=ACIK, kaydet=False)
+        self.assertTrue(d["gecerli"])
+        self.assertFalse(lisans.durum(bugun=date(2027, 6, 1), dosya=self.dosya, acik=ACIK, kaydet=False)["gecerli"])
+        self.assertNotIn("lisans-durum.json", [Path(y).name for y in lisans.aday_dosyalar()])
+
     def test_ed25519_resmi_test_vektoru(self):
         # RFC 8032 7.1, TEST 1 (bos mesaj)
         tohum = bytes.fromhex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")

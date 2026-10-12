@@ -27,7 +27,7 @@ python setup/derle.py --lisans lisans-2026-genel.json
 4. Masaüstü + Başlat menüsü kısayolu, kaldırıcı (`Kaldir.exe`).
 5. İlk açılışta Kurulum Sihirbazı Luca/Defter Beyan bilgilerini sorar. Eksik kalan bileşenleri sihirbaz tamamlar.
 
-Yeniden kurulum/yükseltme: ayarlar, indirilenler ve raporlar korunur; `lisans.json` paketteki lisansla değişir.
+Yeniden kurulum/yükseltme: ayarlar, indirilenler ve raporlar korunur. Paketteki lisans `lisans-paket.json` olarak yazılır; elle konan/yüklenen `lisans.json` (ya da başka `lisans*.json`) silinmez. Program geçerli olanlar arasında **bitişi en geç olanı** kullanır; kendi süresiz lisansınızı `lisans.json` olarak koymanız yeterli.
 Kaldırma: program dosyaları silinir, kullanıcı verisi (ayarlar.json, indirilenler, raporlar) bırakılır.
 Sessiz kurulum: `DijitalStajyer-Kurulum-1.0.0.exe /S`.
 

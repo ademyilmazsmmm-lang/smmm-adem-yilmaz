@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Kullanim lisansi: imzali lisans.json dosyasi (Ed25519) ve gecerlilik kontrolu.
 
-lisans.json:  {"urun": "Dijital Stajyer", "lisans_sahibi": "...", "baslangic": "2026-01-01",
+lisans.json (ya da lisans*.json; paketle gelen: lisans-paket.json):  {"urun": "Dijital Stajyer", "lisans_sahibi": "...", "baslangic": "2026-01-01",
                "bitis": "2026-12-31", "imza": "<base64>"}
 
 Imza yalniz program sahibinin ozel anahtariyla atilabilir (lisans_araci.py); programin icindeki ACIK_ANAHTAR
@@ -194,12 +194,39 @@ def _son_gorulen_yaz(bugun):
         pass
 
 
+def aday_dosyalar():
+    """Lisans olarak bakilacak dosyalar: lisans.json, ayni klasordeki (ve bir ust klasordeki) lisans*.json."""
+    adaylar = [LISANS_DOSYASI]
+    for klasor in (LISANS_DOSYASI.parent, LISANS_DOSYASI.parent.parent):
+        try:
+            for y in sorted(klasor.glob("lisans*.json")):
+                if y.name != DURUM_DOSYASI.name and y not in adaylar:
+                    adaylar.append(y)
+        except OSError:
+            pass
+    return adaylar
+
+
 def durum(bugun=None, dosya=None, acik=None, kaydet=True):
-    """{'gecerli', 'sahip', 'baslangic', 'bitis', 'kalan_gun', 'mesaj', 'uyari'} (tarihler date)."""
+    """{'gecerli', 'sahip', 'baslangic', 'bitis', 'kalan_gun', 'mesaj', 'uyari', 'dosya'} (tarihler date).
+
+    dosya verilmezse lisans.json ile lisans*.json dosyalarina bakilir; gecerli olanlardan bitisi en gec olan
+    kullanilir (ornegin kurulumdaki 2026 lisansinin yaninda 'lisans-sahibi.json' varsa o gecer)."""
+    if dosya is not None:
+        return _dosya_durumu(dosya, bugun, acik, kaydet)
+    sonuclar = [_dosya_durumu(y, bugun, acik, kaydet) for y in aday_dosyalar()]
+    gecerliler = [d for d in sonuclar if d["gecerli"]]
+    if gecerliler:
+        return max(gecerliler, key=lambda d: d["bitis"])
+    var_olanlar = [d for d in sonuclar if d["dosya"] and Path(d["dosya"]).exists()]
+    return (var_olanlar or sonuclar)[0]
+
+
+def _dosya_durumu(dosya, bugun, acik, kaydet):
     bugun = bugun or date.today()
     sonuc = {"gecerli": False, "sahip": "", "baslangic": None, "bitis": None, "kalan_gun": None,
-             "mesaj": "", "uyari": ""}
-    veri = _oku(dosya or LISANS_DOSYASI)
+             "mesaj": "", "uyari": "", "dosya": str(dosya)}
+    veri = _oku(dosya)
     if veri is None:
         sonuc["mesaj"] = f"Lisans dosyası (lisans.json) bulunamadı. Lisans için: {ILETISIM}"
         return sonuc

@@ -157,7 +157,7 @@ Section "${AD} programı" SecProgram
   SetOutPath "$INSTDIR"
   !include "dosyalar.nsh"
   SetOutPath "$INSTDIR\luca-bot"
-  File /oname=lisans.json "${LISANS_DOSYASI}"
+  File /oname=lisans-paket.json "${LISANS_DOSYASI}"  ; lisans.json'a dokunulmaz (elle/Hakkinda'dan yuklenen lisans korunur)
   WriteUninstaller "$INSTDIR\Kaldir.exe"
   WriteRegStr HKCU "${KAYIT}" "DisplayName" "${AD}"
   WriteRegStr HKCU "${KAYIT}" "DisplayVersion" "${SURUM}"
@@ -247,6 +247,7 @@ FunctionEnd
 Section "Uninstall"
   !include "silme.nsh"
   Delete "$INSTDIR\luca-bot\lisans.json"
+  Delete "$INSTDIR\luca-bot\lisans-paket.json"
   Delete "$INSTDIR\luca-bot\lisans-durum.json"
   Delete "$INSTDIR\luca-bot\python-yolu.txt"
   Delete "$DESKTOP\${AD}.lnk"
