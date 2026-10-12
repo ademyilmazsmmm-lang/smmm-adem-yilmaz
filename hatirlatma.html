@@ -553,7 +553,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "8";
+  var SURUM = "9";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -657,21 +657,46 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   function yBos(){ return {sonraki_id:1, sonraki_grup:1, ogeler:[], gruplar:{}}; }
 
   /* ----- Tasfiye kuralları -----
-     Bir maddenin tarihi, sürecin "tarihler" alanlarından kurala göre hesaplanır. Taban tarih girilmediyse madde "bekleniyor" olur. */
+     Bir maddenin tarihi, sürecin "tarihler" alanlarından kurala göre hesaplanır. Taban tarih girilmediyse madde "bekleniyor" olur.
+     Kaynaklar: KVK md. 14 (beyanname süreleri), KVK md. 17 (tasfiye sonu: 30 gün), TTK md. 541/543 (3. çağrıdan sonra 3 ay). */
   var TASFIYE_MADDELER = [
-    {metin:"Tasfiye beyannamesi (kurumlar vergisi)", kural:"tasfiye_beyan", etiket:"Son gün"},
+    {metin:"Normal dönem kurumlar vergisi beyannamesi (tasfiye öncesi dönem)", kural:"normal_donem", etiket:"Son gün"},
+    {metin:"Tasfiye dönemi kurumlar vergisi beyannamesi (tasfiye başlangıcı → yıl sonu)", kural:"tasfiye_donemi", etiket:"Son gün"},
     {metin:"Kapanış verilebilir (3. ilandan 3 ay geçti)", kural:"kapanis_verilebilir", etiket:"Kapanış verilebilecek tarih"},
-    {metin:"Normal dönem kurumlar beyannamesi (tasfiye sonu beyannamesinden önce verilecek)", kural:"normal_beyan", etiket:"Son gün"},
     {metin:"Tasfiye sonu beyannamesi", kural:"tasfiye_sonu", etiket:"Son gün"}
   ];
-  var KURAL_ISTENEN = {tasfiye_beyan:"Tasfiyeye giriş tarihi", kapanis_verilebilir:"3. ilan tarihi", normal_beyan:"Kapanış tarihi", tasfiye_sonu:"Kapanış tarihi"};
+  var KURAL_ISTENEN = {normal_donem:"Tasfiyeye giriş tarihi", tasfiye_donemi:"Tasfiyeye giriş tarihi", kapanis_verilebilir:"3. ilan tarihi", tasfiye_sonu:"Kapanış tarihi",
+                       tasfiye_beyan:"Tasfiyeye giriş tarihi", normal_beyan:"Tasfiyeye giriş tarihi"};
   function tasfiyeSon(kural, t){
     t = t || {};
-    if(kural==="tasfiye_beyan" && t.giris){ var d=parse(t.giris); return {son: iso(new Date(d.getFullYear(), d.getMonth()+2, 0)), hesap:"tasfiyeye girişi takip eden ayın sonu"}; }
+    if(kural==="tasfiye_beyan" || kural==="normal_beyan") kural="normal_donem";      // eski kayıtlar
+    if(kural==="normal_donem" && t.giris){
+      var d=parse(t.giris), son=new Date(d.getFullYear(), d.getMonth()+4, 25), hesap="tasfiye başlangıç ayını izleyen 4. ayın 25'i";
+      if(t.kapanis){                                   // normal dönem beyannamesi, tasfiye sonu beyannamesinden önce verilir
+        var sonT=gunEkle(parse(t.kapanis),30);
+        if(sonT.getTime()<son.getTime()){ son=sonT; hesap="tasfiye sonu beyannamesinden önce: kapanış + 30 gün"; }
+      }
+      return {son: iso(son), hesap:hesap};
+    }
+    if(kural==="tasfiye_donemi" && t.giris){
+      var yg=parse(t.giris).getFullYear();
+      if(t.kapanis && parse(t.kapanis).getFullYear()===yg) return {gerekmez:true, hesap:"kapanış aynı yıl, tek tasfiye dönemi: tasfiye sonu beyannamesi yeterli"};
+      return {son: iso(new Date(yg+1,3,25)), hesap:"dönemin kapandığı yılı izleyen yılın 25 Nisan'ı"};
+    }
     if(kural==="kapanis_verilebilir" && t.ilan3) return {son: iso(ayEkle(parse(t.ilan3),3)), hesap:"3. ilan + 3 ay"};
-    if((kural==="normal_beyan" || kural==="tasfiye_sonu") && t.kapanis) return {son: iso(gunEkle(parse(t.kapanis),30)), hesap:"kapanış + 30 gün"};
+    if(kural==="tasfiye_sonu" && t.kapanis) return {son: iso(gunEkle(parse(t.kapanis),30)), hesap:"kapanış + 30 gün"};
     return null;
   }
+  // Kural sonucunu maddeye yazar. "Gerekmez" ise madde tamamlanmış sayılır, mail atmaz.
+  function kuralUygula(o, r, gunler, saat, ts){
+    delete o.son; delete o.gunler; delete o.saat; delete o.hesap; delete o.gerekmez;
+    if(o.tamamlanma==="Gerekmez"){ o.tamam=false; delete o.tamamlanma; }
+    if(!r) return;
+    o.hesap=r.hesap;
+    if(r.gerekmez){ o.gerekmez=true; o.tamam=true; o.tamamlanma="Gerekmez"; return; }
+    o.son=r.son; o.gunler=gunler; o.saat=saat;
+  }
+
   function sBos(){ return {sonraki_id:1, sablonlar:[]}; }
   // Yazmalar sırayla yapılır: hızlı art arda eklemede çakışma ve kayıp olmaz.
   function ySirala(fn, mesaj){
@@ -849,7 +874,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     var t=tasfiyeTarihler(), satir=[];
     TASFIYE_MADDELER.forEach(function(m){
       var r=tasfiyeSon(m.kural,t);
-      satir.push("• "+m.metin.replace(/ \(.*\)$/,"")+": "+(r ? goster(r.son)+" ("+r.hesap+")" : KURAL_ISTENEN[m.kural].toLowerCase()+" girilince hesaplanır"));
+      satir.push("• "+m.metin.replace(/ \(.*\)$/,"")+": "+(r ? (r.gerekmez ? "gerekmez ("+r.hesap+")" : goster(r.son)+" ("+r.hesap+")") : KURAL_ISTENEN[m.kural].toLowerCase()+" girilince hesaplanır"));
     });
     $("tasfiyeOnizleme").textContent=satir.join("\n");
   }
@@ -873,7 +898,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       TASFIYE_MADDELER.forEach(function(m){
         var id=v.sonraki_id||1; v.sonraki_id=id+1;
         var g={id:id, metin:m.metin, tamam:false, olusturma:ts, gid:gid, grup:baslik, firma:firma, sablon:"Tasfiye süreci", kural:m.kural, etiket:m.etiket};
-        var r=tasfiyeSon(m.kural,t); if(r){ g.son=r.son; g.gunler=gunler; g.saat=saat; g.hesap=r.hesap; }
+        kuralUygula(g, tasfiyeSon(m.kural,t), gunler, saat);
         v.ogeler.push(g);
       });
       duzMaddeler.forEach(function(x){
@@ -892,6 +917,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
 
   /* Görev satırı */
   function sonBilgi(g){
+    if(g.gerekmez) return {metin:"Gerekmez ("+g.hesap+")", gecikti:false};
     if(g.tamam) return null;
     if(!g.son){
       return g.kural ? {metin:"Tarih bekleniyor: "+(KURAL_ISTENEN[g.kural]||"tarih")+" girilince hesaplanır", gecikti:false} : null;
@@ -907,7 +933,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     var m=document.createElement("div"); m.className="m"; m.textContent=g.metin;
     var sb=sonBilgi(g);
     if(sb){ var z2=document.createElement("span"); z2.className="z"+(sb.gecikti?" gecikti":""); z2.textContent=sb.metin; m.appendChild(z2); }
-    if(g.tamam && g.tamamlanma){ var z=document.createElement("span"); z.className="z"; z.textContent="Tamamlandı: "+g.tamamlanma; m.appendChild(z); }
+    if(g.tamam && g.tamamlanma && !g.gerekmez){ var z=document.createElement("span"); z.className="z"; z.textContent="Tamamlandı: "+g.tamamlanma; m.appendChild(z); }
     var sil=document.createElement("button"); sil.type="button"; sil.className="sil"; sil.textContent="Sil";
     var zaman;
     if(g.id<0){ cb.disabled=true; sil.disabled=true; }   // henüz kaydedilmedi; kayıt bitince açılır
@@ -987,9 +1013,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
         m.tarihler=yeni;
         v.ogeler.forEach(function(o){
           if(o.gid!==G.gid || !o.kural) return;
-          var r=tasfiyeSon(o.kural, yeni);
-          if(r){ o.son=r.son; o.gunler=m.gunler; o.saat=m.saat; o.hesap=r.hesap; }
-          else { delete o.son; delete o.gunler; delete o.saat; delete o.hesap; }
+          kuralUygula(o, tasfiyeSon(o.kural, yeni), m.gunler, m.saat);
         });
       }, "Tasfiye tarihleri güncellendi").then(function(){ return yYukle(); })
         .catch(function(err){ if(err && err.kod===401){ anahtarGecersiz(); return; } hata((err&&err.message)||"Kaydedilemedi."); kay.disabled=false; });
