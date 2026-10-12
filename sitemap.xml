@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://smmmyilmaz.com/</loc>
-    <lastmod>2026-10-09</lastmod>
+    <lastmod>2026-10-12</lastmod>
     <priority>1.00</priority>
   </url>
   <url>
@@ -428,6 +428,11 @@
   <url>
     <loc>https://smmmyilmaz.com/petshop-veteriner-muhasebesi.html</loc>
     <lastmod>2026-09-15</lastmod>
+    <priority>0.80</priority>
+  </url>
+  <url>
+    <loc>https://smmmyilmaz.com/programlar.html</loc>
+    <lastmod>2026-10-12</lastmod>
     <priority>0.80</priority>
   </url>
   <url>
