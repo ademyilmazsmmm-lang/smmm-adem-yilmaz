@@ -13,21 +13,26 @@ BAŞLAMADAN ÖNCE
 
 
 ADIM 1 — PYTHON'U KURUN (bir kez)
-  1. Tarayıcıda https://www.python.org/downloads/windows/ adresini açın.
-  2. "Windows installer (64-bit)" bağlantısını indirin (Python 3.12 ya da daha yenisi).
-     (Sitede "Python install manager" öneriyorsa onu da kullanabilirsiniz: kurduktan sonra
-     Komut İstemi'ne "py install" yazın.)
-  3. İndirilen dosyaya çift tıklayın. İLK EKRANDA, en alttaki
+  EN KISA YOL — otomatik: "luca-bot" klasöründeki  luca-arayuz.bat  dosyasına çift tıklayın.
+  Python yoksa "Şimdi kurulsun mu?" diye sorar; E tuşuna basın. Program Python'u kendisi indirir
+  ve kurar (yönetici izni gerekmez, 2-3 dakika), bitince programı açar. Bu adımda yapılacak
+  başka bir şey yoktur; doğrudan ADIM 3'e geçebilirsiniz.
+
+  Otomatik kurulum çalışmazsa (internet engeli vb.) elle kurulum:
+  1. Şu bağlantıyı tarayıcının adres çubuğuna yapıştırın; Python doğrudan iner (sitede
+     bağlantı aramanız gerekmez):
+         https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe
+  2. İnen dosyaya çift tıklayın. İLK EKRANDA, en alttaki
          [x] Add python.exe to PATH
      kutusunu İŞARETLEYİN (en sık yapılan hata budur), sonra "Install Now" deyin.
-  4. "Setup was successful" yazısını görünce "Close" deyin.
+  3. "Setup was successful" yazısını görünce "Close" deyin.
 
   Kontrol: Başlat menüsüne "cmd" yazıp Komut İstemi'ni açın, şunu yazıp Enter'a basın:
          python --version
   "Python 3.12.x" gibi bir sürüm yazmalı. "tanınmıyor" derse aşağıdaki "SORUN GİDERME"ye bakın.
 
-  Alternatif (Windows 10/11'de hızlı yol): Komut İstemi'ne şunu yazın:
-         winget install Python.Python.3.12
+  Alternatif (Windows 10/11): Komut İstemi'ne  winget install Python.Python.3.12  yazılabilir;
+  ancak "Add to PATH" seçeneğini kontrol edemediğiniz için yukarıdaki yöntemler daha güvenlidir.
 
 
 ADIM 2 — PROGRAMI AÇIN

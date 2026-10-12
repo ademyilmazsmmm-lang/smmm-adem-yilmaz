@@ -29,7 +29,7 @@ if errorlevel 1 (
 exit /b 0
 
 :pythonyok
-call "%~dp0_python-yok.bat"
+call "%~dp0_python-yok.bat" "%~f0"
 exit /b 1
 
 :pakethata
