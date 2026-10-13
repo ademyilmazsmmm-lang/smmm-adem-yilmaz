@@ -26,6 +26,7 @@ import smtplib
 import sys
 from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
+from email.utils import formataddr
 
 TR = timezone(timedelta(hours=3))      # Türkiye yıl boyu UTC+3
 TOLERANS = timedelta(minutes=5)        # kayıt anından hemen önceki saat dilimi de geçerli sayılır
@@ -139,9 +140,10 @@ def alicilari_ekle(hatirlatmalar, kisiler):
 
 
 def mesaj(konu, govde, alici=None):
-    gonderen = os.environ.get("MAIL_FROM") or os.environ.get("SMTP_USER", "hatirlatici@localhost")
+    adres = os.environ.get("MAIL_FROM") or os.environ.get("SMTP_USER", "hatirlatici@localhost")
+    ad = os.environ.get("MAIL_FROM_ADI", "Adem Yılmaz Hatırlatıcı")   # gelen kutusunda adres yerine bu ad görünür
     msg = EmailMessage()
-    msg["From"], msg["To"], msg["Subject"] = gonderen, alici or os.environ["MAIL_TO"], konu
+    msg["From"], msg["To"], msg["Subject"] = formataddr((ad, adres)), alici or os.environ["MAIL_TO"], konu
     msg.set_content(govde)
     return msg
 
