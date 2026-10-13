@@ -36,7 +36,14 @@ jobs:
           git config --global user.email "actions@github.com"
 
           git add sitemap.xml
-          git diff --cached --quiet || git commit -m "Auto-update sitemap"
-          git pull --rebase origin main
-          git push
+          if git diff --cached --quiet; then
+            echo "Değişiklik yok, push atlanıyor."
+            exit 0
+          fi
+          git commit -m "Auto-update sitemap"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            sleep $((RANDOM % 5 + 1))
+          done
+          exit 1
 

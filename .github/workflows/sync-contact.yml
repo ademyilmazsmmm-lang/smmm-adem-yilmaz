@@ -32,8 +32,11 @@ jobs:
           git add -A
           if git diff --cached --quiet; then
             echo "Senkronize edilecek bir değişiklik yok, push atlanıyor."
-          else
-            git commit -m "Auto-sync contact info from index.html"
-            git pull --rebase origin main
-            git push
+            exit 0
           fi
+          git commit -m "Auto-sync contact info from index.html"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            sleep $((RANDOM % 5 + 1))
+          done
+          exit 1
