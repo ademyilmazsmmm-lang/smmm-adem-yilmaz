@@ -43,12 +43,49 @@ def gun_sec(y, a, g):
     return date(y, a, min(g, calendar.monthrange(y, a)[1]))
 
 
+TATIL_DOSYASI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hatirlatma-tatiller.json")
+_tatil = None
+
+
+def tatil_mi(d):
+    """Hafta sonu ya da resmî tatil mi? (Bayram listesi yoksa yalnızca hafta sonu ve sabit tatiller sayılır.)"""
+    global _tatil
+    if _tatil is None:
+        try:
+            with open(TATIL_DOSYASI, encoding="utf-8") as f:
+                v = json.load(f)
+        except (OSError, ValueError):
+            v = {}
+        _tatil = ({str(x) for x in v.get("sabit", [])},
+                  {str(x) for y in v.get("yillar", {}).values() for x in y})
+    return d.weekday() >= 5 or d.strftime("%m-%d") in _tatil[0] or d.isoformat() in _tatil[1]
+
+
+def is_gunu_kaydir(d):
+    while tatil_mi(d):
+        d += timedelta(days=1)
+    return d
+
+
+def takvim_tarihi(k, y, a):
+    """tur=takvim: ayın `gun`'ü ('son' = ayın son günü); tatile/hafta sonuna denk gelirse ilk iş günü."""
+    g = calendar.monthrange(y, a)[1] if k.get("gun") == "son" else int(k["gun"])
+    d = gun_sec(y, a, g)
+    return is_gunu_kaydir(d) if k.get("kaydir", True) else d
+
+
 def olay_mi(k, hedef):
     """Hatırlatmanın olay günü `hedef` mi? Tekrarlı kayıtlarda `tarih` başlangıçtır (yoksa sınır yok)."""
     bas = date.fromisoformat(k["tarih"]) if k.get("tarih") else None
     if bas and hedef < bas:
         return False
     tur = k["tur"]
+    if tur == "takvim":
+        # kayma en fazla birkaç gün sürer: hedefin ayına ve bir önceki aya bakmak yeter
+        for y, a in ((hedef.year, hedef.month), (hedef.year - (hedef.month == 1), (hedef.month - 2) % 12 + 1)):
+            if a in k["aylar"] and takvim_tarihi(k, y, a) == hedef:
+                return True
+        return False
     if tur == "tek":
         return hedef == bas
     if tur == "haftalik":
@@ -126,16 +163,25 @@ EPOSTA = re.compile(r"^[^@\s,;<>\"]+@[^@\s,;<>\"]+\.[^@\s,;<>\"]+$")
 def alicilari_ekle(hatirlatmalar, kisiler):
     """Kişi seçilmiş hatırlatmalar için her kişiye AYRI bir kopya üretir (kimse başkasının adresini görmez).
     Kopyanın kimliği '<id>|k<kisi>' olur; böylece gönderim kaydı, geri dönüş ve tekrar gönderimi engelleme aynen çalışır."""
-    adres = {}
+    adres, vergi = {}, []
     for c in (kisiler or {}).get("kisiler", []):
         e = str(c.get("eposta", "")).strip()
         if EPOSTA.match(e):
             adres[c.get("id")] = e
+            if c.get("vergi"):
+                vergi.append(c.get("id"))
     sonuc = list(hatirlatmalar)
     for k in hatirlatmalar:
-        for kid in k.get("kisi") or []:
+        hedefler = list(k.get("kisi") or [])
+        if k.get("grup") == "vergi":      # vergi takvimi: "vergi takvimini de alsın" denen herkese
+            hedefler += [v for v in vergi if v not in hedefler]
+        # kisi_gunler: kişilere yalnızca bu günlerdeki mail gider (örn. [2] = yalnızca 2 gün önceki; son gün yalnızca sahibine)
+        gunler = [g for g in k["gunler"] if "kisi_gunler" not in k or g in k["kisi_gunler"]]
+        if not gunler:
+            continue
+        for kid in hedefler:
             if kid in adres:
-                sonuc.append({**k, "id": f"{k['id']}|k{kid}", "alici": adres[kid]})
+                sonuc.append({**k, "id": f"{k['id']}|k{kid}", "alici": adres[kid], "gunler": gunler})
     return sonuc
 
 

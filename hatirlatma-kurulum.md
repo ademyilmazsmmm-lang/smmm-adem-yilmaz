@@ -86,3 +86,11 @@ Birden fazla takvim yılına yayılan tasfiyelerde sonraki yılların tasfiye d�
 ## Hatırlatmayı başkasına da göndermek
 
 Hatırlatma sayfasında **Kişiler** bölümünden ad ve e-posta ekle. Hatırlatma eklerken "Ayrıca kime gitsin?" altından kişiyi seç: mail sana her zamanki gibi gelir, seçilen kişiye de aynı konu ve içerikle **ayrı bir mail** gider (kimse başkasının adresini görmez). Kişiler gizli depodaki `kisiler.json` dosyasında durur, yedek mailine de eklenir. Giden maillerin altında "Saygılarımla, Adem Yılmaz, https://smmmyilmaz.com" yazar.
+
+## Vergi takvimi (hazır, her yıl yenilenen hatırlatmalar)
+
+Hatırlatma sayfasında **Vergi takvimi** bölümündeki "Eksik olanları ekle" düğmesi 13 sürekli hatırlatmayı ekler (KDV, KDV2, MUHSGK, stopaj 3 aylık, konaklama, geçici vergi, GV beyanı, KV, GV 2. taksit, MTV 1-2. taksit, gerçek faydalanıcı, e-fatura/e-irsaliye kontrolü). Konular büyük harfle yazılır, saat 12:00'dir, **2 gün önce** ve **son gün** mail gelir. Tarih hafta sonu ya da resmî tatile denk gelirse **ilk iş gününe** kayar; kayma, ve hatırlatma günleri bu kaymış tarihe göre hesaplanır.
+
+- Kişiler bölümünde "Vergi takvimi: açık" yaptığın kişilere yalnızca **2 gün önceki** mail gider; **son gün maili yalnızca sana** gelir.
+- Resmî tatiller `hatirlatma-tatiller.json` dosyasındadır (sayfa ve mail programı aynı dosyayı kullanır). Bayram tarihleri **2026 ve 2027** için tanımlıdır; her yıl yeni yılın bayramları bu dosyaya eklenmelidir. Eklenmezse o yıl yalnızca hafta sonları ve sabit tatiller (1 Ocak, 23 Nisan, 1 Mayıs, 19 Mayıs, 15 Temmuz, 30 Ağustos, 29 Ekim) hesaba katılır; sayfa bunu uyarı olarak gösterir. Arife (yarım gün) çalışma günü sayılır.
+- "Her yıl Ağustos sonu" gibi gün verilmeyenlerde ayın son günü esas alınmıştır.
