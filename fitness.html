@@ -101,7 +101,7 @@
     border:1px solid rgba(212,175,90,0.22);
     display:flex; align-items:center; justify-content:center; font-size:1.6rem;
   }
-  .profile-card h4 { font-family:'DM Sans',sans-serif; font-size:1rem; color: var(--navy); font-weight:700; margin-bottom:6px; }
+  .profile-card h3, .profile-card h4 { font-family:'DM Sans',sans-serif; font-size:1rem; color: var(--navy); font-weight:700; margin-bottom:6px; }
   .profile-card p { font-size:0.84rem; color: var(--gray-600); line-height:1.55; }
 
   /* Neden mükellef olmalı - uyarı kartı */
@@ -130,7 +130,7 @@
   .service-box:hover { border-color: rgba(212,175,90,0.4); box-shadow: var(--shadow-md); transform: translateY(-4px); }
   .service-box:hover::before { transform: scaleX(1); }
   .service-box .num { font-family:'Cormorant Garamond',serif; font-size:1.8rem; color: var(--gold); font-weight:700; margin-bottom:10px; display:block; }
-  .service-box h4 { font-family:'DM Sans',sans-serif; font-size:1.04rem; color: var(--navy); font-weight:700; margin-bottom:10px; }
+  .service-box h3, .service-box h4 { font-family:'DM Sans',sans-serif; font-size:1.04rem; color: var(--navy); font-weight:700; margin-bottom:10px; }
   .service-box p { font-size:0.9rem; color: var(--gray-600); line-height:1.65; margin:0; }
 
   /* Süreç */
@@ -143,7 +143,7 @@
     display:flex; align-items:center; justify-content:center;
     font-family:'Cormorant Garamond',serif; font-weight:700; color: var(--navy); font-size:1.1rem;
   }
-  .step-text h4 { font-family:'DM Sans',sans-serif; font-size:1rem; color: var(--navy); font-weight:700; margin-bottom:5px; }
+  .step-text h3, .step-text h4 { font-family:'DM Sans',sans-serif; font-size:1rem; color: var(--navy); font-weight:700; margin-bottom:5px; }
   .step-text p { font-size:0.9rem; color: var(--gray-600); line-height:1.6; }
 
   /* FAQ */
@@ -451,22 +451,22 @@
       <div class="profile-grid">
         <div class="profile-card reveal">
           <div class="profile-icon">🏋️‍♂️</div>
-          <h4>Antrenör & Spor Eğitmeni</h4>
+          <h3>Antrenör & Spor Eğitmeni</h3>
           <p>MacFit, spor salonu veya stüdyolarda bireysel ders/seans veren eğitmenler</p>
         </div>
         <div class="profile-card reveal">
           <div class="profile-icon">🏃</div>
-          <h4>Bireysel Çalışan Atlet</h4>
+          <h3>Bireysel Çalışan Atlet</h3>
           <p>Sponsorluk, ödül veya etkinlik geliri elde eden serbest sporcular</p>
         </div>
         <div class="profile-card reveal">
           <div class="profile-icon">🏁</div>
-          <h4>Hakem</h4>
+          <h3>Hakem</h3>
           <p>Federasyon veya organizasyonlara hakemlik hizmeti veren kişiler</p>
         </div>
         <div class="profile-card reveal">
           <div class="profile-icon">⏱️</div>
-          <h4>Zaman Tutucu</h4>
+          <h3>Zaman Tutucu</h3>
           <p>Müsabaka ve organizasyonlarda görevli zaman tutucu / teknik görevliler</p>
         </div>
       </div>
@@ -503,32 +503,32 @@
       <div class="service-grid">
         <div class="service-box reveal">
           <span class="num">01</span>
-          <h4>Mükellefiyet Açılışı</h4>
+          <h3>Mükellefiyet Açılışı</h3>
           <p>Vergi dairesi kaydınızın açılması, faaliyet kodunuzun doğru seçilmesi ve usul (basit/gerçek) belirlemesi.</p>
         </div>
         <div class="service-box reveal">
           <span class="num">02</span>
-          <h4>Fatura & E-Fatura Süreci</h4>
+          <h3>Fatura & E-Fatura Süreci</h3>
           <p>Kurumlara (MacFit vb.) keseceğiniz fatura veya serbest meslek makbuzunun düzenli ve mevzuata uygun hazırlanması.</p>
         </div>
         <div class="service-box reveal">
           <span class="num">03</span>
-          <h4>Gelir Vergisi & KDV</h4>
+          <h3>Gelir Vergisi & KDV</h3>
           <p>Dönemsel KDV ve yıllık gelir vergisi beyannamelerinizin hazırlanması ve zamanında verilmesi.</p>
         </div>
         <div class="service-box reveal">
           <span class="num">04</span>
-          <h4>SGK / Bağkur Takibi</h4>
+          <h3>SGK / Bağkur Takibi</h3>
           <p>Bağkur kaydınızın açılması, prim takibi ve emeklilik gün sayınızın doğru işlenmesi.</p>
         </div>
         <div class="service-box reveal">
           <span class="num">05</span>
-          <h4>Teşvik & İstisna Danışmanlığı</h4>
+          <h3>Teşvik & İstisna Danışmanlığı</h3>
           <p>Genç girişimci kazanç istisnası ve diğer vergisel avantajlardan faydalanma şartlarının değerlendirilmesi.</p>
         </div>
         <div class="service-box reveal">
           <span class="num">06</span>
-          <h4>Defter & Kayıt Tutma</h4>
+          <h3>Defter & Kayıt Tutma</h3>
           <p>Gelir-gider defterinizin düzenli tutulması ve yıl sonu mali tablolarının hazırlanması.</p>
         </div>
       </div>
@@ -546,28 +546,28 @@
         <div class="step">
           <div class="step-num">1</div>
           <div class="step-text">
-            <h4>Ön Görüşme</h4>
+            <h3>Ön Görüşme</h3>
             <p>Çalıştığınız kurum, gelir modeliniz ve ihtiyaçlarınızı birlikte değerlendiriyoruz.</p>
           </div>
         </div>
         <div class="step">
           <div class="step-num">2</div>
           <div class="step-text">
-            <h4>Mükellefiyet Açılışı</h4>
+            <h3>Mükellefiyet Açılışı</h3>
             <p>Vergi dairesi ve gerekiyorsa Bağkur kaydınızı sizin adınıza başlatıyoruz.</p>
           </div>
         </div>
         <div class="step">
           <div class="step-num">3</div>
           <div class="step-text">
-            <h4>E-Fatura/Makbuz Kurulumu</h4>
+            <h3>E-Fatura/Makbuz Kurulumu</h3>
             <p>Kurumlara kesintisiz fatura düzenleyebilmeniz için sistemsel altyapınızı hazırlıyoruz.</p>
           </div>
         </div>
         <div class="step">
           <div class="step-num">4</div>
           <div class="step-text">
-            <h4>Sürekli Takip</h4>
+            <h3>Sürekli Takip</h3>
             <p>Aylık/dönemsel beyannameleriniz ve SGK primleriniz tarafımızca düzenli takip edilir.</p>
           </div>
         </div>
@@ -738,7 +738,7 @@
         </a>
       </div>
       <div class="site-map-box">
-        <iframe src="https://maps.google.com/maps?q=41.023735,29.093180&z=16&output=embed" loading="lazy"></iframe>
+        <iframe src="https://maps.google.com/maps?q=41.023735,29.093180&z=16&output=embed" loading="lazy" title="SMMM Adem Yılmaz Ofis Konumu - Ümraniye, İstanbul"></iframe>
         <a class="site-map-go-btn" href="https://maps.app.goo.gl/7JbYMK2JuFgPtxPL8" target="_blank" rel="noopener">Konuma Git</a>
       </div>
     </div>

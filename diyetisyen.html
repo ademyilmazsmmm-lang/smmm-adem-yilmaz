@@ -254,7 +254,7 @@
       background: var(--off-white); border: 1px solid var(--gray-200);
       border-radius: var(--radius); padding: 24px 28px; margin-bottom: 32px;
     }
-    .toc-box h4 { font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 700; margin-bottom: 14px; color: var(--navy); }
+    .toc-box h3, .toc-box h4, .toc-box .toc-title { font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 700; margin-bottom: 14px; color: var(--navy); }
     .toc-box ol { list-style: none; counter-reset: toc; }
     .toc-box ol li { counter-increment: toc; margin-bottom: 8px; }
     .toc-box ol li a {
@@ -301,7 +301,7 @@
       border-radius: var(--radius); padding: 24px; transition: var(--transition);
     }
     .feature-card:hover { border-color: rgba(212,175,90,0.4); box-shadow: var(--shadow-sm); }
-    .feature-card h4 { font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: 10px; color: var(--navy); }
+    .feature-card h3, .feature-card h4 { font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: 10px; color: var(--navy); }
     .feature-card p { font-size: 0.9rem; color: var(--gray-600); margin: 0; }
   /* Steps */
     .steps-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 32px 0; }
@@ -317,7 +317,7 @@
       color: var(--navy); font-weight: 700; font-size: 1.1rem;
       display: flex; align-items: center; justify-content: center;
     }
-    .step-card h4 { font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 700; margin-bottom: 8px; }
+    .step-card h3, .step-card h4, .step-card .step-title { font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 700; margin-bottom: 8px; }
     .step-card p { font-size: 0.82rem; color: var(--gray-600); margin: 0; }
   /* Sidebar */
     .sidebar { position: sticky; top: 100px; }
@@ -340,7 +340,7 @@
       background: var(--white); border: 1px solid var(--gray-200);
       border-radius: var(--radius); padding: 24px;
     }
-    .sidebar-mini h4 { font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 700; margin-bottom: 14px; }
+    .sidebar-mini h3, .sidebar-mini h4 { font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 700; margin-bottom: 14px; }
     .sidebar-mini a {
       display: block; font-size: 0.86rem; color: var(--gray-600);
       padding: 8px 0; border-bottom: 1px solid var(--off-white); transition: color 0.2s;
@@ -381,7 +381,7 @@
     .footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 40px; margin-bottom: 36px; padding-bottom: 36px; border-bottom: 1px solid rgba(255,255,255,0.08); }
     .footer-brand .logo-text span:first-child { font-size: 1.1rem; }
     .footer-brand p { margin-top: 14px; line-height: 1.7; max-width: 320px; color: rgba(255,255,255,0.45); font-size: 0.86rem; }
-    .footer-col h4 { font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 700; color: var(--gold-light); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; }
+    .footer-col h3, .footer-col h4 { font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 700; color: var(--gold-light); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; }
     .footer-col a { display: block; color: rgba(255,255,255,0.55); font-size: 0.88rem; margin-bottom: 10px; transition: color 0.2s; }
     .footer-col a:hover { color: var(--gold); }
     .footer-copy { text-align: center; }
@@ -532,22 +532,22 @@
           <div class="steps-row">
             <div class="step-card">
               <div class="step-num">1</div>
-              <h4>NACE & Vergi Levhası</h4>
+              <p class="step-title">NACE & Vergi Levhası</p>
               <p>Doğru faaliyet kodu ile vergi dairesi açılışı</p>
             </div>
             <div class="step-card">
               <div class="step-num">2</div>
-              <h4>Evrak Dosyası</h4>
+              <p class="step-title">Evrak Dosyası</p>
               <p>İlçe Sağlık Müdürlüğü başvuru belgeleri</p>
             </div>
             <div class="step-card">
               <div class="step-num">3</div>
-              <h4>Fiziki Şartlar</h4>
+              <p class="step-title">Fiziki Şartlar</p>
               <p>Kroki, mahal raporu ve oda standartları</p>
             </div>
           </div>
           <div class="toc-box">
-            <h4><i class="fas fa-list-ul"></i> İçindekiler</h4>
+            <p class="toc-title"><i class="fas fa-list-ul"></i> İçindekiler</p>
             <ol>
               <li><a href="#nace">Doğru NACE Kodu ile Vergi Levhası Açılışı</a></li>
               <li><a href="#evrak">İlçe Sağlık Müdürlüğü Evrak Listesi</a></li>
@@ -634,11 +634,11 @@
           <p>İş yeri krokisi mimar veya mühendis tarafından onaylanmalı ve aşağıdaki standartları taşımalıdır:</p>
           <div class="feature-grid">
             <div class="feature-card">
-              <h4><i class="fas fa-door-open" style="color:var(--gold)"></i> Odalar ve Kapılar</h4>
+              <h3><i class="fas fa-door-open" style="color:var(--gold)"></i> Odalar ve Kapılar</h3>
               <p>Uygulama odaları en az <strong>10 m²</strong>. Kapı genişlikleri krokide <strong>85–90 cm</strong> olarak belirtilmelidir.</p>
             </div>
             <div class="feature-card">
-              <h4><i class="fas fa-wheelchair" style="color:var(--gold)"></i> Bekleme Alanı ve WC</h4>
+              <h3><i class="fas fa-wheelchair" style="color:var(--gold)"></i> Bekleme Alanı ve WC</h3>
               <p>Bekleme salonu tek uygulayıcı için en az <strong>8 m²</strong>, artan her kişi için +5 m². Engelli WC zorunlu.</p>
             </div>
           </div>
@@ -819,7 +819,7 @@
         </a>
       </div>
       <div class="site-map-box">
-        <iframe src="https://maps.google.com/maps?q=41.023735,29.093180&z=16&output=embed" loading="lazy"></iframe>
+        <iframe src="https://maps.google.com/maps?q=41.023735,29.093180&z=16&output=embed" loading="lazy" title="SMMM Adem Yılmaz Ofis Konumu - Ümraniye, İstanbul"></iframe>
         <a class="site-map-go-btn" href="https://maps.app.goo.gl/7JbYMK2JuFgPtxPL8" target="_blank" rel="noopener">Konuma Git</a>
       </div>
     </div>

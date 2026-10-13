@@ -151,7 +151,7 @@
     @media(max-width:800px){.service-list{grid-template-columns:1fr;}}
     .service-item{display:flex;gap:16px;background:#fff;border-radius:14px;padding:20px 22px;box-shadow:0 4px 16px rgba(15,33,55,.05);border:1px solid #eef1f6;}
     .service-item .s-ico{flex-shrink:0;width:42px;height:42px;border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--navy-800);font-size:1.05rem;border:1px solid #e1e6ee;}
-    .service-item h4{margin:0 0 6px;font-size:.98rem;color:var(--navy-900);font-family:'DM Sans',sans-serif;font-weight:700;}
+    .service-item h3, .service-item h4{margin:0 0 6px;font-size:.98rem;color:var(--navy-900);font-family:'DM Sans',sans-serif;font-weight:700;}
     .service-item p{margin:0;font-size:.86rem;color:var(--muted);}
 
     /* Vergi bilgi section (dark) */
@@ -163,7 +163,7 @@
     .info-section .section-lead{text-align:left;color:rgba(255,255,255,.75);margin:14px 0 0;max-width:720px;}
     .info-cols{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:36px;}
     @media(max-width:800px){.info-cols{grid-template-columns:1fr;}}
-    .info-cols h4{color:var(--gold-light);font-family:'DM Sans',sans-serif;font-weight:700;font-size:.95rem;text-transform:uppercase;letter-spacing:.04em;margin:0 0 14px;}
+    .info-cols h3, .info-cols h4{color:var(--gold-light);font-family:'DM Sans',sans-serif;font-weight:700;font-size:.95rem;text-transform:uppercase;letter-spacing:.04em;margin:0 0 14px;}
     .info-cols ul{list-style:none;padding:0;margin:0;font-size:.92rem;color:rgba(255,255,255,.85);}
     .info-cols li{margin-bottom:10px;padding-left:22px;position:relative;}
     .info-cols li::before{content:"✓";position:absolute;left:0;color:var(--gold);font-weight:700;}
@@ -358,42 +358,42 @@
       <div class="service-item">
         <div class="s-ico"><i class="fas fa-file-invoice"></i></div>
         <div>
-          <h4>E-Fatura / E-Arşiv Entegrasyonu</h4>
+          <h3>E-Fatura / E-Arşiv Entegrasyonu</h3>
           <p>Pazaryeri sipariş verilerinizin e-Fatura/e-Arşiv sistemine aktarılması ve düzenli olarak işlenmesi.</p>
         </div>
       </div>
       <div class="service-item">
         <div class="s-ico"><i class="fas fa-percent"></i></div>
         <div>
-          <h4>Komisyon ve Reklam Gideri Muhasebesi</h4>
+          <h3>Komisyon ve Reklam Gideri Muhasebesi</h3>
           <p>Platform komisyonu, hizmet bedeli ve reklam (Trendyol Ads, Hepsiburada Ads vb.) faturalarının gider kaydı ve KDV mutabakatı.</p>
         </div>
       </div>
       <div class="service-item">
         <div class="s-ico"><i class="fas fa-truck-fast"></i></div>
         <div>
-          <h4>Kargo Faturalarının Maliyetlendirilmesi</h4>
+          <h3>Kargo Faturalarının Maliyetlendirilmesi</h3>
           <p>Kargo ve lojistik giderlerinin doğru şekilde muhasebeleştirilmesi ve maliyet hesaplarına yansıtılması.</p>
         </div>
       </div>
       <div class="service-item">
         <div class="s-ico"><i class="fas fa-rotate-left"></i></div>
         <div>
-          <h4>İade Süreçlerinin Yönetimi</h4>
+          <h3>İade Süreçlerinin Yönetimi</h3>
           <p>Müşteri iadelerinde iade faturasının doğru düzenlenmesi ve stok/gelir kayıtlarına işlenmesi.</p>
         </div>
       </div>
       <div class="service-item">
         <div class="s-ico"><i class="fas fa-boxes-stacked"></i></div>
         <div>
-          <h4>Stok ve Maliyet Takibi</h4>
+          <h3>Stok ve Maliyet Takibi</h3>
           <p>Çoklu platformda satılan ürünlerin stok hareketlerinin ve maliyetlerinin tutarlı şekilde izlenmesi.</p>
         </div>
       </div>
       <div class="service-item">
         <div class="s-ico"><i class="fas fa-scale-balanced"></i></div>
         <div>
-          <h4>Şirket Yapısı Danışmanlığı</h4>
+          <h3>Şirket Yapısı Danışmanlığı</h3>
           <p>Satış hacminize uygun şahıs şirketi veya limited şirket yapısının belirlenmesi ve kuruluş süreci.</p>
         </div>
       </div>
@@ -410,7 +410,7 @@
       </p>
       <div class="info-cols">
         <div>
-          <h4>Aylık / Periyodik Süreçler</h4>
+          <h3>Aylık / Periyodik Süreçler</h3>
           <ul>
             <li>KDV beyannamesinin düzenli olarak verilmesi</li>
             <li>Ücretli çalışanınız varsa muhtasar ve prim hizmet beyannamesi</li>
@@ -418,7 +418,7 @@
           </ul>
         </div>
         <div>
-          <h4>Yıllık Süreçler</h4>
+          <h3>Yıllık Süreçler</h3>
           <ul>
             <li>Gelir veya kurumlar vergisi beyannamesinin hazırlanması</li>
             <li>Yıl sonu stok sayımı ve envanter mutabakatı</li>
@@ -536,7 +536,7 @@
         </a>
       </div>
       <div class="site-map-box">
-        <iframe src="https://maps.google.com/maps?q=41.023735,29.093180&z=16&output=embed" loading="lazy"></iframe>
+        <iframe src="https://maps.google.com/maps?q=41.023735,29.093180&z=16&output=embed" loading="lazy" title="SMMM Adem Yılmaz Ofis Konumu - Ümraniye, İstanbul"></iframe>
         <a class="site-map-go-btn" href="https://maps.app.goo.gl/7JbYMK2JuFgPtxPL8" target="_blank" rel="noopener">Konuma Git</a>
       </div>
     </div>
