@@ -141,7 +141,8 @@ def alicilari_ekle(hatirlatmalar, kisiler):
 
 def mesaj(konu, govde, alici=None):
     adres = os.environ.get("MAIL_FROM") or os.environ.get("SMTP_USER", "hatirlatici@localhost")
-    ad = os.environ.get("MAIL_FROM_ADI", "Adem Yılmaz Hatırlatıcı")   # gelen kutusunda adres yerine bu ad görünür
+    # Gelen kutusunda adres yerine görünen ad: sana gelenler "HATIRLATICI", başkalarına gidenler "Adem Yılmaz Hatırlatıcı"
+    ad = os.environ.get("MAIL_FROM_ADI", "Adem Yılmaz Hatırlatıcı") if alici else "HATIRLATICI"
     msg = EmailMessage()
     msg["From"], msg["To"], msg["Subject"] = formataddr((ad, adres)), alici or os.environ["MAIL_TO"], konu
     msg.set_content(govde)
