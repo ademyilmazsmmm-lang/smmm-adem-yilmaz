@@ -173,6 +173,17 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   <div class="card gecmis" id="gecmis"></div>
 </details>
 
+<details class="card" id="takvimKutu">
+  <summary>Vergi takvimi (hazır hatırlatmalar, her yıl yenilenir)</summary>
+  <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+    <div class="onizleme" style="white-space:normal">Tarih hafta sonu ya da resmî tatile denk gelirse ilk iş gününe kayar. Mail saat 12:00'de, 2 gün önce ve son gün gelir. Kişilerden "vergi takvimini de alsın" dediklerine yalnızca 2 gün önceki mail gider; son gün maili yalnızca sana gelir.</div>
+    <div id="takvimListe"></div>
+    <div class="uyari" id="takvimUyari" hidden></div>
+    <button class="kaydet" type="button" id="takvimEkle">Eksik olanları ekle</button>
+    <div class="durum" id="takvimDurum" role="status" aria-live="polite"></div>
+  </div>
+</details>
+
 <details class="card" id="kisiYonet">
   <summary>Kişiler (hatırlatmayı başkasına da göndermek için)</summary>
   <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
@@ -180,6 +191,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     <form id="kisiForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px">
       <div><label for="kisiAd">Adı</label><input type="text" id="kisiAd" maxlength="80" placeholder="Örn. Ahmet"></div>
       <div><label for="kisiEposta">E-posta</label><input type="text" id="kisiEposta" maxlength="120" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ornek@mail.com"></div>
+      <label style="display:flex;gap:10px;align-items:center;margin:0"><input type="checkbox" id="kisiVergi" style="width:22px;height:22px"> Vergi takvimi hatırlatmalarını da alsın</label>
       <button class="kaydet" type="submit" id="kisiEkle">Kişiyi ekle</button>
       <div class="durum" id="kisiDurum" role="status" aria-live="polite"></div>
     </form>
@@ -302,8 +314,34 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   function bugun(){ return parse(trSimdi().tarih); }
   function farkGun(s){ return Math.round((parse(s)-bugun())/86400000); }
   function goreli(n){ return n===0?"bugün":n===1?"yarın":n+" gün sonra"; }
+  /* Resmî tatil verisi (hatirlatma-tatiller.json; mail programıyla aynı dosya) */
+  var TATIL = {sabit:{}, gunler:{}, yillar:[]};
+  function tatilYukle(){
+    return fetch("hatirlatma-tatiller.json?_="+Date.now(), {cache:"no-store"}).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; })
+      .then(function(v){
+        if(!v) return;
+        TATIL={sabit:{}, gunler:{}, yillar:Object.keys(v.yillar||{}).map(Number)};
+        (v.sabit||[]).forEach(function(s){ TATIL.sabit[s]=true; });
+        Object.keys(v.yillar||{}).forEach(function(y){ v.yillar[y].forEach(function(g){ TATIL.gunler[g]=true; }); });
+      });
+  }
+  function tatilMi(d){ var g=d.getDay(); return g===0 || g===6 || TATIL.sabit[iki(d.getMonth()+1)+"-"+iki(d.getDate())] || TATIL.gunler[iso(d)]; }
+  function takvimTarihi(k,y,a){   // a: 1-12
+    var d = k.gun==="son" ? new Date(y,a,0) : gunSec(y,a,k.gun);
+    if(k.kaydir!==false) while(tatilMi(d)) d=gunEkle(d,1);
+    return d;
+  }
   function sonraki(k,d){
     var bas = k.tarih ? parse(k.tarih) : null, i, x;
+    if(k.tur==="takvim"){
+      for(i=-1;i<26;i++){
+        var tm=ayEkle(new Date(d.getFullYear(), d.getMonth(), 1), i);
+        if(k.aylar.indexOf(tm.getMonth()+1)<0) continue;
+        x=takvimTarihi(k, tm.getFullYear(), tm.getMonth()+1);
+        if(x.getTime()>=d.getTime()) return x;
+      }
+      return null;
+    }
     if(k.tur==="tek") return bas.getTime()>=d.getTime() ? bas : null;
     if(k.tur==="haftalik"){
       if(bas.getTime()>=d.getTime()) return bas;
@@ -560,6 +598,14 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       var sol=document.createElement("div"); sol.className="m";
       var a=document.createElement("div"); a.textContent=c.ad; var e=document.createElement("div"); e.className="t"; e.textContent=c.eposta;
       sol.appendChild(a); sol.appendChild(e);
+      var vb=document.createElement("button"); vb.type="button"; vb.className="chip"; vb.setAttribute("aria-pressed", c.vergi?"true":"false");
+      vb.textContent="Vergi takvimi: "+(c.vergi?"açık":"kapalı"); vb.style.marginTop="6px";
+      vb.addEventListener("click", function(){
+        vb.disabled=true;
+        degistir(function(v){ v.kisiler.forEach(function(x){ if(x.id===c.id){ if(x.vergi) delete x.vergi; else x.vergi=true; } }); }, "Kişi güncellendi", {dosya:KDOSYA, bos:kBos})
+          .then(kYukle).catch(function(err){ $("kisiDurum").textContent=err.message||"Kaydedilemedi."; $("kisiDurum").className="durum hata"; vb.disabled=false; });
+      });
+      sol.appendChild(vb);
       var sil=document.createElement("button"); sil.type="button"; sil.className="sil"; sil.textContent="Sil"; var zaman;
       sil.addEventListener("click", function(){
         if(!sil.classList.contains("emin")){ sil.classList.add("emin"); sil.textContent="Emin misin?"; zaman=setTimeout(function(){ sil.classList.remove("emin"); sil.textContent="Sil"; }, 3000); return; }
@@ -580,15 +626,71 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     var h=function(m){ d.textContent=m; d.className="durum hata"; };
     if(!ad){ h("Adını yaz."); return; }
     if(!EPOSTA_RE.test(ep)){ h("E-posta adresi geçerli görünmüyor."); return; }
+    var vergiMi=$("kisiVergi").checked;
     $("kisiEkle").disabled=true; d.textContent="Kaydediliyor…"; d.className="durum";
     degistir(function(v){
       if(!v.kisiler) v.kisiler=[];
       var id=v.sonraki_id||1; v.sonraki_id=id+1;
-      v.kisiler.push({id:id, ad:ad, eposta:ep});
+      var c={id:id, ad:ad, eposta:ep}; if(vergiMi) c.vergi=true;
+      v.kisiler.push(c);
     }, "Kişi eklendi", {dosya:KDOSYA, bos:kBos}).then(function(){
-      $("kisiAd").value=""; $("kisiEposta").value=""; d.textContent="Eklendi."; d.className="durum ok"; return kYukle();
+      $("kisiAd").value=""; $("kisiEposta").value=""; $("kisiVergi").checked=false; d.textContent="Eklendi."; d.className="durum ok"; return kYukle();
     }).catch(function(err){ if(err && err.kod===401){ anahtarGecersiz(); return; } h((err&&err.message)||"Kaydedilemedi."); })
       .then(function(){ $("kisiEkle").disabled=false; });
+  });
+
+  /* ---------- vergi takvimi ---------- */
+  var HEP = [1,2,3,4,5,6,7,8,9,10,11,12];
+  var TAKVIM = [
+    {kaynak:"kdv", metin:"KDV BEYANI VE ÖDEMESİ", aylar:HEP, gun:28, aciklama:"Her ayın 28'i"},
+    {kaynak:"muhsgk", metin:"MUHSGK BEYANI VE ÖDEMESİ", aylar:HEP, gun:26, aciklama:"Her ayın 26'sı"},
+    {kaynak:"stopaj3", metin:"STOPAJ (3 AYLIK) VE POŞET BEYANI VE ÖDEMESİ", aylar:[1,4,7,10], gun:26, aciklama:"3 ayda bir 26'sı (Nisan, Temmuz, Ekim, Ocak)"},
+    {kaynak:"kdv2", metin:"KDV2 BEYANI VE ÖDEMESİ", aylar:HEP, gun:25, aciklama:"Her ayın 25'i"},
+    {kaynak:"konaklama", metin:"KONAKLAMA BEYANI", aylar:HEP, gun:26, aciklama:"Her ayın 26'sı"},
+    {kaynak:"gecici", metin:"GELİR VE KURUM GEÇİCİ BEYAN VE ÖDEME", aylar:[2,5,8,11], gun:17, aciklama:"3 ayda bir 17'si (Şubat, Mayıs, Ağustos, Kasım)"},
+    {kaynak:"gv_beyan", metin:"GV BEYANI", aylar:[3], gun:"son", aciklama:"Her yıl Mart sonu"},
+    {kaynak:"kv", metin:"KV BEYANI VE ÖDEMESİ", aylar:[4], gun:"son", aciklama:"Her yıl Nisan sonu"},
+    {kaynak:"gv_taksit2", metin:"GV ÖDEMESİ 2. TAKSİT", aylar:[7], gun:"son", aciklama:"Her yıl Temmuz sonu"},
+    {kaynak:"mtv1", metin:"MTV 1. TAKSİT", aylar:[1], gun:31, aciklama:"Her yıl 31 Ocak"},
+    {kaynak:"mtv2", metin:"MTV 2. TAKSİT", aylar:[7], gun:31, aciklama:"Her yıl 31 Temmuz"},
+    {kaynak:"gercek_fay", metin:"ADİ ORTAKLIK VE İŞ ORTAKLIĞI GERÇEK FAYDALANICI", aylar:[8], gun:"son", aciklama:"Her yıl Ağustos sonu"},
+    {kaynak:"efatura", metin:"E-FATURA VE E-İRSALİYE KONTROL (GEÇENLERİ SON GÜN)", aylar:[6], gun:"son", aciklama:"Her yıl Haziran sonu"}
+  ];
+  function takvimMevcut(){ var m={}; ((SON_VERI&&SON_VERI.hatirlatmalar)||[]).forEach(function(k){ if(k.kaynak) m[k.kaynak]=true; }); return m; }
+  function takvimCiz(){
+    var l=$("takvimListe"); l.textContent="";
+    var var_=takvimMevcut(), eksik=0, b=bugun(), enGec=0;
+    TAKVIM.forEach(function(x){
+      var el=document.createElement("div"); el.className="oge";
+      var sol=document.createElement("div"); sol.className="m";
+      var a=document.createElement("div"); a.textContent=x.metin;
+      var s=sonraki({tur:"takvim", aylar:x.aylar, gun:x.gun, kaydir:true}, b);
+      var e=document.createElement("div"); e.className="t";
+      e.textContent=x.aciklama+(s?" · sıradaki: "+goster(iso(s)):"")+" · "+(var_[x.kaynak]?"eklendi ✓":"eklenmedi");
+      if(s) enGec=Math.max(enGec, s.getFullYear());
+      sol.appendChild(a); sol.appendChild(e); el.appendChild(sol); l.appendChild(el);
+      if(!var_[x.kaynak]) eksik++;
+    });
+    $("takvimEkle").textContent = eksik ? "Eksik olanları ekle ("+eksik+")" : "Hepsi ekli ✓";
+    $("takvimEkle").disabled = !eksik;
+    var u=$("takvimUyari"), son=TATIL.yillar.length ? Math.max.apply(null, TATIL.yillar) : 0;
+    if(son && enGec>son){ u.textContent="Bayram tatilleri "+son+" yılına kadar tanımlı; sonraki yıllarda yalnızca hafta sonu ve sabit tatiller hesaba katılır. hatirlatma-tatiller.json dosyasına yeni yılın bayramları eklenmeli."; u.hidden=false; }
+    else if(!son){ u.textContent="Tatil listesi yüklenemedi; yalnızca hafta sonları hesaba katılıyor."; u.hidden=false; }
+    else u.hidden=true;
+  }
+  $("takvimEkle").addEventListener("click", function(){
+    var d=$("takvimDurum"); $("takvimEkle").disabled=true; d.textContent="Kaydediliyor…"; d.className="durum";
+    degistir(function(veri){
+      var var_={}; veri.hatirlatmalar.forEach(function(k){ if(k.kaynak) var_[k.kaynak]=true; });
+      var n=trSimdi();
+      TAKVIM.forEach(function(x){
+        if(var_[x.kaynak]) return;
+        var id=veri.sonraki_id||1; veri.sonraki_id=id+1;
+        veri.hatirlatmalar.push({id:id, tur:"takvim", aylar:x.aylar, gun:x.gun, kaydir:true, gunler:[2,0], saat:"12:00",
+          metin:x.metin, aciklama:x.aciklama, grup:"vergi", kisi_gunler:[2], kaynak:x.kaynak, olusturma:n.tarih+"T"+n.saat});
+      });
+    }, "Vergi takvimi eklendi").then(function(){ d.textContent="Eklendi."; d.className="durum ok"; return yukle(); })
+      .catch(function(err){ if(err && err.kod===401){ anahtarGecersiz(); return; } d.textContent=(err&&err.message)||"Kaydedilemedi."; d.className="durum hata"; takvimCiz(); });
   });
 
   /* ---------- liste ---------- */
@@ -598,7 +700,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     var m=document.createElement("div"); m.textContent=k.metin;
     var t=document.createElement("div"); t.className="t";
     var s=sonraki(k, bugun());
-    var tekrarAd = k.tur==="haftalik" ? "Her hafta · " : k.tur==="aylik" ? ((k.aralik||1)===3 ? "3 ayda bir · " : "Her ay · ") : k.tur==="yillik" ? "Her yıl · " : "";
+    var tekrarAd = k.tur==="takvim" ? ((k.aciklama||"Her yıl yenilenir")+" · ") : k.tur==="haftalik" ? "Her hafta · " : k.tur==="aylik" ? ((k.aralik||1)===3 ? "3 ayda bir · " : "Her ay · ") : k.tur==="yillik" ? "Her yıl · " : "";
     if(s){
       var b=document.createElement("b"); b.textContent=goster(iso(s)); t.appendChild(b);
       t.appendChild(document.createTextNode(" ("+goreli(farkGun(iso(s)))+") · "+k.saat+" · "+tekrarAd+
@@ -637,6 +739,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
         if(x.s){ yak.appendChild(ogeYap(x.k)); y++; } else { ges.appendChild(ogeYap(x.k)); g++; }
       });
       if(!y){ var e=document.createElement("div"); e.className="bos"; e.textContent="Yaklaşan hatırlatma yok."; yak.appendChild(e); }
+      takvimCiz();
       $("gecmisKutu").hidden = !g;
     }).catch(function(err){
       $("liste").textContent = err.message||"Liste yüklenemedi.";
@@ -647,7 +750,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "14";
+  var SURUM = "15";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -1253,7 +1356,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   $("sekmeH").addEventListener("click", function(){ sekmeSec("hatirlatma"); });
   $("sekmeY").addEventListener("click", function(){ sekmeSec("yapilacaklar"); });
   $("sekmeS").addEventListener("click", function(){ sekmeSec("surecler"); });
-  function hepsiniYukle(){ sekmeBaslangic(); yukle(); kYukle(); yYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; $("tasfiyeGiris").value=trSimdi().tarih; surecChipGuncelle(); tasfiyeChipGuncelle(); tasfiyeOnizle(); surecTurSec("tumu"); }
+  function hepsiniYukle(){ sekmeBaslangic(); tatilYukle().then(function(){ if(SON_VERI) yukle(); else takvimCiz(); }); yukle(); kYukle(); yYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; $("tasfiyeGiris").value=trSimdi().tarih; surecChipGuncelle(); tasfiyeChipGuncelle(); tasfiyeOnizle(); surecTurSec("tumu"); }
 
   /* ---------- başlangıç ---------- */
   $("tarih").value = iso(gunEkle(bugun(),1));
