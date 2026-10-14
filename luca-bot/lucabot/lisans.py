@@ -4,8 +4,8 @@
 lisans.json (ya da lisans*.json; paketle gelen: lisans-paket.json):  {"urun": "Dijital Stajyer", "lisans_sahibi": "...", "baslangic": "2026-01-01",
                "bitis": "2026-12-31", "imza": "<base64>"}
 
-Imza yalniz program sahibinin ozel anahtariyla atilabilir (lisans_araci.py); programin icindeki ACIK_ANAHTAR
-ile dogrulanir. Boylece lisans dosyasindaki tarih elle degistirilemez. Bu bir caydirici onlemdir: Python
+Imza yalniz program sahibinin ozel anahtariyla atilabilir (lisans_araci.py); programin icindeki ACIK_ANAHTARLAR
+(herhangi biri) ile dogrulanir. Boylece lisans dosyasindaki tarih elle degistirilemez. Bu bir caydirici onlemdir: Python
 kaynak kodu acik oldugundan kodu duzenleyen birini engellemez.
 
     durum()       lisansin su anki durumu (gecerli mi, kime ait, ne zamana kadar, uyari metni)
@@ -28,8 +28,13 @@ DURUM_DOSYASI = KOK / "lisans-durum.json"  # son gorulen tarih (bilgisayar saati
 UYARI_GUN = 30
 ILETISIM = "smmmyilmaz.com"
 
-# Program sahibinin Ed25519 acik anahtari (32 bayt, hex). Ozel anahtar programda YOKTUR.
-ACIK_ANAHTAR = "d24d1b4c30579e813740af45cb8820c47a6ebe2be2840c4318e8bb3de62dd731"
+# Program sahibinin Ed25519 acik anahtarlari (32 bayt, hex). Ozel anahtarlar programda YOKTUR.
+# Eski anahtarla verilmis lisanslar gecerli kalsin diye eskiler listede tutulur; yeni anahtar sona eklenir.
+ACIK_ANAHTARLAR = (
+    "d24d1b4c30579e813740af45cb8820c47a6ebe2be2840c4318e8bb3de62dd731",  # 1. anahtar (Ekim 2026)
+    "cd5d491a53fe1b1d6c35c4aa285325bae857739e0292a16a3a83151be8b46601",  # 2. anahtar
+)
+ACIK_ANAHTAR = ACIK_ANAHTARLAR[-1]  # uyumluluk: en yeni anahtar
 
 
 # ---- Ed25519 (RFC 8032, saf Python; ek paket gerektirmez) ------------------------------------
@@ -174,7 +179,9 @@ def _dogrula(veri, acik=None):
         return False, "Lisans dosyası bozuk."
     if veri.get("urun") != URUN:
         return False, "Lisans bu program için değil."
-    if not imza_gecerli_mi(bytes.fromhex(acik or ACIK_ANAHTAR), imzalanacak_metin(sahip, bas, bit), imza):
+    anahtarlar = [acik] if acik else list(ACIK_ANAHTARLAR)
+    metin = imzalanacak_metin(sahip, bas, bit)
+    if not any(imza_gecerli_mi(bytes.fromhex(a), metin, imza) for a in anahtarlar):
         return False, "Lisans dosyası geçersiz (imza doğrulanamadı); değiştirilmiş olabilir."
     return True, ""
 

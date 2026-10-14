@@ -113,6 +113,21 @@ class LisansTest(unittest.TestCase):
         self.assertFalse(lisans.durum(bugun=date(2027, 6, 1), dosya=self.dosya, acik=ACIK, kaydet=False)["gecerli"])
         self.assertNotIn("lisans-durum.json", [Path(y).name for y in lisans.aday_dosyalar()])
 
+    def test_birden_cok_acik_anahtar_eski_lisanslar_gecerli_kalir(self):
+        eski, yeni = bytes(range(32)), bytes(reversed(range(32)))
+        anahtarlar = (lisans.acik_anahtar_uret(eski).hex(), lisans.acik_anahtar_uret(yeni).hex())
+        with mock.patch.object(lisans, "ACIK_ANAHTARLAR", anahtarlar):
+            for tohum in (eski, yeni):
+                veri = lisans.lisans_olustur(tohum, "X", "2026-01-01", "2026-12-31")
+                self.assertTrue(lisans._dogrula(veri)[0])
+            yabanci = lisans.lisans_olustur(bytes([7] * 32), "X", "2026-01-01", "2026-12-31")
+            self.assertFalse(lisans._dogrula(yabanci)[0])
+
+    def test_gomulu_acik_anahtarlar_gecerli_hex(self):
+        self.assertGreaterEqual(len(lisans.ACIK_ANAHTARLAR), 2)
+        for a in lisans.ACIK_ANAHTARLAR:
+            self.assertEqual(len(bytes.fromhex(a)), 32)
+
     def test_ed25519_resmi_test_vektoru(self):
         # RFC 8032 7.1, TEST 1 (bos mesaj)
         tohum = bytes.fromhex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")

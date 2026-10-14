@@ -3,7 +3,7 @@
 
     python lisans_araci.py anahtar-uret  [--dosya lisans-ozel-anahtar.txt]
         Yeni Ed25519 anahtar cifti uretir. Ozel anahtar dosyaya yazilir (GIZLI TUTUN, kimseye vermeyin);
-        acik anahtar ekrana basilir ve lucabot/lisans.py icindeki ACIK_ANAHTAR olarak girilir.
+        acik anahtar ekrana basilir ve lucabot/lisans.py icindeki ACIK_ANAHTARLAR listesinin SONUNA eklenir (eskiler kalir).
 
     python lisans_araci.py uret --anahtar lisans-ozel-anahtar.txt --sahip "Ad Soyad, SMMM"
                                 [--baslangic 2026-01-01] [--bitis 2027-02-28] [--cikti lisans.json]
