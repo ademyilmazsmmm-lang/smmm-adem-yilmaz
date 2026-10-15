@@ -71,6 +71,16 @@ def firma_listesini_oku(yol, log=None):
     return liste
 
 
+def atlanan_ekranlar_haritasi(yol):
+    """firmalar.xlsx'te X ile kapatilmis ekranlar: {kisa ad: {belge tipi}} (yalniz ekrani kapali olan firmalar)."""
+    if not yol:
+        return {}
+    try:
+        return {ad: set(atlanan) for ad, (_, atlanan) in firma_listesini_oku(yol).items() if atlanan}
+    except (OSError, ValueError):
+        return {}
+
+
 def devreden_kdvleri(yol):
     """firmalar.xlsx'teki "Devreden KDV" sutunu: {kisa ad: tutar}.
 

@@ -680,6 +680,36 @@ class ArayuzOzetTestleri(unittest.TestCase):
                                ("2,5", 2.5), ("", 0), ("abc", 0), ("-5", 0)):
             self.assertEqual(gostergeler.tutar_girisi(yazi), beklenen, yazi)
 
+    def test_x_ile_kapatilan_ekranin_eski_hatasi_gorunmez(self):
+        """Firmada TÜRMOB'a X konduysa, onceki calismadan kalan 'ekran acilmadi' hata/aksiyon sayilmaz."""
+        from openpyxl import Workbook
+        from lucabot import gostergeler
+        from lucabot.firma_listesi import atlanan_ekranlar_haritasi
+        donem = "01/09/2026-30/09/2026"
+        with tempfile.TemporaryDirectory() as d:
+            wb = Workbook()
+            wb.active.append(["Kısa Adı", "TÜRMOB Alış", "TÜRMOB Satış", "e-Arşiv Alış"])
+            wb.active.append(["ADEM MERGE", "X", "X", ""])
+            wb.active.append(["BARIS", "", "", ""])
+            yol = Path(d) / "firmalar.xlsx"
+            wb.save(yol)
+            harita = atlanan_ekranlar_haritasi(yol)
+            self.assertEqual(harita, {"ADEM MERGE": {"turmob-alis", "turmob-satis"}})
+            kayitlar = {
+                "ADEM MERGE": {"firma": "ADEM MERGE", "donem": donem, "durumlar": {
+                    "turmob-alis": "ekran acilmadi", "turmob-satis": "ekran acilmadi", "e-arsiv-alis": "tamam"},
+                    "notlar": {"turmob-alis": "menuden ekran acilamadi"}, "sayilar": {"e-arsiv-alis": 3}},
+                "BARIS": {"firma": "BARIS", "donem": donem, "durumlar": {"turmob-alis": "ekran acilmadi"}}}
+            # kisaltilmis Luca adi listedeki tam adla eslesir ("ADEM MERGE" listede, kayit "ADEM MERG")
+            kayitlar["ADEM MERG"] = kayitlar.pop("ADEM MERGE")
+            kayitlar["ADEM MERG"]["firma"] = "ADEM MERG"
+            rapor.atlananlari_uygula(kayitlar, harita)
+            g = gostergeler.hesapla(kayitlar, None, donem)
+            self.assertEqual([(h["firma"], h["ekran"]) for h in g["hata"]], [("BARIS", "turmob-alis")])
+            temiz = rapor._tamamla(dict(kayitlar["ADEM MERG"]))
+            self.assertEqual(temiz["durumlar"], {"e-arsiv-alis": "tamam"})
+            self.assertEqual(rapor._aksiyon(temiz), "")
+
     def test_kisa_fatura_no(self):
         from lucabot.gostergeler import kisa_fatura_no
         self.assertEqual(kisa_fatura_no("GIB2026000000756"), "GIB..756")

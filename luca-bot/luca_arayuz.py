@@ -37,7 +37,7 @@ from kurulum_sihirbazi import KurulumSihirbazi  # noqa: E402
 from lucabot import SURUM, SURUM_TARIHI, beyanname, firma_tablosu, gostergeler, lisans, musteri_listesi, rapor  # noqa: E402
 from tablo_gorunumu import SiralaFiltreTablosu  # noqa: E402
 from lucabot import kurulum as kurulum_mantigi  # noqa: E402
-from lucabot.firma_listesi import devreden_kdvleri  # noqa: E402
+from lucabot.firma_listesi import atlanan_ekranlar_haritasi, devreden_kdvleri  # noqa: E402
 from lucabot.ortak import (AYAR_DOSYASI, DURDUR_DOSYASI, ORNEK_AYAR, TARIH_BICIMI,  # noqa: E402
                            hedef_ay_araligi, indirme_koku, sadelestir, tarih_cozumle)
 from lucabot.sabitler import BELGE_TIPLERI, EKRAN_SUTUNLARI, TUM_BELGELER  # noqa: E402
@@ -1566,6 +1566,10 @@ class Arayuz:
             devreden = devreden_kdvleri(self.v_liste.get())
         except Exception:
             devreden = {}
+        try:  # firmada X ile kapatilmis ekranlarin eski "ekran acilmadi" vb. kayitlari hata sayilmaz
+            rapor.atlananlari_uygula(kayitlar, atlanan_ekranlar_haritasi(self.v_liste.get()))
+        except Exception:
+            pass
         self.gostergeler = gostergeler.hesapla(kayitlar, devreden, donem)
         self._tablolari_yenile(kayitlar, donem, devreden)
         t = gostergeler.toplamlar(self.gostergeler)

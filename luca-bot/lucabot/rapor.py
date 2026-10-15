@@ -312,6 +312,46 @@ SORUNLU_DURUMLAR = ("hata", "ekran acilmadi", "dosya inmedi", "excel inmedi", "k
                     "tamam (excel", "tamam (iptal")
 
 
+_EKRAN_ALANLARI = ("durumlar", "sayilar", "iptal", "tevkifat", "tevkifat_kdv", "tevkifat_kdv_tahmini", "inmeyen",
+                   "matrah", "kdv", "faturalar", "dosya", "dosya_adlari", "notlar", "klasorler", "goruntuler",
+                   "sureler", "guncellenme")
+
+
+def atlananlari_cikar(kayit, tipler):
+    """Firmada X ile kapatilmis (sorgulanmayacak) ekranlarin eski kayitlarini siler.
+
+    Kullanici bir ekrani sonradan kapatinca, o ekranin onceki calismadan kalan 'ekran acilmadi' gibi
+    durumlari hata/aksiyon olarak gorunmesin."""
+    for alan in _EKRAN_ALANLARI:
+        d = kayit.get(alan)
+        if isinstance(d, dict):
+            for t in tipler:
+                d.pop(t, None)
+    return kayit
+
+
+def atlananlari_uygula(kayitlar, harita):
+    """kayitlar: {firma: kayit}; harita: firma_listesi.atlanan_ekranlar_haritasi() -> kayitlari yerinde temizler."""
+    if not harita:
+        return kayitlar
+    from .firma_listesi import listede_bul
+    for firma, kayit in kayitlar.items():
+        ad = listede_bul(firma, harita)
+        if ad:
+            atlananlari_cikar(kayit, harita[ad])
+    return kayitlar
+
+
+def firma_listesi_harita():
+    """Ayarlardaki firma listesinden atlanan ekranlar haritasi; okunamazsa bos (rapor yine yazilir)."""
+    try:
+        from .firma_listesi import atlanan_ekranlar_haritasi
+        from .ortak import ayarlari_oku
+        return atlanan_ekranlar_haritasi(ayarlari_oku().get("firma_listesi"))
+    except (Exception, SystemExit):
+        return {}
+
+
 def yeniden_denenecek(kayit):
     """Firmada tekrar sorgulanmasi gereken ekranlar: [{ekran, durum, inmeyen, not}].
 
@@ -465,6 +505,7 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
         kayit = kayitlar.setdefault(firma, _bos_kayit(firma))
         kayit["durumlar"].setdefault(belge_tipi, "bekliyor")
 
+    atlananlari_uygula(kayitlar, firma_listesi_harita())  # sonradan X'lenen ekranlarin eski hatalari silinir
     for kayit in kayitlar.values():
         _gecmise_ekle(gecmis, kayit)
     gecmis_gecici = (klasor / DONEM_GECMISI).with_suffix(".json.tmp")
