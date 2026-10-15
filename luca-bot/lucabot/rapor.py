@@ -318,15 +318,25 @@ _EKRAN_ALANLARI = ("durumlar", "sayilar", "iptal", "tevkifat", "tevkifat_kdv", "
 
 
 def atlananlari_cikar(kayit, tipler):
-    """Firmada X ile kapatilmis (sorgulanmayacak) ekranlarin eski kayitlarini siler.
+    """Firmada X ile kapatilmis (sorgulanmayacak) ekranlarin eski HATA kayitlarini siler.
 
     Kullanici bir ekrani sonradan kapatinca, o ekranin onceki calismadan kalan 'ekran acilmadi' gibi
-    durumlari hata/aksiyon olarak gorunmesin."""
-    for alan in _EKRAN_ALANLARI:
-        d = kayit.get(alan)
-        if isinstance(d, dict):
-            for t in tipler:
-                d.pop(t, None)
+    sorunlu durumlari hata/aksiyon olarak gorunmesin. Daha once BASARIYLA inmis veri (fatura adedi, matrah/KDV,
+    tevkifat...) ise gercek veridir ve KORUNUR; yalniz o ekrandaki 'inmeyen'/not isaretleri temizlenir."""
+    durumlar = kayit.get("durumlar") or {}
+    for t in tipler:
+        if t not in durumlar:
+            continue
+        if str(durumlar[t]).startswith(SORUNLU_DURUMLAR):
+            for alan in _EKRAN_ALANLARI:
+                d = kayit.get(alan)
+                if isinstance(d, dict):
+                    d.pop(t, None)
+        else:
+            for alan in ("inmeyen", "notlar"):
+                d = kayit.get(alan)
+                if isinstance(d, dict):
+                    d.pop(t, None)
     return kayit
 
 

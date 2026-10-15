@@ -731,6 +731,25 @@ class ArayuzOzetTestleri(unittest.TestCase):
             self.assertEqual(temiz["durumlar"], {"e-arsiv-alis": "tamam"})
             self.assertEqual(rapor._aksiyon(temiz), "")
 
+    def test_x_ile_kapatilan_ekranin_eski_basarili_verisi_korunur(self):
+        """AYHAN TEK: e-Fatura Alış sonradan X'lendi ama 27 Eylül'de başarıyla inmişti (tevkifatlı 2 fatura);
+        bu veri Alış Tevkifat KDV kutusundan kaybolmamalı, yalnız eski hata/inmeyen işaretleri silinmeli."""
+        from lucabot import gostergeler
+        donem = "01/09/2026-30/09/2026"
+        kayitlar = {"AYHAN TEK": {
+            "firma": "AYHAN TEK", "donem": donem,
+            "durumlar": {"e-fatura-alis": "tamam", "turmob-alis": "tamam", "e-arsiv-alis": "ekran acilmadi"},
+            "sayilar": {"e-fatura-alis": 40, "turmob-alis": 49}, "tevkifat": {"e-fatura-alis": 2},
+            "tevkifat_kdv": {"e-fatura-alis": 700}, "inmeyen": {"e-fatura-alis": 3},
+            "notlar": {"e-fatura-alis": "Bazi faturalar inmedi", "e-arsiv-alis": "menuden ekran acilamadi"}}}
+        rapor.atlananlari_uygula(kayitlar, {"AYHAN TEK": {"e-fatura-alis", "e-arsiv-alis"}})
+        g = gostergeler.hesapla(kayitlar, None, donem)
+        self.assertEqual([(x["firma"], x["adet"]) for x in g["tevkifat"]], [("AYHAN TEK", 2)])
+        self.assertEqual(g["hata"], [])  # X'li ekranlarin eski hatalari/inmeyenleri gorunmez
+        k = rapor._tamamla(dict(kayitlar["AYHAN TEK"]))
+        self.assertEqual(k["durumlar"], {"e-fatura-alis": "tamam", "turmob-alis": "tamam"})  # basarili veri duruyor
+        self.assertEqual(k["sayilar"]["e-fatura-alis"], 40)
+
     def test_kisa_fatura_no(self):
         from lucabot.gostergeler import kisa_fatura_no
         self.assertEqual(kisa_fatura_no("GIB2026000000756"), "GIB..756")
