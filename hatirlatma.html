@@ -28,6 +28,8 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);ou
 .kaydet{font:inherit;font-weight:600;padding:13px;min-height:50px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);cursor:pointer}
 .kaydet:disabled{opacity:.6}
 .durum{min-height:1.4em;font-size:.9rem}.durum.hata{color:var(--danger)}.durum.ok{color:var(--accent)}
+label.onay{display:flex;gap:10px;align-items:center;margin:0;color:var(--fg);font-size:.95rem}
+label.onay input{width:22px;height:22px;flex:none}
 .kayitUyari{position:fixed;left:0;right:0;top:0;z-index:50;background:var(--danger);color:#fff;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;font-weight:600;box-shadow:0 2px 12px rgba(0,0,0,.35)}
 .kayitUyari[hidden]{display:none}.kayitUyari span{flex:1;line-height:1.35}
 .kayitUyari button{font:inherit;background:#fff;color:#000;border:0;border-radius:6px;padding:8px 12px;min-height:40px;cursor:pointer}
@@ -256,6 +258,23 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       <div class="onizleme" id="tasfiyeOnizleme"></div>
       <button class="kaydet" type="submit" id="tasfiyeBaslat">Tasfiye sürecini başlat</button>
       <div class="durum" id="tasfiyeDurum" role="status" aria-live="polite"></div>
+    </form>
+  </details>
+
+  <details class="card" id="sahisKutu">
+    <summary>Şahıs işletmesi kapanışı başlat</summary>
+    <form id="sahisForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+      <div><label for="sahisFirma">Adı / firma</label><input type="text" id="sahisFirma" maxlength="120" placeholder="Örn. Ali Yılmaz"></div>
+      <div><label for="sahisTarih">Kapanış tarihi (süreler bu tarihten sayılır)</label><input type="date" id="sahisTarih" required></div>
+      <label class="onay"><input type="checkbox" id="sahisBirinci" checked> 1. sınıf tüccar (e-defter ve e-fatura kapanış dilekçeleri)</label>
+      <label class="onay"><input type="checkbox" id="sahisSgk"> SGK'lı çalışanı var (işten çıkışlar)</label>
+      <label class="onay"><input type="checkbox" id="sahisOda"> Oda kaydı var</label>
+      <label class="onay"><input type="checkbox" id="sahisBelediye"> Belediye kaydı var</label>
+      <div><span class="lbl">Mail kaç gün önce gelsin?</span><div class="chips" id="sahisGunler"></div></div>
+      <div><label for="sahisSaat">Mail saati</label><input type="time" id="sahisSaat" value="09:00"></div>
+      <div class="onizleme" id="sahisOnizleme"></div>
+      <button class="kaydet" type="submit" id="sahisBaslat">Kapanış sürecini başlat</button>
+      <div class="durum" id="sahisDurum" role="status" aria-live="polite"></div>
     </form>
   </details>
 
@@ -750,7 +769,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "15";
+  var SURUM = "16";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -861,9 +880,10 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     {metin:"Normal dönem kurumlar vergisi beyannamesi (tasfiye öncesi dönem)", kural:"normal_donem", etiket:"Son gün"},
     {metin:"Tasfiye dönemi kurumlar vergisi beyannamesi (tasfiye başlangıcı → yıl sonu)", kural:"tasfiye_donemi", etiket:"Son gün"},
     {metin:"Kapanış verilebilir (3. ilandan 3 ay geçti)", kural:"kapanis_verilebilir", etiket:"Kapanış verilebilecek tarih"},
-    {metin:"Tasfiye sonu beyannamesi", kural:"tasfiye_sonu", etiket:"Son gün"}
+    {metin:"Tasfiye sonu beyannamesi", kural:"tasfiye_sonu", etiket:"Son gün"},
+    {metin:"E-defter kapanış dilekçesi (kapanış verildikten sonra)", kural:"kapanis_edefter", etiket:"Son gün"}
   ];
-  var KURAL_ISTENEN = {normal_donem:"Tasfiyeye giriş tarihi", tasfiye_donemi:"Tasfiyeye giriş tarihi", kapanis_verilebilir:"3. ilan tarihi", tasfiye_sonu:"Kapanış tarihi",
+  var KURAL_ISTENEN = {normal_donem:"Tasfiyeye giriş tarihi", tasfiye_donemi:"Tasfiyeye giriş tarihi", kapanis_verilebilir:"3. ilan tarihi", tasfiye_sonu:"Kapanış tarihi", kapanis_edefter:"Kapanış tarihi",
                        tasfiye_beyan:"Tasfiyeye giriş tarihi", normal_beyan:"Tasfiyeye giriş tarihi"};
   function tasfiyeSon(kural, t){
     t = t || {};
@@ -879,10 +899,16 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     if(kural==="tasfiye_donemi" && t.giris){
       var yg=parse(t.giris).getFullYear();
       if(t.kapanis && parse(t.kapanis).getFullYear()===yg) return {gerekmez:true, hesap:"kapanış aynı yıl, tek tasfiye dönemi: tasfiye sonu beyannamesi yeterli"};
-      return {son: iso(new Date(yg+1,4,0)), hesap:"dönemin kapandığı yılı izleyen yılın Nisan ayı sonu"};
+      var sonD=new Date(yg+1,4,0), hesapD="dönemin kapandığı yılı izleyen yılın Nisan ayı sonu";
+      if(t.kapanis){                                   // kapanış daha erken ise bu dönemin beyannamesi tasfiye sonu beyannamesinden önce verilir
+        var sonK=gunEkle(parse(t.kapanis),30);
+        if(sonK.getTime()<sonD.getTime()){ sonD=sonK; hesapD="tasfiye sonu beyannamesinden önce: kapanış + 30 gün"; }
+      }
+      return {son: iso(sonD), hesap:hesapD};
     }
     if(kural==="kapanis_verilebilir" && t.ilan3) return {son: iso(ayEkle(parse(t.ilan3),3)), hesap:"3. ilan + 3 ay; hatırlatma tarihten sonraki 1. ve 2. gün", sonra:[1,2]};
     if(kural==="tasfiye_sonu" && t.kapanis) return {son: iso(gunEkle(parse(t.kapanis),30)), hesap:"kapanış + 30 gün"};
+    if(kural==="kapanis_edefter" && t.kapanis) return {son: iso(gunEkle(parse(t.kapanis),30)), hesap:"kapanış + 30 gün (e-defter kapanış dilekçesi)"};
     return null;
   }
   // Kural sonucunu maddeye yazar. "Gerekmez" ise madde tamamlanmış sayılır, mail atmaz.
@@ -1066,6 +1092,56 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     }).then(function(){ $("surecBaslat").disabled=false; });
   });
 
+  /* Şahıs işletmesi kapanış süreci */
+  var sahisSecili = {3:true, 0:true};
+  chipYap($("sahisGunler"), [{ad:"7 gün",v:7},{ad:"3 gün",v:3},{ad:"1 gün",v:1},{ad:"Aynı gün",v:0}], function(o){
+    if(sahisSecili[o.v]) delete sahisSecili[o.v]; else sahisSecili[o.v]=true;
+    sahisChipGuncelle(); sahisOnizle();
+  });
+  function sahisChipGuncelle(){ Array.prototype.forEach.call($("sahisGunler").children, function(b){ b.setAttribute("aria-pressed", sahisSecili[b.dataset.v]?"true":"false"); }); }
+  function sahisMaddeler(){
+    var l=[{metin:"Kapanış faturaları (demirbaş vb.) kesilecek", n:7}];
+    if($("sahisSgk").checked) l.push({metin:"SGK işten çıkışları", n:10});
+    if($("sahisBirinci").checked){ l.push({metin:"E-defter kapanış dilekçesi", n:30}); l.push({metin:"E-fatura kapanış dilekçesi", n:30}); }
+    if($("sahisOda").checked) l.push({metin:"Oda kaydı kapanışı"});
+    if($("sahisBelediye").checked) l.push({metin:"Belediye kaydı kapanışı"});
+    return l;
+  }
+  function sahisOnizle(){
+    var tr=$("sahisTarih").value;
+    $("sahisOnizleme").textContent = sahisMaddeler().map(function(m){
+      return "• "+m.metin+": "+(m.n ? (tr ? goster(sonTarih(tr,{n:m.n,birim:"gun"}))+" ("+m.n+" gün)" : m.n+" gün içinde") : "süre yok, listede takip");
+    }).join("\n");
+  }
+  ["sahisTarih","sahisBirinci","sahisSgk","sahisOda","sahisBelediye"].forEach(function(id){ $(id).addEventListener("input", sahisOnizle); $(id).addEventListener("change", sahisOnizle); });
+  $("sahisForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var firma=$("sahisFirma").value.replace(/\s+/g," ").trim().slice(0,120), tr=$("sahisTarih").value, saat=$("sahisSaat").value||"09:00",
+        gunler=Object.keys(sahisSecili).map(Number).sort(function(a,b){return b-a;}), d=$("sahisDurum");
+    var h=function(m){ d.textContent=m; d.className="durum hata"; };
+    if(!firma){ h("Adı ya da firmayı yaz."); $("sahisFirma").focus(); return; }
+    if(!tr){ h("Kapanış tarihini seç."); return; }
+    if(!gunler.length){ h("Mail için en az bir gün seç."); return; }
+    var l=sahisMaddeler();
+    $("sahisBaslat").disabled=true; d.textContent="Kaydediliyor…"; d.className="durum";
+    var n=trSimdi(), ts=n.tarih+"T"+n.saat, baslik=firma+" · Şahıs kapanış süreci";
+    ySirala(function(v){
+      var gid=v.sonraki_grup||1; v.sonraki_grup=gid+1;
+      l.forEach(function(x){
+        var id=v.sonraki_id||1; v.sonraki_id=id+1;
+        var g={id:id, metin:x.metin, tamam:false, olusturma:ts, gid:gid, grup:baslik, firma:firma, sablon:"Şahıs kapanış süreci"};
+        if(x.n){ g.son=sonTarih(tr,{n:x.n,birim:"gun"}); g.gunler=gunler; g.saat=saat; }
+        v.ogeler.push(g);
+      });
+    }, "Şahıs kapanış süreci başlatıldı").then(function(){
+      d.textContent=l.length+" madde eklendi."; d.className="durum ok";
+      $("sahisFirma").value=""; $("sahisKutu").open=false; return yYukle();
+    }).catch(function(err){
+      if(err && err.kod===401){ anahtarGecersiz(); return; }
+      h((err && err.message) || "Kaydedilemedi.");
+    }).then(function(){ $("sahisBaslat").disabled=false; });
+  });
+
   /* Tasfiye süreci */
   var tasfiyeSecili = {3:true, 0:true};
   chipYap($("tasfiyeGunler"), [{ad:"7 gün",v:7},{ad:"3 gün",v:3},{ad:"1 gün",v:1},{ad:"Aynı gün",v:0}], function(o){
@@ -1234,7 +1310,8 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     {v:"kurulus", ad:"Kuruluş", sablon:"Kuruluş sonrası işlemler"},
     {v:"nevi", ad:"Nevi değişikliği", sablon:"Nevi değişikliği"},
     {v:"tasfiye", ad:"Tasfiye"},
-    {v:"genc", ad:"Genç girişimci", sablon:"Genç girişimci (Bağ-Kur)"}
+    {v:"genc", ad:"Genç girişimci", sablon:"Genç girişimci (Bağ-Kur)"},
+    {v:"sahis", ad:"Şahıs kapanış", sablon:"Şahıs kapanış süreci"}
   ];
   var surecTur = "tumu";
   function surecTuruOf(G){
@@ -1246,16 +1323,17 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   function surecTurSec(v, ac){
     surecTur = v;
     Array.prototype.forEach.call($("surecTur").children, function(b){ b.setAttribute("aria-pressed", b.dataset.v===v?"true":"false"); });
-    var tasf = v==="tasfiye", sablonAd = "";
+    var tasf = v==="tasfiye", sahis = v==="sahis", sablonAd = "";
     SUREC_TURLERI.forEach(function(x){ if(x.v===v && x.sablon) sablonAd=x.sablon; });
     $("tasfiyeKutu").hidden = !(tasf || v==="tumu");
-    $("surecKutu").hidden = tasf;
+    $("sahisKutu").hidden = !(sahis || v==="tumu");
+    $("surecKutu").hidden = tasf || sahis;
     $("surecSablonSatir").hidden = !!sablonAd;
     if(sablonAd){
       (sYerel||[]).forEach(function(s){ if(s.ad===sablonAd) $("surecSablon").value=String(s.id); });
       surecOnizle();
     }
-    if(ac){ if(tasf) $("tasfiyeKutu").open=true; else if(v!=="tumu") $("surecKutu").open=true; }
+    if(ac){ if(tasf) $("tasfiyeKutu").open=true; else if(sahis) $("sahisKutu").open=true; else if(v!=="tumu") $("surecKutu").open=true; }
     yCiz();
   }
   function yCiz(){
@@ -1356,7 +1434,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   $("sekmeH").addEventListener("click", function(){ sekmeSec("hatirlatma"); });
   $("sekmeY").addEventListener("click", function(){ sekmeSec("yapilacaklar"); });
   $("sekmeS").addEventListener("click", function(){ sekmeSec("surecler"); });
-  function hepsiniYukle(){ sekmeBaslangic(); tatilYukle().then(function(){ if(SON_VERI) yukle(); else takvimCiz(); }); yukle(); kYukle(); yYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; $("tasfiyeGiris").value=trSimdi().tarih; surecChipGuncelle(); tasfiyeChipGuncelle(); tasfiyeOnizle(); surecTurSec("tumu"); }
+  function hepsiniYukle(){ sekmeBaslangic(); tatilYukle().then(function(){ if(SON_VERI) yukle(); else takvimCiz(); }); yukle(); kYukle(); yYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; $("tasfiyeGiris").value=trSimdi().tarih; surecChipGuncelle(); tasfiyeChipGuncelle(); tasfiyeOnizle(); $("sahisTarih").value=trSimdi().tarih; sahisChipGuncelle(); sahisOnizle(); surecTurSec("tumu"); }
 
   /* ---------- başlangıç ---------- */
   $("tarih").value = iso(gunEkle(bugun(),1));
