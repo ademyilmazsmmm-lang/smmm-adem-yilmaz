@@ -388,10 +388,55 @@ class ArayuzTestleri(ArayuzZemini):
         self.assertEqual(satirlar[0][0], "ALEV SEZEN")
         self.assertIn("VODAFONE", satirlar[1][0])
         self.assertIn("AAA..007", satirlar[1][0])
-        self.assertIn("1.200,50 TL", satirlar[1][0])
-        self.assertIn("eksik", satirlar[1][3])
+        self.assertEqual(satirlar[1][1], "1.200,50 TL")  # tutar kendi sutununda
+        self.assertIn("eksik", satirlar[1][4])
         # sutunlar sigacak genislikte (sayi sutunu kesilmesin)
         self.assertGreaterEqual(int(agac.column("İnteraktif", "width")), 90)
+        w.destroy()
+
+    def test_fark_penceresi_tutar_esigi_firma_arama_ve_excel(self):
+        import openpyxl
+        from unittest import mock
+        donem = "01/09/2026-30/09/2026"
+        self._rapora_yaz({
+            "ADEM": {"donem": donem, "sayilar": {"e-arsiv-alis": 0, "e-arsiv-interaktif": 3},
+                     "faturalar": {"e-arsiv-alis": [], "e-arsiv-interaktif": [
+                         ["IAR", "IPA2026000000057", 101942.10], ["IGDAS", "N092026000000133", 17.0],
+                         ["UZUN", "SLD2026000000465", 6879.32]]}},
+            "AKIN COBAN": {"donem": donem, "sayilar": {"e-arsiv-alis": 0, "e-arsiv-interaktif": 1},
+                           "faturalar": {"e-arsiv-alis": [], "e-arsiv-interaktif": [["KUCUK", "K12026000000001", 250.0]]}}})
+        w = self.app.detay("fark")
+        self.kok.update()
+        agac = w.agac
+
+        def metinler():
+            return [agac.item(i, "values")[0] for i in agac.get_children()]
+        self.assertTrue(any("IGDAS" in m for m in metinler()))
+        ust = [c for c in w.winfo_children() if isinstance(c, tk.Frame)][0]
+        giris = [c for c in ust.winfo_children() if isinstance(c, tk.Entry)]
+        ara, esik = giris[0], giris[1]
+        esik.insert(0, "1000")  # 1000 TL altini gizle
+        self.kok.update()
+        m = metinler()
+        self.assertFalse(any("IGDAS" in x for x in m))
+        self.assertTrue(any("IAR" in x for x in m) and any("UZUN" in x for x in m))
+        self.assertNotIn("AKIN COBAN", m)  # tum faturalari esik altinda: firma da gizlenir
+        esik.delete(0, "end")
+        ara.insert(0, "akin")  # Turkce harf / buyuk-kucuk fark etmez
+        self.kok.update()
+        self.assertEqual([x for x in metinler() if not x.startswith("      ") and not x.startswith("Toplam")],
+                         ["AKIN COBAN"])
+        ara.delete(0, "end")
+        esik.insert(0, "1.000")
+        # Excel: esikle ayni, tutar sayi
+        yol = str(self.d / "fark.xlsx")
+        with mock.patch.object(self.mod.filedialog, "asksaveasfilename", return_value=yol), \
+                mock.patch.object(self.mod, "dosya_ac"):
+            w.excele_indir()
+        ws = openpyxl.load_workbook(yol)["Faturalar"]
+        satirlar = [[c.value for c in r] for r in ws.iter_rows(min_row=2)]
+        veri = [r for r in satirlar if r[0] in ("ADEM", "AKIN COBAN")]
+        self.assertEqual(sorted((r[0], r[3], r[5]) for r in veri), [("ADEM", "IAR", 101942.10), ("ADEM", "UZUN", 6879.32)])
         w.destroy()
 
     def test_hata_kutusu_ve_tekrar_sorgula(self):

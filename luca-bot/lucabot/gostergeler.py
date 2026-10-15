@@ -10,6 +10,8 @@ Tutarlarda iptal/itiraz edilen faturalar yoktur; ayni faturayi gosteren
 ekranlar bir kez sayilir (bkz. rapor.ALIS_BIRLESIMI / SATIS_BIRLESIMI).
 """
 
+import re
+
 from . import rapor
 from .firma_listesi import listede_bul
 
@@ -57,11 +59,15 @@ def hesapla(kayitlar, devreden=None, donem=None):
             eksik, fazla = eksik or [], fazla or []
             # hicbir numara tutmuyorsa listeler farkli numaralanmis: tek tek gosterilemez
             eslesmedi = bool(eksik and fazla and not rapor._ortak_fatura_var(k))
+            ham = k.get("faturalar") or {}
             sonuc["fark"].append({"firma": firma,
                                   "interaktif": k["sayilar"].get("e-arsiv-interaktif") or 0,
                                   "earsiv": k["sayilar"].get("e-arsiv-alis") or 0,
                                   "fark": fark, "eslesmedi": eslesmedi,
-                                  "eksik": [] if eslesmedi else eksik, "fazla": [] if eslesmedi else fazla})
+                                  "eksik": [] if eslesmedi else eksik, "fazla": [] if eslesmedi else fazla,
+                                  # numaralar tutmadiginda elle karsilastirmak icin iki listenin tamami
+                                  "interaktif_liste": ham.get("e-arsiv-interaktif") or [],
+                                  "earsiv_liste": ham.get("e-arsiv-alis") or []})
 
         for h in rapor.yeniden_denenecek(k):
             sonuc["hata"].append({"firma": firma, **h})
@@ -71,6 +77,54 @@ def hesapla(kayitlar, devreden=None, donem=None):
             sonuc["kdv"].append({"firma": firma, "satis": kdv["satis"], "alis": kdv["alis"],
                                  "devreden": kdv["onceki"], "odeme": kdv["odenecek"]})
     return sonuc
+
+
+EKSIK, FAZLA = "e-Arşiv'de eksik", "e-Arşiv'de fazla"
+ESLESMEDI, BELIRSIZ = "Eşleşmedi (numaralar tutmuyor)", "Hangi fatura belirlenemedi"
+INTERAKTIF, EARSIV = "İnteraktif V.D.", "e-Arşiv Alış"
+
+
+def fark_satirlari(fark):
+    """hesapla()["fark"] -> duz fatura listesi: [{firma, durum, kaynak, unvan, no, tutar}] (tutar bilinmiyorsa None).
+
+    Eksik: GIB'de (Interaktif) olup Luca'da (e-Arsiv Alis) olmayan; fazla: tersi. Iki listenin numaralari hic tutmuyorsa
+    (eslesmedi) her iki listenin tamami yazilir; sayi farki var ama fatura belirlenemiyorsa firma tek satirla gelir."""
+    def satir(firma, durum, kaynak, f):
+        tutar = f[2] if len(f) > 2 and f[2] not in (None, "") else None
+        return {"firma": firma, "durum": durum, "kaynak": kaynak, "unvan": f[0] if f else "",
+                "no": f[1] if len(f) > 1 else "", "tutar": tutar}
+    sonuc = []
+    for x in fark:
+        f = x["firma"]
+        if x["eslesmedi"]:
+            sonuc += [satir(f, ESLESMEDI, INTERAKTIF, y) for y in x.get("interaktif_liste") or []]
+            sonuc += [satir(f, ESLESMEDI, EARSIV, y) for y in x.get("earsiv_liste") or []]
+        else:
+            sonuc += [satir(f, EKSIK, INTERAKTIF, y) for y in x["eksik"]]
+            sonuc += [satir(f, FAZLA, EARSIV, y) for y in x["fazla"]]
+        if not any(r["firma"] == f for r in sonuc):
+            sonuc.append({"firma": f, "durum": BELIRSIZ, "kaynak": "", "unvan": "", "no": "", "tutar": None})
+    return sonuc
+
+
+def tutar_girisi(metin):
+    """Kullanicinin yazdigi tutar: '1000', '1.000', '1.000,50', '1000 TL' -> float (okunamazsa 0)."""
+    m = re.sub(r"(?i)\s|tl", "", str(metin or ""))
+    if re.fullmatch(r"\d{1,3}(\.\d{3})+(,\d+)?", m):  # Turkce binlik noktasi
+        m = m.replace(".", "").replace(",", ".")
+    else:
+        m = m.replace(",", ".")
+    try:
+        return max(float(m), 0.0)
+    except ValueError:
+        return 0.0
+
+
+def esik_uygula(satirlar, esik):
+    """Tutari esikten kucuk olan faturalari eler (tutari bilinmeyenler kalir: sessizce kaybolmasin)."""
+    if not esik:
+        return list(satirlar)
+    return [r for r in satirlar if r["tutar"] is None or r["tutar"] >= esik]
 
 
 def toplamlar(g):

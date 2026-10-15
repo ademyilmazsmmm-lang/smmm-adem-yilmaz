@@ -625,7 +625,8 @@ class ArayuzOzetTestleri(unittest.TestCase):
                                           "tahmini": True}])
         self.assertEqual(g["smm"], [{"firma": "BIRLIK TIC", "adet": 2, "tutar": 3000}])
         self.assertEqual(g["fark"], [{"firma": "BIRLIK TIC", "interaktif": 5, "earsiv": 3, "fark": 2,
-                                      "eslesmedi": False, "eksik": [], "fazla": []}])
+                                      "eslesmedi": False, "eksik": [], "fazla": [],
+                                      "interaktif_liste": [["X", "AAA2026000000001", 1.0]], "earsiv_liste": []}])
         # satis 1500 - alis 600 - devreden 200 = 700; Luca'da kisaltilmis ad listedeki tam adla eslesir
         self.assertEqual(g["kdv"], [
             {"firma": "BIRLIK TIC", "satis": 1500, "alis": 600, "devreden": 200, "odeme": 700},
@@ -646,6 +647,38 @@ class ArayuzOzetTestleri(unittest.TestCase):
         f = gostergeler.hesapla(kayitlar, None, donem)["fark"][0]
         self.assertEqual(f["eksik"], [["VODAFONE", "AAA2026000000007", 1200.5]])
         self.assertEqual((f["fazla"], f["eslesmedi"]), ([], False))
+
+    def test_fark_satirlari_esik_ve_eslesmeyen_firma(self):
+        from lucabot import gostergeler
+        donem = "01/09/2026-30/09/2026"
+        kayitlar = {
+            "ADEM": {"donem": donem, "sayilar": {"e-arsiv-alis": 1, "e-arsiv-interaktif": 4},
+                     "faturalar": {"e-arsiv-alis": [["TURKCELL", "AAA2026000000001", 100.0]],
+                                   "e-arsiv-interaktif": [["TURKCELL", "AAA2026000000001", 100.0],
+                                                          ["IAR", "IPA2026000000057", 101942.10],
+                                                          ["IGDAS", "N092026000000133", 17.0],
+                                                          ["UZUN", "SLD2026000000465", 6879.32]]}},
+            # iki listenin numaralari hic tutmuyor
+            "AKIN COBAN": {"donem": donem, "sayilar": {"e-arsiv-alis": 2, "e-arsiv-interaktif": 1},
+                           "faturalar": {"e-arsiv-alis": [["A", "X1", 500.0], ["B", "X2", 2500.0]],
+                                         "e-arsiv-interaktif": [["C", "Y1", 900.0]]}}}
+        fark = gostergeler.hesapla(kayitlar, None, donem)["fark"]
+        satirlar = gostergeler.fark_satirlari(fark)
+        adem = [r for r in satirlar if r["firma"] == "ADEM"]
+        self.assertEqual({(r["unvan"], r["tutar"], r["durum"], r["kaynak"]) for r in adem},
+                         {("IAR", 101942.10, gostergeler.EKSIK, "İnteraktif V.D."),
+                          ("IGDAS", 17.0, gostergeler.EKSIK, "İnteraktif V.D."),
+                          ("UZUN", 6879.32, gostergeler.EKSIK, "İnteraktif V.D.")})
+        akin = [r for r in satirlar if r["firma"] == "AKIN COBAN"]
+        self.assertEqual(len(akin), 3)  # iki listenin tamami
+        self.assertTrue(all(r["durum"] == gostergeler.ESLESMEDI for r in akin))
+        # 1000 TL alti elenir
+        kalan = gostergeler.esik_uygula(satirlar, 1000)
+        self.assertEqual(sorted(r["unvan"] for r in kalan), ["B", "IAR", "UZUN"])
+        self.assertEqual(len(gostergeler.esik_uygula(satirlar, 0)), len(satirlar))
+        for yazi, beklenen in (("1000", 1000), ("1.000", 1000), ("1.000,50", 1000.5), ("1000 TL", 1000),
+                               ("2,5", 2.5), ("", 0), ("abc", 0), ("-5", 0)):
+            self.assertEqual(gostergeler.tutar_girisi(yazi), beklenen, yazi)
 
     def test_kisa_fatura_no(self):
         from lucabot.gostergeler import kisa_fatura_no

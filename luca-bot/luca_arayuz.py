@@ -1644,29 +1644,7 @@ class Arayuz:
             toplam = ("Toplam", sum(x["adet"] for x in g), tl(sum(x["tutar"] for x in g)))
             notlar = []
         elif tur == "fark":
-            baslik = "İnteraktif V.D. − e-Arşiv Alış farkı"
-            sutunlar = ("Firma / Eksik-fazla fatura", "İnteraktif", "e-Arşiv Alış", "Fark")
-            satirlar = []
-            for x in g:
-                satirlar.append((x["firma"], x["interaktif"], x["earsiv"],
-                                 f"{x['fark']:+d}  ({'e-Arşiv’de eksik' if x['fark'] > 0 else 'e-Arşiv’de fazla'})"))
-                # fatura satiri: ismin ilk kelimesi, fatura no sonu, tutar
-                for yazi, etiket in ((x["eksik"], "e-Arşiv’de eksik"), (x["fazla"], "e-Arşiv’de fazla")):
-                    for unvan, no, *kalan in yazi:
-                        tutar = kalan[0] if kalan else 0
-                        satirlar.append((f"      ↳ {unvan or '?'}  {gostergeler.kisa_fatura_no(no)}"
-                                         + (f"  {tl(tutar)}" if tutar else ""), "", "", etiket))
-                if x["eslesmedi"]:
-                    satirlar.append(("      ↳ iki listenin fatura numaraları tutmuyor; tek tek gösterilemiyor",
-                                     "", "", ""))
-                elif not x["eksik"] and not x["fazla"]:
-                    satirlar.append(("      ↳ sayı farkı var ama hangi fatura olduğu belirlenemedi", "", "", ""))
-            toplam = ("Toplam", sum(x["interaktif"] for x in g), sum(x["earsiv"] for x in g),
-                      f"{sum(abs(x['fark']) for x in g)} fatura")
-            notlar = ["Fatura satırı: ismin ilk kelimesi, fatura numarası (ilk 3 karakter..son 3 hane, örn. GIB..756) ve tutar."
-                      " Tüm liste rapor.xlsx › İndirilen Faturalar sayfasında da yazar."]
-            return self._detay_penceresi(baslik, sutunlar, satirlar, toplam, notlar, yazi_sutunu=1,
-                                         genislik=[430, 90, 110, 220])
+            return self._fark_penceresi(g)
         elif tur == "hata":
             baslik = "Hata alınan / inmeyen ekranlar"
             sutunlar = ("Firma", "Ekran", "Durum", "İnmeyen", "Not")
@@ -1691,6 +1669,115 @@ class Arayuz:
                       "Devreden KDV, firma listesindeki \"Devreden KDV\" sütunundan okunur;"
                       " boşsa 0 sayılır."]
         self._detay_penceresi(baslik, sutunlar, satirlar, toplam, notlar)
+
+    def _fark_penceresi(self, g):
+        """İnteraktif V.D. − e-Arşiv Alış farkı: firma arama + tutar eşiği (küçük faturaları gizle); Excel'e aynı süzgeçle."""
+        from lucabot import fark_excel
+        tl = gostergeler.tl
+        donem = self.secili_donem()
+        tum = gostergeler.fark_satirlari(g)
+        baslik = "İnteraktif V.D. − e-Arşiv Alış farkı"
+        w = tk.Toplevel(self.kok, bg=ZEMIN, padx=20, pady=16)
+        w.title(baslik)
+        w.transient(self.kok)
+        w.geometry("1060x600")
+        tk.Label(w, text=baslik, font=("Georgia", 14, "bold"), fg="#F2F4F8", bg=ZEMIN, anchor="w").pack(fill="x")
+        if donem:
+            tk.Label(w, text=f"Dönem: {donem.replace('-', ' – ')}", font=KUCUK, fg=SOLUK, bg=ZEMIN,
+                     anchor="w").pack(fill="x", pady=(2, 8))
+        ust = tk.Frame(w, bg=ZEMIN)
+        ust.pack(fill="x", pady=(0, 8))
+        tk.Label(ust, text="Firma ara:", font=KUCUK, fg=ETIKET, bg=ZEMIN).pack(side="left")
+        v_ara, v_esik = tk.StringVar(), tk.StringVar()
+        giris_kutusu(ust, v_ara, genislik=16).pack(side="left", padx=(6, 18), ipady=3)
+        tk.Label(ust, text="Tutarı şundan küçük faturaları gizle (TL):", font=KUCUK, fg=ETIKET, bg=ZEMIN
+                 ).pack(side="left")
+        giris_kutusu(ust, v_esik, genislik=10).pack(side="left", padx=(6, 0), ipady=3)
+        sayac = tk.Label(ust, text="", font=KUCUK, fg=SOLUK, bg=ZEMIN)
+        sayac.pack(side="right")
+
+        alt = tk.Frame(w, bg=ZEMIN)
+        alt.pack(side="bottom", fill="x", pady=(10, 0))
+        tk.Label(w, text="Excel'de her fatura tek satırdır: Firma ve Tutar sütunlarındaki süzgeçlerle firmayı ya da "
+                         "tutarı (örn. 1000 TL ve üstü) seçebilirsiniz. Soldaki eşik, Excel'e de uygulanır. "
+                         "Numaraları hiç tutmayan firmalarda iki listenin tamamı yazılır.",
+                 font=KUCUK, fg=SOLUK, bg=ZEMIN, anchor="w", justify="left", wraplength=1000
+                 ).pack(side="bottom", fill="x", pady=(4, 0))
+        cerceve = tk.Frame(w, bg=ZEMIN)
+        cerceve.pack(fill="both", expand=True)
+        sutunlar = ("Firma / Fatura", "Tutar", "İnteraktif", "e-Arşiv Alış", "Durum")
+        genislik = [380, 130, 90, 110, 240]
+        agac = ttk.Treeview(cerceve, columns=sutunlar, show="headings", style="Liste.Treeview")
+        kaydir = ttk.Scrollbar(cerceve, orient="vertical", command=agac.yview)
+        agac.configure(yscrollcommand=kaydir.set)
+        for i, (sut, gen) in enumerate(zip(sutunlar, genislik)):
+            yon = "w" if i in (0, 4) else "e"
+            agac.heading(sut, text=sut, anchor=yon)
+            agac.column(sut, anchor=yon, width=gen, minwidth=gen, stretch=(i == 0))
+        agac.tag_configure("toplam", foreground=ALTIN_FG, font=GOVDE_KALIN)
+        agac.tag_configure("alt", foreground=ETIKET)
+        kaydir.pack(side="right", fill="y")
+        agac.pack(side="left", fill="both", expand=True)
+
+        def esik():
+            return gostergeler.tutar_girisi(v_esik.get())
+
+        def doldur(*_):
+            agac.delete(*agac.get_children())
+            aranan = sadelestir(v_ara.get())
+            satirlar = gostergeler.esik_uygula(tum, esik())
+            toplam_tutar, fatura_sayisi, firma_sayisi = 0.0, 0, 0
+            for x in g:
+                if aranan and aranan not in sadelestir(x["firma"]):
+                    continue
+                faturalar = [r for r in satirlar if r["firma"] == x["firma"]]
+                if esik() and not faturalar:
+                    continue  # firmada eşik üstü fatura yok
+                firma_sayisi += 1
+                yon = "e-Arşiv'de eksik" if x["fark"] > 0 else "e-Arşiv'de fazla"
+                agac.insert("", "end", values=(x["firma"], "", x["interaktif"], x["earsiv"],
+                                               f"{x['fark']:+d}  ({yon})"))
+                for r in faturalar:
+                    if r["durum"] == gostergeler.BELIRSIZ:
+                        agac.insert("", "end", tags=("alt",),
+                                    values=("      ↳ sayı farkı var ama hangi fatura olduğu belirlenemedi", "", "", "", ""))
+                        continue
+                    agac.insert("", "end", tags=("alt",), values=(
+                        f"      ↳ {r['unvan'] or '?'}  {gostergeler.kisa_fatura_no(r['no'])}",
+                        tl(r["tutar"]) if r["tutar"] is not None else "—", "", "",
+                        r["durum"] + (f" · {r['kaynak']}" if r["durum"] == gostergeler.ESLESMEDI else "")))
+                    fatura_sayisi += 1
+                    toplam_tutar += r["tutar"] or 0
+            if fatura_sayisi or firma_sayisi:
+                agac.insert("", "end", tags=("toplam",), values=(
+                    f"Toplam ({firma_sayisi} firma)", tl(toplam_tutar), sum(x["interaktif"] for x in g),
+                    sum(x["earsiv"] for x in g), f"{fatura_sayisi} fatura"))
+            else:
+                agac.insert("", "end", values=("Bu süzgeçle kayıt yok", "", "", "", ""))
+            sayac.configure(text=f"{fatura_sayisi} fatura · {tl(toplam_tutar)}")
+
+        v_ara.trace_add("write", doldur)
+        v_esik.trace_add("write", doldur)
+        doldur()
+
+        def excele_indir():
+            yol = filedialog.asksaveasfilename(
+                title="Excel olarak kaydet", parent=w, defaultextension=".xlsx",
+                initialdir=str(indirme_koku(self.ayarlar)),
+                initialfile=f"interaktif-farki-{(donem or '').replace('/', '.')}.xlsx", filetypes=[("Excel", "*.xlsx")])
+            if not yol:
+                return
+            try:
+                fark_excel.yaz(yol, donem, g, tum, esik())
+            except PermissionError:
+                messagebox.showerror("Kaydedilemedi", "Dosya Excel'de açık; kapatıp tekrar deneyin.", parent=w)
+                return
+            dosya_ac(yol)
+
+        dugme(alt, "Kapat", w.destroy).pack(side="right")
+        dugme(alt, "Excel olarak indir", excele_indir, ana=True).pack(side="right", padx=8)
+        w.agac, w.excele_indir = agac, excele_indir  # testler icin
+        return w
 
     def _detay_penceresi(self, baslik, sutunlar, satirlar, toplam, notlar, yazi_sutunu=1,
                          genislik=None, ek_dugme=None):
