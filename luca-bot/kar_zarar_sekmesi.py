@@ -233,10 +233,11 @@ class KarZararSekmesi:
         self.ozet_etiketi = tk.Label(p, text="", font=u.GOVDE_KALIN, fg=u.ALTIN_FG, bg=u.ZEMIN, anchor="w",
                                      justify="left", wraplength=640)
         self.ozet_etiketi.pack(side="bottom", fill="x", pady=(6, 0))
-        sutunlar = ("Firma", "Dönem", "Kaynak", "Dönem kârı / zararı", "Fatura farkı", "Faturalar dahil", "Not")
-        genislik = (140, 150, 85, 150, 115, 150, 80)
-        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 2, 6},
-                                         filtreler=("Dönem", "Kaynak"), degisti=self._toplam_yaz,
+        # sutun adlari sabit; ekranda yazan basliklar sonuca gore degisir (bkz. _basliklari_guncelle)
+        sutunlar = ("Firma", "Dönem", "Kâr / Zarar", "Fatura ayı farkı", "Faturalar dahil", "Not")
+        genislik = (150, 170, 175, 140, 190, 90)
+        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 5},
+                                         filtreler=("Dönem",), degisti=self._toplam_yaz,
                                          etiketler={"kar": u.YESIL_FG, "zarar": u.KIRMIZI, "hata": u.SOLUK})
         self.tablo.pack(fill="both", expand=True)
         self.agac = self.tablo.agac
@@ -317,9 +318,9 @@ class KarZararSekmesi:
                 not_ = s.get("fatura_not") or ""
             if s.get("son_hata"):  # son sorguda hata aldi, onceki basarili sonuc korunuyor
                 not_ = f"Son sorguda hata: {s['son_hata']}" + (f" | {not_}" if not_ else "")
-            satirlar.append((s["firma"], s.get("donem") or self.donem_metni, s.get("kaynak") or "", ilk, ikinci,
-                             ucuncu, not_))
+            satirlar.append((s["firma"], s.get("donem") or self.donem_metni, ilk, ikinci, ucuncu, not_))
             etiketler.append(etiket)
+        self._basliklari_guncelle(aralik)
         self.tablo.doldur(satirlar, etiketler)
         if self.donem_metni != self._son_sorgu_donemi:  # yeni sorgu: Donem filtresi onun donemine gecer
             self._son_sorgu_donemi = self.donem_metni
@@ -332,6 +333,34 @@ class KarZararSekmesi:
         else:
             self.donem_etiketi.configure(text="Henüz sonuç yok.")
         self._ust_ozet(kayitlar, aralik)
+
+    def fatura_ayi(self):
+        """Secili fatura ayinin numarasi (Eylul -> 9) ya da None."""
+        kayitlar = self.donem_secenekleri.get(self.v_fatura_donem.get()) or {}
+        for kayit in kayitlar.values():
+            aralik = kar_zarar_ozet.donem_coz(kayit.get("donem") or "")
+            if aralik:
+                return aralik[0].month
+        return None
+
+    def basliklar(self, aralik):
+        """(kar/zarar, fatura ayi farki, faturalar dahil) sutun basliklari: '1-8. Ay Kâr / Zarar', '9. Ay Farkı'..."""
+        ay = self.fatura_ayi()
+        ilk, fark, dahil = "Dönem Kâr / Zarar", "Fatura Ayı Farkı", "Faturalar Dahil"
+        if aralik and aralik[0].year == aralik[1].year:
+            b, e = aralik[0].month, aralik[1].month
+            ilk = f"{b}-{e}. Ay Kâr / Zarar" if b != e else f"{e}. Ay Kâr / Zarar"
+            if ay:
+                fark = f"{ay}. Ay Farkı"
+                if ay == e + 1:
+                    dahil = f"{b}-{ay}. Ay (faturalar dahil)"
+        elif ay:
+            fark = f"{ay}. Ay Farkı"
+        return ilk, fark, dahil
+
+    def _basliklari_guncelle(self, aralik):
+        for sutun, metin in zip(("Kâr / Zarar", "Fatura ayı farkı", "Faturalar dahil"), self.basliklar(aralik)):
+            self.tablo.baslik_degistir(sutun, metin)
 
     def _ay_secildi(self, _e=None):
         self.elle_secildi = True

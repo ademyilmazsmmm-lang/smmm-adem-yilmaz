@@ -62,6 +62,7 @@ class SiralaFiltreTablosu(tk.Frame):
         self.filtre_kutulari = {}
         self.istenen_filtre = dict(varsayilan_filtre or {})
         self.arama_degiskeni = tk.StringVar()
+        self.gorunen_baslik = {}  # sutun adi -> ekranda yazan baslik (sutun adi/filtre degismeden)
         self.degisti = degisti  # liste her yenilendiginde (filtre/arama/siralama dahil) cagrilir
 
         ust = tk.Frame(self, bg=ui.ZEMIN)
@@ -231,12 +232,17 @@ class SiralaFiltreTablosu(tk.Frame):
         self._basliklari_yaz()
         self.goster()
 
+    def baslik_degistir(self, sutun, metin):
+        """Sutunun ekranda yazan basligini degistirir (sutunun adi, siralama ve filtre ayni kalir)."""
+        self.gorunen_baslik[sutun] = metin
+        self._basliklari_yaz()
+
     def _basliklari_yaz(self):
         for i, s in enumerate(self.sutunlar):
             ok = ""
             if self.siralama is not None and self.siralama[0] == i:
                 ok = " ▼" if self.siralama[1] else " ▲"
-            self._agac_of(i).heading(s, text=s + ok)
+            self._agac_of(i).heading(s, text=self.gorunen_baslik.get(s, s) + ok)
 
     # -- secim ---------------------------------------------------------------------------
 
