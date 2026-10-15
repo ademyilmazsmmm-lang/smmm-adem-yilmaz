@@ -19,6 +19,7 @@ Kullanım:
 
 import argparse
 import calendar
+import html
 import json
 import os
 import re
@@ -204,7 +205,15 @@ def hatirlatma_maili(k):
         zaman = f"{k['fark']} gün kaldı"
     else:
         zaman = f"{-k['fark']} gün önce"   # tarihten sonra gelen hatırlatma (negatif gün)
-    return mesaj(konu, f"{konu}\n\n{k.get('etiket', 'Tarih')}: {tr_tarih(k['olay'])} ({zaman})" + IMZA, k.get("alici"))
+    satir = f"{k.get('etiket', 'Tarih')}: {tr_tarih(k['olay'])} ({zaman})"
+    msg = mesaj(konu, f"{konu}\n\n{satir}" + IMZA, k.get("alici"))
+    # HTML sürüm: bağlantı kısa görünür ("smmmyilmaz.com"); Outlook düz metindeki bağlantıyı uzun güvenlik adresine çevirip gösteriyor
+    msg.add_alternative(
+        "<div style=\"font-family:Arial,sans-serif;font-size:14px\">"
+        f"<p>{html.escape(konu)}</p><p>{html.escape(satir)}</p>"
+        "<p>Saygılarımla<br>Adem Yılmaz<br><a href=\"https://smmmyilmaz.com\">smmmyilmaz.com</a></p></div>",
+        subtype="html")
+    return msg
 
 
 def smtp_gonder(msg):
