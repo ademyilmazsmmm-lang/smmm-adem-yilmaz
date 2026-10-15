@@ -196,6 +196,8 @@ class KarZararSekmesi:
 
         alt = tk.Frame(p, bg=u.ZEMIN)
         alt.pack(side="bottom", fill="x", pady=(10, 0))
+        u.dugme(alt, "Hatalıları Tekrar Sorgula", lambda: self.hatalilari_sorgula(False), ana=True).pack(side="left")
+        u.dugme(alt, "Seçilenleri Sorgula", lambda: self.hatalilari_sorgula(True)).pack(side="left", padx=8)
         u.dugme(alt, "Excel olarak indir", self.excele_indir).pack(side="left")
         u.dugme(alt, "Programın Excel Raporu", self.raporu_ac).pack(side="left", padx=8)
         self.durum_yazisi = tk.Label(alt, text="", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN)
@@ -236,7 +238,7 @@ class KarZararSekmesi:
         # sutun adlari sabit; ekranda yazan basliklar sonuca gore degisir (bkz. _basliklari_guncelle)
         sutunlar = ("Firma", "Dönem", "Kâr / Zarar", "Fatura ayı farkı", "Faturalar dahil", "Not")
         genislik = (150, 170, 175, 140, 190, 90)
-        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 5},
+        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 5}, secim="extended",
                                          filtreler=("Dönem",), degisti=self._toplam_yaz,
                                          etiketler={"kar": u.YESIL_FG, "zarar": u.KIRMIZI, "hata": u.SOLUK})
         self.tablo.pack(fill="both", expand=True)
@@ -484,7 +486,9 @@ class KarZararSekmesi:
     def calisiyor(self):
         return self.surec is not None
 
-    def komut(self):
+    def komut(self, tam_firmalar=None):
+        """tam_firmalar: yalniz bu firmalar (Luca'daki adla tam eslesme) sorgulanir; verilirse Firma kutusu ve
+        'listeyi yenile' kullanilmaz."""
         bas, bit = self.v_bas.get().strip(), self.v_bit.get().strip()
         try:
             if tarih_cozumle(bit) < tarih_cozumle(bas):
@@ -500,11 +504,53 @@ class KarZararSekmesi:
             "defterbeyan_sifre": self.v_db_sifre.get()})
         komut = [self.ui.python_komutu(), "-u", str(self.klasor / "kar_zarar.py"), "--bitince-kapat",
                  "--tarih", f"{bas}-{bit}"]
+        if tam_firmalar:
+            for f in tam_firmalar:
+                komut += ["--firma-tam", f]
+            return komut
         if self.v_firma.get().strip():
             komut += ["--firma", self.v_firma.get().strip()]
         if self.v_yenile.get():
             komut.append("--listeyi-yenile")
         return komut
+
+    def hatalilari_sorgula(self, sadece_secili):
+        """Sonuc alinamayan (hatali/atlanan) firmalari ya da tabloda secilenleri YALNIZ kendileri icin yeniden sorgular.
+
+        Onceki basarili sonuclar korunur; yeni sonuc eski kaydin yerine gecer (kar-zarar.json (firma, donem) ile birlesir)."""
+        t = self.tablo
+        if sadece_secili:
+            sira = t.secili_indeksler()
+        else:  # tabloda GORUNEN (filtre/arama uygulanmis) sonucsuz satirlar
+            sira = [i for i in t.gorunen_indeksler() if self.satirlar[i].get("kar") is None]
+        if not sira:
+            messagebox.showinfo(
+                "Sorgulanacak satır yok",
+                "Tabloda sonucu alınamamış (hatalı) satır görünmüyor." if not sadece_secili else
+                "Önce tabloda sorgulanacak satırları seçin (Ctrl / Shift ile birden çok).", parent=self.a.kok)
+            return
+        if self.a.surec:
+            messagebox.showinfo("Başka çalışma sürüyor", "Fatura indirme/liste çekme çalışıyor; bitince başlatın "
+                                "(ikisi aynı anda Luca'ya girmemeli).", parent=self.a.kok)
+            return
+        if self.surec:
+            messagebox.showinfo("Çalışıyor", "Önce çalışan sorgu bitsin ya da Durdur'a basın.", parent=self.a.kok)
+            return
+        if not self.a._giris_tamam_mi():
+            return
+        firmalar = sorted({self.satirlar[i]["firma"] for i in sira})
+        try:
+            komut = self.komut(firmalar)
+        except ValueError as e:
+            messagebox.showerror("Eksik bilgi", str(e), parent=self.a.kok)
+            return
+        donem = f"{self.v_bas.get().strip()} – {self.v_bit.get().strip()}"
+        if not messagebox.askyesno(
+                "Tekrar sorgula",
+                f"{len(firmalar)} firma yeniden sorgulanacak ({donem}).\nYalnızca bu firmalar çalışır; diğer "
+                "firmaların sonuçları olduğu gibi kalır. Devam edilsin mi?", parent=self.a.kok):
+            return
+        self._baslat(komut)
 
     def calistir(self):
         if self.a.surec:

@@ -322,6 +322,23 @@ class MizanYenidenOynatmaTestleri(unittest.TestCase):
             self.assertFalse(_istegi_tekrarla({"url": "http://127.0.0.1:1/yok"}, "S=abc", yol2))
 
 
+class TamAdSecimiTestleri(unittest.TestCase):
+    def test_tam_adlar_parca_eslesmez(self):
+        """'ADEM' secilince 'ADEM MERGE' gelmez (--firma parca eslesir, --firma-tam tam eslesir)."""
+        from lucabot.firma_listesi import firmalari_suz
+        luca = ["ADEM", "ADEM MERGE", "ŞENOL ÇETİN", "BURCU URAN, SMMM"]
+        secim = firmalari_suz(luca, {}, tam_adlar=["adem", "BURCU URAN, SMMM"])
+        self.assertEqual(sorted(secim.firmalar), ["ADEM", "BURCU URAN, SMMM"])  # virgul bolunmez
+        self.assertEqual(sorted(firmalari_suz(luca, {}, aranan=["ADEM"]).firmalar), ["ADEM", "ADEM MERGE"])
+        bos = firmalari_suz(luca, {}, tam_adlar=["OLMAYAN"])
+        self.assertEqual(bos.firmalar, [])
+
+    def test_arguman_birden_cok_kez_verilebilir(self):
+        import kar_zarar
+        a = kar_zarar.arguman_ayristirici().parse_args(["--firma-tam", "A, B", "--firma-tam", "C"])
+        self.assertEqual(a.firma_tam, ["A, B", "C"])
+
+
 class SonuclariBirlestirmeTestleri(unittest.TestCase):
     def test_yeni_sorgu_oncekileri_silmez(self):
         from karzarar import hesaplama

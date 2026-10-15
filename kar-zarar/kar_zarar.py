@@ -51,6 +51,9 @@ def arguman_ayristirici():
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--firma", action="append",
                    help="Sadece bu firma(lar); virgulle ayirarak birden fazla yazilabilir")
+    p.add_argument("--firma-tam", action="append", dest="firma_tam",
+                   help="Sadece bu firma(lar), Luca'daki adla TAM eslesen (arayuzdeki 'hatalilari sorgula' kullanir; "
+                        "--firma gibi parca eslesmez, virgulle bolunmez); birden fazla kez verilebilir")
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
     p.add_argument("--listeyi-yenile", action="store_true",
                    help="Luca Musteri Listesi'ni yeniden oku (varsayilan: ayni yilin kayitli listesi kullanilir, Luca'dan cekilmez)")
@@ -239,7 +242,7 @@ def kar_zarar_cek(args, ayarlar, p):
         sonuclar = {}
         try:
             _, _, luca_firmalari = firma_secici_bekle(page)
-            secim = firmalari_suz(luca_firmalari, ayarlar, args.firma, args.limit, bas, log)
+            secim = firmalari_suz(luca_firmalari, ayarlar, args.firma, args.limit, bas, log, tam_adlar=args.firma_tam)
             if not secim.firmalar:
                 yaz(f"Islenecek firma yok: {secim.bos_sebep}.", log)
                 return 1

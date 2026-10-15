@@ -134,13 +134,25 @@ def _ayni_firma(ad, atlanan):
     return bool(k) and bool(a) and (k.startswith(a) or a.startswith(k))
 
 
-def firmalari_suz(luca_firmalari, ayarlar, aranan=None, limit=None, baslangic=None, log=None):
+def firmalari_suz(luca_firmalari, ayarlar, aranan=None, limit=None, baslangic=None, log=None, tam_adlar=None):
     """Luca'daki firma listesinden bu calismada islenecekleri secer.
 
     aranan: --firma ile verilen ad parcalari (bos ise hepsi).
     baslangic: donem baslangici; bundan once kapanmis firmalar atlanir.
+    tam_adlar: Luca'daki adla TAM eslesen firmalar (parca eslesme/virgul bolme yok): yalniz bunlar islenir.
     """
     firmalar = list(luca_firmalari)
+
+    if tam_adlar:
+        istenen = {karsilastir(a) for a in tam_adlar if str(a).strip()}
+        bulunan = [f for f in firmalar if karsilastir(f) in istenen]
+        bulunamayan = [a for a in tam_adlar if karsilastir(a) not in {karsilastir(f) for f in bulunan}]
+        if bulunamayan:
+            yaz(f"Luca'da bulunamayan firma: {', '.join(bulunamayan)}", log)
+        firmalar = bulunan
+        if not firmalar:
+            return FirmaSecimi([], bos_sebep="secilen firmalar Luca listesinde yok")
+        yaz(f"Secilen firma(lar) ({len(firmalar)}): {', '.join(firmalar)}", log)
 
     if aranan:
         parcalar = [(p.strip(), karsilastir(p)) for deger in aranan for p in deger.split(",") if p.strip()]

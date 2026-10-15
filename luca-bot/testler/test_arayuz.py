@@ -685,6 +685,52 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         self.kok.update()
         self.assertIn("BIRLIK TIC", self.kz.ozet_etiketi.cget("text"))
 
+    def test_hatalilari_ve_secilenleri_tekrar_sorgula(self):
+        from unittest import mock
+        import kar_zarar_sekmesi
+        cikti = self.kz.cikti_klasoru()
+        cikti.mkdir(parents=True, exist_ok=True)
+        (cikti / "kar-zarar.json").write_text(json.dumps({"donem": "01/01/2026-31/08/2026", "firmalar": [
+            {"firma": "BIRLIK TIC", "donem": "01/01/2026-31/08/2026", "kaynak": "Luca (Mizan)", "kar": 100.0},
+            {"firma": "ADEM", "donem": "01/01/2026-31/08/2026", "kaynak": "Defter Beyan",
+             "hata": "Mükellef seçim kutusu açılmadı"},
+            {"firma": "ŞENOL ÇETİN, SMMM", "donem": "01/01/2026-31/08/2026", "kaynak": "Luca (Mizan)",
+             "hata": "Mizan Excel'inde hesap satırı bulunamadı"}]}), encoding="utf-8")
+        self.kz.sonucu_yukle()
+        self.kz.v_bas.set("01/01/2026")
+        self.kz.v_bit.set("31/08/2026")
+        self.kz.v_firma.set("BIRLIK")  # Firma kutusu dolu olsa da tekrar sorguda kullanilmaz
+        komutlar = []
+        with mock.patch.object(kar_zarar_sekmesi.messagebox, "askyesno", return_value=True), \
+                mock.patch.object(self.kz, "_baslat", side_effect=komutlar.append):
+            self.kz.hatalilari_sorgula(False)           # gorunen sonucsuz satirlarin hepsi
+            tablo = self.kz.tablo
+            tablo.agac.selection_set(["0"])             # yalniz secilen (BIRLIK TIC: sonuclu satir da secilebilir)
+            self.kz.hatalilari_sorgula(True)
+        hatali = komutlar[0]
+        self.assertEqual([hatali[i + 1] for i, a in enumerate(hatali) if a == "--firma-tam"],
+                         ["ADEM", "ŞENOL ÇETİN, SMMM"])
+        self.assertNotIn("--firma", hatali)
+        self.assertNotIn("--listeyi-yenile", hatali)
+        self.assertIn("--tarih", hatali)
+        sec = komutlar[1]
+        self.assertEqual([sec[i + 1] for i, a in enumerate(sec) if a == "--firma-tam"], ["BIRLIK TIC"])
+
+    def test_sonucsuz_satir_yoksa_hatalilari_sorgulamaz(self):
+        from unittest import mock
+        import kar_zarar_sekmesi
+        self._bilgi_sustur()
+        cikti = self.kz.cikti_klasoru()
+        cikti.mkdir(parents=True, exist_ok=True)
+        (cikti / "kar-zarar.json").write_text(json.dumps({"donem": "01/01/2026-31/08/2026", "firmalar": [
+            {"firma": "BIRLIK TIC", "donem": "01/01/2026-31/08/2026", "kar": 100.0}]}), encoding="utf-8")
+        self.kz.sonucu_yukle()
+        with mock.patch.object(self.kz, "_baslat") as b:
+            self.kz.hatalilari_sorgula(False)
+            self.kz.hatalilari_sorgula(True)  # secim de yok
+        b.assert_not_called()
+        self.assertEqual(len(self.bilgi), 2)
+
     def test_eski_sorgular_tabloda_kalir_toplam_gorunenden(self):
         cikti = self.kz.cikti_klasoru()
         cikti.mkdir(parents=True, exist_ok=True)
