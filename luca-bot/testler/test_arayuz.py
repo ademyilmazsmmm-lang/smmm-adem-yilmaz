@@ -160,7 +160,7 @@ class ArayuzTestleri(ArayuzZemini):
         k = self.app.kutu
         self.assertEqual(k["tevkifat"].deger.cget("text"), "700,00 TL")
         self.assertEqual(k["smm"].deger.cget("text"), "1.500,00 TL")
-        self.assertEqual(k["fark"].deger.cget("text"), "0 fatura")
+        self.assertEqual(k["fark"].deger.cget("text"), "0 firma")
         self.assertEqual(k["kdv"].deger.cget("text"), "1 firma")  # 1000 - 300 - 200 devreden
         self.assertEqual(self.app.gostergeler["kdv"][0]["odeme"], 500)
 
@@ -715,6 +715,27 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         self.assertIn("--tarih", hatali)
         sec = komutlar[1]
         self.assertEqual([sec[i + 1] for i, a in enumerate(sec) if a == "--firma-tam"], ["BIRLIK TIC"])
+
+    def test_guncelle_dugmesi_indirilen_faturalari_yeniden_okur(self):
+        cikti = self.kz.cikti_klasoru()
+        cikti.mkdir(parents=True, exist_ok=True)
+        (cikti / "kar-zarar.json").write_text(json.dumps({"donem": "01/01/2026-31/08/2026", "firmalar": [
+            {"firma": "BIRLIK TIC", "donem": "01/01/2026-31/08/2026", "kaynak": "Luca (Mizan)", "kar": 100.0}]}),
+            encoding="utf-8")
+        self.kz.sonucu_yukle()
+        self.kz.v_fatura.set(True)
+        self.kz.sonucu_goster()
+        satir = lambda: [self.kz.agac.item(i)["values"] for i in self.kz.agac.get_children()][0]
+        self.assertIn("1.400,00 TL zarar", satir()[4])  # 100 - e-SMM alisi 1500
+        # Fatura Indirme sekmesinde tekrar sorgu yapildi: Eylul'e 5000 TL satis eklendi
+        yol = self.d / "indir" / "rapor.json"
+        veri = json.loads(yol.read_text(encoding="utf-8"))
+        veri["BIRLIK TIC"]["matrah"]["e-arsiv-satis"] = 5000
+        yol.write_text(json.dumps(veri), encoding="utf-8")
+        self.assertIn("1.400,00 TL zarar", satir()[4])  # kendiliginden degismez
+        self.kz.guncelle()
+        self.assertIn("3.600,00 TL kâr", satir()[4])
+        self.assertIn("Güncellendi", self.kz.durum_yazisi.cget("text"))
 
     def test_sonucsuz_satir_yoksa_hatalilari_sorgulamaz(self):
         from unittest import mock

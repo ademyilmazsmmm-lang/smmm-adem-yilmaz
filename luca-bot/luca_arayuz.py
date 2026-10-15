@@ -1469,6 +1469,10 @@ class Arayuz:
         self.luca_liste_dugmesi.configure(state="normal")
         self.durdur_dugmesi.configure(state="disabled", text="Durdur")
         self.gostergeleri_yenile()
+        try:  # fatura indirme/tekrar sorgu bitti: Kâr/Zarar'daki 'faturalar dahil' sütunu yeni verilerle güncellensin
+            self.kz.sonucu_goster()
+        except Exception:
+            pass
         mod, self.mod = self.mod, "calisma"
         if mod == "firma_listesi":
             if kod == 0 and not self.durdurma_istendi:
@@ -1576,7 +1580,7 @@ class Arayuz:
         tl = gostergeler.tl
         self.kutu["tevkifat"].ayarla(tl(t["tevkifat"]), f"{t['tevkifat_adet']} fatura ›")
         self.kutu["smm"].ayarla(tl(t["smm"]), f"{t['smm_adet']} makbuz ›")
-        self.kutu["fark"].ayarla(f"{t['fark']} fatura")
+        self.kutu["fark"].ayarla(f"{len(self.gostergeler['fark'])} firma")
         self.kutu["kdv"].ayarla(f"{t['kdv_firma']} firma")
         self.kutu["hata"].ayarla(f"{t['hata']} ekran", "Gör / tekrarla ›")
         if donem:

@@ -198,8 +198,9 @@ class KarZararSekmesi:
         alt.pack(side="bottom", fill="x", pady=(10, 0))
         u.dugme(alt, "Hatalıları Tekrar Sorgula", lambda: self.hatalilari_sorgula(False), ana=True).pack(side="left")
         u.dugme(alt, "Seçilenleri Sorgula", lambda: self.hatalilari_sorgula(True)).pack(side="left", padx=8)
-        u.dugme(alt, "Excel olarak indir", self.excele_indir).pack(side="left")
-        u.dugme(alt, "Programın Excel Raporu", self.raporu_ac).pack(side="left", padx=8)
+        u.dugme(alt, "Güncelle", self.guncelle).pack(side="left", padx=(8, 0))
+        u.dugme(alt, "Excel olarak indir", self.excele_indir).pack(side="left", padx=8)
+        u.dugme(alt, "Programın Excel Raporu", self.raporu_ac).pack(side="left")
         self.durum_yazisi = tk.Label(alt, text="", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN)
         self.durum_yazisi.pack(side="right")
 
@@ -287,6 +288,12 @@ class KarZararSekmesi:
             sonrasi = [y for y in yazilar
                        if kar_zarar_ozet.donem_coz(next(iter(self.donem_secenekleri[y].values()))["donem"])[0] > bit]
             self.v_fatura_donem.set((sonrasi or yazilar or [""])[-1])
+
+    def guncelle(self):
+        """Sorgu yapmadan tabloyu diskteki son verilerle yeniler: kâr/zarar sonuçları ve indirilen faturalar
+        (Fatura İndirme sekmesinde yeni ay / tekrar sorgu yapıldıysa 'faturalar dahil' sütunu buna göre değişir)."""
+        self.sonucu_yukle()
+        self.durum_yazisi.configure(text=f"Güncellendi {datetime.now():%H:%M:%S}")
 
     def sonucu_yukle(self):
         try:
