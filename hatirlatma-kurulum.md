@@ -76,7 +76,7 @@ Sayfa tasfiye için şu tarihleri sorar; ilk tarih zorunludur, diğer ikisi sonr
 | Normal dönem kurumlar vergisi beyannamesi (tasfiye öncesi) | Tasfiye başlangıç ayını izleyen 4. ayın sonu (ör. 12 Ekim → 28 Şubat); kapanış girildiyse ve tasfiye sonu beyannamesinden önce doluyorsa o tarih | Tasfiyeye giriş (+ kapanış) | KVK md. 14 |
 | Tasfiye dönemi kurumlar vergisi beyannamesi (başlangıç → yıl sonu) | Dönemin kapandığı yılı izleyen yılın Nisan ayı sonu (30 Nisan); kapanış aynı yıldaysa "gerekmez" (tek dönem); kapanış + 30 gün daha erkense tasfiye sonundan önce verilmesi için o tarihe çekilir | Tasfiyeye giriş (+ kapanış) | KVK md. 14 |
 | Kapanış verilebilir | 3. ilan + 3 ay (hatırlatma tarihten sonraki 1. ve 2. gün gelir) | 3. ilan | TTK md. 541, 543 |
-| E-defter kapanış dilekçesi | Kapanış + 30 gün (varsayım; kesin süre kullanıcıdan teyit edilmedi) | Kapanış | — |
+| E-defter kapanış dilekçesi | Kapanış + 30 gün (kullanıcı onayı) | Kapanış | — |
 | Tasfiye sonu beyannamesi | Kapanış + 30 gün | Kapanış | KVK md. 17 |
 
 Tarihi girilmemiş maddeler "Tarih bekleniyor" olarak durur. Süreç kartındaki **Tarihler** bölümünden sonradan girilir ya da düzeltilir; bağlı maddelerin tarihleri yeniden hesaplanır.

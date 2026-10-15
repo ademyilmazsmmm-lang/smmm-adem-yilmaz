@@ -40,6 +40,18 @@ label.onay input{width:22px;height:22px;flex:none}
 .oge{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:12px 0;border-top:1px solid var(--line);align-items:start}
 .oge:first-child{border-top:0}
 .oge .m{min-width:0;overflow-wrap:anywhere}
+.oge.tik .m{cursor:pointer}
+.oge .ok{color:var(--muted);align-self:center;font-size:1.1rem;transition:transform .15s}
+.oge.acik .ok{transform:rotate(90deg)}
+.oge .det{grid-column:1/-1;display:flex;gap:12px;align-items:flex-start;justify-content:space-between;padding:6px 0 2px}
+.vergi-grup{border-top:1px solid var(--line);margin-top:6px}
+.vergi-grup>summary{font-weight:600;color:var(--fg)}
+details.alt{border-top:1px solid var(--line);padding-top:4px}
+details.alt>summary{font-weight:600;color:var(--fg)}
+.sec-ozet{font-size:.85rem;color:var(--muted);font-weight:400}
+.grup-ust{cursor:pointer}
+.grup-ok{align-self:center;color:var(--muted);transition:transform .15s}
+.grup.acik .grup-ok{transform:rotate(90deg)}
 .oge .t{font-size:.85rem;color:var(--muted)}
 .oge .t b{color:var(--fg);font-weight:600}
 .sil{font:inherit;font-size:.85rem;min-height:40px;padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
@@ -50,7 +62,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:.9rem;min-height:40p
 footer{font-size:.8rem;color:var(--muted)}
 a{color:var(--accent)}
 .sekmeler{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px}
-.sekmeler button{font:inherit;min-height:44px;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
+.sekmeler button{font:inherit;font-size:.92rem;white-space:nowrap;padding:0 4px;min-height:44px;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
 .sekmeler button[aria-selected=true]{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .rozet{display:inline-block;min-width:1.4em;padding:0 6px;margin-left:4px;border-radius:99px;background:var(--accent);color:var(--accent-fg);font-size:.75rem;line-height:1.5}
 .rozet:empty{display:none}
@@ -143,6 +155,9 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     <input type="date" id="tarih" required>
     <div class="chips" id="hizli" style="margin-top:8px"></div>
   </div>
+  <details id="secenekler">
+    <summary>Ayarlar: <span class="sec-ozet" id="secOzet" style="margin-left:6px"></span></summary>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
   <div>
     <label for="saat">Saat (mail bu saatte gelir)</label>
     <input type="time" id="saat" required>
@@ -160,6 +175,8 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     <div class="chips" id="kisiChips"></div>
     <div class="onizleme" id="kisiIpucu" style="white-space:normal;margin-top:6px"></div>
   </div>
+    </div>
+  </details>
   <div class="onizleme" id="onizleme"></div>
   <div class="uyari" id="uyari" hidden></div>
   <button class="kaydet" type="submit" id="kaydet">Kaydet</button>
@@ -175,7 +192,9 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   <div class="card gecmis" id="gecmis"></div>
 </details>
 
-<details class="card" id="takvimKutu">
+<details class="card" id="ayarKutu">
+  <summary>Ayarlar: vergi takvimi, kişiler</summary>
+<details class="alt" id="takvimKutu">
   <summary>Vergi takvimi (hazır hatırlatmalar, her yıl yenilenir)</summary>
   <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
     <div class="onizleme" style="white-space:normal">Tarih hafta sonu ya da resmî tatile denk gelirse ilk iş gününe kayar. Mail saat 12:00'de, 2 gün önce ve son gün gelir. Kişilerden "vergi takvimini de alsın" dediklerine yalnızca 2 gün önceki mail gider; son gün maili yalnızca sana gelir.</div>
@@ -186,7 +205,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   </div>
 </details>
 
-<details class="card" id="kisiYonet">
+<details class="alt" id="kisiYonet">
   <summary>Kişiler (hatırlatmayı başkasına da göndermek için)</summary>
   <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
     <div id="kisiListe"></div>
@@ -199,6 +218,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     </form>
     <div class="onizleme" style="white-space:normal">Seçtiğin kişiye, sana gelenle aynı konu ve içerikte AYRI bir mail gider; kimse başkasının adresini görmez. Altına "Saygılarımla, Adem Yılmaz, smmmyilmaz.com" yazılır.</div>
   </div>
+</details>
 </details>
 </div>
 
@@ -232,8 +252,9 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
 
 <div id="panelS" hidden style="display:flex;flex-direction:column;gap:20px">
   <div class="chips" id="surecTur" role="group" aria-label="Süreç türü"></div>
+  <div class="bos" id="surecIpucu">Yeni süreç başlatmak için yukarıdan bir tür seç.</div>
   <details class="card" id="surecKutu">
-    <summary>Yeni süreç başlat (şablondan)</summary>
+    <summary>+ Yeni süreç başlat</summary>
     <form id="surecForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
       <div id="surecSablonSatir"><label for="surecSablon">Şablon</label><select id="surecSablon"></select></div>
       <div><label for="surecFirma">Firma adı</label><input type="text" id="surecFirma" maxlength="120" placeholder="Örn. ABC Ltd. Şti."></div>
@@ -247,7 +268,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   </details>
 
   <details class="card" id="tasfiyeKutu">
-    <summary>Tasfiye süreci başlat (tarihleri sorar)</summary>
+    <summary>+ Yeni tasfiye süreci başlat</summary>
     <form id="tasfiyeForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
       <div><label for="tasfiyeFirma">Firma adı</label><input type="text" id="tasfiyeFirma" maxlength="120" placeholder="Örn. ABC Ltd. Şti."></div>
       <div><label for="tasfiyeGiris">Tasfiyeye giriş tarihi</label><input type="date" id="tasfiyeGiris" required></div>
@@ -262,7 +283,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   </details>
 
   <details class="card" id="sahisKutu">
-    <summary>Şahıs işletmesi kapanışı başlat</summary>
+    <summary>+ Yeni şahıs kapanış süreci başlat</summary>
     <form id="sahisForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
       <div><label for="sahisFirma">Adı / firma</label><input type="text" id="sahisFirma" maxlength="120" placeholder="Örn. Ali Yılmaz"></div>
       <div><label for="sahisTarih">Kapanış tarihi (süreler bu tarihten sayılır)</label><input type="date" id="sahisTarih" required></div>
@@ -547,6 +568,9 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     var kime=Object.keys(secili.kisi).map(function(id){ return kisiAdi(+id); }).filter(Boolean);
     var satir3 = kime.length ? "Ayrıca gidecek: "+kime.join(", ") : "";
     $("onizleme").textContent = [satir1, satir2, satir3].filter(Boolean).join("\n");
+    var gm=g.map(function(x){ return x===0?"aynı gün":x+" gün önce"; }).join(", ");
+    var tm={yok:"tekrar yok", haftalik:"her hafta", aylik:"her ay", ucaylik:"3 ayda bir", yillik:"her yıl"}[secili.tekrar];
+    $("secOzet").textContent = [sa, gm, tm, kime.length ? "+ "+kime.join(", ") : ""].filter(Boolean).join(" · ");
   }
   function durum(m,t){ var d=$("durum"); d.textContent=m; d.className="durum "+(t||""); }
 
@@ -714,20 +738,21 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
 
   /* ---------- liste ---------- */
   function ogeYap(k){
-    var el=document.createElement("div"); el.className="oge";
-    var sol=document.createElement("div"); sol.className="m";
+    var el=document.createElement("div"); el.className="oge tik";
+    var sol=document.createElement("div"); sol.className="m"; sol.tabIndex=0; sol.setAttribute("role","button"); sol.setAttribute("aria-expanded","false");
     var m=document.createElement("div"); m.textContent=k.metin;
     var t=document.createElement("div"); t.className="t";
     var s=sonraki(k, bugun());
-    var tekrarAd = k.tur==="takvim" ? ((k.aciklama||"Her yıl yenilenir")+" · ") : k.tur==="haftalik" ? "Her hafta · " : k.tur==="aylik" ? ((k.aralik||1)===3 ? "3 ayda bir · " : "Her ay · ") : k.tur==="yillik" ? "Her yıl · " : "";
-    if(s){
-      var b=document.createElement("b"); b.textContent=goster(iso(s)); t.appendChild(b);
-      t.appendChild(document.createTextNode(" ("+goreli(farkGun(iso(s)))+") · "+k.saat+" · "+tekrarAd+
-        k.gunler.map(function(g){return g===0?"aynı gün":g+" gün önce";}).join(", ")));
-    } else { t.textContent = goster(k.tarih)+" (geçti)"; }
-    var kime=(k.kisi||[]).map(kisiAdi).filter(Boolean);
-    if(kime.length) t.appendChild(document.createTextNode(" · ayrıca: "+kime.join(", ")));
+    var tekrarAd = k.tur==="takvim" ? (k.aciklama||"Her yıl yenilenir") : k.tur==="haftalik" ? "Her hafta" : k.tur==="aylik" ? ((k.aralik||1)===3 ? "3 ayda bir" : "Her ay") : k.tur==="yillik" ? "Her yıl" : "";
+    if(s){ var b=document.createElement("b"); b.textContent=goster(iso(s)); t.appendChild(b); t.appendChild(document.createTextNode(" · "+goreli(farkGun(iso(s))))); }
+    else { t.textContent = goster(k.tarih)+" (geçti)"; }
     sol.appendChild(m); sol.appendChild(t);
+    var ok=document.createElement("span"); ok.className="ok"; ok.textContent="›"; ok.setAttribute("aria-hidden","true");
+    // ayrıntı: dokununca açılır
+    var det=document.createElement("div"); det.className="det"; det.hidden=true;
+    var dm=document.createElement("div"); dm.className="t";
+    var kime=(k.kisi||[]).map(kisiAdi).filter(Boolean);
+    dm.textContent=[k.saat, tekrarAd, k.gunler.map(function(g){return g===0?"aynı gün":g+" gün önce";}).join(", "), kime.length?"ayrıca: "+kime.join(", "):""].filter(Boolean).join(" · ");
     var sil=document.createElement("button"); sil.type="button"; sil.className="sil"; sil.textContent="Sil";
     var zaman;
     sil.addEventListener("click", function(){
@@ -740,7 +765,11 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       degistir(function(veri){ veri.hatirlatmalar=veri.hatirlatmalar.filter(function(x){ return x.id!==k.id; }); }, "Hatırlatma silindi")
         .then(yukle).catch(function(err){ durum(err.message||"Silinemedi.","hata"); sil.disabled=false; });
     });
-    el.appendChild(sol); el.appendChild(sil);
+    det.appendChild(dm); det.appendChild(sil);
+    var ac=function(){ det.hidden=!det.hidden; el.classList.toggle("acik", !det.hidden); sol.setAttribute("aria-expanded", det.hidden?"false":"true"); };
+    sol.addEventListener("click", ac); ok.addEventListener("click", ac);
+    sol.addEventListener("keydown", function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); ac(); } });
+    el.appendChild(sol); el.appendChild(ok); el.appendChild(det);
     return el;
   }
 
@@ -754,10 +783,15 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
         if(!a.s && !c.s) return a.k.id-c.k.id; if(!a.s) return 1; if(!c.s) return -1;
         return (a.s-c.s) || (a.k.saat<c.k.saat?-1:a.k.saat>c.k.saat?1:0) || (a.k.id-c.k.id);
       });
+      var vg=document.createElement("details"); vg.className="vergi-grup"; var vsay=0, vilk="";
+      var vozet=document.createElement("summary"); vg.appendChild(vozet);
       sirali.forEach(function(x){
-        if(x.s){ yak.appendChild(ogeYap(x.k)); y++; } else { ges.appendChild(ogeYap(x.k)); g++; }
+        if(x.k.grup==="vergi" && x.s){ if(!vsay) vilk=x.k.metin+" · "+goster(iso(x.s)); vsay++; vg.appendChild(ogeYap(x.k)); }
+        else if(x.s){ yak.appendChild(ogeYap(x.k)); y++; } else { ges.appendChild(ogeYap(x.k)); g++; }
       });
-      if(!y){ var e=document.createElement("div"); e.className="bos"; e.textContent="Yaklaşan hatırlatma yok."; yak.appendChild(e); }
+      if(!y && !vsay){ var e=document.createElement("div"); e.className="bos"; e.textContent="Yaklaşan hatırlatma yok."; yak.appendChild(e); }
+      else if(!y){ var e2=document.createElement("div"); e2.className="bos"; e2.textContent="Yaklaşan başka hatırlatma yok."; yak.appendChild(e2); }
+      if(vsay){ vozet.textContent="Vergi takvimi ("+vsay+") · sıradaki: "+vilk; yak.appendChild(vg); }
       takvimCiz();
       $("gecmisKutu").hidden = !g;
     }).catch(function(err){
@@ -769,7 +803,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "16";
+  var SURUM = "17";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -1085,7 +1119,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       });
     }, "Süreç başlatıldı").then(function(){
       d.textContent=l.length+" madde eklendi.  Mailler son tarihli maddeler için gelecek."; d.className="durum ok";
-      $("surecFirma").value=""; $("surecKutu").open=false; return yYukle();
+      $("surecFirma").value=""; $("surecKutu").open=false; return yYukle().then(sonGrupuAc);
     }).catch(function(err){
       if(err && err.kod===401){ anahtarGecersiz(); return; }
       d.textContent=(err && err.message) || "Kaydedilemedi."; d.className="durum hata";
@@ -1135,7 +1169,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       });
     }, "Şahıs kapanış süreci başlatıldı").then(function(){
       d.textContent=l.length+" madde eklendi."; d.className="durum ok";
-      $("sahisFirma").value=""; $("sahisKutu").open=false; return yYukle();
+      $("sahisFirma").value=""; $("sahisKutu").open=false; return yYukle().then(sonGrupuAc);
     }).catch(function(err){
       if(err && err.kod===401){ anahtarGecersiz(); return; }
       h((err && err.message) || "Kaydedilemedi.");
@@ -1190,7 +1224,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       });
     }, "Tasfiye süreci başlatıldı").then(function(){
       d.textContent="Tasfiye süreci eklendi. Girilmeyen tarihleri sürecin kartından sonra girebilirsin."; d.className="durum ok";
-      $("tasfiyeFirma").value=""; $("tasfiyeIlan").value=""; $("tasfiyeKapanis").value=""; $("tasfiyeKutu").open=false; return yYukle();
+      $("tasfiyeFirma").value=""; $("tasfiyeIlan").value=""; $("tasfiyeKapanis").value=""; $("tasfiyeKutu").open=false; return yYukle().then(sonGrupuAc);
     }).catch(function(err){
       if(err && err.kod===401){ anahtarGecersiz(); return; }
       d.textContent=(err && err.message) || "Kaydedilemedi."; d.className="durum hata";
@@ -1241,6 +1275,11 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     el.appendChild(kutu); el.appendChild(m); el.appendChild(sil);
     return el;
   }
+  var acikGruplar = {};
+  function sonGrupuAc(){   // yeni başlatılan süreç açık gelir
+    var mx=0; ((yYerel&&yYerel.ogeler)||[]).forEach(function(o){ if(o.gid && o.gid>mx) mx=o.gid; });
+    if(mx){ acikGruplar[mx]=true; yCiz(); }
+  }
   function grupYap(G){
     var tamam=G.ogeler.filter(function(t){ return t.tamam; }).length, hepsi=G.ogeler.length, bitti=tamam===hepsi;
     var kart=document.createElement("div"); kart.className="card grup"+(bitti?" gecmis":"");
@@ -1252,7 +1291,8 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     sol.appendChild(ad); sol.appendChild(ilerleme);
     var sil=document.createElement("button"); sil.type="button"; sil.className="sil"; sil.textContent="Süreci sil";
     var zaman;
-    sil.addEventListener("click", function(){
+    sil.addEventListener("click", function(ev){
+      ev.stopPropagation();
       if(!sil.classList.contains("emin")){
         sil.classList.add("emin"); sil.textContent="Emin misin? Hepsi silinir";
         zaman=setTimeout(function(){ sil.classList.remove("emin"); sil.textContent="Süreci sil"; }, 3000);
@@ -1263,10 +1303,18 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       ySirala(function(v){ v.ogeler = v.ogeler.filter(function(x){ return x.gid!==G.gid; }); }, "Süreç silindi")
         .catch(function(err){ yHata(err); yYukle(); });
     });
-    ust.appendChild(sol); ust.appendChild(sil);
-    kart.appendChild(ust); kart.appendChild(cubuk);
-    if(G.meta && G.meta.tur==="tasfiye") kart.appendChild(tasfiyePaneli(G));
-    G.ogeler.slice().sort(function(x,y){ return x.id-y.id; }).forEach(function(t){ kart.appendChild(yGorevYap(t)); });
+    var ok=document.createElement("span"); ok.className="grup-ok"; ok.textContent="›"; ok.setAttribute("aria-hidden","true");
+    ust.appendChild(sol); ust.appendChild(ok); ust.appendChild(sil);
+    var ic=document.createElement("div"); ic.className="grup-ic"; ic.style.cssText="display:flex;flex-direction:column;gap:12px";
+    if(G.meta && G.meta.tur==="tasfiye") ic.appendChild(tasfiyePaneli(G));
+    G.ogeler.slice().sort(function(x,y){ return x.id-y.id; }).forEach(function(t){ ic.appendChild(yGorevYap(t)); });
+    var acik=!!acikGruplar[G.gid];
+    ic.hidden=!acik; kart.classList.toggle("acik", acik);
+    ust.tabIndex=0; ust.setAttribute("role","button"); ust.setAttribute("aria-expanded", acik?"true":"false");
+    var degis=function(){ acikGruplar[G.gid]=ic.hidden; ic.hidden=!ic.hidden; kart.classList.toggle("acik", !ic.hidden); ust.setAttribute("aria-expanded", ic.hidden?"false":"true"); };
+    ust.addEventListener("click", degis);
+    ust.addEventListener("keydown", function(e){ if((e.key==="Enter"||e.key===" ") && e.target===ust){ e.preventDefault(); degis(); } });
+    kart.appendChild(ust); kart.appendChild(cubuk); kart.appendChild(ic);
     return kart;
   }
   // Tasfiye kartındaki tarih paneli: tarihler sonradan girilir/düzeltilir, bağlı maddelerin tarihleri yeniden hesaplanır.
@@ -1311,7 +1359,8 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     {v:"nevi", ad:"Nevi değişikliği", sablon:"Nevi değişikliği"},
     {v:"tasfiye", ad:"Tasfiye"},
     {v:"genc", ad:"Genç girişimci", sablon:"Genç girişimci (Bağ-Kur)"},
-    {v:"sahis", ad:"Şahıs kapanış", sablon:"Şahıs kapanış süreci"}
+    {v:"sahis", ad:"Şahıs kapanış", sablon:"Şahıs kapanış süreci"},
+    {v:"diger", ad:"Diğer"}
   ];
   var surecTur = "tumu";
   function surecTuruOf(G){
@@ -1325,9 +1374,10 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     Array.prototype.forEach.call($("surecTur").children, function(b){ b.setAttribute("aria-pressed", b.dataset.v===v?"true":"false"); });
     var tasf = v==="tasfiye", sahis = v==="sahis", sablonAd = "";
     SUREC_TURLERI.forEach(function(x){ if(x.v===v && x.sablon) sablonAd=x.sablon; });
-    $("tasfiyeKutu").hidden = !(tasf || v==="tumu");
-    $("sahisKutu").hidden = !(sahis || v==="tumu");
-    $("surecKutu").hidden = tasf || sahis;
+    $("tasfiyeKutu").hidden = !tasf;
+    $("sahisKutu").hidden = !sahis;
+    $("surecKutu").hidden = tasf || sahis || v==="tumu";
+    $("surecIpucu").hidden = v!=="tumu";
     $("surecSablonSatir").hidden = !!sablonAd;
     if(sablonAd){
       (sYerel||[]).forEach(function(s){ if(s.ad===sablonAd) $("surecSablon").value=String(s.id); });
@@ -1354,7 +1404,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
       if(xb!==yb) return xb ? 1 : -1;
       return y.gid-x.gid;                                                          // yeni süreç üstte
     });
-    var gosterilen = sira.filter(function(G){ return surecTur==="tumu" || surecTuruOf(G)===surecTur; });
+    var gosterilen = sira.filter(function(G){ return surecTur==="tumu" || surecTur==="diger" || surecTuruOf(G)===surecTur; });
     gosterilen.forEach(function(G){ gr.appendChild(grupYap(G)); });
     if(!gosterilen.length){
       var sb=document.createElement("div"); sb.className="bos"; sb.textContent = sira.length ? "Bu türde süreç yok." : "Henüz süreç yok. Yukarıdan başlat.";
