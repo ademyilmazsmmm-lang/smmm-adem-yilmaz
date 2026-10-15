@@ -89,6 +89,13 @@ kendisini konsolsuz yeniden başlatır. Hiçbiri olmazsa küçültülmüş bir s
    canlı akar. **Durdur** (bota `durdur.istek` dosyasıyla haber verir, bot bir sonraki bekleme adımında
    görüp) o ana kadarki sonuçları kaydederek durdurur; tekrar Çalıştır'a basınca
    kaldığı yerden sürer ("Bugün bitenleri atla" işaretliyse).
+
+**İndirme seçenekleri (sol panel › İndirme):** *Fatura (XML belge paketi) indir* ve *Excel fatura listesi indir* ayrı ayrı
+açılıp kapanır. Örnek: aynı ayı iki kez sorgulayacaksanız (15 Ekim'de ve KDV beyanından önce 24 Ekim'de) ikisini de
+işaretli bırakırsanız her seferinde yeni gün klasörüne hem XML hem Excel iner; ikinci sorguda yalnızca biri yetiyorsa
+diğerini kapatabilirsiniz. Excel kapalıyken tutar/KDV/tevkifat Excel'den geldiği için güncellenmez, **önceki sorgudaki
+değerler korunur** (sıfırlanmaz; adetler ve hatalar yine yenilenir). İkisi birden kapalı olamaz. Seçim hatırlanır;
+komut satırında karşılığı `--belge-indirme-yok` ve `--excel-indirme-yok`.
 4. Alttaki kutular seçili dönem için `rapor.json`'dan hesaplanır, tıklayınca firmaları listeler
    (**Excel olarak indir** listeyi .xlsx olarak kaydedip açar):
    - **Alış Tevkifat KDV**: tevkifatlı alış faturaları (KDV2). Excel'de tevkifat tutarı sütunu

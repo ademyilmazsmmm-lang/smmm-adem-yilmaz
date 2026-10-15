@@ -131,7 +131,7 @@ class EkranIsleyici:
             self.sonuc["durum"] = "kaynaktan inmedi" if self.kalan_hata else "fatura yok"
             return self.sonuc
 
-        if not self.interaktif and not self.sadece_excel:
+        if not self.interaktif and not self.sadece_excel and AYAR["belge_indir"]:
             if self._belgeleri_indir(satir_sayisi):
                 return self.sonuc
         self._iptal_itiraz()
@@ -150,7 +150,7 @@ class EkranIsleyici:
         excel_yok = self.excel_bekleniyor and not self.excel_alindi
         if self.interaktif or self.sadece_excel:
             return "excel inmedi" if excel_yok else "tamam"
-        if not self.sonuc["dosyalar"]:
+        if not self.sonuc["dosyalar"] and (AYAR["belge_indir"] or AYAR["excel_indir"]):
             return "dosya inmedi"
         return "tamam (excel eksik)" if excel_yok else "tamam"
 
@@ -431,6 +431,10 @@ class EkranIsleyici:
     # 7. Excel
     def _exceli_indir(self, satir_sayisi):
         if self.excel_alindi:
+            return
+        if not AYAR["excel_indir"]:  # kullanici Excel indirmeyi kapatti: tutarlar onceki sorgudan kalir
+            self.sonuc["excel_atlandi"] = True
+            self._yaz("    Excel indirilmedi (secenek kapali); tutar/tevkifat bilgisi onceki sorgudan kalir")
             return
         page = self.page
         acik_pencereleri_kapat(page, self.log)

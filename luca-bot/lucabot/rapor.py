@@ -475,12 +475,16 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
         kayit["durumlar"][tip] = s.get("durum", "")
         kayit["sayilar"][tip] = s.get("fatura_sayisi", 0)
         kayit["iptal"][tip] = s.get("iptal_itiraz", 0)
-        kayit["tevkifat"][tip] = s.get("tevkifat", 0) if tip in TEVKIFAT_EKRANLARI else 0
-        kayit["tevkifat_kdv"][tip] = (s.get("tevkifat_kdv", 0) or 0) if tip in TEVKIFAT_EKRANLARI else 0
-        kayit["tevkifat_kdv_tahmini"][tip] = bool(s.get("tevkifat_kdv_tahmini"))
+        # Excel indirilmediyse (secenek kapali) tutar/tevkifat Excel'den geldigi icin bos kalir; onceki
+        # sorgunun degerleri (varsa) korunur, yoksa sifir yazilir
+        excel_atlandi = bool(s.get("excel_atlandi")) and tip in (kayit.get("matrah") or {})
+        if not excel_atlandi:
+            kayit["tevkifat"][tip] = s.get("tevkifat", 0) if tip in TEVKIFAT_EKRANLARI else 0
+            kayit["tevkifat_kdv"][tip] = (s.get("tevkifat_kdv", 0) or 0) if tip in TEVKIFAT_EKRANLARI else 0
+            kayit["tevkifat_kdv_tahmini"][tip] = bool(s.get("tevkifat_kdv_tahmini"))
+            kayit.setdefault("matrah", {})[tip] = s.get("matrah", 0) or 0
+            kayit.setdefault("kdv", {})[tip] = s.get("kdv", 0) or 0
         kayit["inmeyen"][tip] = s.get("indirilemeyen", 0)
-        kayit.setdefault("matrah", {})[tip] = s.get("matrah", 0) or 0
-        kayit.setdefault("kdv", {})[tip] = s.get("kdv", 0) or 0
         kayit.setdefault("faturalar", {})[tip] = s.get("faturalar", [])
         # ayni gun icinde tekrar calistirilinca sayi sismesin diye tip basina tutulur
         if not isinstance(kayit.get("dosya"), dict):

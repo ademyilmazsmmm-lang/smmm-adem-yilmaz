@@ -734,6 +734,7 @@ class Arayuz:
         a["baslangic_tarihi"], a["bitis_tarihi"] = self.v_bas.get().strip(), self.v_bit.get().strip()
         a["firma_listesi"] = self.v_liste.get()
         a["arayuz_ekranlar"] = [t for t in TUM_BELGELER if self.v_ekran[t].get()]
+        a["arayuz_belge_indir"], a["arayuz_excel_indir"] = self.v_belge_indir.get(), self.v_excel_indir.get()
         try:
             ayarlari_kaydet(a)
         except OSError:
@@ -767,6 +768,8 @@ class Arayuz:
         self.v_liste = tk.StringVar(value=a.get("firma_listesi") or "")
         self.v_firma = tk.StringVar()
         self.v_devam = tk.BooleanVar(value=True)
+        self.v_belge_indir = tk.BooleanVar(value=self.ayarlar.get("arayuz_belge_indir", True))
+        self.v_excel_indir = tk.BooleanVar(value=self.ayarlar.get("arayuz_excel_indir", True))
         secili = set(a.get("arayuz_ekranlar") or TUM_BELGELER)
         self.v_ekran = {t: tk.BooleanVar(value=t in secili) for t in TUM_BELGELER}
         self.v_hepsi = tk.BooleanVar(value=all(v.get() for v in self.v_ekran.values()))
@@ -914,6 +917,11 @@ class Arayuz:
                            ).grid(row=i // 2, column=i % 2, sticky="w")
         tk.Checkbutton(p, text="Bugün bitenleri atla (kaldığı yerden)", variable=self.v_devam,
                        font=KUCUK, **self._kutu_renk()).pack(anchor="w", pady=(12, 0))
+        bolum_basligi(p, "İndirme").pack(fill="x", pady=(12, 0))
+        tk.Checkbutton(p, text="Fatura (XML belge paketi) indir", variable=self.v_belge_indir,
+                       font=KUCUK, **self._kutu_renk()).pack(anchor="w", pady=(4, 0))
+        tk.Checkbutton(p, text="Excel fatura listesi indir", variable=self.v_excel_indir,
+                       font=KUCUK, **self._kutu_renk()).pack(anchor="w")
 
         alt = tk.Frame(p, bg=ZEMIN)
         alt.pack(side="bottom", fill="x")
@@ -1218,7 +1226,15 @@ class Arayuz:
             komut += ["--firma", self.v_firma.get().strip()]
         if not self.v_devam.get():
             komut.append("--bastan")
+        komut += self.indirme_secenekleri()
         return komut
+
+    def indirme_secenekleri(self):
+        """Fatura (XML) / Excel indirme kutularina gore luca_bot.py bayraklari; ikisi de kapaliysa ValueError."""
+        belge, excel = self.v_belge_indir.get(), self.v_excel_indir.get()
+        if not belge and not excel:
+            raise ValueError("Fatura (XML) ve Excel indirmenin ikisi de kapalı; en az birini seçin.")
+        return (["--belge-indirme-yok"] if not belge else []) + (["--excel-indirme-yok"] if not excel else [])
 
     def calistir(self):
         if self.surec:
@@ -1234,6 +1250,7 @@ class Arayuz:
         a["baslangic_tarihi"], a["bitis_tarihi"] = self.v_bas.get().strip(), self.v_bit.get().strip()
         a["firma_listesi"] = self.v_liste.get()
         a["arayuz_ekranlar"] = [t for t in TUM_BELGELER if self.v_ekran[t].get()]
+        a["arayuz_belge_indir"], a["arayuz_excel_indir"] = self.v_belge_indir.get(), self.v_excel_indir.get()
         ayarlari_kaydet(a)
 
         self._baslat(komut, "Luca'ya giriş yapılıyor…")
@@ -1626,8 +1643,13 @@ class Arayuz:
         yol.write_text(json.dumps(istek, ensure_ascii=False, indent=1), encoding="utf-8")
         if pencere is not None:
             pencere.destroy()
+        try:
+            secenekler = self.indirme_secenekleri()
+        except ValueError as e:
+            messagebox.showwarning("Kontrol edin", str(e), parent=self.kok)
+            return
         komut = [python_komutu(), "-u", str(self.BOT), "--bitince-kapat", "--baslangic", bas, "--bitis", bit,
-                 "--tekrar-listesi", str(yol)]
+                 "--tekrar-listesi", str(yol)] + secenekler
         self._baslat(komut, "Hatalı ekranlar yeniden sorgulanıyor…")
 
     def detay(self, tur):

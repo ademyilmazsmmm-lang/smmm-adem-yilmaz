@@ -344,6 +344,27 @@ class RaporTestleri(unittest.TestCase):
             self.assertIn("okunamadı", satir["BOS AS"][7])
             self.assertTrue(str(ws.cell(row=6, column=6).value).startswith("=SUBTOTAL(109,F2:F5"))
 
+    def test_excel_indirilmediyse_onceki_tutarlar_korunur(self):
+        """15/10'da Excel'li sorgu, 24/10'da yalniz XML: matrah/KDV/tevkifat sifirlanmaz; adetler guncellenir."""
+        with tempfile.TemporaryDirectory() as d:
+            klasor = Path(d)
+            ilk = self._sonuc("A", "e-arsiv-alis", durum="tamam", fatura_sayisi=3, matrah=1000, kdv=200,
+                              tevkifat=1, tevkifat_kdv=50)
+            rapor.guncelle(klasor, [ilk], [], "e-arsiv-alis")
+            ikinci = self._sonuc("A", "e-arsiv-alis", durum="tamam", fatura_sayisi=5)  # matrah/kdv yok
+            ikinci["excel_atlandi"] = True
+            rapor.guncelle(klasor, [ikinci], [], "e-arsiv-alis")
+            k = json.loads((klasor / "rapor.json").read_text(encoding="utf-8"))["A"]
+            self.assertEqual(k["sayilar"]["e-arsiv-alis"], 5)            # adet yeni sorgudan
+            self.assertEqual((k["matrah"]["e-arsiv-alis"], k["kdv"]["e-arsiv-alis"]), (1000, 200))  # tutar eski
+            self.assertEqual(k["tevkifat"]["e-arsiv-alis"], 1)
+            # Excel'siz sorgu bir ekranin ilk kaydiysa sifir yazilir (korunacak bir sey yok)
+            ucuncu = self._sonuc("B", "e-arsiv-alis", durum="tamam", fatura_sayisi=2)
+            ucuncu["excel_atlandi"] = True
+            rapor.guncelle(klasor, [ucuncu], [], "e-arsiv-alis")
+            b = json.loads((klasor / "rapor.json").read_text(encoding="utf-8"))["B"]
+            self.assertEqual(b["matrah"]["e-arsiv-alis"], 0)
+
     def test_guncellenme_bugunku_tarihi_tasir(self):
         """rapor.guncelle() her ekran icin 'bugun islendi mi' kontrolune yarayan tarihi yazar."""
         bugun = date.today().strftime("%d/%m/%Y")

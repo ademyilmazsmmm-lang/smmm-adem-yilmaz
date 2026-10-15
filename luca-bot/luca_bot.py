@@ -63,6 +63,10 @@ def arguman_ayristirici():
                    help="Donemi degistirme; eski donemdeki firmalari atla (sorun cikarsa)")
     p.add_argument("--azami-fatura", type=int,
                    help="Bu sayidan cok faturasi olan firmalari atla (0: sinir yok)")
+    p.add_argument("--belge-indirme-yok", action="store_true",
+                   help="XML belge paketini (zip) indirme; yalniz Excel listesi/sayilar alinir")
+    p.add_argument("--excel-indirme-yok", action="store_true",
+                   help="Excel fatura listesini indirme (tutar/tevkifat/iptal bilgisi onceki sorgudan kalir)")
     p.add_argument("--iptal-itiraz-atla", action="store_true",
                    help="Faturalari indir ama GIB iptal/itiraz sorgusunu yapma")
     p.add_argument("--listele", action="store_true", help="Sadece firma listesini yazdir, islem yapma")
@@ -135,6 +139,8 @@ def ayarlari_uygula(args, ayarlar):
     AYAR["azami_fatura"] = max(0, int(args.azami_fatura if args.azami_fatura is not None
                                       else _sayi_ayari(ayarlar, "azami_fatura", 500)))
     AYAR["iptal_itiraz"] = bool(ayarlar.get("iptal_itiraz_sorgula", True)) and not args.iptal_itiraz_atla
+    AYAR["belge_indir"] = bool(ayarlar.get("belge_indir", True)) and not args.belge_indirme_yok
+    AYAR["excel_indir"] = bool(ayarlar.get("excel_indir", True)) and not args.excel_indirme_yok
     AYAR["donem_degistir"] = bool(ayarlar.get("donem_degistir", True)) and not args.donem_degistirme
     AYAR["chrome_gunlugu"] = bool(args.chrome_gunlugu)
     AYAR["profil_yerel"] = bool(args.profil_yerel) or bool(ayarlar.get("profil_yerel", False))

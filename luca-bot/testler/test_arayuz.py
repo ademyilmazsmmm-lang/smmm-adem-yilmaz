@@ -941,6 +941,30 @@ class TablolarVeSekmelerTestleri(ArayuzZemini):
         self.assertEqual(etiket["BIRLIK TIC"], "tamam")
         self.assertEqual(etiket["YILDIZ OTO"], "hata")
 
+    def test_indirme_secenekleri_komuta_ve_ayara_yansir(self):
+        from tkinter import messagebox
+        self.assertFalse({"--belge-indirme-yok", "--excel-indirme-yok"} & set(self.app.komut()))  # varsayilan: ikisi de
+        self.app.v_excel_indir.set(False)  # ikinci sorgu: yalniz XML
+        k = self.app.komut()
+        self.assertIn("--excel-indirme-yok", k)
+        self.assertNotIn("--belge-indirme-yok", k)
+        self.app.v_excel_indir.set(True)
+        self.app.v_belge_indir.set(False)  # yalniz Excel
+        k = self.app.komut()
+        self.assertIn("--belge-indirme-yok", k)
+        self.assertNotIn("--excel-indirme-yok", k)
+        self.app.v_excel_indir.set(False)  # ikisi de kapali: calisma anlamsiz
+        with self.assertRaises(ValueError):
+            self.app.komut()
+        self.app.v_excel_indir.set(True)
+        self.app.v_belge_indir.set(False)
+        with mock.patch.object(messagebox, "showwarning"), mock.patch.object(self.app, "_baslat") as baslat, \
+                mock.patch.object(self.app, "_giris_tamam_mi", return_value=True):
+            self.app.calistir()
+        baslat.assert_called_once()
+        ayar = json.loads(self.ayar.read_text(encoding="utf-8"))
+        self.assertEqual((ayar["arayuz_belge_indir"], ayar["arayuz_excel_indir"]), (False, True))  # sonraki acilista hatirlanir
+
     def test_firma_durumunda_kdv_sonucu_sutunlari(self):
         t = self.app.durum_tablosu
         i = t.sutunlar.index("Satış KDV")

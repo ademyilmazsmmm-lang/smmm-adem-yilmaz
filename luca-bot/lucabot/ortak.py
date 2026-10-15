@@ -29,6 +29,8 @@ AYAR = {
     "durgunluk_saniye": 180,    # Islem Takip bu sure ilerlemezse sorgu takildi sayilir
     "indirme_saniye": 30,       # dosyanin gelmesi icin beklenecek sure
     "iptal_itiraz": True,
+    "belge_indir": True,        # XML belge paketini (zip) indir
+    "excel_indir": True,        # Excel fatura listesini indir (tutar/tevkifat/iptal kaynagi)
     "donem_degistir": True,
     "chrome_gunlugu": False,
     "tarayici": None,

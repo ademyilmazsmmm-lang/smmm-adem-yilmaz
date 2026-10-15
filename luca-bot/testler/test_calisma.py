@@ -218,6 +218,37 @@ class CalismaDayanikliligi(unittest.TestCase):
         self.assertLess(time.time() - basla, 60)    # durgunluk suresi (60 sn) beklenmedi
 
 
+    def test_belge_ve_excel_indirme_secenekleri(self):
+        """Fatura (XML zip) ve Excel indirme ayri ayri kapatilabilir; kapali olan inmez, ekran yine 'tamam' olur."""
+        from lucabot.ekran_isleyici import firma_isle
+        from lucabot.ortak import AYAR
+        log = self.klasor / "calisma.log"
+        araliklar = tarih_araliklari(tarih_cozumle("01/08/2026"), tarih_cozumle("05/08/2026"))
+
+        def calis(belge, excel):
+            sahte_luca.sifirla()
+            AYAR.update(azami_saniye=120, durgunluk_saniye=60, indirme_saniye=15, belge_indir=belge, excel_indir=excel)
+            try:
+                return firma_isle(self.page, "AKIN COBAN", "e-arsiv-alis", araliklar, self.klasor, log)
+            finally:
+                AYAR.update(belge_indir=True, excel_indir=True)
+
+        def turler(sonuc):
+            return {Path(d).suffix.lower() for d in sonuc["dosyalar"]}
+        tam = calis(True, True)
+        self.assertEqual(tam["durum"], "tamam")
+        self.assertIn(".zip", turler(tam))
+        self.assertTrue(turler(tam) & {".xlsx", ".xls"})
+        sadece_xml = calis(True, False)
+        self.assertEqual(sadece_xml["durum"], "tamam")
+        self.assertIn(".zip", turler(sadece_xml))
+        self.assertFalse(turler(sadece_xml) & {".xlsx", ".xls"})
+        self.assertTrue(sadece_xml.get("excel_atlandi"))
+        sadece_excel = calis(False, True)
+        self.assertEqual(sadece_excel["durum"], "tamam")
+        self.assertNotIn(".zip", turler(sadece_excel))
+        self.assertTrue(turler(sadece_excel) & {".xlsx", ".xls"})
+
     def test_gib_kimlik_hatasi_surerse_kalan_araliklar_atlanir(self):
         """Hata her aralikta tekrarlaniyorsa 2 araliktan sonra birakilir ve rapora not dusulur."""
         from lucabot.ekran_isleyici import firma_isle
