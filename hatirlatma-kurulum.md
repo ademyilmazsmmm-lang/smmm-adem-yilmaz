@@ -74,8 +74,9 @@ Sayfa tasfiye için şu tarihleri sorar; ilk tarih zorunludur, diğer ikisi sonr
 | Madde | Son tarih | Hangi tarihten | Dayanak |
 |---|---|---|---|
 | Normal dönem kurumlar vergisi beyannamesi (tasfiye öncesi) | Tasfiye başlangıç ayını izleyen 4. ayın sonu (ör. 12 Ekim → 28 Şubat); kapanış girildiyse ve tasfiye sonu beyannamesinden önce doluyorsa o tarih | Tasfiyeye giriş (+ kapanış) | KVK md. 14 |
-| Tasfiye dönemi kurumlar vergisi beyannamesi (başlangıç → yıl sonu) | Dönemin kapandığı yılı izleyen yılın Nisan ayı sonu (30 Nisan); kapanış aynı yıldaysa "gerekmez" (tek dönem) | Tasfiyeye giriş (+ kapanış) | KVK md. 14 |
+| Tasfiye dönemi kurumlar vergisi beyannamesi (başlangıç → yıl sonu) | Dönemin kapandığı yılı izleyen yılın Nisan ayı sonu (30 Nisan); kapanış aynı yıldaysa "gerekmez" (tek dönem); kapanış + 30 gün daha erkense tasfiye sonundan önce verilmesi için o tarihe çekilir | Tasfiyeye giriş (+ kapanış) | KVK md. 14 |
 | Kapanış verilebilir | 3. ilan + 3 ay (hatırlatma tarihten sonraki 1. ve 2. gün gelir) | 3. ilan | TTK md. 541, 543 |
+| E-defter kapanış dilekçesi | Kapanış + 30 gün (varsayım; kesin süre kullanıcıdan teyit edilmedi) | Kapanış | — |
 | Tasfiye sonu beyannamesi | Kapanış + 30 gün | Kapanış | KVK md. 17 |
 
 Tarihi girilmemiş maddeler "Tarih bekleniyor" olarak durur. Süreç kartındaki **Tarihler** bölümünden sonradan girilir ya da düzeltilir; bağlı maddelerin tarihleri yeniden hesaplanır.
@@ -94,3 +95,16 @@ Hatırlatma sayfasında **Vergi takvimi** bölümündeki "Eksik olanları ekle" 
 - Kişiler bölümünde "Vergi takvimi: açık" yaptığın kişilere yalnızca **2 gün önceki** mail gider; **son gün maili yalnızca sana** gelir.
 - Resmî tatiller `hatirlatma-tatiller.json` dosyasındadır (sayfa ve mail programı aynı dosyayı kullanır). Bayram tarihleri **2026 ve 2027** için tanımlıdır; her yıl yeni yılın bayramları bu dosyaya eklenmelidir. Eklenmezse o yıl yalnızca hafta sonları ve sabit tatiller (1 Ocak, 23 Nisan, 1 Mayıs, 19 Mayıs, 15 Temmuz, 30 Ağustos, 29 Ekim) hesaba katılır; sayfa bunu uyarı olarak gösterir. Arife (yarım gün) çalışma günü sayılır.
 - "Her yıl Ağustos sonu" gibi gün verilmeyenlerde ayın son günü esas alınmıştır.
+
+## Şahıs işletmesi kapanış süreci
+
+Süreçler sekmesi → **Şahıs kapanış**. Kapanış tarihini girersin, kutucuklarla durumu seçersin; süreler kapanış tarihinden sayılır:
+
+| Madde | Süre | Ne zaman eklenir |
+|---|---|---|
+| Kapanış faturaları (demirbaş vb.) kesilecek | 7 gün | Her zaman |
+| SGK işten çıkışları | 10 gün | "SGK'lı çalışanı var" işaretliyse |
+| E-defter kapanış dilekçesi, e-fatura kapanış dilekçesi | 30 gün | "1. sınıf tüccar" işaretliyse |
+| Oda kaydı kapanışı, belediye kaydı kapanışı | süre yok (listede takip) | İşaretliyse |
+
+Bu süreler kullanıcının kurallarıdır; ilgili mevzuattaki süreler ayrıca doğrulanmadı.
