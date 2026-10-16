@@ -200,6 +200,19 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     <div class="onizleme" style="white-space:normal">Tarih hafta sonu ya da resmî tatile denk gelirse ilk iş gününe kayar. Mail saat 12:00'de, 2 gün önce ve son gün gelir. Kişilerden "vergi takvimini de alsın" dediklerine yalnızca 2 gün önceki mail gider; son gün maili yalnızca sana gelir.</div>
     <div id="takvimListe"></div>
     <div class="uyari" id="takvimUyari" hidden></div>
+    <details class="alt" id="takvimYeni">
+      <summary>+ Takvime kendi maddeni ekle</summary>
+      <form id="takvimYeniForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;margin-top:10px">
+        <div><label for="tkAd">Adı (büyük harfle yazılır)</label><input type="text" id="tkAd" maxlength="120" placeholder="Örn. SGK PRİM ÖDEMESİ"></div>
+        <div><label for="tkGun">Ayın günü</label>
+          <select id="tkGun"></select></div>
+        <div><span class="lbl">Hangi aylarda?</span><div class="chips" id="tkAylar"></div></div>
+        <label class="onay"><input type="checkbox" id="tkKaydir" checked> Hafta sonu / resmî tatile denk gelirse ilk iş günü</label>
+        <div class="onizleme" id="tkOnizleme"></div>
+        <button class="kaydet" type="submit" id="tkEkle">Takvime ekle</button>
+        <div class="durum" id="tkDurum" role="status" aria-live="polite"></div>
+      </form>
+    </details>
     <button class="kaydet" type="button" id="takvimEkle">Eksik olanları ekle</button>
     <div class="durum" id="takvimDurum" role="status" aria-live="polite"></div>
   </div>
@@ -499,7 +512,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   }
 
   /* ---------- form ---------- */
-  var secili = {gunler:{1:true,0:true}, tekrar:"yok", kisi:{}};
+  var secili = {gunler:{0:true}, tekrar:"yok", kisi:{}};
 
   function chipYap(kap, liste, tikla){
     liste.forEach(function(o){
@@ -615,7 +628,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     degistir(function(veri){ kayitOlustur(veri, v); }, "Hatırlatma eklendi")
     .then(function(){
       durum("Kaydedildi.","ok"); secili.kisi={}; kisiCiz();
-      $("metin").value=""; $("saat").value=trSimdi().saat; guncelle(); yukle(); odakla($("metin"));
+      $("metin").value=""; $("saat").value="11:00"; guncelle(); yukle(); odakla($("metin"));
     })
     .catch(function(err){ durum(err.message||"Bağlantı hatası.","hata"); if(err.kod===401) anahtarGecersiz(); })
     .then(function(){ $("kaydet").disabled=false; });
@@ -721,6 +734,48 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
     else if(!son){ u.textContent="Tatil listesi yüklenemedi; yalnızca hafta sonları hesaba katılıyor."; u.hidden=false; }
     else u.hidden=true;
   }
+  /* Kendi takvim maddeni ekle (yalnızca Ayarlar'da) */
+  var tkAylar = {};
+  var AY_ADLARI = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+  (function(){
+    var s=$("tkGun"); for(var g=1; g<=31; g++){ var o=document.createElement("option"); o.value=String(g); o.textContent=g+". günü"; s.appendChild(o); }
+    var o2=document.createElement("option"); o2.value="son"; o2.textContent="Ayın son günü"; s.appendChild(o2); s.value="26";
+    var ch=$("tkAylar");
+    var hepsi=document.createElement("button"); hepsi.type="button"; hepsi.className="chip"; hepsi.textContent="Her ay";
+    hepsi.addEventListener("click", function(){ var tum=Object.keys(tkAylar).length===12; tkAylar={}; if(!tum) for(var i=1;i<=12;i++) tkAylar[i]=true; tkCiz(); });
+    ch.appendChild(hepsi);
+    AY_ADLARI.forEach(function(ad,i){
+      var b=document.createElement("button"); b.type="button"; b.className="chip"; b.textContent=ad; b.dataset.v=String(i+1);
+      b.addEventListener("click", function(){ if(tkAylar[i+1]) delete tkAylar[i+1]; else tkAylar[i+1]=true; tkCiz(); });
+      ch.appendChild(b);
+    });
+  })();
+  function tkListe(){ return Object.keys(tkAylar).map(Number).sort(function(a,b){ return a-b; }); }
+  function tkCiz(){
+    Array.prototype.forEach.call($("tkAylar").children, function(b){ if(b.dataset.v) b.setAttribute("aria-pressed", tkAylar[b.dataset.v]?"true":"false"); else b.setAttribute("aria-pressed", Object.keys(tkAylar).length===12?"true":"false"); });
+    var a=tkListe(), g=$("tkGun").value;
+    if(!a.length){ $("tkOnizleme").textContent=""; return; }
+    var tmp={tur:"takvim", aylar:a, gun:g==="son"?"son":+g, kaydir:$("tkKaydir").checked}, s=sonraki(tmp, bugun());
+    $("tkOnizleme").textContent = "Sıradaki tarih: "+(s?goster(iso(s)):"—")+" · 2 gün önce ve son gün, saat 12:00";
+  }
+  ["tkGun","tkKaydir"].forEach(function(id){ $(id).addEventListener("change", tkCiz); });
+  $("takvimYeniForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var ad=$("tkAd").value.replace(/\s+/g," ").trim().slice(0,120).toLocaleUpperCase("tr"), a=tkListe(), g=$("tkGun").value, d=$("tkDurum");
+    var h=function(m){ d.textContent=m; d.className="durum hata"; };
+    if(!ad){ h("Adını yaz."); return; }
+    if(!a.length){ h("En az bir ay seç."); return; }
+    $("tkEkle").disabled=true; d.textContent="Kaydediliyor…"; d.className="durum";
+    var aciklama = (g==="son" ? "Ayın son günü" : "Ayın "+g+". günü")+" · "+(a.length===12 ? "her ay" : a.map(function(x){ return AY_ADLARI[x-1]; }).join(", "));
+    degistir(function(veri){
+      var n=trSimdi(), id=veri.sonraki_id||1; veri.sonraki_id=id+1;
+      veri.hatirlatmalar.push({id:id, tur:"takvim", aylar:a, gun:g==="son"?"son":+g, kaydir:$("tkKaydir").checked, gunler:[2,0], saat:"12:00",
+        metin:ad, aciklama:aciklama, grup:"vergi", kisi_gunler:[2], kaynak:"ozel"+id, olusturma:n.tarih+"T"+n.saat});
+    }, "Takvim maddesi eklendi").then(function(){
+      d.textContent="Eklendi."; d.className="durum ok"; $("tkAd").value=""; tkAylar={}; tkCiz(); $("takvimYeni").open=false; return yukle();
+    }).catch(function(err){ if(err && err.kod===401){ anahtarGecersiz(); return; } h((err&&err.message)||"Kaydedilemedi."); })
+      .then(function(){ $("tkEkle").disabled=false; });
+  });
   $("takvimEkle").addEventListener("click", function(){
     var d=$("takvimDurum"); $("takvimEkle").disabled=true; d.textContent="Kaydediliyor…"; d.className="durum";
     degistir(function(veri){
@@ -803,7 +858,7 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "17";
+  var SURUM = "18";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -1487,8 +1542,8 @@ textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12p
   function hepsiniYukle(){ sekmeBaslangic(); tatilYukle().then(function(){ if(SON_VERI) yukle(); else takvimCiz(); }); yukle(); kYukle(); yYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; $("tasfiyeGiris").value=trSimdi().tarih; surecChipGuncelle(); tasfiyeChipGuncelle(); tasfiyeOnizle(); $("sahisTarih").value=trSimdi().tarih; sahisChipGuncelle(); sahisOnizle(); surecTurSec("tumu"); }
 
   /* ---------- başlangıç ---------- */
-  $("tarih").value = iso(gunEkle(bugun(),1));
-  $("saat").value = trSimdi().saat;
+  $("tarih").value = iso(bugun());
+  $("saat").value = "11:00";
   guncelle();
   baslat();
 })();
