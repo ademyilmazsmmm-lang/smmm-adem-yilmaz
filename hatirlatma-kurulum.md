@@ -108,3 +108,12 @@ Süreçler sekmesi → **Şahıs kapanış**. Kapanış tarihini girersin, kutuc
 | Oda kaydı kapanışı, belediye kaydı kapanışı | süre yok (listede takip) | İşaretliyse |
 
 Bu süreler kullanıcının kurallarıdır; ilgili mevzuattaki süreler ayrıca doğrulanmadı.
+
+## Mailden "tamamlandı" demek (şifresiz)
+
+Sana gelen her hatırlatma mailinde **"✓ Yapıldı, tamamlandı say"** düğmesi vardır. Düğme hazır bir yanıt açar (konu: `TAMAM - ... #T:...`); yalnızca **Gönder**'e basarsın. Ya da maili normal şekilde yanıtlayıp ilk satıra **Tamam** yazarsın. Mail programı (her çalışmada) Gmail gelen kutusundaki yanıtları okur ve kaydı tamamlandı yapar, sana "✓ Tamamlandı: ..." maili gönderir.
+
+- Yalnızca `MAIL_TO` adresinden gelen ve mailin altındaki imzalı kodu taşıyan yanıtlar sayılır; kod SMTP şifresiyle imzalanır, tahmin edilemez.
+- Tekrarlı hatırlatmalarda (KDV gibi) yalnızca o tarih tamamlanır, sonraki dönem yine hatırlatılır.
+- Gmail okuma, gönderimdeki uygulama şifresiyle (IMAP) yapılır; ayrı ayar gerekmez. Okuma başarısız olursa hatırlatmalar yine gider.
+- Kişilere giden kopyalarda bu düğme yoktur.
