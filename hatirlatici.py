@@ -19,15 +19,20 @@ Kullanım:
 
 import argparse
 import calendar
+import hashlib
+import hmac
 import html
+import imaplib
 import json
 import os
 import re
 import smtplib
 import sys
 from datetime import date, datetime, timedelta, timezone
+import email
+from email import policy
 from email.message import EmailMessage
-from email.utils import formataddr
+from email.utils import formataddr, parseaddr
 from urllib.parse import quote
 
 TR = timezone(timedelta(hours=3))      # Türkiye yıl boyu UTC+3
@@ -213,16 +218,134 @@ def hatirlatma_maili(k):
     satir = f"{k.get('etiket', 'Tarih')}: {tr_tarih(k['olay'])} ({zaman})"
     # "Tamamlandı" bağlantısı yalnızca sahibine giden mailde; sayfa şifreyle açılır ve onay ister
     link = "" if k.get("alici") else f"{SAYFA}?tamam={quote(str(k['id']))}&olay={k['olay']}"
-    duz = f"{konu}\n\n{satir}" + (f"\n\nYapıldıysa tamamlandı olarak işaretle:\n{link}" if link else "")
+    kod = "" if k.get("alici") else onay_kodu(k["id"], k["olay"])
+    yanit = ""
+    if kod:
+        gonderen = os.environ.get("MAIL_FROM") or os.environ.get("SMTP_USER", "")
+        yanit = f"mailto:{gonderen}?subject={quote(('TAMAM - ' + konu)[:120] + ' ' + kod)}&body={quote('Tamam')}"
+    duz = f"{konu}\n\n{satir}" + (
+        "\n\nYapıldıysa bu maili \"Tamam\" yazarak yanıtla; birkaç dakika içinde tamamlandı olarak işaretlenir."
+        f"\nYa da sayfadan işaretle: {link}\n\n{kod}" if kod else "")
     msg = mesaj(konu, duz + IMZA, k.get("alici"))
     # HTML sürüm: bağlantı kısa görünür ("smmmyilmaz.com"); Outlook düz metindeki bağlantıyı uzun güvenlik adresine çevirip gösteriyor
     msg.add_alternative(
         "<div style=\"font-family:Arial,sans-serif;font-size:14px\">"
         f"<p>{html.escape(konu)}</p><p>{html.escape(satir)}</p>"
-        + (f"<p><a href=\"{html.escape(link)}\" style=\"display:inline-block;background:#1f6f5c;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold\">&#10003; Tamamlandı olarak işaretle</a></p>" if link else "") +
+        + (f"<p><a href=\"{html.escape(yanit)}\" style=\"display:inline-block;background:#1f6f5c;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold\">&#10003; Yapıldı, tamamlandı say</a></p>"
+           "<p style=\"color:#555;font-size:13px\">Düğme hazır bir yanıt açar, yalnızca Gönder'e bas. Ya da bu maili \"Tamam\" yazarak yanıtla. "
+           f"Şifreyle sayfadan işaretlemek için <a href=\"{html.escape(link)}\">buraya dokun</a>.</p>"
+           f"<p style=\"color:#999;font-size:11px\">{html.escape(kod)}</p>" if kod else "") +
         "<p>Saygılarımla<br>Adem Yılmaz<br><a href=\"https://smmmyilmaz.com\">smmmyilmaz.com</a></p></div>",
         subtype="html")
     return msg
+
+
+# ---------- mailden onay ("Tamam" yanıtı) ----------
+
+KOD_RE = re.compile(r"#T:(g?\d+):(\d{4}-\d{2}-\d{2}):([0-9a-f]{10})")
+ONAY_KELIMELERI = ("tamam", "yapıldı", "yapildi", "tamamlandı", "tamamlandi", "ok", "evet", "bitti")
+
+
+def onay_kodu(kid, olay):
+    """Mailin altındaki kod; SMTP şifresiyle imzalanır, tahmin edilemez."""
+    imza = hmac.new(os.environ.get("SMTP_PASS", "").encode(), f"{kid}|{olay}".encode(), hashlib.sha256).hexdigest()[:10]
+    return f"#T:{kid}:{olay}:{imza}"
+
+
+def _metin_govde(msg):
+    govde = msg.get_body(("plain", "html"))
+    if govde is None:
+        return ""
+    s = govde.get_content()
+    if govde.get_content_type() == "text/html":
+        s = re.sub(r"(?is)<(script|style).*?</\1>", " ", s)
+        s = re.sub(r"(?i)<br\s*/?>|</p>|</div>", "\n", s)
+        s = html.unescape(re.sub(r"<[^>]+>", " ", s))
+    return s
+
+
+def onay_uygula(veri_klasoru, kid, olay):
+    """Kaydı tamamlandı yapar. Dönen: (metin, değişti_mi) ya da None (kayıt yok)."""
+    if kid.startswith("g"):
+        yol = os.path.join(veri_klasoru, "yapilacaklar.json")
+        v = json_oku(yol, {"ogeler": []})
+        for o in v.get("ogeler", []):
+            if str(o.get("id")) == kid[1:]:
+                if o.get("tamam"):
+                    return o.get("metin", ""), False
+                o["tamam"] = True
+                o["tamamlanma"] = simdi_tr().strftime("%d.%m.%Y %H:%M") + " (mailden)"
+                json_yaz(yol, v)
+                return (f"{o['firma']}: " if o.get("firma") else "") + o.get("metin", ""), True
+        return None
+    yol = os.path.join(veri_klasoru, "hatirlatmalar.json")
+    v = json_oku(yol, {"hatirlatmalar": []})
+    for k in v.get("hatirlatmalar", []):
+        if str(k.get("id")) == kid:
+            if k.get("tur") == "tek":
+                if k.get("tamam"):
+                    return k.get("metin", ""), False
+                k["tamam"] = True
+                k["tamamlanma"] = simdi_tr().strftime("%d.%m.%Y %H:%M") + " (mailden)"
+            else:
+                l = k.get("tamamlanan") or []
+                if olay in l:
+                    return k.get("metin", ""), False
+                k["tamamlanan"] = (l + [olay])[-36:]
+            json_yaz(yol, v)
+            return k.get("metin", ""), True
+    return None
+
+
+def mail_onaylari(veri_klasoru, dry_run=False):
+    """Gelen kutusundaki "Tamam" yanıtlarını işler. Yalnızca MAIL_TO adresinden gelen ve imzalı kod taşıyan
+    yanıtlar sayılır. Aynı yanıt iki kez işlenmez (onay.json). Hata olursa hatırlatmalar yine gider."""
+    sahip = os.environ["MAIL_TO"].strip().lower()
+    kayit_yolu = os.path.join(veri_klasoru, "onay.json")
+    islenen = json_oku(kayit_yolu, {"islenen": []})
+    gorulen = set(islenen.get("islenen", []))
+    sayi = 0
+    try:
+        M = imaplib.IMAP4_SSL(os.environ.get("IMAP_HOST") or "imap.gmail.com", timeout=30)
+        M.login(os.environ["SMTP_USER"], os.environ["SMTP_PASS"])
+        M.select("INBOX", readonly=True)
+        bas = (simdi_tr().date() - timedelta(days=4)).strftime("%d-%b-%Y")
+        _, veri = M.search(None, "SINCE", bas, "FROM", f'"{sahip}"')
+        for num in (veri[0] or b"").split():
+            _, parca = M.fetch(num, "(RFC822)")
+            msg = email.message_from_bytes(parca[0][1], policy=policy.default)
+            mid = str(msg.get("Message-ID", "")).strip()
+            if not mid or mid in gorulen:
+                continue
+            if parseaddr(str(msg.get("From", "")))[1].strip().lower() != sahip:
+                continue
+            konu = str(msg.get("Subject", ""))
+            govde = _metin_govde(msg)
+            ilk = next((s.strip() for s in govde.splitlines() if s.strip()), "")
+            onay = konu.strip().upper().startswith("TAMAM") or ilk.casefold().startswith(ONAY_KELIMELERI)
+            kodlar = [m for m in KOD_RE.finditer(konu + "\n" + govde) if hmac.compare_digest(onay_kodu(m.group(1), m.group(2)), m.group(0))]
+            gorulen.add(mid)
+            if not onay or not kodlar:
+                continue
+            kid, olay = kodlar[0].group(1), kodlar[0].group(2)
+            sonuc = onay_uygula(veri_klasoru, kid, olay)
+            if sonuc and sonuc[1]:
+                sayi += 1
+                if not dry_run:
+                    try:
+                        smtp_gonder(mesaj(f"✓ Tamamlandı: {' '.join(sonuc[0].split())}"[:200],
+                                          f"\"{sonuc[0]}\" ({tr_tarih(olay)}) mailden gelen yanıtla tamamlandı olarak işaretlendi."
+                                          "\nBu tarih için başka hatırlatma gelmeyecek." + IMZA))
+                    except Exception:
+                        pass
+        M.logout()
+    except Exception as e:  # metin yazılmaz: günlük herkese açık
+        print(f"Mail yanıtları okunamadı ({type(e).__name__}).")
+    islenen["islenen"] = sorted(gorulen)[-300:]
+    json_yaz(kayit_yolu, islenen)
+    if sayi:
+        print(f"{sayi} kayıt mailden tamamlandı.")
+    return sayi
 
 
 def smtp_gonder(msg):
@@ -304,6 +427,8 @@ def main():
         return yedek(args.veri, args.dry_run)
 
     simdi = datetime.fromisoformat(args.simdi) if args.simdi else simdi_tr()
+    if not args.dry_run and not args.simdi:
+        mail_onaylari(args.veri)          # önce "Tamam" yanıtları: tamamlanan işe mail gitmesin
     hat_yolu = os.path.join(args.veri, "hatirlatmalar.json")
     log_yolu = os.path.join(args.veri, "gonderim.json")
     veri = json_oku(hat_yolu, {"hatirlatmalar": []})
