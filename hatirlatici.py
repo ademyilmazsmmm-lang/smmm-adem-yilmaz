@@ -28,6 +28,7 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.utils import formataddr
+from urllib.parse import quote
 
 TR = timezone(timedelta(hours=3))      # Türkiye yıl boyu UTC+3
 TOLERANS = timedelta(minutes=5)        # kayıt anından hemen önceki saat dilimi de geçerli sayılır
@@ -105,13 +106,16 @@ def bekleyenler(hatirlatmalar, gonderilen, simdi):
     """Zamanı gelmiş ama gönderilmemiş (hatırlatma, olay günü, kaç gün önce) kayıtları."""
     sonuc = []
     for k in hatirlatmalar:
+        if k.get("tamam"):
+            continue                       # maildeki bağlantıyla ya da sayfadan "tamamlandı" denmiş
+        bitenler = set(k.get("tamamlanan") or [])   # tekrarlı kayıtlarda tamamlanan olay günleri
         saat = datetime.strptime(k["saat"], "%H:%M").time()
         olusturma = datetime.fromisoformat(k["olusturma"])
         for fark in sorted({int(x) for x in k["gunler"]}, reverse=True):
             for geri in range(3):
                 gun = simdi.date() - timedelta(days=geri)
                 hedef = gun + timedelta(days=fark)
-                if not olay_mi(k, hedef):
+                if not olay_mi(k, hedef) or hedef.isoformat() in bitenler:
                     continue
                 slot = datetime.combine(gun, saat)
                 if slot > simdi or slot < simdi - GERI_DONUS or slot < olusturma - TOLERANS:
@@ -157,6 +161,7 @@ def json_yaz(yol, veri):
 
 # ---------- mail ----------
 
+SAYFA = os.environ.get("SAYFA_URL", "https://smmmyilmaz.com/hatirlatma.html")
 IMZA = "\n\nSaygılarımla\nAdem Yılmaz\nhttps://smmmyilmaz.com\n"
 EPOSTA = re.compile(r"^[^@\s,;<>\"]+@[^@\s,;<>\"]+\.[^@\s,;<>\"]+$")
 
@@ -206,11 +211,15 @@ def hatirlatma_maili(k):
     else:
         zaman = f"{-k['fark']} gün önce"   # tarihten sonra gelen hatırlatma (negatif gün)
     satir = f"{k.get('etiket', 'Tarih')}: {tr_tarih(k['olay'])} ({zaman})"
-    msg = mesaj(konu, f"{konu}\n\n{satir}" + IMZA, k.get("alici"))
+    # "Tamamlandı" bağlantısı yalnızca sahibine giden mailde; sayfa şifreyle açılır ve onay ister
+    link = "" if k.get("alici") else f"{SAYFA}?tamam={quote(str(k['id']))}&olay={k['olay']}"
+    duz = f"{konu}\n\n{satir}" + (f"\n\nYapıldıysa tamamlandı olarak işaretle:\n{link}" if link else "")
+    msg = mesaj(konu, duz + IMZA, k.get("alici"))
     # HTML sürüm: bağlantı kısa görünür ("smmmyilmaz.com"); Outlook düz metindeki bağlantıyı uzun güvenlik adresine çevirip gösteriyor
     msg.add_alternative(
         "<div style=\"font-family:Arial,sans-serif;font-size:14px\">"
         f"<p>{html.escape(konu)}</p><p>{html.escape(satir)}</p>"
+        + (f"<p><a href=\"{html.escape(link)}\" style=\"display:inline-block;background:#1f6f5c;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold\">&#10003; Tamamlandı olarak işaretle</a></p>" if link else "") +
         "<p>Saygılarımla<br>Adem Yılmaz<br><a href=\"https://smmmyilmaz.com\">smmmyilmaz.com</a></p></div>",
         subtype="html")
     return msg
@@ -319,7 +328,7 @@ def main():
 
     if args.dry_run:
         for k in gonderilecek:
-            m = hatirlatma_maili(k); print("Kime:", m["To"]); print("Konu:", m["Subject"]); print(m.get_content())
+            m = hatirlatma_maili(k); print("Kime:", m["To"]); print("Konu:", m["Subject"]); print(m.get_body(("plain",)).get_content())
         return
 
     zaman = simdi.isoformat(timespec="minutes")

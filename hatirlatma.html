@@ -1002,7 +1002,7 @@ button,input,select,textarea{font-family:inherit}
       SON_VERI = o.veri;
       var yak=$("liste"), ges=$("gecmis"); yak.textContent=""; ges.textContent="";
       var b=bugun(), y=0, g=0;
-      var sirali=o.veri.hatirlatmalar.map(function(k){ return {k:k, s:sonraki(k,b)}; }).sort(function(a,c){
+      var sirali=o.veri.hatirlatmalar.map(function(k){ return {k:k, s:sonrakiAcik(k,b)}; }).sort(function(a,c){
         if(!a.s && !c.s) return a.k.id-c.k.id; if(!a.s) return 1; if(!c.s) return -1;
         return (a.s-c.s) || (a.k.saat<c.k.saat?-1:a.k.saat>c.k.saat?1:0) || (a.k.id-c.k.id);
       });
@@ -1026,7 +1026,7 @@ button,input,select,textarea{font-family:inherit}
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "19";
+  var SURUM = "20";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -1809,11 +1809,60 @@ button,input,select,textarea{font-family:inherit}
       if(a.getTime()===d.getTime() && i>0) return iso(a); if(a.getTime()===d.getTime()) return null; }
     return null;
   }
+  // tamamlanmış hatırlatma / olay günleri atlanır
+  function sonrakiAcik(k, d){
+    if(k.tamam) return null;
+    var s=sonraki(k,d), n=0, b=k.tamamlanan||[];
+    while(s && b.indexOf(iso(s))>=0 && n++<60) s=sonraki(k, gunEkle(s,1));
+    return s;
+  }
+  function hatTamamla(k, olay){
+    var ts=yTarihSaat();
+    return degistir(function(veri){
+      veri.hatirlatmalar.forEach(function(y){
+        if(y.id!==k.id) return;
+        if(y.tur==="tek"){ y.tamam=true; y.tamamlanma=ts; }
+        else { var l=y.tamamlanan||[]; if(l.indexOf(olay)<0) l.push(olay); y.tamamlanan=l.slice(-36); }
+      });
+    }, "Hatırlatma tamamlandı").then(function(){ return yukle(); });
+  }
+  // maildeki "Tamamlandı olarak işaretle" bağlantısı: ?tamam=<id>&olay=<tarih>
+  var MAIL_TAMAM = (function(){ try { var q=new URLSearchParams(location.search), id=q.get("tamam"); return id ? {id:id, olay:q.get("olay")||""} : null; } catch(e){ return null; } })();
+  function mailTamamIstegi(){
+    if(!MAIL_TAMAM) return;
+    var p=MAIL_TAMAM; MAIL_TAMAM=null;
+    try { history.replaceState(null,"",location.pathname+location.hash); } catch(e){}
+    var olay=/^\d{4}-\d{2}-\d{2}$/.test(p.olay) ? p.olay : "";
+    var hedef=null, metin="", bitti=false, firma="";
+    if(/^g\d+$/.test(p.id)){
+      ((yYerel&&yYerel.ogeler)||[]).forEach(function(o){ if(o.id===+p.id.slice(1)){ hedef={o:o}; metin=o.metin; bitti=!!o.tamam; firma=o.firma||""; } });
+    } else if(/^\d+$/.test(p.id)){
+      ((SON_VERI&&SON_VERI.hatirlatmalar)||[]).forEach(function(k){ if(k.id===+p.id){ hedef={k:k}; metin=k.metin; bitti=!!k.tamam || (olay && (k.tamamlanan||[]).indexOf(olay)>=0); } });
+    }
+    var bilgi=document.createElement("div"); bilgi.className="gun-not";
+    if(!hedef){ bilgi.textContent="Bu kayıt bulunamadı; silinmiş olabilir."; sayfaAc([h3("Maildeki bağlantı"), bilgi, dugme("btn tam","Tamam",function(){ sayfaKapat(); })]); return; }
+    var bas=h3(metin); bas.style.overflowWrap="anywhere";
+    if(bitti){ bilgi.textContent="Bu zaten tamamlandı olarak işaretli."; sayfaAc([bas, bilgi, dugme("btn tam","Tamam",function(){ sayfaKapat(); })]); return; }
+    bilgi.textContent=(firma?firma+" · ":"")+(olay?"Tarih: "+uzunT(olay):"")+(hedef.k && hedef.k.tur!=="tek" ? " · Yalnızca bu tarih tamamlanır, sonraki dönemler yine hatırlatılır." : "");
+    var e=document.createElement("div"); e.className="eylem";
+    var ok=dugme("btn ana","✓ Tamamlandı",function(){
+      ok.disabled=true;
+      if(hedef.o){
+        var o=hedef.o, ts=yTarihSaat(); o.tamam=true; o.tamamlanma=ts; yCiz();
+        ySirala(function(v){ v.ogeler.forEach(function(y){ if(y.id===o.id){ y.tamam=true; y.tamamlanma=ts; } }); }, "Görev tamamlandı")
+          .then(function(){ sayfaKapat(); }).catch(function(err){ ok.disabled=false; yHata(err); yYukle(); });
+      } else {
+        hatTamamla(hedef.k, olay || iso(sonrakiAcik(hedef.k, bugun())||bugun())).then(function(){ sayfaKapat(); }).catch(function(){ ok.disabled=false; });
+      }
+    });
+    e.appendChild(ok); e.appendChild(dugme("btn","Vazgeç",function(){ sayfaKapat(); }));
+    sayfaAc([bas, bilgi, e]);
+  }
   function hatOge(k, s){ return {tur: k.grup==="vergi"?"vergi":"hat", metin:k.metin, son:iso(s), saat:k.saat, k:k, asil:asilTarih(k,s)}; }
   function isOge(o){ return {tur: o.gid?"surec":"is", metin:o.metin, son:o.son, saat:o.saat, firma:o.firma, grup:o.grup, o:o}; }
   function ajandaOgeleri(){
     var l=[], b=bugun();
-    ((SON_VERI&&SON_VERI.hatirlatmalar)||[]).forEach(function(k){ var s=sonraki(k,b); if(s) l.push(hatOge(k,s)); });
+    ((SON_VERI&&SON_VERI.hatirlatmalar)||[]).forEach(function(k){ var s=sonrakiAcik(k,b); if(s) l.push(hatOge(k,s)); });
     ((yYerel&&yYerel.ogeler)||[]).forEach(function(o){ if(!o.tamam && o.son && o.id>0) l.push(isOge(o)); });
     l.sort(function(x,y){ return x.son<y.son?-1:x.son>y.son?1:((x.saat||"")<(y.saat||"")?-1:1); });
     return l;
@@ -1889,7 +1938,11 @@ button,input,select,textarea{font-family:inherit}
       var kime=(k.kisi||[]).map(kisiAdi).filter(Boolean);
       if(k.grup==="vergi") ekle("Kime", "Sana; 2 gün önceki mail vergi takvimi açık kişilere de");
       else if(kime.length) ekle("Kime", "Sana ve "+kime.join(", "));
-      var sil=dugme("btn tehlike tam","Sil",function(){});
+      var tm2=dugme("btn ana",k.tur==="tek"?"Tamamlandı":"Bu sefer tamamlandı",function(){
+        tm2.disabled=true; hatTamamla(k, x.son).then(function(){ sayfaKapat(); }).catch(function(){ tm2.disabled=false; });
+      });
+      e.appendChild(tm2);
+      var sil=dugme("btn tehlike","Sil",function(){});
       iki_dokunus(sil,"Sil",function(){
         sil.disabled=true;
         degistir(function(veri){ veri.hatirlatmalar=veri.hatirlatmalar.filter(function(y){ return y.id!==k.id; }); }, "Hatırlatma silindi")
@@ -1922,7 +1975,7 @@ button,input,select,textarea{font-family:inherit}
     var ekle=function(x){ (m[x.son]=m[x.son]||[]).push(x); };
     ((SON_VERI&&SON_VERI.hatirlatmalar)||[]).forEach(function(k){
       var d=bas, s, say=0;
-      while(say++<40 && (s=sonraki(k,d)) && s.getTime()<=son.getTime()){ ekle(hatOge(k,s)); d=gunEkle(s,1); }
+      while(say++<40 && (s=sonrakiAcik(k,d)) && s.getTime()<=son.getTime()){ ekle(hatOge(k,s)); d=gunEkle(s,1); }
     });
     ((yYerel&&yYerel.ogeler)||[]).forEach(function(o){ if(!o.tamam && o.son && o.id>0){ var d=parse(o.son); if(d>=bas && d<=son) ekle(isOge(o)); } });
     return m;
@@ -2004,7 +2057,7 @@ button,input,select,textarea{font-family:inherit}
   function yCizSadeceGruplar(){ if(yYerel) yCiz(); }
   $("firmaGeri").addEventListener("click", function(){ firmaAc(null); window.scrollTo(0,0); });
   $("firmaAra").addEventListener("input", function(){ yCiz(); });
-  function hepsiniYukle(){ sekmeBaslangic(); tatilYukle().then(function(){ if(SON_VERI) yukle(); else { takvimCiz(); ayCiz(); } }); yukle(); kYukle(); yYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; $("tasfiyeGiris").value=trSimdi().tarih; surecChipGuncelle(); tasfiyeChipGuncelle(); tasfiyeOnizle(); $("sahisTarih").value=trSimdi().tarih; sahisChipGuncelle(); sahisOnizle(); surecTurSec("tumu"); ayCiz(); ajandaCiz(); }
+  function hepsiniYukle(){ sekmeBaslangic(); tatilYukle().then(function(){ if(SON_VERI) yukle(); else { takvimCiz(); ayCiz(); } }); Promise.all([yukle(), yYukle()]).then(mailTamamIstegi); kYukle(); sYukle(); $("surecTarih").value=trSimdi().tarih; $("tasfiyeGiris").value=trSimdi().tarih; surecChipGuncelle(); tasfiyeChipGuncelle(); tasfiyeOnizle(); $("sahisTarih").value=trSimdi().tarih; sahisChipGuncelle(); sahisOnizle(); surecTurSec("tumu"); ayCiz(); ajandaCiz(); }
 
   /* ---------- başlangıç ---------- */
   $("tarih").value = iso(bugun());
