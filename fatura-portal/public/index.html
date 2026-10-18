@@ -35,6 +35,10 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>summary{margin-bottom:10px}
 .kayit{border:1px solid var(--line);border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px}
 .alt{display:flex;flex-direction:column;gap:8px;padding-left:10px;border-left:3px solid var(--accent-soft)}
+label.onay{display:flex;gap:10px;align-items:center;font-size:.95rem;color:var(--fg);margin:0}
+label.onay input{width:auto;min-height:0}
+.kayit .ust2{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.kayit small{color:var(--muted)}
 #giris{max-width:420px;margin:12vh auto 0}
 </style>
 </head>
@@ -64,9 +68,12 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
     <div class="alt" id="yeniAlici" hidden>
       <div><label for="yAd">Alıcı unvanı / ad soyad</label><input id="yAd" autocomplete="off"></div>
       <div><label for="yVkn">VKN / TCKN</label><input id="yVkn" inputmode="numeric" autocomplete="off"></div>
-      <button class="btn ikincil" type="button" id="aliciKaydet">Alıcıyı kaydet</button>
+      <div><label for="yAdres">Adres (faturaya yazılır)</label><input id="yAdres" autocomplete="off" placeholder="Mahalle, cadde, no, ilçe/il"></div>
+      <div><label for="yVd">Vergi dairesi</label><input id="yVd" autocomplete="off"></div>
+      <button class="btn ikincil" type="button" id="aliciKaydet">Alıcıyı kaydet / güncelle</button>
     </div>
     <div><label>Hizmet</label><div class="chips" id="hChips"></div></div>
+    <div><label for="aciklama">Açıklama (isteğe bağlı, hizmet adının yanına yazılır)</label><input id="aciklama" autocomplete="off" placeholder="Örn: 34 ABC 123 plakalı araç, Ekim 2026"></div>
     <div><label for="tarih">Fatura tarihi</label><input id="tarih" type="date"></div>
     <div class="satir">
       <div><label for="tutar">Tutar (₺)</label><input id="tutar" inputmode="decimal" placeholder="5.000,00" autocomplete="off"></div>
@@ -77,6 +84,10 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
       <div><label for="tev">Tevkifat (x/10)</label><select id="tev"></select></div>
     </div>
     <div><label for="kod">Tevkifat kodu</label><input id="kod" inputmode="numeric" autocomplete="off"></div>
+    <div><label for="ekNot">Ek not (isteğe bağlı)</label><input id="ekNot" autocomplete="off"></div>
+    <label class="onay"><input type="checkbox" id="notYazi" checked> Ödenecek tutarı yazıyla nota ekle</label>
+    <label class="onay"><input type="checkbox" id="notIrs" checked> “İrsaliye yerine geçer” notu ekle</label>
+    <div class="not" id="notOnizleme"></div>
     <div class="ozet" id="ozet"></div>
   </div>
 
@@ -100,6 +111,18 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
     <iframe id="cerceve" sandbox="allow-same-origin allow-modals" title="Fatura" style="width:100%;height:520px;border:1px solid var(--line);border-radius:6px;background:#fff"></iframe>
     <div class="satir"><button class="btn" type="button" id="yazdir">Yazdır / PDF olarak kaydet</button><button class="btn ikincil" type="button" id="gorunumKapat">Kapat</button></div>
     <p class="not">Yazdırma ekranında hedef olarak “PDF olarak kaydet”i seçin.</p>
+  </div>
+
+  <div class="card" id="gecmisKart">
+    <h2>Geçmiş faturalar</h2>
+    <div id="gecmisListe"><p class="not">Bu programdan kesilen faturalar burada listelenir.</p></div>
+    <details>
+      <summary>GİB’deki belgeleri tarihe göre listele</summary>
+      <div class="satir"><div><label for="gBas">Başlangıç</label><input id="gBas" type="date"></div><div><label for="gBit">Bitiş</label><input id="gBit" type="date"></div></div>
+      <button class="btn ikincil" type="button" id="gListele" style="margin-top:8px">Listele</button>
+      <div id="gibListe" style="margin-top:8px"></div>
+    </details>
+    <div class="durum" id="gDurum" role="status"></div>
   </div>
 
   <details class="card" id="ayar"><summary>Ayarlar</summary><div id="ayarIc" style="display:flex;flex-direction:column;gap:10px"></div></details>
@@ -146,7 +169,8 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
     api("/api/veri").then(function(v){
       V = v; $("giris").hidden = true; $("uyg").hidden = false;
       mSec = V.mukellefler.length ? V.mukellefler[0].id : null; F.hizmet = V.hizmetler[0] && V.hizmetler[0].id; F.alici = "";
-      hepsi();
+      hepsi(); gecmisYukle();
+      if (!$("gBit").value) { var d0 = new Date(); $("gBit").value = bugunStr(); d0.setDate(d0.getDate() - 30); $("gBas").value = d0.getFullYear() + "-" + String(d0.getMonth() + 1).padStart(2, "0") + "-" + String(d0.getDate()).padStart(2, "0"); }
     });
   }
   function kaydetV(){ return api("/api/veri", "PUT", V).then(function(v){ V = v; }); }
@@ -164,7 +188,9 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
     var m = mk(), h = '<option value="">— Alıcı seç —</option>';
     if (m) m.aliciler.forEach(function(a){ h += '<option value="' + a.id + '"' + (a.id === F.alici ? " selected" : "") + '>' + esc(a.ad) + '</option>'; });
     h += '<option value="__yeni"' + (F.alici === "__yeni" ? " selected" : "") + '>+ Yeni alıcı…</option>';
-    $("alici").innerHTML = h; $("yeniAlici").hidden = F.alici !== "__yeni";
+    $("alici").innerHTML = h; $("yeniAlici").hidden = !F.alici;
+    var k = m && m.aliciler.filter(function(a){ return a.id === F.alici; })[0];
+    if (k) { $("yAd").value = k.ad; $("yVkn").value = k.vkn; $("yAdres").value = k.adres || ""; $("yVd").value = k.vd || ""; }
   }
   function cizH(){
     $("hChips").innerHTML = V.hizmetler.map(function(x){ return '<button class="chip" type="button" data-h="' + x.id + '" aria-pressed="' + (x.id === F.hizmet) + '">' + esc(x.ad) + '</button>'; }).join("");
@@ -175,25 +201,27 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
     document.querySelectorAll("[data-dahil]").forEach(function(b){ b.setAttribute("aria-pressed", String((b.getAttribute("data-dahil") === "1") === F.dahil)); });
   }
   function aliciBilgi(){
-    if (F.alici === "__yeni") return { ad: $("yAd").value.trim(), vkn: $("yVkn").value.trim(), adres: "" };
-    var m = mk(), a = m && m.aliciler.filter(function(q){ return q.id === F.alici; })[0];
-    return a ? { ad: a.ad, vkn: a.vkn, adres: a.adres } : { ad: "", vkn: "", adres: "" };
+    if (!F.alici) return { ad: "", vkn: "", adres: "", vd: "" };
+    return { ad: $("yAd").value.trim(), vkn: $("yVkn").value.trim(), adres: $("yAdres").value.trim(), vd: $("yVd").value.trim() };
   }
   function girdi(){
     var a = aliciBilgi(), x = hz();
-    return { mukellefId: mSec, hizmetId: x && x.id, aliciUnvan: a.ad, aliciVkn: a.vkn, aliciAdres: a.adres, tutar: sayi($("tutar").value), kdvDahil: F.dahil, tarih: $("tarih").value, kdvOrani: sayi($("kdv").value), tevkifat: parseInt($("tev").value, 10) || 0, tevkifatKodu: $("kod").value };
+    return { mukellefId: mSec, hizmetId: x && x.id, aliciUnvan: a.ad, aliciVkn: a.vkn, aliciAdres: a.adres, vergiDairesi: a.vd, aciklama: $("aciklama").value.trim(),
+      tutar: sayi($("tutar").value), kdvDahil: F.dahil, tarih: $("tarih").value, kdvOrani: sayi($("kdv").value), tevkifat: parseInt($("tev").value, 10) || 0, tevkifatKodu: $("kod").value,
+      notEk: $("ekNot").value.trim(), notYazi: $("notYazi").checked, notIrsaliye: $("notIrs").checked };
   }
   var onizTimer;
   function onizle(){
     clearTimeout(onizTimer); sifirla();
     var g = girdi();
-    if (!(g.tutar > 0)) { $("ozet").innerHTML = ""; kontrolBtn(); return; }
+    if (!(g.tutar > 0)) { $("ozet").innerHTML = ""; $("notOnizleme").textContent = ""; kontrolBtn(); return; }
     onizTimer = setTimeout(function(){
       api("/api/hesapla", "POST", g).then(function(h){
         var s = [["Matrah", h.matrah], ["KDV %" + String(g.kdvOrani).replace(".", ","), h.kdv]];
         if (g.tevkifat) { s.push(["Tevkif edilen KDV (" + g.tevkifat + "/10)", h.tevKdv]); }
         s.push(["Toplam", h.toplam]);
         $("ozet").innerHTML = s.map(function(r){ return '<div>' + esc(r[0]) + '</div><div class="t">' + fmt(r[1]) + '</div>'; }).join("") + '<div class="s">Ödenecek tutar</div><div class="t s">' + fmt(h.odenecek) + '</div>';
+        $("notOnizleme").textContent = h.not ? "Fatura notu: " + h.not : "";
       }, function(er){ if (!oturumDustu(er)) $("ozet").textContent = er.message; });
     }, 150);
     kontrolBtn();
@@ -221,7 +249,9 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
     });
     var vk = met.match(/\b\d{10,11}\b/);
     if (bul) F.alici = bul.id; else { F.alici = "__yeni"; if (vk) $("yVkn").value = vk[0]; }
-    cizAlici(); cizH(); formDoldur(); onizle();
+    cizAlici(); cizH(); formDoldur();
+    if (/tevkifats[ıi]z/.test(kt)) { $("tev").value = "0"; $("kod").value = ""; }
+    onizle();
     durum(bul ? "Mesajdan dolduruldu. Alıcıyı ve tutarı kontrol edin." : "Alıcı kayıtlı değil; unvanı yazıp kaydedebilirsiniz.", "ok");
   }
 
@@ -234,7 +264,7 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
     var g = girdi();
     if (!confirm("GİB’de taslak oluşturulsun mu?\n\n" + g.aliciUnvan + " (" + g.aliciVkn + ")\nTutar: " + $("tutar").value + (g.kdvDahil ? " (KDV dahil)" : " (KDV hariç)"))) return;
     yurut($("taslak"), function(){ durum("Taslak oluşturuluyor…"); return api("/api/taslak", "POST", g); }, function(r){
-      son.uuid = r.uuid; son.hesap = r.hesap; son.tarih = g.tarih; son.girdi = g; $("adim2").hidden = false; durum(r.mesaj || "Taslak oluşturuldu.", "ok");
+      son.imzali = false; son.uuid = r.uuid; son.hesap = r.hesap; son.tarih = g.tarih; son.kayit = r.kayit; $("adim2").hidden = false; durum(r.mesaj || "Taslak oluşturuldu.", "ok");
     });
   });
   $("sms").addEventListener("click", function(){
@@ -246,26 +276,35 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
     if (son.imzali) return;
     if (!confirm("Fatura ONAYLANIP KESİLECEK. Bu işlem geri alınamaz. Devam edilsin mi?")) return;
     yurut($("imzala"), function(){ return api("/api/imzala", "POST", { mukellefId: mSec, uuid: son.uuid, oid: son.oid, kod: $("kodGir").value.trim(), tarih: son.tarih }); }, function(r){
-      son.imzali = true; durum((r.mesaj || "Fatura onaylandı.") + "\nFatura aşağıda görüntülenir; PDF olarak kaydedebilirsiniz.", "ok"); $("adim2").hidden = true; goster(son.uuid, "Onaylandı");
-      $("tutar").value = ""; $("mesaj").value = ""; $("tarih").value = bugunStr(); F.alici = ""; cizAlici(); $("ozet").innerHTML = ""; kontrolBtn();
+      if (r.kayit) son.kayit = r.kayit;
+      var kayit = son.kayit, uuid = son.uuid;
+      son.imzali = true; durum((r.mesaj || "Fatura onaylandı.") + "\nFatura aşağıda görüntülenir; PDF olarak kaydedebilirsiniz.", "ok"); $("adim2").hidden = true;
+      $("tutar").value = ""; $("mesaj").value = ""; $("aciklama").value = ""; $("ekNot").value = ""; $("tarih").value = bugunStr(); F.alici = ""; cizAlici(); $("ozet").innerHTML = ""; $("notOnizleme").textContent = ""; kontrolBtn();
+      son.kayit = kayit; son.uuid = uuid; goster(uuid, "Onaylandı"); gecmisYukle();
     });
   });
 
   /* ---------- fatura görünümü / PDF ---------- */
-  function yerelHtml(onay, neden){
-    var g = son.girdi || girdi(), h = son.hesap, m = mk() || {}, x = V.hizmetler.filter(function(q){ return q.id === g.hizmetId; })[0] || {};
-    var t = (g.tarih || "").split("-").reverse().join("/");
-    var tev = g.tevkifat ? "<tr><td>Tevkif edilen KDV (" + g.tevkifat + "/10, kod " + esc(g.tevkifatKodu) + ")</td><td align=right>-" + fmt(h.tevKdv) + "</td></tr>" : "";
-    return '<html><head><meta charset="utf-8"><title>Fatura ' + esc(g.aliciUnvan) + " " + t + '</title><style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;padding:16px}td{padding:6px 10px;border:1px solid #bbb}table{border-collapse:collapse;width:100%;margin:12px 0}.u{background:#fff3cd;border:1px solid #e0c36a;padding:8px;font-size:12px}</style></head><body>' +
-      '<div class="u">' + (onay === "Onaylandı" ? "GİB’in resmi görünümü alınamadı. Bu sayfa girdiğiniz bilgilerden üretilmiş bir kopyadır; resmi belge için GİB portalından indirin." : "Önizleme: girdiğiniz bilgilerden üretilmiştir, GİB’in resmi belgesi değildir.") + (neden ? "<br>Neden: " + esc(neden) : "") + '</div>' +
-      "<h2>e-Arşiv Fatura" + (g.tevkifat ? " (Tevkifat)" : "") + "</h2><p><b>Satıcı:</b> " + esc(m.ad) + " — " + esc(m.vkn) + "<br><b>Alıcı:</b> " + esc(g.aliciUnvan) + " — " + esc(g.aliciVkn) + "<br><b>Tarih:</b> " + t + "</p>" +
-      "<table><tr><td>" + esc(x.ad) + "</td><td align=right>" + fmt(h.matrah) + "</td></tr><tr><td>KDV %" + String(g.kdvOrani).replace(".", ",") + "</td><td align=right>" + fmt(h.kdv) + "</td></tr>" + tev + "<tr><td><b>Ödenecek tutar</b></td><td align=right><b>" + fmt(h.odenecek) + "</b></td></tr></table></body></html>";
+  function yerelHtml(k, onay, neden){
+    var h = k.hesap, t = (k.tarih || "").split("-").reverse().join("/");
+    var satirlar = [[esc(k.hizmetAd) + (k.aciklama ? " — " + esc(k.aciklama) : ""), fmt(h.matrah)], ["KDV %" + String(k.kdvOrani).replace(".", ","), fmt(h.kdv)]];
+    if (k.tevkifat) satirlar.push(["Tevkif edilen KDV (" + k.tevkifat + "/10" + (k.tevkifatKodu ? ", kod " + esc(k.tevkifatKodu) : "") + ")", "-" + fmt(h.tevKdv)]);
+    var tablo = satirlar.map(function(r){ return "<tr><td>" + r[0] + "</td><td class=r>" + r[1] + "</td></tr>"; }).join("");
+    var uyari = onay === "Onaylandı" ? "GİB’in resmi görünümü alınamadığı için bu sayfa program kaydından üretilmiştir; resmi belge GİB portalındadır."
+      : "Önizleme: girdiğiniz bilgilerden üretilmiştir, GİB’in resmi belgesi değildir.";
+    return '<html><head><meta charset="utf-8"><title>Fatura ' + esc(k.belgeNo || t) + " " + esc(k.aliciUnvan) + '</title><style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;padding:18px;max-width:760px;margin:auto}h2{margin:0 0 4px}td{padding:7px 10px;border:1px solid #bbb}.r{text-align:right;white-space:nowrap}table{border-collapse:collapse;width:100%;margin:14px 0}.u{background:#fff3cd;border:1px solid #e0c36a;padding:8px;font-size:12px;margin-bottom:12px}.g{display:grid;grid-template-columns:1fr 1fr;gap:16px}.k{font-size:12px;color:#555}@media print{.u{display:none}}</style></head><body>' +
+      '<div class="u">' + uyari + (neden ? "<br>Neden: " + esc(neden) : "") + "</div>" +
+      "<h2>e-Arşiv Fatura" + (k.tevkifat ? " (Tevkifat)" : "") + "</h2><div class=k>" + (k.belgeNo ? "Belge No: " + esc(k.belgeNo) + " · " : "") + "Tarih: " + esc(t) + "</div>" +
+      '<div class="g" style="margin-top:12px"><div><b>SATICI</b><br>' + esc(k.mukellef && k.mukellef.ad) + "<br>VKN/TCKN: " + esc(k.mukellef && k.mukellef.vkn) + "</div>" +
+      "<div><b>ALICI</b><br>" + esc(k.aliciUnvan) + "<br>VKN/TCKN: " + esc(k.aliciVkn) + (k.vergiDairesi ? "<br>Vergi Dairesi: " + esc(k.vergiDairesi) : "") + (k.aliciAdres ? "<br>Adres: " + esc(k.aliciAdres) : "") + "</div></div>" +
+      "<table>" + tablo + "<tr><td>Toplam (KDV dahil)</td><td class=r>" + fmt(h.toplam) + "</td></tr><tr><td><b>Ödenecek tutar</b></td><td class=r><b>" + fmt(h.odenecek) + "</b></td></tr></table>" +
+      (k.not ? "<p><b>Not:</b> " + esc(k.not) + "</p>" : "") + "</body></html>";
   }
   function goster(uuid, onay){
     function ac(html){ $("cerceve").srcdoc = html; $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" }); }
     api("/api/gorunum", "POST", { mukellefId: mSec, uuid: uuid, onay: onay }).then(function(r){ ac(r.html); }, function(er){
       if (oturumDustu(er)) return;
-      if (son.hesap) { ac(yerelHtml(onay, er.message)); durum("GİB’in fatura görünümü alınamadı; girdiğiniz bilgilerden üretilen kopya gösteriliyor.", "hata"); }
+      if (son.kayit) { ac(yerelHtml(son.kayit, onay, er.message)); durum("GİB’in fatura görünümü alınamadı; girdiğiniz bilgilerden üretilen kopya gösteriliyor.", "hata"); }
       else durum("Görüntülenemedi: " + er.message, "hata");
     });
   }
@@ -277,14 +316,53 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
   $("mChips").addEventListener("click", function(e){ var t = e.target.closest("button"); if (!t) return; mSec = t.getAttribute("data-m"); F.alici = ""; cizM(); cizAlici(); onizle(); });
   $("hChips").addEventListener("click", function(e){ var t = e.target.closest("button"); if (!t) return; F.hizmet = t.getAttribute("data-h"); cizH(); formDoldur(); onizle(); });
   document.querySelectorAll("[data-dahil]").forEach(function(b){ b.addEventListener("click", function(){ F.dahil = b.getAttribute("data-dahil") === "1"; formDoldur(); onizle(); }); });
-  $("alici").addEventListener("change", function(){ F.alici = this.value; $("yeniAlici").hidden = F.alici !== "__yeni"; onizle(); });
-  ["tutar", "tarih", "kdv", "tev", "kod", "yAd", "yVkn"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
+  $("alici").addEventListener("change", function(){
+    F.alici = this.value;
+    if (F.alici === "__yeni") { $("yAd").value = ""; $("yVkn").value = ""; $("yAdres").value = ""; $("yVd").value = ""; }
+    cizAlici(); onizle();
+  });
+  ["tutar", "tarih", "kdv", "tev", "kod", "yAd", "yVkn", "yAdres", "yVd", "aciklama", "ekNot", "notYazi", "notIrs"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
   $("oku").addEventListener("click", mesajOku);
   $("aliciKaydet").addEventListener("click", function(){
     var m = mk(), a = aliciBilgi(); if (!m) return durum("Önce mükellef ekleyin.", "hata");
     if (!a.ad || !/^\d{10,11}$/.test(a.vkn)) return durum("Unvan ve 10/11 haneli VKN/TCKN gerekli.", "hata");
-    var n = { id: uid(), ad: a.ad, vkn: a.vkn, adres: "" }; m.aliciler.push(n); F.alici = n.id;
-    kaydetV().then(function(){ cizAlici(); cizAyar(); onizle(); durum("Alıcı kaydedildi.", "ok"); });
+    if (F.alici === "__yeni") { var n = { id: uid(), ad: a.ad, vkn: a.vkn, adres: a.adres, vd: a.vd }; m.aliciler.push(n); F.alici = n.id; }
+    else { var k = m.aliciler.filter(function(q){ return q.id === F.alici; })[0]; if (k) { k.ad = a.ad; k.vkn = a.vkn; k.adres = a.adres; k.vd = a.vd; } }
+    kaydetV().then(function(){ cizAlici(); cizAyar(); onizle(); durum("Alıcı kaydedildi.", "ok"); }, function(er){ durum(er.message, "hata"); });
+  });
+
+  /* ---------- geçmiş ---------- */
+  var gecmis = [];
+  function satirHtml(ust, alt, dugme){ return '<div class="kayit"><div class="ust2"><span>' + ust + '<br><small>' + alt + '</small></span>' + dugme + '</div></div>'; }
+  function gecmisYukle(){
+    api("/api/gecmis").then(function(r){
+      gecmis = r.kayitlar || [];
+      $("gecmisListe").innerHTML = gecmis.length ? gecmis.slice(0, 30).map(function(k, i){
+        var t = (k.tarih || "").split("-").reverse().join("/");
+        return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " ₺", esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad), '<button class="k" type="button" data-gk="' + i + '">Görüntüle</button>');
+      }).join("") : '<p class="not">Bu programdan kesilen fatura henüz yok.</p>';
+    }, function(er){ oturumDustu(er); });
+  }
+  $("gecmisListe").addEventListener("click", function(e){
+    var i = e.target.getAttribute("data-gk"); if (i == null) return;
+    var k = gecmis[+i]; $("cerceve").srcdoc = yerelHtml(k, "Onaylandı"); $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" });
+  });
+  $("gListele").addEventListener("click", function(){
+    var d = $("gDurum"); d.className = "durum"; d.textContent = "Listeleniyor…";
+    api("/api/liste", "POST", { mukellefId: mSec, bas: $("gBas").value, bit: $("gBit").value }).then(function(r){
+      d.textContent = r.belgeler.length + " belge bulundu.";
+      $("gibListe").innerHTML = r.belgeler.map(function(b, i){
+        var yerel = gecmis.some(function(k){ return k.id === b.ettn; });
+        return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' : "");
+      }).join("");
+    }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
+  });
+  $("gibListe").addEventListener("click", function(e){
+    var id = e.target.getAttribute("data-ge"); if (!id) return;
+    var yerel = gecmis.filter(function(k){ return k.id === id; })[0];
+    if (yerel) { $("cerceve").srcdoc = yerelHtml(yerel, "Onaylandı"); $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" }); return; }
+    api("/api/gorunum", "POST", { mukellefId: mSec, uuid: id, onay: "Onaylandı" }).then(function(r){ $("cerceve").srcdoc = r.html; $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" }); },
+      function(er){ var d = $("gDurum"); d.className = "durum hata"; d.textContent = "GİB görünümü alınamadı: " + er.message; });
   });
 
   /* ---------- ayarlar ---------- */

@@ -18,6 +18,45 @@ function hesapla(g) {
   const tevKdv = Math.round(kdv * tev / 10);
   return { matrah: m, kdv, tevKdv, kalanKdv: kdv - tevKdv, toplam: m + kdv, odenecek: m + kdv - tevKdv };
 }
+/* ---------- tutar yazıyla / fatura notu ---------- */
+const BIRLER = ["", "bir", "iki", "üç", "dört", "beş", "altı", "yedi", "sekiz", "dokuz"];
+const ONLAR = ["", "on", "yirmi", "otuz", "kırk", "elli", "altmış", "yetmiş", "seksen", "doksan"];
+function ucBasamak(n) {
+  const y = Math.floor(n / 100), o = Math.floor((n % 100) / 10), b = n % 10, k = [];
+  if (y) { if (y > 1) k.push(BIRLER[y]); k.push("yüz"); }
+  if (o) k.push(ONLAR[o]);
+  if (b) k.push(BIRLER[b]);
+  return k;
+}
+function sayiYazi(n) {
+  if (n === 0) return "sıfır";
+  const k = [];
+  for (const [d, ad] of [[1e9, "milyar"], [1e6, "milyon"], [1e3, "bin"]]) {
+    const q = Math.floor(n / d); n %= d;
+    if (q) { if (!(d === 1e3 && q === 1)) k.push(...ucBasamak(q)); k.push(ad); }
+  }
+  if (n) k.push(...ucBasamak(n));
+  return k.join(" ");
+}
+const basHarf = (m) => m.split(" ").map((w) => w.charAt(0).toLocaleUpperCase("tr-TR") + w.slice(1)).join(" ");
+/* 120.50 TL -> "Yalnız Yüz Yirmi Türk Lirası Elli Kuruştur." */
+function tutarYazi(kurus) {
+  const lira = Math.floor(kurus / 100), kr = kurus % 100;
+  let m = "Yalnız ";
+  if (lira) m += basHarf(sayiYazi(lira)) + " Türk Lirası";
+  if (kr) m += (lira ? " " : "") + basHarf(sayiYazi(kr)) + " Kuruş";
+  return m + (kr ? "tur." : lira ? "dır." : "Sıfır Türk Lirasıdır.");
+}
+const temizMetin = (v, n) => String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+/* Fatura notu: ek not + ödenecek tutar yazıyla + "İrsaliye yerine geçer." */
+function notUret(g, h) {
+  const k = [];
+  if (g.notEk) k.push(temizMetin(g.notEk, 300));
+  if (g.notYazi !== false && g.notYazi !== "false") k.push(tutarYazi(h.odenecek));
+  if (g.notIrsaliye !== false && g.notIrsaliye !== "false") k.push("İrsaliye yerine geçer.");
+  return k.join(" ");
+}
+
 const tl = (k) => (k / 100).toFixed(2); // "1234.50" — portal noktalı ondalık bekler
 
 /* ---------- portal gövdesi ----------
@@ -37,7 +76,7 @@ function faturaGovdesi(g, h, uuid, varyant) {
   const tev = Number(g.tevkifat) > 0;
   const x = g._h;
   const kalem = {
-    malHizmet: h.ad, miktar: 1, birim: "C62", birimFiyat: nf(x.matrah), fiyat: nf(x.matrah),
+    malHizmet: temizMetin(h.ad + (g.aciklama ? " - " + g.aciklama : ""), 250), miktar: 1, birim: "C62", birimFiyat: nf(x.matrah), fiyat: nf(x.matrah),
     iskontoOrani: 0, iskontoTutari: "0", iskontoNedeni: "", malHizmetTutari: nf(x.matrah),
     kdvOrani: String(Number(g.kdvOrani)), vergiOrani: 0, kdvTutari: nf(x.kdv), vergininKdvTutari: "0", ozelMatrahTutari: "0"
   };
@@ -46,7 +85,7 @@ function faturaGovdesi(g, h, uuid, varyant) {
     faturaUuid: varyant === 1 ? uuid : "", belgeNumarasi: "", faturaTarihi: tarih, saat, paraBirimi: "TRY", dovzTLkur: "0",
     faturaTipi: tev ? "TEVKIFAT" : "SATIS", hangiTip: "5000/30000",
     vknTckn: g.aliciVkn, aliciUnvan: sahis ? "" : g.aliciUnvan.trim(), aliciAdi: sahis ? parca.join(" ") : "", aliciSoyadi: sahis ? soyad : "",
-    binaAdi: "", binaNo: "", kapiNo: "", kasabaKoy: "", vergiDairesi: "", ulke: "Türkiye", bulvarcaddesokak: g.aliciAdres || "",
+    binaAdi: "", binaNo: "", kapiNo: "", kasabaKoy: "", vergiDairesi: temizMetin(g.vergiDairesi, 100), ulke: "Türkiye", bulvarcaddesokak: temizMetin(g.aliciAdres, 250),
     irsaliyeNumarasi: "", irsaliyeTarihi: "", mahalleSemtIlce: "", sehir: " ", postaKodu: "", tel: "", fax: "", eposta: "", websitesi: "",
     iadeTable: [], ihracKayitliKarsiBelgeNo: "", yatirimTesvikNumarasi: "", yatirimTesvikTarihi: tarih, kdvOranKontrolMuafiyeti: false,
     vergiCesidi: tev ? "V9015" : " ",
@@ -111,6 +150,11 @@ class Gib {
     this.ornek = hepsi.size ? sekil([...hepsi.values()][0]) : "";
     return [...hepsi.values()];
   }
+  /* Belirli tarih aralığındaki belgeler (taslak/onaylı/silinmiş). Tarihler dd/mm/yyyy. */
+  async listeAralik(bas, bit) {
+    const y = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_BASITTASLAKLAR", { baslangic: bas, bitis: bit, hangiTip: "5000/30000" });
+    return (Array.isArray(y.data) ? y.data : []).filter((x) => x && (x.ettn || x.belgeNumarasi)).map((x) => ({ belgeNo: x.belgeNumarasi || "", alici: x.aliciUnvanAdSoyad || "", vkn: x.aliciVknTckn || "", tarih: x.belgeTarihi || "", durum: x.onayDurumu || "", ettn: x.ettn || "" }));
+  }
   /* GİB taslağa kendi ettn'ini verir; yeni çıkan kaydı önce/sonra listesinden buluruz.
    * Liste oluşturma sonrası gecikmeli güncellenebilir: birkaç kez beklenip yeniden bakılır. */
   async taslak(govdeVeyaYapici) {
@@ -135,7 +179,7 @@ class Gib {
     let k = yeni.length === 1 ? yeni[0] : null;
     if (!k) { const e = yeni.filter((x) => String(x.aliciVknTckn) === String(govde.vknTckn)); if (e.length === 1) k = e[0]; }
     if (!k) throw new Error("GİB taslak yanıtı: " + JSON.stringify(y).slice(0, 300) + " — ama listede yeni kayıt görünmüyor (önce " + once.size + ", sonra " + say + " kayıt). Liste denemeleri: " + this.tani + ". İlk kayıt alanları: " + (this.ornek || "-") + ". Portalda Taslak Faturalar'ı kontrol edin; faturayı onaylamayın.");
-    return { uuid: satirId(k), mesaj: y.data };
+    return { uuid: satirId(k), mesaj: y.data, satir: k };
   }
   async smsGonder() {
     const tel = await this.dispatch("EARSIV_PORTAL_TELEFONNO_SORGULA", "RG_BASITTASLAKLAR", {});
@@ -182,12 +226,17 @@ Gib.prototype.faturaHtml = async function (id, onay) {
 /* ---------- sahte GİB (deneme) ---------- */
 class SahteGib {
   constructor(kullanici) { this.k = kullanici; SahteGib.t = SahteGib.t || new Map(); }
-  async taslak(g) { const govde = typeof g === "function" ? g(0) : g; const uuid = crypto.randomUUID(); govde.faturaUuid = uuid; SahteGib.t.set(uuid, govde); return { uuid, mesaj: "SAHTE: taslak oluşturuldu (" + govde.faturaTipi + ", ödenecek " + govde.odenecekTutar + ")" }; }
+  async taslak(g) { const govde = typeof g === "function" ? g(0) : g; const uuid = crypto.randomUUID(); govde.faturaUuid = uuid; SahteGib.n = (SahteGib.n || 0) + 1; govde._no = "SAHTE" + String(SahteGib.n).padStart(6, "0"); SahteGib.t.set(uuid, govde); return { uuid, satir: { belgeNumarasi: govde._no }, mesaj: "SAHTE: taslak oluşturuldu (" + govde.faturaTipi + ", ödenecek " + govde.odenecekTutar + ")" }; }
   async smsGonder() { return { oid: "SAHTE-OID" }; }
   async imzala(uuid, kod) {
     if (!SahteGib.t.has(uuid)) throw new Error("Taslak bulunamadı.");
     if (String(kod).trim() !== "123456") throw new Error("SMS kodu hatalı (sahte GİB için 123456).");
     SahteGib.o = SahteGib.o || new Map(); SahteGib.o.set(uuid, SahteGib.t.get(uuid)); SahteGib.t.delete(uuid); return { mesaj: "SAHTE: fatura onaylandı." };
+  }
+  async listeAralik() {
+    const hepsi = [];
+    for (const [m, d] of [[SahteGib.t, "Onaylanmadı"], [SahteGib.o, "Onaylandı"]]) for (const [id, g] of (m || new Map())) hepsi.push({ belgeNo: g._no, alici: g.aliciUnvan || (g.aliciAdi + " " + g.aliciSoyadi), vkn: g.vknTckn, tarih: g.faturaTarihi.replace(/\//g, "-"), durum: d, ettn: id });
+    return hepsi;
   }
   async faturaHtml(uuid) {
     const g = (SahteGib.t && SahteGib.t.get(uuid)) || (SahteGib.o && SahteGib.o.get(uuid));
@@ -197,4 +246,4 @@ class SahteGib {
   }
 }
 
-module.exports = { hesapla, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };
+module.exports = { hesapla, notUret, tutarYazi, temizMetin, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };

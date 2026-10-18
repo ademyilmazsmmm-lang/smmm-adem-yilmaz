@@ -13,7 +13,7 @@ const HOST = process.env.HOST || "127.0.0.1";
 const DIR = path.join(__dirname, "data");
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-18-12";
+const SURUM = "2026-10-18-13";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -22,6 +22,7 @@ let basarisiz = 0, kilitBitis = 0;
 
 const varsayilan = () => ({
   mukellefler: [],
+  gecmis: [],
   hizmetler: [
     { id: "servis", ad: "Servis Taşımacılık Bedeli", kdv: 20, tev: 5, kod: "614", anah: "servis, personel taşı" },
     { id: "yuk", ad: "Yük Taşımacılığı Bedeli", kdv: 20, tev: 2, kod: "624", anah: "yük, yuk, nakliye" }
@@ -44,7 +45,7 @@ async function ac(sifre) {
   const d = crypto.createDecipheriv("aes-256-gcm", kk, Buffer.from(k.iv, "base64"));
   d.setAuthTag(Buffer.from(k.tag, "base64"));
   const p = Buffer.concat([d.update(Buffer.from(k.veri, "base64")), d.final()]); // yanlış şifrede fırlatır
-  key = kk; tuz = t; veri = JSON.parse(p.toString("utf8"));
+  key = kk; tuz = t; veri = JSON.parse(p.toString("utf8")); if (!veri.gecmis) veri.gecmis = [];
 }
 
 /* GİB şifreleri veri içinde düz durur ama kasa dosyası şifrelidir; istemciye asla gönderilmez. */
@@ -58,7 +59,7 @@ function birlestir(g) {
   veri.mukellefler = g.mukellefler.map((m) => ({
     id: String(m.id), ad: String(m.ad || ""), vkn: String(m.vkn || ""), kullanici: String(m.kullanici || ""),
     gibSifre: m.gibSifre ? String(m.gibSifre) : (eski.get(m.id) || {}).gibSifre || "",
-    aliciler: (m.aliciler || []).map((a) => ({ id: String(a.id), ad: String(a.ad || ""), vkn: String(a.vkn || ""), adres: String(a.adres || "") }))
+    aliciler: (m.aliciler || []).map((a) => ({ id: String(a.id), ad: String(a.ad || ""), vkn: String(a.vkn || ""), adres: String(a.adres || ""), vd: String(a.vd || "") }))
   }));
   gibler.clear();
   yaz();
@@ -85,6 +86,7 @@ function istemci(m) {
   if (!gibler.has(m.id)) gibler.set(m.id, gib.istemci(m.kullanici, m.gibSifre));
   return gibler.get(m.id);
 }
+const bekleyen = new Map(); // taslak kimliği -> geçmiş kaydı taslağı (onaylanınca kalıcı olur)
 function hazirla(g) {
   const h = veri.hizmetler.filter((x) => x.id === g.hizmetId)[0];
   if (!h) throw new Error("Hizmet bulunamadı.");
@@ -92,8 +94,14 @@ function hazirla(g) {
   const bugun = new Date(), yerel = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, "0")}-${String(bugun.getDate()).padStart(2, "0")}`;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(g.tarih || "")) g.tarih = yerel;
   if (g.tarih > yerel) throw new Error("Fatura tarihi bugünden ileri olamaz.");
-  const x = Object.assign({}, g, { tutar: Number(g.tutar), kdvOrani: Number(g.kdvOrani), tevkifat: Number(g.tevkifat) || 0 });
+  const T = gib.temizMetin;
+  const x = Object.assign({}, g, {
+    tutar: Number(g.tutar), kdvOrani: Number(g.kdvOrani), tevkifat: Number(g.tevkifat) || 0,
+    aliciUnvan: T(g.aliciUnvan, 150), aliciAdres: T(g.aliciAdres, 250), vergiDairesi: T(g.vergiDairesi, 100), aciklama: T(g.aciklama, 150)
+  });
+  if (x.tevkifat > 0 && !String(x.tevkifatKodu || "").trim()) throw new Error("Tevkifat kodu gerekli (tevkifatsız kesmek için tevkifatı “Yok” yapın).");
   x._h = gib.hesapla(x);
+  x.not = gib.notUret(x, x._h);
   return { x, h };
 }
 
@@ -117,20 +125,34 @@ async function api(req, res, yol) {
   if (yol === "/api/cikis") { oturumlar.delete(cerez(req)); key = null; veri = null; gibler.clear(); return cevap(res, 200, { ok: true }); }
   if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz());
   if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req); if (!Array.isArray(g.mukellefler) || !Array.isArray(g.hizmetler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(g); return cevap(res, 200, temiz()); }
-  if (yol === "/api/hesapla" && req.method === "POST") { const g = await oku(req); return cevap(res, 200, gib.hesapla(g)); }
+  if (yol === "/api/hesapla" && req.method === "POST") { const g = await oku(req), h = gib.hesapla(g); return cevap(res, 200, Object.assign({}, h, { not: gib.notUret(g, h) })); }
+  if (yol === "/api/gecmis" && req.method === "GET") return cevap(res, 200, { kayitlar: veri.gecmis.slice().reverse().slice(0, 200) });
 
   const g = await oku(req), m = mukellefBul(g.mukellefId);
   if (!m) return cevap(res, 400, { hata: "Mükellef seçin." });
   if (!m.kullanici || (!m.gibSifre && !gib.MOCK)) return cevap(res, 400, { hata: "Bu mükellef için GİB kullanıcı kodu/şifresi girilmemiş (Ayarlar)." });
   if (yol === "/api/taslak") {
     const { x, h } = hazirla(g), uuid = crypto.randomUUID();
-    const s = await istemci(m).taslak((v) => gib.faturaGovdesi(x, h, uuid, v));
-    return cevap(res, 200, { uuid: s.uuid, mesaj: s.mesaj, hesap: x._h });
+    const r = await istemci(m).taslak((v) => gib.faturaGovdesi(x, h, uuid, v));
+    const kayit = {
+      id: r.uuid, zaman: new Date().toISOString(), mukellefId: m.id, mukellef: { ad: m.ad, vkn: m.vkn }, belgeNo: (r.satir && r.satir.belgeNumarasi) || "",
+      aliciUnvan: x.aliciUnvan, aliciVkn: x.aliciVkn, aliciAdres: x.aliciAdres, vergiDairesi: x.vergiDairesi, hizmetAd: h.ad, aciklama: x.aciklama,
+      tarih: x.tarih, kdvOrani: x.kdvOrani, tevkifat: x.tevkifat, tevkifatKodu: x.tevkifat ? String(x.tevkifatKodu) : "", hesap: x._h, not: x.not, durum: "Taslak"
+    };
+    bekleyen.set(r.uuid, kayit);
+    return cevap(res, 200, { uuid: r.uuid, mesaj: r.mesaj, hesap: x._h, kayit });
   }
   if (yol === "/api/sms") return cevap(res, 200, await istemci(m).smsGonder());
   if (yol === "/api/imzala") {
     if (!g.uuid || !/^[A-Za-z0-9]{4,12}$/.test(String(g.kod || "").trim())) return cevap(res, 400, { hata: "SMS kodunu yazın." });
-    return cevap(res, 200, await istemci(m).imzala(g.uuid, String(g.kod).trim(), g.oid, g.tarih));
+    const r = await istemci(m).imzala(g.uuid, String(g.kod).trim(), g.oid, g.tarih);
+    const kayit = bekleyen.get(g.uuid);
+    if (kayit) { kayit.durum = "Onaylandı"; kayit.onayZamani = new Date().toISOString(); veri.gecmis.push(kayit); if (veri.gecmis.length > 2000) veri.gecmis.shift(); bekleyen.delete(g.uuid); yaz(); }
+    return cevap(res, 200, { mesaj: r.mesaj, kayit: kayit || null });
+  }
+  if (yol === "/api/liste") {
+    const t = (d) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); if (!q) throw new Error("Tarih seçin."); return `${q[3]}/${q[2]}/${q[1]}`; };
+    return cevap(res, 200, { belgeler: await istemci(m).listeAralik(t(g.bas), t(g.bit)) });
   }
   if (yol === "/api/gorunum") {
     if (!/^[A-Za-z0-9:_=.-]{8,4000}$/.test(String(g.uuid || ""))) return cevap(res, 400, { hata: "Fatura seçilmedi." });
