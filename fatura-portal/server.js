@@ -13,6 +13,7 @@ const HOST = process.env.HOST || "127.0.0.1";
 const DIR = path.join(__dirname, "data");
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
+const SURUM = "2026-10-18-8";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -98,7 +99,7 @@ function hazirla(g) {
 
 async function api(req, res, yol) {
   if (req.method !== "GET" && !/application\/json/.test(req.headers["content-type"] || "")) return cevap(res, 415, { hata: "JSON bekleniyor." });
-  if (yol === "/api/durum") return cevap(res, 200, { kurulu: kasaVar(), giris: girisli(req), sahte: gib.MOCK });
+  if (yol === "/api/durum") return cevap(res, 200, { kurulu: kasaVar(), giris: girisli(req), sahte: gib.MOCK, surum: SURUM });
   if (yol === "/api/kurulum" && req.method === "POST") {
     if (kasaVar()) return cevap(res, 409, { hata: "Zaten kurulu." });
     const { sifre } = await oku(req);
@@ -144,4 +145,4 @@ http.createServer((req, res) => {
   if (yol.startsWith("/api/")) return api(req, res, yol).catch((e) => { console.error(e.message); cevap(res, 500, { hata: hataBilgi(e) }); });
   if (yol === "/" || yol === "/index.html") { res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }); return fs.createReadStream(SAYFA).pipe(res); }
   res.writeHead(404); res.end("Bulunamadı");
-}).listen(PORT, HOST, () => console.log(`Fatura Portalı: http://${HOST}:${PORT}` + (gib.MOCK ? "  (SAHTE GİB — gerçek fatura kesilmez)" : "")));
+}).on("error", (e) => { console.error(e.code === "EADDRINUSE" ? "HATA: " + PORT + " numaralı kapı dolu; eski program hâlâ çalışıyor. Eski siyah pencereyi kapatın ve yeniden başlatın." : e.message); process.exit(1); }).listen(PORT, HOST, () => console.log(`Fatura Portalı ${SURUM}: http://${HOST}:${PORT}` + (gib.MOCK ? "  (SAHTE GİB — gerçek fatura kesilmez)" : "")));

@@ -51,7 +51,7 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
 </main>
 
 <main id="uyg" hidden>
-  <div class="ust"><h1>Fatura Portalı</h1><button class="k" id="cikis" type="button">Çıkış</button></div>
+  <div class="ust"><h1>Fatura Portalı <small id="surum" style="font-size:.6rem;color:var(--muted);font-weight:400"></small></h1><button class="k" id="cikis" type="button">Çıkış</button></div>
   <div class="sahte" id="sahte" hidden>Deneme modu: GİB’e bağlanılmıyor, gerçek fatura kesilmez.</div>
 
   <div class="card"><h2>Mükellef</h2><div class="chips" id="mChips"></div><p class="not" id="mYok" hidden>Önce Ayarlar bölümünden mükellef ekleyin.</p></div>
@@ -126,7 +126,7 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
   var kurulu = false;
   function acilis(){
     api("/api/durum").then(function(d){
-      kurulu = d.kurulu; $("sahte").hidden = !d.sahte;
+      kurulu = d.kurulu; $("sahte").hidden = !d.sahte; $("surum").textContent = d.surum ? "sürüm " + d.surum : "";
       if (d.giris) return basla();
       $("uyg").hidden = true; $("giris").hidden = false;
       $("girisYazi").textContent = kurulu ? "Devam etmek için şifrenizi girin." : "İlk kurulum: bir uygulama şifresi belirleyin (en az 8 karakter). GİB şifreleri bununla şifrelenerek bilgisayarda saklanır.";
