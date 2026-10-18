@@ -125,8 +125,8 @@ async function api(req, res, yol) {
   }
   if (yol === "/api/sms") return cevap(res, 200, await istemci(m).smsGonder());
   if (yol === "/api/imzala") {
-    if (!g.uuid || !/^\d{4,8}$/.test(String(g.kod || ""))) return cevap(res, 400, { hata: "SMS kodunu yazın." });
-    return cevap(res, 200, await istemci(m).imzala(g.uuid, String(g.kod), g.oid));
+    if (!g.uuid || !/^[A-Za-z0-9]{4,12}$/.test(String(g.kod || "").trim())) return cevap(res, 400, { hata: "SMS kodunu yazın." });
+    return cevap(res, 200, await istemci(m).imzala(g.uuid, String(g.kod).trim(), g.oid));
   }
   cevap(res, 404, { hata: "Bulunamadı." });
 }

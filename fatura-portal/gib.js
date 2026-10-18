@@ -96,7 +96,7 @@ class SahteGib {
   async smsGonder() { return { oid: "SAHTE-OID" }; }
   async imzala(uuid, kod) {
     if (!SahteGib.t.has(uuid)) throw new Error("Taslak bulunamadı.");
-    if (kod !== "123456") throw new Error("SMS kodu hatalı (sahte GİB için 123456).");
+    if (String(kod).trim() !== "123456") throw new Error("SMS kodu hatalı (sahte GİB için 123456).");
     SahteGib.t.delete(uuid); return { mesaj: "SAHTE: fatura onaylandı." };
   }
 }
