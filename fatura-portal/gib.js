@@ -20,7 +20,10 @@ function hesapla(g) {
 }
 const tl = (k) => (k / 100).toFixed(2); // "1234.50" — portal noktalı ondalık bekler
 
-/* ---------- portal gövdesi ---------- */
+/* ---------- portal gövdesi ----------
+ * Alan adları ve biçim, portalın kendi "Kaydet" isteğinden (EARSIV_PORTAL_FATURA_OLUSTUR) birebir alınmıştır.
+ * faturaUuid boş gönderilir; ettn'i GİB verir. Tevkifat: vergiCesidi V9015, kalemde V9015Orani/V9015Tutari. */
+const nf = (k) => String(Math.round(k) / 100); // portal "100", "20.1", "0.05" biçimini kullanır
 function faturaGovdesi(g, h, uuid, varyant) {
   varyant = varyant || 0;
   const d = new Date();
@@ -31,25 +34,29 @@ function faturaGovdesi(g, h, uuid, varyant) {
   const sahis = /^\d{11}$/.test(g.aliciVkn);
   const parca = g.aliciUnvan.trim().split(/\s+/);
   const soyad = sahis && parca.length > 1 ? parca.pop() : "";
-  const tevkifatli = Number(g.tevkifat) > 0;
-  return {
-    faturaUuid: uuid, belgeNumarasi: "", hangiTip: "5000/30000", faturaTarihi: tarih, saat, paraBirimi: "TRY", dovzTLkur: "0",
-    faturaTipi: tevkifatli ? "TEVKIFAT" : "SATIS", /* DOĞRULANACAK: tevkifat için tip değeri */
+  const tev = Number(g.tevkifat) > 0;
+  const x = g._h;
+  const kalem = {
+    malHizmet: h.ad, miktar: 1, birim: "C62", birimFiyat: nf(x.matrah), fiyat: nf(x.matrah),
+    iskontoOrani: 0, iskontoTutari: "0", iskontoNedeni: "", malHizmetTutari: nf(x.matrah),
+    kdvOrani: String(Number(g.kdvOrani)), vergiOrani: 0, kdvTutari: nf(x.kdv), vergininKdvTutari: "0", ozelMatrahTutari: "0"
+  };
+  if (tev) Object.assign(kalem, { hesaplananotvtevkifatakatkisi: "0", tevkifatKodu: String(g.tevkifatKodu || ""), V9015Orani: Number(g.tevkifat) * 10, V9015Tutari: nf(x.tevKdv) });
+  const govde = {
+    faturaUuid: varyant === 1 ? uuid : "", belgeNumarasi: "", faturaTarihi: tarih, saat, paraBirimi: "TRY", dovzTLkur: "0",
+    faturaTipi: tev ? "TEVKIFAT" : "SATIS", hangiTip: "5000/30000",
     vknTckn: g.aliciVkn, aliciUnvan: sahis ? "" : g.aliciUnvan.trim(), aliciAdi: sahis ? parca.join(" ") : "", aliciSoyadi: sahis ? soyad : "",
     binaAdi: "", binaNo: "", kapiNo: "", kasabaKoy: "", vergiDairesi: "", ulke: "Türkiye", bulvarcaddesokak: g.aliciAdres || "",
-    irsaliyeNumarasi: "", mahalleSemtIlce: "", sehir: " ", postaKodu: "", tel: "", fax: "", eposta: "", websitesi: "",
-    iadeTable: [], ozelMatrahTutari: "0", ozelMatrahOrani: 0, ozelMatrahVergiTutari: "0", vergiCesidi: " ",
-    malHizmetTable: [{
-      malHizmet: h.ad, miktar: 1, birim: "C62", birimFiyat: tl(g._h.matrah), fiyat: tl(g._h.matrah),
-      iskontoArttm: "İskonto", iskontoOrani: 0, iskontoTutari: "0", iskontoNedeni: "",
-      malHizmetTutari: tl(g._h.matrah), kdvOrani: Number(g.kdvOrani), vergiOrani: 0, kdvTutari: tl(g._h.kdv), vergininKdvTutari: "0",
-      ...(tevkifatli ? Object.assign({ tevkifatKodu: String(g.tevkifatKodu || "") }, varyant >= 1 ? { tevkifatOrani: Number(g.tevkifat) * 10, tevkifatTutari: tl(g._h.tevKdv) } : {}) : {}) /* kod kalem bazında; oranı portal koddan türetir (mlevent/fatura örneği) */
-    }],
-    tip: "İskonto", matrah: tl(g._h.matrah), malhizmetToplamTutari: tl(g._h.matrah), toplamIskonto: "0",
-    hesaplanankdv: tl(g._h.kdv), vergilerToplami: tl(g._h.kdv), vergilerDahilToplamTutar: tl(g._h.toplam),
-    toplamMasraflar: "0", odenecekTutar: tl(g._h.odenecek), not: g.not || "",
+    irsaliyeNumarasi: "", irsaliyeTarihi: "", mahalleSemtIlce: "", sehir: " ", postaKodu: "", tel: "", fax: "", eposta: "", websitesi: "",
+    iadeTable: [], ihracKayitliKarsiBelgeNo: "", yatirimTesvikNumarasi: "", yatirimTesvikTarihi: tarih, kdvOranKontrolMuafiyeti: false,
+    vergiCesidi: tev ? "V9015" : " ",
+    malHizmetTable: [kalem],
+    tip: "İskonto", matrah: nf(x.matrah), malhizmetToplamTutari: nf(x.matrah), toplamIskonto: "0", hesaplanankdv: nf(x.kdv),
+    vergilerToplami: nf(x.kdv), vergilerDahilToplamTutar: nf(x.toplam), odenecekTutar: nf(x.odenecek), not: g.not || "",
     siparisNumarasi: "", siparisTarihi: "", fisNo: "", fisTarihi: "", fisSaati: " ", fisTipi: " ", zRaporNo: "", okcSeriNo: ""
   };
+  if (tev) Object.assign(govde, { tevkifataTabiIslemTutar: nf(x.matrah), tevkifataTabiIslemKdv: nf(x.kdv), hesaplananV9015: nf(x.tevKdv) });
+  return govde;
 }
 
 /* ---------- gerçek istemci ---------- */
@@ -88,7 +95,7 @@ class Gib {
     for (const v of varyantlar) {
       govde = yapici(v);
       y = await this.dispatch("EARSIV_PORTAL_FATURA_OLUSTUR", "RG_BASITFATURA", govde);
-      if (!(typeof y.data === "string" && /sorun|hata|ge[cç]ersiz|zorunlu|yanl[ıi]ş/i.test(y.data))) { redler.length = 0; break; }
+      if (!(typeof y.data === "string" && /sorun|hata|ge[cç]ersiz|zorunlu|yanl[ıi]ş|ettn|eksik|uymuyor/i.test(y.data))) { redler.length = 0; break; }
       redler.push("varyant " + v + ": " + y.data);
     }
     if (redler.length) throw new Error("GİB taslağı kabul etmedi (taslak OLUŞMADI) — " + redler.join(" | "));
@@ -143,7 +150,7 @@ Gib.prototype.faturaHtml = async function (uuid, onay) {
 /* ---------- sahte GİB (deneme) ---------- */
 class SahteGib {
   constructor(kullanici) { this.k = kullanici; SahteGib.t = SahteGib.t || new Map(); }
-  async taslak(g) { const govde = typeof g === "function" ? g(0) : g; SahteGib.t.set(govde.faturaUuid, govde); return { uuid: govde.faturaUuid, mesaj: "SAHTE: taslak oluşturuldu (" + govde.faturaTipi + ", ödenecek " + govde.odenecekTutar + ")" }; }
+  async taslak(g) { const govde = typeof g === "function" ? g(0) : g; const uuid = crypto.randomUUID(); govde.faturaUuid = uuid; SahteGib.t.set(uuid, govde); return { uuid, mesaj: "SAHTE: taslak oluşturuldu (" + govde.faturaTipi + ", ödenecek " + govde.odenecekTutar + ")" }; }
   async smsGonder() { return { oid: "SAHTE-OID" }; }
   async imzala(uuid, kod) {
     if (!SahteGib.t.has(uuid)) throw new Error("Taslak bulunamadı.");
