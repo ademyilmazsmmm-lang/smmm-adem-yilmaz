@@ -41,7 +41,7 @@ function faturaGovdesi(g, h, uuid) {
       malHizmet: h.ad, miktar: 1, birim: "C62", birimFiyat: tl(g._h.matrah), fiyat: tl(g._h.matrah),
       iskontoArttm: "İskonto", iskontoOrani: 0, iskontoTutari: "0", iskontoNedeni: "",
       malHizmetTutari: tl(g._h.matrah), kdvOrani: Number(g.kdvOrani), vergiOrani: 0, kdvTutari: tl(g._h.kdv), vergininKdvTutari: "0",
-      ...(tevkifatli ? { tevkifatKodu: String(g.tevkifatKodu || ""), tevkifatOrani: Number(g.tevkifat) * 10, tevkifatTutari: tl(g._h.tevKdv) } : {}) /* DOĞRULANACAK: alan adları */
+      ...(tevkifatli ? { tevkifatKodu: String(g.tevkifatKodu || "") } : {}) /* kod kalem bazında; oranı portal koddan türetir (mlevent/fatura örneği) */
     }],
     tip: "İskonto", matrah: tl(g._h.matrah), malhizmetToplamTutari: tl(g._h.matrah), toplamIskonto: "0",
     hesaplanankdv: tl(g._h.kdv), vergilerToplami: tl(g._h.kdv), vergilerDahilToplamTutar: tl(g._h.toplam),

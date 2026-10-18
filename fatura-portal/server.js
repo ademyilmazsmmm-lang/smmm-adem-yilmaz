@@ -22,8 +22,8 @@ let basarisiz = 0, kilitBitis = 0;
 const varsayilan = () => ({
   mukellefler: [],
   hizmetler: [
-    { id: "servis", ad: "Servis Taşımacılık Bedeli", kdv: 20, tev: 5, kod: "613", anah: "servis, personel taşı" },
-    { id: "yuk", ad: "Yük Taşımacılığı Bedeli", kdv: 20, tev: 2, kod: "620", anah: "yük, yuk, nakliye" }
+    { id: "servis", ad: "Servis Taşımacılık Bedeli", kdv: 20, tev: 5, kod: "614", anah: "servis, personel taşı" },
+    { id: "yuk", ad: "Yük Taşımacılığı Bedeli", kdv: 20, tev: 2, kod: "624", anah: "yük, yuk, nakliye" }
   ]
 });
 
