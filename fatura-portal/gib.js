@@ -78,11 +78,30 @@ class Gib {
     if (y.error === "1") throw new Error("GİB hatası: " + (y.messages && y.messages[0] && y.messages[0].text || JSON.stringify(y).slice(0, 200)));
     return y;
   }
-  async liste(ileri) {
+  /* Belge listesi: portalın birden çok listeleme komutu var; hepsini deneyip birleştiririz.
+   * Hangisinin kaç kayıt döndürdüğü this.tani içinde tutulur (hata mesajında gösterilir). */
+  async liste() {
     const bugun = new Date(), p = (n) => String(n).padStart(2, "0");
     const f = (d) => `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
-    const y = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_TASLAKLAR", { baslangic: f(new Date(bugun - 31 * 864e5)), bitis: f(new Date(+bugun + (ileri || 0) * 864e5)), hangiTip: "5000/30000", table: [] });
-    return Array.isArray(y.data) ? y.data : [];
+    const bas = f(new Date(bugun - 31 * 864e5)), bit = f(bugun), yarin = f(new Date(+bugun + 864e5));
+    const denemeler = [
+      ["TASLAK/RG_TASLAKLAR", "EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_TASLAKLAR", bas, bit],
+      ["TASLAK/RG_BASITTASLAKLAR", "EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_BASITTASLAKLAR", bas, bit],
+      ["TASLAK/yarin", "EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_TASLAKLAR", bas, yarin],
+      ["KESILEN/RG_BASITTASLAKLAR", "EARSIV_PORTAL_ADIMA_KESILEN_BELGELERI_GETIR", "RG_BASITTASLAKLAR", bas, bit],
+      ["KESILEN/RG_TASLAKLAR", "EARSIV_PORTAL_ADIMA_KESILEN_BELGELERI_GETIR", "RG_TASLAKLAR", bas, bit]
+    ];
+    const hepsi = new Map(), tani = [];
+    for (const [ad, cmd, sayfa, b1, b2] of denemeler) {
+      try {
+        const y = await this.dispatch(cmd, sayfa, { baslangic: b1, bitis: b2, hangiTip: "5000/30000", table: [] });
+        const l = Array.isArray(y.data) ? y.data : [];
+        tani.push(ad + ":" + l.length);
+        for (const x of l) if (x && x.ettn) hepsi.set(String(x.ettn).toLowerCase(), x);
+      } catch (e) { tani.push(ad + ":hata(" + String(e.message).slice(0, 60) + ")"); }
+    }
+    this.tani = tani.join(", ");
+    return [...hepsi.values()];
   }
   /* GİB taslağa kendi ettn'ini verir; yeni çıkan kaydı önce/sonra listesinden buluruz.
    * Liste oluşturma sonrası gecikmeli güncellenebilir: birkaç kez beklenip yeniden bakılır. */
@@ -101,15 +120,13 @@ class Gib {
     if (redler.length) throw new Error("GİB taslağı kabul etmedi (taslak OLUŞMADI) — " + redler.join(" | "));
     let yeni = [], say = 0;
     for (let i = 0; i < 4 && !yeni.length; i++) {
-      if (i) await new Promise((r) => setTimeout(r, 1500));
-      for (const ileri of [0, 1]) {
-        try { const l = await this.liste(ileri); say = Math.max(say, l.length); yeni = l.filter((x) => !once.has(String(x.ettn).toLowerCase())); } catch (e) { /* ileri tarihli aralık reddedilebilir */ }
-        if (yeni.length) break;
-      }
+      if (i) await new Promise((r) => setTimeout(r, 2000));
+      const l = await this.liste(); say = l.length;
+      yeni = l.filter((x) => !once.has(String(x.ettn).toLowerCase()));
     }
     let k = yeni.length === 1 ? yeni[0] : null;
     if (!k) { const e = yeni.filter((x) => String(x.aliciVknTckn) === String(govde.vknTckn)); if (e.length === 1) k = e[0]; }
-    if (!k) throw new Error("GİB taslak yanıtı: " + JSON.stringify(y).slice(0, 300) + " — ama listede yeni kayıt görünmüyor (önce " + once.size + ", sonra " + say + " kayıt). Portalda Taslak Faturalar'ı kontrol edin; faturayı onaylamayın.");
+    if (!k) throw new Error("GİB taslak yanıtı: " + JSON.stringify(y).slice(0, 300) + " — ama listede yeni kayıt görünmüyor (önce " + once.size + ", sonra " + say + " kayıt). Liste denemeleri: " + this.tani + ". Portalda Taslak Faturalar'ı kontrol edin; faturayı onaylamayın.");
     return { uuid: k.ettn, mesaj: y.data };
   }
   async smsGonder() {
