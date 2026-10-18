@@ -87,21 +87,24 @@ class Gib {
   async liste() {
     const bugun = new Date(), p = (n) => String(n).padStart(2, "0");
     const f = (d) => `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
-    const bas = f(new Date(bugun - 31 * 864e5)), bit = f(bugun), yarin = f(new Date(+bugun + 864e5));
+    const gun = (n) => f(new Date(bugun - n * 864e5));
+    /* Portalın kendi isteği (DevTools'tan alındı): cmd EARSIV_PORTAL_TASLAKLARI_GETIR, pageName RG_BASITTASLAKLAR,
+     * jp = {baslangic, bitis, hangiTip:"5000/30000"} — "table" alanı yok. */
     const denemeler = [
-      ["TASLAK/RG_TASLAKLAR", "EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_TASLAKLAR", bas, bit],
-      ["TASLAK/RG_BASITTASLAKLAR", "EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_BASITTASLAKLAR", bas, bit],
-      ["TASLAK/yarin", "EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_TASLAKLAR", bas, yarin],
-      ["KESILEN/RG_BASITTASLAKLAR", "EARSIV_PORTAL_ADIMA_KESILEN_BELGELERI_GETIR", "RG_BASITTASLAKLAR", bas, bit],
-      ["KESILEN/RG_TASLAKLAR", "EARSIV_PORTAL_ADIMA_KESILEN_BELGELERI_GETIR", "RG_TASLAKLAR", bas, bit]
+      ["BASIT/31g", "RG_BASITTASLAKLAR", gun(31), gun(0)],
+      ["BASIT/7g", "RG_BASITTASLAKLAR", gun(7), gun(0)],
+      ["TASLAK/7g", "RG_TASLAKLAR", gun(7), gun(0)]
     ];
     const hepsi = new Map(), tani = [];
-    for (const [ad, cmd, sayfa, b1, b2] of denemeler) {
+    for (const [ad, sayfa, b1, b2] of denemeler) {
       try {
-        const y = await this.dispatch(cmd, sayfa, { baslangic: b1, bitis: b2, hangiTip: "5000/30000", table: [] });
+        const y = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", sayfa, { baslangic: b1, bitis: b2, hangiTip: "5000/30000" });
         const l = Array.isArray(y.data) ? y.data : [];
-        tani.push(ad + ":" + l.length);
-        for (const x of l) if (x && typeof x === "object") hepsi.set(satirId(x).toLowerCase(), x);
+        const gercek = l.filter((x) => x && typeof x === "object" && (x.ettn || x.belgeNumarasi || x.aliciVknTckn));
+        const uyari = l.filter((x) => x && x.error && !gercek.includes(x))[0];
+        tani.push(ad + ":" + gercek.length + (uyari ? "(uyarı: " + String(uyari.error).slice(0, 50) + ")" : ""));
+        for (const x of gercek) hepsi.set(satirId(x).toLowerCase(), x);
+        if (gercek.length) break;
       } catch (e) { tani.push(ad + ":hata(" + String(e.message).slice(0, 60) + ")"); }
     }
     this.tani = tani.join(", ");
