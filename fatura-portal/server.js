@@ -13,7 +13,7 @@ const HOST = process.env.HOST || "127.0.0.1";
 const DIR = path.join(__dirname, "data");
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-18-8";
+const SURUM = "2026-10-18-9";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -133,7 +133,7 @@ async function api(req, res, yol) {
     return cevap(res, 200, await istemci(m).imzala(g.uuid, String(g.kod).trim(), g.oid, g.tarih));
   }
   if (yol === "/api/gorunum") {
-    if (!/^[0-9a-f-]{36}$/i.test(String(g.uuid || ""))) return cevap(res, 400, { hata: "Fatura seçilmedi." });
+    if (!/^[A-Za-z0-9:_=.-]{8,4000}$/.test(String(g.uuid || ""))) return cevap(res, 400, { hata: "Fatura seçilmedi." });
     return cevap(res, 200, { html: await istemci(m).faturaHtml(g.uuid, g.onay) });
   }
   cevap(res, 404, { hata: "Bulunamadı." });

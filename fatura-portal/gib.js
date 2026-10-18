@@ -60,6 +60,10 @@ function faturaGovdesi(g, h, uuid, varyant) {
 }
 
 /* ---------- gerçek istemci ---------- */
+/* Liste satırının kimliği: ettn doluysa o, değilse satırın içeriği (GİB taslak satırında ettn boş gelebiliyor). */
+const satirId = (x) => (x.ettn ? String(x.ettn) : "j:" + Buffer.from(JSON.stringify(x)).toString("base64url"));
+const sekil = (x) => Object.keys(x).map((k) => k + "=" + (x[k] === "" || x[k] == null ? "boş" : String(x[k]).length + " krk")).join(", ");
+
 class Gib {
   constructor(kullanici, sifre) { this.k = kullanici; this.s = sifre; this.token = null; }
   async post(yol, alanlar) {
@@ -97,16 +101,17 @@ class Gib {
         const y = await this.dispatch(cmd, sayfa, { baslangic: b1, bitis: b2, hangiTip: "5000/30000", table: [] });
         const l = Array.isArray(y.data) ? y.data : [];
         tani.push(ad + ":" + l.length);
-        for (const x of l) if (x && x.ettn) hepsi.set(String(x.ettn).toLowerCase(), x);
+        for (const x of l) if (x && typeof x === "object") hepsi.set(satirId(x).toLowerCase(), x);
       } catch (e) { tani.push(ad + ":hata(" + String(e.message).slice(0, 60) + ")"); }
     }
     this.tani = tani.join(", ");
+    this.ornek = hepsi.size ? sekil([...hepsi.values()][0]) : "";
     return [...hepsi.values()];
   }
   /* GİB taslağa kendi ettn'ini verir; yeni çıkan kaydı önce/sonra listesinden buluruz.
    * Liste oluşturma sonrası gecikmeli güncellenebilir: birkaç kez beklenip yeniden bakılır. */
   async taslak(govdeVeyaYapici) {
-    const once = new Set((await this.liste()).map((x) => String(x.ettn).toLowerCase()));
+    const once = new Set((await this.liste()).map((x) => satirId(x).toLowerCase()));
     const yapici = typeof govdeVeyaYapici === "function" ? govdeVeyaYapici : () => govdeVeyaYapici;
     const varyantlar = typeof govdeVeyaYapici === "function" ? [0, 1] : [0];
     const redler = [];
@@ -122,12 +127,12 @@ class Gib {
     for (let i = 0; i < 4 && !yeni.length; i++) {
       if (i) await new Promise((r) => setTimeout(r, 2000));
       const l = await this.liste(); say = l.length;
-      yeni = l.filter((x) => !once.has(String(x.ettn).toLowerCase()));
+      yeni = l.filter((x) => !once.has(satirId(x).toLowerCase()));
     }
     let k = yeni.length === 1 ? yeni[0] : null;
     if (!k) { const e = yeni.filter((x) => String(x.aliciVknTckn) === String(govde.vknTckn)); if (e.length === 1) k = e[0]; }
-    if (!k) throw new Error("GİB taslak yanıtı: " + JSON.stringify(y).slice(0, 300) + " — ama listede yeni kayıt görünmüyor (önce " + once.size + ", sonra " + say + " kayıt). Liste denemeleri: " + this.tani + ". Portalda Taslak Faturalar'ı kontrol edin; faturayı onaylamayın.");
-    return { uuid: k.ettn, mesaj: y.data };
+    if (!k) throw new Error("GİB taslak yanıtı: " + JSON.stringify(y).slice(0, 300) + " — ama listede yeni kayıt görünmüyor (önce " + once.size + ", sonra " + say + " kayıt). Liste denemeleri: " + this.tani + ". İlk kayıt alanları: " + (this.ornek || "-") + ". Portalda Taslak Faturalar'ı kontrol edin; faturayı onaylamayın.");
+    return { uuid: satirId(k), mesaj: y.data };
   }
   async smsGonder() {
     const tel = await this.dispatch("EARSIV_PORTAL_TELEFONNO_SORGULA", "RG_BASITTASLAKLAR", {});
@@ -136,8 +141,7 @@ class Gib {
   }
   async imzala(uuid, kod, oid) {
     const kayitlar = await this.liste();
-    const kucuk = String(uuid).toLowerCase();
-    const fatura = kayitlar.filter((x) => String(x.ettn || "").toLowerCase() === kucuk)[0];
+    const fatura = kayitlar.filter((x) => satirId(x) === uuid)[0] || kayitlar.filter((x) => satirId(x).toLowerCase() === String(uuid).toLowerCase())[0];
     if (!fatura) throw new Error("Taslak GİB listesinde bulunamadı (" + kayitlar.length + " kayıt). Portalda Taslak Faturalar'ı kontrol edin.");
     const y = await this.dispatch("EARSIV_PORTAL_SMSSIFRE_DOGRULA", "RG_SMSONAY", { SIFRE: kod, OID: oid, OPR: 1, DATA: [fatura] });
     return { mesaj: y.data };
@@ -145,7 +149,10 @@ class Gib {
 }
 
 /* Fatura görünümü (HTML). Taslak için onay="Onaylanmadı", kesilmiş için "Onaylandı". DOĞRULANACAK: komut/alan adları */
-Gib.prototype.faturaHtml = async function (uuid, onay) {
+Gib.prototype.faturaHtml = async function (id, onay) {
+  let uuid = id;
+  if (String(id).startsWith("j:")) { try { uuid = JSON.parse(Buffer.from(String(id).slice(2), "base64url").toString("utf8")).ettn; } catch (e) { uuid = ""; } }
+  if (!uuid) throw new Error("Bu taslağın ettn kimliği GİB listesinde boş; görünüm alınamadı.");
   const od = onay === "Onaylandı" ? "Onaylandı" : "Onaylanmadı";
   const denemeler = [
     ["RG_TASLAKLAR", { ettn: uuid, onayDurumu: od }],
