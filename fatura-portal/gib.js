@@ -83,10 +83,15 @@ class Gib {
     const bugun = new Date(), p = (n) => String(n).padStart(2, "0");
     const f = (d) => `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
     const fd = /^\d{4}-\d{2}-\d{2}$/.test(tarih || "") ? new Date(tarih + "T00:00:00") : bugun;
-    const bas = new Date(Math.min(bugun - 7 * 864e5, fd - 864e5)), bit = new Date(Math.max(+bugun, +fd) + 864e5);
-    const liste = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_TASLAKLAR", { baslangic: f(bas), bitis: f(bit), hangiTip: "5000/30000", table: [] });
-    const fatura = (liste.data || []).filter((x) => x.ettn === uuid)[0];
-    if (!fatura) throw new Error("Taslak GİB'de bulunamadı (son 7 gün).");
+    const bas = new Date(Math.min(bugun - 7 * 864e5, fd - 864e5));
+    const liste = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_TASLAKLAR", { baslangic: f(bas), bitis: f(bugun), hangiTip: "5000/30000", table: [] });
+    const kayitlar = Array.isArray(liste.data) ? liste.data : [];
+    const kucuk = String(uuid).toLowerCase();
+    const fatura = kayitlar.filter((x) => String(x.ettn || x.faturaUuid || "").toLowerCase() === kucuk)[0];
+    if (!fatura) {
+      const ilk = kayitlar[0] ? Object.keys(kayitlar[0]).slice(0, 12).join(",") : "-";
+      throw new Error(`Taslak GİB listesinde bulunamadı (${f(bas)}–${f(bugun)} arası ${kayitlar.length} kayıt; ilk kaydın alanları: ${ilk}).`);
+    }
     const y = await this.dispatch("EARSIV_PORTAL_SMSSIFRE_DOGRULA", "RG_SMSONAY", { SIFRE: kod, OID: oid, OPR: 1, DATA: [fatura] });
     return { mesaj: y.data };
   }
