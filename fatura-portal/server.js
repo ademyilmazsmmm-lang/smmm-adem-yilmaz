@@ -88,6 +88,9 @@ function hazirla(g) {
   const h = veri.hizmetler.filter((x) => x.id === g.hizmetId)[0];
   if (!h) throw new Error("Hizmet bulunamadı.");
   if (!g.aliciUnvan || !/^\d{10,11}$/.test(String(g.aliciVkn || ""))) throw new Error("Alıcı unvanı ve 10/11 haneli VKN/TCKN gerekli.");
+  const bugun = new Date(), yerel = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, "0")}-${String(bugun.getDate()).padStart(2, "0")}`;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(g.tarih || "")) g.tarih = yerel;
+  if (g.tarih > yerel) throw new Error("Fatura tarihi bugünden ileri olamaz.");
   const x = Object.assign({}, g, { tutar: Number(g.tutar), kdvOrani: Number(g.kdvOrani), tevkifat: Number(g.tevkifat) || 0 });
   x._h = gib.hesapla(x);
   return { x, h };
@@ -126,7 +129,11 @@ async function api(req, res, yol) {
   if (yol === "/api/sms") return cevap(res, 200, await istemci(m).smsGonder());
   if (yol === "/api/imzala") {
     if (!g.uuid || !/^[A-Za-z0-9]{4,12}$/.test(String(g.kod || "").trim())) return cevap(res, 400, { hata: "SMS kodunu yazın." });
-    return cevap(res, 200, await istemci(m).imzala(g.uuid, String(g.kod).trim(), g.oid));
+    return cevap(res, 200, await istemci(m).imzala(g.uuid, String(g.kod).trim(), g.oid, g.tarih));
+  }
+  if (yol === "/api/gorunum") {
+    if (!/^[0-9a-f-]{36}$/i.test(String(g.uuid || ""))) return cevap(res, 400, { hata: "Fatura seçilmedi." });
+    return cevap(res, 200, { html: await istemci(m).faturaHtml(g.uuid, g.onay) });
   }
   cevap(res, 404, { hata: "Bulunamadı." });
 }

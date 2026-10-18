@@ -67,6 +67,7 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
       <button class="btn ikincil" type="button" id="aliciKaydet">Alıcıyı kaydet</button>
     </div>
     <div><label>Hizmet</label><div class="chips" id="hChips"></div></div>
+    <div><label for="tarih">Fatura tarihi</label><input id="tarih" type="date"></div>
     <div class="satir">
       <div><label for="tutar">Tutar (₺)</label><input id="tutar" inputmode="decimal" placeholder="5.000,00" autocomplete="off"></div>
       <div><label>Tutar türü</label><div class="chips"><button class="chip" type="button" data-dahil="0" aria-pressed="true">KDV hariç</button><button class="chip" type="button" data-dahil="1" aria-pressed="false">KDV dahil</button></div></div>
@@ -84,6 +85,7 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
     <button class="btn" type="button" id="taslak" disabled>1. Taslak oluştur</button>
     <div id="adim2" hidden class="alt">
       <p class="not">Taslak GİB’de oluştu. Portalda “Taslak Faturalar”da kontrol edebilirsiniz. Onaylanınca fatura kesilir ve geri alınamaz.</p>
+      <button class="btn ikincil" type="button" id="onizleBtn">Taslağı görüntüle</button>
       <button class="btn ikincil" type="button" id="sms">2. SMS kodu gönder</button>
       <div id="adim3" hidden class="alt">
         <div><label for="kodGir">SMS kodu</label><input id="kodGir" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false"></div>
@@ -91,6 +93,13 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
       </div>
     </div>
     <div class="durum" id="durum" role="status"></div>
+  </div>
+
+  <div class="card" id="gorunum" hidden>
+    <h2>Fatura görünümü</h2>
+    <iframe id="cerceve" sandbox="allow-same-origin allow-modals" title="Fatura" style="width:100%;height:520px;border:1px solid var(--line);border-radius:6px;background:#fff"></iframe>
+    <div class="satir"><button class="btn" type="button" id="yazdir">Yazdır / PDF olarak kaydet</button><button class="btn ikincil" type="button" id="gorunumKapat">Kapat</button></div>
+    <p class="not">Yazdırma ekranında hedef olarak “PDF olarak kaydet”i seçin.</p>
   </div>
 
   <details class="card" id="ayar"><summary>Ayarlar</summary><div id="ayarIc" style="display:flex;flex-direction:column;gap:10px"></div></details>
@@ -145,7 +154,8 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
   /* ---------- çizim ---------- */
   var mk = function(){ return V.mukellefler.filter(function(x){ return x.id === mSec; })[0] || null; };
   var hz = function(){ return V.hizmetler.filter(function(x){ return x.id === F.hizmet; })[0] || null; };
-  function hepsi(){ cizM(); cizAlici(); cizH(); formDoldur(); onizle(); cizAyar(); }
+  function bugunStr(){ var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function hepsi(){ if (!$("tarih").value) $("tarih").value = bugunStr(); $("tarih").max = bugunStr(); cizM(); cizAlici(); cizH(); formDoldur(); onizle(); cizAyar(); }
   function cizM(){
     $("mChips").innerHTML = V.mukellefler.map(function(m){ return '<button class="chip" type="button" data-m="' + m.id + '" aria-pressed="' + (m.id === mSec) + '">' + esc(m.ad || "(adsız)") + '</button>'; }).join("");
     $("mYok").hidden = V.mukellefler.length > 0;
@@ -171,7 +181,7 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
   }
   function girdi(){
     var a = aliciBilgi(), x = hz();
-    return { mukellefId: mSec, hizmetId: x && x.id, aliciUnvan: a.ad, aliciVkn: a.vkn, aliciAdres: a.adres, tutar: sayi($("tutar").value), kdvDahil: F.dahil, kdvOrani: sayi($("kdv").value), tevkifat: parseInt($("tev").value, 10) || 0, tevkifatKodu: $("kod").value };
+    return { mukellefId: mSec, hizmetId: x && x.id, aliciUnvan: a.ad, aliciVkn: a.vkn, aliciAdres: a.adres, tutar: sayi($("tutar").value), kdvDahil: F.dahil, tarih: $("tarih").value, kdvOrani: sayi($("kdv").value), tevkifat: parseInt($("tev").value, 10) || 0, tevkifatKodu: $("kod").value };
   }
   var onizTimer;
   function onizle(){
@@ -224,7 +234,7 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
     var g = girdi();
     if (!confirm("GİB’de taslak oluşturulsun mu?\n\n" + g.aliciUnvan + " (" + g.aliciVkn + ")\nTutar: " + $("tutar").value + (g.kdvDahil ? " (KDV dahil)" : " (KDV hariç)"))) return;
     yurut($("taslak"), function(){ durum("Taslak oluşturuluyor…"); return api("/api/taslak", "POST", g); }, function(r){
-      son.uuid = r.uuid; son.hesap = r.hesap; $("adim2").hidden = false; durum(r.mesaj || "Taslak oluşturuldu.", "ok");
+      son.uuid = r.uuid; son.hesap = r.hesap; son.tarih = g.tarih; $("adim2").hidden = false; durum(r.mesaj || "Taslak oluşturuldu.", "ok");
     });
   });
   $("sms").addEventListener("click", function(){
@@ -235,18 +245,28 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
   $("imzala").addEventListener("click", function(){
     if (son.imzali) return;
     if (!confirm("Fatura ONAYLANIP KESİLECEK. Bu işlem geri alınamaz. Devam edilsin mi?")) return;
-    yurut($("imzala"), function(){ return api("/api/imzala", "POST", { mukellefId: mSec, uuid: son.uuid, oid: son.oid, kod: $("kodGir").value.trim() }); }, function(r){
-      son.imzali = true; durum((r.mesaj || "Fatura onaylandı.") + "\nYeni fatura için formu temizleyin.", "ok"); $("adim2").hidden = true;
-      $("tutar").value = ""; $("mesaj").value = ""; F.alici = ""; cizAlici(); $("ozet").innerHTML = ""; kontrolBtn();
+    yurut($("imzala"), function(){ return api("/api/imzala", "POST", { mukellefId: mSec, uuid: son.uuid, oid: son.oid, kod: $("kodGir").value.trim(), tarih: son.tarih }); }, function(r){
+      son.imzali = true; durum((r.mesaj || "Fatura onaylandı.") + "\nFatura aşağıda görüntülenir; PDF olarak kaydedebilirsiniz.", "ok"); $("adim2").hidden = true; goster(son.uuid, "Onaylandı");
+      $("tutar").value = ""; $("mesaj").value = ""; $("tarih").value = bugunStr(); F.alici = ""; cizAlici(); $("ozet").innerHTML = ""; kontrolBtn();
     });
   });
+
+  /* ---------- fatura görünümü / PDF ---------- */
+  function goster(uuid, onay){
+    api("/api/gorunum", "POST", { mukellefId: mSec, uuid: uuid, onay: onay }).then(function(r){
+      $("cerceve").srcdoc = r.html; $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" });
+    }, function(er){ if (!oturumDustu(er)) durum("Görüntülenemedi: " + er.message, "hata"); });
+  }
+  $("onizleBtn").addEventListener("click", function(){ if (son.uuid) goster(son.uuid, "Onaylanmadı"); });
+  $("yazdir").addEventListener("click", function(){ var c = $("cerceve").contentWindow; c.focus(); c.print(); });
+  $("gorunumKapat").addEventListener("click", function(){ $("gorunum").hidden = true; $("cerceve").srcdoc = ""; });
 
   /* ---------- olaylar ---------- */
   $("mChips").addEventListener("click", function(e){ var t = e.target.closest("button"); if (!t) return; mSec = t.getAttribute("data-m"); F.alici = ""; cizM(); cizAlici(); onizle(); });
   $("hChips").addEventListener("click", function(e){ var t = e.target.closest("button"); if (!t) return; F.hizmet = t.getAttribute("data-h"); cizH(); formDoldur(); onizle(); });
   document.querySelectorAll("[data-dahil]").forEach(function(b){ b.addEventListener("click", function(){ F.dahil = b.getAttribute("data-dahil") === "1"; formDoldur(); onizle(); }); });
   $("alici").addEventListener("change", function(){ F.alici = this.value; $("yeniAlici").hidden = F.alici !== "__yeni"; onizle(); });
-  ["tutar", "kdv", "tev", "kod", "yAd", "yVkn"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
+  ["tutar", "tarih", "kdv", "tev", "kod", "yAd", "yVkn"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
   $("oku").addEventListener("click", mesajOku);
   $("aliciKaydet").addEventListener("click", function(){
     var m = mk(), a = aliciBilgi(); if (!m) return durum("Önce mükellef ekleyin.", "hata");

@@ -24,7 +24,8 @@ const tl = (k) => (k / 100).toFixed(2); // "1234.50" — portal noktalı ondalı
 function faturaGovdesi(g, h, uuid) {
   const d = new Date();
   const p = (n) => String(n).padStart(2, "0");
-  const tarih = `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+  const t = /^(\d{4})-(\d{2})-(\d{2})$/.exec(g.tarih || "");
+  const tarih = t ? `${t[3]}/${t[2]}/${t[1]}` : `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
   const saat = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   const sahis = /^\d{11}$/.test(g.aliciVkn);
   const parca = g.aliciUnvan.trim().split(/\s+/);
@@ -78,16 +79,25 @@ class Gib {
     const y = await this.dispatch("EARSIV_PORTAL_SMSSIFRE_GONDER", "RG_SMSONAY", { CEPTEL: tel.data && tel.data.telefon || "", KCEPTEL: false, TIP: "" });
     return { oid: y.data && y.data.oid };
   }
-  async imzala(uuid, kod, oid) {
+  async imzala(uuid, kod, oid, tarih) {
     const bugun = new Date(), p = (n) => String(n).padStart(2, "0");
     const f = (d) => `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
-    const liste = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_TASLAKLAR", { baslangic: f(new Date(bugun - 7 * 864e5)), bitis: f(bugun), hangiTip: "5000/30000", table: [] });
+    const fd = /^\d{4}-\d{2}-\d{2}$/.test(tarih || "") ? new Date(tarih + "T00:00:00") : bugun;
+    const bas = new Date(Math.min(bugun - 7 * 864e5, fd - 864e5)), bit = new Date(Math.max(+bugun, +fd) + 864e5);
+    const liste = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_TASLAKLAR", { baslangic: f(bas), bitis: f(bit), hangiTip: "5000/30000", table: [] });
     const fatura = (liste.data || []).filter((x) => x.ettn === uuid)[0];
     if (!fatura) throw new Error("Taslak GİB'de bulunamadı (son 7 gün).");
     const y = await this.dispatch("EARSIV_PORTAL_SMSSIFRE_DOGRULA", "RG_SMSONAY", { SIFRE: kod, OID: oid, OPR: 1, DATA: [fatura] });
     return { mesaj: y.data };
   }
 }
+
+/* Fatura görünümü (HTML). Taslak için onay="Onaylanmadı", kesilmiş için "Onaylandı". DOĞRULANACAK: komut/alan adları */
+Gib.prototype.faturaHtml = async function (uuid, onay) {
+  const y = await this.dispatch("EARSIV_PORTAL_FATURA_GOSTER", "RG_TASLAKLAR", { ettn: uuid, onayDurumu: onay === "Onaylandı" ? "Onaylandı" : "Onaylanmadı" });
+  if (typeof y.data !== "string" || !y.data) throw new Error("GİB fatura görünümü döndürmedi.");
+  return y.data;
+};
 
 /* ---------- sahte GİB (deneme) ---------- */
 class SahteGib {
@@ -97,7 +107,13 @@ class SahteGib {
   async imzala(uuid, kod) {
     if (!SahteGib.t.has(uuid)) throw new Error("Taslak bulunamadı.");
     if (String(kod).trim() !== "123456") throw new Error("SMS kodu hatalı (sahte GİB için 123456).");
-    SahteGib.t.delete(uuid); return { mesaj: "SAHTE: fatura onaylandı." };
+    SahteGib.o = SahteGib.o || new Map(); SahteGib.o.set(uuid, SahteGib.t.get(uuid)); SahteGib.t.delete(uuid); return { mesaj: "SAHTE: fatura onaylandı." };
+  }
+  async faturaHtml(uuid) {
+    const g = (SahteGib.t && SahteGib.t.get(uuid)) || (SahteGib.o && SahteGib.o.get(uuid));
+    if (!g) throw new Error("Fatura bulunamadı.");
+    const k = g.malhizmetTable[0];
+    return `<html><head><meta charset="utf-8"><title>Fatura ${g.faturaTarihi}</title></head><body style="font-family:sans-serif"><h2>SAHTE e-Arşiv Fatura (${g.faturaTipi})</h2><p>Tarih: ${g.faturaTarihi}<br>Alıcı: ${g.aliciUnvan || g.aliciAdi + " " + g.aliciSoyadi} (${g.vknTckn})</p><table border="1" cellpadding="6"><tr><td>${k.malHizmet}</td><td>${g.matrah}</td></tr><tr><td>KDV</td><td>${g.hesaplanankdv}</td></tr><tr><td><b>Ödenecek</b></td><td><b>${g.odenecekTutar}</b></td></tr></table></body></html>`;
   }
 }
 
