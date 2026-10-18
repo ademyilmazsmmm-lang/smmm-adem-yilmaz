@@ -146,19 +146,13 @@ class Gib {
     const kayitlar = await this.liste();
     const fatura = kayitlar.filter((x) => satirId(x) === uuid)[0] || kayitlar.filter((x) => satirId(x).toLowerCase() === String(uuid).toLowerCase())[0];
     if (!fatura) throw new Error("Taslak GİB listesinde bulunamadı (" + kayitlar.length + " kayıt). Portalda Taslak Faturalar'ı kontrol edin.");
-    /* SMS doğrulama komutunun adı portal sürümüne göre değişebiliyor; "Service Not Found" dönenler atlanır. */
-    const adaylar = ["0lhozfib5410", "EARSIV_PORTAL_SMSSIFRE_DOGRULA"];
-    const denendi = [];
-    for (const cmd of adaylar) {
-      try {
-        const y = await this.dispatch(cmd, "RG_SMSONAY", { SIFRE: kod, OID: oid, OPR: 1, DATA: [fatura] });
-        return { mesaj: y.data, cmd };
-      } catch (e) {
-        if (!/Service Not Found/i.test(e.message)) throw e;
-        denendi.push(cmd);
-      }
-    }
-    throw new Error("GİB onay komutu bulunamadı (denenen: " + denendi.join(", ") + "). Faturayı portalda onaylayın ve DevTools'ta onay isteğinin cmd adını bana gönderin.");
+    if (fatura.onayDurumu && fatura.onayDurumu !== "Onaylanmadı") throw new Error("Bu belge onaylanabilir durumda değil (durum: " + fatura.onayDurumu + ").");
+    /* Portalın kendi onay isteğinden (DevTools): cmd 0lhozfib5410mp, pageName RG_SMSONAY, DATA satırına grid alanları eklenir. */
+    const satir = Object.assign({ faturaOid: "", toplamTutar: "0", saticiVknTckn: "", saticiUnvanAdSoyad: "", talepDurumColumn: "----------", iptalItiraz: "-99", talepDurum: "-99" }, fatura);
+    const y = await this.dispatch("0lhozfib5410mp", "RG_SMSONAY", { SIFRE: kod, OID: oid, OPR: 1, DATA: [satir] });
+    const d = y.data || {};
+    if (String(d.sonuc) !== "1") throw new Error("GİB onayı kabul etmedi: " + (d.msg || JSON.stringify(y).slice(0, 200)));
+    return { mesaj: d.msg || "Fatura onaylandı." };
   }
 }
 
