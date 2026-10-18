@@ -70,28 +70,32 @@ class Gib {
     if (y.error === "1") throw new Error("GİB hatası: " + (y.messages && y.messages[0] && y.messages[0].text || JSON.stringify(y).slice(0, 200)));
     return y;
   }
+  async liste() {
+    const bugun = new Date(), p = (n) => String(n).padStart(2, "0");
+    const f = (d) => `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+    const y = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_TASLAKLAR", { baslangic: f(new Date(bugun - 31 * 864e5)), bitis: f(bugun), hangiTip: "5000/30000", table: [] });
+    return Array.isArray(y.data) ? y.data : [];
+  }
+  /* GİB taslağa kendi ettn'ini verir; yeni çıkan kaydı önce/sonra listesinden buluruz. */
   async taslak(govde) {
+    const once = new Set((await this.liste()).map((x) => String(x.ettn).toLowerCase()));
     const y = await this.dispatch("EARSIV_PORTAL_FATURA_OLUSTUR", "RG_BASITFATURA", govde);
-    return { uuid: govde.faturaUuid, mesaj: y.data };
+    const yeni = (await this.liste()).filter((x) => !once.has(String(x.ettn).toLowerCase()));
+    let k = yeni.length === 1 ? yeni[0] : null;
+    if (!k) { const e = yeni.filter((x) => String(x.aliciVknTckn) === String(govde.vknTckn)); if (e.length === 1) k = e[0]; }
+    if (!k) throw new Error("Taslak GİB'de oluştu ama kimliği belirlenemedi (" + yeni.length + " yeni kayıt). Portalda Taslak Faturalar'ı kontrol edin; faturayı onaylamayın.");
+    return { uuid: k.ettn, mesaj: y.data };
   }
   async smsGonder() {
     const tel = await this.dispatch("EARSIV_PORTAL_TELEFONNO_SORGULA", "RG_BASITTASLAKLAR", {});
     const y = await this.dispatch("EARSIV_PORTAL_SMSSIFRE_GONDER", "RG_SMSONAY", { CEPTEL: tel.data && tel.data.telefon || "", KCEPTEL: false, TIP: "" });
     return { oid: y.data && y.data.oid };
   }
-  async imzala(uuid, kod, oid, tarih) {
-    const bugun = new Date(), p = (n) => String(n).padStart(2, "0");
-    const f = (d) => `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
-    const fd = /^\d{4}-\d{2}-\d{2}$/.test(tarih || "") ? new Date(tarih + "T00:00:00") : bugun;
-    const bas = new Date(Math.min(bugun - 7 * 864e5, fd - 864e5));
-    const liste = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_TASLAKLAR", { baslangic: f(bas), bitis: f(bugun), hangiTip: "5000/30000", table: [] });
-    const kayitlar = Array.isArray(liste.data) ? liste.data : [];
+  async imzala(uuid, kod, oid) {
+    const kayitlar = await this.liste();
     const kucuk = String(uuid).toLowerCase();
-    const fatura = kayitlar.filter((x) => String(x.ettn || x.faturaUuid || "").toLowerCase() === kucuk)[0];
-    if (!fatura) {
-      const ilk = kayitlar[0] ? Object.keys(kayitlar[0]).slice(0, 12).join(",") : "-";
-      throw new Error(`Taslak GİB listesinde bulunamadı (${f(bas)}–${f(bugun)} arası ${kayitlar.length} kayıt; ilk kaydın alanları: ${ilk}).`);
-    }
+    const fatura = kayitlar.filter((x) => String(x.ettn || "").toLowerCase() === kucuk)[0];
+    if (!fatura) throw new Error("Taslak GİB listesinde bulunamadı (" + kayitlar.length + " kayıt). Portalda Taslak Faturalar'ı kontrol edin.");
     const y = await this.dispatch("EARSIV_PORTAL_SMSSIFRE_DOGRULA", "RG_SMSONAY", { SIFRE: kod, OID: oid, OPR: 1, DATA: [fatura] });
     return { mesaj: y.data };
   }
