@@ -21,7 +21,8 @@ function hesapla(g) {
 const tl = (k) => (k / 100).toFixed(2); // "1234.50" — portal noktalı ondalık bekler
 
 /* ---------- portal gövdesi ---------- */
-function faturaGovdesi(g, h, uuid) {
+function faturaGovdesi(g, h, uuid, varyant) {
+  varyant = varyant || 0;
   const d = new Date();
   const p = (n) => String(n).padStart(2, "0");
   const t = /^(\d{4})-(\d{2})-(\d{2})$/.exec(g.tarih || "");
@@ -32,17 +33,17 @@ function faturaGovdesi(g, h, uuid) {
   const soyad = sahis && parca.length > 1 ? parca.pop() : "";
   const tevkifatli = Number(g.tevkifat) > 0;
   return {
-    faturaUuid: uuid, belgeNumarasi: "", faturaTarihi: tarih, saat, paraBirimi: "TRY", dovzTLkur: "0",
+    faturaUuid: uuid, belgeNumarasi: "", hangiTip: "5000/30000", faturaTarihi: tarih, saat, paraBirimi: "TRY", dovzTLkur: "0",
     faturaTipi: tevkifatli ? "TEVKIFAT" : "SATIS", /* DOĞRULANACAK: tevkifat için tip değeri */
     vknTckn: g.aliciVkn, aliciUnvan: sahis ? "" : g.aliciUnvan.trim(), aliciAdi: sahis ? parca.join(" ") : "", aliciSoyadi: sahis ? soyad : "",
     binaAdi: "", binaNo: "", kapiNo: "", kasabaKoy: "", vergiDairesi: "", ulke: "Türkiye", bulvarcaddesokak: g.aliciAdres || "",
     irsaliyeNumarasi: "", mahalleSemtIlce: "", sehir: " ", postaKodu: "", tel: "", fax: "", eposta: "", websitesi: "",
     iadeTable: [], ozelMatrahTutari: "0", ozelMatrahOrani: 0, ozelMatrahVergiTutari: "0", vergiCesidi: " ",
-    malhizmetTable: [{
+    malHizmetTable: [{
       malHizmet: h.ad, miktar: 1, birim: "C62", birimFiyat: tl(g._h.matrah), fiyat: tl(g._h.matrah),
       iskontoArttm: "İskonto", iskontoOrani: 0, iskontoTutari: "0", iskontoNedeni: "",
       malHizmetTutari: tl(g._h.matrah), kdvOrani: Number(g.kdvOrani), vergiOrani: 0, kdvTutari: tl(g._h.kdv), vergininKdvTutari: "0",
-      ...(tevkifatli ? { tevkifatKodu: String(g.tevkifatKodu || "") } : {}) /* kod kalem bazında; oranı portal koddan türetir (mlevent/fatura örneği) */
+      ...(tevkifatli ? Object.assign({ tevkifatKodu: String(g.tevkifatKodu || "") }, varyant >= 1 ? { tevkifatOrani: Number(g.tevkifat) * 10, tevkifatTutari: tl(g._h.tevKdv) } : {}) : {}) /* kod kalem bazında; oranı portal koddan türetir (mlevent/fatura örneği) */
     }],
     tip: "İskonto", matrah: tl(g._h.matrah), malhizmetToplamTutari: tl(g._h.matrah), toplamIskonto: "0",
     hesaplanankdv: tl(g._h.kdv), vergilerToplami: tl(g._h.kdv), vergilerDahilToplamTutar: tl(g._h.toplam),
@@ -78,9 +79,19 @@ class Gib {
   }
   /* GİB taslağa kendi ettn'ini verir; yeni çıkan kaydı önce/sonra listesinden buluruz.
    * Liste oluşturma sonrası gecikmeli güncellenebilir: birkaç kez beklenip yeniden bakılır. */
-  async taslak(govde) {
+  async taslak(govdeVeyaYapici) {
     const once = new Set((await this.liste()).map((x) => String(x.ettn).toLowerCase()));
-    const y = await this.dispatch("EARSIV_PORTAL_FATURA_OLUSTUR", "RG_BASITFATURA", govde);
+    const yapici = typeof govdeVeyaYapici === "function" ? govdeVeyaYapici : () => govdeVeyaYapici;
+    const varyantlar = typeof govdeVeyaYapici === "function" ? [0, 1] : [0];
+    const redler = [];
+    let y, govde;
+    for (const v of varyantlar) {
+      govde = yapici(v);
+      y = await this.dispatch("EARSIV_PORTAL_FATURA_OLUSTUR", "RG_BASITFATURA", govde);
+      if (!(typeof y.data === "string" && /sorun|hata|ge[cç]ersiz|zorunlu|yanl[ıi]ş/i.test(y.data))) { redler.length = 0; break; }
+      redler.push("varyant " + v + ": " + y.data);
+    }
+    if (redler.length) throw new Error("GİB taslağı kabul etmedi (taslak OLUŞMADI) — " + redler.join(" | "));
     let yeni = [], say = 0;
     for (let i = 0; i < 4 && !yeni.length; i++) {
       if (i) await new Promise((r) => setTimeout(r, 1500));
@@ -91,7 +102,7 @@ class Gib {
     }
     let k = yeni.length === 1 ? yeni[0] : null;
     if (!k) { const e = yeni.filter((x) => String(x.aliciVknTckn) === String(govde.vknTckn)); if (e.length === 1) k = e[0]; }
-    if (!k) throw new Error("Taslak GİB'de oluştu ama kimliği belirlenemedi (" + yeni.length + " yeni kayıt; önce " + once.size + ", sonra " + say + " kayıt). GİB yanıtı: " + JSON.stringify(y).slice(0, 300) + " — Portalda Taslak Faturalar'ı kontrol edin; faturayı onaylamayın.");
+    if (!k) throw new Error("GİB taslak yanıtı: " + JSON.stringify(y).slice(0, 300) + " — ama listede yeni kayıt görünmüyor (önce " + once.size + ", sonra " + say + " kayıt). Portalda Taslak Faturalar'ı kontrol edin; faturayı onaylamayın.");
     return { uuid: k.ettn, mesaj: y.data };
   }
   async smsGonder() {
@@ -132,7 +143,7 @@ Gib.prototype.faturaHtml = async function (uuid, onay) {
 /* ---------- sahte GİB (deneme) ---------- */
 class SahteGib {
   constructor(kullanici) { this.k = kullanici; SahteGib.t = SahteGib.t || new Map(); }
-  async taslak(govde) { SahteGib.t.set(govde.faturaUuid, govde); return { uuid: govde.faturaUuid, mesaj: "SAHTE: taslak oluşturuldu (" + govde.faturaTipi + ", ödenecek " + govde.odenecekTutar + ")" }; }
+  async taslak(g) { const govde = typeof g === "function" ? g(0) : g; SahteGib.t.set(govde.faturaUuid, govde); return { uuid: govde.faturaUuid, mesaj: "SAHTE: taslak oluşturuldu (" + govde.faturaTipi + ", ödenecek " + govde.odenecekTutar + ")" }; }
   async smsGonder() { return { oid: "SAHTE-OID" }; }
   async imzala(uuid, kod) {
     if (!SahteGib.t.has(uuid)) throw new Error("Taslak bulunamadı.");
@@ -142,7 +153,7 @@ class SahteGib {
   async faturaHtml(uuid) {
     const g = (SahteGib.t && SahteGib.t.get(uuid)) || (SahteGib.o && SahteGib.o.get(uuid));
     if (!g) throw new Error("Fatura bulunamadı.");
-    const k = g.malhizmetTable[0];
+    const k = g.malHizmetTable[0];
     return `<html><head><meta charset="utf-8"><title>Fatura ${g.faturaTarihi}</title></head><body style="font-family:sans-serif"><h2>SAHTE e-Arşiv Fatura (${g.faturaTipi})</h2><p>Tarih: ${g.faturaTarihi}<br>Alıcı: ${g.aliciUnvan || g.aliciAdi + " " + g.aliciSoyadi} (${g.vknTckn})</p><table border="1" cellpadding="6"><tr><td>${k.malHizmet}</td><td>${g.matrah}</td></tr><tr><td>KDV</td><td>${g.hesaplanankdv}</td></tr><tr><td><b>Ödenecek</b></td><td><b>${g.odenecekTutar}</b></td></tr></table></body></html>`;
   }
 }

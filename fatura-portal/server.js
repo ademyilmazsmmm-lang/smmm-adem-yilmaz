@@ -123,7 +123,7 @@ async function api(req, res, yol) {
   if (!m.kullanici || (!m.gibSifre && !gib.MOCK)) return cevap(res, 400, { hata: "Bu mükellef için GİB kullanıcı kodu/şifresi girilmemiş (Ayarlar)." });
   if (yol === "/api/taslak") {
     const { x, h } = hazirla(g), uuid = crypto.randomUUID();
-    const s = await istemci(m).taslak(gib.faturaGovdesi(x, h, uuid));
+    const s = await istemci(m).taslak((v) => gib.faturaGovdesi(x, h, uuid, v));
     return cevap(res, 200, { uuid: s.uuid, mesaj: s.mesaj, hesap: x._h });
   }
   if (yol === "/api/sms") return cevap(res, 200, await istemci(m).smsGonder());
