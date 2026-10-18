@@ -70,20 +70,28 @@ class Gib {
     if (y.error === "1") throw new Error("GİB hatası: " + (y.messages && y.messages[0] && y.messages[0].text || JSON.stringify(y).slice(0, 200)));
     return y;
   }
-  async liste() {
+  async liste(ileri) {
     const bugun = new Date(), p = (n) => String(n).padStart(2, "0");
     const f = (d) => `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
-    const y = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_TASLAKLAR", { baslangic: f(new Date(bugun - 31 * 864e5)), bitis: f(bugun), hangiTip: "5000/30000", table: [] });
+    const y = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_TASLAKLAR", { baslangic: f(new Date(bugun - 31 * 864e5)), bitis: f(new Date(+bugun + (ileri || 0) * 864e5)), hangiTip: "5000/30000", table: [] });
     return Array.isArray(y.data) ? y.data : [];
   }
-  /* GİB taslağa kendi ettn'ini verir; yeni çıkan kaydı önce/sonra listesinden buluruz. */
+  /* GİB taslağa kendi ettn'ini verir; yeni çıkan kaydı önce/sonra listesinden buluruz.
+   * Liste oluşturma sonrası gecikmeli güncellenebilir: birkaç kez beklenip yeniden bakılır. */
   async taslak(govde) {
     const once = new Set((await this.liste()).map((x) => String(x.ettn).toLowerCase()));
     const y = await this.dispatch("EARSIV_PORTAL_FATURA_OLUSTUR", "RG_BASITFATURA", govde);
-    const yeni = (await this.liste()).filter((x) => !once.has(String(x.ettn).toLowerCase()));
+    let yeni = [], say = 0;
+    for (let i = 0; i < 4 && !yeni.length; i++) {
+      if (i) await new Promise((r) => setTimeout(r, 1500));
+      for (const ileri of [0, 1]) {
+        try { const l = await this.liste(ileri); say = Math.max(say, l.length); yeni = l.filter((x) => !once.has(String(x.ettn).toLowerCase())); } catch (e) { /* ileri tarihli aralık reddedilebilir */ }
+        if (yeni.length) break;
+      }
+    }
     let k = yeni.length === 1 ? yeni[0] : null;
     if (!k) { const e = yeni.filter((x) => String(x.aliciVknTckn) === String(govde.vknTckn)); if (e.length === 1) k = e[0]; }
-    if (!k) throw new Error("Taslak GİB'de oluştu ama kimliği belirlenemedi (" + yeni.length + " yeni kayıt). Portalda Taslak Faturalar'ı kontrol edin; faturayı onaylamayın.");
+    if (!k) throw new Error("Taslak GİB'de oluştu ama kimliği belirlenemedi (" + yeni.length + " yeni kayıt; önce " + once.size + ", sonra " + say + " kayıt). GİB yanıtı: " + JSON.stringify(y).slice(0, 300) + " — Portalda Taslak Faturalar'ı kontrol edin; faturayı onaylamayın.");
     return { uuid: k.ettn, mesaj: y.data };
   }
   async smsGonder() {
