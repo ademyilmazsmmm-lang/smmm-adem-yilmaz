@@ -146,8 +146,19 @@ class Gib {
     const kayitlar = await this.liste();
     const fatura = kayitlar.filter((x) => satirId(x) === uuid)[0] || kayitlar.filter((x) => satirId(x).toLowerCase() === String(uuid).toLowerCase())[0];
     if (!fatura) throw new Error("Taslak GİB listesinde bulunamadı (" + kayitlar.length + " kayıt). Portalda Taslak Faturalar'ı kontrol edin.");
-    const y = await this.dispatch("EARSIV_PORTAL_SMSSIFRE_DOGRULA", "RG_SMSONAY", { SIFRE: kod, OID: oid, OPR: 1, DATA: [fatura] });
-    return { mesaj: y.data };
+    /* SMS doğrulama komutunun adı portal sürümüne göre değişebiliyor; "Service Not Found" dönenler atlanır. */
+    const adaylar = ["0lhozfib5410", "EARSIV_PORTAL_SMSSIFRE_DOGRULA"];
+    const denendi = [];
+    for (const cmd of adaylar) {
+      try {
+        const y = await this.dispatch(cmd, "RG_SMSONAY", { SIFRE: kod, OID: oid, OPR: 1, DATA: [fatura] });
+        return { mesaj: y.data, cmd };
+      } catch (e) {
+        if (!/Service Not Found/i.test(e.message)) throw e;
+        denendi.push(cmd);
+      }
+    }
+    throw new Error("GİB onay komutu bulunamadı (denenen: " + denendi.join(", ") + "). Faturayı portalda onaylayın ve DevTools'ta onay isteğinin cmd adını bana gönderin.");
   }
 }
 
