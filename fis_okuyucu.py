@@ -173,7 +173,7 @@ def gorsel_mime_tipi(gorsel_yolu):
     return "image/jpeg"
 
 
-def gpt4o_ile_fisleri_cikar(gorsel_yolu):
+def gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis=False):
     """
     Bir A4 sayfa görselini gpt-4o Vision modeline gönderir ve sayfa
     üzerindeki TÜM fişleri JSON listesi olarak geri döndürür.
@@ -292,8 +292,14 @@ def gpt4o_ile_fisleri_cikar(gorsel_yolu):
                         {
                             "type": "text",
                             "text": (
-                                "Bu A4 sayfasındaki tüm masraf fişlerini analiz et "
-                                "ve sadece JSON dizisi olarak döndür."
+                                (
+                                    "Bu görselde ORTADAKİ/ana TEK bir fiş var. Kenarlarda "
+                                    "görünen komşu fişlerin parçalarını YOK SAY. Sadece bu "
+                                    "tek fişi, 1 elemanlı JSON dizisi olarak döndür."
+                                    if tek_fis else
+                                    "Bu A4 sayfasındaki tüm masraf fişlerini analiz et "
+                                    "ve sadece JSON dizisi olarak döndür."
+                                )
                             ),
                         },
                         {
@@ -569,15 +575,101 @@ def fisleri_normalle(fis_listesi):
     return fis_listesi
 
 
-def sayfa_fislerini_cikar_dogrulamali(gorsel_yolu, deneme=3):
+def fis_konumlarini_bul(gorsel_yolu):
+    """Sayfada kaç fiş olduğunu ve her birinin konumunu bulur. Konumlar
+    0-1000 arası göreli koordinatlarla [x0, y0, x1, y1] listesi olarak
+    döner (okuma sırasıyla: soldan sağa, yukarıdan aşağı). Başarısızsa []."""
+    base64_veri = gorseli_base64_yap(gorsel_yolu)
+    if base64_veri is None:
+        return []
+    talimat = (
+        "Görselde kaç adet ayrı masraf fişi/fatura var? Her fiş için fişin TAMAMINI "
+        "(en üstteki firma başlığından en alttaki Z NO/EKÜ NO satırına kadar) "
+        "kapsayan sınırlayıcı kutuyu ver. Koordinatlar görselin sol üst köşesine "
+        "göre 0-1000 arası ölçekte olsun (x: soldan sağa, y: yukarıdan aşağı). "
+        "Kutular birbirinin fişini kesmesin. Fişleri okuma sırasıyla (önce üst "
+        "satır soldan sağa, sonra alt satırlar) sırala. SADECE şu biçimde JSON "
+        "dizisi döndür: [{\"x0\":0,\"y0\":0,\"x1\":500,\"y1\":1000}, ...]. "
+        "Hiç fiş yoksa []."
+    )
+    try:
+        yanit = client.chat.completions.create(
+            model=MODEL_ADI,
+            messages=[{"role": "user", "content": [
+                {"type": "text", "text": talimat},
+                {"type": "image_url", "image_url": {
+                    "url": f"data:image/jpeg;base64,{base64_veri}", "detail": "high"}},
+            ]}],
+            max_tokens=2000,
+            temperature=0,
+        )
+        icerik = (yanit.choices[0].message.content or "").strip()
+        icerik = re.sub(r"^```(json)?", "", icerik).strip()
+        icerik = re.sub(r"```$", "", icerik).strip()
+        ham = json.loads(icerik)
+        kutular = []
+        for k in ham if isinstance(ham, list) else []:
+            x0, y0, x1, y1 = (float(k[a]) for a in ("x0", "y0", "x1", "y1"))
+            if x1 - x0 >= 30 and y1 - y0 >= 30:  # çok küçük kutuları ele
+                kutular.append([x0, y0, x1, y1])
+        return kutular
+    except Exception as e:
+        print(f"       UYARI: fiş konumları bulunamadı ({e}); tüm sayfa tek parça okunacak.")
+        return []
+
+
+def fisleri_kirp(gorsel_yolu, kutular, hedef_klasor):
+    """Her kutuyu (kenarlarda pay bırakarak) kırpıp PNG olarak kaydeder,
+    dosya yollarını döndürür."""
+    from PIL import Image, ImageOps
+    yollar = []
+    with Image.open(gorsel_yolu) as img:
+        img = ImageOps.exif_transpose(img).convert("RGB")
+        g, y = img.size
+        for i, (x0, y0, x1, y1) in enumerate(kutular, start=1):
+            pay_x, pay_y = (x1 - x0) * 0.05, (y1 - y0) * 0.03
+            kutu = (
+                int(max(0, x0 - pay_x) / 1000 * g), int(max(0, y0 - pay_y) / 1000 * y),
+                int(min(1000, x1 + pay_x) / 1000 * g), int(min(1000, y1 + pay_y) / 1000 * y),
+            )
+            yol = os.path.join(hedef_klasor, f"fis{i:02d}.png")
+            img.crop(kutu).save(yol, "PNG")
+            yollar.append(yol)
+    return yollar
+
+
+def sayfayi_isle(gorsel_yolu):
+    """Sayfadaki fiş sayısına göre okuma stratejisini seçer: önce fişleri
+    bulur, sonra her birini ayrı kırpıp büyüterek tek tek okur (1 fiş de
+    10 fiş de aynı doğrulukta okunur). Konum bulunamazsa tüm sayfayı okur."""
+    kutular = fis_konumlarini_bul(gorsel_yolu)
+    if not kutular:
+        return sayfa_fislerini_cikar_dogrulamali(gorsel_yolu)
+
+    print(f"       Sayfada {len(kutular)} fiş bulundu, her biri ayrı okunuyor...")
+    kirpma_klasoru = tempfile.mkdtemp(prefix="fis_kirpma_")
+    sonuc = []
+    try:
+        for i, kirpik in enumerate(fisleri_kirp(gorsel_yolu, kutular, kirpma_klasoru), start=1):
+            fisler = sayfa_fislerini_cikar_dogrulamali(kirpik, tek_fis=True)
+            fisler = [f for f in fisler if isinstance(f, dict)][:1]
+            if not fisler:
+                print(f"       UYARI: {i}. fiş okunamadı.")
+            sonuc.extend(fisler)
+    finally:
+        shutil.rmtree(kirpma_klasoru, ignore_errors=True)
+    return sonuc
+
+
+def sayfa_fislerini_cikar_dogrulamali(gorsel_yolu, deneme=3, tek_fis=False):
     """Sayfayı okur; şüpheli alanı olan fiş varsa sayfayı yeniden okuyup
     (en fazla 'deneme' kez) her fiş için en az uyarılı sürümü seçer."""
-    en_iyi = fisleri_normalle(gpt4o_ile_fisleri_cikar(gorsel_yolu))
+    en_iyi = fisleri_normalle(gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis))
     for n in range(2, deneme + 1):
         if not any(fis_uyarilari(f) for f in en_iyi if isinstance(f, dict)):
             break
         print(f"       Şüpheli alan var, sayfa yeniden okunuyor (deneme {n}/{deneme})...")
-        yeni = fisleri_normalle(gpt4o_ile_fisleri_cikar(gorsel_yolu))
+        yeni = fisleri_normalle(gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis))
         if len(yeni) != len(en_iyi):
             continue  # fiş sayısı tutmuyorsa eşleştirme güvenilmez
         for i, (eski_f, yeni_f) in enumerate(zip(en_iyi, yeni)):
@@ -721,7 +813,7 @@ def klasoru_isle(klasor_yolu, cikti_yolu, luca_csv_yolu=None):
 
                 for gorsel_yolu in islenecek_gorseller:
                     print(f"     - Analiz ediliyor: {os.path.basename(gorsel_yolu)}")
-                    fis_listesi = sayfa_fislerini_cikar_dogrulamali(gorsel_yolu)
+                    fis_listesi = sayfayi_isle(gorsel_yolu)
                     print(f"       {len(fis_listesi)} fiş tespit edildi.")
                     for fis in fis_listesi:
                         if isinstance(fis, dict):
