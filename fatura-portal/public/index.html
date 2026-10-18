@@ -234,7 +234,7 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
     var g = girdi();
     if (!confirm("GİB’de taslak oluşturulsun mu?\n\n" + g.aliciUnvan + " (" + g.aliciVkn + ")\nTutar: " + $("tutar").value + (g.kdvDahil ? " (KDV dahil)" : " (KDV hariç)"))) return;
     yurut($("taslak"), function(){ durum("Taslak oluşturuluyor…"); return api("/api/taslak", "POST", g); }, function(r){
-      son.uuid = r.uuid; son.hesap = r.hesap; son.tarih = g.tarih; $("adim2").hidden = false; durum(r.mesaj || "Taslak oluşturuldu.", "ok");
+      son.uuid = r.uuid; son.hesap = r.hesap; son.tarih = g.tarih; son.girdi = g; $("adim2").hidden = false; durum(r.mesaj || "Taslak oluşturuldu.", "ok");
     });
   });
   $("sms").addEventListener("click", function(){
@@ -252,10 +252,22 @@ details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>sum
   });
 
   /* ---------- fatura görünümü / PDF ---------- */
+  function yerelHtml(onay, neden){
+    var g = son.girdi || girdi(), h = son.hesap, m = mk() || {}, x = V.hizmetler.filter(function(q){ return q.id === g.hizmetId; })[0] || {};
+    var t = (g.tarih || "").split("-").reverse().join("/");
+    var tev = g.tevkifat ? "<tr><td>Tevkif edilen KDV (" + g.tevkifat + "/10, kod " + esc(g.tevkifatKodu) + ")</td><td align=right>-" + fmt(h.tevKdv) + "</td></tr>" : "";
+    return '<html><head><meta charset="utf-8"><title>Fatura ' + esc(g.aliciUnvan) + " " + t + '</title><style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;padding:16px}td{padding:6px 10px;border:1px solid #bbb}table{border-collapse:collapse;width:100%;margin:12px 0}.u{background:#fff3cd;border:1px solid #e0c36a;padding:8px;font-size:12px}</style></head><body>' +
+      '<div class="u">' + (onay === "Onaylandı" ? "GİB’in resmi görünümü alınamadı. Bu sayfa girdiğiniz bilgilerden üretilmiş bir kopyadır; resmi belge için GİB portalından indirin." : "Önizleme: girdiğiniz bilgilerden üretilmiştir, GİB’in resmi belgesi değildir.") + (neden ? "<br>Neden: " + esc(neden) : "") + '</div>' +
+      "<h2>e-Arşiv Fatura" + (g.tevkifat ? " (Tevkifat)" : "") + "</h2><p><b>Satıcı:</b> " + esc(m.ad) + " — " + esc(m.vkn) + "<br><b>Alıcı:</b> " + esc(g.aliciUnvan) + " — " + esc(g.aliciVkn) + "<br><b>Tarih:</b> " + t + "</p>" +
+      "<table><tr><td>" + esc(x.ad) + "</td><td align=right>" + fmt(h.matrah) + "</td></tr><tr><td>KDV %" + String(g.kdvOrani).replace(".", ",") + "</td><td align=right>" + fmt(h.kdv) + "</td></tr>" + tev + "<tr><td><b>Ödenecek tutar</b></td><td align=right><b>" + fmt(h.odenecek) + "</b></td></tr></table></body></html>";
+  }
   function goster(uuid, onay){
-    api("/api/gorunum", "POST", { mukellefId: mSec, uuid: uuid, onay: onay }).then(function(r){
-      $("cerceve").srcdoc = r.html; $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" });
-    }, function(er){ if (!oturumDustu(er)) durum("Görüntülenemedi: " + er.message, "hata"); });
+    function ac(html){ $("cerceve").srcdoc = html; $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" }); }
+    api("/api/gorunum", "POST", { mukellefId: mSec, uuid: uuid, onay: onay }).then(function(r){ ac(r.html); }, function(er){
+      if (oturumDustu(er)) return;
+      if (son.hesap) { ac(yerelHtml(onay, er.message)); durum("GİB’in fatura görünümü alınamadı; girdiğiniz bilgilerden üretilen kopya gösteriliyor.", "hata"); }
+      else durum("Görüntülenemedi: " + er.message, "hata");
+    });
   }
   $("onizleBtn").addEventListener("click", function(){ if (son.uuid) goster(son.uuid, "Onaylanmadı"); });
   $("yazdir").addEventListener("click", function(){ var c = $("cerceve").contentWindow; c.focus(); c.print(); });

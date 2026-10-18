@@ -94,9 +94,22 @@ class Gib {
 
 /* Fatura görünümü (HTML). Taslak için onay="Onaylanmadı", kesilmiş için "Onaylandı". DOĞRULANACAK: komut/alan adları */
 Gib.prototype.faturaHtml = async function (uuid, onay) {
-  const y = await this.dispatch("EARSIV_PORTAL_FATURA_GOSTER", "RG_TASLAKLAR", { ettn: uuid, onayDurumu: onay === "Onaylandı" ? "Onaylandı" : "Onaylanmadı" });
-  if (typeof y.data !== "string" || !y.data) throw new Error("GİB fatura görünümü döndürmedi.");
-  return y.data;
+  const od = onay === "Onaylandı" ? "Onaylandı" : "Onaylanmadı";
+  const denemeler = [
+    ["RG_TASLAKLAR", { ettn: uuid, onayDurumu: od }],
+    ["RG_BASITTASLAKLAR", { ettn: uuid, onayDurumu: od }],
+    ["RG_TASLAKLAR", { ettn: uuid, belgeTip: "FATURA", onayDurumu: od }],
+    ["RG_BASITTASLAKLAR", { ettn: uuid, belgeTip: "FATURA", onayDurumu: od }]
+  ];
+  const hatalar = [];
+  for (const [sayfa, jp] of denemeler) {
+    try {
+      const y = await this.dispatch("EARSIV_PORTAL_FATURA_GOSTER", sayfa, jp);
+      if (typeof y.data === "string" && y.data) return y.data;
+      hatalar.push(sayfa + ": boş yanıt");
+    } catch (e) { hatalar.push(sayfa + ": " + e.message); }
+  }
+  throw new Error(hatalar[hatalar.length - 1] + " (" + denemeler.length + " varyant denendi)");
 };
 
 /* ---------- sahte GİB (deneme) ---------- */
