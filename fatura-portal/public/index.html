@@ -45,6 +45,12 @@ label.onay input{width:auto;min-height:0}
 .kalem{border:1px solid var(--line);border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
 .kalem .baslik{display:flex;justify-content:space-between;align-items:center;font-weight:600}
 .kalem .kt{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+details.grup{border:1px solid var(--line);border-radius:6px;padding:10px;background:var(--bg)}
+details.grup>summary{font-weight:700}
+details.kayit>summary{font-weight:600;display:flex;flex-direction:column;gap:0}
+details.kayit>summary small,details.alt2>summary small{font-weight:400;color:var(--muted)}
+details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
+.icerik{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 #giris{max-width:420px;margin:12vh auto 0}
 </style>
 </head>
@@ -577,39 +583,60 @@ label.onay input{width:auto;min-height:0}
   });
 
   /* ---------- ayarlar ---------- */
+  /* Ayarlar: gruplar ve kayıtlar açılır/kapanırdır; açık olanlar yeniden çizimde korunur */
+  var ayarAcik = {};
+  var ac = function(k){ return ayarAcik[k] ? " open" : ""; };
   function cizAyar(){
-    var h = "";
+    var h = '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler (' + V.mukellefler.length + ')</summary><div class="icerik">';
     V.mukellefler.forEach(function(m){
-      h += '<div class="kayit" data-mid="' + m.id + '"><div><label>Mükellef unvanı</label><input data-f="ad" value="' + esc(m.ad) + '"></div>' +
+      h += '<details class="kayit" data-mid="' + m.id + '" data-ak="m:' + m.id + '"' + ac("m:" + m.id) + '><summary><span data-ozet>' + esc(m.ad || "(adsız)") + '</span><small data-ozet2>' + esc(m.vkn) + '</small></summary><div class="icerik">' +
+        '<div><label>Mükellef unvanı</label><input data-f="ad" value="' + esc(m.ad) + '"></div>' +
         '<div><label>VKN / TCKN</label><input data-f="vkn" inputmode="numeric" value="' + esc(m.vkn) + '"></div>' +
         '<div><label>GİB e-Arşiv kullanıcı kodu</label><input data-f="kullanici" autocomplete="off" value="' + esc(m.kullanici) + '"></div>' +
         '<div><label>GİB e-Arşiv şifresi ' + (m.sifreVar ? '(kayıtlı — değiştirmek için yazın)' : '(kayıtlı değil)') + '</label><input data-f="gibSifre" type="password" autocomplete="new-password" value=""></div>';
-      if (m.aliciler.length) h += '<label>Kayıtlı alıcılar</label>';
-      m.aliciler.forEach(function(a){ h += '<div class="satir" data-aid="' + a.id + '"><span>' + esc(a.ad) + '<br><small>' + esc(a.vkn) + '</small></span><button class="btn tehlike" type="button" data-sil-a="' + a.id + '">Sil</button></div>'; });
-      h += '<button class="btn tehlike" type="button" data-sil-m="' + m.id + '">Mükellefi sil</button></div>';
+      if (m.aliciler.length) {
+        h += '<details class="alt2" data-ak="a:' + m.id + '"' + ac("a:" + m.id) + '><summary>Kayıtlı alıcılar (' + m.aliciler.length + ')</summary><div class="icerik">';
+        m.aliciler.forEach(function(a){ h += '<div class="satir" data-aid="' + a.id + '"><span>' + esc(a.ad) + '<br><small>' + esc(a.vkn) + '</small></span><button class="btn tehlike" type="button" data-sil-a="' + a.id + '">Sil</button></div>'; });
+        h += '</div></details>';
+      }
+      h += '<button class="btn tehlike" type="button" data-sil-m="' + m.id + '">Mükellefi sil</button></div></details>';
     });
-    h += '<button class="btn ikincil" type="button" id="mEkle">+ Mükellef ekle</button><h2>Hizmetler</h2>';
+    h += '<button class="btn ikincil" type="button" id="mEkle">+ Mükellef ekle</button></div></details>';
+    h += '<details class="grup" data-ak="g:h"' + ac("g:h") + '><summary>Hizmetler (' + V.hizmetler.length + ')</summary><div class="icerik">';
     V.hizmetler.forEach(function(x){
-      h += '<div class="kayit" data-hid="' + x.id + '"><input data-f="ad" value="' + esc(x.ad) + '" aria-label="Hizmet adı"><div class="satir"><div><label>KDV %</label><input data-f="kdv" inputmode="decimal" value="' + esc(x.kdv) + '"></div><div><label>Tevkifat x/10</label><input data-f="tev" inputmode="numeric" value="' + esc(x.tev) + '"></div></div>' +
+      h += '<details class="kayit" data-hid="' + x.id + '" data-ak="h:' + x.id + '"' + ac("h:" + x.id) + '><summary><span data-ozet>' + esc(x.ad || "(adsız)") + '</span><small data-ozet2>' + hizmetOzet(x) + '</small></summary><div class="icerik">' +
+        '<div><label>Hizmet adı</label><input data-f="ad" value="' + esc(x.ad) + '"></div>' +
+        '<div class="satir"><div><label>KDV %</label><input data-f="kdv" inputmode="decimal" value="' + esc(x.kdv) + '"></div><div><label>Tevkifat x/10</label><input data-f="tev" inputmode="numeric" value="' + esc(x.tev) + '"></div></div>' +
         '<div><label>Tevkifat kodu</label><input data-f="kod" inputmode="numeric" value="' + esc(x.kod) + '"></div><div><label>Mesajda aranacak kelimeler</label><input data-f="anah" value="' + esc(x.anah) + '"></div>' +
-        '<button class="btn tehlike" type="button" data-sil-h="' + x.id + '">Hizmeti sil</button></div>';
+        '<button class="btn tehlike" type="button" data-sil-h="' + x.id + '">Hizmeti sil</button></div></details>';
     });
-    h += '<button class="btn ikincil" type="button" id="hEkle">+ Hizmet ekle</button><button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
+    h += '<button class="btn ikincil" type="button" id="hEkle">+ Hizmet ekle</button></div></details>';
+    h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
     $("ayarIc").innerHTML = h;
   }
+  function hizmetOzet(x){ return "KDV %" + esc(String(x.kdv).replace(".", ",")) + (x.tev > 0 ? " · tevkifat " + esc(x.tev) + "/10" + (x.kod ? " (" + esc(x.kod) + ")" : "") : " · tevkifatsız"); }
+  /* aç/kapa durumunu hatırla (toggle olayı kabarcıklanmaz, yakalama aşamasında dinlenir) */
+  $("ayarIc").addEventListener("toggle", function(e){ var k = e.target.getAttribute && e.target.getAttribute("data-ak"); if (k) ayarAcik[k] = e.target.open; }, true);
   $("ayarIc").addEventListener("input", function(e){
     var f = e.target.getAttribute("data-f"); if (!f) return;
     var mEl = e.target.closest("[data-mid]"), hEl = e.target.closest("[data-hid]"), v = e.target.value;
-    if (mEl) V.mukellefler.filter(function(x){ return x.id === mEl.getAttribute("data-mid"); })[0][f] = v;
-    else if (hEl) { var x = V.hizmetler.filter(function(q){ return q.id === hEl.getAttribute("data-hid"); })[0]; x[f] = f === "kdv" ? sayi(v) : f === "tev" ? Math.min(9, Math.max(0, parseInt(v, 10) || 0)) : v; }
+    if (mEl) {
+      var mm = V.mukellefler.filter(function(x){ return x.id === mEl.getAttribute("data-mid"); })[0]; mm[f] = v;
+      var o1 = mEl.querySelector("summary [data-ozet]"), o2 = mEl.querySelector("summary [data-ozet2]");
+      if (f === "ad" && o1) o1.textContent = v || "(adsız)"; if (f === "vkn" && o2) o2.textContent = v;
+    } else if (hEl) {
+      var x = V.hizmetler.filter(function(q){ return q.id === hEl.getAttribute("data-hid"); })[0]; x[f] = f === "kdv" ? sayi(v) : f === "tev" ? Math.min(9, Math.max(0, parseInt(v, 10) || 0)) : v;
+      var h1 = hEl.querySelector("summary [data-ozet]"), h2 = hEl.querySelector("summary [data-ozet2]");
+      if (f === "ad" && h1) h1.textContent = v || "(adsız)"; if (h2 && (f === "kdv" || f === "tev" || f === "kod")) h2.innerHTML = hizmetOzet(x);
+    }
   });
   $("ayarIc").addEventListener("click", function(e){
     var t = e.target, id, yenile = true;
     if ((id = t.getAttribute("data-sil-m"))) { if (!confirm("Mükellef ve alıcıları silinsin mi?")) return; V.mukellefler = V.mukellefler.filter(function(x){ return x.id !== id; }); if (mSec === id) mSec = V.mukellefler[0] ? V.mukellefler[0].id : null; F.alici = ""; }
     else if ((id = t.getAttribute("data-sil-a"))) { var m = V.mukellefler.filter(function(x){ return x.id === t.closest("[data-mid]").getAttribute("data-mid"); })[0]; m.aliciler = m.aliciler.filter(function(x){ return x.id !== id; }); if (F.alici === id) F.alici = ""; }
     else if ((id = t.getAttribute("data-sil-h"))) { if (V.hizmetler.length < 2) return; V.hizmetler = V.hizmetler.filter(function(x){ return x.id !== id; }); }
-    else if (t.id === "mEkle") { var n = { id: uid(), ad: "Yeni mükellef", vkn: "", kullanici: "", sifreVar: false, aliciler: [] }; V.mukellefler.push(n); if (!mSec) mSec = n.id; }
-    else if (t.id === "hEkle") V.hizmetler.push({ id: uid(), ad: "Yeni hizmet", kdv: 20, tev: 0, kod: "", anah: "" });
+    else if (t.id === "mEkle") { var n = { id: uid(), ad: "Yeni mükellef", vkn: "", kullanici: "", sifreVar: false, aliciler: [] }; V.mukellefler.push(n); if (!mSec) mSec = n.id; ayarAcik["g:m"] = true; ayarAcik["m:" + n.id] = true; }
+    else if (t.id === "hEkle") { var nh = { id: uid(), ad: "Yeni hizmet", kdv: 20, tev: 0, kod: "", anah: "" }; V.hizmetler.push(nh); ayarAcik["g:h"] = true; ayarAcik["h:" + nh.id] = true; }
     else if (t.id === "ayarKaydet") { yenile = false; kaydetV().then(function(){ hepsi(); var d = $("ayarDurum"); d.className = "durum ok"; d.textContent = "Kaydedildi."; }, function(er){ var d = $("ayarDurum"); d.className = "durum hata"; d.textContent = er.message; }); return; }
     else return;
     kaydetV().then(hepsi);
