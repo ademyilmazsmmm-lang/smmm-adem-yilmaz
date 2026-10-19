@@ -262,6 +262,7 @@ http.createServer((req, res) => {
     const m = fs.readFileSync(path.join(__dirname, "public", yol), "utf8").replace('"display": "standalone"', '"display": "browser"');
     res.writeHead(200, Object.assign({ "content-type": STATIK[yol], "cache-control": "no-cache", vary: "User-Agent" }, GUV)); return res.end(m);
   }
+  if (yol === "/manifest.webmanifest") { res.writeHead(200, Object.assign({ "content-type": STATIK[yol], "cache-control": "no-cache", vary: "User-Agent" }, GUV)); return fs.createReadStream(path.join(__dirname, "public", yol)).pipe(res); } // iOS'a giden "browser" sürümüyle karışmasın
   if (STATIK[yol]) { res.writeHead(200, Object.assign({ "content-type": STATIK[yol], "cache-control": yol === "/sw.js" ? "no-cache" : "public, max-age=86400" }, GUV)); return fs.createReadStream(path.join(__dirname, "public", yol)).pipe(res); }
   if (yol === "/" || yol === "/index.html") { let h = fs.readFileSync(SAYFA, "utf8");
     if (ios) h = h.replace(/<meta name="(apple-)?mobile-web-app-capable"[^>]*>\n?/g, "").replace(/<meta name="apple-mobile-web-app-capable"[^>]*>\n?/g, "");
