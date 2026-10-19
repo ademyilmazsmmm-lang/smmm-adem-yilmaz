@@ -67,6 +67,11 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outli
 .bar-ic{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px}
 .marka{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
 .logo{width:36px;height:36px;border-radius:10px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;flex:none}
+.bar .k{white-space:nowrap;flex:none}
+.bar h1{white-space:nowrap;font-size:1.1rem}
+.marka>div:last-child{min-width:0}
+#tema .tl{display:inline}
+@media (max-width:559px){#tema .tl{display:none}#tema{min-width:40px;padding:6px 10px}}
 .marka small{display:block;font-size:.7rem;color:var(--muted);font-weight:400;line-height:1.2}
 .sayfa{max-width:1120px;margin:0 auto;padding:16px 16px calc(var(--nav-h) + var(--safe) + 90px)}
 .izgara{display:grid;gap:14px;align-items:start}
@@ -215,7 +220,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       <button type="button" data-sekme="gecmis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Geçmiş</button>
       <button type="button" data-sekme="ayar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ayarlar</button>
     </nav>
-    <button class="k" id="tema" type="button" aria-label="Tema: otomatik" title="Tema">◐ Otomatik</button>
+    <button class="k" id="tema" type="button" aria-label="Tema: otomatik" title="Tema">◐ <span class="tl">Otomatik</span></button>
     <button class="k" id="cikis" type="button">Çıkış</button>
   </div></header>
 
@@ -993,10 +998,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   yukleGoster();
 
   /* ---------- tema: otomatik / açık / koyu ---------- */
-  var TEMAAD = { "": "◐ Otomatik", acik: "☀ Açık", koyu: "☾ Koyu" };
+  var TEMAAD = { "": ["◐", "Otomatik"], acik: ["☀", "Açık"], koyu: ["☾", "Koyu"] };
   function temaYaz(t){
     var r = document.documentElement; if (t) r.setAttribute("data-tema", t); else r.removeAttribute("data-tema");
-    $("tema").textContent = TEMAAD[t]; $("tema").setAttribute("aria-label", "Tema: " + TEMAAD[t].slice(2));
+    $("tema").innerHTML = TEMAAD[t][0] + ' <span class="tl">' + TEMAAD[t][1] + "</span>"; $("tema").setAttribute("aria-label", "Tema: " + TEMAAD[t][1]);
     var m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = t === "koyu" || (!t && window.matchMedia("(prefers-color-scheme:dark)").matches) ? "#0b1210" : "#0d6b55";
   }
   var tema = ""; try { tema = localStorage.getItem("tema") || ""; } catch (e) {}
