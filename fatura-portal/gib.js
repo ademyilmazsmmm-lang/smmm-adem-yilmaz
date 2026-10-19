@@ -8,15 +8,25 @@ const crypto = require("crypto");
 const MOCK = process.env.GIB_MOCK === "1";
 const BASE = process.env.GIB_TEST === "1" ? "https://earsivportaltest.efatura.gov.tr" : "https://earsivportal.efatura.gov.tr";
 
-/* ---------- hesap (kuruş cinsinden tam sayı) ---------- */
-function hesapla(g) {
-  const tutar = Number(g.tutar), oran = Number(g.kdvOrani), tev = Number(g.tevkifat) || 0;
-  if (!(tutar > 0) || !(oran >= 0) || tev < 0 || tev > 10) throw new Error("Tutar, KDV oranı veya tevkifat geçersiz.");
-  let m, kdv;
-  if (g.kdvDahil) { const tot = Math.round(tutar * 100); m = Math.round(tot / (1 + oran / 100)); kdv = tot - m; }
-  else { m = Math.round(tutar * 100); kdv = Math.round(m * oran / 100); }
-  const tevKdv = Math.round(kdv * tev / 10);
-  return { matrah: m, kdv, tevKdv, kalanKdv: kdv - tevKdv, toplam: m + kdv, odenecek: m + kdv - tevKdv };
+/* ---------- hesap (kuruş cinsinden tam sayı) ----------
+ * m: { tip: "SATIS"|"TEVKIFAT", kdvDahil, kalemler: [{ miktar, fiyat, kdv, tev }] }
+ * Her satır ayrı hesaplanır (portalda da KDV satır bazında yuvarlanır), toplamlar satırların toplamıdır. */
+function hesaplaFatura(m) {
+  const tev = m.tip === "TEVKIFAT";
+  const satirlar = (m.kalemler || []).map((k) => {
+    const miktar = Number(k.miktar), fiyat = Number(k.fiyat), oran = Number(k.kdv), t = tev ? Number(k.tev) || 0 : 0;
+    if (!(miktar > 0) || !(fiyat >= 0) || !(oran >= 0) || t < 0 || t > 10) throw new Error("Miktar, birim fiyat, KDV oranı veya tevkifat geçersiz.");
+    const brut = Math.round(miktar * fiyat * 100);
+    let matrah, kdv;
+    if (m.kdvDahil) { matrah = Math.round(brut / (1 + oran / 100)); kdv = brut - matrah; }
+    else { matrah = brut; kdv = Math.round(matrah * oran / 100); }
+    const tevKdv = Math.round(kdv * t / 10);
+    return { matrah, kdv, tev: t, tevKdv, toplam: matrah + kdv, oran, miktar };
+  });
+  if (!satirlar.length) throw new Error("En az bir mal/hizmet satırı gerekli.");
+  const top = satirlar.reduce((a, x) => ({ matrah: a.matrah + x.matrah, kdv: a.kdv + x.kdv, tevKdv: a.tevKdv + x.tevKdv, toplam: a.toplam + x.toplam }), { matrah: 0, kdv: 0, tevKdv: 0, toplam: 0 });
+  top.odenecek = top.toplam - top.tevKdv;
+  return { satirlar, toplam: top };
 }
 /* ---------- tutar yazıyla / fatura notu ---------- */
 const BIRLER = ["", "bir", "iki", "üç", "dört", "beş", "altı", "yedi", "sekiz", "dokuz"];
@@ -39,21 +49,33 @@ function sayiYazi(n) {
   return k.join(" ");
 }
 const basHarf = (m) => m.split(" ").map((w) => w.charAt(0).toLocaleUpperCase("tr-TR") + w.slice(1)).join(" ");
+const PARA = { TRY: ["Türk Lirası", "Kuruş"], USD: ["Amerikan Doları", "Sent"], EUR: ["Avro", "Sent"], GBP: ["İngiliz Sterlini", "Peni"] };
+/* "Lirası" -> "Lirasıdır", "Kuruş" -> "Kuruştur", "Avro" -> "Avrodur" (ünlü uyumu + sert ünsüz) */
+function bildirmeEki(k) {
+  const sesli = "aıoueiöü";
+  let v = "";
+  for (let i = k.length - 1; i >= 0; i--) { const c = k[i].toLocaleLowerCase("tr-TR"); if (sesli.includes(c)) { v = c; break; } }
+  const h = "aı".includes(v) ? "ı" : "ei".includes(v) ? "i" : "ou".includes(v) ? "u" : "ü";
+  const son = k[k.length - 1].toLocaleLowerCase("tr-TR");
+  return k + (!sesli.includes(son) && "çfhkpsşt".includes(son) ? "t" : "d") + h + "r";
+}
 /* 120.50 TL -> "Yalnız Yüz Yirmi Türk Lirası Elli Kuruştur." */
-function tutarYazi(kurus) {
-  const lira = Math.floor(kurus / 100), kr = kurus % 100;
-  let m = "Yalnız ";
-  if (lira) m += basHarf(sayiYazi(lira)) + " Türk Lirası";
-  if (kr) m += (lira ? " " : "") + basHarf(sayiYazi(kr)) + " Kuruş";
-  return m + (kr ? "tur." : lira ? "dır." : "Sıfır Türk Lirasıdır.");
+function tutarYazi(kurus, para) {
+  const [ana, kurusAd] = PARA[para] || PARA.TRY;
+  const lira = Math.floor(kurus / 100), kr = kurus % 100, parca = [];
+  if (lira) parca.push(basHarf(sayiYazi(lira)) + " " + ana);
+  if (kr) parca.push(basHarf(sayiYazi(kr)) + " " + kurusAd);
+  if (!parca.length) parca.push("Sıfır " + ana);
+  const t = parca.join(" "), i = t.lastIndexOf(" ");
+  return "Yalnız " + t.slice(0, i + 1) + bildirmeEki(t.slice(i + 1)) + ".";
 }
 const temizMetin = (v, n) => String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
 /* Fatura notu: ek not + ödenecek tutar yazıyla + "İrsaliye yerine geçer." */
-function notUret(g, h) {
+function notUret(m, toplam) {
   const k = [];
-  if (g.notEk) k.push(temizMetin(g.notEk, 300));
-  k.push(tutarYazi(h.odenecek)); // her faturada ödenecek tutar yazıyla yer alır
-  if (g.notIrsaliye !== false && g.notIrsaliye !== "false") k.push("İrsaliye yerine geçer.");
+  if (m.notEk) k.push(temizMetin(m.notEk, 300));
+  k.push(tutarYazi(toplam.odenecek, m.para || "TRY")); // her faturada ödenecek tutar yazıyla yer alır
+  if (m.notIrsaliye !== false && m.notIrsaliye !== "false") k.push("İrsaliye yerine geçer.");
   return k.join(" ");
 }
 
@@ -74,38 +96,44 @@ function kimlikEsle(d) {
  * Alan adları ve biçim, portalın kendi "Kaydet" isteğinden (EARSIV_PORTAL_FATURA_OLUSTUR) birebir alınmıştır.
  * faturaUuid boş gönderilir; ettn'i GİB verir. Tevkifat: vergiCesidi V9015, kalemde V9015Orani/V9015Tutari. */
 const nf = (k) => String(Math.round(k) / 100); // portal "100", "20.1", "0.05" biçimini kullanır
-function faturaGovdesi(g, h, uuid, varyant) {
+/* m: hazirla() çıktısı { alici:{unvan,vkn,adres,vd}, tip, para, kur, tarih, kalemler:[{ad,aciklama,miktar,birim,fiyat,kdv,tev,kod}], not, _h } */
+function faturaGovdesi(m, uuid, varyant) {
   varyant = varyant || 0;
   const d = new Date();
   const p = (n) => String(n).padStart(2, "0");
-  const t = /^(\d{4})-(\d{2})-(\d{2})$/.exec(g.tarih || "");
+  const t = /^(\d{4})-(\d{2})-(\d{2})$/.exec(m.tarih || "");
   const tarih = t ? `${t[3]}/${t[2]}/${t[1]}` : `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
   const saat = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-  const sahis = /^\d{11}$/.test(g.aliciVkn);
-  const parca = g.aliciUnvan.trim().split(/\s+/);
+  const a = m.alici, sahis = /^\d{11}$/.test(a.vkn);
+  const parca = a.unvan.trim().split(/\s+/);
   const soyad = sahis && parca.length > 1 ? parca.pop() : "";
-  const tev = Number(g.tevkifat) > 0;
-  const x = g._h;
-  const kalem = {
-    malHizmet: temizMetin(h.ad + (g.aciklama ? " - " + g.aciklama : ""), 250), miktar: 1, birim: "C62", birimFiyat: nf(x.matrah), fiyat: nf(x.matrah),
-    iskontoOrani: 0, iskontoTutari: "0", iskontoNedeni: "", malHizmetTutari: nf(x.matrah),
-    kdvOrani: String(Number(g.kdvOrani)), vergiOrani: 0, kdvTutari: nf(x.kdv), vergininKdvTutari: "0", ozelMatrahTutari: "0"
-  };
-  if (tev) Object.assign(kalem, { hesaplananotvtevkifatakatkisi: "0", tevkifatKodu: String(g.tevkifatKodu || ""), V9015Orani: Number(g.tevkifat) * 10, V9015Tutari: nf(x.tevKdv) });
+  const tev = m.tip === "TEVKIFAT";
+  const x = m._h;
+  const kalemler = m.kalemler.map((k, i) => {
+    const s = x.satirlar[i];
+    const bf = String(Number((s.matrah / 100 / Number(k.miktar)).toFixed(4))); // KDV hariç birim fiyat
+    const satir = {
+      malHizmet: temizMetin(k.ad + (k.aciklama ? " - " + k.aciklama : ""), 250), miktar: Number(k.miktar), birim: k.birim || "C62", birimFiyat: bf, fiyat: bf,
+      iskontoOrani: 0, iskontoTutari: "0", iskontoNedeni: "", malHizmetTutari: nf(s.matrah),
+      kdvOrani: String(Number(k.kdv)), vergiOrani: 0, kdvTutari: nf(s.kdv), vergininKdvTutari: "0", ozelMatrahTutari: "0"
+    };
+    if (tev) Object.assign(satir, { hesaplananotvtevkifatakatkisi: "0", tevkifatKodu: String(k.kod || ""), V9015Orani: Number(k.tev) * 10, V9015Tutari: nf(s.tevKdv) });
+    return satir;
+  });
   const govde = {
-    faturaUuid: varyant === 1 ? uuid : "", belgeNumarasi: "", faturaTarihi: tarih, saat, paraBirimi: "TRY", dovzTLkur: "0",
+    faturaUuid: varyant === 1 ? uuid : "", belgeNumarasi: "", faturaTarihi: tarih, saat, paraBirimi: m.para || "TRY", dovzTLkur: (m.para || "TRY") === "TRY" ? "0" : String(Number(m.kur)),
     faturaTipi: tev ? "TEVKIFAT" : "SATIS", hangiTip: "5000/30000",
-    vknTckn: g.aliciVkn, aliciUnvan: sahis ? "" : g.aliciUnvan.trim(), aliciAdi: sahis ? parca.join(" ") : "", aliciSoyadi: sahis ? soyad : "",
-    binaAdi: "", binaNo: "", kapiNo: "", kasabaKoy: "", vergiDairesi: temizMetin(g.vergiDairesi, 100), ulke: "Türkiye", bulvarcaddesokak: temizMetin(g.aliciAdres, 250),
+    vknTckn: a.vkn, aliciUnvan: sahis ? "" : a.unvan.trim(), aliciAdi: sahis ? parca.join(" ") : "", aliciSoyadi: sahis ? soyad : "",
+    binaAdi: "", binaNo: "", kapiNo: "", kasabaKoy: "", vergiDairesi: temizMetin(a.vd, 100), ulke: "Türkiye", bulvarcaddesokak: temizMetin(a.adres, 250),
     irsaliyeNumarasi: "", irsaliyeTarihi: "", mahalleSemtIlce: "", sehir: " ", postaKodu: "", tel: "", fax: "", eposta: "", websitesi: "",
     iadeTable: [], ihracKayitliKarsiBelgeNo: "", yatirimTesvikNumarasi: "", yatirimTesvikTarihi: tarih, kdvOranKontrolMuafiyeti: false,
     vergiCesidi: tev ? "V9015" : " ",
-    malHizmetTable: [kalem],
-    tip: "İskonto", matrah: nf(x.matrah), malhizmetToplamTutari: nf(x.matrah), toplamIskonto: "0", hesaplanankdv: nf(x.kdv),
-    vergilerToplami: nf(x.kdv), vergilerDahilToplamTutar: nf(x.toplam), odenecekTutar: nf(x.odenecek), not: g.not || "",
+    malHizmetTable: kalemler,
+    tip: "İskonto", matrah: nf(x.toplam.matrah), malhizmetToplamTutari: nf(x.toplam.matrah), toplamIskonto: "0", hesaplanankdv: nf(x.toplam.kdv),
+    vergilerToplami: nf(x.toplam.kdv), vergilerDahilToplamTutar: nf(x.toplam.toplam), odenecekTutar: nf(x.toplam.odenecek), not: m.not || "",
     siparisNumarasi: "", siparisTarihi: "", fisNo: "", fisTarihi: "", fisSaati: " ", fisTipi: " ", zRaporNo: "", okcSeriNo: ""
   };
-  if (tev) Object.assign(govde, { tevkifataTabiIslemTutar: nf(x.matrah), tevkifataTabiIslemKdv: nf(x.kdv), hesaplananV9015: nf(x.tevKdv) });
+  if (tev) Object.assign(govde, { tevkifataTabiIslemTutar: nf(x.toplam.matrah), tevkifataTabiIslemKdv: nf(x.toplam.kdv), hesaplananV9015: nf(x.toplam.tevKdv) });
   return govde;
 }
 
@@ -352,4 +380,4 @@ class SahteGib {
   }
 }
 
-module.exports = { zipDosyalari, htmlCikar, hesapla, notUret, tutarYazi, temizMetin, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };
+module.exports = { zipDosyalari, htmlCikar, hesaplaFatura, notUret, tutarYazi, temizMetin, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };

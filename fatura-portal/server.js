@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-21";
+const SURUM = "2026-10-19-22";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -104,22 +104,38 @@ function istemci(m) {
   return gibler.get(m.id);
 }
 const bekleyen = new Map(); // taslak kimliği -> geçmiş kaydı taslağı (onaylanınca kalıcı olur)
-function hazirla(g) {
-  const h = veri.hizmetler.filter((x) => x.id === g.hizmetId)[0];
-  if (!h) throw new Error("Hizmet bulunamadı.");
-  if (!g.aliciUnvan || !/^\d{10,11}$/.test(String(g.aliciVkn || ""))) throw new Error("Alıcı unvanı ve 10/11 haneli VKN/TCKN gerekli.");
-  const bugun = new Date(), yerel = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, "0")}-${String(bugun.getDate()).padStart(2, "0")}`;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(g.tarih || "")) g.tarih = yerel;
-  if (g.tarih > yerel) throw new Error("Fatura tarihi bugünden ileri olamaz.");
+const TIPLER = ["SATIS", "TEVKIFAT"]; // İade, İstisna, Özel Matrah: portal isteği alınınca eklenecek
+const PARALAR = ["TRY", "USD", "EUR", "GBP"];
+/* İstemciden gelen fatura modelini temizler/doğrular. tam=false ise (yalnız hesap önizlemesi) alıcı/tarih zorunlu değildir. */
+function modelTemiz(g, tam) {
   const T = gib.temizMetin;
-  const x = Object.assign({}, g, {
-    tutar: Number(g.tutar), kdvOrani: Number(g.kdvOrani), tevkifat: Number(g.tevkifat) || 0,
-    aliciUnvan: T(g.aliciUnvan, 150), aliciAdres: T(g.aliciAdres, 250), vergiDairesi: T(g.vergiDairesi, 100), aciklama: T(g.aciklama, 150)
+  const bugun = new Date(), yerel = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, "0")}-${String(bugun.getDate()).padStart(2, "0")}`;
+  const tip = String(g.tip || "SATIS");
+  if (!TIPLER.includes(tip)) throw new Error("Bu fatura tipi henüz desteklenmiyor (şimdilik Satış ve Tevkifat).");
+  const para = String(g.para || "TRY");
+  if (!PARALAR.includes(para)) throw new Error("Para birimi desteklenmiyor.");
+  const kur = Number(g.kur);
+  if (para !== "TRY" && !(kur > 0)) throw new Error("Döviz kuru (TL karşılığı) girin.");
+  const alici = { unvan: T(g.aliciUnvan, 150), vkn: String(g.aliciVkn || ""), adres: T(g.aliciAdres, 250), vd: T(g.vergiDairesi, 100) };
+  let tarih = String(g.tarih || "");
+  if (tam) {
+    if (!alici.unvan || !/^\d{10,11}$/.test(alici.vkn)) throw new Error("Alıcı unvanı ve 10/11 haneli VKN/TCKN gerekli.");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(tarih)) tarih = yerel;
+    if (tarih > yerel) throw new Error("Fatura tarihi bugünden ileri olamaz.");
+  }
+  if (!Array.isArray(g.kalemler) || !g.kalemler.length || g.kalemler.length > 30) throw new Error("1–30 mal/hizmet satırı gerekli.");
+  const kalemler = g.kalemler.map((k, i) => {
+    const q = { ad: T(k.ad, 150), aciklama: T(k.aciklama, 150), miktar: Number(k.miktar), birim: /^[A-Z0-9]{2,4}$/.test(String(k.birim)) ? String(k.birim) : "C62",
+      fiyat: Number(k.fiyat), kdv: Number(k.kdv), tev: tip === "TEVKIFAT" ? Math.min(9, Math.max(0, parseInt(k.tev, 10) || 0)) : 0, kod: T(k.kod, 10) };
+    if (tam && !q.ad) throw new Error((i + 1) + ". satırda mal/hizmet adı boş.");
+    if (tip === "TEVKIFAT" && tam && (!(q.tev > 0) || !q.kod)) throw new Error((i + 1) + ". satırda tevkifat oranı ve kodu gerekli (tevkifatsız kesmek için fatura tipini “Satış” yapın).");
+    return q;
   });
-  if (x.tevkifat > 0 && !String(x.tevkifatKodu || "").trim()) throw new Error("Tevkifat kodu gerekli (tevkifatsız kesmek için tevkifatı “Yok” yapın).");
-  x._h = gib.hesapla(x);
-  x.not = gib.notUret(x, x._h);
-  return { x, h };
+  const m = { alici, tip, para, kur: para === "TRY" ? 0 : kur, kdvDahil: !!g.kdvDahil, tarih, kalemler, notEk: T(g.notEk, 300), notIrsaliye: g.notIrsaliye !== false };
+  m._h = gib.hesaplaFatura(m);
+  if (tam && !(m._h.toplam.odenecek > 0)) throw new Error("Ödenecek tutar sıfırdan büyük olmalı.");
+  m.not = gib.notUret(m, m._h.toplam);
+  return m;
 }
 
 async function api(req, res, yol) {
@@ -144,22 +160,27 @@ async function api(req, res, yol) {
   if (yol === "/api/yedek" && req.method === "GET") { res.writeHead(200, Object.assign({ "content-type": "application/json", "content-disposition": "attachment; filename=fatura-yedek-" + new Date().toISOString().slice(0, 10) + ".json", "cache-control": "no-store" }, GUV)); return res.end(fs.readFileSync(KASA)); }
   if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz());
   if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req); if (!Array.isArray(g.mukellefler) || !Array.isArray(g.hizmetler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(g); return cevap(res, 200, temiz()); }
-  if (yol === "/api/hesapla" && req.method === "POST") { const g = await oku(req), h = gib.hesapla(g); return cevap(res, 200, Object.assign({}, h, { not: gib.notUret(g, h) })); }
+  if (yol === "/api/hesapla" && req.method === "POST") {
+    const g = await oku(req), m = modelTemiz(g, false);
+    return cevap(res, 200, { satirlar: m._h.satirlar, toplam: m._h.toplam, not: m.not });
+  }
   if (yol === "/api/gecmis" && req.method === "GET") return cevap(res, 200, { kayitlar: veri.gecmis.slice().reverse().slice(0, 200) });
 
   const g = await oku(req), m = mukellefBul(g.mukellefId);
   if (!m) return cevap(res, 400, { hata: "Mükellef seçin." });
   if (!m.kullanici || (!m.gibSifre && !gib.MOCK)) return cevap(res, 400, { hata: "Bu mükellef için GİB kullanıcı kodu/şifresi girilmemiş (Ayarlar)." });
   if (yol === "/api/taslak") {
-    const { x, h } = hazirla(g), uuid = crypto.randomUUID();
-    const r = await istemci(m).taslak((v) => gib.faturaGovdesi(x, h, uuid, v));
+    const x = modelTemiz(g, true), uuid = crypto.randomUUID();
+    const r = await istemci(m).taslak((v) => gib.faturaGovdesi(x, uuid, v));
+    const satirlar = x.kalemler.map((k, i) => Object.assign({}, k, { matrah: x._h.satirlar[i].matrah, kdvTutar: x._h.satirlar[i].kdv, tevKdv: x._h.satirlar[i].tevKdv }));
     const kayit = {
       id: r.uuid, zaman: new Date().toISOString(), mukellefId: m.id, mukellef: { ad: m.ad, vkn: m.vkn }, belgeNo: (r.satir && r.satir.belgeNumarasi) || "",
-      aliciUnvan: x.aliciUnvan, aliciVkn: x.aliciVkn, aliciAdres: x.aliciAdres, vergiDairesi: x.vergiDairesi, hizmetAd: h.ad, aciklama: x.aciklama,
-      tarih: x.tarih, kdvOrani: x.kdvOrani, tevkifat: x.tevkifat, tevkifatKodu: x.tevkifat ? String(x.tevkifatKodu) : "", hesap: x._h, not: x.not, durum: "Taslak"
+      aliciUnvan: x.alici.unvan, aliciVkn: x.alici.vkn, aliciAdres: x.alici.adres, vergiDairesi: x.alici.vd, tarih: x.tarih, tip: x.tip, para: x.para, kur: x.kur,
+      kalemler: satirlar, hesap: x._h.toplam, not: x.not, durum: "Taslak",
+      form: { alici: x.alici, tip: x.tip, para: x.para, kur: x.kur, dahil: x.kdvDahil, kalemler: x.kalemler, notEk: x.notEk, notIrsaliye: x.notIrsaliye } // "Tekrarla" için
     };
     bekleyen.set(r.uuid, kayit);
-    return cevap(res, 200, { uuid: r.uuid, mesaj: r.mesaj, hesap: x._h, kayit });
+    return cevap(res, 200, { uuid: r.uuid, mesaj: r.mesaj, hesap: x._h.toplam, kayit });
   }
   if (yol === "/api/sms") return cevap(res, 200, await istemci(m).smsGonder());
   if (yol === "/api/imzala") {
