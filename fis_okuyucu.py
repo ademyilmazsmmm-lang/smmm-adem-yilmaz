@@ -119,7 +119,7 @@ def api_anahtari_hatasi_ise_dur(hata):
         print("  sonra PowerShell'de şunu çalıştırıp scripti yeniden başlatın:")
         print('    $env:OPENAI_API_KEY="sk-..."')
         print("  (Anahtarı kimseyle/sohbette paylaşmayın.)")
-        raise SystemExit(1)
+        raise SystemExit(2)
 
 
 def klasordeki_dosyalari_bul(klasor_yolu):

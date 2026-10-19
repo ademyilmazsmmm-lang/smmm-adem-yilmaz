@@ -23,6 +23,14 @@ if %errorlevel%==0 (
     py fis_okuyucu.py
 )
 
+if errorlevel 2 (
+    setx OPENAI_API_KEY "" >nul
+    echo.
+    echo Kayitli anahtar gecersizdi ve silindi.
+    echo Bu pencereyi kapatip dosyaya tekrar cift tiklayin, YENI anahtari yapistirin.
+    pause
+    exit /b 2
+)
 if errorlevel 1 (
     echo.
     echo Bir hata olustu. Yukaridaki mesaji kontrol edin.
