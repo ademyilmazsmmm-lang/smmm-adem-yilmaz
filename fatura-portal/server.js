@@ -13,7 +13,7 @@ const HOST = process.env.HOST || "127.0.0.1";
 const DIR = path.join(__dirname, "data");
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-14";
+const SURUM = "2026-10-19-15";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı

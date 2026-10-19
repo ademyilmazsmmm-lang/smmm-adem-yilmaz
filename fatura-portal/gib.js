@@ -180,8 +180,18 @@ class Gib {
   }
   /* Belirli tarih aralığındaki belgeler (taslak/onaylı/silinmiş). Tarihler dd/mm/yyyy. */
   async listeAralik(bas, bit) {
-    const y = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_BASITTASLAKLAR", { baslangic: bas, bitis: bit, hangiTip: "5000/30000" });
-    return (Array.isArray(y.data) ? y.data : []).filter((x) => x && (x.ettn || x.belgeNumarasi)).map((x) => ({ belgeNo: x.belgeNumarasi || "", alici: x.aliciUnvanAdSoyad || "", vkn: x.aliciVknTckn || "", tarih: x.belgeTarihi || "", durum: x.onayDurumu || "", ettn: x.ettn || "" }));
+    const al = (t) => { const [g, a, y] = t.split("/").map(Number); return new Date(y, a - 1, g); };
+    const p = (n) => String(n).padStart(2, "0"), f = (d) => `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+    let bs = al(bas); const son = al(bit);
+    if (!(bs <= son)) throw new Error("Başlangıç tarihi bitişten sonra olamaz.");
+    if (son - bs > 120 * 864e5) bs = new Date(son - 120 * 864e5);
+    const hepsi = new Map();
+    for (let c = bs; c <= son; c = new Date(+c + 7 * 864e5)) { // portal 7 günlük aralıkla çalışıyor
+      const kb = new Date(Math.min(+c + 6 * 864e5, +son));
+      const y = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_BASITTASLAKLAR", { baslangic: f(c), bitis: f(kb), hangiTip: "5000/30000" });
+      for (const x of Array.isArray(y.data) ? y.data : []) if (x && (x.ettn || x.belgeNumarasi)) hepsi.set(x.ettn || x.belgeNumarasi, { belgeNo: x.belgeNumarasi || "", alici: x.aliciUnvanAdSoyad || "", vkn: x.aliciVknTckn || "", tarih: x.belgeTarihi || "", durum: x.onayDurumu || "", ettn: x.ettn || "" });
+    }
+    return [...hepsi.values()].sort((a, b) => String(b.belgeNo).localeCompare(String(a.belgeNo)));
   }
   /* GİB taslağa kendi ettn'ini verir; yeni çıkan kaydı önce/sonra listesinden buluruz.
    * Liste oluşturma sonrası gecikmeli güncellenebilir: birkaç kez beklenip yeniden bakılır. */
@@ -209,14 +219,21 @@ class Gib {
     if (!k) throw new Error("GİB taslak yanıtı: " + JSON.stringify(y).slice(0, 300) + " — ama listede yeni kayıt görünmüyor (önce " + once.size + ", sonra " + say + " kayıt). Liste denemeleri: " + this.tani + ". İlk kayıt alanları: " + (this.ornek || "-") + ". Portalda Taslak Faturalar'ı kontrol edin; faturayı onaylamayın.");
     return { uuid: satirId(k), mesaj: y.data, satir: k };
   }
-  /* Portalın "İndir" isteği (GET). DOĞRULANACAK: adres biçimi. */
+  /* Portalın "İndir" isteği. DOĞRULANACAK: adres biçimi; GET ve POST sırayla denenir, hata ayrıntısı döner. */
   async indir(uuid, onay) {
     if (!this.token) await this.giris();
-    const q = new URLSearchParams({ token: this.token, ettn: uuid, belgeTip: "FATURA", onayDurumu: onay === "Onaylandı" ? "Onaylandı" : "Onaylanmadı", cmd: "EARSIV_PORTAL_BELGE_INDIR" });
-    const r = await fetch(BASE + "/earsiv-services/download?" + q.toString());
-    const b = Buffer.from(await r.arrayBuffer());
-    if (!r.ok) throw new Error("indirme " + r.status);
-    return htmlCikar(b);
+    const alanlar = { token: this.token, ettn: uuid, belgeTip: "FATURA", onayDurumu: onay === "Onaylandı" ? "Onaylandı" : "Onaylanmadı", cmd: "EARSIV_PORTAL_BELGE_INDIR" };
+    const yol = BASE + "/earsiv-services/download";
+    const hatalar = [];
+    for (const yontem of ["GET", "POST"]) {
+      try {
+        const q = new URLSearchParams(alanlar).toString();
+        const r = yontem === "GET" ? await fetch(yol + "?" + q) : await fetch(yol, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }, body: q });
+        const b = Buffer.from(await r.arrayBuffer());
+        try { return htmlCikar(b); } catch (e) { hatalar.push(yontem + " " + r.status + ": " + e.message + " [" + b.slice(0, 120).toString("utf8").replace(/\s+/g, " ") + "]"); }
+      } catch (e) { hatalar.push(yontem + ": " + e.message); }
+    }
+    throw new Error(hatalar.join(" ; "));
   }
   async smsGonder() {
     const tel = await this.dispatch("EARSIV_PORTAL_TELEFONNO_SORGULA", "RG_BASITTASLAKLAR", {});

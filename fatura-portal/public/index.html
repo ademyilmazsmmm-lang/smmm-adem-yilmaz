@@ -304,7 +304,7 @@ label.onay input{width:auto;min-height:0}
     function ac(html){ $("cerceve").srcdoc = html; $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" }); }
     api("/api/gorunum", "POST", { mukellefId: mSec, uuid: uuid, onay: onay }).then(function(r){ ac(r.html); }, function(er){
       if (oturumDustu(er)) return;
-      if (son.kayit) { ac(yerelHtml(son.kayit, onay, er.message)); durum("GİB’in fatura görünümü alınamadı; girdiğiniz bilgilerden üretilen kopya gösteriliyor.", "hata"); }
+      if (son.kayit) { ac(yerelHtml(son.kayit, onay, er.message)); durum("GİB’in resmi görünümü alınamadı (" + er.message + "); program kaydından üretilen kopya gösteriliyor.", "hata"); }
       else durum("Görüntülenemedi: " + er.message, "hata");
     });
   }
@@ -343,9 +343,19 @@ label.onay input{width:auto;min-height:0}
       }).join("") : '<p class="not">Bu programdan kesilen fatura henüz yok.</p>';
     }, function(er){ oturumDustu(er); });
   }
+  function resmiGoster(mukellefId, uuid, kayit){
+    var d = $("gDurum"); d.className = "durum"; d.textContent = "Fatura getiriliyor…";
+    function ac(html){ $("cerceve").srcdoc = html; $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" }); }
+    api("/api/gorunum", "POST", { mukellefId: mukellefId, uuid: uuid, onay: "Onaylandı" }).then(function(r){ d.className = "durum ok"; d.textContent = "GİB’in resmi görünümü açıldı."; ac(r.html); }, function(er){
+      if (oturumDustu(er)) return;
+      d.className = "durum hata";
+      if (kayit) { d.textContent = "GİB’in resmi görünümü alınamadı (" + er.message + "); program kaydından üretilen kopya gösteriliyor."; ac(yerelHtml(kayit, "Onaylandı", er.message)); }
+      else d.textContent = "GİB görünümü alınamadı: " + er.message;
+    });
+  }
   $("gecmisListe").addEventListener("click", function(e){
     var i = e.target.getAttribute("data-gk"); if (i == null) return;
-    var k = gecmis[+i]; $("cerceve").srcdoc = yerelHtml(k, "Onaylandı"); $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" });
+    var k = gecmis[+i]; resmiGoster(k.mukellefId, k.id, k);
   });
   $("gListele").addEventListener("click", function(){
     var d = $("gDurum"); d.className = "durum"; d.textContent = "Listeleniyor…";
@@ -360,9 +370,7 @@ label.onay input{width:auto;min-height:0}
   $("gibListe").addEventListener("click", function(e){
     var id = e.target.getAttribute("data-ge"); if (!id) return;
     var yerel = gecmis.filter(function(k){ return k.id === id; })[0];
-    if (yerel) { $("cerceve").srcdoc = yerelHtml(yerel, "Onaylandı"); $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" }); return; }
-    api("/api/gorunum", "POST", { mukellefId: mSec, uuid: id, onay: "Onaylandı" }).then(function(r){ $("cerceve").srcdoc = r.html; $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" }); },
-      function(er){ var d = $("gDurum"); d.className = "durum hata"; d.textContent = "GİB görünümü alınamadı: " + er.message; });
+    resmiGoster(yerel ? yerel.mukellefId : mSec, id, yerel || null);
   });
 
   /* ---------- ayarlar ---------- */
