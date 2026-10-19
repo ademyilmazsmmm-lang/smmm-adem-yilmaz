@@ -364,6 +364,17 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 (function(){
   "use strict";
   var $ = function(i){ return document.getElementById(i); };
+  /* iPhone ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) yazmayı bozuyor: o kipte şifre kutuları noktalarla maskelenmiş düz metin kutusu olur.
+   * Dokunmatik cihazlarda kutuya kodla odaklanmak da klavyeyi bozduğu için yalnız fare/klavyeli cihazlarda odaklanılır. */
+  var ANA_EKRAN = navigator.standalone === true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
+  var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security", "disc"));
+  function sifreAlaniHazirla(el){
+    if (!el || !ANA_EKRAN || !MASKE || el.getAttribute("data-maske")) return;
+    el.type = "text"; el.style.webkitTextSecurity = "disc"; el.setAttribute("data-maske", "1");
+    el.setAttribute("autocomplete", "off"); el.setAttribute("autocapitalize", "off"); el.setAttribute("autocorrect", "off"); el.setAttribute("spellcheck", "false");
+  }
+  function sifreleriHazirla(kok){ [].forEach.call((kok || document).querySelectorAll('input[type="password"]'), sifreAlaniHazirla); }
+  function odakla(el){ if (!(navigator.maxTouchPoints > 0)) el.focus(); }
   var V = null, mSec = null, F = { dahil: false, alici: "", tip: "SATIS", para: "TRY", kur: "", kalemler: [] }, son = { uuid: null, oid: null, hesap: null, imzali: false };
   function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
   function uid(){ return Math.random().toString(36).slice(2, 10); }
@@ -388,6 +399,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       $("s2").hidden = kurulu; $("girisBtn").textContent = kurulu ? "Aç" : "Şifreyi belirle";
     });
   }
+  sifreleriHazirla($("girisForm"));
   $("girisForm").addEventListener("submit", function(e){
     e.preventDefault(); var d = $("girisDurum"); d.className = "durum"; d.textContent = "";
     var s = $("s1").value;
@@ -599,7 +611,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   });
   $("sms").addEventListener("click", function(){
     yurut($("sms"), function(){ durum("SMS isteniyor…"); return api("/api/sms", "POST", { mukellefId: son.mid || mSec }); }, function(r){
-      son.oid = r.oid; $("adim3").hidden = false; durum("SMS kodu mükellefin kayıtlı telefonuna gönderildi.", "ok"); $("kodGir").focus();
+      son.oid = r.oid; $("adim3").hidden = false; durum("SMS kodu mükellefin kayıtlı telefonuna gönderildi.", "ok"); odakla($("kodGir"));
     });
   });
   $("imzala").addEventListener("click", function(){
@@ -682,7 +694,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var y = yeniKalem(null), son1 = F.kalemler[F.kalemler.length - 1];
     if (son1) { y.tev = son1.tev; y.kod = son1.kod; y.kdv = son1.kdv; }
     F.kalemler.push(y); cizKalemler(); onizle();
-    var d = $("kalemler").lastElementChild; if (d) { d.scrollIntoView({ behavior: "smooth", block: "center" }); var i = d.querySelector('[data-kf="ad"]'); if (i) i.focus(); }
+    var d = $("kalemler").lastElementChild; if (d) { d.scrollIntoView({ behavior: "smooth", block: "center" }); var i = d.querySelector('[data-kf="ad"]'); if (i) odakla(i); }
   });
   $("kalemler").addEventListener("input", function(e){
     var f = e.target.getAttribute("data-kf"), d = e.target.closest("[data-k]"); if (!f || !d || f === "preset") return;
@@ -879,7 +891,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     });
     h += '<button class="btn ikincil" type="button" id="hEkle">+ Hizmet ekle</button></div></details>';
     h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
-    $("ayarIc").innerHTML = h;
+    $("ayarIc").innerHTML = h; sifreleriHazirla($("ayarIc"));
   }
   /* ---------- marka: logo, imza ---------- */
   var MARKA0 = { ad: "Adem Yılmaz", unvan: "Serbest Muhasebeci Mali Müşavir", web: "smmmyilmaz.com", logo: "", imza: "" };
