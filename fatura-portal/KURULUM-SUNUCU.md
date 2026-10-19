@@ -22,9 +22,12 @@ Uygulama şifresi sunucu kipinde **en az 12 karakter** olmalıdır; 4–5 kelime
 6. Güncelleme: `git pull && docker compose up -d --build`.
 
 ## Yol B — Render.com  (aylık ~7 $, sunucu bilgisi gerekmez)
-1. Depoyu GitHub'da `main` dalında tutun (bu klasör birleştirilmiş olmalı).
-2. render.com'da **New → Blueprint** ile depoyu seçin; `render.yaml` kendiliğinden okunur.
-3. Kurulum bitince Render'ın verdiği adres (ya da kendi alan adınız) HTTPS ile açılır.
+1. render.com'da hesap açın, **GitHub ile giriş** yapın ve depoyu (`smmm-adem-yilmaz`) Render'a bağlayın.
+2. **New → Blueprint** deyip bu depoyu seçin. Depo kökündeki `render.yaml` kendiliğinden okunur; plan **Starter** ve 1 GB kalıcı disk tanımlıdır.
+3. Kurulum bitince Render'ın verdiği `https://fatura-portali.onrender.com` benzeri adres açılır.
+4. İsterseniz kendi alan adınızı bağlayın: Render'da servis → **Settings → Custom Domains → Add** (`fatura.smmmyilmaz.com`),
+   alan adı sağlayıcınızda Render'ın gösterdiği **CNAME** kaydını ekleyin. HTTPS kendiliğinden gelir.
+5. İlk açılışta uygulama şifresini (en az 12 karakter) belirleyip mükellefleri ekleyin.
 
 ## Güvenlik
 - Giriş denemeleri IP başına sınırlıdır (5 yanlıştan sonra bekleme artar).
