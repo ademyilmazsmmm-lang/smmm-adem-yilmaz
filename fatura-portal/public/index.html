@@ -655,7 +655,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function goster(uuid, onay){
     function ac(html){ $("cerceve").srcdoc = html; $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" }); }
-    api("/api/gorunum", "POST", { mukellefId: son.mid || mSec, uuid: uuid, onay: onay }).then(function(r){ ac(r.html); }, function(er){
+    api("/api/gorunum", "POST", { mukellefId: son.mid || mSec, uuid: uuid, onay: onay }).then(function(r){ ac(gibHtml(r.html)); }, function(er){
       if (oturumDustu(er)) return;
       if (son.kayit) { ac(yerelHtml(son.kayit, onay, er.message)); durum("GİB’in resmi görünümü alınamadı (" + er.message + "); program kaydından üretilen kopya gösteriliyor.", "hata"); }
       else durum("Görüntülenemedi: " + er.message, "hata");
@@ -781,7 +781,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var d = $("tDurum");
     if (g != null) {
       x = taslaklar[+g]; d.className = "durum"; d.textContent = "Taslak getiriliyor…";
-      api("/api/gorunum", "POST", { mukellefId: mSec, uuid: x.ettn, onay: "Onaylanmadı" }).then(function(r){ d.className = "durum ok"; d.textContent = "Taslak görünümü açıldı."; $("cerceve").srcdoc = r.html; $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" }); },
+      api("/api/gorunum", "POST", { mukellefId: mSec, uuid: x.ettn, onay: "Onaylanmadı" }).then(function(r){ d.className = "durum ok"; d.textContent = "Taslak görünümü açıldı."; $("cerceve").srcdoc = gibHtml(r.html); $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" }); },
         function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = "Görünüm alınamadı: " + er.message; } });
     } else if (o != null) {
       x = taslaklar[+o]; var t = (x.tarih || "").split("-").reverse().join("-");
@@ -801,14 +801,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       $("ozGecmis").textContent = gecmis.length ? gecmis.length + " kayıt" : "";
       $("gecmisListe").innerHTML = gecmis.length ? gecmis.slice(0, 30).map(function(k, i){
         var t = (k.tarih || "").split("-").reverse().join("/");
-        return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " ₺", esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad), '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button> <button class="k" type="button" data-gi="' + i + '">İade</button>' + (k.durum === "İptal" ? ' <small>İPTAL EDİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>');
+        return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " ₺", esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad), '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button> <button class="k" type="button" data-gi="' + i + '">İade</button>' + (/^İptal/.test(k.durum || "") ? ' <small>İPTAL TALEBİ GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>');
       }).join("") : '<p class="not">Bu programdan kesilen fatura henüz yok.</p>';
     }, function(er){ oturumDustu(er); });
   }
   function resmiGoster(mukellefId, uuid, kayit){
     var d = $("gDurum"); d.className = "durum"; d.textContent = "Fatura getiriliyor…";
     function ac(html){ $("cerceve").srcdoc = html; $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" }); }
-    api("/api/gorunum", "POST", { mukellefId: mukellefId, uuid: uuid, onay: "Onaylandı" }).then(function(r){ d.className = "durum ok"; d.textContent = "GİB’in resmi görünümü açıldı."; ac(r.html); }, function(er){
+    api("/api/gorunum", "POST", { mukellefId: mukellefId, uuid: uuid, onay: "Onaylandı" }).then(function(r){ d.className = "durum ok"; d.textContent = "GİB’in resmi görünümü açıldı."; ac(gibHtml(r.html)); }, function(er){
       if (oturumDustu(er)) return;
       d.className = "durum hata";
       if (kayit) { d.textContent = "GİB’in resmi görünümü alınamadı (" + er.message + "); program kaydından üretilen kopya gösteriliyor."; ac(yerelHtml(kayit, "Onaylandı", er.message)); }
@@ -854,7 +854,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       d.textContent = r.belgeler.length + " belge bulundu.";
       $("gibListe").innerHTML = r.belgeler.map(function(b, i){
         var yerel = gecmis.some(function(k){ return k.id === b.ettn; });
-        return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" ? ' <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button>' : "") + '</span>' : "");
+        return satirHtml(esc(b.alici) + " — " + esc(b.durum) + (b.talep !== "" ? " (iptal talebi var)" : ""), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" && b.talep === "" ? ' <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button>' : "") + '</span>' : "");
       }).join("");
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
   });
@@ -959,6 +959,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       function(er){ d.className = "durum hata"; d.textContent = er.message; });
   });
   $("ayarIc").addEventListener("click", function(e){ var ad = e.target.getAttribute("data-resim-sil"); if (!ad) return; markaVer()[ad] = ""; markaUygula(); cizAyar(); });
+  /* GİB’in resmî fatura görünümüne logo ve imza eklenir; yalnız ekranda/yazdırmada görünen kopya değişir, GİB’deki belge aynı kalır. */
+  function gibHtml(html){
+    var m = marka(); if (!html || (!m.logo && !m.imza)) return html;
+    var ust = m.logo ? '<div style="margin:8px 0"><img alt="" src="' + m.logo + '" style="max-height:80px;max-width:240px"></div>' : "";
+    var alt = m.imza ? '<div style="margin:28px 0 8px"><img alt="" src="' + m.imza + '" style="max-height:90px;max-width:260px"></div>' : "";
+    html = /<body[^>]*>/i.test(html) ? html.replace(/<body[^>]*>/i, function(b){ return b + ust; }) : ust + html;
+    return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, function(){ return alt + "</body>"; }) : html + alt;
+  }
   function hizmetOzet(x){ return (x.istisna ? "İstisna " + esc(x.istisna) + " · " : "") + "KDV %" + esc(String(x.kdv).replace(".", ",")) + (x.tev > 0 ? " · tevkifat " + esc(x.tev) + "/10" + (x.kod ? " (" + esc(x.kod) + ")" : "") : " · tevkifatsız"); }
   /* aç/kapa durumunu hatırla (toggle olayı kabarcıklanmaz, yakalama aşamasında dinlenir) */
   $("ayarIc").addEventListener("toggle", function(e){ var k = e.target.getAttribute && e.target.getAttribute("data-ak"); if (k) ayarAcik[k] = e.target.open; }, true);

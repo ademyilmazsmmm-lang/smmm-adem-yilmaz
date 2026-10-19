@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-43";
+const SURUM = "2026-10-19-44";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -143,7 +143,7 @@ const PARALAR = ["TRY", "USD", "EUR", "GBP"];
 /* İstemciden gelen fatura modelini temizler/doğrular. tam=false ise (yalnız hesap önizlemesi) alıcı/tarih zorunlu değildir. */
 function modelTemiz(g, tam) {
   const T = gib.temizMetin;
-  const bugun = new Date(), yerel = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, "0")}-${String(bugun.getDate()).padStart(2, "0")}`;
+  const yerel = gib.trBugunStr(); // Türkiye tarihi (sunucu UTC olabilir)
   const tip = String(g.tip || "SATIS");
   if (!TIPLER.includes(tip)) throw new Error("Bu fatura tipi henüz desteklenmiyor (Satış, Tevkifat, İade, İstisna).");
   const para = String(g.para || "TRY");
@@ -243,7 +243,7 @@ async function api(req, res, yol) {
     const r = await (sil ? istemci(m).sil(g.uuid, neden, g.tarih) : istemci(m).iptal(g.uuid, neden, g.tarih));
     bekleyen.delete(g.uuid);
     const k = veri.gecmis.filter((x) => x.id === g.uuid)[0];
-    if (k && !sil) { k.durum = "İptal"; k.iptalNedeni = neden; k.iptalZamani = new Date().toISOString(); yaz(); }
+    if (k && !sil) { k.durum = "İptal talebi"; k.iptalNedeni = neden; k.iptalZamani = new Date().toISOString(); yaz(); }
     return cevap(res, 200, { mesaj: r.mesaj, durum: r.durum });
   }
   if (yol === "/api/sorgu") {

@@ -97,13 +97,20 @@ function kimlikEsle(d) {
  * faturaUuid boş gönderilir; ettn'i GİB verir. Tevkifat: vergiCesidi V9015, kalemde V9015Orani/V9015Tutari. */
 const nf = (k) => String(Math.round(k) / 100); // portal "100", "20.1", "0.05" biçimini kullanır
 /* m: hazirla() çıktısı { alici:{unvan,vkn,adres,vd}, tip, para, kur, tarih, kalemler:[{ad,aciklama,miktar,birim,fiyat,kdv,tev,kod}], not, _h } */
+/* Sunucu saat dilimi (Render'da UTC) ne olursa olsun Türkiye saati: gece 00-03 arası tarih bir gün geri kalmasın. */
+function trParcalar() {
+  const o = {};
+  for (const x of new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(new Date())) o[x.type] = x.value;
+  return o;
+}
+const trBugunStr = () => { const o = trParcalar(); return `${o.year}-${o.month}-${o.day}`; };
+const trBugunTarih = () => { const o = trParcalar(); return new Date(+o.year, +o.month - 1, +o.day); }; // yerel gece yarısı; yerel alıcılar Türkiye tarihini verir
 function faturaGovdesi(m, uuid, varyant) {
   varyant = varyant || 0;
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, "0");
+  const o = trParcalar();
   const t = /^(\d{4})-(\d{2})-(\d{2})$/.exec(m.tarih || "");
-  const tarih = t ? `${t[3]}/${t[2]}/${t[1]}` : `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
-  const saat = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  const tarih = t ? `${t[3]}/${t[2]}/${t[1]}` : `${o.day}/${o.month}/${o.year}`;
+  const saat = `${o.hour}:${o.minute}:${o.second}`;
   const a = m.alici, sahis = /^\d{11}$/.test(a.vkn);
   const parca = a.unvan.trim().split(/\s+/);
   const soyad = sahis && parca.length > 1 ? parca.pop() : "";
@@ -220,7 +227,7 @@ class Gib {
   /* Belge listesi: portalın birden çok listeleme komutu var; hepsini deneyip birleştiririz.
    * Hangisinin kaç kayıt döndürdüğü this.tani içinde tutulur (hata mesajında gösterilir). */
   async liste() {
-    const bugun = new Date(), p = (n) => String(n).padStart(2, "0");
+    const bugun = trBugunTarih(), p = (n) => String(n).padStart(2, "0");
     const f = (d) => `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
     const gun = (n) => f(new Date(bugun - n * 864e5));
     /* Portalın kendi isteği (DevTools'tan alındı): cmd EARSIV_PORTAL_TASLAKLARI_GETIR, pageName RG_BASITTASLAKLAR,
@@ -275,7 +282,7 @@ class Gib {
   }
   async listeAralik(bas, bit) {
     const ham = await this.listeHam(bas, bit);
-    return ham.map((x) => ({ belgeNo: x.belgeNumarasi || "", alici: x.aliciUnvanAdSoyad || "", vkn: x.aliciVknTckn || "", tarih: x.belgeTarihi || "", durum: x.onayDurumu || "", ettn: x.ettn || "" })).sort((a, b) => String(b.belgeNo).localeCompare(String(a.belgeNo)));
+    return ham.map((x) => ({ belgeNo: x.belgeNumarasi || "", alici: x.aliciUnvanAdSoyad || "", vkn: x.aliciVknTckn || "", tarih: x.belgeTarihi || "", durum: x.onayDurumu || "", ettn: x.ettn || "", talep: x.talepDurum === undefined || x.talepDurum === null ? "" : String(x.talepDurum) })).sort((a, b) => String(b.belgeNo).localeCompare(String(a.belgeNo)));
   }
   /* GİB taslağa kendi ettn'ini verir; yeni çıkan kaydı önce/sonra listesinden buluruz.
    * Liste oluşturma sonrası gecikmeli güncellenebilir: birkaç kez beklenip yeniden bakılır. */
@@ -332,7 +339,7 @@ class Gib {
     if (!fatura && /^\d{4}-\d{2}-\d{2}$/.test(tarih || "")) {
       const p2 = (n) => String(n).padStart(2, "0"), f2 = (d) => `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`;
       const d0 = new Date(tarih + "T00:00:00");
-      const ham = await this.listeHam(f2(new Date(+d0 - 3 * 864e5)), f2(new Date(Math.min(+new Date(), +d0 + 3 * 864e5))));
+      const ham = await this.listeHam(f2(new Date(+d0 - 3 * 864e5)), f2(new Date(Math.min(+trBugunTarih(), +d0 + 3 * 864e5))));
       fatura = ham.filter((x) => String(x.ettn || "").toLowerCase() === String(uuid).toLowerCase())[0];
     }
     if (!fatura) throw new Error("Belge GİB listesinde bulunamadı (" + kayitlar.length + " kayıt). Portalda kontrol edin.");
@@ -364,9 +371,9 @@ const SIL_DENEMELERI = (f, neden) => [
   ["EARSIV_PORTAL_FATURA_SIL", "RG_BASITTASLAKLAR", { silinecekler: [f], aciklama: neden }],
   ["EARSIV_PORTAL_FATURA_SIL", "RG_TASLAKLAR", { silinecekler: [f], aciklama: neden }]
 ];
+/* İptal talebi: portalın gerçek isteği (DevTools'tan alındı). Yanıt data = "İptal talebiniz başarıyla oluşturulmuştur."; belge "Onaylandı" kalır, listede talepDurum alanı belirir. */
 const IPTAL_DENEMELERI = (f, neden) => [
-  ["EARSIV_PORTAL_FATURA_IPTAL_ET", "RG_TASLAKLAR", { iptalEdilecekler: [f], aciklama: neden }],
-  ["EARSIV_PORTAL_IPTAL_TALEBI_OLUSTUR", "RG_TASLAKLAR", { fatura: f, aciklama: neden }]
+  ["EARSIV_PORTAL_IPTAL_TALEBI_OLUSTUR", "RG_BASITTASLAKLAR", { ettn: f.ettn, onayDurumu: "Onaylandı", belgeTuru: f.belgeTuru || "FATURA", talepAciklama: neden }]
 ];
 Gib.prototype.belgeIslemi = async function (tur, uuid, neden, tarih) {
   const sil = tur === "sil", beklenen = sil ? "Onaylanmadı" : "Onaylandı";
@@ -377,10 +384,11 @@ Gib.prototype.belgeIslemi = async function (tur, uuid, neden, tarih) {
     try {
       const y = await this.dispatch(cmd, sayfa, jp);
       const d = y.data;
+      if (!sil && typeof d === "string") { if (/başar/i.test(d)) return { mesaj: d, durum: "iptal talebi oluşturuldu" }; hatalar.push(cmd + ": " + d); continue; }
       if (d && typeof d === "object" && d.sonuc !== undefined && String(d.sonuc) !== "1") { hatalar.push(cmd + "/" + sayfa + ": " + (d.msg || "reddedildi")); continue; }
     } catch (e) { hatalar.push(cmd + "/" + sayfa + ": " + e.message); continue; }
     const durum = await this.durumuOku(uuid, tarih);
-    if (durum === null || durum !== beklenen) return { mesaj: sil ? "Taslak silindi." : "İptal işlemi GİB’e iletildi.", durum: durum === null ? "(liste okunamadı)" : durum };
+    if (durum === null || durum !== beklenen) return { mesaj: sil ? "Taslak silindi." : "İptal talebi GİB’e iletildi.", durum: durum === null ? "(liste okunamadı)" : durum };
     hatalar.push(cmd + "/" + sayfa + ": GİB kabul etti ama belge durumu değişmedi");
   }
   throw new Error("GİB " + (sil ? "silme" : "iptal") + " işlemini yapmadı:\n" + hatalar.join("\n") + "\nGİB portalında işlemi yapıp F12 → Network’te dispatch isteğinin cmd, pageName ve jp alanlarını gönderirseniz doğru biçimi eklerim.");
@@ -421,7 +429,7 @@ class SahteGib {
   async sil(uuid) { if (!SahteGib.t.has(uuid)) throw new Error("Taslak bulunamadı."); SahteGib.t.delete(uuid); return { mesaj: "SAHTE: taslak silindi.", durum: "Silinmiş" }; }
   async iptal(uuid) {
     const g = SahteGib.o && SahteGib.o.get(uuid); if (!g) throw new Error("Onaylı fatura bulunamadı.");
-    SahteGib.o.delete(uuid); SahteGib.i = SahteGib.i || new Map(); SahteGib.i.set(uuid, g); return { mesaj: "SAHTE: iptal edildi.", durum: "İptal Edildi" };
+    SahteGib.o.delete(uuid); SahteGib.i = SahteGib.i || new Map(); SahteGib.i.set(uuid, g); return { mesaj: "SAHTE: iptal talebi oluşturuldu.", durum: "iptal talebi oluşturuldu" };
   }
   async imzala(uuid, kod) {
     if (!SahteGib.t.has(uuid)) throw new Error("Taslak bulunamadı.");
@@ -442,4 +450,4 @@ class SahteGib {
   }
 }
 
-module.exports = { zipDosyalari, htmlCikar, hesaplaFatura, notUret, tutarYazi, temizMetin, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };
+module.exports = { trBugunStr, zipDosyalari, htmlCikar, hesaplaFatura, notUret, tutarYazi, temizMetin, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };
