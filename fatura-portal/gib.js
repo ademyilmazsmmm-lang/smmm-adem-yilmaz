@@ -143,9 +143,18 @@ function htmlCikar(b) {
 }
 
 class Gib {
-  constructor(kullanici, sifre) { this.k = kullanici; this.s = sifre; this.token = null; }
+  constructor(kullanici, sifre) { this.k = kullanici; this.s = sifre; this.token = null; this.cerez = new Map(); }
+  /* Tarayıcı gibi oturum çerezini (JSESSIONID) saklayıp geri göndeririz; bazı servisler (örn. kimlik sorgusu) oturuma bakıyor. */
+  cerezBaslik() { return [...this.cerez].map(([k, v]) => k + "=" + v).join("; "); }
+  cerezTopla(r) {
+    const liste = typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [];
+    for (const sc of liste) { const kv = sc.split(";")[0], i = kv.indexOf("="); if (i > 0) this.cerez.set(kv.slice(0, i).trim(), kv.slice(i + 1).trim()); }
+  }
   async post(yol, alanlar) {
-    const r = await fetch(BASE + yol, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }, body: new URLSearchParams(alanlar) });
+    const baslik = { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" };
+    if (this.cerez.size) baslik.cookie = this.cerezBaslik();
+    const r = await fetch(BASE + yol, { method: "POST", headers: baslik, body: new URLSearchParams(alanlar) });
+    this.cerezTopla(r);
     const t = await r.text();
     try { return JSON.parse(t); } catch (e) { throw new Error("Portal beklenmeyen yanıt verdi (" + r.status + ")."); }
   }
@@ -254,7 +263,8 @@ class Gib {
     for (const yontem of ["GET", "POST"]) {
       try {
         const q = new URLSearchParams(alanlar).toString();
-        const r = yontem === "GET" ? await fetch(yol + "?" + q) : await fetch(yol, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }, body: q });
+        const bas = this.cerez.size ? { cookie: this.cerezBaslik() } : {};
+        const r = yontem === "GET" ? await fetch(yol + "?" + q, { headers: bas }) : await fetch(yol, { method: "POST", headers: Object.assign({ "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }, bas), body: q });
         const b = Buffer.from(await r.arrayBuffer());
         try { return htmlCikar(b); } catch (e) { hatalar.push(yontem + " " + r.status + ": " + e.message + " [" + b.slice(0, 120).toString("utf8").replace(/\s+/g, " ") + "]"); }
       } catch (e) { hatalar.push(yontem + ": " + e.message); }
