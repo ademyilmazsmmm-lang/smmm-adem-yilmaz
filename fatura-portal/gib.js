@@ -325,16 +325,29 @@ class Gib {
     const y = await this.dispatch("EARSIV_PORTAL_SMSSIFRE_GONDER", "RG_SMSONAY", { CEPTEL: tel.data && tel.data.telefon || "", KCEPTEL: false, TIP: "" });
     return { oid: y.data && y.data.oid };
   }
-  async imzala(uuid, kod, oid) {
+  /* uuid (ya da liste satır kimliği) ile belge satırını bulur; eski belgeler için belge tarihi çevresinde de arar */
+  async belgeBul(uuid, tarih) {
     const kayitlar = await this.liste();
     let fatura = kayitlar.filter((x) => satirId(x) === uuid)[0] || kayitlar.filter((x) => satirId(x).toLowerCase() === String(uuid).toLowerCase())[0];
-    if (!fatura && /^\d{4}-\d{2}-\d{2}$/.test(tarih || "")) { // eski taslak: belge tarihi çevresinde ara
+    if (!fatura && /^\d{4}-\d{2}-\d{2}$/.test(tarih || "")) {
       const p2 = (n) => String(n).padStart(2, "0"), f2 = (d) => `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`;
       const d0 = new Date(tarih + "T00:00:00");
       const ham = await this.listeHam(f2(new Date(+d0 - 3 * 864e5)), f2(new Date(Math.min(+new Date(), +d0 + 3 * 864e5))));
       fatura = ham.filter((x) => String(x.ettn || "").toLowerCase() === String(uuid).toLowerCase())[0];
     }
-    if (!fatura) throw new Error("Taslak GİB listesinde bulunamadı (" + kayitlar.length + " kayıt). Portalda Taslak Faturalar'ı kontrol edin.");
+    if (!fatura) throw new Error("Belge GİB listesinde bulunamadı (" + kayitlar.length + " kayıt). Portalda kontrol edin.");
+    return fatura;
+  }
+  /* İşlemden sonra belgenin durumuna yeniden bakar (GİB listesi gecikmeli güncellenebilir). */
+  async durumuOku(uuid, tarih) {
+    for (let i = 0; i < 3; i++) {
+      try { const f = await this.belgeBul(uuid, tarih); return f.onayDurumu || ""; } catch (e) { if (i === 2) return null; }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    return null;
+  }
+  async imzala(uuid, kod, oid, tarih) {
+    const fatura = await this.belgeBul(uuid, tarih);
     if (fatura.onayDurumu && fatura.onayDurumu !== "Onaylanmadı") throw new Error("Bu belge onaylanabilir durumda değil (durum: " + fatura.onayDurumu + ").");
     /* Portalın kendi onay isteğinden (DevTools): cmd 0lhozfib5410mp, pageName RG_SMSONAY, DATA satırına grid alanları eklenir. */
     const satir = Object.assign({ faturaOid: "", toplamTutar: "0", saticiVknTckn: "", saticiUnvanAdSoyad: "", talepDurumColumn: "----------", iptalItiraz: "-99", talepDurum: "-99" }, fatura);
@@ -344,6 +357,36 @@ class Gib {
     return { mesaj: d.msg || "Fatura onaylandı." };
   }
 }
+
+/* Taslak silme ve onaylı fatura iptali. DOĞRULANMADI: portalın gerçek isteği (DevTools) alınana kadar olası biçimler sırayla denenir;
+ * hiçbiri belgenin durumunu değiştirmezse hata verilir. Doğru biçim bulununca yalnız bu iki liste güncellenir. */
+const SIL_DENEMELERI = (f, neden) => [
+  ["EARSIV_PORTAL_FATURA_SIL", "RG_BASITTASLAKLAR", { silinecekler: [f], aciklama: neden }],
+  ["EARSIV_PORTAL_FATURA_SIL", "RG_TASLAKLAR", { silinecekler: [f], aciklama: neden }]
+];
+const IPTAL_DENEMELERI = (f, neden) => [
+  ["EARSIV_PORTAL_FATURA_IPTAL_ET", "RG_TASLAKLAR", { iptalEdilecekler: [f], aciklama: neden }],
+  ["EARSIV_PORTAL_IPTAL_TALEBI_OLUSTUR", "RG_TASLAKLAR", { fatura: f, aciklama: neden }]
+];
+Gib.prototype.belgeIslemi = async function (tur, uuid, neden, tarih) {
+  const sil = tur === "sil", beklenen = sil ? "Onaylanmadı" : "Onaylandı";
+  const f = await this.belgeBul(uuid, tarih);
+  if (f.onayDurumu && f.onayDurumu !== beklenen) throw new Error("Bu belge " + (sil ? "silinebilir" : "iptal edilebilir") + " durumda değil (durum: " + f.onayDurumu + ").");
+  const hatalar = [];
+  for (const [cmd, sayfa, jp] of (sil ? SIL_DENEMELERI : IPTAL_DENEMELERI)(f, neden)) {
+    try {
+      const y = await this.dispatch(cmd, sayfa, jp);
+      const d = y.data;
+      if (d && typeof d === "object" && d.sonuc !== undefined && String(d.sonuc) !== "1") { hatalar.push(cmd + "/" + sayfa + ": " + (d.msg || "reddedildi")); continue; }
+    } catch (e) { hatalar.push(cmd + "/" + sayfa + ": " + e.message); continue; }
+    const durum = await this.durumuOku(uuid, tarih);
+    if (durum === null || durum !== beklenen) return { mesaj: sil ? "Taslak silindi." : "İptal işlemi GİB’e iletildi.", durum: durum === null ? "(liste okunamadı)" : durum };
+    hatalar.push(cmd + "/" + sayfa + ": GİB kabul etti ama belge durumu değişmedi");
+  }
+  throw new Error("GİB " + (sil ? "silme" : "iptal") + " işlemini yapmadı:\n" + hatalar.join("\n") + "\nGİB portalında işlemi yapıp F12 → Network’te dispatch isteğinin cmd, pageName ve jp alanlarını gönderirseniz doğru biçimi eklerim.");
+};
+Gib.prototype.sil = function (uuid, neden, tarih) { return this.belgeIslemi("sil", uuid, neden, tarih); };
+Gib.prototype.iptal = function (uuid, neden, tarih) { return this.belgeIslemi("iptal", uuid, neden, tarih); };
 
 /* Fatura görünümü (HTML). Taslak için onay="Onaylanmadı", kesilmiş için "Onaylandı". DOĞRULANACAK: komut/alan adları */
 Gib.prototype.faturaHtml = async function (id, onay) {
@@ -375,6 +418,11 @@ class SahteGib {
   async cikis() {}
   async taslak(g) { const govde = typeof g === "function" ? g(0) : g; const uuid = crypto.randomUUID(); govde.faturaUuid = uuid; SahteGib.n = (SahteGib.n || 0) + 1; govde._no = "SAHTE" + String(SahteGib.n).padStart(6, "0"); SahteGib.t.set(uuid, govde); return { uuid, satir: { belgeNumarasi: govde._no }, mesaj: "SAHTE: taslak oluşturuldu (" + govde.faturaTipi + ", ödenecek " + govde.odenecekTutar + ")" }; }
   async smsGonder() { return { oid: "SAHTE-OID" }; }
+  async sil(uuid) { if (!SahteGib.t.has(uuid)) throw new Error("Taslak bulunamadı."); SahteGib.t.delete(uuid); return { mesaj: "SAHTE: taslak silindi.", durum: "Silinmiş" }; }
+  async iptal(uuid) {
+    const g = SahteGib.o && SahteGib.o.get(uuid); if (!g) throw new Error("Onaylı fatura bulunamadı.");
+    SahteGib.o.delete(uuid); SahteGib.i = SahteGib.i || new Map(); SahteGib.i.set(uuid, g); return { mesaj: "SAHTE: iptal edildi.", durum: "İptal Edildi" };
+  }
   async imzala(uuid, kod) {
     if (!SahteGib.t.has(uuid)) throw new Error("Taslak bulunamadı.");
     if (String(kod).trim() !== "123456") throw new Error("SMS kodu hatalı (sahte GİB için 123456).");
@@ -383,7 +431,7 @@ class SahteGib {
   async sorgula(vkn) { return kimlikEsle(vkn.length === 11 ? { adi: "ALİ", soyadi: "VELİ", vergiDairesi: "ÜMRANİYE VERGİ DAİRESİ MÜD.", bulvarcaddesokak: "DENEME CD.", binaNo: "5", mahalleSemtIlce: "ÜMRANİYE", sehir: "İSTANBUL" } : { unvan: "DENEME ANONİM ŞİRKETİ", vergiDairesi: "KADIKÖY", bulvarcaddesokak: "TEST SK." }); }
   async listeAralik() {
     const hepsi = [];
-    for (const [m, d] of [[SahteGib.t, "Onaylanmadı"], [SahteGib.o, "Onaylandı"]]) for (const [id, g] of (m || new Map())) hepsi.push({ belgeNo: g._no, alici: g.aliciUnvan || (g.aliciAdi + " " + g.aliciSoyadi), vkn: g.vknTckn, tarih: g.faturaTarihi.replace(/\//g, "-"), durum: d, ettn: id });
+    for (const [m, d] of [[SahteGib.t, "Onaylanmadı"], [SahteGib.o, "Onaylandı"], [SahteGib.i, "İptal Edildi"]]) for (const [id, g] of (m || new Map())) hepsi.push({ belgeNo: g._no, alici: g.aliciUnvan || (g.aliciAdi + " " + g.aliciSoyadi), vkn: g.vknTckn, tarih: g.faturaTarihi.replace(/\//g, "-"), durum: d, ettn: id });
     return hepsi;
   }
   async faturaHtml(uuid) {

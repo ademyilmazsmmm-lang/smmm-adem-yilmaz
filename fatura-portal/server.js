@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-42";
+const SURUM = "2026-10-19-43";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -235,6 +235,16 @@ async function api(req, res, yol) {
     const kayit = bekleyen.get(g.uuid);
     if (kayit) { kayit.durum = "Onaylandı"; kayit.onayZamani = new Date().toISOString(); veri.gecmis.push(kayit); if (veri.gecmis.length > 2000) veri.gecmis.shift(); bekleyen.delete(g.uuid); yaz(); }
     return cevap(res, 200, { mesaj: r.mesaj, kayit: kayit || null });
+  }
+  if (yol === "/api/sil" || yol === "/api/iptal") {
+    const sil = yol === "/api/sil", neden = gib.temizMetin(g.neden, 200);
+    if (!g.uuid || !/^[A-Za-z0-9:_=.-]{8,4000}$/.test(String(g.uuid))) return cevap(res, 400, { hata: "Belge seçilmedi." });
+    if (!neden) return cevap(res, 400, { hata: (sil ? "Silme" : "İptal") + " nedenini yazın." });
+    const r = await (sil ? istemci(m).sil(g.uuid, neden, g.tarih) : istemci(m).iptal(g.uuid, neden, g.tarih));
+    bekleyen.delete(g.uuid);
+    const k = veri.gecmis.filter((x) => x.id === g.uuid)[0];
+    if (k && !sil) { k.durum = "İptal"; k.iptalNedeni = neden; k.iptalZamani = new Date().toISOString(); yaz(); }
+    return cevap(res, 200, { mesaj: r.mesaj, durum: r.durum });
   }
   if (yol === "/api/sorgu") {
     if (!/^\d{10,11}$/.test(String(g.vkn || ""))) return cevap(res, 400, { hata: "10 ya da 11 haneli VKN/TCKN girin." });

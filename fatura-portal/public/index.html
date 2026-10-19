@@ -769,13 +769,15 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       $("tRozet").hidden = !taslaklar.length; $("tRozet").textContent = taslaklar.length;
       $("tListe").innerHTML = taslaklar.map(function(x, i){
         return '<div class="kayit"><div class="ust2"><span>' + esc(x.alici) + " — " + esc(x.vkn) + '<br><small>' + esc(x.tarih) + " · " + esc(x.belgeNo) + '</small></span></div>' +
-          '<div class="satir"><button class="k" type="button" data-tg="' + i + '">Görüntüle</button><button class="btn" type="button" data-to="' + i + '" style="min-height:38px;padding:6px">Onayla</button></div></div>';
+          '<div class="satir"><button class="k" type="button" data-tg="' + i + '">Görüntüle</button><button class="btn" type="button" data-to="' + i + '" style="min-height:38px;padding:6px">Onayla</button></div>' +
+          '<button class="btn tehlike" type="button" data-ts="' + i + '" style="min-height:38px;padding:6px">Taslağı sil</button></div>';
       }).join("");
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
   }
   $("tGetir").addEventListener("click", taslakGetir);
   $("tListe").addEventListener("click", function(e){
-    var g = e.target.getAttribute("data-tg"), o = e.target.getAttribute("data-to"), x;
+    var g = e.target.getAttribute("data-tg"), o = e.target.getAttribute("data-to"), x, sl = e.target.getAttribute("data-ts");
+    if (sl != null) { var xs = taslaklar[+sl]; return belgeIslemi("sil", xs.ettn, xs.tarih, (xs.belgeNo || "Taslak") + " — " + xs.alici); }
     var d = $("tDurum");
     if (g != null) {
       x = taslaklar[+g]; d.className = "durum"; d.textContent = "Taslak getiriliyor…";
@@ -799,7 +801,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       $("ozGecmis").textContent = gecmis.length ? gecmis.length + " kayıt" : "";
       $("gecmisListe").innerHTML = gecmis.length ? gecmis.slice(0, 30).map(function(k, i){
         var t = (k.tarih || "").split("-").reverse().join("/");
-        return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " ₺", esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad), '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button> <button class="k" type="button" data-gi="' + i + '">İade</button></span>');
+        return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " ₺", esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad), '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button> <button class="k" type="button" data-gi="' + i + '">İade</button>' + (k.durum === "İptal" ? ' <small>İPTAL EDİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>');
       }).join("") : '<p class="not">Bu programdan kesilen fatura henüz yok.</p>';
     }, function(er){ oturumDustu(er); });
   }
@@ -814,7 +816,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     });
   }
   $("gecmisListe").addEventListener("click", function(e){
-    var t = e.target.getAttribute("data-gt"), ia = e.target.getAttribute("data-gi");
+    var t = e.target.getAttribute("data-gt"), ia = e.target.getAttribute("data-gi"), ip = e.target.getAttribute("data-gp");
+    if (ip != null) { var kp = gecmis[+ip]; mSec = kp.mukellefId || mSec; return belgeIslemi("iptal", kp.id, kp.tarih, (kp.belgeNo || "Fatura") + " — " + kp.aliciUnvan); }
     if (t != null) return tekrarla(gecmis[+t]);
     if (ia != null) return tekrarla(gecmis[+ia], true);
     var i = e.target.getAttribute("data-gk"); if (i == null) return;
@@ -851,11 +854,27 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       d.textContent = r.belgeler.length + " belge bulundu.";
       $("gibListe").innerHTML = r.belgeler.map(function(b, i){
         var yerel = gecmis.some(function(k){ return k.id === b.ettn; });
-        return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' : "");
+        return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" ? ' <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button>' : "") + '</span>' : "");
       }).join("");
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
   });
+  /* Taslak silme / onaylı fatura iptali. Neden zorunludur; iki aşamalı onay. GİB'in kabulü kayıtla doğrulanır. */
+  function belgeIslemi(tur, uuid, tarihGib, ad){
+    var sil = tur === "sil", etiket = sil ? "silinecek" : "iptal edilecek";
+    var neden = prompt((sil ? "Taslak silinecek: " : "Onaylı fatura İPTAL edilecek: ") + ad + "\n\nNeden? (zorunlu)", sil ? "Hatalı taslak" : "");
+    if (neden === null) return; neden = neden.trim();
+    if (!neden) { alert("Neden yazmadan devam edilemez."); return; }
+    if (!confirm(ad + " " + etiket + ".\nNeden: " + neden + (sil ? "" : "\n\nİptal geri alınamayabilir. Devam edilsin mi?") )) return;
+    var t = (tarihGib || "").split(/[-/]/); var tarih = t.length === 3 ? (t[0].length === 4 ? t.join("-") : t[2] + "-" + t[1] + "-" + t[0]) : "";
+    var d = $(sil ? "tDurum" : "gDurum"); d.className = "durum"; d.textContent = (sil ? "Taslak siliniyor…" : "İptal ediliyor…");
+    api(sil ? "/api/sil" : "/api/iptal", "POST", { mukellefId: mSec, uuid: uuid, neden: neden, tarih: tarih }).then(function(r){
+      d.className = "durum ok"; d.textContent = r.mesaj + (r.durum ? " (GİB’de durum: " + r.durum + ")" : "");
+      if (sil) { tYuklendi = false; taslakGetir(); } else { gecmisYukle(); if ($("gibListe").innerHTML) $("gListele").click(); }
+    }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
+  }
   $("gibListe").addEventListener("click", function(e){
+    var ip = e.target.getAttribute("data-gp2");
+    if (ip) return belgeIslemi("iptal", ip, e.target.getAttribute("data-gt2"), "Seçilen fatura");
     var id = e.target.getAttribute("data-ge"); if (!id) return;
     var yerel = gecmis.filter(function(k){ return k.id === id; })[0];
     resmiGoster(yerel ? yerel.mukellefId : mSec, id, yerel || null);
