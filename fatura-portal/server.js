@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-41";
+const SURUM = "2026-10-19-42";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -259,9 +259,18 @@ http.createServer((req, res) => {
   /* iPhone/iPad: COOP başlığı gönderilmez (ana ekran uygulamasında güvenlik başlığı sorunlarından kaçınmak için). */
   const ios = /iPhone|iPad|iPod/.test(req.headers["user-agent"] || "");
   if (ios) { const yaz = res.writeHead.bind(res); res.writeHead = (k, h) => { if (h && !Array.isArray(h)) delete h["cross-origin-opener-policy"]; return yaz(k, h); }; }
+  /* iPhone (iOS 18) tam ekran ana ekran kipinde yazı alanları çalışmadı: varsayılan olarak kısayol Safari'de açılır. Denemek için adresin sonuna ?tam=1 eklenir. */
+  const tam = ios && /[?&]tam=1\b/.test(req.url);
+  if (yol === "/manifest.webmanifest" && ios) {
+    let m = fs.readFileSync(path.join(__dirname, "public", yol), "utf8");
+    m = tam ? m.replace('"start_url": "/"', '"start_url": "/?tam=1"') : m.replace('"display": "standalone"', '"display": "browser"');
+    res.writeHead(200, Object.assign({ "content-type": STATIK[yol], "cache-control": "no-cache", vary: "User-Agent" }, GUV)); return res.end(m);
+  }
   if (yol === "/manifest.webmanifest") { res.writeHead(200, Object.assign({ "content-type": STATIK[yol], "cache-control": "no-cache", vary: "User-Agent" }, GUV)); return fs.createReadStream(path.join(__dirname, "public", yol)).pipe(res); } // iOS'a giden "browser" sürümüyle karışmasın
   if (STATIK[yol]) { res.writeHead(200, Object.assign({ "content-type": STATIK[yol], "cache-control": yol === "/sw.js" ? "no-cache" : "public, max-age=86400" }, GUV)); return fs.createReadStream(path.join(__dirname, "public", yol)).pipe(res); }
   if (yol === "/" || yol === "/index.html") { let h = fs.readFileSync(SAYFA, "utf8");
+    if (ios && !tam) h = h.replace(/<meta name="(apple-)?mobile-web-app-capable"[^>]*>\n?/g, "");
+    if (tam) h = h.replace('href="/manifest.webmanifest"', 'href="/manifest.webmanifest?tam=1"');
     res.writeHead(200, Object.assign({ "content-type": "text/html; charset=utf-8", "cache-control": "no-store", vary: "User-Agent" }, GUV)); return res.end(h); }
   res.writeHead(404); res.end("Bulunamadı");
 }).on("error", (e) => { console.error(e.code === "EADDRINUSE" ? "HATA: " + PORT + " numaralı kapı dolu; eski program hâlâ çalışıyor. Eski siyah pencereyi kapatın ve yeniden başlatın." : e.message); process.exit(1); }).listen(PORT, HOST, () => console.log(`Fatura Portalı ${SURUM}: http://${HOST}:${PORT}` + (gib.MOCK ? "  (SAHTE GİB — gerçek fatura kesilmez)" : "")));

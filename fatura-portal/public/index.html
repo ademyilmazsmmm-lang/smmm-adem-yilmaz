@@ -209,6 +209,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <div class="marka"><div class="logo"><img alt="" src="/ikon.svg"></div><div><h1>e-Arşiv Fatura</h1><p class="not">GİB e-Arşiv Portalı üzerinden hızlı fatura</p></div></div>
   <form class="card" id="girisForm">
     <p class="not" id="girisYazi"></p>
+    <p class="not" id="girisSurum" style="font-size:.75rem"></p>
     <input type="password" id="s1" placeholder="Uygulama şifresi" aria-label="Uygulama şifresi" autocomplete="new-password">
     <input type="password" id="s2" placeholder="Şifre (tekrar)" aria-label="Şifre tekrar" autocomplete="new-password" hidden>
     <button class="btn" type="submit" id="girisBtn">Aç</button>
@@ -392,7 +393,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   var kurulu = false, sifreMin = 8;
   function acilis(){
     api("/api/durum").then(function(d){
-      kurulu = d.kurulu; $("sahte").hidden = !d.sahte; $("surum").textContent = d.surum ? "sürüm " + d.surum : ""; sifreMin = d.sifreMin || 8;
+      kurulu = d.kurulu; $("sahte").hidden = !d.sahte; $("surum").textContent = d.surum ? "sürüm " + d.surum : ""; $("girisSurum").textContent = d.surum ? "Sürüm " + d.surum + (ANA_EKRAN ? " · ana ekran kipi" : "") : ""; sifreMin = d.sifreMin || 8;
       if (d.giris) return basla();
       $("uyg").hidden = true; $("giris").hidden = false;
       $("girisYazi").textContent = kurulu ? "Devam etmek için şifrenizi girin." : "İlk kurulum: bir uygulama şifresi belirleyin (en az " + sifreMin + " karakter). GİB şifreleri bununla şifrelenerek saklanır.";
