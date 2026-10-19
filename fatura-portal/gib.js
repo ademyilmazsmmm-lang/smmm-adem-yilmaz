@@ -145,10 +145,17 @@ function htmlCikar(b) {
 class Gib {
   constructor(kullanici, sifre) { this.k = kullanici; this.s = sifre; this.token = null; this.cerez = new Map(); }
   /* Tarayıcı gibi oturum çerezini (JSESSIONID) saklayıp geri göndeririz; bazı servisler (örn. kimlik sorgusu) oturuma bakıyor. */
-  cerezBaslik() { return [...this.cerez].map(([k, v]) => k + "=" + v).join("; "); }
+  cerezBaslik() { return [...this.cerez.values()].map((c) => c.ad + "=" + c.deger).join("; "); }
   cerezTopla(r) {
+    // Portal iki ayrı sunucudan (ea-web, ea-side) aynı adlı JSESSIONID verir; ad+yol+değer ile ayrı tutulur.
     const liste = typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [];
-    for (const sc of liste) { const kv = sc.split(";")[0], i = kv.indexOf("="); if (i > 0) this.cerez.set(kv.slice(0, i).trim(), kv.slice(i + 1).trim()); }
+    for (const sc of liste) {
+      const parca = sc.split(";").map((x) => x.trim()), kv = parca[0], i = kv.indexOf("=");
+      if (i <= 0) continue;
+      const yol = (parca.slice(1).find((x) => /^path=/i.test(x)) || "path=/earsiv-services").slice(5);
+      const ad = kv.slice(0, i), deger = kv.slice(i + 1), sunucu = deger.split(".").slice(1).join(".");
+      this.cerez.set(ad + "|" + yol + "|" + sunucu, { ad, deger });
+    }
   }
   async post(yol, alanlar) {
     const baslik = { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" };
@@ -198,10 +205,11 @@ class Gib {
     this.ornek = hepsi.size ? sekil([...hepsi.values()][0]) : "";
     return [...hepsi.values()];
   }
-  /* Alıcı sorgusu: portalın VKN/TCKN girilince yaptığı istek (DevTools'tan: SICIL_VEYA_MERNISTEN_BILGILERI_GETIR, RG_BASITFATURA, {vknTckn}) */
+  /* Alıcı sorgusu: portalın VKN/TCKN girilince yaptığı istek (DevTools'tan: SICIL_VEYA_MERNISTEN_BILGILERI_GETIR, RG_BASITFATURA, {vknTcknn}) */
   async sorgula(vkn) {
     try {
-      const y = await this.dispatch("SICIL_VEYA_MERNISTEN_BILGILERI_GETIR", "RG_BASITFATURA", { vknTckn: vkn });
+      // Alan adı portalın kendi isteğinde "vknTcknn" (iki n); cevap: { unvan, adi, soyadi, vergiDairesi }
+      const y = await this.dispatch("SICIL_VEYA_MERNISTEN_BILGILERI_GETIR", "RG_BASITFATURA", { vknTcknn: vkn });
       return kimlikEsle(y.data);
     } catch (e) {
       // GİB kayıt bulamayınca NullPointerException ile çöküyor: "kayıt yok" olarak ele alınır

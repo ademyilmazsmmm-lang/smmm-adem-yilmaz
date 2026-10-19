@@ -360,7 +360,7 @@ label.onay input{width:auto;min-height:0}
       if (r.ad && (elle || !$("yAd").value.trim())) { $("yAd").value = r.ad; dolan.push("ad"); }
       if (r.adres && (elle || !$("yAdres").value.trim())) { $("yAdres").value = r.adres; dolan.push("adres"); }
       if (r.vd && (elle || !$("yVd").value.trim())) { $("yVd").value = r.vd; dolan.push("vergi dairesi"); }
-      if (dolan.length) { d.className = "durum ok"; d.textContent = "GİB’den geldi: " + dolan.join(", ") + ". Kontrol edin."; onizle(); }
+      if (dolan.length) { d.className = "durum ok"; d.textContent = "GİB’den geldi: " + dolan.join(", ") + "." + (r.adres ? "" : " Adresi GİB vermiyor, elle yazın.") + " Kontrol edin."; onizle(); }
       else { d.className = "durum hata"; d.textContent = r.bulunamadi ? "GİB’de bu numara için kayıt bulunamadı (numara kayıtsız olabilir); bilgileri elle yazabilirsiniz." : "GİB’de bu numara için bilgi bulunamadı ya da yanıt çözülemedi" + (r.alanlar && r.alanlar.length ? " (yanıt alanları: " + r.alanlar.join(", ") + ")" : "") + "."; }
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = "Sorgu başarısız: " + er.message; } });
   }
