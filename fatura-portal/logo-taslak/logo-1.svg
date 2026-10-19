@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 160" width="560" height="160" font-family="Arial,Helvetica,sans-serif">
+  <rect x="8" y="8" width="144" height="144" rx="30" fill="#111"/>
+  <!-- hız çizgileri -->
+  <g stroke="#f5a000" stroke-width="5" stroke-linecap="round"><path d="M20 74h24"/><path d="M20 90h16"/><path d="M20 106h26"/></g>
+  <!-- motor + kurye kutusu -->
+  <g transform="translate(34 36) scale(.74)" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="42" cy="104" r="16"/><circle cx="124" cy="104" r="16"/>
+    <path d="M42 104l22-26h34l26 26"/><path d="M110 70l14 34"/><path d="M100 62h18"/><path d="M64 78l-4-10"/>
+    <rect x="26" y="40" width="34" height="28" rx="4" fill="#f5a000" stroke="#f5a000"/>
+  </g>
+  <text x="176" y="82" font-size="50" font-weight="800" fill="#111" letter-spacing="1">ADINIZ</text>
+  <text x="178" y="116" font-size="19" font-weight="600" fill="#f5a000" letter-spacing="3">KURYE &amp; SERVİS</text>
+  <text x="178" y="140" font-size="13" fill="#666" letter-spacing="1">Motor Kurye · Servis Taşımacılığı</text>
+</svg>
