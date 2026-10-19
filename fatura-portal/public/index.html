@@ -872,7 +872,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   /* ---------- marka: logo, imza ---------- */
   var MARKA0 = { ad: "Adem Yılmaz", unvan: "Serbest Muhasebeci Mali Müşavir", web: "smmmyilmaz.com", logo: "", imza: "" };
-  function marka(){ var m = V && V.marka; if (!m) return MARKA0; return { ad: m.ad, unvan: m.unvan, web: m.web, logo: m.logo || "", imza: m.imza || "" }; }
+  function marka(){ var m = V && V.marka || {}; return { ad: MARKA0.ad, unvan: MARKA0.unvan, web: MARKA0.web, logo: m.logo || "", imza: m.imza || "" }; }
   function markaUygula(){
     var m = marka(), svg = $("logoKutu").getAttribute("data-svg");
     if (svg === null) { svg = $("logoKutu").innerHTML; $("logoKutu").setAttribute("data-svg", svg); }
@@ -904,15 +904,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var m = V.marka || MARKA0;
     function kutu(ad, etiket, v){ return '<div><label>' + etiket + '</label><div class="resimkutu">' + (v ? '<img alt="" src="' + v + '">' : '<span class="not">Yok</span>') + '<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><label class="k" style="margin:0;cursor:pointer">Seç<input type="file" accept="image/png,image/jpeg,image/webp" data-resim="' + ad + '" hidden></label>' + (v ? '<button class="k" type="button" data-resim-sil="' + ad + '">Kaldır</button>' : "") + '</span></div></div>'; }
     return '<details class="grup" data-ak="g:k"' + ac("g:k") + '><summary>Logo ve imza</summary><div class="icerik">' +
-      '<p class="not">Logo uygulamanın üst köşesinde, imza satırı sayfa altında görünür. Fatura çıktısındaki GİB belgesine dokunulmaz; yalnız program kopyasında kullanılır.</p>' +
+      '<p class="not">Logo uygulamanın üst köşesinde, imza görseli sayfa altında görünür. Alttaki “Adem Yılmaz · SMMM · smmmyilmaz.com” satırı sabittir, değiştirilemez. Fatura çıktısındaki GİB belgesine dokunulmaz; yalnız program kopyasında kullanılır.</p>' +
       kutu("logo", "Logo (kare ya da yatay, PNG/JPG)", m.logo || "") + kutu("imza", "İmza görseli (isteğe bağlı, şeffaf PNG önerilir)", m.imza || "") +
-      '<div><label>Ad soyad</label><input data-mf="ad" value="' + esc(m.ad) + '"></div>' +
-      '<div><label>Unvan</label><input data-mf="unvan" value="' + esc(m.unvan) + '"></div>' +
-      '<div><label>Web sitesi</label><input data-mf="web" inputmode="url" placeholder="smmmyilmaz.com" value="' + esc(m.web) + '"></div>' +
       '<div class="durum" id="markaDurum" role="status"></div></div></details>';
   }
-  function markaVer(){ if (!V.marka) V.marka = { ad: MARKA0.ad, unvan: MARKA0.unvan, web: MARKA0.web, logo: "", imza: "" }; return V.marka; }
-  $("ayarIc").addEventListener("input", function(e){ var f = e.target.getAttribute("data-mf"); if (!f) return; markaVer()[f] = e.target.value; markaUygula(); });
+  function markaVer(){ if (!V.marka) V.marka = { logo: "", imza: "" }; return V.marka; }
   $("ayarIc").addEventListener("change", function(e){
     var ad = e.target.getAttribute("data-resim"); if (!ad || !e.target.files[0]) return;
     var d = $("markaDurum");
