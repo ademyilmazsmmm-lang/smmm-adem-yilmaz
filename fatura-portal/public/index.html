@@ -388,7 +388,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       $("s2").hidden = kurulu; $("s1").setAttribute("autocomplete", kurulu ? "current-password" : "new-password"); $("girisBtn").textContent = kurulu ? "Aç" : "Şifreyi belirle";
     });
   }
-  ["s1", "s2"].forEach(function(i){ var e = $(i); e.addEventListener("touchend", function(){ if (document.activeElement !== e) setTimeout(function(){ e.focus(); }, 0); }, { passive: true }); });
   $("girisForm").addEventListener("submit", function(e){
     e.preventDefault(); var d = $("girisDurum"); d.className = "durum"; d.textContent = "";
     var s = $("s1").value;
@@ -989,7 +988,12 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
   /* ---------- uygulama olarak yükleme (PWA) ---------- */
   var yuklenecek = null, bagimsiz = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(function(){});
+  /* iOS’ta servis çalışanı kullanılmaz (ana ekran uygulamasında yazma sorunu şüphesi); varsa kaldırılır */
+  var iosCihaz = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if ("serviceWorker" in navigator) {
+    if (iosCihaz) navigator.serviceWorker.getRegistrations().then(function(r){ r.forEach(function(x){ x.unregister(); }); }).catch(function(){});
+    else navigator.serviceWorker.register("/sw.js").catch(function(){});
+  }
   window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); yuklenecek = e; yukleGoster(); });
   window.addEventListener("appinstalled", function(){ yuklenecek = null; bagimsiz = true; yukleGoster(); });
   function yukleGoster(){
