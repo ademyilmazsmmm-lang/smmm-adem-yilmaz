@@ -103,6 +103,34 @@ function faturaGovdesi(g, h, uuid, varyant) {
 const satirId = (x) => (x.ettn ? String(x.ettn) : "j:" + Buffer.from(JSON.stringify(x)).toString("base64url"));
 const sekil = (x) => Object.keys(x).map((k) => k + "=" + (x[k] === "" || x[k] == null ? "boş" : String(x[k]).length + " krk")).join(", ");
 
+/* Portalın "İndir" çıktısı ZIP içinde HTML (ya da doğrudan HTML) olabilir; bağımlılıksız küçük ZIP okuyucu. */
+const zlib = require("zlib");
+function zipDosyalari(b) {
+  const out = new Map();
+  let e = -1;
+  for (let i = b.length - 22; i >= Math.max(0, b.length - 70000); i--) if (b.readUInt32LE(i) === 0x06054b50) { e = i; break; }
+  if (e < 0) throw new Error("ZIP bitiş kaydı bulunamadı");
+  let n = b.readUInt16LE(e + 10), o = b.readUInt32LE(e + 16);
+  while (n-- > 0 && b.readUInt32LE(o) === 0x02014b50) {
+    const yontem = b.readUInt16LE(o + 10), csize = b.readUInt32LE(o + 20), ad = b.readUInt16LE(o + 28), ek = b.readUInt16LE(o + 30), yo = b.readUInt16LE(o + 32), lh = b.readUInt32LE(o + 42);
+    const isim = b.slice(o + 46, o + 46 + ad).toString("utf8");
+    const bas = lh + 30 + b.readUInt16LE(lh + 26) + b.readUInt16LE(lh + 28), ham = b.slice(bas, bas + csize);
+    out.set(isim, yontem === 8 ? zlib.inflateRawSync(ham) : ham);
+    o += 46 + ad + ek + yo;
+  }
+  return out;
+}
+function htmlCikar(b) {
+  if (b.length > 4 && b[0] === 0x50 && b[1] === 0x4b) {
+    const d = zipDosyalari(b);
+    for (const [isim, v] of d) if (/\.html?$/i.test(isim)) return v.toString("utf8");
+    throw new Error("ZIP içinde HTML yok (dosyalar: " + [...d.keys()].join(", ") + ")");
+  }
+  const t = b.toString("utf8");
+  if (/<html|<!doctype/i.test(t.slice(0, 500))) return t;
+  throw new Error("İndirilen dosya HTML değil.");
+}
+
 class Gib {
   constructor(kullanici, sifre) { this.k = kullanici; this.s = sifre; this.token = null; }
   async post(yol, alanlar) {
@@ -181,6 +209,15 @@ class Gib {
     if (!k) throw new Error("GİB taslak yanıtı: " + JSON.stringify(y).slice(0, 300) + " — ama listede yeni kayıt görünmüyor (önce " + once.size + ", sonra " + say + " kayıt). Liste denemeleri: " + this.tani + ". İlk kayıt alanları: " + (this.ornek || "-") + ". Portalda Taslak Faturalar'ı kontrol edin; faturayı onaylamayın.");
     return { uuid: satirId(k), mesaj: y.data, satir: k };
   }
+  /* Portalın "İndir" isteği (GET). DOĞRULANACAK: adres biçimi. */
+  async indir(uuid, onay) {
+    if (!this.token) await this.giris();
+    const q = new URLSearchParams({ token: this.token, ettn: uuid, belgeTip: "FATURA", onayDurumu: onay === "Onaylandı" ? "Onaylandı" : "Onaylanmadı", cmd: "EARSIV_PORTAL_BELGE_INDIR" });
+    const r = await fetch(BASE + "/earsiv-services/download?" + q.toString());
+    const b = Buffer.from(await r.arrayBuffer());
+    if (!r.ok) throw new Error("indirme " + r.status);
+    return htmlCikar(b);
+  }
   async smsGonder() {
     const tel = await this.dispatch("EARSIV_PORTAL_TELEFONNO_SORGULA", "RG_BASITTASLAKLAR", {});
     const y = await this.dispatch("EARSIV_PORTAL_SMSSIFRE_GONDER", "RG_SMSONAY", { CEPTEL: tel.data && tel.data.telefon || "", KCEPTEL: false, TIP: "" });
@@ -206,13 +243,14 @@ Gib.prototype.faturaHtml = async function (id, onay) {
   if (String(id).startsWith("j:")) { try { uuid = JSON.parse(Buffer.from(String(id).slice(2), "base64url").toString("utf8")).ettn; } catch (e) { uuid = ""; } }
   if (!uuid) throw new Error("Bu taslağın ettn kimliği GİB listesinde boş; görünüm alınamadı.");
   const od = onay === "Onaylandı" ? "Onaylandı" : "Onaylanmadı";
+  try { return await this.indir(uuid, od); } catch (e) { var indirHata = "indir: " + e.message; }
   const denemeler = [
     ["RG_TASLAKLAR", { ettn: uuid, onayDurumu: od }],
     ["RG_BASITTASLAKLAR", { ettn: uuid, onayDurumu: od }],
     ["RG_TASLAKLAR", { ettn: uuid, belgeTip: "FATURA", onayDurumu: od }],
     ["RG_BASITTASLAKLAR", { ettn: uuid, belgeTip: "FATURA", onayDurumu: od }]
   ];
-  const hatalar = [];
+  const hatalar = [indirHata];
   for (const [sayfa, jp] of denemeler) {
     try {
       const y = await this.dispatch("EARSIV_PORTAL_FATURA_GOSTER", sayfa, jp);
@@ -220,7 +258,7 @@ Gib.prototype.faturaHtml = async function (id, onay) {
       hatalar.push(sayfa + ": boş yanıt");
     } catch (e) { hatalar.push(sayfa + ": " + e.message); }
   }
-  throw new Error(hatalar[hatalar.length - 1] + " (" + denemeler.length + " varyant denendi)");
+  throw new Error(hatalar.join(" | ").slice(0, 400));
 };
 
 /* ---------- sahte GİB (deneme) ---------- */
@@ -246,4 +284,4 @@ class SahteGib {
   }
 }
 
-module.exports = { hesapla, notUret, tutarYazi, temizMetin, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };
+module.exports = { zipDosyalari, htmlCikar, hesapla, notUret, tutarYazi, temizMetin, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };
