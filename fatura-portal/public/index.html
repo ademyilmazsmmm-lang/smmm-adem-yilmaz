@@ -7,60 +7,186 @@
 <meta name="theme-color" content="#1f6f5c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Fatura">
-<title>Fatura Portalı</title>
+<title>e-Arşiv Fatura</title>
+<script>try{var t=localStorage.getItem("tema");if(t==="acik"||t==="koyu")document.documentElement.setAttribute("data-tema",t)}catch(e){}</script>
 <style>
-:root{--bg:#edf1ee;--surface:#fff;--fg:#16211d;--muted:#5a6962;--line:#d3dcd7;--accent:#1f6f5c;--accent-fg:#fff;--accent-soft:#daece5;--danger:#b3261e;--warn:#935600;--warn-soft:#fae9cf}
-@media (prefers-color-scheme:dark){:root{--bg:#0e1412;--surface:#17201c;--fg:#e5ece8;--muted:#9aaba3;--line:#2a3832;--accent:#5fc3a8;--accent-fg:#0b1411;--accent-soft:#1b3730;--danger:#f08a80;--warn:#e8b460;--warn-soft:#3a2b13;color-scheme:dark}}
+:root{
+  --bg:#f2f4f3;--surface:#fff;--surface2:#f7f9f8;--fg:#0f1d19;--muted:#5d6b66;--line:#dfe5e2;--line2:#cfd8d4;
+  --accent:#0d6b55;--accent2:#0a5544;--accent-fg:#fff;--accent-soft:#e2f1eb;--danger:#b3261e;--danger-soft:#fbe9e7;--warn:#8a5200;--warn-soft:#fdf0d8;
+  --shadow:0 1px 2px rgba(16,30,25,.05),0 4px 14px rgba(16,30,25,.05);--r:14px;--r2:10px;
+  --nav-h:64px;--safe:env(safe-area-inset-bottom,0px)
+}
+@media (prefers-color-scheme:dark){:root:not([data-tema="acik"]){
+  --bg:#0b1210;--surface:#141d1a;--surface2:#101816;--fg:#e6eeea;--muted:#97a8a1;--line:#24312c;--line2:#2f3f39;
+  --accent:#56c6a6;--accent2:#7ad6bb;--accent-fg:#06110d;--accent-soft:#163029;--danger:#f19389;--danger-soft:#3a1c19;--warn:#eab866;--warn-soft:#33270f;
+  --shadow:0 1px 2px rgba(0,0,0,.3);color-scheme:dark}}
+:root[data-tema="koyu"]{
+  --bg:#0b1210;--surface:#141d1a;--surface2:#101816;--fg:#e6eeea;--muted:#97a8a1;--line:#24312c;--line2:#2f3f39;
+  --accent:#56c6a6;--accent2:#7ad6bb;--accent-fg:#06110d;--accent-soft:#163029;--danger:#f19389;--danger-soft:#3a1c19;--warn:#eab866;--warn-soft:#33270f;
+  --shadow:0 1px 2px rgba(0,0,0,.3);color-scheme:dark}
+:root[data-tema="acik"]{color-scheme:light}
 *{box-sizing:border-box}[hidden]{display:none!important}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px 16px 60px}
-main{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
-h1{font-size:1.4rem;margin:0}h2{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600}
-.ust{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:12px}
-label{font-size:.85rem;color:var(--muted);display:block;margin-bottom:4px}
-input,select,textarea{width:100%;font:inherit;padding:11px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);min-height:46px}
-textarea{min-height:80px;resize:vertical}
-input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+h1{font-size:1.25rem;margin:0;letter-spacing:-.01em}
+h2{font-size:1rem;margin:0;font-weight:650;letter-spacing:-.005em}
+a{color:var(--accent)}
+label{font-size:.8rem;color:var(--muted);display:block;margin-bottom:5px;font-weight:500}
+input,select,textarea{width:100%;font:inherit;padding:11px 12px;border:1px solid var(--line2);border-radius:var(--r2);background:var(--surface);color:var(--fg);min-height:48px;transition:border-color .15s,box-shadow .15s}
+select{appearance:none;-webkit-appearance:none;padding-right:36px;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 21px,calc(100% - 13px) 21px;background-size:5px 5px;background-repeat:no-repeat}
+textarea{min-height:88px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .satir{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{font:inherit;font-size:.9rem;padding:8px 13px;min-height:40px;border:1px solid var(--line);border-radius:99px;background:var(--bg);color:var(--fg);cursor:pointer}
-.chip[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
-.btn{font:inherit;font-weight:600;padding:12px;min-height:48px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);cursor:pointer}
-.btn:disabled{opacity:.5;cursor:default}
-.btn.ikincil{background:var(--bg);color:var(--fg);border:1px solid var(--line);font-weight:500}
-.btn.tehlike{background:var(--bg);color:var(--danger);border:1px solid var(--line);font-weight:500}
-.k{font:inherit;font-size:.85rem;padding:6px 12px;min-height:36px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);cursor:pointer}
-.durum{min-height:1.3em;font-size:.92rem;white-space:pre-wrap}.durum.hata{color:var(--danger)}.durum.ok{color:var(--accent)}
+.satir3{display:grid;grid-template-columns:.9fr 1.1fr 1.4fr;gap:8px}
+
+/* düğmeler */
+.btn{font:inherit;font-weight:650;padding:12px 16px;min-height:50px;border:0;border-radius:var(--r2);background:var(--accent);color:var(--accent-fg);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:background .15s,transform .05s}
+.btn:hover{background:var(--accent2)}.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn.ikincil{background:var(--surface);color:var(--fg);border:1px solid var(--line2);font-weight:550}
+.btn.ikincil:hover{background:var(--surface2)}
+.btn.tehlike{background:transparent;color:var(--danger);border:1px dashed var(--line2);font-weight:550;min-height:44px}
+.k{font:inherit;font-size:.85rem;font-weight:550;padding:6px 12px;min-height:36px;border:1px solid var(--line2);border-radius:99px;background:var(--surface);color:var(--fg);cursor:pointer}
+.k:hover{border-color:var(--accent);color:var(--accent)}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{font:inherit;font-size:.9rem;font-weight:550;padding:8px 14px;min-height:40px;border:1px solid var(--line2);border-radius:99px;background:var(--surface);color:var(--fg);cursor:pointer;white-space:nowrap;flex:none}
+.chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.seg{display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:99px;padding:3px;gap:2px}
+.seg .chip{border:0;background:transparent;min-height:36px;padding:6px 14px}
+.seg .chip[aria-pressed=true]{background:var(--surface);color:var(--accent);box-shadow:var(--shadow)}
+
+/* yapı */
+.bar{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar-ic{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px}
+.marka{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;flex:none}
+.marka small{display:block;font-size:.7rem;color:var(--muted);font-weight:400;line-height:1.2}
+.sayfa{max-width:1120px;margin:0 auto;padding:16px 16px calc(var(--nav-h) + var(--safe) + 90px)}
+.izgara{display:grid;gap:14px;align-items:start}
+.sol,.sag{display:flex;flex-direction:column;gap:14px;min-width:0}
+.liste{max-width:720px;display:flex;flex-direction:column;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow)}
+.kartbas{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.kartbas small{color:var(--muted);font-size:.85rem}
+.no{width:26px;height:26px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-size:.8rem;font-weight:700;display:grid;place-items:center;flex:none}
+
+/* açılır bölümler */
+details>summary{cursor:pointer;list-style:none}
+details>summary::-webkit-details-marker{display:none}
+details.bolum{padding:0;gap:0}
+details.bolum>summary{display:flex;align-items:center;gap:10px;padding:14px 16px;min-height:56px}
+details.bolum>summary .bas{font-weight:650}
+details.bolum>summary small{margin-left:auto;color:var(--muted);font-size:.85rem;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:58%}
+details.bolum>summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin:-4px 4px 0 2px;transition:transform .2s;flex:none}
+details.bolum[open]>summary::after{transform:rotate(-135deg);margin-top:4px}
+details.bolum[open]>summary{border-bottom:1px solid var(--line)}
+details.bolum>.icerik{padding:16px;margin:0;gap:12px}
+details.ic{border:1px dashed var(--line2);border-radius:var(--r2);padding:10px 12px;background:var(--surface2)}
+details.ic>summary{font-weight:600;font-size:.92rem;color:var(--accent)}
+details.ic[open]>summary{margin-bottom:10px}
+
+.durum{min-height:1.3em;font-size:.92rem;white-space:pre-wrap}
+.durum:not(:empty){padding:10px 12px;border-radius:var(--r2);background:var(--surface2)}
+.durum.hata{color:var(--danger);background:var(--danger-soft)}.durum.ok{color:var(--accent);background:var(--accent-soft)}
 .not{font-size:.85rem;color:var(--muted);margin:0}
-.sahte{background:var(--warn-soft);color:var(--warn);padding:8px 12px;border-radius:6px;font-size:.9rem}
-.ozet{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-variant-numeric:tabular-nums}.ozet .t{text-align:right}.ozet .s{font-weight:700;color:var(--accent);border-top:2px solid var(--accent);padding-top:6px}
-details>summary{cursor:pointer;font-weight:600;min-height:32px}details[open]>summary{margin-bottom:10px}
-.kayit{border:1px solid var(--line);border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px}
-.alt{display:flex;flex-direction:column;gap:8px;padding-left:10px;border-left:3px solid var(--accent-soft)}
-label.onay{display:flex;gap:10px;align-items:center;font-size:.95rem;color:var(--fg);margin:0}
-label.onay input{width:auto;min-height:0}
-.kayit .ust2{display:flex;justify-content:space-between;gap:10px;align-items:center}
-.kayit small{color:var(--muted)}
-.satir3{display:grid;grid-template-columns:1fr 1.1fr 1.4fr;gap:8px}
-.kalem{border:1px solid var(--line);border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
-.kalem .baslik{display:flex;justify-content:space-between;align-items:center;font-weight:600}
+#eksik:not(:empty){font-size:.85rem;color:var(--danger);background:var(--danger-soft);padding:8px 12px;border-radius:var(--r2)}
+.sahte{background:var(--warn-soft);color:var(--warn);padding:10px 14px;border-radius:var(--r2);font-size:.9rem;font-weight:550}
+.alt{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:var(--r2);background:var(--surface2);border:1px solid var(--line)}
+label.onay{display:flex;gap:10px;align-items:center;font-size:.95rem;color:var(--fg);margin:0;font-weight:400}
+label.onay input{width:20px;height:20px;min-height:0;accent-color:var(--accent)}
+.bos{border-color:var(--danger)!important;box-shadow:0 0 0 3px var(--danger-soft)!important}
+
+/* kalemler */
+.kalem{border:1px solid var(--line);border-radius:var(--r2);padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--surface2)}
+.kalem .baslik{display:flex;justify-content:space-between;align-items:center;font-weight:650;font-size:.9rem}
 .kalem .kt{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
-details.bolum>summary{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
-details.bolum>summary small{text-transform:none;letter-spacing:0;font-weight:400;color:var(--fg);text-align:right;font-size:.85rem}
-details.bolum>.icerik{gap:12px}
-.bos{border-color:var(--danger)!important}
-details.grup{border:1px solid var(--line);border-radius:6px;padding:10px;background:var(--bg)}
-details.grup>summary{font-weight:700}
+
+/* özet */
+.ozet{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-variant-numeric:tabular-nums;font-size:.95rem}
+.ozet>div:nth-child(odd){color:var(--muted)}.ozet .t{text-align:right}
+.ozet .s{color:var(--fg)!important;font-weight:700;border-top:1px dashed var(--line2);padding-top:10px;margin-top:4px;display:flex;align-items:center}
+.ozet .t.s{justify-content:flex-end}
+.durum:empty{display:none}
+.ozet .t.s{font-size:1.5rem;color:var(--accent)!important;letter-spacing:-.01em}
+.ozet:empty::before{content:"Tutar girildiğinde fatura özeti burada görünür.";grid-column:1/-1;color:var(--muted);font-size:.9rem}
+
+/* adımlar */
+.adimlar{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;counter-reset:a}
+.adimlar li{counter-increment:a;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.78rem;color:var(--muted);text-align:center;position:relative}
+.adimlar li::before{content:counter(a);width:28px;height:28px;border-radius:99px;display:grid;place-items:center;font-weight:700;background:var(--surface2);border:1px solid var(--line2);color:var(--muted);position:relative;z-index:1}
+.adimlar li:not(:first-child)::after{content:"";position:absolute;top:14px;right:50%;width:100%;height:2px;background:var(--line2)}
+.adimlar li.aktif{color:var(--fg);font-weight:600}.adimlar li.aktif::before{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.adimlar li.bitti::before{content:"✓";background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.adimlar li.bitti::after,.adimlar li.aktif::after{background:var(--accent)}
+
+/* liste satırları */
+.kayit{border:1px solid var(--line);border-radius:var(--r2);padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+.kayit .ust2{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.kayit .ust2>span:last-child{display:flex;gap:6px;flex-wrap:wrap}
+.kayit small{color:var(--muted)}
+#tListe,#gecmisListe,#gibListe{display:flex;flex-direction:column;gap:8px}
+
+/* ayarlar */
+details.grup{border:1px solid var(--line);border-radius:var(--r2);padding:12px;background:var(--surface2)}
+details.grup>summary{font-weight:650}
+details.grup[open]>summary{margin-bottom:6px}
 details.kayit>summary{font-weight:600;display:flex;flex-direction:column;gap:0}
 details.kayit>summary small,details.alt2>summary small{font-weight:400;color:var(--muted)}
 details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 .icerik{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-#giris{max-width:420px;margin:12vh auto 0}
+
+/* sekmeler: telefonda altta, geniş ekranda üstte */
+.sekmeler{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);padding:4px 4px calc(4px + var(--safe));height:calc(var(--nav-h) + var(--safe))}
+.sekmeler button{font:inherit;font-size:.72rem;font-weight:600;border:0;background:transparent;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:12px;cursor:pointer;position:relative}
+.sekmeler button svg{width:22px;height:22px}
+.sekmeler button[aria-current=page]{color:var(--accent)}
+.sekmeler button[aria-current=page] svg{background:var(--accent-soft);border-radius:99px;padding:2px 14px;width:52px;box-sizing:content-box;margin:0 -14px}
+.rozet{position:absolute;top:4px;left:calc(50% + 8px);background:var(--danger);color:#fff;font-size:.65rem;border-radius:99px;padding:0 6px;min-width:18px;line-height:18px}
+
+/* alt tutar çubuğu (telefon) */
+.altbar{position:fixed;left:8px;right:8px;bottom:calc(var(--nav-h) + var(--safe) + 8px);z-index:25;background:var(--fg);color:var(--bg);border-radius:var(--r);padding:8px 8px 8px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.altbar small{display:block;font-size:.72rem;opacity:.7}
+.altbar b{font-size:1.1rem;font-variant-numeric:tabular-nums}
+.altbar .btn{margin-left:auto;min-height:44px;background:var(--accent);color:var(--accent-fg)}
+
+/* fatura görünümü: tam ekran */
+#gorunum{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;gap:0}
+#gorunum .gbas{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--surface)}
+#gorunum .gbas h2{margin-right:auto}
+#gorunum .gbas .btn{min-height:42px;padding:8px 14px}
+#cerceve{flex:1;width:100%;border:0;background:#fff}
+#gorunum .not{padding:8px 12px}
+
+/* giriş */
+#giris{max-width:400px;margin:0 auto;padding:12vh 16px 40px;display:flex;flex-direction:column;gap:16px}
+#giris .marka{flex-direction:column;align-items:flex-start;gap:12px;margin:0}
+#giris .logo{width:52px;height:52px;border-radius:14px}
+#giris .logo svg{width:28px;height:28px}
+
+@media (min-width:960px){
+  .sayfa{padding-bottom:40px}
+  .izgara{grid-template-columns:minmax(0,1fr) 380px}
+  .sag{position:sticky;top:76px}
+  .sekmeler{position:static;height:auto;display:flex;gap:4px;background:transparent;border:0;padding:0;margin-left:8px}
+  .sekmeler button{flex-direction:row;font-size:.9rem;padding:8px 14px;gap:8px}
+  .sekmeler button svg{width:18px;height:18px}
+  .sekmeler button[aria-current=page]{background:var(--accent-soft)}
+  .sekmeler button[aria-current=page] svg{background:none;padding:0;width:18px;margin:0}
+  .rozet{position:static}
+  .altbar{display:none!important}
+  .bar-ic{padding:12px 24px}
+  .bar{background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+}
+.imza{font-size:.8rem;color:var(--muted);text-align:center;line-height:1.6}.imza b{color:var(--fg)}
+@media (min-width:960px){footer.imza{padding-bottom:30px!important}}
+@media print{.bar,.sekmeler,.altbar{display:none!important}}
 </style>
 </head>
 <body>
 <main id="giris" hidden>
-  <h1>Fatura Portalı</h1>
+  <div class="marka"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg></div><div><h1>e-Arşiv Fatura</h1><p class="not">GİB e-Arşiv Portalı üzerinden hızlı fatura</p></div></div>
   <form class="card" id="girisForm">
     <p class="not" id="girisYazi"></p>
     <input type="password" id="s1" placeholder="Uygulama şifresi" aria-label="Uygulama şifresi" autocomplete="current-password">
@@ -68,24 +194,39 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     <button class="btn" type="submit" id="girisBtn">Aç</button>
     <div class="durum" id="girisDurum" role="status"></div>
   </form>
+  <div class="imza"><b>Adem Yılmaz</b> · Serbest Muhasebeci Mali Müşavir<br><a href="https://smmmyilmaz.com" target="_blank" rel="noopener">smmmyilmaz.com</a></div>
 </main>
 
-<main id="uyg" hidden>
-  <div class="ust"><h1>Fatura Portalı <small id="surum" style="font-size:.6rem;color:var(--muted);font-weight:400"></small></h1><button class="k" id="cikis" type="button">Çıkış</button></div>
-  <div class="sahte" id="sahte" hidden>Deneme modu: GİB’e bağlanılmıyor, gerçek fatura kesilmez.</div>
+<div id="uyg" hidden>
+  <header class="bar"><div class="bar-ic">
+    <div class="marka"><div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg></div><div><h1>e-Arşiv Fatura</h1><small id="surum"></small></div></div>
+    <nav class="sekmeler" id="sekmeler" aria-label="Bölümler">
+      <button type="button" data-sekme="yeni" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>Yeni fatura</button>
+      <button type="button" data-sekme="taslak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Taslaklar<span class="rozet" id="tRozet" hidden></span></button>
+      <button type="button" data-sekme="gecmis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Geçmiş</button>
+      <button type="button" data-sekme="ayar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ayarlar</button>
+    </nav>
+    <button class="k" id="tema" type="button" aria-label="Tema: otomatik" title="Tema">◐ Otomatik</button>
+    <button class="k" id="cikis" type="button">Çıkış</button>
+  </div></header>
 
-  <div class="card"><h2>Mükellef</h2><div class="chips" id="mChips"></div><p class="not" id="mYok" hidden>Önce Ayarlar bölümünden mükellef ekleyin.</p></div>
+  <div class="sayfa">
+  <div class="sahte" id="sahte" hidden style="margin-bottom:14px">Deneme modu: GİB’e bağlanılmıyor, gerçek fatura kesilmez.</div>
 
-  <details class="card bolum" id="aliciKart" open><summary><span>Alıcı</span><small id="ozAlici"></small></summary><div class="icerik">
-    <details>
-      <summary>Müşterinin mesajından doldur</summary>
+  <section data-sayfa="yeni" class="izgara">
+  <div class="sol">
+  <div class="card" style="gap:8px"><label style="margin:0">Mükellef (faturayı kesen)</label><div class="chips" id="mChips"></div><p class="not" id="mYok" hidden>Önce Ayarlar bölümünden mükellef ekleyin.</p></div>
+
+  <details class="card bolum" id="aliciKart" open><summary><span class="no">1</span><span class="bas">Alıcı</span><small id="ozAlici"></small></summary><div class="icerik">
+    <details class="ic">
+      <summary>✨ Müşterinin mesajından doldur</summary>
       <textarea id="mesaj" placeholder="Müşterinin mesajı: Ahmet Yılmaz'a 5.000 TL servis taşımacılık, kdv hariç" aria-label="Müşterinin mesajı"></textarea>
-      <button class="btn ikincil" type="button" id="oku" style="margin-top:8px">Mesajdan doldur</button>
+      <button class="btn ikincil" type="button" id="oku" style="margin-top:8px;width:100%">Mesajdan doldur</button>
     </details>
-    <div><label for="alici">Alıcı seç</label><select id="alici"></select></div>
+    <div><label for="alici">Alıcı</label><select id="alici"></select></div>
     <div class="alt" id="yeniAlici" hidden>
+      <div><label for="yVkn">VKN / TCKN</label><input id="yVkn" inputmode="numeric" autocomplete="off" placeholder="10 ya da 11 hane — yazınca GİB’den sorgulanır"></div>
       <div><label for="yAd">Alıcı unvanı / ad soyad</label><input id="yAd" autocomplete="off"></div>
-      <div><label for="yVkn">VKN / TCKN</label><input id="yVkn" inputmode="numeric" autocomplete="off"></div>
       <button class="btn ikincil" type="button" id="sorgula">GİB’den bilgi getir</button>
       <div class="durum" id="sorguDurum" role="status"></div>
       <div><label for="yAdres">Adres (faturaya yazılır)</label><input id="yAdres" autocomplete="off" placeholder="Mahalle, cadde, no, ilçe/il"></div>
@@ -94,7 +235,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     </div>
   </div></details>
 
-  <details class="card bolum" id="bilgiKart" open><summary><span>Fatura bilgileri</span><small id="ozBilgi"></small></summary><div class="icerik">
+  <details class="card bolum" id="bilgiKart" open><summary><span class="no">2</span><span class="bas">Fatura bilgileri</span><small id="ozBilgi"></small></summary><div class="icerik">
     <div class="satir">
       <div><label for="tarih">Fatura tarihi</label><input id="tarih" type="date"></div>
       <div><label for="tip">Fatura tipi</label>
@@ -107,8 +248,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         </select></div>
     </div>
     <div class="alt" id="iadeAlan" hidden>
-      <p class="not"><b>İade faturasında iade edilen faturanın numarası ve tarihi zorunludur.</b> Daha önce kesilmiş bir faturaya bağlanır (geçmişten “İade” düğmesiyle de doldurabilirsiniz).</p>
-      <div class="satir"><div><label for="iadeNo">İade edilen fatura no (zorunlu)</label><input id="iadeNo" autocomplete="off" placeholder="GIB2026000000023"></div><div><label for="iadeTarih">Düzenlenme tarihi (zorunlu)</label><input id="iadeTarih" type="date"></div></div>
+      <p class="not"><b>İade faturasında iade edilen faturanın numarası ve tarihi zorunludur.</b> Geçmişten “İade” düğmesiyle de doldurabilirsiniz.</p>
+      <div class="satir"><div><label for="iadeNo">İade edilen fatura no *</label><input id="iadeNo" autocomplete="off" placeholder="GIB2026000000023"></div><div><label for="iadeTarih">Düzenlenme tarihi *</label><input id="iadeTarih" type="date"></div></div>
     </div>
     <div class="satir">
       <div><label for="para">Para birimi</label>
@@ -120,58 +261,79 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     <div class="not" id="notOnizleme"></div>
   </div></details>
 
-  <details class="card bolum" id="malKart" open><summary><span>Mal / Hizmet</span><small id="ozMal"></small></summary><div class="icerik">
-    <div><label>Birim fiyatlar</label><div class="chips"><button class="chip" type="button" data-dahil="0" aria-pressed="true">KDV hariç</button><button class="chip" type="button" data-dahil="1" aria-pressed="false">KDV dahil</button></div></div>
+  <details class="card bolum" id="malKart" open><summary><span class="no">3</span><span class="bas">Mal / Hizmet</span><small id="ozMal"></small></summary><div class="icerik">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><label style="margin:0">Birim fiyatlar</label><div class="seg"><button class="chip" type="button" data-dahil="0" aria-pressed="true">KDV hariç</button><button class="chip" type="button" data-dahil="1" aria-pressed="false">KDV dahil</button></div></div>
     <div id="kalemler" style="display:flex;flex-direction:column;gap:10px"></div>
     <button class="btn ikincil" type="button" id="kalemEkle">+ Satır ekle</button>
+  </div></details>
+  </div>
+
+  <aside class="sag">
+  <div class="card" id="islemKart">
+    <div class="kartbas"><h2>Özet ve onay</h2><small id="ozTip"></small></div>
     <div class="ozet" id="ozet"></div>
     <div class="not" id="ozetHata"></div>
-  </div></details>
-
-  <div class="card">
-    <h2>İşlemler</h2>
+    <ol class="adimlar" id="adimlar"><li>Taslak</li><li>SMS kodu</li><li>Onay</li></ol>
     <button class="btn" type="button" id="taslak" disabled>1. Taslak kaydet</button>
-    <div class="not" id="eksik" style="color:var(--danger)"></div>
+    <div id="eksik"></div>
     <div id="adim2" hidden class="alt">
-      <p class="not">Taslak GİB’de hazır. Portalda “Taslak Faturalar”da kontrol edebilirsiniz. Onaylanınca fatura kesilir ve geri alınamaz.</p>
+      <p class="not">Taslak GİB’de hazır. Onaylanınca fatura kesilir ve <b>geri alınamaz</b>.</p>
       <button class="btn ikincil" type="button" id="onizleBtn">Taslağı görüntüle</button>
       <button class="btn ikincil" type="button" id="sms">2. SMS kodu gönder</button>
-      <div id="adim3" hidden class="alt">
-        <div><label for="kodGir">SMS kodu</label><input id="kodGir" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false"></div>
+      <div id="adim3" hidden style="display:flex;flex-direction:column;gap:10px">
+        <div><label for="kodGir">SMS kodu</label><input id="kodGir" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" style="font-size:1.3rem;letter-spacing:.2em;text-align:center"></div>
         <button class="btn" type="button" id="imzala">3. Onayla ve faturayı kes</button>
       </div>
     </div>
-    <button class="btn tehlike" type="button" id="temizle">İptal (formu temizle)</button>
     <div class="durum" id="durum" role="status"></div>
+    <button class="btn tehlike" type="button" id="temizle">Formu temizle</button>
   </div>
+  </aside>
+  </section>
 
-  <div class="card" id="gorunum" hidden>
-    <h2>Fatura görünümü</h2>
-    <iframe id="cerceve" sandbox="allow-same-origin allow-modals" title="Fatura" style="width:100%;height:520px;border:1px solid var(--line);border-radius:6px;background:#fff"></iframe>
-    <div class="satir"><button class="btn" type="button" id="yazdir">Faturayı yazdır / PDF kaydet</button><button class="btn ikincil" type="button" id="gorunumKapat">Kapat</button></div>
-    <p class="not">Fatura yeni bir sekmede yalnız kendi sayfası olarak açılır; yazdırma ekranında “PDF olarak kaydet”i (telefonda “PDF olarak kaydet / Paylaş”) seçin.</p>
-  </div>
-
-  <details class="card bolum" id="taslakKart"><summary><span>Bekleyen taslaklar (GİB)</span><small id="ozTaslak"></small></summary><div class="icerik">
-    <p class="not">GİB’de oluşturulmuş, henüz onaylanmamış taslaklar. Programdan ya da portaldan açılmış olabilir.</p>
-    <button class="btn ikincil" type="button" id="tGetir">Taslakları getir</button>
+  <section data-sayfa="taslak" class="liste" hidden>
+  <div class="card" id="taslakKart">
+    <div class="kartbas"><h2>Bekleyen taslaklar (GİB)</h2><small id="ozTaslak"></small></div>
+    <p class="not">GİB’de oluşturulmuş, henüz onaylanmamış taslaklar (son 30 gün). Programdan ya da portaldan açılmış olabilir.</p>
+    <button class="btn ikincil" type="button" id="tGetir">Yenile</button>
     <div id="tListe"></div>
     <div class="durum" id="tDurum" role="status"></div>
-  </div></details>
+  </div>
+  </section>
 
-  <details class="card bolum" id="gecmisKart"><summary><span>Geçmiş faturalar</span><small id="ozGecmis"></small></summary><div class="icerik">
+  <section data-sayfa="gecmis" class="liste" hidden>
+  <div class="card" id="gecmisKart">
+    <div class="kartbas"><h2>Geçmiş faturalar</h2><small id="ozGecmis"></small></div>
     <div id="gecmisListe"><p class="not">Bu programdan kesilen faturalar burada listelenir.</p></div>
-    <details>
-      <summary>GİB’deki belgeleri tarihe göre listele</summary>
-      <div class="satir"><div><label for="gBas">Başlangıç</label><input id="gBas" type="date"></div><div><label for="gBit">Bitiş</label><input id="gBit" type="date"></div></div>
-      <button class="btn ikincil" type="button" id="gListele" style="margin-top:8px">Listele</button>
-      <div id="gibListe" style="margin-top:8px"></div>
-    </details>
     <div class="durum" id="gDurum" role="status"></div>
-  </div></details>
+  </div>
+  <div class="card">
+    <div class="kartbas"><h2>GİB’deki belgeler</h2></div>
+    <div class="satir"><div><label for="gBas">Başlangıç</label><input id="gBas" type="date"></div><div><label for="gBit">Bitiş</label><input id="gBit" type="date"></div></div>
+    <button class="btn ikincil" type="button" id="gListele">Listele</button>
+    <div id="gibListe"></div>
+  </div>
+  </section>
 
-  <details class="card" id="ayar"><summary>Ayarlar</summary><p class="not"><a href="/api/yedek" download>Şifreli yedeği indir</a> (veri dosyası uygulama şifrenizle şifrelidir; başka cihaza taşımak için de kullanılır).</p><div id="ayarIc" style="display:flex;flex-direction:column;gap:10px"></div></details>
-</main>
+  <section data-sayfa="ayar" class="liste" hidden>
+  <div class="card" id="ayar">
+    <div class="kartbas"><h2>Ayarlar</h2><a href="/api/yedek" download class="k" style="text-decoration:none">Yedeği indir</a></div>
+    <p class="not">Yedek dosyası uygulama şifrenizle şifrelidir; başka cihaza taşımak için de kullanılır.</p>
+    <div id="ayarIc" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+  </section>
+  </div>
+
+  <footer class="imza" style="padding:0 16px calc(var(--nav-h) + var(--safe) + 90px)"><b>Adem Yılmaz</b> · Serbest Muhasebeci Mali Müşavir<br><a href="https://smmmyilmaz.com" target="_blank" rel="noopener">smmmyilmaz.com</a></footer>
+
+  <div class="altbar" id="altbar" hidden><div><small>Ödenecek</small><b id="abTutar">—</b></div><button class="btn" type="button" id="abDevam">Onaya geç ↓</button></div>
+
+  <div id="gorunum" hidden role="dialog" aria-label="Fatura görünümü">
+    <div class="gbas"><h2>Fatura</h2><button class="btn" type="button" id="yazdir">Yazdır / PDF</button><button class="btn ikincil" type="button" id="gorunumKapat">Kapat</button></div>
+    <iframe id="cerceve" sandbox="allow-same-origin allow-modals" title="Fatura"></iframe>
+    <p class="not">“Yazdır / PDF” faturayı ayrı sekmede açar; yazdırma ekranında “PDF olarak kaydet”i seçin (telefonda Paylaş ile gönderebilirsiniz).</p>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -310,7 +472,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         s.push(["Vergiler dahil toplam", t.toplam]);
         $("ozet").innerHTML = s.map(function(r){ return '<div>' + esc(r[0]) + '</div><div class="t">' + fmt(r[1]) + pb + '</div>'; }).join("") + '<div class="s">Ödenecek tutar</div><div class="t s">' + fmt(t.odenecek) + pb + '</div>';
         $("ozetHata").textContent = ""; $("notOnizleme").textContent = h.not ? "Fatura notu: " + h.not : "";
-        kalemToplamlari(h);
+        kalemToplamlari(h); ozetleriYaz(girdi());
       }, function(er){ if (!oturumDustu(er)) { sonHesap = null; $("ozet").innerHTML = ""; $("ozetHata").textContent = er.message; kalemToplamlari(null); } });
     }, 150);
     kontrolBtn();
@@ -352,6 +514,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("ozAlici").textContent = a.ad ? a.ad + (a.vkn ? " · " + a.vkn : "") : "seçilmedi";
     $("ozBilgi").textContent = [t, TIPAD[g.tip] || g.tip, g.para !== "TRY" ? g.para : "", g.tip === "IADE" && g.iadeNo ? "iade: " + g.iadeNo : ""].filter(Boolean).join(" · ");
     var o = sonHesap && sonHesap.toplam;
+    $("ozTip").textContent = TIPAD[g.tip] || "";
+    $("abTutar").textContent = o ? fmt(o.odenecek) + " " + PARASEM[g.para] : "—";
     $("ozMal").textContent = g.kalemler.length + " satır" + (o ? " · " + fmt(o.odenecek) + " " + PARASEM[g.para] : "");
   }
   function sifirla(){ son = { uuid: null, oid: null, hesap: null, imzali: false }; $("adim2").hidden = true; $("adim3").hidden = true; $("kodGir").value = ""; }
@@ -419,7 +583,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     yurut($("imzala"), function(){ return api("/api/imzala", "POST", { mukellefId: son.mid || mSec, uuid: son.uuid, oid: son.oid, kod: $("kodGir").value.trim(), tarih: son.tarih }); }, function(r){
       if (r.kayit) son.kayit = r.kayit;
       var kayit = son.kayit, uuid = son.uuid, mid = son.mid;
-      durum((r.mesaj || "Fatura onaylandı.") + "\nFatura aşağıda görüntülenir; PDF olarak kaydedebilirsiniz.", "ok");
+      durum((r.mesaj || "Fatura onaylandı.") + "\nFatura açıldı; “Yazdır / PDF” ile kaydedebilirsiniz.", "ok");
       formuTemizle(); sifirla();
       son.imzali = true; son.kayit = kayit; son.uuid = uuid; son.mid = mid; goster(uuid, "Onaylandı"); gecmisYukle(); if ($("tListe").innerHTML) taslakGetir();
     });
@@ -560,7 +724,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     api("/api/liste", "POST", { mukellefId: mSec, bas: ymd(a), bit: ymd(b) }).then(function(r){
       taslaklar = r.belgeler.filter(function(x){ return x.durum === "Onaylanmadı" && x.ettn; });
       d.className = "durum ok"; d.textContent = taslaklar.length ? taslaklar.length + " bekleyen taslak (son 30 gün)." : "Bekleyen taslak yok.";
-      $("ozTaslak").textContent = taslaklar.length ? taslaklar.length + " bekliyor" : "yok";
+      $("ozTaslak").textContent = taslaklar.length ? taslaklar.length + " bekliyor" : "yok"; tYuklendi = true;
+      $("tRozet").hidden = !taslaklar.length; $("tRozet").textContent = taslaklar.length;
       $("tListe").innerHTML = taslaklar.map(function(x, i){
         return '<div class="kayit"><div class="ust2"><span>' + esc(x.alici) + " — " + esc(x.vkn) + '<br><small>' + esc(x.tarih) + " · " + esc(x.belgeNo) + '</small></span></div>' +
           '<div class="satir"><button class="k" type="button" data-tg="' + i + '">Görüntüle</button><button class="btn" type="button" data-to="' + i + '" style="min-height:38px;padding:6px">Onayla</button></div></div>';
@@ -580,7 +745,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       son = { uuid: x.ettn, oid: null, hesap: null, imzali: false, tarih: t, kayit: null, mid: mSec };
       $("adim2").hidden = false; $("adim3").hidden = true; $("kodGir").value = "";
       durum("Onaylanacak taslak: " + x.alici + " — " + x.belgeNo + ". Önce SMS kodu gönderin.", "ok");
-      $("adim2").scrollIntoView({ behavior: "smooth", block: "center" });
+      sekme("yeni"); $("islemKart").scrollIntoView({ behavior: "smooth", block: "start" });
     }
   });
 
@@ -635,7 +800,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("iadeNo").value = iade ? (k.belgeNo || "") : ""; $("iadeTarih").value = iade ? (k.tarih || "") : "";
     cizAlici(); cizKalemler(); formDoldur(); onizle();
     ["aliciKart", "bilgiKart", "malKart"].forEach(function(i){ $(i).open = true; });
-    $("aliciKart").scrollIntoView({ behavior: "smooth" });
+    sekme("yeni"); $("aliciKart").scrollIntoView({ behavior: "smooth" });
     durum(iade ? "İade faturası hazırlandı: " + (k.belgeNo || "seçilen fatura") + " numaralı faturaya bağlandı." + (f.tip === "TEVKIFAT" ? " Not: tevkifatlı faturanın iadesi için GİB ayrı bir tip kullanabilir; taslağı portalda kontrol edin." : "") + " Satırları kontrol edip taslak kaydedin."
       : "Fatura geçmişten kopyalandı (tarih bugüne alındı). Tutarları ve açıklamaları kontrol edip taslak kaydedin.", "ok");
   }
@@ -714,6 +879,53 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     else if (t.id === "ayarKaydet") { yenile = false; kaydetV().then(function(){ hepsi(); var d = $("ayarDurum"); d.className = "durum ok"; d.textContent = "Kaydedildi."; }, function(er){ var d = $("ayarDurum"); d.className = "durum hata"; d.textContent = er.message; }); return; }
     else return;
     kaydetV().then(hepsi);
+  });
+
+  /* ---------- sekmeler ---------- */
+  var aktifSekme = "yeni", tYuklendi = false;
+  function sekme(ad){
+    aktifSekme = ad;
+    document.querySelectorAll("[data-sayfa]").forEach(function(x){ x.hidden = x.getAttribute("data-sayfa") !== ad; });
+    document.querySelectorAll("[data-sekme]").forEach(function(b){ if (b.getAttribute("data-sekme") === ad) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+    if (ad === "taslak" && !tYuklendi && mSec) taslakGetir();
+    altbarGuncelle();
+  }
+  $("sekmeler").addEventListener("click", function(e){
+    var b = e.target.closest("[data-sekme]"); if (!b) return;
+    sekme(b.getAttribute("data-sekme")); window.scrollTo(0, 0);
+  });
+  /* telefonda: onay kartı ekranda değilken alttaki tutar çubuğu görünür */
+  var islemGorunur = false;
+  function altbarGuncelle(){ $("altbar").hidden = aktifSekme !== "yeni" || islemGorunur; }
+  if ("IntersectionObserver" in window) new IntersectionObserver(function(es){ islemGorunur = es[0].isIntersecting; altbarGuncelle(); }).observe($("islemKart"));
+  $("abDevam").addEventListener("click", function(){ $("islemKart").scrollIntoView({ behavior: "smooth", block: "start" }); });
+  /* adım göstergesi: taslak → SMS → onay */
+  function adimCiz(){
+    var li = $("adimlar").children, a2 = !$("adim2").hidden, a3 = !$("adim3").hidden, bitti = son.imzali;
+    var d = [bitti || a2 ? "bitti" : "aktif", bitti || a3 ? "bitti" : a2 ? "aktif" : "", bitti ? "bitti" : a3 ? "aktif" : ""];
+    for (var i = 0; i < 3; i++) li[i].className = d[i];
+  }
+  var gozcu = new MutationObserver(adimCiz);
+  ["adim2", "adim3"].forEach(function(i){ gozcu.observe($(i), { attributes: true, attributeFilter: ["hidden"] }); });
+  gozcu.observe($("durum"), { childList: true, characterData: true, subtree: true });
+  adimCiz();
+  /* mükellef değişince taslak listesi yeniden yüklensin */
+  $("mChips").addEventListener("click", function(){ tYuklendi = false; $("tRozet").hidden = true; if (aktifSekme === "taslak") setTimeout(taslakGetir, 0); });
+
+  /* ---------- tema: otomatik / açık / koyu ---------- */
+  var TEMAAD = { "": "◐ Otomatik", acik: "☀ Açık", koyu: "☾ Koyu" };
+  function temaYaz(t){
+    var r = document.documentElement; if (t) r.setAttribute("data-tema", t); else r.removeAttribute("data-tema");
+    $("tema").textContent = TEMAAD[t]; $("tema").setAttribute("aria-label", "Tema: " + TEMAAD[t].slice(2));
+    var m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = t === "koyu" || (!t && window.matchMedia("(prefers-color-scheme:dark)").matches) ? "#0b1210" : "#0d6b55";
+  }
+  var tema = ""; try { tema = localStorage.getItem("tema") || ""; } catch (e) {}
+  if (tema !== "acik" && tema !== "koyu") tema = "";
+  temaYaz(tema);
+  $("tema").addEventListener("click", function(){
+    tema = tema === "" ? "acik" : tema === "acik" ? "koyu" : "";
+    try { if (tema) localStorage.setItem("tema", tema); else localStorage.removeItem("tema"); } catch (e) {}
+    temaYaz(tema);
   });
 
   acilis();
