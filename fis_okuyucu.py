@@ -240,12 +240,15 @@ def gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis=False, sicaklik=0):
         "başına ve büyük puntoyla yazılıdır. Plaka yoksa veya fişte araçla "
         "ilgili bir bilgi yoksa null yaz. Bu değeri asla fis_no alanına da "
         "kopyalama.\n"
-        "- \"urun_adi\": Fişteki ürün/hizmet içeriğini analiz ederek SADECE şu "
-        "üç kategoriden birini yaz: \"Normal Bakım Onarım Giderleri ( GVK 40/1 - 40/7\", \"Taşıt Akaryakıt Giderleri (GVK 40/1-40/5)\" veya \"Dışarıdan Sağlanan Fayda ve Hizmetler\". "
-        "Yedek parça, tamir, servis, oto bakım ürünleri \"Normal Bakım Onarım Giderleri ( GVK 40/1 - 40/7 )\" sayılır. "
-        "Akaryakıt (motorin, benzin, LPG) \"Taşıt Akaryakıt Giderleri (GVK 40/1-40/5)\" sayılır. Eğer bu "
-        "kategorilerden hiçbirine uymuyorsa fişte yazan gerçek ürün/hizmet "
-        "Dışarıdan Sağlanan Fayda ve Hizmetler\n"
+        "- \"urun_adi\": Fişteki ürün/hizmet içeriğine bakarak SADECE şu üç "
+        "kategoriden birini AYNEN yaz: \"Normal Bakım Onarım Giderleri ( GVK 40/1 - 40/7 )\", "
+        "\"Taşıt Akaryakıt Giderleri (GVK 40/1-40/5)\" veya \"Dışarıdan Sağlanan Fayda ve Hizmetler\". "
+        "KURAL: Araçla ilgili her şey \"Normal Bakım Onarım Giderleri ( GVK 40/1 - 40/7 )\" sayılır: "
+        "yedek parça, lastik (lastik tamiri, rotasyon, balans dahil), oto aksesuar, "
+        "elektronik/elektrik parça, mekanik/elektrik işçilik, tamir, servis, bakım, yağ, filtre, akü. "
+        "Akaryakıt (motorin, benzin, LPG, ultimate vb.) \"Taşıt Akaryakıt Giderleri (GVK 40/1-40/5)\" sayılır. "
+        "\"Dışarıdan Sağlanan Fayda ve Hizmetler\" SADECE yukarıdakilerin hiçbirine uymayan, "
+        "araçla ilgisi olmayan alımlar (yemek, kırtasiye, internet, telefon, kira vb.) için kullanılır.\n"
         "- \"firma_adi\": Fişi kesen firmanın/işletmenin adı (fiş başlığındaki "
         "unvan, genellikle en üstte büyük harflerle yazılıdır)\n"
         "- \"vergi_veya_tc_no\": Firma adres bloğunda, VERGİ DAİRESİ ADININ HEMEN "
@@ -631,6 +634,26 @@ def fis_uyarilari(fis):
     return uyarilar
 
 
+KATEGORI_BAKIM = "Normal Bakım Onarım Giderleri ( GVK 40/1 - 40/7 )"
+KATEGORI_AKARYAKIT = "Taşıt Akaryakıt Giderleri (GVK 40/1-40/5)"
+KATEGORI_DIGER = "Dışarıdan Sağlanan Fayda ve Hizmetler"
+
+
+def kategoriyi_standartlastir(deger):
+    """Modelin yazdığı kategori küçük yazım farklarıyla dönse bile üç sabit
+    kategoriden birine çevirir; tanınmazsa olduğu gibi bırakır."""
+    if not deger:
+        return deger
+    d = str(deger).lower()
+    if "bakım" in d or "bakim" in d or "onarım" in d:
+        return KATEGORI_BAKIM
+    if "akaryakıt" in d or "akaryakit" in d:
+        return KATEGORI_AKARYAKIT
+    if "dışarıdan" in d or "disaridan" in d:
+        return KATEGORI_DIGER
+    return deger
+
+
 def fisleri_normalle(fis_listesi):
     """Model çıktısındaki alanları temizler (vergi no sadece rakam, fiş no
     boşluksuz)."""
@@ -638,6 +661,7 @@ def fisleri_normalle(fis_listesi):
         if not isinstance(fis, dict):
             continue
         fis["vergi_veya_tc_no"] = vergi_no_temizle(fis.get("vergi_veya_tc_no"))
+        fis["urun_adi"] = kategoriyi_standartlastir(fis.get("urun_adi"))
         if fis.get("fis_no") is not None:
             fis["fis_no"] = re.sub(r"\s+", "", str(fis["fis_no"])) or None
     return fis_listesi
