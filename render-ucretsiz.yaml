@@ -1,0 +1,16 @@
+# DENEME için ücretsiz Render tanımı: kalıcı disk YOK, 15 dakika kullanılmazsa uyur, uyandığında veriler sıfırlanır.
+# Kullanım: Blueprint Path alanına  render-ucretsiz.yaml  yazın.
+services:
+  - type: web
+    name: fatura-deneme
+    runtime: docker
+    plan: free
+    dockerfilePath: ./fatura-portal/Dockerfile
+    dockerContext: ./fatura-portal
+    envVars:
+      - key: GUVENLI
+        value: "1"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DATA_DIR
+        value: /data
