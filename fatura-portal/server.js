@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-28";
+const SURUM = "2026-10-19-29";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -75,13 +75,21 @@ async function ac(sifre) {
 }
 
 /* GİB şifreleri veri içinde düz durur ama kasa dosyası şifrelidir; istemciye asla gönderilmez. */
+const RESIM = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
+const markaTemiz = (m) => {
+  m = m || {};
+  const r = (x) => (typeof x === "string" && x.length <= 400000 && RESIM.test(x) ? x : "");
+  return { ad: String(m.ad || "").slice(0, 80), unvan: String(m.unvan || "").slice(0, 100), web: String(m.web || "").replace(/^https?:\/\//i, "").slice(0, 80), logo: r(m.logo), imza: r(m.imza) };
+};
 const temiz = () => ({
+  marka: veri.marka || null,
   hizmetler: veri.hizmetler,
   mukellefler: veri.mukellefler.map((m) => ({ id: m.id, ad: m.ad, vkn: m.vkn, kullanici: m.kullanici, sifreVar: !!m.gibSifre, aliciler: m.aliciler || [] }))
 });
 function birlestir(g) {
   const eski = new Map(veri.mukellefler.map((m) => [m.id, m]));
   veri.hizmetler = g.hizmetler;
+  if (g.marka) veri.marka = markaTemiz(g.marka);
   veri.mukellefler = g.mukellefler.map((m) => ({
     id: String(m.id), ad: String(m.ad || ""), vkn: String(m.vkn || ""), kullanici: String(m.kullanici || ""),
     gibSifre: m.gibSifre ? String(m.gibSifre) : (eski.get(m.id) || {}).gibSifre || "",

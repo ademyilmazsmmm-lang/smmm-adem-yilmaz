@@ -179,6 +179,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   .bar-ic{padding:12px 24px}
   .bar{background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 }
+.logo img{width:100%;height:100%;object-fit:contain;border-radius:inherit;background:#fff}
+.imza img{max-height:64px;max-width:220px;display:block;margin:0 auto 6px}
+.resimkutu{border:1px dashed var(--line2);border-radius:var(--r2);padding:10px;display:flex;align-items:center;gap:12px;background:var(--surface)}
+.resimkutu img{max-height:56px;max-width:140px;background:#fff;border-radius:6px;border:1px solid var(--line)}
 .imza{font-size:.8rem;color:var(--muted);text-align:center;line-height:1.6}.imza b{color:var(--fg)}
 @media (min-width:960px){footer.imza{padding-bottom:30px!important}}
 @media print{.bar,.sekmeler,.altbar{display:none!important}}
@@ -199,7 +203,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
 <div id="uyg" hidden>
   <header class="bar"><div class="bar-ic">
-    <div class="marka"><div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg></div><div><h1>e-Arşiv Fatura</h1><small id="surum"></small></div></div>
+    <div class="marka"><div class="logo" id="logoKutu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg></div><div><h1>e-Arşiv Fatura</h1><small id="surum"></small></div></div>
     <nav class="sekmeler" id="sekmeler" aria-label="Bölümler">
       <button type="button" data-sekme="yeni" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>Yeni fatura</button>
       <button type="button" data-sekme="taslak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Taslaklar<span class="rozet" id="tRozet" hidden></span></button>
@@ -324,7 +328,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   </section>
   </div>
 
-  <footer class="imza" style="padding:0 16px calc(var(--nav-h) + var(--safe) + 90px)"><b>Adem Yılmaz</b> · Serbest Muhasebeci Mali Müşavir<br><a href="https://smmmyilmaz.com" target="_blank" rel="noopener">smmmyilmaz.com</a></footer>
+  <footer class="imza" id="altImza" style="padding:0 16px calc(var(--nav-h) + var(--safe) + 90px)"></footer>
 
   <div class="altbar" id="altbar" hidden><div><small>Ödenecek</small><b id="abTutar">—</b></div><button class="btn" type="button" id="abDevam">Onaya geç ↓</button></div>
 
@@ -391,7 +395,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   /* Yeni satır: miktar 1, birim Adet, KDV %20 otomatik gelir (hazır hizmet seçilirse onun KDV/tevkifat değerleri); hepsi değiştirilebilir */
   function yeniKalem(h){ return { preset: h ? h.id : "", ad: h ? h.ad : "", aciklama: "", miktar: "1", birim: "C62", fiyat: "", kdv: h ? String(h.kdv) : "20", tev: h ? String(h.tev) : "0", kod: h ? (h.kod || "") : "", istisna: h ? (h.istisna || "") : "" }; }
   function ilkKalem(){ return yeniKalem(V && V.hizmetler[0] || null); }
-  function hepsi(){ if (!$("tarih").value) $("tarih").value = bugunStr(); $("tarih").max = bugunStr(); cizM(); cizAlici(); cizKalemler(); formDoldur(); onizle(); cizAyar(); }
+  function hepsi(){ if (!$("tarih").value) $("tarih").value = bugunStr(); $("tarih").max = bugunStr(); cizM(); cizAlici(); cizKalemler(); formDoldur(); onizle(); cizAyar(); markaUygula(); }
   function cizM(){
     $("mChips").innerHTML = V.mukellefler.map(function(m){ return '<button class="chip" type="button" data-m="' + m.id + '" aria-pressed="' + (m.id === mSec) + '">' + esc(m.ad || "(adsız)") + '</button>'; }).join("");
     $("mYok").hidden = V.mukellefler.length > 0;
@@ -592,6 +596,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
   /* ---------- fatura görünümü / PDF ---------- */
   function yerelHtml(k, onay, neden){
+    var mr = marka();
     var h = k.hesap, t = (k.tarih || "").split("-").reverse().join("/"), pb = k.para && k.para !== "TRY" ? " " + (PARASEM[k.para] || k.para) : "";
     var kalemler = k.kalemler || [{ ad: k.hizmetAd, aciklama: k.aciklama, miktar: 1, birim: "C62", fiyat: h.matrah / 100, kdv: k.kdvOrani, tev: k.tevkifat, kod: k.tevkifatKodu, matrah: h.matrah, kdvTutar: h.kdv, tevKdv: h.tevKdv }];
     var tev = kalemler.some(function(x){ return x.tev > 0; });
@@ -605,12 +610,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     topl.push(["Vergiler dahil toplam", h.toplam]);
     return '<html><head><meta charset="utf-8"><title>Fatura ' + esc(k.belgeNo || t) + " " + esc(k.aliciUnvan) + '</title><style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;padding:18px;max-width:760px;margin:auto}h2{margin:0 0 4px}td,th{padding:7px 10px;border:1px solid #bbb;text-align:left}th{background:#f2f2f2}.r{text-align:right;white-space:nowrap}table{border-collapse:collapse;width:100%;margin:14px 0}.u{background:#fff3cd;border:1px solid #e0c36a;padding:8px;font-size:12px;margin-bottom:12px}.g{display:grid;grid-template-columns:1fr 1fr;gap:16px}.k{font-size:12px;color:#555}@media print{.u{display:none}}</style></head><body>' +
       '<div class="u">' + uyari + (neden ? "<br>Neden: " + esc(neden) : "") + "</div>" +
+      (mr.logo ? '<img src="' + mr.logo + '" alt="" style="max-height:60px;max-width:200px;margin-bottom:8px">' : "") +
       "<h2>e-Arşiv Fatura" + (tev ? " (Tevkifat)" : k.tip === "IADE" ? " (İade)" : "") + "</h2><div class=k>" + (k.belgeNo ? "Belge No: " + esc(k.belgeNo) + " · " : "") + "Tarih: " + esc(t) + (pb ? " · Para birimi: " + esc(k.para) + " (kur " + esc(k.kur) + ")" : "") + "</div>" + (k.iade ? "<div class=k>İade edilen fatura: " + esc(k.iade.no) + " — " + esc((k.iade.tarih || "").split("-").reverse().join("/")) + "</div>" : "") +
       '<div class="g" style="margin-top:12px"><div><b>SATICI</b><br>' + esc(k.mukellef && k.mukellef.ad) + "<br>VKN/TCKN: " + esc(k.mukellef && k.mukellef.vkn) + "</div>" +
       "<div><b>ALICI</b><br>" + esc(k.aliciUnvan) + "<br>VKN/TCKN: " + esc(k.aliciVkn) + (k.vergiDairesi ? "<br>Vergi Dairesi: " + esc(k.vergiDairesi) : "") + (k.aliciAdres ? "<br>Adres: " + esc(k.aliciAdres) : "") + "</div></div>" +
       "<table><tr><th>Mal / Hizmet</th><th class=r>Miktar</th><th class=r>KDV</th><th class=r>Tutar</th></tr>" + satirlar + "</table>" +
       "<table style='width:60%;margin-left:auto'>" + topl.map(function(r){ return "<tr><td>" + r[0] + "</td><td class=r>" + (r[1] < 0 ? "-" : "") + fmt(Math.abs(r[1])) + pb + "</td></tr>"; }).join("") + "<tr><td><b>Ödenecek tutar</b></td><td class=r><b>" + fmt(h.odenecek) + pb + "</b></td></tr></table>" +
-      (k.not ? "<p><b>Not:</b> " + esc(k.not) + "</p>" : "") + "</body></html>";
+      (k.not ? "<p><b>Not:</b> " + esc(k.not) + "</p>" : "") +
+      (mr.imza ? '<div style="margin-top:24px"><img src="' + mr.imza + '" alt="" style="max-height:70px;max-width:240px"></div>' : "") + "</body></html>";
   }
   function goster(uuid, onay){
     function ac(html){ $("cerceve").srcdoc = html; $("gorunum").hidden = false; $("gorunum").scrollIntoView({ behavior: "smooth" }); }
@@ -825,7 +832,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   var ayarAcik = {};
   var ac = function(k){ return ayarAcik[k] ? " open" : ""; };
   function cizAyar(){
-    var h = '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler (' + V.mukellefler.length + ')</summary><div class="icerik">';
+    var h = markaHtml() + '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler (' + V.mukellefler.length + ')</summary><div class="icerik">';
     V.mukellefler.forEach(function(m){
       h += '<details class="kayit" data-mid="' + m.id + '" data-ak="m:' + m.id + '"' + ac("m:" + m.id) + '><summary><span data-ozet>' + esc(m.ad || "(adsız)") + '</span><small data-ozet2>' + esc(m.vkn) + '</small></summary><div class="icerik">' +
         '<div><label>Mükellef unvanı</label><input data-f="ad" value="' + esc(m.ad) + '"></div>' +
@@ -853,6 +860,56 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
     $("ayarIc").innerHTML = h;
   }
+  /* ---------- marka: logo, imza ---------- */
+  var MARKA0 = { ad: "Adem Yılmaz", unvan: "Serbest Muhasebeci Mali Müşavir", web: "smmmyilmaz.com", logo: "", imza: "" };
+  function marka(){ var m = V && V.marka; if (!m) return MARKA0; return { ad: m.ad, unvan: m.unvan, web: m.web, logo: m.logo || "", imza: m.imza || "" }; }
+  function markaUygula(){
+    var m = marka(), svg = $("logoKutu").getAttribute("data-svg");
+    if (svg === null) { svg = $("logoKutu").innerHTML; $("logoKutu").setAttribute("data-svg", svg); }
+    $("logoKutu").innerHTML = m.logo ? '<img alt="Logo" src="' + m.logo + '">' : svg;
+    $("altImza").innerHTML = (m.imza ? '<img alt="İmza" src="' + m.imza + '">' : "") + (m.ad ? "<b>" + esc(m.ad) + "</b>" : "") + (m.unvan ? " · " + esc(m.unvan) : "") +
+      (m.web ? '<br><a href="https://' + esc(m.web) + '" target="_blank" rel="noopener">' + esc(m.web) + "</a>" : "");
+  }
+  /* Seçilen resmi tarayıcıda küçültüp PNG/JPEG veri adresine çevirir (kasa dosyası şişmesin) */
+  function resimKucult(dosya, enx, eny){
+    return new Promise(function(ok, no){
+      if (!/^image\/(png|jpeg|webp)$/.test(dosya.type)) return no(new Error("PNG, JPG ya da WebP seçin."));
+      var o = new FileReader();
+      o.onerror = function(){ no(new Error("Dosya okunamadı.")); };
+      o.onload = function(){
+        var im = new Image();
+        im.onerror = function(){ no(new Error("Resim açılamadı.")); };
+        im.onload = function(){
+          var k = Math.min(1, enx / im.width, eny / im.height), c = document.createElement("canvas");
+          c.width = Math.max(1, Math.round(im.width * k)); c.height = Math.max(1, Math.round(im.height * k));
+          c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+          ok(c.toDataURL("image/png"));
+        };
+        im.src = o.result;
+      };
+      o.readAsDataURL(dosya);
+    });
+  }
+  function markaHtml(){
+    var m = V.marka || MARKA0;
+    function kutu(ad, etiket, v){ return '<div><label>' + etiket + '</label><div class="resimkutu">' + (v ? '<img alt="" src="' + v + '">' : '<span class="not">Yok</span>') + '<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><label class="k" style="margin:0;cursor:pointer">Seç<input type="file" accept="image/png,image/jpeg,image/webp" data-resim="' + ad + '" hidden></label>' + (v ? '<button class="k" type="button" data-resim-sil="' + ad + '">Kaldır</button>' : "") + '</span></div></div>'; }
+    return '<details class="grup" data-ak="g:k"' + ac("g:k") + '><summary>Logo ve imza</summary><div class="icerik">' +
+      '<p class="not">Logo uygulamanın üst köşesinde, imza satırı sayfa altında görünür. Fatura çıktısındaki GİB belgesine dokunulmaz; yalnız program kopyasında kullanılır.</p>' +
+      kutu("logo", "Logo (kare ya da yatay, PNG/JPG)", m.logo || "") + kutu("imza", "İmza görseli (isteğe bağlı, şeffaf PNG önerilir)", m.imza || "") +
+      '<div><label>Ad soyad</label><input data-mf="ad" value="' + esc(m.ad) + '"></div>' +
+      '<div><label>Unvan</label><input data-mf="unvan" value="' + esc(m.unvan) + '"></div>' +
+      '<div><label>Web sitesi</label><input data-mf="web" inputmode="url" placeholder="smmmyilmaz.com" value="' + esc(m.web) + '"></div>' +
+      '<div class="durum" id="markaDurum" role="status"></div></div></details>';
+  }
+  function markaVer(){ if (!V.marka) V.marka = { ad: MARKA0.ad, unvan: MARKA0.unvan, web: MARKA0.web, logo: "", imza: "" }; return V.marka; }
+  $("ayarIc").addEventListener("input", function(e){ var f = e.target.getAttribute("data-mf"); if (!f) return; markaVer()[f] = e.target.value; markaUygula(); });
+  $("ayarIc").addEventListener("change", function(e){
+    var ad = e.target.getAttribute("data-resim"); if (!ad || !e.target.files[0]) return;
+    var d = $("markaDurum");
+    resimKucult(e.target.files[0], ad === "logo" ? 256 : 480, ad === "logo" ? 256 : 180).then(function(u){ markaVer()[ad] = u; markaUygula(); cizAyar(); $("markaDurum").className = "durum ok"; $("markaDurum").textContent = "Eklendi. Kalıcı olması için “Ayarları kaydet”e basın."; },
+      function(er){ d.className = "durum hata"; d.textContent = er.message; });
+  });
+  $("ayarIc").addEventListener("click", function(e){ var ad = e.target.getAttribute("data-resim-sil"); if (!ad) return; markaVer()[ad] = ""; markaUygula(); cizAyar(); });
   function hizmetOzet(x){ return (x.istisna ? "İstisna " + esc(x.istisna) + " · " : "") + "KDV %" + esc(String(x.kdv).replace(".", ",")) + (x.tev > 0 ? " · tevkifat " + esc(x.tev) + "/10" + (x.kod ? " (" + esc(x.kod) + ")" : "") : " · tevkifatsız"); }
   /* aç/kapa durumunu hatırla (toggle olayı kabarcıklanmaz, yakalama aşamasında dinlenir) */
   $("ayarIc").addEventListener("toggle", function(e){ var k = e.target.getAttribute && e.target.getAttribute("data-ak"); if (k) ayarAcik[k] = e.target.open; }, true);
