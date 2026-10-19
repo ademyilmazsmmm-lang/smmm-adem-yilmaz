@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#1f6f5c">
-<!-- apple-mobile-web-app-capable bilerek yok: iOS 18 tam ekran kipinde yazı alanlarına yazılamıyor; ana ekran simgesi Safari içinde açılır. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Hatırlatma">
 <link rel="apple-touch-icon" href="hatirlatma-ikon.png">
 <title>Hatırlatma</title>
@@ -274,7 +274,7 @@ button,input,select,textarea{font-family:inherit}
   <input type="hidden" id="tur" value="genel">
   <div>
     <label for="metin" id="metinEtiket">Ne hatırlatılsın?</label>
-    <input type="text" id="metin" maxlength="300" enterkeyhint="done" autofocus>
+    <input type="text" id="metin" maxlength="300" enterkeyhint="done">
   </div>
   <div>
     <label for="tarih" id="tarihEtiket">Tarih</label>
@@ -1026,7 +1026,7 @@ button,input,select,textarea{font-family:inherit}
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "21";
+  var SURUM = "22";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -1271,7 +1271,7 @@ button,input,select,textarea{font-family:inherit}
     var id = Math.max.apply(null, [0].concat((sYerel||[]).map(function(s){ return s.id; })))+1;
     sYerel = (sYerel||[]).concat([{id:id, ad:"Yeni şablon", metin:""}]);
     secenekDoldur($("surecSablon")); secenekDoldur($("sablonSec"), id); sablonAlaniDoldur();
-    $("sablonAd").focus(); $("sablonAd").select();
+    odakla($("sablonAd"));
   });
   $("sablonKaydet").addEventListener("click", function(){
     var id=$("sablonSec").value, ad=$("sablonAd").value.replace(/\s+/g," ").trim().slice(0,80), metin=$("sablonMetin").value;
@@ -1325,7 +1325,7 @@ button,input,select,textarea{font-family:inherit}
     var s=secilenSablon($("surecSablon").value), firma=$("surecFirma").value.replace(/\s+/g," ").trim().slice(0,120),
         t=$("surecTarih").value, saat=$("surecSaat").value||"09:00", gunler=surecGunler(), d=$("surecDurum");
     if(!s){ d.textContent="Önce bir şablon seç."; d.className="durum hata"; return; }
-    if(!firma){ d.textContent="Firma adını yaz."; d.className="durum hata"; $("surecFirma").focus(); return; }
+    if(!firma){ d.textContent="Firma adını yaz."; d.className="durum hata"; odakla($("surecFirma")); return; }
     if(!t){ d.textContent="Başlangıç tarihini seç."; d.className="durum hata"; return; }
     var l=satirlar(s.metin);
     if(!l.length){ d.textContent="Bu şablonda madde yok."; d.className="durum hata"; return; }
@@ -1376,7 +1376,7 @@ button,input,select,textarea{font-family:inherit}
     var firma=$("sahisFirma").value.replace(/\s+/g," ").trim().slice(0,120), tr=$("sahisTarih").value, saat=$("sahisSaat").value||"09:00",
         gunler=Object.keys(sahisSecili).map(Number).sort(function(a,b){return b-a;}), d=$("sahisDurum");
     var h=function(m){ d.textContent=m; d.className="durum hata"; };
-    if(!firma){ h("Adı ya da firmayı yaz."); $("sahisFirma").focus(); return; }
+    if(!firma){ h("Adı ya da firmayı yaz."); odakla($("sahisFirma")); return; }
     if(!tr){ h("Kapanış tarihini seç."); return; }
     if(!gunler.length){ h("Mail için en az bir gün seç."); return; }
     var l=sahisMaddeler();
@@ -1423,7 +1423,7 @@ button,input,select,textarea{font-family:inherit}
     e.preventDefault();
     var firma=$("tasfiyeFirma").value.replace(/\s+/g," ").trim().slice(0,120), t=tasfiyeTarihler(), saat=$("tasfiyeSaat").value||"09:00", gunler=tasfiyeGunler(), d=$("tasfiyeDurum");
     var hata=function(m){ d.textContent=m; d.className="durum hata"; };
-    if(!firma){ hata("Firma adını yaz."); $("tasfiyeFirma").focus(); return; }
+    if(!firma){ hata("Firma adını yaz."); odakla($("tasfiyeFirma")); return; }
     if(!t.giris){ hata("Tasfiyeye giriş tarihini seç."); return; }
     if(t.ilan3 && t.ilan3<t.giris){ hata("3. ilan tarihi tasfiyeye girişten önce olamaz."); return; }
     if(t.kapanis && t.ilan3 && t.kapanis<t.ilan3){ hata("Kapanış tarihi 3. ilandan önce olamaz."); return; }
@@ -1658,7 +1658,7 @@ button,input,select,textarea{font-family:inherit}
     var m=$("yMetin").value.replace(/\s+/g," ").trim().slice(0,300), son=$("ySon").value;
     if(!m){ yDurum("Bir şey yaz.","hata"); return; }
     if(son && parse(son).getTime()<bugun().getTime()){ yDurum("Son tarih geçmişte olamaz.","hata"); return; }
-    $("yMetin").value=""; $("ySon").value=""; $("yMetin").focus();
+    $("yMetin").value=""; $("ySon").value=""; odakla($("yMetin"));
     var geciciId = -(++ySeriNo);                       // sunucu kimliği gelene kadar ekranda göstermek için
     var n=trSimdi(), yeni={id:geciciId, metin:m, tamam:false, olusturma:n.tarih+"T"+n.saat};
     if(son){ yeni.son=son; yeni.gunler=[3,0]; yeni.saat="09:00"; }
@@ -1744,7 +1744,7 @@ button,input,select,textarea{font-family:inherit}
     Array.prototype.slice.call(ic.querySelectorAll("[data-odunc]")).forEach(function(n){ n.removeAttribute("data-odunc"); $("formTutucu").appendChild(n); });
     if($("sayfa").hidden) return;
     $("perde").hidden=true; $("sayfa").hidden=true; ic.textContent="";
-    if(!sessiz && sayfaOdak && sayfaOdak.focus) sayfaOdak.focus();
+    if(!sessiz && sayfaOdak && sayfaOdak.focus && !(navigator.maxTouchPoints>0)) sayfaOdak.focus();
   }
   $("perde").addEventListener("click", function(){ sayfaKapat(); });
   document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !$("sayfa").hidden) sayfaKapat(); });
