@@ -1,0 +1,9 @@
+FROM node:22-alpine
+WORKDIR /app
+COPY server.js gib.js ./
+COPY public ./public
+ENV HOST=0.0.0.0 PORT=3000 DATA_DIR=/data GUVENLI=1 TRUST_PROXY=1
+VOLUME /data
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]

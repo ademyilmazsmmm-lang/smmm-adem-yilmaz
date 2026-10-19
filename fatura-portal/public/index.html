@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#1f6f5c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fatura">
 <title>Fatura Portalı</title>
 <style>
 :root{--bg:#edf1ee;--surface:#fff;--fg:#16211d;--muted:#5a6962;--line:#d3dcd7;--accent:#1f6f5c;--accent-fg:#fff;--accent-soft:#daece5;--danger:#b3261e;--warn:#935600;--warn-soft:#fae9cf}
@@ -125,7 +127,7 @@ label.onay input{width:auto;min-height:0}
     <div class="durum" id="gDurum" role="status"></div>
   </div>
 
-  <details class="card" id="ayar"><summary>Ayarlar</summary><div id="ayarIc" style="display:flex;flex-direction:column;gap:10px"></div></details>
+  <details class="card" id="ayar"><summary>Ayarlar</summary><p class="not"><a href="/api/yedek" download>Şifreli yedeği indir</a> (veri dosyası uygulama şifrenizle şifrelidir; başka cihaza taşımak için de kullanılır).</p><div id="ayarIc" style="display:flex;flex-direction:column;gap:10px"></div></details>
 </main>
 
 <script>
@@ -146,13 +148,13 @@ label.onay input{width:auto;min-height:0}
   }
 
   /* ---------- giriş ---------- */
-  var kurulu = false;
+  var kurulu = false, sifreMin = 8;
   function acilis(){
     api("/api/durum").then(function(d){
-      kurulu = d.kurulu; $("sahte").hidden = !d.sahte; $("surum").textContent = d.surum ? "sürüm " + d.surum : "";
+      kurulu = d.kurulu; $("sahte").hidden = !d.sahte; $("surum").textContent = d.surum ? "sürüm " + d.surum : ""; sifreMin = d.sifreMin || 8;
       if (d.giris) return basla();
       $("uyg").hidden = true; $("giris").hidden = false;
-      $("girisYazi").textContent = kurulu ? "Devam etmek için şifrenizi girin." : "İlk kurulum: bir uygulama şifresi belirleyin (en az 8 karakter). GİB şifreleri bununla şifrelenerek bilgisayarda saklanır.";
+      $("girisYazi").textContent = kurulu ? "Devam etmek için şifrenizi girin." : "İlk kurulum: bir uygulama şifresi belirleyin (en az " + sifreMin + " karakter). GİB şifreleri bununla şifrelenerek saklanır.";
       $("s2").hidden = kurulu; $("girisBtn").textContent = kurulu ? "Aç" : "Şifreyi belirle";
     });
   }

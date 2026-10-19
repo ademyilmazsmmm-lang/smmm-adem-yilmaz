@@ -1,0 +1,23 @@
+# Sunucuda çalıştırma: DOMAIN değişkeni .env dosyasında (örn. DOMAIN=fatura.smmmyilmaz.com)
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    volumes:
+      - veri:/data
+    # dışarıya kapı açılmaz; yalnızca caddy erişir
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [app]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:?DOMAIN tanımlı olmalı}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_veri:/data
+volumes:
+  veri:
+  caddy_veri:

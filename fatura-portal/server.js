@@ -10,15 +10,26 @@ const gib = require("./gib");
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || "127.0.0.1";
-const DIR = path.join(__dirname, "data");
+const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
+const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
+const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-15";
+const SURUM = "2026-10-19-16";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
-let basarisiz = 0, kilitBitis = 0;
+const denemeler = new Map(); // ip -> { n, bitis }
+const istemciIp = (req) => (PROXY && String(req.headers["x-forwarded-for"] || "").split(",")[0].trim()) || req.socket.remoteAddress || "?";
+const kilitli = (ip) => { const d = denemeler.get(ip); return d && d.bitis > Date.now() ? Math.ceil((d.bitis - Date.now()) / 1000) : 0; };
+function hataSay(ip) {
+  const d = denemeler.get(ip) || { n: 0, bitis: 0 };
+  d.n++;
+  if (d.n >= 5) { d.bitis = Date.now() + Math.min(3600e3, 30e3 * Math.pow(2, d.n - 5)); } // 5. hatadan sonra artan bekleme (en çok 1 saat)
+  denemeler.set(ip, d);
+}
+const sifreMin = GUVENLI ? 12 : 8;
 
 const varsayilan = () => ({
   mukellefler: [],
@@ -72,12 +83,18 @@ function oku(req) {
     req.on("end", () => { try { ok(b ? JSON.parse(b) : {}); } catch (e) { no(new Error("Geçersiz JSON")); } });
   });
 }
-const cevap = (res, kod, nesne, baslik) => { res.writeHead(kod, Object.assign({ "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }, baslik)); res.end(JSON.stringify(nesne)); };
+const GUV = {
+  "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin",
+  "content-security-policy": "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+  "permissions-policy": "camera=(), microphone=(), geolocation=()"
+};
+const cevap = (res, kod, nesne, baslik) => { res.writeHead(kod, Object.assign({ "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }, GUV, baslik)); res.end(JSON.stringify(nesne)); };
 const cerez = (req) => { const m = /(?:^|;\s*)oturum=([a-f0-9]+)/.exec(req.headers.cookie || ""); return m && m[1]; };
 const girisli = (req) => { const c = cerez(req), b = oturumlar.get(c); return !!(key && b && b > Date.now()); };
-function oturumAc(res) {
+function oturumAc(req) {
   const c = crypto.randomBytes(24).toString("hex"); oturumlar.set(c, Date.now() + 8 * 3600e3);
-  return { "set-cookie": `oturum=${c}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800` };
+  const https = GUVENLI || (PROXY && req.headers["x-forwarded-proto"] === "https");
+  return { "set-cookie": `oturum=${c}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${https ? "; Secure" : ""}` };
 }
 const hataBilgi = (e) => (e && e.message) || "Bilinmeyen hata";
 
@@ -107,22 +124,24 @@ function hazirla(g) {
 
 async function api(req, res, yol) {
   if (req.method !== "GET" && !/application\/json/.test(req.headers["content-type"] || "")) return cevap(res, 415, { hata: "JSON bekleniyor." });
-  if (yol === "/api/durum") return cevap(res, 200, { kurulu: kasaVar(), giris: girisli(req), sahte: gib.MOCK, surum: SURUM });
+  if (yol === "/api/durum") return cevap(res, 200, { kurulu: kasaVar(), giris: girisli(req), sahte: gib.MOCK, surum: SURUM, sifreMin });
   if (yol === "/api/kurulum" && req.method === "POST") {
     if (kasaVar()) return cevap(res, 409, { hata: "Zaten kurulu." });
     const { sifre } = await oku(req);
-    if (!sifre || sifre.length < 8) return cevap(res, 400, { hata: "Şifre en az 8 karakter olmalı." });
+    if (!sifre || sifre.length < sifreMin) return cevap(res, 400, { hata: "Şifre en az " + sifreMin + " karakter olmalı." });
     tuz = crypto.randomBytes(16); key = await anahtar(sifre, tuz, ITER); veri = varsayilan(); yaz();
-    return cevap(res, 200, { ok: true }, oturumAc(res));
+    return cevap(res, 200, { ok: true }, oturumAc(req));
   }
   if (yol === "/api/giris" && req.method === "POST") {
-    if (Date.now() < kilitBitis) return cevap(res, 429, { hata: "Çok fazla yanlış deneme; biraz bekleyin." });
+    const ip = istemciIp(req), bek = kilitli(ip);
+    if (bek) return cevap(res, 429, { hata: "Çok fazla yanlış deneme; " + bek + " saniye sonra tekrar deneyin." });
     const { sifre } = await oku(req);
-    try { await ac(String(sifre || "")); basarisiz = 0; return cevap(res, 200, { ok: true }, oturumAc(res)); }
-    catch (e) { if (++basarisiz >= 5) { kilitBitis = Date.now() + 60e3; basarisiz = 0; } return cevap(res, 401, { hata: "Şifre yanlış." }); }
+    try { await ac(String(sifre || "")); denemeler.delete(ip); return cevap(res, 200, { ok: true }, oturumAc(req)); }
+    catch (e) { hataSay(ip); return cevap(res, 401, { hata: "Şifre yanlış." }); }
   }
   if (!girisli(req)) return cevap(res, 401, { hata: "Giriş gerekli." });
   if (yol === "/api/cikis") { oturumlar.delete(cerez(req)); key = null; veri = null; gibler.clear(); return cevap(res, 200, { ok: true }); }
+  if (yol === "/api/yedek" && req.method === "GET") { res.writeHead(200, Object.assign({ "content-type": "application/json", "content-disposition": "attachment; filename=fatura-yedek-" + new Date().toISOString().slice(0, 10) + ".json", "cache-control": "no-store" }, GUV)); return res.end(fs.readFileSync(KASA)); }
   if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz());
   if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req); if (!Array.isArray(g.mukellefler) || !Array.isArray(g.hizmetler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(g); return cevap(res, 200, temiz()); }
   if (yol === "/api/hesapla" && req.method === "POST") { const g = await oku(req), h = gib.hesapla(g); return cevap(res, 200, Object.assign({}, h, { not: gib.notUret(g, h) })); }
@@ -165,6 +184,6 @@ const SAYFA = path.join(__dirname, "public", "index.html");
 http.createServer((req, res) => {
   const yol = req.url.split("?")[0];
   if (yol.startsWith("/api/")) return api(req, res, yol).catch((e) => { console.error(e.message); cevap(res, 500, { hata: hataBilgi(e) }); });
-  if (yol === "/" || yol === "/index.html") { res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }); return fs.createReadStream(SAYFA).pipe(res); }
+  if (yol === "/" || yol === "/index.html") { res.writeHead(200, Object.assign({ "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }, GUV)); return fs.createReadStream(SAYFA).pipe(res); }
   res.writeHead(404); res.end("Bulunamadı");
 }).on("error", (e) => { console.error(e.code === "EADDRINUSE" ? "HATA: " + PORT + " numaralı kapı dolu; eski program hâlâ çalışıyor. Eski siyah pencereyi kapatın ve yeniden başlatın." : e.message); process.exit(1); }).listen(PORT, HOST, () => console.log(`Fatura Portalı ${SURUM}: http://${HOST}:${PORT}` + (gib.MOCK ? "  (SAHTE GİB — gerçek fatura kesilmez)" : "")));
