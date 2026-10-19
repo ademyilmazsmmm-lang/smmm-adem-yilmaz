@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-22";
+const SURUM = "2026-10-19-23";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -104,14 +104,14 @@ function istemci(m) {
   return gibler.get(m.id);
 }
 const bekleyen = new Map(); // taslak kimliği -> geçmiş kaydı taslağı (onaylanınca kalıcı olur)
-const TIPLER = ["SATIS", "TEVKIFAT"]; // İade, İstisna, Özel Matrah: portal isteği alınınca eklenecek
+const TIPLER = ["SATIS", "TEVKIFAT", "IADE"]; // İstisna, Özel Matrah: portal isteği alınınca eklenecek
 const PARALAR = ["TRY", "USD", "EUR", "GBP"];
 /* İstemciden gelen fatura modelini temizler/doğrular. tam=false ise (yalnız hesap önizlemesi) alıcı/tarih zorunlu değildir. */
 function modelTemiz(g, tam) {
   const T = gib.temizMetin;
   const bugun = new Date(), yerel = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, "0")}-${String(bugun.getDate()).padStart(2, "0")}`;
   const tip = String(g.tip || "SATIS");
-  if (!TIPLER.includes(tip)) throw new Error("Bu fatura tipi henüz desteklenmiyor (şimdilik Satış ve Tevkifat).");
+  if (!TIPLER.includes(tip)) throw new Error("Bu fatura tipi henüz desteklenmiyor (şimdilik Satış, Tevkifat ve İade).");
   const para = String(g.para || "TRY");
   if (!PARALAR.includes(para)) throw new Error("Para birimi desteklenmiyor.");
   const kur = Number(g.kur);
@@ -123,6 +123,16 @@ function modelTemiz(g, tam) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(tarih)) tarih = yerel;
     if (tarih > yerel) throw new Error("Fatura tarihi bugünden ileri olamaz.");
   }
+  let iade = null;
+  if (tip === "IADE") {
+    const no = T(g.iadeNo, 30), it = String(g.iadeTarih || "");
+    if (tam) {
+      if (!no) throw new Error("İade edilen faturanın numarasını yazın (örn. GIB2026000000023).");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(it)) throw new Error("İade edilen faturanın düzenlenme tarihini seçin.");
+      if (it > tarih) throw new Error("İade edilen faturanın tarihi, iade faturasının tarihinden sonra olamaz.");
+    }
+    iade = { no, tarih: it };
+  }
   if (!Array.isArray(g.kalemler) || !g.kalemler.length || g.kalemler.length > 30) throw new Error("1–30 mal/hizmet satırı gerekli.");
   const kalemler = g.kalemler.map((k, i) => {
     const q = { ad: T(k.ad, 150), aciklama: T(k.aciklama, 150), miktar: Number(k.miktar), birim: /^[A-Z0-9]{2,4}$/.test(String(k.birim)) ? String(k.birim) : "C62",
@@ -131,7 +141,7 @@ function modelTemiz(g, tam) {
     if (tip === "TEVKIFAT" && tam && (!(q.tev > 0) || !q.kod)) throw new Error((i + 1) + ". satırda tevkifat oranı ve kodu gerekli (tevkifatsız kesmek için fatura tipini “Satış” yapın).");
     return q;
   });
-  const m = { alici, tip, para, kur: para === "TRY" ? 0 : kur, kdvDahil: !!g.kdvDahil, tarih, kalemler, notEk: T(g.notEk, 300), notIrsaliye: g.notIrsaliye !== false };
+  const m = { alici, tip, para, kur: para === "TRY" ? 0 : kur, kdvDahil: !!g.kdvDahil, tarih, iade, kalemler, notEk: T(g.notEk, 300), notIrsaliye: g.notIrsaliye !== false };
   m._h = gib.hesaplaFatura(m);
   if (tam && !(m._h.toplam.odenecek > 0)) throw new Error("Ödenecek tutar sıfırdan büyük olmalı.");
   m.not = gib.notUret(m, m._h.toplam);
@@ -176,8 +186,8 @@ async function api(req, res, yol) {
     const kayit = {
       id: r.uuid, zaman: new Date().toISOString(), mukellefId: m.id, mukellef: { ad: m.ad, vkn: m.vkn }, belgeNo: (r.satir && r.satir.belgeNumarasi) || "",
       aliciUnvan: x.alici.unvan, aliciVkn: x.alici.vkn, aliciAdres: x.alici.adres, vergiDairesi: x.alici.vd, tarih: x.tarih, tip: x.tip, para: x.para, kur: x.kur,
-      kalemler: satirlar, hesap: x._h.toplam, not: x.not, durum: "Taslak",
-      form: { alici: x.alici, tip: x.tip, para: x.para, kur: x.kur, dahil: x.kdvDahil, kalemler: x.kalemler, notEk: x.notEk, notIrsaliye: x.notIrsaliye } // "Tekrarla" için
+      kalemler: satirlar, hesap: x._h.toplam, not: x.not, durum: "Taslak", iade: x.iade,
+      form: { alici: x.alici, tip: x.tip, para: x.para, kur: x.kur, dahil: x.kdvDahil, iade: x.iade, kalemler: x.kalemler, notEk: x.notEk, notIrsaliye: x.notIrsaliye } // "Tekrarla" için
     };
     bekleyen.set(r.uuid, kayit);
     return cevap(res, 200, { uuid: r.uuid, mesaj: r.mesaj, hesap: x._h.toplam, kayit });
