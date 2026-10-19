@@ -1,0 +1,20 @@
+# Render.com için (en kolay yol): Dashboard > New > Blueprint > bu depoyu seçin.
+# Kalıcı disk gerektiği için ücretli "starter" planı kullanılır.
+services:
+  - type: web
+    name: fatura-portali
+    runtime: docker
+    dockerfilePath: ./fatura-portal/Dockerfile
+    dockerContext: ./fatura-portal
+    plan: starter
+    disk:
+      name: veri
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: GUVENLI
+        value: "1"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DATA_DIR
+        value: /data
