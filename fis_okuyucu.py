@@ -59,7 +59,9 @@ import tempfile
 import traceback
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
+from PIL import Image, ImageFilter, ImageOps
 
 try:
     from openai import OpenAI, AuthenticationError
@@ -185,7 +187,7 @@ def gorsel_mime_tipi(gorsel_yolu):
     return "image/jpeg"
 
 
-def gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis=False):
+def gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis=False, sicaklik=0):
     """
     Bir A4 sayfa görselini gpt-4o Vision modeline gönderir ve sayfa
     üzerindeki TÜM fişleri JSON listesi olarak geri döndürür.
@@ -246,20 +248,19 @@ def gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis=False):
         "Dışarıdan Sağlanan Fayda ve Hizmetler\n"
         "- \"firma_adi\": Fişi kesen firmanın/işletmenin adı (fiş başlığındaki "
         "unvan, genellikle en üstte büyük harflerle yazılıdır)\n"
-        "- \"vergi_veya_tc_no\": SADECE \"VD:\" veya \"VD NO:\" ya da "
-        "\"VERGİ DAİRESİ:\" etiketinin YANINDAKİ sayıyı al. Bu etiket genellikle "
-        "firma adres bloğunun alt kısmında, vergi dairesi adının hemen "
-        "ardından gelir (örn. \"Atemdağ VD:4390034418\" → vergi_veya_tc_no = "
-        "\"4390034418\"). Bu sayı vergi numarası (genellikle 10 hane) VEYA TC "
-        "kimlik numarası (genellikle 11 hane, özellikle şahıs işletmelerinde/"
-        "esnaf fişlerinde) olabilir — hangisi olduğunu ayırt etmeye çalışma, "
-        "etikette ne yazıyorsa onu RAKAM RAKAM aynen kopyala, asla başka bir "
-        "sayı ile karıştırma veya tahmin etme. \"MERSİS NO\" alanını "
-        "(16 haneli, boşluklarla ayrılmış uzun bir kod) bu alana KARIŞTIRMA ve yazma — MERSİS "
-        "numarası farklı bir alandır, vergi_veya_tc_no DEĞİLDİR. \"VD:\" "
-        "etiketi yoksa null yaz, başka bir sayıyı tahmin etme/uydurma. Eğer "
-        "bu rakamları net okuyamıyorsan (görsel bulanık/küçükse), tahmin "
-        "etmek yerine null yaz.\n"
+        "- \"vergi_veya_tc_no\": Firma adres bloğunda, VERGİ DAİRESİ ADININ HEMEN "
+        "YANINDA veya ALTINDA yazılan 10 haneli vergi no veya 11 haneli TC kimlik "
+        "no. Etiket farklı yazılabilir: \"VD:\", \"V.D.\", \"VD NO-\", \"VERGİ DAİRESİ\" "
+        "ya da hiç etiket olmadan sadece \"AVCILAR VD: 6180673368\", \"K.ÇEKMECE:"
+        "3130137444\", \"HOCAPAŞA V.D.\" satırının altındaki \"19061488894\" gibi "
+        "yalnızca vergi dairesi adından sonra gelen sayı. Sayıyı RAKAM RAKAM "
+        "aynen kopyala; 10 haneliyse vergi no, 11 haneliyse TC kimlik no'dur. "
+        "Şunlarla KARIŞTIRMA: \"MERSİS NO\" (16 haneli), \"TİC.SİCİL NO\" / "
+        "\"T.SİCİL NO\", \"LİSANS NO\", \"ADA NO\", telefon/faks numaraları, "
+        "fişin altındaki \"EKÜ NO\", \"Z NO\" ve cihaz seri numarası "
+        "(örn. \"AO 00005745\"). Bu sayıları görüyorsan ve vergi dairesi adının "
+        "yanında/altında bir sayı varsa MUTLAKA onu yaz. Sayı gerçekten "
+        "fişte yoksa veya okunamıyorsa tahmin etme, null yaz.\n"
         "- \"kdv_orani\": KDV oranı, sadece sayı olarak yüzde değeri (örn. 20, "
         "10, 1). BU DEĞER GENELLİKLE ÜRÜN/HİZMET SATIRININ YANINDA \"%20\", "
         "\"%10\" gibi yazılıdır (örn. \"MOTORIN SVPD %20 *5.100,00\" → "
@@ -274,7 +275,7 @@ def gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis=False):
         "yanında yazılıdır (örn. \"TOPKDV *850,00\" → kdv_tutari = 850.00). "
         "Bu satırı dikkatlice ara, genellikle ARATOPLAM/TOP satırının hemen "
         "üstünde veya altında bulunur. Hiçbir şekilde bulamazsan null yaz.\n"
-        "- \"dahil_tutar\": KDV dahil toplam tutar, sadece sayısal değer (virgül yerine nokta kullan) (bulunamazsa null)\n\n"
+        "- \"dahil_tutar\": KDV dahil toplam tutar, sadece sayısal değer (virgül yerine nokta kullan). Fişte \"TOP\", \"TOPLAM\" veya \"NAKİT\" satırının yanındaki tutardır (örn. \"TOP *5.900,00\" → 5900.00). Ürün satırındaki tutarla (örn. \"YEDEK PARÇA %20 *5.900,00\") aynıdır. Bulunamazsa null.\n\n"
         "ÇOK ÖNEMLİ GENEL KURAL: Bir görselde birden fazla fiş varsa, her "
         "fişin alanlarını SADECE o fişin kendi üzerinde basılı olan "
         "değerlerden doldur. İki fiş görsel olarak birbirine çok benziyorsa "
@@ -325,7 +326,7 @@ def gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis=False):
                 },
             ],
             max_tokens=MAX_CIKTI_TOKEN,
-            temperature=0,
+            temperature=sicaklik,
         )
 
         secim = yanit.choices[0]
@@ -588,6 +589,113 @@ def fisleri_normalle(fis_listesi):
     return fis_listesi
 
 
+def _bilesenleri_etiketle(a):
+    h, w = a.shape
+    etiket = np.zeros((h, w), np.int32)
+    n = 0
+    for sy in range(h):
+        for sx in range(w):
+            if a[sy, sx] and etiket[sy, sx] == 0:
+                n += 1
+                yigin = [(sy, sx)]; etiket[sy, sx] = n
+                while yigin:
+                    cy, cx = yigin.pop()
+                    for ny, nx in ((cy+1,cx),(cy-1,cx),(cy,cx+1),(cy,cx-1)):
+                        if 0 <= ny < h and 0 <= nx < w and a[ny, nx] and etiket[ny, nx] == 0:
+                            etiket[ny, nx] = n; yigin.append((ny, nx))
+    return etiket, n
+
+def _asindir_maske(a, boyut):
+    im = Image.fromarray((a * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(boyut))
+    return np.array(im) > 0
+
+def _bitisik_fisleri_bol(blob, min_tohum):
+    """Birbirine değen fişleri, maskeyi aşındırıp ayrılan çekirdeklerden
+    büyüterek böler."""
+    for _ in range(40):
+        blob_e = _asindir_maske(blob if _ == 0 else blob_e, 3)
+        et, n = _bilesenleri_etiketle(blob_e)
+        tohumlar = [k for k in range(1, n + 1) if (et == k).sum() >= min_tohum]
+        if len(tohumlar) >= 2:
+            h, w = blob.shape
+            atama = np.zeros((h, w), np.int32)
+            kuyruk = []
+            for i, k in enumerate(tohumlar, start=1):
+                ys, xs = np.where(et == k)
+                atama[ys, xs] = i
+                kuyruk.extend(zip(ys.tolist(), xs.tolist()))
+            bas = 0
+            while bas < len(kuyruk):
+                cy, cx = kuyruk[bas]; bas += 1
+                for ny, nx in ((cy+1,cx),(cy-1,cx),(cy,cx+1),(cy,cx-1)):
+                    if 0 <= ny < h and 0 <= nx < w and blob[ny, nx] and atama[ny, nx] == 0:
+                        atama[ny, nx] = atama[cy, cx]; kuyruk.append((ny, nx))
+            return [atama == i for i in range(1, len(tohumlar) + 1)]
+        if n == 0:
+            break
+    return [blob]
+
+def fisleri_segmentle(img, kucuk_genislik=480, min_alan_orani=0.01):
+    """Zemini (ahşap masa vb.) renk doygunluğuyla ayırıp beyaz/gri fişleri
+    bulur; birbirine değen fişleri böler. Döner: [(x0,y0,x1,y1 (0-1 göreli),
+    maske)] okuma sırasıyla. Hiç bulamazsa []."""
+    g, y = img.size
+    kucuk = img.resize((kucuk_genislik, max(1, int(y * kucuk_genislik / g))), Image.BOX)
+    hsv = np.array(kucuk.convert("HSV")).astype(np.int16)
+    maske = ((hsv[..., 1] < 70) & (hsv[..., 2] > 90)).astype(np.uint8) * 255
+    m = Image.fromarray(maske)
+    m = m.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(5))
+    m = m.filter(ImageFilter.MinFilter(13)).filter(ImageFilter.MaxFilter(13))
+    a = np.array(m) > 0
+    h, w = a.shape
+    et, n = _bilesenleri_etiketle(a)
+    bloblar = [et == k for k in range(1, n + 1) if (et == k).sum() >= min_alan_orani * h * w]
+    if not bloblar:
+        return []
+    alanlar = sorted(int(b.sum()) for b in bloblar)
+    medyan = alanlar[len(alanlar) // 2]
+    sonuc = []
+    for b in bloblar:
+        parcalar = _bitisik_fisleri_bol(b, min_tohum=0.08 * medyan) if b.sum() > 1.6 * medyan else [b]
+        sonuc.extend(parcalar)
+    cikti = []
+    for b in sonuc:
+        ys, xs = np.where(b)
+        cikti.append((xs.min()/w, ys.min()/h, (xs.max()+1)/w, (ys.max()+1)/h, b))
+    # okuma sırası: önce satır (y), sonra x
+    cikti.sort(key=lambda c: (round(c[1] * 6), c[0]))
+    return cikti
+
+
+def fisleri_maskeyle_kirp(gorsel_yolu, hedef_klasor):
+    """Renk tabanlı ayrıştırmayla fişleri bulup her birini (diğer fişleri ve
+    zemini beyazlayarak) ayrı PNG olarak kaydeder. Güvenilir değilse
+    (tek büyük parça = muhtemelen düz A4 sayfa) None döner."""
+    import numpy as np
+    from PIL import Image, ImageOps
+    with Image.open(gorsel_yolu) as img:
+        img = ImageOps.exif_transpose(img).convert("RGB")
+        parcalar = fisleri_segmentle(img)
+        if not parcalar:
+            return None
+        if len(parcalar) == 1 and (parcalar[0][2] - parcalar[0][0]) * (parcalar[0][3] - parcalar[0][1]) > 0.5:
+            return None
+        g, y = img.size
+        dizi = np.array(img)
+        yollar = []
+        for i, (x0, y0, x1, y1, maske) in enumerate(parcalar, start=1):
+            m = np.array(Image.fromarray((maske * 255).astype(np.uint8)).resize((g, y), Image.NEAREST)) > 0
+            kopya = dizi.copy()
+            kopya[~m] = 255
+            pay_x, pay_y = 0.015, 0.012
+            kutu = (int(max(0, x0 - pay_x) * g), int(max(0, y0 - pay_y) * y),
+                    int(min(1, x1 + pay_x) * g), int(min(1, y1 + pay_y) * y))
+            yol = os.path.join(hedef_klasor, f"fis{i:02d}.png")
+            Image.fromarray(kopya).crop(kutu).save(yol, "PNG")
+            yollar.append(yol)
+    return yollar
+
+
 def fis_konumlarini_bul(gorsel_yolu):
     """Sayfada kaç fiş olduğunu ve her birinin konumunu bulur. Konumlar
     0-1000 arası göreli koordinatlarla [x0, y0, x1, y1] listesi olarak
@@ -653,29 +761,34 @@ def fisleri_kirp(gorsel_yolu, kutular, hedef_klasor):
 
 
 def sayfayi_isle(gorsel_yolu):
-    """Sayfadaki fiş sayısına göre okuma stratejisini seçer: önce fişleri
-    bulur, sonra her birini ayrı kırpıp büyüterek tek tek okur (1 fiş de
-    10 fiş de aynı doğrulukta okunur). Konum bulunamazsa tüm sayfayı okur."""
-    kutular = fis_konumlarini_bul(gorsel_yolu)
-    if not kutular:
-        return sayfa_fislerini_cikar_dogrulamali(gorsel_yolu)
-
-    print(f"       Sayfada {len(kutular)} fiş bulundu, her biri ayrı okunuyor...")
+    """Sayfadaki fiş sayısına göre okuma stratejisini seçer. Önce fişler
+    renk farkıyla (ücretsiz, hassas) ayrılır; olmazsa modelden konum istenir;
+    o da olmazsa tüm sayfa tek parça okunur. Her fiş ayrı kırpılıp okunur."""
     kirpma_klasoru = tempfile.mkdtemp(prefix="fis_kirpma_")
-    sonuc = []
     try:
-        for i, kirpik in enumerate(fisleri_kirp(gorsel_yolu, kutular, kirpma_klasoru), start=1):
+        kirpiklar = fisleri_maskeyle_kirp(gorsel_yolu, kirpma_klasoru)
+        if kirpiklar:
+            print(f"       Sayfada {len(kirpiklar)} fiş ayrıştırıldı, her biri ayrı okunuyor...")
+        else:
+            kutular = fis_konumlarini_bul(gorsel_yolu)
+            if not kutular:
+                return sayfa_fislerini_cikar_dogrulamali(gorsel_yolu)
+            print(f"       Sayfada {len(kutular)} fiş bulundu (model), her biri ayrı okunuyor...")
+            kirpiklar = fisleri_kirp(gorsel_yolu, kutular, kirpma_klasoru)
+
+        sonuc = []
+        for i, kirpik in enumerate(kirpiklar, start=1):
             fisler = sayfa_fislerini_cikar_dogrulamali(kirpik, tek_fis=True)
             fisler = [f for f in fisler if isinstance(f, dict)][:1]
             if not fisler:
                 print(f"       UYARI: {i}. fiş okunamadı.")
             sonuc.extend(fisler)
+        return sonuc
     finally:
         shutil.rmtree(kirpma_klasoru, ignore_errors=True)
-    return sonuc
 
 
-def sayfa_fislerini_cikar_dogrulamali(gorsel_yolu, deneme=3, tek_fis=False):
+def sayfa_fislerini_cikar_dogrulamali(gorsel_yolu, deneme=2, tek_fis=False):
     """Sayfayı okur; şüpheli alanı olan fiş varsa sayfayı yeniden okuyup
     (en fazla 'deneme' kez) her fiş için en az uyarılı sürümü seçer."""
     en_iyi = fisleri_normalle(gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis))
@@ -685,7 +798,7 @@ def sayfa_fislerini_cikar_dogrulamali(gorsel_yolu, deneme=3, tek_fis=False):
         nedenler = "; ".join(
             u for f in en_iyi if isinstance(f, dict) for u in fis_uyarilari(f))
         print(f"       Şüpheli alan var, yeniden okunuyor (deneme {n}/{deneme}): {nedenler}")
-        yeni = fisleri_normalle(gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis))
+        yeni = fisleri_normalle(gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis, sicaklik=0.3))
         if len(yeni) != len(en_iyi):
             continue  # fiş sayısı tutmuyorsa eşleştirme güvenilmez
         for i, (eski_f, yeni_f) in enumerate(zip(en_iyi, yeni)):
