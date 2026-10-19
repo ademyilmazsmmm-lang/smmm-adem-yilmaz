@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-38";
+const SURUM = "2026-10-19-39";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -268,6 +268,7 @@ http.createServer((req, res) => {
   }
   if (yol === "/manifest.webmanifest") { res.writeHead(200, Object.assign({ "content-type": STATIK[yol], "cache-control": "no-cache", vary: "User-Agent" }, GUV)); return fs.createReadStream(path.join(__dirname, "public", yol)).pipe(res); } // iOS'a giden "browser" sürümüyle karışmasın
   if (STATIK[yol]) { res.writeHead(200, Object.assign({ "content-type": STATIK[yol], "cache-control": yol === "/sw.js" ? "no-cache" : "public, max-age=86400" }, GUV)); return fs.createReadStream(path.join(__dirname, "public", yol)).pipe(res); }
+  if (yol === "/tani") { res.writeHead(200, Object.assign({ "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }, GUV)); return fs.createReadStream(path.join(__dirname, "public", "tani.html")).pipe(res); } // yazı sınaması (geçici)
   if (yol === "/" || yol === "/index.html") { let h = fs.readFileSync(SAYFA, "utf8");
     if (ios && !tam) h = h.replace(/<meta name="(apple-)?mobile-web-app-capable"[^>]*>\n?/g, "").replace(/<meta name="apple-mobile-web-app-capable"[^>]*>\n?/g, "");
     if (tam) h = h.replace('href="/manifest.webmanifest"', 'href="/manifest.webmanifest?tam=1"');
