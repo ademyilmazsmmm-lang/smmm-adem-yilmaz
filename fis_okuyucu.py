@@ -374,6 +374,60 @@ def gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis=False, sicaklik=0):
         return []
 
 
+def _firma_anahtari(ad):
+    """Firma adının ilk anlamlı kelimesi (büyük/küçük ve Türkçe harf farkı yok)."""
+    if not ad:
+        return ""
+    tr = str.maketrans("İıŞşĞğÜüÖöÇç", "IiSsGgUuOoCc")
+    kelimeler = re.sub(r"[^A-Za-z0-9 ]", " ", str(ad).translate(tr).upper()).split()
+    return kelimeler[0] if kelimeler else ""
+
+
+def _hane_farki(a, b):
+    return sum(x != y for x, y in zip(a, b)) if len(a) == len(b) else 99
+
+
+def fisleri_tutarli_hale_getir(tum_fisler):
+    """Aynı klasördeki fişleri birbiriyle karşılaştırır:
+    1) Sağlama kontrolünden geçmeyen vergi/TC no, aynı firmanın başka
+       fişindeki geçerli ve en fazla 2 hanesi farklı numarayla düzeltilir.
+    2) Aynı vergi/TC no'ya sahip fişlerde firma adı tek biçime (en uzun,
+       en sık geçen) getirilir; böylece cari hesap tekrarı olmaz."""
+    def gecerli(no):
+        return bool(no) and ((len(no) == 10 and vkn_gecerli_mi(no))
+                             or (len(no) == 11 and tckn_gecerli_mi(no)))
+
+    gecerli_nolar = {}
+    for f in tum_fisler:
+        no = f.get("vergi_veya_tc_no")
+        if gecerli(no):
+            gecerli_nolar.setdefault(no, set()).add(_firma_anahtari(f.get("firma_adi")))
+
+    for f in tum_fisler:
+        no = f.get("vergi_veya_tc_no")
+        if not no or gecerli(no):
+            continue
+        adaylar = [g for g, anahtarlar in gecerli_nolar.items()
+                   if _firma_anahtari(f.get("firma_adi")) in anahtarlar
+                   and _hane_farki(no, g) <= 2]
+        if len(adaylar) == 1:
+            print(f"  DÜZELTME: {f.get('firma_adi')} vergi no {no} -> {adaylar[0]} "
+                  f"(aynı firmanın başka fişine göre)")
+            f["vergi_veya_tc_no"] = adaylar[0]
+            f["not"] = f"Vergi no {no} okunmuştu, aynı firmanın diğer fişine göre düzeltildi"
+
+    adlar = {}
+    for f in tum_fisler:
+        no, ad = f.get("vergi_veya_tc_no"), f.get("firma_adi")
+        if gecerli(no) and ad:
+            adlar.setdefault(no, []).append(ad)
+    for f in tum_fisler:
+        liste = adlar.get(f.get("vergi_veya_tc_no"))
+        if liste:
+            f["firma_adi"] = max(set(liste), key=lambda a: (liste.count(a), len(a)))
+    return tum_fisler
+
+
 def excel_olustur(tum_fisler, cikti_yolu):
     """Toplanan fiş verilerini pandas ile düzenler ve biçimlendirilmiş bir
     Excel dosyasına yazar."""
@@ -410,7 +464,7 @@ def excel_olustur(tum_fisler, cikti_yolu):
 
     try:
         for fis in tum_fisler:
-            fis["uyari"] = " | ".join(fis_uyarilari(fis))
+            fis["uyari"] = " | ".join(fis_uyarilari(fis) + ([fis["not"]] if fis.get("not") else []))
         df = pd.DataFrame(tum_fisler)
         # Vergi/TC ve fiş no metin kalsın (başındaki sıfırlar silinmesin)
         for sutun in ("vergi_veya_tc_no", "fis_no"):
@@ -962,6 +1016,7 @@ def klasoru_isle(klasor_yolu, cikti_yolu, luca_csv_yolu=None):
                     except Exception as e:
                         print(f"  UYARI: Geçici dosya silinemedi '{gecici_gorsel}': {e}")
 
+        tum_fisler = fisleri_tutarli_hale_getir(tum_fisler)
         excel_olustur(tum_fisler, cikti_yolu)
         if luca_csv_yolu:
             luca_csv_olustur(tum_fisler, luca_csv_yolu)
