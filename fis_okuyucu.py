@@ -682,7 +682,9 @@ def sayfa_fislerini_cikar_dogrulamali(gorsel_yolu, deneme=3, tek_fis=False):
     for n in range(2, deneme + 1):
         if not any(fis_uyarilari(f) for f in en_iyi if isinstance(f, dict)):
             break
-        print(f"       Şüpheli alan var, sayfa yeniden okunuyor (deneme {n}/{deneme})...")
+        nedenler = "; ".join(
+            u for f in en_iyi if isinstance(f, dict) for u in fis_uyarilari(f))
+        print(f"       Şüpheli alan var, yeniden okunuyor (deneme {n}/{deneme}): {nedenler}")
         yeni = fisleri_normalle(gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis))
         if len(yeni) != len(en_iyi):
             continue  # fiş sayısı tutmuyorsa eşleştirme güvenilmez
