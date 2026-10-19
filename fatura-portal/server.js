@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-16";
+const SURUM = "2026-10-19-18";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -168,6 +168,10 @@ async function api(req, res, yol) {
     const kayit = bekleyen.get(g.uuid);
     if (kayit) { kayit.durum = "Onaylandı"; kayit.onayZamani = new Date().toISOString(); veri.gecmis.push(kayit); if (veri.gecmis.length > 2000) veri.gecmis.shift(); bekleyen.delete(g.uuid); yaz(); }
     return cevap(res, 200, { mesaj: r.mesaj, kayit: kayit || null });
+  }
+  if (yol === "/api/sorgu") {
+    if (!/^\d{10,11}$/.test(String(g.vkn || ""))) return cevap(res, 400, { hata: "10 ya da 11 haneli VKN/TCKN girin." });
+    return cevap(res, 200, await istemci(m).sorgula(String(g.vkn)));
   }
   if (yol === "/api/liste") {
     const t = (d) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); if (!q) throw new Error("Tarih seçin."); return `${q[3]}/${q[2]}/${q[1]}`; };

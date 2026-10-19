@@ -52,12 +52,23 @@ const temizMetin = (v, n) => String(v == null ? "" : v).replace(/[\u0000-\u001f\
 function notUret(g, h) {
   const k = [];
   if (g.notEk) k.push(temizMetin(g.notEk, 300));
-  if (g.notYazi !== false && g.notYazi !== "false") k.push(tutarYazi(h.odenecek));
+  k.push(tutarYazi(h.odenecek)); // her faturada ödenecek tutar yazıyla yer alır
   if (g.notIrsaliye !== false && g.notIrsaliye !== "false") k.push("İrsaliye yerine geçer.");
   return k.join(" ");
 }
 
 const tl = (k) => (k / 100).toFixed(2); // "1234.50" — portal noktalı ondalık bekler
+
+/* GİB "sicil/MERNİS sorgusu" cevabı -> {ad, vd, adres}. Alan adları portalın form alanlarına benzer varsayılır; bilinmeyenler `alanlar` ile gösterilir. */
+function kimlikEsle(d) {
+  d = d && typeof d === "object" ? d : {};
+  const v = (...k) => { for (const a of k) { const x = d[a]; if (x != null && String(x).trim()) return String(x).trim(); } return ""; };
+  const adSoyad = [v("adi", "ad", "aliciAdi", "isim"), v("soyadi", "soyad", "aliciSoyadi")].filter(Boolean).join(" ");
+  const unvan = v("unvan", "aliciUnvan", "ticariUnvan", "kimlikUnvan", "firmaUnvani", "unvanAdSoyad");
+  const no = v("binaNo") && "No:" + v("binaNo"), kapi = v("kapiNo") && "Kapı:" + v("kapiNo");
+  const adres = [v("bulvarcaddesokak", "adres", "cadde"), v("binaAdi"), no, kapi, v("mahalleSemtIlce", "mahalle"), v("kasabaKoy"), v("sehir", "il")].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  return { ad: unvan || adSoyad, vd: v("vergiDairesi", "vdAdi", "vergiDairesiAdi"), adres, alanlar: Object.keys(d) };
+}
 
 /* ---------- portal gövdesi ----------
  * Alan adları ve biçim, portalın kendi "Kaydet" isteğinden (EARSIV_PORTAL_FATURA_OLUSTUR) birebir alınmıştır.
@@ -178,8 +189,13 @@ class Gib {
     this.ornek = hepsi.size ? sekil([...hepsi.values()][0]) : "";
     return [...hepsi.values()];
   }
+  /* Alıcı sorgusu: portalın VKN/TCKN girilince yaptığı istek (DevTools'tan: SICIL_VEYA_MERNISTEN_BILGILERI_GETIR, RG_BASITFATURA, {vknTckn}) */
+  async sorgula(vkn) {
+    const y = await this.dispatch("SICIL_VEYA_MERNISTEN_BILGILERI_GETIR", "RG_BASITFATURA", { vknTckn: vkn });
+    return kimlikEsle(y.data);
+  }
   /* Belirli tarih aralığındaki belgeler (taslak/onaylı/silinmiş). Tarihler dd/mm/yyyy. */
-  async listeAralik(bas, bit) {
+  async listeHam(bas, bit) {
     const al = (t) => { const [g, a, y] = t.split("/").map(Number); return new Date(y, a - 1, g); };
     const p = (n) => String(n).padStart(2, "0"), f = (d) => `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
     let bs = al(bas); const son = al(bit);
@@ -189,9 +205,13 @@ class Gib {
     for (let c = bs; c <= son; c = new Date(+c + 7 * 864e5)) { // portal 7 günlük aralıkla çalışıyor
       const kb = new Date(Math.min(+c + 6 * 864e5, +son));
       const y = await this.dispatch("EARSIV_PORTAL_TASLAKLARI_GETIR", "RG_BASITTASLAKLAR", { baslangic: f(c), bitis: f(kb), hangiTip: "5000/30000" });
-      for (const x of Array.isArray(y.data) ? y.data : []) if (x && (x.ettn || x.belgeNumarasi)) hepsi.set(x.ettn || x.belgeNumarasi, { belgeNo: x.belgeNumarasi || "", alici: x.aliciUnvanAdSoyad || "", vkn: x.aliciVknTckn || "", tarih: x.belgeTarihi || "", durum: x.onayDurumu || "", ettn: x.ettn || "" });
+      for (const x of Array.isArray(y.data) ? y.data : []) if (x && (x.ettn || x.belgeNumarasi)) hepsi.set(x.ettn || x.belgeNumarasi, x);
     }
-    return [...hepsi.values()].sort((a, b) => String(b.belgeNo).localeCompare(String(a.belgeNo)));
+    return [...hepsi.values()];
+  }
+  async listeAralik(bas, bit) {
+    const ham = await this.listeHam(bas, bit);
+    return ham.map((x) => ({ belgeNo: x.belgeNumarasi || "", alici: x.aliciUnvanAdSoyad || "", vkn: x.aliciVknTckn || "", tarih: x.belgeTarihi || "", durum: x.onayDurumu || "", ettn: x.ettn || "" })).sort((a, b) => String(b.belgeNo).localeCompare(String(a.belgeNo)));
   }
   /* GİB taslağa kendi ettn'ini verir; yeni çıkan kaydı önce/sonra listesinden buluruz.
    * Liste oluşturma sonrası gecikmeli güncellenebilir: birkaç kez beklenip yeniden bakılır. */
@@ -242,7 +262,13 @@ class Gib {
   }
   async imzala(uuid, kod, oid) {
     const kayitlar = await this.liste();
-    const fatura = kayitlar.filter((x) => satirId(x) === uuid)[0] || kayitlar.filter((x) => satirId(x).toLowerCase() === String(uuid).toLowerCase())[0];
+    let fatura = kayitlar.filter((x) => satirId(x) === uuid)[0] || kayitlar.filter((x) => satirId(x).toLowerCase() === String(uuid).toLowerCase())[0];
+    if (!fatura && /^\d{4}-\d{2}-\d{2}$/.test(tarih || "")) { // eski taslak: belge tarihi çevresinde ara
+      const p2 = (n) => String(n).padStart(2, "0"), f2 = (d) => `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`;
+      const d0 = new Date(tarih + "T00:00:00");
+      const ham = await this.listeHam(f2(new Date(+d0 - 3 * 864e5)), f2(new Date(Math.min(+new Date(), +d0 + 3 * 864e5))));
+      fatura = ham.filter((x) => String(x.ettn || "").toLowerCase() === String(uuid).toLowerCase())[0];
+    }
     if (!fatura) throw new Error("Taslak GİB listesinde bulunamadı (" + kayitlar.length + " kayıt). Portalda Taslak Faturalar'ı kontrol edin.");
     if (fatura.onayDurumu && fatura.onayDurumu !== "Onaylanmadı") throw new Error("Bu belge onaylanabilir durumda değil (durum: " + fatura.onayDurumu + ").");
     /* Portalın kendi onay isteğinden (DevTools): cmd 0lhozfib5410mp, pageName RG_SMSONAY, DATA satırına grid alanları eklenir. */
@@ -288,6 +314,7 @@ class SahteGib {
     if (String(kod).trim() !== "123456") throw new Error("SMS kodu hatalı (sahte GİB için 123456).");
     SahteGib.o = SahteGib.o || new Map(); SahteGib.o.set(uuid, SahteGib.t.get(uuid)); SahteGib.t.delete(uuid); return { mesaj: "SAHTE: fatura onaylandı." };
   }
+  async sorgula(vkn) { return kimlikEsle(vkn.length === 11 ? { adi: "ALİ", soyadi: "VELİ", vergiDairesi: "ÜMRANİYE VERGİ DAİRESİ MÜD.", bulvarcaddesokak: "DENEME CD.", binaNo: "5", mahalleSemtIlce: "ÜMRANİYE", sehir: "İSTANBUL" } : { unvan: "DENEME ANONİM ŞİRKETİ", vergiDairesi: "KADIKÖY", bulvarcaddesokak: "TEST SK." }); }
   async listeAralik() {
     const hepsi = [];
     for (const [m, d] of [[SahteGib.t, "Onaylanmadı"], [SahteGib.o, "Onaylandı"]]) for (const [id, g] of (m || new Map())) hepsi.push({ belgeNo: g._no, alici: g.aliciUnvan || (g.aliciAdi + " " + g.aliciSoyadi), vkn: g.vknTckn, tarih: g.faturaTarihi.replace(/\//g, "-"), durum: d, ettn: id });
