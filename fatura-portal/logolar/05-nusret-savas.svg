@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 575 150" width="575" height="150" font-family="Segoe UI,Helvetica,Arial,sans-serif">
+  <circle cx="75" cy="75" r="68" fill="#0f2a4a"/><circle cx="75" cy="75" r="62" fill="none" stroke="#c8962e" stroke-width="2"/>
+  <g transform="translate(26 38) scale(.98)"><polygon points="58,4 26,41 45,41 39,70 74,29 54,29" fill="#c8962e" stroke="#fff" stroke-width="3.500" stroke-linejoin="round"/></g>
+  <text x="168" y="74" font-size="40" font-weight="700" fill="#0f2a4a" letter-spacing="2.5">NUSRET SAVAŞ</text>
+  <rect x="170" y="86" width="56" height="3" fill="#c8962e"/>
+  <text x="170" y="114" font-size="14" font-weight="600" fill="#4a5a6e" letter-spacing="3.5">ELEKTRİK TESİSAT İŞLERİ</text>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 669 150" width="669" height="150" font-family="Segoe UI,Helvetica,Arial,sans-serif">
+  <circle cx="75" cy="75" r="68" fill="#0f2a4a"/><circle cx="75" cy="75" r="62" fill="none" stroke="#c8962e" stroke-width="2"/>
+  <g transform="translate(26 38) scale(.98)"><path d="M34 14L12 37l22 23M66 14l22 23-22 23" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M57 10L43 64" stroke="#c8962e" stroke-width="7" stroke-linecap="round"/></g>
+  <text x="168" y="74" font-size="40" font-weight="700" fill="#0f2a4a" letter-spacing="2.5">MURAT CAN ÇAĞRI</text>
+  <rect x="170" y="86" width="56" height="3" fill="#c8962e"/>
+  <text x="170" y="114" font-size="14" font-weight="600" fill="#4a5a6e" letter-spacing="3.5">YAZILIM</text>
+</svg>

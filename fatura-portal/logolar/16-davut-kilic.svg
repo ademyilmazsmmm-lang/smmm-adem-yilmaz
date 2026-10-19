@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 544 150" width="544" height="150" font-family="Segoe UI,Helvetica,Arial,sans-serif">
+  <circle cx="75" cy="75" r="68" fill="#0f2a4a"/><circle cx="75" cy="75" r="62" fill="none" stroke="#c8962e" stroke-width="2"/>
+  <g transform="translate(26 38) scale(.98)"><g transform="translate(6 9) scale(.88)"><g fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="44" r="10"/><circle cx="90" cy="44" r="10"/><path d="M16 44l16-16h22l14 10 8 6"/><path d="M72 18l18 26"/><path d="M66 14h14"/></g><path d="M30 24c10-5 22-5 30-2l-3 8H30z" fill="#fff"/><path d="M56 16l14-2 5 10H58z" fill="#fff"/><rect x="2" y="6" width="26" height="20" rx="3" fill="#c8962e"/><path d="M9 13h12M9 19h12" stroke="#0f2a4a" stroke-width="2.5" stroke-linecap="round"/></g></g>
+  <text x="168" y="74" font-size="40" font-weight="700" fill="#0f2a4a" letter-spacing="2.5">DAVUT KILIÇ</text>
+  <rect x="170" y="86" width="56" height="3" fill="#c8962e"/>
+  <text x="170" y="114" font-size="14" font-weight="600" fill="#4a5a6e" letter-spacing="3.5">KURYE</text>
+</svg>
