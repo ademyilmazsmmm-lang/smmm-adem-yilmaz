@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-26";
+const SURUM = "2026-10-19-27";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -31,14 +31,29 @@ function hataSay(ip) {
 }
 const sifreMin = GUVENLI ? 12 : 8;
 
-const varsayilan = () => ({
-  mukellefler: [],
-  gecmis: [],
-  hizmetler: [
-    { id: "servis", ad: "Servis Taşımacılık Bedeli", kdv: 20, tev: 5, kod: "614", anah: "servis, personel taşı" },
-    { id: "yuk", ad: "Yük Taşımacılığı Bedeli", kdv: 20, tev: 2, kod: "624", anah: "yük, yuk, nakliye" }
-  ]
-});
+/* Hazır hizmet listesi: etiket açılır listede görünür, ad faturaya yazılır. İstisna/tevkifat bilgisi seçilince fatura tipini de belirler. */
+const HAZIR_HIZMET = [
+  { id: "ogr10t", etiket: "Öğrenci taşımacılığı %10 tevkifat 5/10", ad: "Öğrenci Taşımacılığı Bedeli", kdv: 10, tev: 5, kod: "614", anah: "öğrenci, ogrenci" },
+  { id: "per20t", etiket: "Personel taşımacılığı %20 tevkifat 5/10", ad: "Personel Taşımacılığı Bedeli", kdv: 20, tev: 5, kod: "614", anah: "personel, servis" },
+  { id: "ogr10", etiket: "Öğrenci taşımacılığı %10", ad: "Öğrenci Taşımacılığı Bedeli", kdv: 10, tev: 0, kod: "", anah: "" },
+  { id: "per20", etiket: "Personel taşımacılığı %20", ad: "Personel Taşımacılığı Bedeli", kdv: 20, tev: 0, kod: "", anah: "" },
+  { id: "yuk20t", etiket: "Yük taşımacılığı %20 tevkifatlı", ad: "Yük Taşımacılığı Bedeli", kdv: 20, tev: 2, kod: "624", anah: "yük, yuk, nakliye" },
+  { id: "dag20t", etiket: "Dağıtım bedeli %20 tevkifatlı", ad: "Dağıtım Bedeli", kdv: 20, tev: 2, kod: "624", anah: "dağıtım, dagitim" },
+  { id: "muh10", etiket: "Muhtelif ürün satışı %10", ad: "Muhtelif Ürün Satışı", kdv: 10, tev: 0, kod: "", anah: "" },
+  { id: "muh20", etiket: "Muhtelif ürün satışı %20", ad: "Muhtelif Ürün Satışı", kdv: 20, tev: 0, kod: "", anah: "muhtelif, ürün" },
+  { id: "yaz0i", etiket: "Yazılım bedeli %0 istisna (hizmet ihracatı)", ad: "Yazılım Bedeli", kdv: 0, tev: 0, kod: "", istisna: "302", anah: "ihracat" },
+  { id: "yaz20", etiket: "Yazılım bedeli %20", ad: "Yazılım Bedeli", kdv: 20, tev: 0, kod: "", anah: "yazılım, yazilim" }
+];
+const varsayilan = () => ({ mukellefler: [], gecmis: [], hizmetler: HAZIR_HIZMET.map((h) => Object.assign({}, h)), hazirV2: true });
+/* Eski kayıtlarda iki varsayılan hizmet vardı; değiştirilmemişse hazır listeyle değiştirilir, kullanıcının kendi eklediği hizmetler korunur. */
+function hazirGec() {
+  if (veri.hazirV2) return;
+  const eskiAd = { servis: "Servis Taşımacılık Bedeli", yuk: "Yük Taşımacılığı Bedeli" };
+  veri.hizmetler = veri.hizmetler.filter((h) => !(eskiAd[h.id] === h.ad));
+  const var_ = new Set(veri.hizmetler.map((h) => h.id));
+  veri.hizmetler = HAZIR_HIZMET.filter((h) => !var_.has(h.id)).map((h) => Object.assign({}, h)).concat(veri.hizmetler);
+  veri.hazirV2 = true; yaz();
+}
 
 const kasaVar = () => fs.existsSync(KASA);
 const anahtar = (sifre, t, iter) => new Promise((ok, no) => crypto.pbkdf2(sifre, t, iter, 32, "sha256", (e, k) => (e ? no(e) : ok(k))));
@@ -56,7 +71,7 @@ async function ac(sifre) {
   const d = crypto.createDecipheriv("aes-256-gcm", kk, Buffer.from(k.iv, "base64"));
   d.setAuthTag(Buffer.from(k.tag, "base64"));
   const p = Buffer.concat([d.update(Buffer.from(k.veri, "base64")), d.final()]); // yanlış şifrede fırlatır
-  key = kk; tuz = t; veri = JSON.parse(p.toString("utf8")); if (!veri.gecmis) veri.gecmis = [];
+  key = kk; tuz = t; veri = JSON.parse(p.toString("utf8")); if (!veri.gecmis) veri.gecmis = []; hazirGec();
 }
 
 /* GİB şifreleri veri içinde düz durur ama kasa dosyası şifrelidir; istemciye asla gönderilmez. */

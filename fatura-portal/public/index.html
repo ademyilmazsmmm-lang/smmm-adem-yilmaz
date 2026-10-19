@@ -227,7 +227,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   var PARASEM = { TRY: "₺", USD: "$", EUR: "€", GBP: "£" };
   function birimAd(k){ var b = BIRIMLER.filter(function(x){ return x[0] === k; })[0]; return b ? b[1] : k; }
   /* Yeni satır: miktar 1, birim Adet, KDV %20 otomatik gelir (hazır hizmet seçilirse onun KDV/tevkifat değerleri); hepsi değiştirilebilir */
-  function yeniKalem(h){ return { preset: h ? h.id : "", ad: h ? h.ad : "", aciklama: "", miktar: "1", birim: "C62", fiyat: "", kdv: h ? String(h.kdv) : "20", tev: h ? String(h.tev) : "0", kod: h ? (h.kod || "") : "" }; }
+  function yeniKalem(h){ return { preset: h ? h.id : "", ad: h ? h.ad : "", aciklama: "", miktar: "1", birim: "C62", fiyat: "", kdv: h ? String(h.kdv) : "20", tev: h ? String(h.tev) : "0", kod: h ? (h.kod || "") : "", istisna: h ? (h.istisna || "") : "" }; }
   function ilkKalem(){ return yeniKalem(V && V.hizmetler[0] || null); }
   function hepsi(){ if (!$("tarih").value) $("tarih").value = bugunStr(); $("tarih").max = bugunStr(); cizM(); cizAlici(); cizKalemler(); formDoldur(); onizle(); cizAyar(); }
   function cizM(){
@@ -244,13 +244,12 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function kalemHtml(k, i){
     var tev = F.tip === "TEVKIFAT";
-    var pre = '<option value="">— Elle yaz —</option>' + V.hizmetler.map(function(h){ return '<option value="' + h.id + '"' + (h.id === k.preset ? " selected" : "") + '>' + esc(h.ad) + '</option>'; }).join("");
+    var pre = '<option value="">— Elle yaz —</option>' + V.hizmetler.map(function(h){ return '<option value="' + h.id + '"' + (h.id === k.preset ? " selected" : "") + '>' + esc(h.etiket || h.ad) + '</option>'; }).join("");
     var bir = BIRIMLER.map(function(b){ return '<option value="' + b[0] + '"' + (b[0] === k.birim ? " selected" : "") + '>' + esc(b[1]) + '</option>'; }).join("");
     var tevSec = ""; for (var j = 0; j <= 9; j++) tevSec += '<option value="' + j + '"' + (String(j) === String(k.tev) ? " selected" : "") + '>' + (j ? j + "/10" : "Yok") + '</option>';
     return '<div class="kalem" data-k="' + i + '"><div class="baslik"><span>Satır ' + (i + 1) + '</span>' + (F.kalemler.length > 1 ? '<button class="k" type="button" data-ksil="' + i + '">Sil</button>' : "") + '</div>' +
       '<div><label>Hazır hizmet</label><select data-kf="preset">' + pre + '</select></div>' +
       '<div><label>Mal / hizmet adı</label><input data-kf="ad" autocomplete="off" value="' + esc(k.ad) + '"></div>' +
-      '<div><label>Açıklama (isteğe bağlı)</label><input data-kf="aciklama" autocomplete="off" placeholder="Örn: 34 ABC 123 plakalı araç, Ekim 2026" value="' + esc(k.aciklama) + '"></div>' +
       '<div class="satir3"><div><label>Miktar</label><input data-kf="miktar" inputmode="decimal" value="' + esc(k.miktar) + '"></div>' +
       '<div><label>Birim</label><select data-kf="birim">' + bir + '</select></div>' +
       '<div><label>Birim fiyat (' + PARASEM[F.para] + ')</label><input data-kf="fiyat" inputmode="decimal" placeholder="0,00" value="' + esc(k.fiyat) + '"></div></div>' +
@@ -363,7 +362,12 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
 
   /* ---------- mesajdan doldurma ---------- */
-  function hazirUygula(k, h){ k.preset = h.id; k.ad = h.ad; k.kdv = String(h.kdv); k.tev = String(h.tev); k.kod = h.kod || ""; if (h.tev > 0 && F.tip === "SATIS") F.tip = "TEVKIFAT"; }
+  function hazirUygula(k, h){
+    k.preset = h.id; k.ad = h.ad; k.kdv = String(h.kdv); k.tev = String(h.tev); k.kod = h.kod || ""; k.istisna = h.istisna || ""; k.kodDiger = false;
+    /* Tek satırlı faturada hazır hizmet, fatura tipini de belirler (iade tipi korunur) */
+    if (F.tip === "IADE") return;
+    if (h.istisna) F.tip = "ISTISNA"; else if (h.tev > 0) F.tip = "TEVKIFAT"; else if (F.kalemler.length < 2) F.tip = "SATIS";
+  }
   function mesajOku(){
     var met = $("mesaj").value, kt = trk(met), m = mk(); if (!met.trim()) return;
     var re = /(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?\s*(bin)?\s*(tl|₺|lira)?/gi, q, ad = [];
@@ -674,16 +678,17 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     h += '<details class="grup" data-ak="g:h"' + ac("g:h") + '><summary>Hizmetler (' + V.hizmetler.length + ')</summary><div class="icerik">';
     V.hizmetler.forEach(function(x){
       h += '<details class="kayit" data-hid="' + x.id + '" data-ak="h:' + x.id + '"' + ac("h:" + x.id) + '><summary><span data-ozet>' + esc(x.ad || "(adsız)") + '</span><small data-ozet2>' + hizmetOzet(x) + '</small></summary><div class="icerik">' +
-        '<div><label>Hizmet adı</label><input data-f="ad" value="' + esc(x.ad) + '"></div>' +
+        '<div><label>Listede görünen ad</label><input data-f="etiket" value="' + esc(x.etiket || x.ad) + '"></div>' +
+        '<div><label>Faturaya yazılacak hizmet adı</label><input data-f="ad" value="' + esc(x.ad) + '"></div>' +
         '<div class="satir"><div><label>KDV %</label><input data-f="kdv" inputmode="decimal" value="' + esc(x.kdv) + '"></div><div><label>Tevkifat x/10</label><input data-f="tev" inputmode="numeric" value="' + esc(x.tev) + '"></div></div>' +
-        '<div><label>Tevkifat kodu</label><input data-f="kod" inputmode="numeric" value="' + esc(x.kod) + '"></div><div><label>Mesajda aranacak kelimeler</label><input data-f="anah" value="' + esc(x.anah) + '"></div>' +
+        '<div><label>Tevkifat kodu</label><input data-f="kod" inputmode="numeric" value="' + esc(x.kod) + '"></div><div><label>İstisna sebep kodu (istisna ise, örn. 302)</label><input data-f="istisna" inputmode="numeric" value="' + esc(x.istisna || "") + '"></div><div><label>Mesajda aranacak kelimeler</label><input data-f="anah" value="' + esc(x.anah) + '"></div>' +
         '<button class="btn tehlike" type="button" data-sil-h="' + x.id + '">Hizmeti sil</button></div></details>';
     });
     h += '<button class="btn ikincil" type="button" id="hEkle">+ Hizmet ekle</button></div></details>';
     h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
     $("ayarIc").innerHTML = h;
   }
-  function hizmetOzet(x){ return "KDV %" + esc(String(x.kdv).replace(".", ",")) + (x.tev > 0 ? " · tevkifat " + esc(x.tev) + "/10" + (x.kod ? " (" + esc(x.kod) + ")" : "") : " · tevkifatsız"); }
+  function hizmetOzet(x){ return (x.istisna ? "İstisna " + esc(x.istisna) + " · " : "") + "KDV %" + esc(String(x.kdv).replace(".", ",")) + (x.tev > 0 ? " · tevkifat " + esc(x.tev) + "/10" + (x.kod ? " (" + esc(x.kod) + ")" : "") : " · tevkifatsız"); }
   /* aç/kapa durumunu hatırla (toggle olayı kabarcıklanmaz, yakalama aşamasında dinlenir) */
   $("ayarIc").addEventListener("toggle", function(e){ var k = e.target.getAttribute && e.target.getAttribute("data-ak"); if (k) ayarAcik[k] = e.target.open; }, true);
   $("ayarIc").addEventListener("input", function(e){
