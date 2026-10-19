@@ -6,7 +6,12 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#1f6f5c">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Fatura">
+<meta name="apple-mobile-web-app-title" content="e-Arşiv">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/ikon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/ikon-180.png">
 <title>e-Arşiv Fatura</title>
 <script>try{var t=localStorage.getItem("tema");if(t==="acik"||t==="koyu")document.documentElement.setAttribute("data-tema",t)}catch(e){}</script>
 <style>
@@ -324,6 +329,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     <div class="kartbas"><h2>Ayarlar</h2><a href="/api/yedek" download class="k" style="text-decoration:none">Yedeği indir</a></div>
     <p class="not">Yedek dosyası uygulama şifrenizle şifrelidir; başka cihaza taşımak için de kullanılır.</p>
     <div id="ayarIc" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+  <div class="card" id="yuklePanel" hidden>
+    <h2>Telefona uygulama olarak ekle</h2>
+    <p class="not" id="yukleYazi"></p>
+    <button class="btn" type="button" id="yukleBtn" hidden>Uygulamayı yükle</button>
   </div>
   </section>
   </div>
@@ -968,6 +978,22 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   adimCiz();
   /* mükellef değişince taslak listesi yeniden yüklensin */
   $("mChips").addEventListener("click", function(){ tYuklendi = false; $("tRozet").hidden = true; if (aktifSekme === "taslak") setTimeout(taslakGetir, 0); });
+
+  /* ---------- uygulama olarak yükleme (PWA) ---------- */
+  var yuklenecek = null, bagimsiz = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(function(){});
+  window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); yuklenecek = e; yukleGoster(); });
+  window.addEventListener("appinstalled", function(){ yuklenecek = null; bagimsiz = true; yukleGoster(); });
+  function yukleGoster(){
+    var ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    $("yuklePanel").hidden = bagimsiz;
+    $("yukleBtn").hidden = !yuklenecek;
+    $("yukleYazi").textContent = yuklenecek ? "Ana ekrana eklenir, kendi simgesiyle ve tam ekran açılır."
+      : ios ? "iPhone/iPad: Safari’de alttaki Paylaş (□↑) düğmesine basın, “Ana Ekrana Ekle”yi seçin."
+      : "Android/Samsung: Chrome ya da Samsung Internet’te sağ üstteki ⋮ menüsünden “Ana ekrana ekle” ya da “Uygulamayı yükle”yi seçin.";
+  }
+  $("yukleBtn").addEventListener("click", function(){ if (!yuklenecek) return; yuklenecek.prompt(); yuklenecek = null; yukleGoster(); });
+  yukleGoster();
 
   /* ---------- tema: otomatik / açık / koyu ---------- */
   var TEMAAD = { "": "◐ Otomatik", acik: "☀ Açık", koyu: "☾ Koyu" };
