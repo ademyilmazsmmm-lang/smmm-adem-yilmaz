@@ -62,7 +62,7 @@ from datetime import datetime
 import pandas as pd
 
 try:
-    from openai import OpenAI
+    from openai import OpenAI, AuthenticationError
 except ImportError:
     print("HATA: 'openai' kütüphanesi bulunamadı. Lütfen şu komutu çalıştırın:")
     print("    pip install openai")
@@ -107,6 +107,18 @@ except Exception as e:
 # --------------------------------------------------------------------------
 # YARDIMCI FONKSİYONLAR
 # --------------------------------------------------------------------------
+
+def api_anahtari_hatasi_ise_dur(hata):
+    """401 (geçersiz/iptal edilmiş API anahtarı) hatasında boşuna devam etmeden
+    anlaşılır bir mesajla durur."""
+    if isinstance(hata, AuthenticationError):
+        print("\nHATA: OpenAI API anahtarı geçersiz veya iptal edilmiş.")
+        print("  platform.openai.com > API keys sayfasından yeni bir anahtar oluşturun,")
+        print("  sonra PowerShell'de şunu çalıştırıp scripti yeniden başlatın:")
+        print('    $env:OPENAI_API_KEY="sk-..."')
+        print("  (Anahtarı kimseyle/sohbette paylaşmayın.)")
+        raise SystemExit(1)
+
 
 def klasordeki_dosyalari_bul(klasor_yolu):
     """Klasördeki desteklenen PDF ve görsel dosyalarını bulur."""
@@ -355,6 +367,7 @@ def gpt4o_ile_fisleri_cikar(gorsel_yolu, tek_fis=False):
         print(f"Ham yanıt: {icerik if 'icerik' in locals() else 'Yanıt alınamadı'}")
         return []
     except Exception as e:
+        api_anahtari_hatasi_ise_dur(e)
         print(f"HATA: '{gorsel_yolu}' için OpenAI API çağrısı başarısız oldu: {e}")
         traceback.print_exc()
         return []
@@ -614,6 +627,7 @@ def fis_konumlarini_bul(gorsel_yolu):
                 kutular.append([x0, y0, x1, y1])
         return kutular
     except Exception as e:
+        api_anahtari_hatasi_ise_dur(e)
         print(f"       UYARI: fiş konumları bulunamadı ({e}); tüm sayfa tek parça okunacak.")
         return []
 
