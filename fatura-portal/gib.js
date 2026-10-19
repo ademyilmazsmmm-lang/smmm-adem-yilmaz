@@ -191,8 +191,14 @@ class Gib {
   }
   /* Alıcı sorgusu: portalın VKN/TCKN girilince yaptığı istek (DevTools'tan: SICIL_VEYA_MERNISTEN_BILGILERI_GETIR, RG_BASITFATURA, {vknTckn}) */
   async sorgula(vkn) {
-    const y = await this.dispatch("SICIL_VEYA_MERNISTEN_BILGILERI_GETIR", "RG_BASITFATURA", { vknTckn: vkn });
-    return kimlikEsle(y.data);
+    try {
+      const y = await this.dispatch("SICIL_VEYA_MERNISTEN_BILGILERI_GETIR", "RG_BASITFATURA", { vknTckn: vkn });
+      return kimlikEsle(y.data);
+    } catch (e) {
+      // GİB kayıt bulamayınca NullPointerException ile çöküyor: "kayıt yok" olarak ele alınır
+      if (/NullPointer/i.test(e.message)) return { ad: "", vd: "", adres: "", alanlar: [], bulunamadi: true };
+      throw e;
+    }
   }
   /* Belirli tarih aralığındaki belgeler (taslak/onaylı/silinmiş). Tarihler dd/mm/yyyy. */
   async listeHam(bas, bit) {

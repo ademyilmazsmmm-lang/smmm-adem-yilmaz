@@ -336,10 +336,23 @@ label.onay input{width:auto;min-height:0}
   ["tutar", "tarih", "kdv", "tev", "kod", "yAd", "yVkn", "yAdres", "yVd", "aciklama", "ekNot", "notIrs"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
   $("oku").addEventListener("click", mesajOku);
   /* GİB sorgusu: VKN/TCKN yazılınca ad, adres ve vergi dairesi getirilir (yazılmış alanların üstüne yazmaz) */
+  function tcknGecerli(n){
+    if (!/^[1-9]\d{10}$/.test(n)) return false;
+    var d = n.split("").map(Number);
+    if (((d[0] + d[2] + d[4] + d[6] + d[8]) * 7 - (d[1] + d[3] + d[5] + d[7])) % 10 !== d[9]) return false;
+    return d.slice(0, 10).reduce(function(a, b){ return a + b; }, 0) % 10 === d[10];
+  }
+  function vknGecerli(n){
+    if (!/^\d{10}$/.test(n)) return false;
+    var d = n.split("").map(Number), t = 0;
+    for (var i = 0; i < 9; i++) { var q = (d[i] + (9 - i)) % 10, v = (q * Math.pow(2, 9 - i)) % 9; if (q !== 0 && v === 0) v = 9; t += v; }
+    return (10 - t % 10) % 10 === d[9];
+  }
   var sorguTimer;
   function vknSorgu(elle){
     var vkn = $("yVkn").value.trim(), d = $("sorguDurum");
     if (!/^\d{10,11}$/.test(vkn) || !mSec) return;
+    if (!(vkn.length === 11 ? tcknGecerli(vkn) : vknGecerli(vkn))) { d.className = "durum hata"; d.textContent = "Bu numara geçerli bir " + (vkn.length === 11 ? "TC kimlik" : "vergi kimlik") + " numarası değil (kontrol basamağı tutmuyor); GİB’e sorulmadı. Deneme numarası olabilir; unvanı elle yazabilirsiniz."; return; }
     d.className = "durum"; d.textContent = "GİB’de sorgulanıyor…";
     api("/api/sorgu", "POST", { mukellefId: mSec, vkn: vkn }).then(function(r){
       if ($("yVkn").value.trim() !== vkn) return;
@@ -348,7 +361,7 @@ label.onay input{width:auto;min-height:0}
       if (r.adres && (elle || !$("yAdres").value.trim())) { $("yAdres").value = r.adres; dolan.push("adres"); }
       if (r.vd && (elle || !$("yVd").value.trim())) { $("yVd").value = r.vd; dolan.push("vergi dairesi"); }
       if (dolan.length) { d.className = "durum ok"; d.textContent = "GİB’den geldi: " + dolan.join(", ") + ". Kontrol edin."; onizle(); }
-      else { d.className = "durum hata"; d.textContent = "GİB’de bu numara için bilgi bulunamadı ya da yanıt çözülemedi" + (r.alanlar && r.alanlar.length ? " (yanıt alanları: " + r.alanlar.join(", ") + ")" : "") + "."; }
+      else { d.className = "durum hata"; d.textContent = r.bulunamadi ? "GİB’de bu numara için kayıt bulunamadı (numara kayıtsız olabilir); bilgileri elle yazabilirsiniz." : "GİB’de bu numara için bilgi bulunamadı ya da yanıt çözülemedi" + (r.alanlar && r.alanlar.length ? " (yanıt alanları: " + r.alanlar.join(", ") + ")" : "") + "."; }
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = "Sorgu başarısız: " + er.message; } });
   }
   $("yVkn").addEventListener("input", function(){ clearTimeout(sorguTimer); if (F.alici === "__yeni" && !$("yAd").value.trim()) sorguTimer = setTimeout(function(){ vknSorgu(false); }, 500); });
