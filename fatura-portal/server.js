@@ -15,11 +15,18 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-36";
+const SURUM = "2026-10-19-37";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
+const gibZaman = new Map();
+async function gibBirak(id) {
+  clearTimeout(gibZaman.get(id)); gibZaman.delete(id);
+  const g = gibler.get(id); gibler.delete(id);
+  if (g) await g.cikis().catch(() => {});
+}
+const gibHepsiniBirak = () => Promise.race([Promise.all([...gibler.keys()].map(gibBirak)), new Promise((ok) => setTimeout(ok, 5000))]);
 const denemeler = new Map(); // ip -> { n, bitis }
 const istemciIp = (req) => (PROXY && String(req.headers["x-forwarded-for"] || "").split(",")[0].trim()) || req.socket.remoteAddress || "?";
 const kilitli = (ip) => { const d = denemeler.get(ip); return d && d.bitis > Date.now() ? Math.ceil((d.bitis - Date.now()) / 1000) : 0; };
@@ -124,6 +131,9 @@ const hataBilgi = (e) => (e && e.message) || "Bilinmeyen hata";
 const mukellefBul = (id) => veri.mukellefler.filter((m) => m.id === id)[0];
 function istemci(m) {
   if (!gibler.has(m.id)) gibler.set(m.id, gib.istemci(m.kullanici, m.gibSifre));
+  /* GİB aynı kullanıcı koduyla tek oturuma izin verir: kullanılmayınca 10 dk sonra oturum bırakılır (portala girmek isteyince çakışmasın) */
+  clearTimeout(gibZaman.get(m.id));
+  gibZaman.set(m.id, setTimeout(() => gibBirak(m.id), 10 * 60e3).unref());
   return gibler.get(m.id);
 }
 const bekleyen = new Map(); // taslak kimliği -> geçmiş kaydı taslağı (onaylanınca kalıcı olur)
@@ -192,7 +202,7 @@ async function api(req, res, yol) {
     catch (e) { hataSay(ip); return cevap(res, 401, { hata: "Şifre yanlış." }); }
   }
   if (!girisli(req)) return cevap(res, 401, { hata: "Giriş gerekli." });
-  if (yol === "/api/cikis") { oturumlar.delete(cerez(req)); key = null; veri = null; gibler.clear(); return cevap(res, 200, { ok: true }); }
+  if (yol === "/api/cikis") { oturumlar.delete(cerez(req)); await gibHepsiniBirak(); key = null; veri = null; gibler.clear(); return cevap(res, 200, { ok: true }); }
   if (yol === "/api/yedek" && req.method === "GET") { res.writeHead(200, Object.assign({ "content-type": "application/json", "content-disposition": "attachment; filename=fatura-yedek-" + new Date().toISOString().slice(0, 10) + ".json", "cache-control": "no-store" }, GUV)); return res.end(fs.readFileSync(KASA)); }
   if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz());
   if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req); if (!Array.isArray(g.mukellefler) || !Array.isArray(g.hizmetler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(g); return cevap(res, 200, temiz()); }

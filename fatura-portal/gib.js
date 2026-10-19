@@ -197,8 +197,19 @@ class Gib {
   }
   async giris() {
     const y = await this.post("/earsiv-services/assos-login", { assoscmd: process.env.GIB_TEST === "1" ? "login" : "anologin", rtype: "json", userid: this.k, sifre: this.s, sifre2: this.s, parola: "1" });
-    if (!y.token) throw new Error("GİB girişi başarısız: " + (y.messages && y.messages[0] && y.messages[0].text || "kullanıcı kodu/şifre hatalı olabilir."));
+    if (!y.token) {
+      const m = y.messages && y.messages[0] && y.messages[0].text || "";
+      const acik = /oturum|başka|baska|açık|acik|eşzamanlı|zaten/i.test(m);
+      throw new Error("GİB girişi başarısız: " + (m || "kullanıcı kodu/şifre hatalı olabilir.") + (acik ? "\nBu kullanıcı kodu GİB’de başka yerde açık görünüyor: GİB portalında (ya da başka cihazda) çıkış yapın, 1-2 dakika bekleyip tekrar deneyin." : ""));
+    }
     this.token = y.token;
+  }
+  /* GİB oturumunu kapatır (en iyi çaba): aynı kullanıcı kodu başka yerde açılabilsin. Hata verirse sessizce geçilir. */
+  async cikis() {
+    const t = this.token; this.token = null;
+    if (!t) { this.cerez.clear(); return; }
+    try { await this.post("/earsiv-services/assos-login", { assoscmd: "logout", rtype: "json", token: t }); } catch (e) { /* önemli değil */ }
+    this.cerez.clear();
   }
   async dispatch(cmd, sayfa, jp) {
     if (!this.token) await this.giris();
@@ -361,6 +372,7 @@ Gib.prototype.faturaHtml = async function (id, onay) {
 /* ---------- sahte GİB (deneme) ---------- */
 class SahteGib {
   constructor(kullanici) { this.k = kullanici; SahteGib.t = SahteGib.t || new Map(); }
+  async cikis() {}
   async taslak(g) { const govde = typeof g === "function" ? g(0) : g; const uuid = crypto.randomUUID(); govde.faturaUuid = uuid; SahteGib.n = (SahteGib.n || 0) + 1; govde._no = "SAHTE" + String(SahteGib.n).padStart(6, "0"); SahteGib.t.set(uuid, govde); return { uuid, satir: { belgeNumarasi: govde._no }, mesaj: "SAHTE: taslak oluşturuldu (" + govde.faturaTipi + ", ödenecek " + govde.odenecekTutar + ")" }; }
   async smsGonder() { return { oid: "SAHTE-OID" }; }
   async imzala(uuid, kod) {
