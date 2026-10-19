@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-39";
+const SURUM = "2026-10-19-40";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -256,22 +256,12 @@ http.createServer((req, res) => {
   const yol = req.url.split("?")[0];
   if (yol.startsWith("/api/")) return api(req, res, yol).catch((e) => { console.error(e.message); cevap(res, 500, { hata: hataBilgi(e) }); });
   const STATIK = { "/manifest.webmanifest": "application/manifest+json", "/sw.js": "text/javascript; charset=utf-8", "/ikon.svg": "image/svg+xml", "/ikon-180.png": "image/png", "/ikon-192.png": "image/png", "/ikon-512.png": "image/png" };
-  /* iPhone/iPad (iOS 18) tam ekran "web uygulaması" kipinde yazı alanlarına yazılamıyor; iOS'ta kısayol Safari kipinde açılsın. */
+  /* iPhone/iPad: COOP başlığı gönderilmez (ana ekran uygulamasında güvenlik başlığı sorunlarından kaçınmak için). */
   const ios = /iPhone|iPad|iPod/.test(req.headers["user-agent"] || "");
-  /* DENEME: iOS'ta ?tam=1 adresinden eklenen kısayol tam ekran açılır (şüpheli ayarlar iOS isteklerinde kapalı: COOP başlığı, servis çalışanı). */
-  const tam = ios && /[?&]tam=1\b/.test(req.url);
   if (ios) { const yaz = res.writeHead.bind(res); res.writeHead = (k, h) => { if (h && !Array.isArray(h)) delete h["cross-origin-opener-policy"]; return yaz(k, h); }; }
-  if (yol === "/manifest.webmanifest" && ios) {
-    let m = fs.readFileSync(path.join(__dirname, "public", yol), "utf8");
-    m = tam ? m.replace('"start_url": "/"', '"start_url": "/?tam=1"') : m.replace('"display": "standalone"', '"display": "browser"');
-    res.writeHead(200, Object.assign({ "content-type": STATIK[yol], "cache-control": "no-cache", vary: "User-Agent" }, GUV)); return res.end(m);
-  }
   if (yol === "/manifest.webmanifest") { res.writeHead(200, Object.assign({ "content-type": STATIK[yol], "cache-control": "no-cache", vary: "User-Agent" }, GUV)); return fs.createReadStream(path.join(__dirname, "public", yol)).pipe(res); } // iOS'a giden "browser" sürümüyle karışmasın
   if (STATIK[yol]) { res.writeHead(200, Object.assign({ "content-type": STATIK[yol], "cache-control": yol === "/sw.js" ? "no-cache" : "public, max-age=86400" }, GUV)); return fs.createReadStream(path.join(__dirname, "public", yol)).pipe(res); }
-  if (yol === "/tani") { res.writeHead(200, Object.assign({ "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }, GUV)); return fs.createReadStream(path.join(__dirname, "public", "tani.html")).pipe(res); } // yazı sınaması (geçici)
   if (yol === "/" || yol === "/index.html") { let h = fs.readFileSync(SAYFA, "utf8");
-    if (ios && !tam) h = h.replace(/<meta name="(apple-)?mobile-web-app-capable"[^>]*>\n?/g, "").replace(/<meta name="apple-mobile-web-app-capable"[^>]*>\n?/g, "");
-    if (tam) h = h.replace('href="/manifest.webmanifest"', 'href="/manifest.webmanifest?tam=1"');
     res.writeHead(200, Object.assign({ "content-type": "text/html; charset=utf-8", "cache-control": "no-store", vary: "User-Agent" }, GUV)); return res.end(h); }
   res.writeHead(404); res.end("Bulunamadı");
 }).on("error", (e) => { console.error(e.code === "EADDRINUSE" ? "HATA: " + PORT + " numaralı kapı dolu; eski program hâlâ çalışıyor. Eski siyah pencereyi kapatın ve yeniden başlatın." : e.message); process.exit(1); }).listen(PORT, HOST, () => console.log(`Fatura Portalı ${SURUM}: http://${HOST}:${PORT}` + (gib.MOCK ? "  (SAHTE GİB — gerçek fatura kesilmez)" : "")));
