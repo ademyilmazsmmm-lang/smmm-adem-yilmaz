@@ -107,7 +107,7 @@ function faturaGovdesi(m, uuid, varyant) {
   const a = m.alici, sahis = /^\d{11}$/.test(a.vkn);
   const parca = a.unvan.trim().split(/\s+/);
   const soyad = sahis && parca.length > 1 ? parca.pop() : "";
-  const tev = m.tip === "TEVKIFAT", iade = m.tip === "IADE" && m.iade;
+  const tev = m.tip === "TEVKIFAT", iade = m.tip === "IADE" && m.iade, ist = m.tip === "ISTISNA";
   const dmy = (y) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(y || ""); return q ? `${q[3]}/${q[2]}/${q[1]}` : ""; };
   const x = m._h;
   const kalemler = m.kalemler.map((k, i) => {
@@ -118,12 +118,13 @@ function faturaGovdesi(m, uuid, varyant) {
       iskontoOrani: 0, iskontoTutari: "0", iskontoNedeni: "", malHizmetTutari: nf(s.matrah),
       kdvOrani: String(Number(k.kdv)), vergiOrani: 0, kdvTutari: nf(s.kdv), vergininKdvTutari: "0", ozelMatrahTutari: "0"
     };
+    if (ist) satir.istisnaKodu = String(k.istisna || ""); // portal alan adı doğrulanmadı
     if (tev) Object.assign(satir, { hesaplananotvtevkifatakatkisi: "0", tevkifatKodu: String(k.kod || ""), V9015Orani: Number(k.tev) * 10, V9015Tutari: nf(s.tevKdv) });
     return satir;
   });
   const govde = {
     faturaUuid: varyant === 1 ? uuid : "", belgeNumarasi: "", faturaTarihi: tarih, saat, paraBirimi: m.para || "TRY", dovzTLkur: (m.para || "TRY") === "TRY" ? "0" : String(Number(m.kur)),
-    faturaTipi: tev ? "TEVKIFAT" : iade ? "IADE" : "SATIS", hangiTip: "5000/30000",
+    faturaTipi: tev ? "TEVKIFAT" : iade ? "IADE" : ist ? "ISTISNA" : "SATIS", hangiTip: "5000/30000",
     vknTckn: a.vkn, aliciUnvan: sahis ? "" : a.unvan.trim(), aliciAdi: sahis ? parca.join(" ") : "", aliciSoyadi: sahis ? soyad : "",
     binaAdi: "", binaNo: "", kapiNo: "", kasabaKoy: "", vergiDairesi: temizMetin(a.vd, 100), ulke: "Türkiye", bulvarcaddesokak: temizMetin(a.adres, 250),
     irsaliyeNumarasi: "", irsaliyeTarihi: "", mahalleSemtIlce: "", sehir: " ", postaKodu: "", tel: "", fax: "", eposta: "", websitesi: "",

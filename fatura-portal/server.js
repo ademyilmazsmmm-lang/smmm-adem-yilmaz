@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-19-24";
+const SURUM = "2026-10-19-25";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -104,14 +104,15 @@ function istemci(m) {
   return gibler.get(m.id);
 }
 const bekleyen = new Map(); // taslak kimliği -> geçmiş kaydı taslağı (onaylanınca kalıcı olur)
-const TIPLER = ["SATIS", "TEVKIFAT", "IADE"]; // İstisna, Özel Matrah: portal isteği alınınca eklenecek
+const TIPLER = ["SATIS", "TEVKIFAT", "IADE", "ISTISNA"]; // Özel Matrah: portal isteği alınınca eklenecek
+const ISTISNA_AD = { 301: "Mal ihracatı", 302: "Hizmet ihracatı", 303: "Dış ticaret/ihracat kapsamı teslimler", 304: "Yolcu beraberi eşya", 308: "Transit ve gümrük antrepo taşımacılığı", 311: "Uluslararası taşımacılık", 201: "Diplomatik istisna", 350: "Diğer" };
 const PARALAR = ["TRY", "USD", "EUR", "GBP"];
 /* İstemciden gelen fatura modelini temizler/doğrular. tam=false ise (yalnız hesap önizlemesi) alıcı/tarih zorunlu değildir. */
 function modelTemiz(g, tam) {
   const T = gib.temizMetin;
   const bugun = new Date(), yerel = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, "0")}-${String(bugun.getDate()).padStart(2, "0")}`;
   const tip = String(g.tip || "SATIS");
-  if (!TIPLER.includes(tip)) throw new Error("Bu fatura tipi henüz desteklenmiyor (şimdilik Satış, Tevkifat ve İade).");
+  if (!TIPLER.includes(tip)) throw new Error("Bu fatura tipi henüz desteklenmiyor (Satış, Tevkifat, İade, İstisna).");
   const para = String(g.para || "TRY");
   if (!PARALAR.includes(para)) throw new Error("Para birimi desteklenmiyor.");
   const kur = Number(g.kur);
@@ -136,7 +137,8 @@ function modelTemiz(g, tam) {
   if (!Array.isArray(g.kalemler) || !g.kalemler.length || g.kalemler.length > 30) throw new Error("1–30 mal/hizmet satırı gerekli.");
   const kalemler = g.kalemler.map((k, i) => {
     const q = { ad: T(k.ad, 150), aciklama: T(k.aciklama, 150), miktar: Number(k.miktar), birim: /^[A-Z0-9]{2,4}$/.test(String(k.birim)) ? String(k.birim) : "C62",
-      fiyat: Number(k.fiyat), kdv: Number(k.kdv), tev: tip === "TEVKIFAT" ? Math.min(9, Math.max(0, parseInt(k.tev, 10) || 0)) : 0, kod: T(k.kod, 10) };
+      fiyat: Number(k.fiyat), kdv: Number(k.kdv), tev: tip === "TEVKIFAT" ? Math.min(9, Math.max(0, parseInt(k.tev, 10) || 0)) : 0, kod: T(k.kod, 10), istisna: tip === "ISTISNA" ? String(k.istisna || "") : "" };
+    if (tip === "ISTISNA") { q.kdv = 0; if (tam && !ISTISNA_AD[q.istisna]) throw new Error((i + 1) + ". satırda KDV istisna sebebini seçin."); }
     if (tam && !q.ad) throw new Error((i + 1) + ". satırda mal/hizmet adı boş.");
     if (tip === "TEVKIFAT" && tam && (!(q.tev > 0) || !q.kod)) throw new Error((i + 1) + ". satırda tevkifat oranı ve kodu gerekli (tevkifatsız kesmek için fatura tipini “Satış” yapın).");
     return q;
@@ -145,6 +147,7 @@ function modelTemiz(g, tam) {
   m._h = gib.hesaplaFatura(m);
   if (tam && !(m._h.toplam.odenecek > 0)) throw new Error("Ödenecek tutar sıfırdan büyük olmalı.");
   m.not = gib.notUret(m, m._h.toplam);
+  if (tip === "ISTISNA") { const sb = [...new Set(kalemler.map((k) => k.istisna).filter(Boolean))].map((c) => c + " - " + (ISTISNA_AD[c] || "")); if (sb.length) m.not = ("KDV istisnası: " + sb.join("; ") + "\n" + m.not).trim(); }
   return m;
 }
 
