@@ -148,20 +148,18 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <div class="card" id="gorunum" hidden>
     <h2>Fatura görünümü</h2>
     <iframe id="cerceve" sandbox="allow-same-origin allow-modals" title="Fatura" style="width:100%;height:520px;border:1px solid var(--line);border-radius:6px;background:#fff"></iframe>
-    <div class="satir"><button class="btn" type="button" id="yazdir">Yazdır / PDF olarak kaydet</button><button class="btn ikincil" type="button" id="gorunumKapat">Kapat</button></div>
-    <p class="not">Yazdırma ekranında hedef olarak “PDF olarak kaydet”i seçin.</p>
+    <div class="satir"><button class="btn" type="button" id="yazdir">Faturayı yazdır / PDF kaydet</button><button class="btn ikincil" type="button" id="gorunumKapat">Kapat</button></div>
+    <p class="not">Fatura yeni bir sekmede yalnız kendi sayfası olarak açılır; yazdırma ekranında “PDF olarak kaydet”i (telefonda “PDF olarak kaydet / Paylaş”) seçin.</p>
   </div>
 
-  <div class="card" id="taslakKart">
-    <h2>Bekleyen taslaklar (GİB)</h2>
+  <details class="card bolum" id="taslakKart"><summary><span>Bekleyen taslaklar (GİB)</span><small id="ozTaslak"></small></summary><div class="icerik">
     <p class="not">GİB’de oluşturulmuş, henüz onaylanmamış taslaklar. Programdan ya da portaldan açılmış olabilir.</p>
     <button class="btn ikincil" type="button" id="tGetir">Taslakları getir</button>
     <div id="tListe"></div>
     <div class="durum" id="tDurum" role="status"></div>
-  </div>
+  </div></details>
 
-  <div class="card" id="gecmisKart">
-    <h2>Geçmiş faturalar</h2>
+  <details class="card bolum" id="gecmisKart"><summary><span>Geçmiş faturalar</span><small id="ozGecmis"></small></summary><div class="icerik">
     <div id="gecmisListe"><p class="not">Bu programdan kesilen faturalar burada listelenir.</p></div>
     <details>
       <summary>GİB’deki belgeleri tarihe göre listele</summary>
@@ -170,7 +168,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       <div id="gibListe" style="margin-top:8px"></div>
     </details>
     <div class="durum" id="gDurum" role="status"></div>
-  </div>
+  </div></details>
 
   <details class="card" id="ayar"><summary>Ayarlar</summary><p class="not"><a href="/api/yedek" download>Şifreli yedeği indir</a> (veri dosyası uygulama şifrenizle şifrelidir; başka cihaza taşımak için de kullanılır).</p><div id="ayarIc" style="display:flex;flex-direction:column;gap:10px"></div></details>
 </main>
@@ -455,7 +453,15 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     });
   }
   $("onizleBtn").addEventListener("click", function(){ if (son.uuid) goster(son.uuid, "Onaylanmadı"); });
-  $("yazdir").addEventListener("click", function(){ var c = $("cerceve").contentWindow; c.focus(); c.print(); });
+  $("yazdir").addEventListener("click", function(){
+    /* iframe.print() telefonda/bazı tarayıcılarda tüm sayfayı yazdırır; fatura kendi sekmesinde açılıp orada yazdırılır. GİB HTML’indeki betikler çıkarılır. */
+    var html = $("cerceve").srcdoc || ""; if (!html) return;
+    html = html.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*')/gi, "");
+    var w = window.open("", "_blank");
+    if (!w) { $("durum").className = "durum hata"; $("durum").textContent = "Açılır pencere engellendi; tarayıcıda bu site için izin verin."; return; }
+    w.document.open(); w.document.write(html); w.document.close();
+    setTimeout(function(){ try { w.focus(); w.print(); } catch (e) {} }, 400);
+  });
   $("gorunumKapat").addEventListener("click", function(){ $("gorunum").hidden = true; $("cerceve").srcdoc = ""; });
 
   /* ---------- olaylar ---------- */
@@ -550,6 +556,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     api("/api/liste", "POST", { mukellefId: mSec, bas: ymd(a), bit: ymd(b) }).then(function(r){
       taslaklar = r.belgeler.filter(function(x){ return x.durum === "Onaylanmadı" && x.ettn; });
       d.className = "durum ok"; d.textContent = taslaklar.length ? taslaklar.length + " bekleyen taslak (son 30 gün)." : "Bekleyen taslak yok.";
+      $("ozTaslak").textContent = taslaklar.length ? taslaklar.length + " bekliyor" : "yok";
       $("tListe").innerHTML = taslaklar.map(function(x, i){
         return '<div class="kayit"><div class="ust2"><span>' + esc(x.alici) + " — " + esc(x.vkn) + '<br><small>' + esc(x.tarih) + " · " + esc(x.belgeNo) + '</small></span></div>' +
           '<div class="satir"><button class="k" type="button" data-tg="' + i + '">Görüntüle</button><button class="btn" type="button" data-to="' + i + '" style="min-height:38px;padding:6px">Onayla</button></div></div>';
@@ -579,6 +586,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function gecmisYukle(){
     api("/api/gecmis").then(function(r){
       gecmis = r.kayitlar || [];
+      $("ozGecmis").textContent = gecmis.length ? gecmis.length + " kayıt" : "";
       $("gecmisListe").innerHTML = gecmis.length ? gecmis.slice(0, 30).map(function(k, i){
         var t = (k.tarih || "").split("-").reverse().join("/");
         return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " ₺", esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad), '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button> <button class="k" type="button" data-gi="' + i + '">İade</button></span>');
@@ -622,7 +630,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("tarih").value = bugunStr(); $("ekNot").value = f.notEk || ""; $("notIrs").checked = f.notIrsaliye !== false; $("sorguDurum").textContent = "";
     $("iadeNo").value = iade ? (k.belgeNo || "") : ""; $("iadeTarih").value = iade ? (k.tarih || "") : "";
     cizAlici(); cizKalemler(); formDoldur(); onizle();
-    document.querySelectorAll("details.bolum").forEach(function(d){ d.open = true; });
+    ["aliciKart", "bilgiKart", "malKart"].forEach(function(i){ $(i).open = true; });
     $("aliciKart").scrollIntoView({ behavior: "smooth" });
     durum(iade ? "İade faturası hazırlandı: " + (k.belgeNo || "seçilen fatura") + " numaralı faturaya bağlandı." + (f.tip === "TEVKIFAT" ? " Not: tevkifatlı faturanın iadesi için GİB ayrı bir tip kullanabilir; taslağı portalda kontrol edin." : "") + " Satırları kontrol edip taslak kaydedin."
       : "Fatura geçmişten kopyalandı (tarih bugüne alındı). Tutarları ve açıklamaları kontrol edip taslak kaydedin.", "ok");
