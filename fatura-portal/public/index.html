@@ -881,7 +881,23 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         tani: "Karekod: " + (bul() ? "bulundu" : "bulunamadı") + " · resim " + im.length + " · canvas " + document.querySelectorAll("canvas").length + " · betik " + document.scripts.length + (im.length ? " · " + im.slice(0, 4).join(" | ") : "") }, "*");
     }
     /* PDF için: betikler burada (yalıtılmış kutuda) çalışıp karekod çizildikten sonra belge betiksiz, sabit bir HTML’e çevrilip üst pencereye verilir */
+    /* karekod betikle (gecikmeli) çizilebilir: boyutu üst üste 4 ölçümde (150 ms arayla) değişmeyene dek, en çok 4,5 sn beklenir */
+    function qrBekle(){
+      return new Promise(function(res){
+        var onceki = "", say = 0, t0 = Date.now();
+        (function k(){
+          var q = bul(), v = "";
+          if (q) { var r = q.getBoundingClientRect(), alt = r.bottom; [].slice.call(q.querySelectorAll("img,canvas,table,svg")).forEach(function(c){ var b = c.getBoundingClientRect(); if (b.width > 40 && b.bottom > alt) alt = b.bottom; }); if (r.height > 60 || alt - r.top > 60) v = Math.round(alt) + ":" + Math.round(r.width); }
+          if (v && v === onceki) say++; else { say = 0; onceki = v; }
+          if ((say >= 3 && v) || Date.now() - t0 > 4500) return res();
+          setTimeout(k, 150);
+        })();
+      });
+    }
     function statik(){
+      return qrBekle().then(function(){ sabit = false; yerlesti = false; return statik2(); });
+    }
+    function statik2(){
       yerles(true);
       var bekle = [].slice.call(document.images).filter(function(i){ return !i.complete; }).map(function(i){ return new Promise(function(r){ i.onload = i.onerror = r; }); });
       return Promise.all(bekle).then(function(){ return new Promise(function(r){ setTimeout(r, 250); }); }).then(function(){
