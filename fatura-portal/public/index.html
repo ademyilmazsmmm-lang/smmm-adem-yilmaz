@@ -79,7 +79,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6}
 #tema .tl{display:inline}
 @media (max-width:559px){#tema .tl{display:none}#tema{min-width:40px;padding:6px 10px}}
 .marka small{display:block;font-size:.7rem;color:var(--muted);font-weight:400;line-height:1.2}
-.sayfa{max-width:1120px;margin:0 auto;padding:16px 16px calc(var(--nav-h) + var(--safe) + 90px)}
+.sayfa{max-width:1120px;margin:0 auto;padding:16px 16px calc(var(--nav-h) + var(--safe) + 24px)}
 .izgara{display:grid;gap:14px;align-items:start}
 .sol,.sag{display:flex;flex-direction:column;gap:14px;min-width:0}
 .liste{max-width:720px;display:flex;flex-direction:column;gap:14px}
@@ -171,10 +171,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 .rozet{position:absolute;top:4px;left:calc(50% + 8px);background:var(--danger);color:#fff;font-size:.65rem;border-radius:99px;padding:0 6px;min-width:18px;line-height:18px}
 
 /* alt tutar çubuğu (telefon) */
-.altbar{position:fixed;left:8px;right:8px;bottom:calc(var(--nav-h) + var(--safe) + 8px);z-index:25;background:var(--fg);color:var(--bg);border-radius:var(--r);padding:8px 8px 8px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
-.altbar small{display:block;font-size:.72rem;opacity:.7}
-.altbar b{font-size:1.1rem;font-variant-numeric:tabular-nums}
-.altbar .btn{margin-left:auto;min-height:44px;background:var(--accent);color:var(--accent-fg)}
 
 /* fatura görünümü: tam ekran */
 #kabul{position:fixed;inset:0;z-index:80;background:var(--bg);display:flex;flex-direction:column}
@@ -211,7 +207,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   .sekmeler button[aria-current=page]{background:var(--accent-soft)}
   .sekmeler button[aria-current=page] svg{background:none;padding:0;width:18px;margin:0}
   .rozet{position:static}
-  .altbar{display:none!important}
   .bar-ic{padding:12px 24px}
   .bar{background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 }
@@ -223,7 +218,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 @media (min-width:960px){footer.imza{padding-bottom:30px!important}}
 @media print{
   body{background:#fff}
-  .bar,.sekmeler,.altbar,.sayfa,footer.imza,#giris{display:none!important}
+  .bar,.sekmeler,.sayfa,footer.imza,#giris{display:none!important}
   #uyg{display:block!important}
   #gorunum{position:static!important;display:block!important;background:#fff}
   #gorunum .gbas,#gorunum>.not{display:none!important}
@@ -399,9 +394,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   </section>
   </div>
 
-  <footer class="imza" id="altImza" style="padding:0 16px calc(var(--nav-h) + var(--safe) + 90px)"></footer>
+  <footer class="imza" id="altImza" style="padding:0 16px calc(var(--nav-h) + var(--safe) + 24px)"></footer>
 
-  <div class="altbar" id="altbar" hidden><div><small>Ödenecek</small><b id="abTutar">—</b></div><button class="btn" type="button" id="abDevam" disabled>Taslak oluştur</button></div>
 
   <div id="kabul" hidden role="dialog" aria-modal="true" aria-label="Aydınlatma ve onay metni">
     <div class="kbas">e-Arşiv Fatura — Bilgilendirme ve Onay</div>
@@ -688,7 +682,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       if (tev && !(k.tev > 0)) e.push("tevkifat oranı"); if (tev && !k.kod) e.push("tevkifat kodu");
       if (e.length) eksik.push(n + e.join(", "));
     });
-    $("devam").disabled = $("abDevam").disabled = eksik.length > 0;
+    $("devam").disabled = eksik.length > 0;
     $("eksik").textContent = eksik.length ? "Taslak için eksik: " + eksik.join("; ") + "." : "";
     $("iadeNo").classList.toggle("bos", g.tip === "IADE" && !g.iadeNo);
     $("iadeTarih").classList.toggle("bos", g.tip === "IADE" && (!g.iadeTarih || (g.tarih && g.iadeTarih > g.tarih)));
@@ -761,7 +755,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     });
   }
   $("devam").addEventListener("click", taslakOlustur);
-  $("abDevam").addEventListener("click", function(){ $("devam").click(); });
 
   /* Onay: Taslaklar sekmesinden. Önce SMS gönderilir, kod yazılınca fatura onaylanır. */
   function onayKapat(){ $("onayPanel").hidden = true; $("kodAlan").hidden = true; $("kodGir").value = ""; son = { uuid: null, oid: null, hesap: null, imzali: false }; }
@@ -1020,14 +1013,16 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (window.html2canvas) return Promise.resolve();
     return H2C || (H2C = new Promise(function(res, rej){ var sc = document.createElement("script"); sc.src = "/html2canvas.min.js"; sc.onload = res; sc.onerror = function(){ H2C = null; rej(new Error("PDF bileşeni yüklenemedi")); }; document.head.appendChild(sc); }));
   }
-  function pdfYap(sf, W, H){
+  function pdfYap(sf, W, H, M, P){
     var enc = new TextEncoder(), p = [], ofs = [], n = 0, i, adet = sf.length, kids = [];
     function y(x){ if (typeof x === "string") x = enc.encode(x); p.push(x); n += x.length; }
     function nesne(no, ic, akis){ ofs[no] = n; y(no + " 0 obj\n" + ic); if (akis) { y("\nstream\n"); y(akis); y("\nendstream"); } y("\nendobj\n"); }
     y("%PDF-1.4\n"); for (i = 0; i < adet; i++) kids.push((3 + i * 3) + " 0 R");
     nesne(1, "<< /Type /Catalog /Pages 2 0 R >>"); nesne(2, "<< /Type /Pages /Kids [" + kids.join(" ") + "] /Count " + adet + " >>");
     sf.forEach(function(s, k){
-      var pg = 3 + k * 3, hh = s.h * W / s.w, ic = "q " + W.toFixed(2) + " 0 0 " + hh.toFixed(2) + " 0 " + (H - hh).toFixed(2) + " cm /Im" + k + " Do Q";
+      var iw = W - 2 * M - 2 * P, ih = H - 2 * M - 2 * P, ol = Math.min(iw / s.w, ih / s.h), dw = s.w * ol, dh = s.h * ol, x = (W - dw) / 2, y = H - M - P - dh;
+      var pg = 3 + k * 3, f2 = function(n){ return n.toFixed(2); };
+      var ic = "q 0.5 w 0.35 G " + f2(x - P) + " " + f2(y - P) + " " + f2(dw + 2 * P) + " " + f2(dh + 2 * P) + " re S Q q " + f2(dw) + " 0 0 " + f2(dh) + " " + f2(x) + " " + f2(y) + " cm /Im" + k + " Do Q";
       nesne(pg, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + W.toFixed(2) + " " + H.toFixed(2) + "] /Resources << /XObject << /Im" + k + " " + (pg + 2) + " 0 R >> >> /Contents " + (pg + 1) + " 0 R >>");
       nesne(pg + 1, "<< /Length " + ic.length + " >>", ic);
       nesne(pg + 2, "<< /Type /XObject /Subtype /Image /Width " + s.w + " /Height " + s.h + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + s.b.length + " >>", s.b);
@@ -1070,15 +1065,17 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
               ignoreElements: function(el){ return el.tagName === "IMG" && !/^data:/i.test(el.getAttribute("src") || ""); } }).then(function(c){
               var W = c.width, ctx = c.getContext("2d"), son = c.height, y0, dd, x;
               for (y0 = c.height - 1; y0 > 0; y0 -= 3) { dd = ctx.getImageData(0, y0, W, 1).data; for (x = 0; x < dd.length; x += 16) if (dd[x] < 245 || dd[x + 1] < 245 || dd[x + 2] < 245) break; if (x < dd.length) { son = Math.min(c.height, y0 + 30); break; } }
-              var A4w = 595.28, A4h = 841.89, sh = Math.round(W * A4h / A4w), sf = [], k;
-              for (k = 0; k * sh < son; k++) {
-                var hh = Math.min(sh, son - k * sh), t = document.createElement("canvas"); t.width = W; t.height = hh;
-                var tc = t.getContext("2d"); tc.fillStyle = "#fff"; tc.fillRect(0, 0, W, hh); tc.drawImage(c, 0, k * sh, W, hh, 0, 0, W, hh);
+              /* A4, 28 pt kenar boşluğu; fatura tek sayfaya sığdırılır (1,6 sayfaya kadar küçültülür), çok uzunsa sayfalara bölünür. Her sayfada içerik ince çizgili çerçeveyle çevrilir. */
+              var A4w = 595.28, A4h = 841.89, M = 28, P = 6, iw = A4w - 2 * M - 2 * P, ih = A4h - 2 * M - 2 * P, sh = Math.round(W * ih / iw), sf = [], k;
+              var tek = son <= sh * 1.6, adet = tek ? 1 : Math.ceil(son / sh);
+              for (k = 0; k < adet; k++) {
+                var y1 = tek ? 0 : k * sh, hh = tek ? son : Math.min(sh, son - y1), t = document.createElement("canvas"); t.width = W; t.height = hh;
+                var tc = t.getContext("2d"); tc.fillStyle = "#fff"; tc.fillRect(0, 0, W, hh); tc.drawImage(c, 0, y1, W, hh, 0, 0, W, hh);
                 var bin = atob(t.toDataURL("image/jpeg", 0.92).split(",")[1]), u = new Uint8Array(bin.length);
                 for (x = 0; x < bin.length; x++) u[x] = bin.charCodeAt(x);
                 sf.push({ b: u, w: W, h: hh });
               }
-              bit(res, pdfYap(sf, A4w, A4h));
+              bit(res, pdfYap(sf, A4w, A4h, M, P));
             }, function(er){ bit(rej, er); });
           }, 400); /* betiksiz çerçevede yazı tipi/resimlerin oturması için kısa bekleme */
         });
@@ -1590,16 +1587,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     document.querySelectorAll("[data-sayfa]").forEach(function(x){ x.hidden = x.getAttribute("data-sayfa") !== ad; });
     document.querySelectorAll("[data-sekme]").forEach(function(b){ if (b.getAttribute("data-sekme") === ad) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
     if (ad === "taslak" && !tYuklendi && mSec) taslakGetir();
-    altbarGuncelle();
   }
   $("sekmeler").addEventListener("click", function(e){
     var b = e.target.closest("[data-sekme]"); if (!b) return;
     sekme(b.getAttribute("data-sekme")); window.scrollTo(0, 0);
   });
-  /* telefonda: onay kartı ekranda değilken alttaki tutar çubuğu görünür */
-  var islemGorunur = false;
-  function altbarGuncelle(){ $("altbar").hidden = aktifSekme !== "yeni" || islemGorunur; }
-  if ("IntersectionObserver" in window) new IntersectionObserver(function(es){ islemGorunur = es[0].isIntersecting; altbarGuncelle(); }).observe($("ozetKart"));
   /* mükellef değişince taslak listesi yeniden yüklensin */
   $("mChips").addEventListener("click", function(){ tYuklendi = false; $("tRozet").hidden = true; if (aktifSekme === "taslak") setTimeout(taslakGetir, 0); });
 
