@@ -223,9 +223,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   #gorunum{position:static!important;display:block!important;background:#fff}
   #gorunum .gbas,#gorunum>.not{display:none!important}
   #gkap{overflow:visible;background:#fff}
-  #gic{width:794px;height:var(--fh,1123px);margin:0}
-  #cerceve{transform:none;width:794px;height:var(--fh,1123px)}
-  @page{size:A4;margin:6mm}
+  /* fatura tek A4 sayfaya sığacak şekilde küçültülür (--ps, yazdırmadan hemen önce hesaplanır); @page kenarı 0: tarayıcının adres/tarih/sayfa üst-alt bilgisi eklenmez */
+  #gorunum{padding:8mm}
+  #gic{width:calc(820px * var(--ps,.89));height:calc(var(--fh,1123px) * var(--ps,.89));margin:0 auto;overflow:hidden}
+  #cerceve{transform:scale(var(--ps,.89));transform-origin:0 0;width:820px;height:var(--fh,1123px)}
+  @page{size:A4;margin:0}
 }
 </style>
 </head>
@@ -429,7 +431,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     <p class="iptalbant" id="gIptal" hidden>İPTAL — bu fatura için iptal talebi gönderilmiştir.</p>
     <div id="gkap"><div id="gic"><iframe id="cerceve" sandbox="allow-scripts allow-modals" title="Fatura"></iframe></div></div>
     <p class="not" id="gTani" style="font-size:.7rem;word-break:break-all"></p>
-    <p class="not">“Yazdır / PDF”e basınca yazdırma ekranında “PDF olarak kaydet”i seçin (telefonda Paylaş ile gönderebilirsiniz). Geri dönmek için “← Geri”ye ya da telefonun geri hareketine basın.</p>
   </div>
 </div>
 
@@ -904,7 +905,12 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       else durum("Görüntülenemedi: " + er.message, "hata");
     });
   }
-  $("yazdir").addEventListener("click", function(){ if (gorunumAcik) window.print(); }); /* yazdırma CSS’i uygulamanın geri kalanını gizler, yalnız fatura basılır */
+  function yazdirOlcek(){
+    var fh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--fh")) || 1123, ps = Math.min(733 / 820, 1062 / fh, 1); /* A4: 8 mm kenarlarla 733 x 1062 px */
+    document.documentElement.style.setProperty("--ps", ps.toFixed(4));
+  }
+  window.addEventListener("beforeprint", yazdirOlcek);
+  $("yazdir").addEventListener("click", function(){ if (gorunumAcik) { yazdirOlcek(); window.print(); } }); /* yazdırma CSS’i uygulamanın geri kalanını gizler, yalnız fatura basılır */
   $("gorunumKapat").addEventListener("click", function(){ gorunumKapat(false); });
 
   /* ---------- olaylar ---------- */
