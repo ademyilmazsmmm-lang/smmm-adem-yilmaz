@@ -897,8 +897,21 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     function statik(){
       return qrBekle().then(function(){ sabit = false; yerlesti = false; return statik2(); });
     }
+    /* GİB şablonu satır tablosunun altına boş dolgu satırları koyar. Tevkifatlı faturada toplam satırları arttığı için A4’ten taşıyorsa (tam genişlikte A4 oranı ≈ 1200 px),
+       fatura sığana dek boş dolgu satırları sondan silinir (en az 2 kalır); böylece yazı küçülmeden tek sayfaya sığar. Dolu satırlara dokunulmaz. */
+    function sigdir(){
+      var HEDEF = 1200;
+      var tablo = [].slice.call(document.querySelectorAll("table")).filter(function(t){ var h = t.rows[0] ? t.rows[0].textContent : ""; for (var i = 0; i < Math.min(3, t.rows.length) && !/Mal\s*Hizmet/i.test(h); i++) h = t.rows[i].textContent; return /Mal\s*Hizmet/i.test(h) && /Miktar/i.test(h); })[0];
+      if (!tablo) return;
+      var bos = function(r){ return [].every.call(r.cells, function(c){ return !c.textContent.replace(/[\s\u00a0]+/g, ""); }); };
+      var satirlar = [].slice.call(tablo.rows), bosSay = satirlar.filter(bos).length;
+      for (var n = 0; n < 60 && bosSay > 2 && Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) > HEDEF; n++) {
+        var son = null; for (var i = satirlar.length - 1; i >= 0; i--) if (bos(satirlar[i])) { son = satirlar[i]; break; }
+        if (!son) break; son.parentNode.removeChild(son); satirlar = satirlar.filter(function(x){ return x !== son; }); bosSay--;
+      }
+    }
     function statik2(){
-      yerles(true);
+      yerles(true); sigdir();
       var bekle = [].slice.call(document.images).filter(function(i){ return !i.complete; }).map(function(i){ return new Promise(function(r){ i.onload = i.onerror = r; }); });
       return Promise.all(bekle).then(function(){ return new Promise(function(r){ setTimeout(r, 250); }); }).then(function(){
         var kopya = document.documentElement.cloneNode(true), asil = [].slice.call(document.querySelectorAll("canvas")), cl = [].slice.call(kopya.querySelectorAll("canvas"));
