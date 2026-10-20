@@ -775,7 +775,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   window.addEventListener("popstate", function(){ if (gorunumAcik) gorunumKapat(true); });
   /* iframe betiği GİB faturasının içinde çalışır (yalıtılmış kutuda, uygulamaya erişemez): karekodun altına logoyu ortalı yerleştirir, yüksekliği bildirir */
   function ifBetik(){
-    var L = document.getElementById("__mlogo"), yerlesti = false;
+    var L = document.getElementById("__mlogo"), yerlesti = false, sabit = false;
     function bul(){
       var q = document.querySelector('[id*="qr" i],[class*="qr" i],[id*="barkod" i],[id*="karekod" i]');
       if (!q) { var im = [].slice.call(document.images).filter(function(i){ return /qr|kare|barkod/i.test((i.src || "").slice(0, 300) + i.alt + i.id + i.className); })[0]; q = im || document.querySelector("canvas"); }
@@ -783,25 +783,26 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }
     function tablo(){ var h = [].slice.call(document.querySelectorAll("td,th")).filter(function(x){ return /Özelleştirme/i.test(x.textContent || "") && x.children.length < 3; })[0]; return h && h.closest("table"); }
     function yerles(son){
-      if (!L || yerlesti) return;
+      if (!L || sabit) return;
       var q = bul(), im = L.querySelector("img");
       if (!q) { if (son) { L.style.cssText = "display:block;text-align:right;margin:6px 0"; document.body.insertBefore(L, document.body.firstChild); yerlesti = true; } return; }
       if (im && !(im.complete && im.naturalWidth) && !son) return;
       var sx = window.pageXOffset, sy = window.pageYOffset, r = q.getBoundingClientRect(), t = tablo(), tr = t && t.getBoundingClientRect();
-      var w = Math.max(60, Math.min(Math.round(r.width) || 160, 260)), bos = tr ? (tr.top + sy) - (r.bottom + sy) : 0;
+      var alt = r.bottom; [].slice.call(q.querySelectorAll("img,canvas,table,svg")).forEach(function(c){ var b = c.getBoundingClientRect(); if (b.width > 40 && b.bottom > alt) alt = b.bottom; });
+      var w = Math.max(60, Math.min(Math.round(r.width) || 160, 260)), bos = tr ? tr.top - alt : 0;
       L.style.cssText = "display:block;position:absolute;visibility:hidden;width:" + w + "px;text-align:center;margin:0;left:" + Math.round(r.left + sx + ((r.width || w) - w) / 2) + "px;top:0";
-      if (im) im.style.cssText = "max-width:100%;max-height:" + (bos > 60 ? Math.min(110, bos - 10) : 90) + "px;width:auto;height:auto";
+      if (im) im.style.cssText = "display:block;margin:0 auto;max-width:100%;max-height:" + (bos > 60 ? Math.min(110, bos - 10) : 90) + "px;width:auto;height:auto";
       document.body.appendChild(L);
-      var lh = L.offsetHeight, ust = r.bottom + sy;
-      var top = bos > lh + 8 ? ust + (bos - lh) / 2 : ust + 6; /* karekod ile tarih/bilgi tablosunun tam ortası; yer yoksa hemen altı */
-      L.style.top = Math.round(top) + "px"; L.style.visibility = "visible"; yerlesti = true;
+      var lh = L.offsetHeight, ust = alt + sy;
+      var top = bos > lh + 8 ? ust + (bos - lh) / 2 + Math.min(10, (bos - lh) / 4) : ust + 6; /* karekod ile tarih/bilgi tablosunun ortası, optik olarak biraz aşağıda; yer yoksa hemen altı */
+      L.style.top = Math.round(top) + "px"; L.style.visibility = "visible"; yerlesti = true; if (son) sabit = true;
     }
     function boyut(){
       var im = [].slice.call(document.images).map(function(i){ return (/^data:/.test(i.src) ? "data:" + (i.src.length > 1000 ? "uzun" : "kısa") : (i.src || "").slice(0, 70)) + (i.complete && i.naturalWidth ? "" : " (YÜKLENMEDİ)"); });
       parent.postMessage({ fatura: 1, h: Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0),
         tani: "Karekod: " + (bul() ? "bulundu" : "bulunamadı") + " · resim " + im.length + " · canvas " + document.querySelectorAll("canvas").length + " · betik " + document.scripts.length + (im.length ? " · " + im.slice(0, 4).join(" | ") : "") }, "*");
     }
-    addEventListener("load", function(){ setTimeout(function(){ yerles(false); boyut(); }, 300); setTimeout(function(){ yerles(false); boyut(); }, 900); setTimeout(function(){ yerles(true); boyut(); }, 1600); });
+    addEventListener("load", function(){ setTimeout(function(){ yerles(false); boyut(); }, 300); setTimeout(function(){ yerles(false); boyut(); }, 900); setTimeout(function(){ yerles(false); boyut(); }, 1600); setTimeout(function(){ yerles(true); boyut(); }, 2800); });
   }
   /* gib=true: GİB’in resmî HTML’i (logo/imza eklenir); yerel kopya zaten logo/imza içerir */
   function gorunumHtml(html, gib){
