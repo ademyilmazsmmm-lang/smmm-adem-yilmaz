@@ -8,6 +8,7 @@ const path = require("path");
 const crypto = require("crypto");
 const gib = require("./gib");
 const { Depo, adTemiz, adGecerli } = require("./kasa");
+const { Yansi } = require("./yansi");
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || "127.0.0.1";
@@ -15,7 +16,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-20-59";
+const SURUM = "2026-10-20-60";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -51,6 +52,14 @@ const HAZIR_HIZMET = [
   { id: "yaz20", etiket: "Yazılım bedeli %20", ad: "Yazılım Bedeli", kdv: 20, tev: 0, kod: "", anah: "yazılım, yazilim" }
 ];
 const depo = new Depo(DIR, ITER, HAZIR_HIZMET);
+/* İsteğe bağlı GitHub yansısı (kalıcı diski olmayan kurulumlar için): şifreli dosyalar özel bir depoda tutulur, yerel veri yoksa oradan geri yüklenir */
+let yansi = null;
+if (process.env.GITHUB_DEPO && process.env.GITHUB_TOKEN) {
+  yansi = new Yansi({ depo: process.env.GITHUB_DEPO, token: process.env.GITHUB_TOKEN, dal: process.env.GITHUB_DAL, dir: DIR, api: process.env.GITHUB_API, bekleme: process.env.GITHUB_BEKLEME ? Number(process.env.GITHUB_BEKLEME) : undefined });
+  depo.yansi = yansi;
+  yansi.baslat(() => fs.existsSync(depo.sf) || fs.existsSync(depo.eski), () => depo.yukleSistem());
+  for (const sinyal of ["SIGTERM", "SIGINT"]) process.on(sinyal, () => { yansi.kapat(20000).then(() => process.exit(0), () => process.exit(0)); });
+}
 const mSifreMin = GUVENLI ? 10 : 8; // mükellef hesaplarının en kısa şifresi
 /* Eski cihaz yedeği (v1 tek kasa) biçimi: eskiden alınmış yedekler geri yüklenip çok kullanıcılı yapıya taşınabilsin */
 const kasaBicimi = (k) => k && k.v === 1 && k.iter === ITER && ["tuz", "iv", "tag", "veri"].every((a) => typeof k[a] === "string" && k[a].length < 8e6 && /^[A-Za-z0-9+/=]+$/.test(k[a]));
@@ -188,9 +197,14 @@ async function oturumBaslat(req, res, o, ip, ad) {
 }
 
 async function api(req, res, yol) {
+  if (yansi && !yansi.hazir) { /* açılışta GitHub'dan geri yükleme bitmeden hiçbir istek işlenmez (boş başlayıp veriyi ezmemek için) */
+    await Promise.race([yansi.hazirSoz, new Promise((r) => setTimeout(r, 25000))]);
+    if (!yansi.hazir) return cevap(res, 503, { hata: "Kayıtlı veriler yükleniyor" + (yansi.hata ? " (GitHub deposuna ulaşılamadı: " + yansi.hata + ")" : "") + ". Birkaç saniye sonra yeniden deneyin." });
+  }
   if (req.method !== "GET" && !/application\/json/.test(req.headers["content-type"] || "")) return cevap(res, 415, { hata: "JSON bekleniyor." });
   const o = oturumBul(req);
   if (yol === "/api/durum") return cevap(res, 200, { kurulu: depo.kurulu, eski: depo.eskiVar, giris: !!o, rol: o && o.rol, kullanici: o && o.kullanici, sahte: gib.MOCK, surum: SURUM, sifreMin, mSifreMin });
+  if (yol === "/api/yansi") { ofisGerek(o); return cevap(res, 200, yansi ? yansi.durum : { acik: false }); }
   if (yol === "/api/kurulum" && req.method === "POST") {
     if (depo.kurulu || depo.eskiVar) return cevap(res, 409, { hata: "Zaten kurulu." });
     const { kullanici, sifre } = await oku(req), ad = adTemiz(kullanici);
@@ -346,6 +360,7 @@ async function api(req, res, yol) {
 const SAYFA = path.join(__dirname, "public", "index.html");
 http.createServer((req, res) => {
   const yol = req.url.split("?")[0];
+  if (yol === "/saglik") { res.writeHead(200, { "content-type": "text/plain", "cache-control": "no-store" }); return res.end("ok"); } /* uyanık tutma / sağlık denetimi: veriye dokunmaz */
   if (yol.startsWith("/api/")) return api(req, res, yol).catch((e) => { console.error(e.message); cevap(res, HATA403.test(e.message) ? 403 : 500, { hata: hataBilgi(e) }); });
   const STATIK = { "/manifest.webmanifest": "application/manifest+json", "/sw.js": "text/javascript; charset=utf-8", "/html2canvas.min.js": "text/javascript; charset=utf-8", "/ikon.svg": "image/svg+xml", "/ikon-180.png": "image/png", "/ikon-192.png": "image/png", "/ikon-512.png": "image/png" };
   /* iPhone/iPad: COOP başlığı gönderilmez (ana ekran uygulamasında güvenlik başlığı sorunlarından kaçınmak için). */

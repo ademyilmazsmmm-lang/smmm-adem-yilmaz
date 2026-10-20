@@ -49,7 +49,9 @@ class Depo {
   /* ---- dosya işlemleri ---- */
   yazDosya(yol, nesne) {
     fs.mkdirSync(path.dirname(yol), { recursive: true });
-    const g = yol + ".tmp"; fs.writeFileSync(g, JSON.stringify(nesne)); fs.renameSync(g, yol);
+    const metin = JSON.stringify(nesne), g = yol + ".tmp"; fs.writeFileSync(g, metin); fs.renameSync(g, yol);
+    const rel = path.relative(this.dir, yol);
+    if (this.yansi && (rel === "sistem.json" || rel.startsWith("m" + path.sep))) this.yansi.yaz(rel, metin); // GitHub yansısı (varsa); eski tek-kasa dosyası gönderilmez
   }
   sistemYaz() { this.yazDosya(this.sf, this.sistem); }
   vaultYol(id) { if (!KIMLIK.test(id)) throw new Error("Geçersiz mükellef."); return path.join(this.md, id + ".json"); }
@@ -146,6 +148,7 @@ class Depo {
     if (o.rol !== "ofis") throw new Error("Yetkiniz yok.");
     if (!this.yetkili(o, mid)) throw new Error("Mükellef bulunamadı.");
     try { fs.unlinkSync(this.vaultYol(mid)); } catch (e) { /* zaten yok */ }
+    if (this.yansi) this.yansi.sil(path.relative(this.dir, this.vaultYol(mid)));
     this.acik.delete(mid);
     this.sistem.mukellefler = this.sistem.mukellefler.filter((x) => x !== mid); this.sistem.hesaplar = this.sistem.hesaplar.filter((x) => x.id !== mid); this.sistemYaz();
   }

@@ -29,6 +29,15 @@ Uygulama şifresi sunucu kipinde **en az 12 karakter** olmalıdır; 4–5 kelime
    alan adı sağlayıcınızda Render'ın gösterdiği **CNAME** kaydını ekleyin. HTTPS kendiliğinden gelir.
 5. İlk açılışta uygulama şifresini (en az 12 karakter) belirleyip mükellefleri ekleyin.
 
+## Yol C — Render ÜCRETSİZ + GitHub yansısı + cron-job.org  (0 $)
+Ücretsiz Render'ın diski geçici olduğu için kayıtlar GitHub'daki **özel** bir depoda şifreli saklanır; sunucu açılırken oradan geri yükler.
+1. GitHub'da **Private** bir depo açın (örn. `fatura-veri`), "Add a README" işaretli olsun.
+2. GitHub → Settings → Developer settings → Fine-grained tokens → yeni anahtar: yalnız o depo, **Contents: Read and write**, süre en uzun.
+3. Render → servis → Environment: `GITHUB_DEPO` = `sahip/fatura-veri`, `GITHUB_TOKEN` = anahtar (isteğe bağlı `GITHUB_DAL`, varsayılan `main`). Kaydedince servis yeniden başlar.
+4. cron-job.org'da 10 dakikada bir `https://SERVIS-ADRESI/saglik` adresine GET isteği atan bir görev kurun (servis uyumaz).
+5. Ayarlar → Yedek bölümünde "GitHub yedeği: açık" yazısını görün. Anahtarın süresi dolarsa yazma durur ve burada uyarı çıkar.
+Sınırlar: veri GitHub'a gidene kadar ~3 sn gecikme vardır; Render servisi yeniden başlatırken (deploy) çok kısa bir pencerede son değişiklik kaybolabilir.
+
 ## Güvenlik
 - Giriş denemeleri IP başına sınırlıdır (5 yanlıştan sonra bekleme artar).
 - Çerez `HttpOnly`, `Secure`, `SameSite=Strict`; sayfa başlıkları sıkıdır (CSP, çerçeve yasağı).

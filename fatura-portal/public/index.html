@@ -447,6 +447,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function yedekSoon(){ clearTimeout(yedekTimer); yedekTimer = setTimeout(yedekle, 1500); }
   function yedekYazi(){ var e = $("yedekDurum"); if (!e) return; e.textContent = yedekZaman ? "Bu cihazdaki şifreli yedek: " + new Date(yedekZaman).toLocaleString("tr-TR") : "Bu cihazda yedek alınamadı (tarayıcı depolamayı engelliyor olabilir)."; }
+  function yansiYazi(){
+    if (ROL !== "ofis") return;
+    api("/api/yansi").then(function(r){
+      var e = $("yansiDurum"); if (!e) return;
+      e.textContent = !r.acik ? "" : r.hata ? "GitHub yedeği: SORUN var, " + r.bekleyen + " değişiklik bekliyor (" + r.hata + "). Anahtarın süresi dolmuş ya da yetkisi kalkmış olabilir." : "GitHub yedeği: açık" + (r.sonBasari ? " · son kayıt " + new Date(r.sonBasari).toLocaleString("tr-TR") : "") + (r.bekleyen ? " · " + r.bekleyen + " değişiklik gönderiliyor" : "");
+      e.className = "not" + (r.hata ? " hata" : "");
+    }, function(){});
+  }
   var YEDEKSIZ = /^\/api\/(hesapla|sorgu|gorunum|liste|cikis|giris|kurulum|geriyukle|durum|kasa|gecmis|veri)$/;
   function api(yol, yontem, govde){
     return fetch(yol, { method: yontem || "GET", headers: { "content-type": "application/json" }, body: govde ? JSON.stringify(govde) : undefined })
@@ -1355,7 +1363,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function yedekHtml(){
     return '<details class="grup" data-ak="g:yd"' + ac("g:yd") + '><summary>Yedek</summary><div class="icerik">' +
       '<a href="/api/yedek" download class="btn ikincil" style="text-decoration:none;text-align:center">Tam yedeği indir (tüm mükellefler)</a>' +
-      '<p class="not" id="yedekDurum"></p>' +
+      '<p class="not" id="yedekDurum"></p><p class="not" id="yansiDurum"></p>' +
       '<p class="not">Yedek dosyası şifrelidir (ofis şifrenizle açılır); yeni bir sunucuya taşımak için de kullanılır. Bu cihazda da otomatik şifreli bir kopya tutulur. Kalıcı disk (ücretli sunucu) varsa kayıtlar zaten silinmez; yine de ara sıra yedek indirin.</p></div></details>';
   }
   function cizAyar(){
@@ -1363,7 +1371,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (ofis) h += mukellefEkleHtml() + '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler (' + V.mukellefler.length + ')</summary><div class="icerik">' + V.mukellefler.map(mukellefAyarHtml).join("") + '</div></details>' + yedekHtml();
     else h += V.mukellefler.map(mukellefAyarHtml).join("");
     h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
-    $("ayarIc").innerHTML = h; sifreleriHazirla($("ayarIc")); yedekYazi();
+    $("ayarIc").innerHTML = h; sifreleriHazirla($("ayarIc")); yedekYazi(); yansiYazi();
   }
   /* ---------- marka: logo, imza (seçili mükellefe ait) ---------- */
   var MARKA0 = { ad: "Adem Yılmaz", unvan: "Serbest Muhasebeci Mali Müşavir", web: "smmmyilmaz.com", logo: "", imza: "" };

@@ -1,4 +1,4 @@
-# DENEME için ücretsiz Render tanımı: kalıcı disk YOK, 15 dakika kullanılmazsa uyur, uyandığında veriler sıfırlanır.
+# Ücretsiz Render tanımı: kalıcı disk YOK, 15 dakika kullanılmazsa uyur. Veri GitHub yansısıyla (GITHUB_DEPO/GITHUB_TOKEN) korunur; cron-job.org her 10 dakikada /saglik adresine istek atıp uyandırır.
 # Kullanım: Blueprint Path alanına  render-ucretsiz.yaml  yazın.
 services:
   - type: web
@@ -14,3 +14,8 @@ services:
         value: "1"
       - key: DATA_DIR
         value: /data
+      # Ücretsiz planda disk olmadığı için veri GitHub'daki ÖZEL bir depoda şifreli tutulur (fatura-portal/KURULUM-SUNUCU.md, "Yol C").
+      - key: GITHUB_DEPO
+        sync: false   # örn. ademyilmazsmmm-lang/fatura-veri
+      - key: GITHUB_TOKEN
+        sync: false   # yalnız o depoda "Contents: Read and write" izinli anahtar
