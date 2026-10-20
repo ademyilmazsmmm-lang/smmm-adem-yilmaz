@@ -16,7 +16,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-20-61";
+const SURUM = "2026-10-20-62";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -75,9 +75,16 @@ const hizmetTemiz = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 100).map((
   id: String(h.id || "h" + i).slice(0, 40), etiket: String(h.etiket || "").slice(0, 120), ad: String(h.ad || "").slice(0, 150), kdv: Number(h.kdv) >= 0 ? Number(h.kdv) : 20,
   tev: Math.min(9, Math.max(0, parseInt(h.tev, 10) || 0)), kod: String(h.kod || "").slice(0, 10), istisna: String(h.istisna || "").slice(0, 4), anah: String(h.anah || "").slice(0, 200) }));
 const aliciTemiz = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 2000).map((a) => ({ id: String(a.id), ad: String(a.ad || "").slice(0, 150), vkn: String(a.vkn || "").slice(0, 11), adres: String(a.adres || "").slice(0, 250), vd: String(a.vd || "").slice(0, 100) }));
+/* Mükellef profili: yalnız program içinde (yerel fatura kopyası, iletişim bilgisi) kullanılır; GİB'deki resmî satıcı bilgisini değiştirmez */
+const profilTemiz = (p) => {
+  p = p && typeof p === "object" ? p : {};
+  const k = (x, n) => String(x == null ? "" : x).replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+  const mail = k(p.eposta, 120), tel = k(p.tel, 30).replace(/[^\d+()\-\s]/g, "");
+  return { vd: k(p.vd, 100), adres: k(p.adres, 250), tel, eposta: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail) ? mail : "", web: k(p.web, 120) };
+};
 function temizMukellef(o, id) {
   const v = depo.mukellef(o, id).veri;
-  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
+  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, profil: v.profil || {}, aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
     hesapKullanici: o.rol === "ofis" ? depo.hesapKullanicisi(id) : undefined, sonGiris: v.sonGiris || null };
 }
 const temiz = (o) => ({ rol: o.rol, kullanici: o.kullanici, mukellefler: depo.mukellefIdleri(o).map((id) => temizMukellef(o, id)) });
@@ -88,7 +95,7 @@ function birlestir(o, g) {
     const e = depo.mukellef(o, id), v = e.veri, eskiK = v.kullanici, eskiS = v.gibSifre;
     v.ad = String(m.ad || "").slice(0, 150); v.vkn = String(m.vkn || "").slice(0, 11); v.kullanici = String(m.kullanici || "").slice(0, 60);
     if (m.gibSifre) v.gibSifre = String(m.gibSifre);
-    v.aliciler = aliciTemiz(m.aliciler); v.hizmetler = hizmetTemiz(m.hizmetler); if (m.marka) v.marka = markaTemiz(m.marka);
+    v.aliciler = aliciTemiz(m.aliciler); v.hizmetler = hizmetTemiz(m.hizmetler); if (m.marka) v.marka = markaTemiz(m.marka); if (m.profil) v.profil = profilTemiz(m.profil);
     depo.kaydet(id);
     if (v.kullanici !== eskiK || v.gibSifre !== eskiS) gibBirak(id);
   }

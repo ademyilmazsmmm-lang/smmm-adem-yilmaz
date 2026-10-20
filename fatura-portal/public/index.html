@@ -752,7 +752,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
   /* ---------- fatura görünümü / PDF ---------- */
   function yerelHtml(k, onay, neden){
-    var mr = markaOf(k.mukellefId || (son && son.mid) || mSec);
+    var mid0 = k.mukellefId || (son && son.mid) || mSec, mr = markaOf(mid0), pm = mBul(mid0) || {}, pr = pm.profil || {};
+    var satici = [pr.vd ? "Vergi Dairesi: " + pr.vd : "", pr.adres ? "Adres: " + pr.adres : "", pr.tel ? "Tel: " + pr.tel : "", pr.eposta ? "E-posta: " + pr.eposta : "", pr.web ? "Web: " + pr.web : ""].filter(Boolean);
     var h = k.hesap, t = (k.tarih || "").split("-").reverse().join("/"), pb = k.para && k.para !== "TRY" ? " " + (PARASEM[k.para] || k.para) : "";
     var kalemler = k.kalemler || [{ ad: k.hizmetAd, aciklama: k.aciklama, miktar: 1, birim: "C62", fiyat: h.matrah / 100, kdv: k.kdvOrani, tev: k.tevkifat, kod: k.tevkifatKodu, matrah: h.matrah, kdvTutar: h.kdv, tevKdv: h.tevKdv }];
     var tev = kalemler.some(function(x){ return x.tev > 0; });
@@ -768,7 +769,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       '<div class="u">' + uyari + (neden ? "<br>Neden: " + esc(neden) : "") + "</div>" +
       (mr.logo ? '<img src="' + mr.logo + '" alt="" style="max-height:60px;max-width:200px;margin-bottom:8px">' : "") +
       "<h2>e-Arşiv Fatura" + (tev ? " (Tevkifat)" : k.tip === "IADE" ? " (İade)" : "") + "</h2><div class=k>" + (k.belgeNo ? "Belge No: " + esc(k.belgeNo) + " · " : "") + "Tarih: " + esc(t) + (pb ? " · Para birimi: " + esc(k.para) + " (kur " + esc(k.kur) + ")" : "") + "</div>" + (k.iade ? "<div class=k>İade edilen fatura: " + esc(k.iade.no) + " — " + esc((k.iade.tarih || "").split("-").reverse().join("/")) + "</div>" : "") +
-      '<div class="g" style="margin-top:12px"><div><b>SATICI</b><br>' + esc(k.mukellef && k.mukellef.ad) + "<br>VKN/TCKN: " + esc(k.mukellef && k.mukellef.vkn) + "</div>" +
+      '<div class="g" style="margin-top:12px"><div><b>SATICI</b><br>' + esc(k.mukellef && k.mukellef.ad) + "<br>VKN/TCKN: " + esc(k.mukellef && k.mukellef.vkn) + satici.map(function(x){ return "<br>" + esc(x); }).join("") + "</div>" +
       "<div><b>ALICI</b><br>" + esc(k.aliciUnvan) + "<br>VKN/TCKN: " + esc(k.aliciVkn) + (k.vergiDairesi ? "<br>Vergi Dairesi: " + esc(k.vergiDairesi) : "") + (k.aliciAdres ? "<br>Adres: " + esc(k.aliciAdres) : "") + "</div></div>" +
       "<table><tr><th>Mal / Hizmet</th><th class=r>Miktar</th><th class=r>KDV</th><th class=r>Tutar</th></tr>" + satirlar + "</table>" +
       "<table style='width:60%;margin-left:auto'>" + topl.map(function(r){ return "<tr><td>" + r[0] + "</td><td class=r>" + (r[1] < 0 ? "-" : "") + fmt(Math.abs(r[1])) + pb + "</td></tr>"; }).join("") + "<tr><td><b>Ödenecek tutar</b></td><td class=r><b>" + fmt(h.odenecek) + pb + "</b></td></tr></table>" +
@@ -1236,13 +1237,25 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       '<p class="not">Logo uygulamanın üst köşesinde ve faturada, imza görseli faturanın altında görünür. Alttaki “Adem Yılmaz · SMMM · smmmyilmaz.com” satırı sabittir. GİB’deki resmî belgeye dokunulmaz; yalnız ekranda görünen ve yazdırılan kopya değişir.</p>' +
       kutu("logo", "Logo (kare ya da yatay, PNG/JPG)", mr.logo || "") + kutu("imza", "İmza görseli (isteğe bağlı, şeffaf PNG önerilir)", mr.imza || "") + (ust ? '<div class="durum" data-md role="status"></div><button class="btn" type="button" data-logo-kaydet>Logo ve imzayı kaydet</button>' : "") + '</div></details>';
   }
+  /* Profil bilgileri: unvan, vergi dairesi, adres, telefon, e-posta, web (yerel fatura kopyasında ve iletişimde kullanılır) */
+  function profilHtml(m){
+    var p = m.profil || {};
+    function alan(k, et, ek){ return '<div><label>' + et + '</label><input data-p="' + k + '" value="' + esc(p[k] || "") + '" ' + (ek || "") + '></div>'; }
+    return '<details class="grup" data-ak="pf:' + m.id + '"' + ac("pf:" + m.id) + '><summary>Profil bilgileri <small>' + esc(m.ad) + '</small></summary><div class="icerik">' +
+      '<div><label>Unvan / ad soyad</label><input data-f="ad" value="' + esc(m.ad) + '"></div>' +
+      '<p class="not" style="margin:0">VKN/TCKN: <b>' + esc(m.vkn || "—") + '</b> (değişmesi gerekiyorsa ofise bildirin)</p>' +
+      alan("vd", "Vergi dairesi") + alan("adres", "Adres", 'autocomplete="street-address"') + alan("tel", "Telefon", 'type="tel" inputmode="tel" autocomplete="tel"') + alan("eposta", "E-posta", 'type="email" inputmode="email" autocapitalize="off" autocomplete="email"') + alan("web", "Web sitesi (isteğe bağlı)", 'inputmode="url" autocapitalize="off"') +
+      '<p class="not" style="margin:0">Bu bilgiler programdaki fatura kopyasında satıcı bilgisi olarak görünür. GİB’deki resmî faturanın satıcı bilgisi GİB kaydınızdan gelir, buradan değişmez.</p>' +
+      '<div class="durum" data-md role="status"></div><button class="btn" type="button" data-profil-kaydet>Profil bilgilerini kaydet</button></div></details>';
+  }
   /* Ayarlar’ın en üstünde, tek dokunuşla ulaşılan logo/imza bölümü (seçili mükellef için) */
   var AYARMUK = null;
   function markaUstHtml(){
     var l = V.mukellefler || []; if (!l.length) return "";
     var m = l.filter(function(x){ return x.id === AYARMUK; })[0] || l.filter(function(x){ return x.id === mSec; })[0] || l[0];
     var sec = ROL === "ofis" && l.length > 1 ? '<div><label>Hangi mükellef için</label><select data-logosec>' + l.map(function(x){ return '<option value="' + esc(x.id) + '"' + (x.id === m.id ? " selected" : "") + '>' + esc(x.ad) + '</option>'; }).join("") + '</select></div>' : "";
-    return '<div data-mid="' + esc(m.id) + '">' + markaHtml(m, true).replace('<div class="icerik">', '<div class="icerik">' + sec) + '</div>';
+    var bas = sec ? '<div class="card" style="padding:12px">' + sec + '</div>' : "";
+    return '<div data-mid="' + esc(m.id) + '" style="display:flex;flex-direction:column;gap:10px">' + bas + profilHtml(m) + markaHtml(m, true) + '</div>';
   }
   function hesapHtml(m){
     return '<details class="alt2" data-ak="c:' + m.id + '"' + ac("c:" + m.id) + '><summary>Giriş hesabı <small>' + (m.hesapKullanici ? esc(m.hesapKullanici) + (m.sonGiris ? " · son giriş " + new Date(m.sonGiris).toLocaleString("tr-TR") : " · henüz girmedi") : "yok") + '</small></summary><div class="icerik">' +
@@ -1438,6 +1451,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }, function(er){ mDurum(id, er.message, "hata"); });
   });
   $("ayarIc").addEventListener("input", function(e){
+    var pf = e.target.getAttribute("data-p");
+    if (pf) { var pe = e.target.closest("[data-mid]"), pm = pe && mBul(pe.getAttribute("data-mid")); if (pm) (pm.profil = pm.profil || {})[pf] = e.target.value; return; }
     var f = e.target.getAttribute("data-f"); if (!f) return;
     var mEl = e.target.closest("[data-mid]"); if (!mEl) return;
     var mm = mBul(mEl.getAttribute("data-mid")), hEl = e.target.closest("[data-hid]"), v = e.target.value;
@@ -1500,6 +1515,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       if (yeni !== $("sYeni2").value) { d2.className = "durum hata"; d2.textContent = "Yeni şifreler aynı değil."; return; }
       api("/api/sifre", "POST", { eski: eski, yeni: yeni }).then(function(){ $("sEski").value = $("sYeni").value = $("sYeni2").value = ""; d2.className = "durum ok"; d2.textContent = "Şifreniz değiştirildi."; }, function(er){ ayarHata(d2, er); });
       return;
+    }
+    if (t.hasAttribute("data-profil-kaydet")) {
+      var pid = mEl && mEl.getAttribute("data-mid"), pr = (mm && mm.profil) || {};
+      if (pr.eposta && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pr.eposta.trim())) { mDurum(pid, "E-posta adresi geçerli görünmüyor.", "hata"); return; }
+      mDurum(pid, "Kaydediliyor…", ""); kaydetV().then(function(){ hepsi(); mDurum(pid, "Profil kaydedildi.", "ok"); }, function(er){ mDurum(pid, er.message, "hata"); }); return;
     }
     if (t.hasAttribute("data-logo-kaydet")) { var lid = mEl && mEl.getAttribute("data-mid"); mDurum(lid, "Kaydediliyor…", ""); kaydetV().then(function(){ hepsi(); mDurum(lid, "Kaydedildi.", "ok"); }, function(er){ mDurum(lid, er.message, "hata"); }); return; }
     if (t.id === "ayarKaydet") { kaydetV().then(function(){ hepsi(); var d = $("ayarDurum"); d.className = "durum ok"; d.textContent = "Kaydedildi."; }, function(er){ ayarHata($("ayarDurum"), er); }); return; }
