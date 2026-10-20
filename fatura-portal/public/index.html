@@ -1259,7 +1259,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function iceHtml(m){
     var st = IA[m.id] || {}, h = '<details class="alt2" data-ak="ia:' + m.id + '"' + ac("ia:" + m.id) + '><summary>GİB’deki faturalardan cari ve hizmet oluştur</summary><div class="icerik">' +
-      '<p class="not">Seçilen tarihler arasındaki <b>onaylı</b> faturalar GİB’den okunur; alıcılar (cari) ve faturalarda kullanılan hizmetler kayıtlı listelere eklenir. Aynı VKN’li alıcı ve aynı adlı hizmet tekrar eklenmez, mevcut kayıtlarınız değişmez. Önce özet gösterilir, siz onaylayınca kaydedilir.</p>' +
+      '<p class="not">Seçilen tarihler arasındaki <b>onaylı</b> faturalar GİB’den okunur; alıcılar (cari) ve istenirse faturalarda kullanılan hizmetler kayıtlı listelere eklenir. Aynı VKN’li alıcı ve aynı adlı hizmet tekrar eklenmez, mevcut kayıtlarınız değişmez. Önce özet gösterilir, siz onaylayınca kaydedilir.</p>' +
+      '<label class="onay"><input type="checkbox" data-ia="alici"' + (st.alici === false ? "" : " checked") + '> Alıcıları (cari) aktar</label>' +
+      '<label class="onay"><input type="checkbox" data-ia="hizmet"' + (st.hizmet === false ? "" : " checked") + '> Hizmetleri (ürün) aktar <small class="not">— kapatırsanız faturalar tek tek okunmaz, çok daha hızlı biter; alıcıların vergi dairesi ve adresi VKN sorgusuyla getirilir</small></label>' +
+      '<div><label>Hizmetlerden en çok kullanılan kaç tanesi eklensin?</label><select data-ia="enCok">' + [10, 20, 50, 100].map(function(n){ return '<option value="' + n + '"' + ((st.enCok || 20) === n ? " selected" : "") + '>İlk ' + n + '</option>'; }).join("") + '</select></div>' +
       '<div class="satir"><div><label>Başlangıç</label><input type="date" data-ia="bas" value="' + esc(st.bas || (new Date().getFullYear() + "-01-01")) + '"></div><div><label>Bitiş</label><input type="date" data-ia="bit" value="' + esc(st.bit || bugunStr()) + '"></div></div>' +
       '<button class="btn ikincil" type="button" data-ia-basla="' + m.id + '"' + (st.calisiyor ? " disabled" : "") + '>Faturaları GİB’den oku</button>' +
       (st.calisiyor ? '<button class="k" type="button" data-ia-dur="' + m.id + '">Durdur</button>' : "") +
@@ -1273,19 +1276,19 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     return h + '</div></details>';
   }
   function iaDurum(id, msg, tip){ var st = IA[id] = IA[id] || {}; st.mesaj = msg; st.tip = tip || ""; var el = document.querySelector('[data-mid="' + id + '"] [data-ia-durum]'); if (el) { el.className = "durum " + (tip || ""); el.textContent = msg; } }
-  function iaBasla(id, bas, bit){
-    var st = IA[id] = { calisiyor: true, dur: false, bas: bas, bit: bit, mesaj: "", sonuc: null }, belgeler = [], alic = {}, hiz = {}, ok = 0, hata = 0, ardisik = 0, ilkHata = "", aylar = iaAylar(bas, bit);
+  function iaBasla(id, bas, bit, sec){
+    var st = IA[id] = { calisiyor: true, dur: false, bas: bas, bit: bit, alici: sec.alici, hizmet: sec.hizmet, enCok: sec.enCok, mesaj: "", sonuc: null }, belgeler = [], alic = {}, hiz = {}, ok = 0, hata = 0, ardisik = 0, ilkHata = "", aylar = iaAylar(bas, bit);
     cizAyar();
     function bitir(neden){
       st.calisiyor = false; var m = mBul(id) || {}, mevA = {}, mevH = {};
       (m.aliciler || []).forEach(function(a){ mevA[a.vkn] = 1; }); (m.hizmetler || []).forEach(function(x){ mevH[trk(x.ad)] = 1; });
-      var A = Object.keys(alic).map(function(k){ return alic[k]; }), Hz = Object.keys(hiz).map(function(k){ return hiz[k]; }).sort(function(a, b){ return b.sayi - a.sayi; });
-      st.sonuc = { alici: A.length, hizmet: Hz.length, yeniAlici: A.filter(function(a){ return !mevA[a.vkn]; }), yeniHizmet: Hz.filter(function(x){ return !mevH[trk(x.ad)]; }) };
-      st.mesaj = neden + " " + ok + " fatura okundu" + (hata ? ", " + hata + " faturada okuma hatası" + (ilkHata ? " (" + ilkHata + ")" : "") : "") + ".";
+      var A = sec.alici ? Object.keys(alic).map(function(k){ return alic[k]; }) : [], Hz = sec.hizmet ? Object.keys(hiz).map(function(k){ return hiz[k]; }).sort(function(a, b){ return b.sayi - a.sayi; }) : [];
+      st.sonuc = { alici: A.length, hizmet: Hz.length, yeniAlici: A.filter(function(a){ return !mevA[a.vkn]; }), yeniHizmet: Hz.filter(function(x){ return !mevH[trk(x.ad)]; }).slice(0, sec.enCok) };
+      st.mesaj = neden + " " + ok + " fatura " + (sec.hizmet ? "okundu" : "tarandı") + (hata ? ", " + hata + " faturada okuma hatası" + (ilkHata ? " (" + ilkHata + ")" : "") : "") + ".";
       st.tip = hata && !ok ? "hata" : "ok"; cizAyar();
     }
     function aliciEkle(u, vkn, ad, vd, adres){
-      if (!/^\d{10,11}$/.test(vkn || "")) return; var a = alic[vkn] = alic[vkn] || { vkn: vkn, ad: "", vd: "", adres: "" };
+      if (!sec.alici || !/^\d{10,11}$/.test(vkn || "")) return; var a = alic[vkn] = alic[vkn] || { vkn: vkn, ad: "", vd: "", adres: "" };
       if (ad) a.ad = ad; if (vd) a.vd = vd; if (adres) a.adres = adres;
     }
     function detay(i){
@@ -1308,6 +1311,16 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         if (ardisik >= 4 && !ok) st.dur = true; /* ilk faturaların hiçbiri okunamıyorsa boşuna devam edilmez */
       }).then(function(){ detay(i + 1); });
     }
+    /* hizmet istenmediyse faturalar okunmaz; yeni alıcıların vergi dairesi/adresi VKN sorgusuyla (portalın kendi sorgusu) getirilir */
+    function zenginlestir(){
+      var m = mBul(id) || {}, mev = {}; (m.aliciler || []).forEach(function(a){ mev[a.vkn] = 1; });
+      var sira = Object.keys(alic).filter(function(v){ return !mev[v]; });
+      (function d(i){
+        if (st.dur || i >= sira.length) return bitir(st.dur ? "Durduruldu." : "Tamamlandı.");
+        iaDurum(id, "Alıcı bilgileri getiriliyor: " + (i + 1) + " / " + sira.length, "");
+        api("/api/sorgu", "POST", { mukellefId: id, vkn: sira[i] }).then(function(r){ var a = alic[sira[i]]; if (r && !r.bulunamadi) { if (!a.ad && r.ad) a.ad = r.ad; a.vd = r.vd || a.vd; a.adres = r.adres || a.adres; } }, function(er){ if (oturumDustu(er)) st.dur = true; }).then(function(){ d(i + 1); });
+      })(0);
+    }
     function ay(k){
       if (st.dur) return bitir("Durduruldu.");
       if (k >= aylar.length) {
@@ -1315,7 +1328,9 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         belgeler.sort(function(a, b){ return (a.tarih || "") < (b.tarih || "") ? 1 : -1; });
         belgeler.forEach(function(b){ aliciEkle(null, b.vkn, b.alici, "", ""); });
         if (!belgeler.length) return bitir("Bu tarihlerde onaylı fatura bulunamadı.");
-        return detay(0);
+        ok = belgeler.length;
+        if (sec.hizmet) { ok = 0; return detay(0); }
+        return zenginlestir();
       }
       iaDurum(id, "GİB’den fatura listesi alınıyor: " + aylar[k][0].slice(0, 7) + " (" + belgeler.length + " belge)", "");
       api("/api/liste", "POST", { mukellefId: id, bas: aylar[k][0], bit: aylar[k][1] }).then(function(r){ belgeler = belgeler.concat(r.belgeler || []); ay(k + 1); }, function(er){
@@ -1423,7 +1438,9 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if ((id = t.getAttribute("data-ia-basla"))) {
       var kap = t.closest(".icerik"), b1 = kap.querySelector('[data-ia="bas"]').value, b2 = kap.querySelector('[data-ia="bit"]').value;
       if (!b1 || !b2 || b1 > b2) { iaDurum(id, "Başlangıç ve bitiş tarihini kontrol edin.", "hata"); return; }
-      iaBasla(id, b1, b2); return;
+      var al = kap.querySelector('[data-ia="alici"]').checked, hz = kap.querySelector('[data-ia="hizmet"]').checked;
+      if (!al && !hz) { iaDurum(id, "En az birini seçin: alıcılar ya da hizmetler.", "hata"); return; }
+      iaBasla(id, b1, b2, { alici: al, hizmet: hz, enCok: parseInt(kap.querySelector('[data-ia="enCok"]').value, 10) || 20 }); return;
     }
     if ((id = t.getAttribute("data-ia-dur"))) { if (IA[id]) IA[id].dur = true; t.disabled = true; return; }
     if ((id = t.getAttribute("data-ia-kaydet"))) { iaKaydet(id); return; }
