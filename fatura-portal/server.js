@@ -15,7 +15,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-20-56-ck";
+const SURUM = "2026-10-20-57-ck";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -343,7 +343,7 @@ const SAYFA = path.join(__dirname, "public", "index.html");
 http.createServer((req, res) => {
   const yol = req.url.split("?")[0];
   if (yol.startsWith("/api/")) return api(req, res, yol).catch((e) => { console.error(e.message); cevap(res, HATA403.test(e.message) ? 403 : 500, { hata: hataBilgi(e) }); });
-  const STATIK = { "/manifest.webmanifest": "application/manifest+json", "/sw.js": "text/javascript; charset=utf-8", "/ikon.svg": "image/svg+xml", "/ikon-180.png": "image/png", "/ikon-192.png": "image/png", "/ikon-512.png": "image/png" };
+  const STATIK = { "/manifest.webmanifest": "application/manifest+json", "/sw.js": "text/javascript; charset=utf-8", "/html2canvas.min.js": "text/javascript; charset=utf-8", "/ikon.svg": "image/svg+xml", "/ikon-180.png": "image/png", "/ikon-192.png": "image/png", "/ikon-512.png": "image/png" };
   /* iPhone/iPad: COOP başlığı gönderilmez (ana ekran uygulamasında güvenlik başlığı sorunlarından kaçınmak için). */
   const ios = /iPhone|iPad|iPod/.test(req.headers["user-agent"] || "");
   if (ios) { const yaz = res.writeHead.bind(res); res.writeHead = (k, h) => { if (h && !Array.isArray(h)) delete h["cross-origin-opener-policy"]; return yaz(k, h); }; }

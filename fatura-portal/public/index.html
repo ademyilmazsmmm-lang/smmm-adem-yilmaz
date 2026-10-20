@@ -103,6 +103,10 @@ details.bolum[open]{background:var(--open);border-color:var(--line2)}
 details.bolum[open] .alt,details.bolum[open] .kalem,details.bolum[open] details.ic{background:var(--field)}
 details.bolum[open]>summary .no{background:var(--accent);color:var(--accent-fg)}
 details.bolum>.icerik{padding:16px;margin:0;gap:12px}
+/* diğer sekmelerdeki kutular da ilk sayfadaki açık bölümler gibi koyu; içindeki alanlar açık kalır */
+.liste>.card{background:var(--open);border-color:var(--line2)}
+.liste>.card .alt,.liste>.card .kayit,.liste>.card details.grup,.liste>.card details.ic{background:var(--field)}
+.liste>.card details.bolum:not([open]){background:var(--field)}
 details.ic{border:1px dashed var(--line2);border-radius:var(--r2);padding:10px 12px;background:var(--surface2)}
 details.ic>summary{font-weight:600;font-size:.92rem;color:var(--accent)}
 details.ic[open]>summary{margin-bottom:10px}
@@ -179,6 +183,9 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 #gkap{flex:1;overflow:auto;background:#dfe5e2;-webkit-overflow-scrolling:touch}
 #gic{position:relative;margin:0 auto;width:calc(820px * var(--k,1));height:calc(var(--fh,1123px) * var(--k,1));background:#fff}
 #cerceve{position:absolute;left:0;top:0;width:820px;height:var(--fh,1123px);border:0;background:#fff;transform:scale(var(--k,1));transform-origin:0 0}
+.kayit.iptal{border-color:var(--danger);background:var(--danger-soft)!important}
+.iptalyazi{display:inline-block;color:var(--danger);font-weight:800;letter-spacing:.06em;border:1.5px solid var(--danger);border-radius:6px;padding:0 7px;font-size:.78rem;line-height:20px;margin-right:6px;vertical-align:1px}
+.iptalbant{margin:0;padding:10px 14px;background:var(--danger-soft);color:var(--danger);font-weight:650;text-align:center}
 .kayit.yeni{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 #gorunum .not{padding:8px 12px}
 
@@ -392,6 +399,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
   <div id="gorunum" hidden role="dialog" aria-label="Fatura görünümü">
     <div class="gbas"><button class="btn ikincil" type="button" id="gorunumKapat">← Geri</button><h2>Fatura</h2><button class="btn" type="button" id="yazdir">Yazdır / PDF</button></div>
+    <p class="iptalbant" id="gIptal" hidden>İPTAL — bu fatura için iptal talebi gönderilmiştir.</p>
     <div id="gkap"><div id="gic"><iframe id="cerceve" sandbox="allow-scripts allow-modals" title="Fatura"></iframe></div></div>
     <p class="not" id="gTani" style="font-size:.7rem;word-break:break-all"></p>
     <p class="not">“Yazdır / PDF”e basınca yazdırma ekranında “PDF olarak kaydet”i seçin (telefonda Paylaş ile gönderebilirsiniz). Geri dönmek için “← Geri”ye ya da telefonun geri hareketine basın.</p>
@@ -736,7 +744,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
   /* ---------- fatura görünümü / PDF ---------- */
   function yerelHtml(k, onay, neden){
-    var mr = marka();
+    var mr = markaOf(k.mukellefId || (son && son.mid) || mSec);
     var h = k.hesap, t = (k.tarih || "").split("-").reverse().join("/"), pb = k.para && k.para !== "TRY" ? " " + (PARASEM[k.para] || k.para) : "";
     var kalemler = k.kalemler || [{ ad: k.hizmetAd, aciklama: k.aciklama, miktar: 1, birim: "C62", fiyat: h.matrah / 100, kdv: k.kdvOrani, tev: k.tevkifat, kod: k.tevkifatKodu, matrah: h.matrah, kdvTutar: h.kdv, tevKdv: h.tevKdv }];
     var tev = kalemler.some(function(x){ return x.tev > 0; });
@@ -764,8 +772,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   var GENIS = 820;
   function olcekle(){ var w = ($("gkap").clientWidth || window.innerWidth), k = Math.min(1, w / GENIS); document.documentElement.style.setProperty("--k", k.toFixed(4)); }
   window.addEventListener("resize", function(){ if (gorunumAcik) olcekle(); });
-  function gorunumAc(html, gib){
-    $("gTani").textContent = ""; $("cerceve").srcdoc = gorunumHtml(html, gib); $("gorunum").hidden = false; olcekle(); $("gkap").scrollTop = 0;
+  function gorunumAc(html, gib, mid, iptal){
+    $("gTani").textContent = ""; $("gIptal").hidden = !iptal; $("cerceve").srcdoc = gorunumHtml(html, gib, mid); $("gorunum").hidden = false; olcekle(); $("gkap").scrollTop = 0;
     if (!gorunumAcik) { gorunumAcik = true; try { history.pushState({ g: 1 }, ""); } catch (e) {} }
   }
   function gorunumKapat(geri){
@@ -802,11 +810,27 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       parent.postMessage({ fatura: 1, h: Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0),
         tani: "Karekod: " + (bul() ? "bulundu" : "bulunamadı") + " · resim " + im.length + " · canvas " + document.querySelectorAll("canvas").length + " · betik " + document.scripts.length + (im.length ? " · " + im.slice(0, 4).join(" | ") : "") }, "*");
     }
+    /* PDF için: betikler burada (yalıtılmış kutuda) çalışıp karekod çizildikten sonra belge betiksiz, sabit bir HTML’e çevrilip üst pencereye verilir */
+    function statik(){
+      yerles(true);
+      var bekle = [].slice.call(document.images).filter(function(i){ return !i.complete; }).map(function(i){ return new Promise(function(r){ i.onload = i.onerror = r; }); });
+      return Promise.all(bekle).then(function(){ return new Promise(function(r){ setTimeout(r, 250); }); }).then(function(){
+        var kopya = document.documentElement.cloneNode(true), asil = [].slice.call(document.querySelectorAll("canvas")), cl = [].slice.call(kopya.querySelectorAll("canvas"));
+        cl.forEach(function(c, i){ try { var im = document.createElement("img"); im.src = asil[i].toDataURL("image/png"); im.width = asil[i].offsetWidth || asil[i].width; im.height = asil[i].offsetHeight || asil[i].height; im.style.cssText = asil[i].style.cssText; im.className = asil[i].className; c.parentNode.replaceChild(im, c); } catch (e) { c.remove(); } });
+        [].slice.call(kopya.querySelectorAll("script,noscript,iframe,object,embed,link[rel=import]")).forEach(function(x){ x.remove(); });
+        [].slice.call(kopya.querySelectorAll("*")).forEach(function(x){ [].slice.call(x.attributes).forEach(function(at){ if (/^on/i.test(at.name)) x.removeAttribute(at.name); }); });
+        return "<!doctype html>" + kopya.outerHTML;
+      });
+    }
+    addEventListener("message", function(e){
+      var d = e.data; if (!d || !d.statik) return;
+      statik().then(function(h){ parent.postMessage({ statikHtml: h }, "*"); }, function(er){ parent.postMessage({ pdfHata: String((er && er.message) || er) }, "*"); });
+    });
     addEventListener("load", function(){ setTimeout(function(){ yerles(false); boyut(); }, 300); setTimeout(function(){ yerles(false); boyut(); }, 900); setTimeout(function(){ yerles(false); boyut(); }, 1600); setTimeout(function(){ yerles(true); boyut(); }, 2800); });
   }
   /* gib=true: GİB’in resmî HTML’i (logo/imza eklenir); yerel kopya zaten logo/imza içerir */
-  function gorunumHtml(html, gib){
-    if (!html) return html; var m = marka();
+  function gorunumHtml(html, gib, mid){
+    if (!html) return html; var m = markaOf(mid || mSec); /* logo/imza faturanın mükellefine aittir, ekranda seçili olana değil */
     var ust = gib && m.logo ? '<div id="__mlogo" style="display:none"><img alt="" src="' + m.logo + '" style="max-height:80px;max-width:100%"></div>' : "";
     var alt = gib && m.imza ? '<div style="margin:28px 0 8px"><img alt="" src="' + m.imza + '" style="max-height:90px;max-width:260px"></div>' : "";
     var betik = "<scr" + "ipt>(" + ifBetik.toString() + ")()</scr" + "ipt>";
@@ -818,8 +842,9 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var d = e.data; if (d && d.fatura && d.h > 100) { document.documentElement.style.setProperty("--fh", Math.ceil(d.h) + "px"); if (d.tani) $("gTani").textContent = /bulunamadı|YÜKLENMEDİ/.test(d.tani) ? d.tani : ""; }
   });
   function goster(uuid, onay){
-    function ac(html, gib){ gorunumAc(html, gib); }
-    api("/api/gorunum", "POST", { mukellefId: son.mid || mSec, uuid: uuid, onay: onay }).then(function(r){ ac(r.html, true); }, function(er){
+    var mid = son.mid || mSec;
+    function ac(html, gib){ gorunumAc(html, gib, mid); }
+    markaYukle(mid).then(function(){ return api("/api/gorunum", "POST", { mukellefId: mid, uuid: uuid, onay: onay }); }).then(function(r){ ac(r.html, true); }, function(er){
       if (oturumDustu(er)) return;
       if (son.kayit) { ac(yerelHtml(son.kayit, onay, er.message)); durum("GİB’in resmi görünümü alınamadı (" + er.message + "); program kaydından üretilen kopya gösteriliyor.", "hata"); }
       else durum("Görüntülenemedi: " + er.message, "hata");
@@ -933,16 +958,95 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
   }
   $("tGetir").addEventListener("click", taslakGetir);
-  /* Paylaş: fatura dosyasını telefonun paylaşım menüsüne verir (WhatsApp, e-posta…); desteklenmiyorsa dosya olarak indirir */
+  /* PDF üretimi, iki adım:
+     1) GİB’in resmî HTML’i + mükellefin logosu görünmeyen, yalıtılmış bir çerçevede açılır; betikler (karekod) orada çalışır ve belge betiksiz sabit HTML olarak geri alınır.
+     2) Bu betiksiz HTML ikinci bir çerçevede açılıp tuvale çizilir, A4 sayfalara bölünerek PDF’e yazılır. */
+  var PDFOnbellek = {}, H2C = null;
+  function h2cYukle(){
+    if (window.html2canvas) return Promise.resolve();
+    return H2C || (H2C = new Promise(function(res, rej){ var sc = document.createElement("script"); sc.src = "/html2canvas.min.js"; sc.onload = res; sc.onerror = function(){ H2C = null; rej(new Error("PDF bileşeni yüklenemedi")); }; document.head.appendChild(sc); }));
+  }
+  function pdfYap(sf, W, H){
+    var enc = new TextEncoder(), p = [], ofs = [], n = 0, i, adet = sf.length, kids = [];
+    function y(x){ if (typeof x === "string") x = enc.encode(x); p.push(x); n += x.length; }
+    function nesne(no, ic, akis){ ofs[no] = n; y(no + " 0 obj\n" + ic); if (akis) { y("\nstream\n"); y(akis); y("\nendstream"); } y("\nendobj\n"); }
+    y("%PDF-1.4\n"); for (i = 0; i < adet; i++) kids.push((3 + i * 3) + " 0 R");
+    nesne(1, "<< /Type /Catalog /Pages 2 0 R >>"); nesne(2, "<< /Type /Pages /Kids [" + kids.join(" ") + "] /Count " + adet + " >>");
+    sf.forEach(function(s, k){
+      var pg = 3 + k * 3, hh = s.h * W / s.w, ic = "q " + W.toFixed(2) + " 0 0 " + hh.toFixed(2) + " 0 " + (H - hh).toFixed(2) + " cm /Im" + k + " Do Q";
+      nesne(pg, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + W.toFixed(2) + " " + H.toFixed(2) + "] /Resources << /XObject << /Im" + k + " " + (pg + 2) + " 0 R >> >> /Contents " + (pg + 1) + " 0 R >>");
+      nesne(pg + 1, "<< /Length " + ic.length + " >>", ic);
+      nesne(pg + 2, "<< /Type /XObject /Subtype /Image /Width " + s.w + " /Height " + s.h + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + s.b.length + " >>", s.b);
+    });
+    var xr = n, t = "xref\n0 " + (adet * 3 + 3) + "\n0000000000 65535 f \n";
+    for (i = 1; i <= adet * 3 + 2; i++) t += String(ofs[i]).padStart(10, "0") + " 00000 n \n";
+    y(t + "trailer\n<< /Size " + (adet * 3 + 3) + " /Root 1 0 R >>\nstartxref\n" + xr + "\n%%EOF");
+    var cikti = new Uint8Array(n), o = 0; p.forEach(function(x){ cikti.set(x, o); o += x.length; }); return cikti.buffer;
+  }
+  function cerceveAc(ozellik, html, yukle){
+    var f = document.createElement("iframe");
+    f.setAttribute("sandbox", ozellik); f.setAttribute("aria-hidden", "true"); f.tabIndex = -1;
+    f.style.cssText = "position:fixed;left:-10000px;top:0;width:820px;height:1200px;border:0;opacity:0;pointer-events:none";
+    f.onload = function(){ yukle(f); }; f.srcdoc = html; document.body.appendChild(f); return f;
+  }
+  function statikHtml(html, mid){
+    return new Promise(function(res, rej){
+      var bitti = false, f;
+      function son(fn, v){ if (bitti) return; bitti = true; clearTimeout(zt); window.removeEventListener("message", dinle); if (f) f.remove(); fn(v); }
+      function dinle(e){ if (!f || e.source !== f.contentWindow) return; var d = e.data || {}; if (d.statikHtml) son(res, d.statikHtml); else if (d.pdfHata) son(rej, new Error(d.pdfHata)); }
+      var zt = setTimeout(function(){ son(rej, new Error("fatura hazırlanamadı (zaman aşımı)")); }, 40000);
+      window.addEventListener("message", dinle);
+      f = cerceveAc("allow-scripts", gorunumHtml(html, true, mid), function(fr){ try { fr.contentWindow.postMessage({ statik: 1 }, "*"); } catch (er) { son(rej, er); } });
+    });
+  }
+  function pdfUret(html, mid){
+    return Promise.all([h2cYukle(), statikHtml(html, mid)]).then(function(r){
+      return new Promise(function(res, rej){
+        var f = cerceveAc("allow-same-origin", r[1], function(fr){
+          function bit(fn, v){ fr.remove(); fn(v); }
+          setTimeout(function(){
+            var d; try { d = fr.contentDocument.documentElement; } catch (er) { return bit(rej, er); }
+            window.html2canvas(d, { scale: 2, backgroundColor: "#ffffff", logging: false, windowWidth: 820, scrollX: 0, scrollY: 0 }).then(function(c){
+              var W = c.width, ctx = c.getContext("2d"), son = c.height, y0, dd, x;
+              for (y0 = c.height - 1; y0 > 0; y0 -= 3) { dd = ctx.getImageData(0, y0, W, 1).data; for (x = 0; x < dd.length; x += 16) if (dd[x] < 245 || dd[x + 1] < 245 || dd[x + 2] < 245) break; if (x < dd.length) { son = Math.min(c.height, y0 + 30); break; } }
+              var A4w = 595.28, A4h = 841.89, sh = Math.round(W * A4h / A4w), sf = [], k;
+              for (k = 0; k * sh < son; k++) {
+                var hh = Math.min(sh, son - k * sh), t = document.createElement("canvas"); t.width = W; t.height = hh;
+                var tc = t.getContext("2d"); tc.fillStyle = "#fff"; tc.fillRect(0, 0, W, hh); tc.drawImage(c, 0, k * sh, W, hh, 0, 0, W, hh);
+                var bin = atob(t.toDataURL("image/jpeg", 0.92).split(",")[1]), u = new Uint8Array(bin.length);
+                for (x = 0; x < bin.length; x++) u[x] = bin.charCodeAt(x);
+                sf.push({ b: u, w: W, h: hh });
+              }
+              bit(res, pdfYap(sf, A4w, A4h));
+            }, function(er){ bit(rej, er); });
+          }, 400); /* betiksiz çerçevede yazı tipi/resimlerin oturması için kısa bekleme */
+        });
+      });
+    });
+  }
+  /* Paylaş: faturayı PDF olarak telefonun paylaşım menüsüne verir (WhatsApp, e-posta…); desteklenmiyorsa PDF’i indirir */
+  function pdfVer(dosya, baslik, d){
+    function indir(){ var a = document.createElement("a"); a.href = URL.createObjectURL(dosya); a.download = dosya.name; document.body.appendChild(a); a.click(); a.remove(); }
+    if (navigator.canShare && navigator.canShare({ files: [dosya] })) {
+      return navigator.share({ files: [dosya], title: baslik }).catch(function(er){
+        if (er && er.name === "AbortError") return;
+        if (er && er.name === "NotAllowedError") { /* tarayıcı, uzun hazırlıktan sonra paylaşımı kullanıcı dokunuşu olmadan başlatmaz: hazır PDF için ikinci dokunuş */
+          d.className = "durum ok"; d.innerHTML = 'PDF hazır. <button class="k" type="button" id="pdfPaylasBtn">PDF’yi paylaş</button>';
+          $("pdfPaylasBtn").onclick = function(){ navigator.share({ files: [dosya], title: baslik }).then(function(){ d.textContent = ""; }, function(e2){ if (!e2 || e2.name !== "AbortError") { indir(); d.textContent = "Paylaşım açılamadı; PDF indirildi."; } }); };
+          return;
+        }
+        throw er;
+      });
+    }
+    indir(); d.className = "durum ok"; d.textContent = "PDF indirildi.";
+  }
   function paylas(mid, uuid, onay, ad, durumId){
-    var d = $(durumId); d.className = "durum"; d.textContent = "Hazırlanıyor…";
-    api("/api/gorunum", "POST", { mukellefId: mid, uuid: uuid, onay: onay }).then(function(r){
-      var dosya = new File([r.html], "fatura-" + String(ad || "belge").replace(/[^\w.-]+/g, "_") + ".html", { type: "text/html" });
-      d.textContent = "";
-      if (navigator.canShare && navigator.canShare({ files: [dosya] })) return navigator.share({ files: [dosya], title: "Fatura " + (ad || "") });
-      if (navigator.share) return navigator.share({ title: "Fatura " + (ad || ""), text: "Fatura " + (ad || "") });
-      var a = document.createElement("a"); a.href = URL.createObjectURL(dosya); a.download = dosya.name; document.body.appendChild(a); a.click(); a.remove();
-    }).catch(function(er){ if (er && er.name === "AbortError") return; if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = "Paylaşılamadı: " + (er.message || er); } });
+    var d = $(durumId); d.className = "durum"; d.textContent = "PDF hazırlanıyor…";
+    var ak = mid + "|" + uuid + "|" + onay, baslik = "Fatura " + (ad || ""), ad2 = "fatura-" + String(ad || "belge").replace(/[^\w.-]+/g, "_") + ".pdf";
+    var hazir = PDFOnbellek[ak];
+    (hazir ? Promise.resolve(hazir) : markaYukle(mid).then(function(){ return api("/api/gorunum", "POST", { mukellefId: mid, uuid: uuid, onay: onay }); }).then(function(r){ return pdfUret(r.html, mid); }).then(function(buf){ var f = new File([buf], ad2, { type: "application/pdf" }); PDFOnbellek[ak] = f; return f; }))
+      .then(function(dosya){ d.textContent = ""; return pdfVer(dosya, baslik, d); })
+      .catch(function(er){ if (er && er.name === "AbortError") return; if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = "PDF oluşturulamadı: " + (er.message || er); } });
   }
   $("tListe").addEventListener("click", function(e){
     var g = e.target.getAttribute("data-tg"), o = e.target.getAttribute("data-to"), sl = e.target.getAttribute("data-ts"), tp = e.target.getAttribute("data-tp"), x;
@@ -951,14 +1055,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (o != null) return onayBaslat(taslaklar[+o]);
     if (g != null) {
       var d = $("tDurum"); x = taslaklar[+g]; d.className = "durum"; d.textContent = "Taslak getiriliyor…";
-      api("/api/gorunum", "POST", { mukellefId: mSec, uuid: x.ettn, onay: "Onaylanmadı" }).then(function(r){ d.className = "durum ok"; d.textContent = "Taslak görünümü açıldı."; gorunumAc(r.html, true); },
+      var tm = mSec; markaYukle(tm).then(function(){ return api("/api/gorunum", "POST", { mukellefId: tm, uuid: x.ettn, onay: "Onaylanmadı" }); }).then(function(r){ d.className = "durum ok"; d.textContent = "Taslak görünümü açıldı."; gorunumAc(r.html, true, tm); },
         function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = "Görünüm alınamadı: " + er.message; } });
     }
   });
 
   /* ---------- geçmiş ---------- */
   var gecmis = [];
-  function satirHtml(ust, alt, dugme){ return '<div class="kayit"><div class="ust2"><span>' + ust + '<br><small>' + alt + '</small></span>' + dugme + '</div></div>'; }
+  function satirHtml(ust, alt, dugme, iptal){ return '<div class="kayit' + (iptal ? ' iptal' : '') + '"><div class="ust2"><span>' + (iptal ? '<span class="iptalyazi">İPTAL</span>' : '') + ust + '<br><small>' + alt + '</small></span>' + dugme + '</div></div>'; }
   var gSayfa = 30;
   function gTarihAraligi(){
     var v = $("gTarihF").value, d = new Date(), y = d.getFullYear(), a = d.getMonth(), p2 = function(n){ return String(n).padStart(2, "0"); }, f = function(x){ return x.getFullYear() + "-" + p2(x.getMonth() + 1) + "-" + p2(x.getDate()); };
@@ -987,7 +1091,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("gecmisListe").innerHTML = liste.length ? liste.slice(0, gSayfa).map(function(x){
       var k = x.k, i = x.i, t = (k.tarih || "").split("-").reverse().join("/");
       return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " " + (PARASEM[k.para] || "₺"), esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad),
-        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (x.iptal ? ' <small>İPTAL TALEBİ GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>');
+        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (x.iptal ? ' <small class="iptalyazi" style="font-size:.68rem">TALEP GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>', x.iptal);
     }).join("") : '<p class="not">' + (gecmis.length ? "Filtreye uyan fatura yok." : "Bu programdan kesilen fatura henüz yok.") + '</p>';
     $("gDaha").hidden = liste.length <= gSayfa; $("gDaha").textContent = "Daha fazla göster (" + Math.max(0, liste.length - gSayfa) + " fatura daha)";
   }
@@ -1004,8 +1108,9 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function resmiGoster(mukellefId, uuid, kayit){
     var d = $("gDurum"); d.className = "durum"; d.textContent = "Fatura getiriliyor…";
-    function ac(html, gib){ gorunumAc(html, gib); }
-    api("/api/gorunum", "POST", { mukellefId: mukellefId, uuid: uuid, onay: "Onaylandı" }).then(function(r){ d.className = "durum ok"; d.textContent = "GİB’in resmi görünümü açıldı."; ac(r.html, true); }, function(er){
+    var mid = mukellefId || mSec, ipt = !!(kayit && /^İptal/.test(kayit.durum || ""));
+    function ac(html, gib){ gorunumAc(html, gib, mid, ipt); }
+    markaYukle(mid).then(function(){ return api("/api/gorunum", "POST", { mukellefId: mukellefId, uuid: uuid, onay: "Onaylandı" }); }).then(function(r){ d.className = "durum ok"; d.textContent = "GİB’in resmi görünümü açıldı."; ac(r.html, true); }, function(er){
       if (oturumDustu(er)) return;
       d.className = "durum hata";
       if (kayit) { d.textContent = "GİB’in resmi görünümü alınamadı (" + er.message + "); program kaydından üretilen kopya gösteriliyor."; ac(yerelHtml(kayit, "Onaylandı", er.message)); }
@@ -1051,7 +1156,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       d.textContent = r.belgeler.length + " belge bulundu.";
       $("gibListe").innerHTML = r.belgeler.map(function(b, i){
         var yerel = gecmis.some(function(k){ return k.id === b.ettn; });
-        return satirHtml(esc(b.alici) + " — " + esc(b.durum) + (b.talep !== "" ? " (iptal talebi var)" : ""), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" && b.talep === "" ? ' <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button>' : "") + '</span>' : "");
+        return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" && b.talep === "" ? ' <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button>' : "") + '</span>' : "", b.talep !== "");
       }).join("");
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
   });
@@ -1171,7 +1276,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (!id || MARKA[id]) return Promise.resolve(MARKA[id] || null);
     return api("/api/marka?mid=" + encodeURIComponent(id)).then(function(r){ MARKA[id] = r; if (id === mSec) markaUygula(); return r; }, function(){ return null; });
   }
-  function marka(){ var m = (mSec && MARKA[mSec]) || {}; return { ad: MARKA0.ad, unvan: MARKA0.unvan, web: MARKA0.web, logo: m.logo || "", imza: m.imza || "" }; }
+  function marka(){ return markaOf(mSec); }
+  function markaOf(id){ var m = (id && MARKA[id]) || {}; return { ad: MARKA0.ad, unvan: MARKA0.unvan, web: MARKA0.web, logo: m.logo || "", imza: m.imza || "" }; }
   function markaUygula(){
     var m = marka(), svg = $("logoKutu").getAttribute("data-svg");
     if (svg === null) { svg = $("logoKutu").innerHTML; $("logoKutu").setAttribute("data-svg", svg); }
