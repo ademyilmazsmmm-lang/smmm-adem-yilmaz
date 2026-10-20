@@ -71,7 +71,13 @@ class Ivd {
     if (!this.token) await this.giris();
     const y = await this.dispatchHam(cmd, sayfa, callid || crypto.randomUUID(), jp);
     const hata = y && (y.error || (y.data && y.data.hata));
-    if (hata) throw new Error("Dijital Vergi Dairesi hatası: " + String(typeof hata === "string" ? hata : JSON.stringify(hata)).slice(0, 200));
+    if (hata) {
+      /* GİB hatayı { error: "1", messages: [{ text }] } biçiminde verir; asıl metin messages içindedir */
+      const msj = (y.messages || []).map((m) => (m && (m.text || m.message)) || (typeof m === "string" ? m : "")).filter(Boolean).join(" | ");
+      const ham = JSON.stringify(Object.assign({}, y, { token: undefined })).replace(/\s+/g, " ").slice(0, 300);
+      console.log("Dijital Vergi Dairesi komut hatası (" + cmd + "): " + ham);
+      throw new Error("Dijital Vergi Dairesi hatası (" + cmd + "): " + (msj || (typeof hata === "string" && hata.length > 2 ? hata : "ayrıntı yok")) + (msj ? "" : " [yanıt: " + ham.slice(0, 160) + "]"));
+    }
     return y.data !== undefined ? y.data : y;
   }
   /* sorgular; her biri { kayitlar, sekil } döndürür */
