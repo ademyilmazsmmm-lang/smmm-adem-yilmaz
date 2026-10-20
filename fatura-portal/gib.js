@@ -284,7 +284,8 @@ class Gib {
   async cikis() {
     const t = this.token; this.token = null;
     if (!t) { this.cerez.clear(); return; }
-    try { await this.post("/earsiv-services/assos-login", { assoscmd: "logout", rtype: "json", token: t }); } catch (e) { /* önemli değil */ }
+    try { const y = await this.post("/earsiv-services/assos-login", { assoscmd: "logout", rtype: "json", token: t }); console.log("GİB çıkış: " + (y && y.error ? "hata: " + String(y.error).slice(0, 80) : "tamam")); }
+    catch (e) { console.log("GİB çıkış yanıtı alınamadı: " + String(e.message).slice(0, 80)); } // yalnız durum günlüğü; oturum yerelde yine de bırakılır
     this.cerez.clear();
   }
   async dispatch(cmd, sayfa, jp) {

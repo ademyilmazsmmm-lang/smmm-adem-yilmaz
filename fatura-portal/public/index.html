@@ -529,7 +529,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var govde = { kullanici: ad, sifre: s }; if (!kurulu && yedek) { if (yedek.paket) govde.paket = yedek.paket; else govde.kasa = yedek.kasa; }
     api(kurulu || eskiKayit ? "/api/giris" : yedek ? "/api/geriyukle" : "/api/kurulum", "POST", govde).then(function(){ $("s1").value = ""; $("s2").value = ""; $("k1").value = ""; acilis(); }, function(er){ d.className = "durum hata"; d.textContent = er.message; });
   });
-  $("cikis").addEventListener("click", function(){ api("/api/cikis", "POST", {}).then(function(){ V = null; ROL = ""; kabulKontrol(); markaUygula(); acilis(); }); });
+  /* Çıkış: sunucu önce GİB oturumlarını kapatır (en çok 5 sn bekler), sonra uygulama oturumunu */
+  $("cikis").addEventListener("click", function(){
+    var b = this; b.disabled = true; b.textContent = "Çıkılıyor…";
+    api("/api/cikis", "POST", {}).then(function(){
+      V = null; ROL = ""; kabulKontrol(); markaUygula(); acilis();
+      var d = $("girisDurum"); d.className = "durum ok"; d.textContent = "Çıkış yapıldı; GİB oturumunuz kapatıldı. Dilerseniz GİB portalına şimdi girebilirsiniz.";
+    }, function(er){ if (!oturumDustu(er)) { alert("Çıkış tamamlanamadı: " + er.message); } }).then(function(){ b.disabled = false; b.textContent = "Çıkış"; });
+  });
   function oturumDustu(er){ if (er.kod === 401) { acilis(); return true; } return false; }
 
   function basla(){

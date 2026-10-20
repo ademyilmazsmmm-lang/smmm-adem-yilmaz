@@ -16,7 +16,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-20-67";
+const SURUM = "2026-10-20-68";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -137,11 +137,13 @@ setInterval(() => { for (const [c, o] of oturumlar) if (o.bitis <= Date.now()) o
 const hataBilgi = (e) => (e && e.message) || "Bilinmeyen hata";
 const HATA403 = /yetkiniz yok/;
 
-function istemci(m) {
+/* GİB aynı kullanıcı koduyla tek oturuma izin verir: kullanılmayınca kısa süre sonra oturum bırakılır (mükellef portala girmek isteyince "başka yerde açık" demesin).
+ * Normalde 3 dk (GIB_BOSTA_DK ile değişir); SMS kodu beklenirken 8 dk; iş bitince (onay/iptal/silme) 45 sn. */
+const GIB_BOSTA = (Number(process.env.GIB_BOSTA_DK) > 0 ? Number(process.env.GIB_BOSTA_DK) : 3) * 60e3;
+function gibKisalt(id, ms) { clearTimeout(gibZaman.get(id)); gibZaman.set(id, setTimeout(() => gibBirak(id), ms).unref()); }
+function istemci(m, ms) {
   if (!gibler.has(m.id)) gibler.set(m.id, gib.istemci(m.kullanici, m.gibSifre));
-  /* GİB aynı kullanıcı koduyla tek oturuma izin verir: kullanılmayınca 10 dk sonra oturum bırakılır (portala girmek isteyince çakışmasın) */
-  clearTimeout(gibZaman.get(m.id));
-  gibZaman.set(m.id, setTimeout(() => gibBirak(m.id), 10 * 60e3).unref());
+  gibKisalt(m.id, ms || GIB_BOSTA);
   return gibler.get(m.id);
 }
 const bekleyen = new Map(); // taslak kimliği -> geçmiş kaydı taslağı (onaylanınca kalıcı olur)
@@ -252,7 +254,10 @@ async function api(req, res, yol) {
   }
   if (!o) return cevap(res, 401, { hata: "Giriş gerekli." });
   if (yol === "/api/cikis") {
-    const ids = depo.mukellefIdleri(o); oturumKapat(cerez(req));
+    /* çıkışta GİB oturumları da kapatılır; ofis, o sırada kendi hesabıyla girmiş mükellefin (örn. SMS bekleyen) oturumuna dokunmaz */
+    const kendi = cerez(req);
+    const ids = depo.mukellefIdleri(o).filter((id) => o.rol !== "ofis" || ![...oturumlar].some(([c, x]) => c !== kendi && x.rol === "mukellef" && x.mid === id));
+    oturumKapat(kendi);
     await Promise.race([Promise.all(ids.map(gibBirak)), new Promise((ok) => setTimeout(ok, 5000))]);
     return cevap(res, 200, { ok: true });
   }
@@ -331,13 +336,13 @@ async function api(req, res, yol) {
     bekleyen.set(r.uuid, kayit); gunluk(o, mid, "Taslak oluşturuldu", kayit.belgeNo + " · " + kayit.aliciUnvan);
     return cevap(res, 200, { uuid: r.uuid, mesaj: r.mesaj, hesap: x._h.toplam, kayit });
   }
-  if (yol === "/api/sms") return cevap(res, 200, await istemci(m).smsGonder());
+  if (yol === "/api/sms") return cevap(res, 200, await istemci(m, 8 * 60e3).smsGonder());
   if (yol === "/api/imzala") {
     if (!g.uuid || !/^[A-Za-z0-9]{4,12}$/.test(String(g.kod || "").trim())) return cevap(res, 400, { hata: "SMS kodunu yazın." });
     const r = await istemci(m).imzala(g.uuid, String(g.kod).trim(), g.oid, g.tarih);
     const kayit = bekleyen.get(g.uuid) && bekleyen.get(g.uuid).mukellefId === m.id ? bekleyen.get(g.uuid) : null;
     if (kayit) { kayit.durum = "Onaylandı"; kayit.onayZamani = new Date().toISOString(); m.gecmis.push(kayit); if (m.gecmis.length > 2000) m.gecmis.shift(); bekleyen.delete(g.uuid); depo.kaydet(mid); }
-    gunluk(o, mid, "Fatura onaylandı", (kayit && kayit.belgeNo) || g.uuid);
+    gunluk(o, mid, "Fatura onaylandı", (kayit && kayit.belgeNo) || g.uuid); gibKisalt(m.id, 45e3);
     return cevap(res, 200, { mesaj: r.mesaj, kayit: kayit || null });
   }
   if (yol === "/api/sil" || yol === "/api/iptal") {
@@ -348,7 +353,7 @@ async function api(req, res, yol) {
     bekleyen.delete(g.uuid);
     const k = (m.gecmis || []).filter((x) => x.id === g.uuid)[0];
     if (k && !sil) { k.durum = "İptal talebi"; k.iptalNedeni = neden; k.iptalZamani = new Date().toISOString(); depo.kaydet(mid); }
-    gunluk(o, mid, sil ? "Taslak silindi" : "İptal talebi gönderildi", (k && k.belgeNo) || g.uuid);
+    gunluk(o, mid, sil ? "Taslak silindi" : "İptal talebi gönderildi", (k && k.belgeNo) || g.uuid); gibKisalt(m.id, 45e3);
     return cevap(res, 200, { mesaj: r.mesaj, durum: r.durum });
   }
   if (yol === "/api/sorgu") {
