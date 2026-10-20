@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-20-49";
+const SURUM = "2026-10-20-50";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -98,7 +98,7 @@ async function kasaGeriYukle(k, sifre) {
 const RESIM = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 const markaTemiz = (m) => {
   m = m || {};
-  const r = (x) => (typeof x === "string" && x.length <= 400000 && RESIM.test(x) ? x : "");
+  const r = (x) => (typeof x === "string" && x.length <= 450000 && RESIM.test(x) ? x : "");
   return { logo: r(m.logo), imza: r(m.imza) }; // ad, unvan ve web sabittir (istemcide)
 };
 const temiz = () => ({
@@ -227,7 +227,7 @@ async function api(req, res, yol) {
   if (yol === "/api/kasa" && req.method === "GET") return cevap(res, 200, { kasa: JSON.parse(fs.readFileSync(KASA, "utf8")), zaman: new Date().toISOString() });
   if (yol === "/api/yedek" && req.method === "GET") { res.writeHead(200, Object.assign({ "content-type": "application/json", "content-disposition": "attachment; filename=fatura-yedek-" + new Date().toISOString().slice(0, 10) + ".json", "cache-control": "no-store" }, GUV)); return res.end(fs.readFileSync(KASA)); }
   if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz());
-  if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req); if (!Array.isArray(g.mukellefler) || !Array.isArray(g.hizmetler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(g); return cevap(res, 200, temiz()); }
+  if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req, 4e6); if (!Array.isArray(g.mukellefler) || !Array.isArray(g.hizmetler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(g); return cevap(res, 200, temiz()); }
   if (yol === "/api/hesapla" && req.method === "POST") {
     const g = await oku(req), m = modelTemiz(g, false);
     return cevap(res, 200, { satirlar: m._h.satirlar, toplam: m._h.toplam, not: m.not });
@@ -274,7 +274,9 @@ async function api(req, res, yol) {
   }
   if (yol === "/api/liste") {
     const t = (d) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); if (!q) throw new Error("Tarih seçin."); return `${q[3]}/${q[2]}/${q[1]}`; };
-    return cevap(res, 200, { belgeler: await istemci(m).listeAralik(t(g.bas), t(g.bit)) });
+    const liste = await istemci(m).listeAralik(t(g.bas), t(g.bit));
+    for (const b of liste) { const k = bekleyen.get(b.ettn) || veri.gecmis.filter((x) => x.id === b.ettn)[0]; if (k && k.hesap) b.tutar = k.hesap.odenecek; } // tutar GİB listesinde yok; bu programdan açılanlar için bilinir
+    return cevap(res, 200, { belgeler: liste });
   }
   if (yol === "/api/gorunum") {
     if (!/^[A-Za-z0-9:_=.-]{8,4000}$/.test(String(g.uuid || ""))) return cevap(res, 400, { hata: "Fatura seçilmedi." });
