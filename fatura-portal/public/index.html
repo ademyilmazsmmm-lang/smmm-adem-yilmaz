@@ -221,6 +221,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     <input type="password" id="s2" placeholder="Şifre (tekrar)" aria-label="Şifre tekrar" autocomplete="new-password" hidden>
     <button class="btn" type="submit" id="girisBtn">Aç</button>
     <div class="durum" id="girisDurum" role="status"></div>
+    <div id="yedekSecenek" hidden style="display:flex;flex-direction:column;gap:8px">
+      <button class="k" type="button" id="yeniKurulum" hidden>Yedeği kullanma, yeni kurulum yap</button>
+      <label class="k" style="margin:0;cursor:pointer;text-align:center">Yedek dosyasından geri yükle<input type="file" id="yedekDosya" accept="application/json,.json" hidden></label>
+    </div>
   </form>
   <div class="imza"><b>Adem Yılmaz</b> · Serbest Muhasebeci Mali Müşavir<br><a href="https://smmmyilmaz.com" target="_blank" rel="noopener">smmmyilmaz.com</a></div>
 </main>
@@ -356,6 +360,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <section data-sayfa="ayar" class="liste" hidden>
   <div class="card" id="ayar">
     <div class="kartbas"><h2>Ayarlar</h2><a href="/api/yedek" download class="k" style="text-decoration:none">Yedeği indir</a></div>
+    <p class="not" id="yedekDurum"></p>
+    <p class="not">Ücretsiz sunucu güncelleme ya da uyku sonrası kayıtları sıfırlayabilir; bu cihazdaki şifreli yedekten şifrenizle geri yüklenir. Birden çok cihaz kullanıyorsanız en son kullandığınız cihazdaki yedek geçerli olur. Kalıcı çözüm: ücretli sunucu + disk.</p>
     <p class="not">Yedek dosyası uygulama şifrenizle şifrelidir; başka cihaza taşımak için de kullanılır.</p>
     <div id="ayarIc" style="display:flex;flex-direction:column;gap:10px"></div>
   </div>
@@ -402,10 +408,28 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function fmt(k){ return (k / 100).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function durum(m, t){ var d = $("durum"); d.className = "durum " + (t || ""); d.textContent = m; }
 
+  /* ---------- cihaz yedeği ----------
+   * Ücretsiz sunucuda dosyalar güncelleme/uyku sonrası sıfırlanır. Şifreli kasa dosyasının bir kopyası bu cihazın IndexedDB’sinde tutulur;
+   * sunucu boşsa uygulama şifresi girilerek buradan geri yüklenir. Kopya zaten şifrelidir (GİB şifreleri düz yazı olarak saklanmaz). */
+  var YDB = {
+    ac: function(){ return new Promise(function(ok, no){ try { var r = indexedDB.open("earsiv", 1); r.onupgradeneeded = function(){ r.result.createObjectStore("k"); }; r.onsuccess = function(){ ok(r.result); }; r.onerror = function(){ no(r.error); }; } catch (e) { no(e); } }); },
+    al: function(){ return YDB.ac().then(function(db){ return new Promise(function(ok){ var g = db.transaction("k").objectStore("k").get("kasa"); g.onsuccess = function(){ ok(g.result || null); }; g.onerror = function(){ ok(null); }; }); }).catch(function(){ return null; }); },
+    yaz: function(v){ return YDB.ac().then(function(db){ return new Promise(function(ok){ var t = db.transaction("k", "readwrite"); t.objectStore("k").put(v, "kasa"); t.oncomplete = function(){ ok(true); }; t.onerror = function(){ ok(false); }; }); }).catch(function(){ return false; }); },
+    sil: function(){ return YDB.ac().then(function(db){ return new Promise(function(ok){ var t = db.transaction("k", "readwrite"); t.objectStore("k").delete("kasa"); t.oncomplete = function(){ ok(true); }; t.onerror = function(){ ok(false); }; }); }).catch(function(){ return false; }); }
+  };
+  var yedekZaman = null, yedekTimer = null;
+  function yedekle(){
+    return fetch("/api/kasa").then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+      if (!j || !j.kasa) return; return YDB.yaz(j).then(function(ok){ if (ok) { yedekZaman = j.zaman; yedekYazi(); } });
+    }).catch(function(){});
+  }
+  function yedekSoon(){ clearTimeout(yedekTimer); yedekTimer = setTimeout(yedekle, 1500); }
+  function yedekYazi(){ var e = $("yedekDurum"); if (!e) return; e.textContent = yedekZaman ? "Bu cihazdaki şifreli yedek: " + new Date(yedekZaman).toLocaleString("tr-TR") : "Bu cihazda yedek alınamadı (tarayıcı depolamayı engelliyor olabilir)."; }
+  var YEDEKSIZ = /^\/api\/(hesapla|sorgu|gorunum|liste|cikis|giris|kurulum|geriyukle|durum|kasa|gecmis|veri)$/;
   function api(yol, yontem, govde){
     return fetch(yol, { method: yontem || "GET", headers: { "content-type": "application/json" }, body: govde ? JSON.stringify(govde) : undefined })
       .catch(function(){ throw new Error("Sunucuya ulaşılamadı. Birkaç saniye bekleyip tekrar deneyin (ücretsiz sunucu uyuyor olabilir)."); })
-      .then(function(r){ return r.json().then(function(j){ if (!r.ok) { var e = new Error(j.hata || "Hata"); e.kod = r.status; throw e; } return j; }); });
+      .then(function(r){ return r.json().then(function(j){ if (!r.ok) { var e = new Error(j.hata || "Hata"); e.kod = r.status; throw e; } if ((yontem && yontem !== "GET" && !YEDEKSIZ.test(yol)) || (yol === "/api/veri" && yontem === "PUT")) yedekSoon(); return j; }); });
   }
 
   /* ---------- giriş ---------- */
@@ -417,19 +441,35 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       $("uyg").hidden = true; $("giris").hidden = false;
       $("girisYazi").textContent = kurulu ? "Devam etmek için şifrenizi girin." : "İlk kurulum: bir uygulama şifresi belirleyin (en az " + sifreMin + " karakter). GİB şifreleri bununla şifrelenerek saklanır.";
       $("s2").hidden = kurulu; $("girisBtn").textContent = kurulu ? "Aç" : "Şifreyi belirle";
+      $("yedekSecenek").hidden = kurulu; $("yeniKurulum").hidden = true; yedek = null;
+      if (!kurulu) YDB.al().then(function(y){ if (y && y.kasa) yedekKipi(y); });
     });
   }
+  var yedek = null;
+  function yedekKipi(y){
+    yedek = y; $("s2").hidden = true; $("girisBtn").textContent = "Yedekten aç"; $("yeniKurulum").hidden = false;
+    $("girisYazi").textContent = "Sunucuda kayıt bulunamadı (ücretsiz sunucu sıfırlanmış olabilir), ama " + (y.zaman && y.zaman !== "dosya" ? new Date(y.zaman).toLocaleString("tr-TR") + " tarihli " : "") + "şifreli yedek var. Uygulama şifrenizi yazıp “Yedekten aç”a basın.";
+  }
+  $("yeniKurulum").addEventListener("click", function(){
+    if (!confirm("Yedek kullanılmayacak. Yeni kurulum yapılırsa eski mükellef ve şifre kayıtları bu cihazdan silinir. Devam edilsin mi?")) return;
+    YDB.sil().then(function(){ yedek = null; $("yeniKurulum").hidden = true; $("s2").hidden = false; $("girisBtn").textContent = "Şifreyi belirle"; $("girisYazi").textContent = "İlk kurulum: bir uygulama şifresi belirleyin (en az " + sifreMin + " karakter). GİB şifreleri bununla şifrelenerek saklanır."; });
+  });
+  $("yedekDosya").addEventListener("change", function(){
+    var f = this.files[0], d = $("girisDurum"); if (!f) return;
+    var o = new FileReader(); o.onload = function(){ try { var k = JSON.parse(o.result); if (!k || !k.veri) throw 0; yedekKipi({ kasa: k, zaman: "dosya" }); d.textContent = ""; } catch (e) { d.className = "durum hata"; d.textContent = "Bu dosya geçerli bir yedek değil."; } }; o.readAsText(f);
+  });
   sifreleriHazirla($("girisForm"));
   $("girisForm").addEventListener("submit", function(e){
     e.preventDefault(); var d = $("girisDurum"); d.className = "durum"; d.textContent = "";
     var s = $("s1").value;
-    if (!kurulu && s !== $("s2").value) { d.className = "durum hata"; d.textContent = "Şifreler aynı değil."; return; }
-    api(kurulu ? "/api/giris" : "/api/kurulum", "POST", { sifre: s }).then(function(){ $("s1").value = ""; $("s2").value = ""; basla(); }, function(er){ d.className = "durum hata"; d.textContent = er.message; });
+    if (!kurulu && !yedek && s !== $("s2").value) { d.className = "durum hata"; d.textContent = "Şifreler aynı değil."; return; }
+    api(kurulu ? "/api/giris" : yedek ? "/api/geriyukle" : "/api/kurulum", "POST", yedek && !kurulu ? { sifre: s, kasa: yedek.kasa } : { sifre: s }).then(function(){ $("s1").value = ""; $("s2").value = ""; basla(); }, function(er){ d.className = "durum hata"; d.textContent = er.message; });
   });
   $("cikis").addEventListener("click", function(){ api("/api/cikis", "POST", {}).then(function(){ V = null; acilis(); }); });
   function oturumDustu(er){ if (er.kod === 401) { acilis(); return true; } return false; }
 
   function basla(){
+    yedekle();
     api("/api/veri").then(function(v){
       V = v; $("giris").hidden = true; $("uyg").hidden = false;
       mSec = V.mukellefler.length ? V.mukellefler[0].id : null; F.alici = ""; F.kalemler = [ilkKalem()]; F.tip = F.kalemler[0].tev !== "0" ? "TEVKIFAT" : "SATIS";

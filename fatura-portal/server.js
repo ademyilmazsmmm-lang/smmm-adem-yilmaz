@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-20-47";
+const SURUM = "2026-10-20-48";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -72,13 +72,26 @@ function yaz() {
   fs.writeFileSync(gecici, JSON.stringify({ v: 1, iter: ITER, tuz: tuz.toString("base64"), iv: iv.toString("base64"), tag: c.getAuthTag().toString("base64"), veri: ct.toString("base64") }));
   fs.renameSync(gecici, KASA);
 }
-async function ac(sifre) {
-  const k = JSON.parse(fs.readFileSync(KASA, "utf8")), t = Buffer.from(k.tuz, "base64");
+async function coz(k, sifre) {
+  const t = Buffer.from(k.tuz, "base64");
   const kk = await anahtar(sifre, t, k.iter);
   const d = crypto.createDecipheriv("aes-256-gcm", kk, Buffer.from(k.iv, "base64"));
   d.setAuthTag(Buffer.from(k.tag, "base64"));
   const p = Buffer.concat([d.update(Buffer.from(k.veri, "base64")), d.final()]); // yanlış şifrede fırlatır
-  key = kk; tuz = t; veri = JSON.parse(p.toString("utf8")); if (!veri.gecmis) veri.gecmis = []; hazirGec();
+  return { kk, t, v: JSON.parse(p.toString("utf8")) };
+}
+async function ac(sifre) {
+  const r = await coz(JSON.parse(fs.readFileSync(KASA, "utf8")), sifre);
+  key = r.kk; tuz = r.t; veri = r.v; if (!veri.gecmis) veri.gecmis = []; hazirGec();
+}
+/* Cihazdaki şifreli yedekten kasa dosyasını geri kurar (ücretsiz sunucuda dosyalar sıfırlanır). Yalnız sunucuda kasa YOKKEN çalışır. */
+const kasaBicimi = (k) => k && k.v === 1 && k.iter === ITER && ["tuz", "iv", "tag", "veri"].every((a) => typeof k[a] === "string" && k[a].length < 8e6 && /^[A-Za-z0-9+/=]+$/.test(k[a]));
+async function kasaGeriYukle(k, sifre) {
+  if (!kasaBicimi(k)) throw new Error("Yedek biçimi geçersiz.");
+  const r = await coz(k, sifre); // yanlış şifrede fırlatır
+  fs.mkdirSync(DIR, { recursive: true });
+  fs.writeFileSync(KASA + ".tmp", JSON.stringify(k)); fs.renameSync(KASA + ".tmp", KASA);
+  key = r.kk; tuz = r.t; veri = r.v; if (!veri.gecmis) veri.gecmis = []; hazirGec();
 }
 
 /* GİB şifreleri veri içinde düz durur ama kasa dosyası şifrelidir; istemciye asla gönderilmez. */
@@ -107,9 +120,9 @@ function birlestir(g) {
 }
 
 /* ---------- http ---------- */
-function oku(req) {
+function oku(req, sinir) {
   return new Promise((ok, no) => {
-    let b = ""; req.on("data", (c) => { b += c; if (b.length > 1e6) { no(new Error("büyük")); req.destroy(); } });
+    let b = ""; req.on("data", (c) => { b += c; if (b.length > (sinir || 1e6)) { no(new Error("büyük")); req.destroy(); } });
     req.on("end", () => { try { ok(b ? JSON.parse(b) : {}); } catch (e) { no(new Error("Geçersiz JSON")); } });
   });
 }
@@ -194,6 +207,14 @@ async function api(req, res, yol) {
     tuz = crypto.randomBytes(16); key = await anahtar(sifre, tuz, ITER); veri = varsayilan(); yaz();
     return cevap(res, 200, { ok: true }, oturumAc(req));
   }
+  if (yol === "/api/geriyukle" && req.method === "POST") {
+    if (kasaVar()) return cevap(res, 409, { hata: "Sunucuda kayıt zaten var." });
+    const ip = istemciIp(req), bek = kilitli(ip);
+    if (bek) return cevap(res, 429, { hata: "Çok fazla yanlış deneme; " + bek + " saniye sonra tekrar deneyin." });
+    const { kasa, sifre } = await oku(req, 8e6);
+    try { await kasaGeriYukle(kasa, String(sifre || "")); denemeler.delete(ip); return cevap(res, 200, { ok: true }, oturumAc(req)); }
+    catch (e) { if (/biçimi/.test(e.message)) return cevap(res, 400, { hata: e.message }); hataSay(ip); return cevap(res, 401, { hata: "Şifre yanlış ya da yedek bozuk." }); }
+  }
   if (yol === "/api/giris" && req.method === "POST") {
     const ip = istemciIp(req), bek = kilitli(ip);
     if (bek) return cevap(res, 429, { hata: "Çok fazla yanlış deneme; " + bek + " saniye sonra tekrar deneyin." });
@@ -203,6 +224,7 @@ async function api(req, res, yol) {
   }
   if (!girisli(req)) return cevap(res, 401, { hata: "Giriş gerekli." });
   if (yol === "/api/cikis") { oturumlar.delete(cerez(req)); await gibHepsiniBirak(); key = null; veri = null; gibler.clear(); return cevap(res, 200, { ok: true }); }
+  if (yol === "/api/kasa" && req.method === "GET") return cevap(res, 200, { kasa: JSON.parse(fs.readFileSync(KASA, "utf8")), zaman: new Date().toISOString() });
   if (yol === "/api/yedek" && req.method === "GET") { res.writeHead(200, Object.assign({ "content-type": "application/json", "content-disposition": "attachment; filename=fatura-yedek-" + new Date().toISOString().slice(0, 10) + ".json", "cache-control": "no-store" }, GUV)); return res.end(fs.readFileSync(KASA)); }
   if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz());
   if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req); if (!Array.isArray(g.mukellefler) || !Array.isArray(g.hizmetler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(g); return cevap(res, 200, temiz()); }
