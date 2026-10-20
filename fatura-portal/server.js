@@ -7,18 +7,17 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const gib = require("./gib");
+const { Depo, adTemiz, adGecerli } = require("./kasa");
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || "127.0.0.1";
 const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
-const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-20-55";
+const SURUM = "2026-10-20-56-ck";
 
-let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
-const oturumlar = new Map(); // çerez -> bitiş zamanı
+const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
 const gibZaman = new Map();
 async function gibBirak(id) {
@@ -51,72 +50,43 @@ const HAZIR_HIZMET = [
   { id: "yaz0i", etiket: "Yazılım bedeli %0 istisna (hizmet ihracatı)", ad: "Yazılım Bedeli", kdv: 0, tev: 0, kod: "", istisna: "302", anah: "ihracat" },
   { id: "yaz20", etiket: "Yazılım bedeli %20", ad: "Yazılım Bedeli", kdv: 20, tev: 0, kod: "", anah: "yazılım, yazilim" }
 ];
-const varsayilan = () => ({ mukellefler: [], gecmis: [], hizmetler: HAZIR_HIZMET.map((h) => Object.assign({}, h)), hazirV2: true });
-/* Eski kayıtlarda iki varsayılan hizmet vardı; değiştirilmemişse hazır listeyle değiştirilir, kullanıcının kendi eklediği hizmetler korunur. */
-function hazirGec() {
-  if (veri.hazirV2) return;
-  const eskiAd = { servis: "Servis Taşımacılık Bedeli", yuk: "Yük Taşımacılığı Bedeli" };
-  veri.hizmetler = veri.hizmetler.filter((h) => !(eskiAd[h.id] === h.ad));
-  const var_ = new Set(veri.hizmetler.map((h) => h.id));
-  veri.hizmetler = HAZIR_HIZMET.filter((h) => !var_.has(h.id)).map((h) => Object.assign({}, h)).concat(veri.hizmetler);
-  veri.hazirV2 = true; yaz();
-}
-
-const kasaVar = () => fs.existsSync(KASA);
-const anahtar = (sifre, t, iter) => new Promise((ok, no) => crypto.pbkdf2(sifre, t, iter, 32, "sha256", (e, k) => (e ? no(e) : ok(k))));
-function yaz() {
-  const iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", key, iv);
-  const ct = Buffer.concat([c.update(JSON.stringify(veri), "utf8"), c.final()]);
-  fs.mkdirSync(DIR, { recursive: true });
-  const gecici = KASA + ".tmp";
-  fs.writeFileSync(gecici, JSON.stringify({ v: 1, iter: ITER, tuz: tuz.toString("base64"), iv: iv.toString("base64"), tag: c.getAuthTag().toString("base64"), veri: ct.toString("base64") }));
-  fs.renameSync(gecici, KASA);
-}
-async function coz(k, sifre) {
-  const t = Buffer.from(k.tuz, "base64");
-  const kk = await anahtar(sifre, t, k.iter);
-  const d = crypto.createDecipheriv("aes-256-gcm", kk, Buffer.from(k.iv, "base64"));
-  d.setAuthTag(Buffer.from(k.tag, "base64"));
-  const p = Buffer.concat([d.update(Buffer.from(k.veri, "base64")), d.final()]); // yanlış şifrede fırlatır
-  return { kk, t, v: JSON.parse(p.toString("utf8")) };
-}
-async function ac(sifre) {
-  const r = await coz(JSON.parse(fs.readFileSync(KASA, "utf8")), sifre);
-  key = r.kk; tuz = r.t; veri = r.v; if (!veri.gecmis) veri.gecmis = []; hazirGec();
-}
-/* Cihazdaki şifreli yedekten kasa dosyasını geri kurar (ücretsiz sunucuda dosyalar sıfırlanır). Yalnız sunucuda kasa YOKKEN çalışır. */
+const depo = new Depo(DIR, ITER, HAZIR_HIZMET);
+const mSifreMin = GUVENLI ? 10 : 8; // mükellef hesaplarının en kısa şifresi
+/* Eski cihaz yedeği (v1 tek kasa) biçimi: eskiden alınmış yedekler geri yüklenip çok kullanıcılı yapıya taşınabilsin */
 const kasaBicimi = (k) => k && k.v === 1 && k.iter === ITER && ["tuz", "iv", "tag", "veri"].every((a) => typeof k[a] === "string" && k[a].length < 8e6 && /^[A-Za-z0-9+/=]+$/.test(k[a]));
-async function kasaGeriYukle(k, sifre) {
-  if (!kasaBicimi(k)) throw new Error("Yedek biçimi geçersiz.");
-  const r = await coz(k, sifre); // yanlış şifrede fırlatır
-  fs.mkdirSync(DIR, { recursive: true });
-  fs.writeFileSync(KASA + ".tmp", JSON.stringify(k)); fs.renameSync(KASA + ".tmp", KASA);
-  key = r.kk; tuz = r.t; veri = r.v; if (!veri.gecmis) veri.gecmis = []; hazirGec();
-}
 
-/* GİB şifreleri veri içinde düz durur ama kasa dosyası şifrelidir; istemciye asla gönderilmez. */
+/* GİB şifreleri kasa içinde şifreli durur ve istemciye asla gönderilmez (yalnız "var mı" bilgisi). */
 const RESIM = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 const markaTemiz = (m) => {
   m = m || {};
   const r = (x) => (typeof x === "string" && x.length <= 450000 && RESIM.test(x) ? x : "");
   return { logo: r(m.logo), imza: r(m.imza) }; // ad, unvan ve web sabittir (istemcide)
 };
-const temiz = () => ({
-  marka: veri.marka || null,
-  hizmetler: veri.hizmetler,
-  mukellefler: veri.mukellefler.map((m) => ({ id: m.id, ad: m.ad, vkn: m.vkn, kullanici: m.kullanici, sifreVar: !!m.gibSifre, aliciler: m.aliciler || [] }))
-});
-function birlestir(g) {
-  const eski = new Map(veri.mukellefler.map((m) => [m.id, m]));
-  veri.hizmetler = g.hizmetler;
-  if (g.marka) veri.marka = markaTemiz(g.marka);
-  veri.mukellefler = g.mukellefler.map((m) => ({
-    id: String(m.id), ad: String(m.ad || ""), vkn: String(m.vkn || ""), kullanici: String(m.kullanici || ""),
-    gibSifre: m.gibSifre ? String(m.gibSifre) : (eski.get(m.id) || {}).gibSifre || "",
-    aliciler: (m.aliciler || []).map((a) => ({ id: String(a.id), ad: String(a.ad || ""), vkn: String(a.vkn || ""), adres: String(a.adres || ""), vd: String(a.vd || "") }))
-  }));
-  gibler.clear();
-  yaz();
+const hizmetTemiz = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 100).map((h, i) => ({
+  id: String(h.id || "h" + i).slice(0, 40), etiket: String(h.etiket || "").slice(0, 120), ad: String(h.ad || "").slice(0, 150), kdv: Number(h.kdv) >= 0 ? Number(h.kdv) : 20,
+  tev: Math.min(9, Math.max(0, parseInt(h.tev, 10) || 0)), kod: String(h.kod || "").slice(0, 10), istisna: String(h.istisna || "").slice(0, 4), anah: String(h.anah || "").slice(0, 200) }));
+const aliciTemiz = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 2000).map((a) => ({ id: String(a.id), ad: String(a.ad || "").slice(0, 150), vkn: String(a.vkn || "").slice(0, 11), adres: String(a.adres || "").slice(0, 250), vd: String(a.vd || "").slice(0, 100) }));
+function temizMukellef(o, id) {
+  const v = depo.mukellef(o, id).veri;
+  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
+    hesapKullanici: o.rol === "ofis" ? depo.hesapKullanicisi(id) : undefined, sonGiris: v.sonGiris || null };
+}
+const temiz = (o) => ({ rol: o.rol, kullanici: o.kullanici, mukellefler: depo.mukellefIdleri(o).map((id) => temizMukellef(o, id)) });
+/* İstemciden gelen güncelleme: ofis tüm mükellefleri, mükellef yalnız kendisini düzenler. Mükellef ekleme/silme ayrı uçlardadır. */
+function birlestir(o, g) {
+  for (const m of g.mukellefler) {
+    const id = String(m.id); if (!depo.yetkili(o, id)) continue;
+    const e = depo.mukellef(o, id), v = e.veri, eskiK = v.kullanici, eskiS = v.gibSifre;
+    v.ad = String(m.ad || "").slice(0, 150); v.vkn = String(m.vkn || "").slice(0, 11); v.kullanici = String(m.kullanici || "").slice(0, 60);
+    if (m.gibSifre) v.gibSifre = String(m.gibSifre);
+    v.aliciler = aliciTemiz(m.aliciler); v.hizmetler = hizmetTemiz(m.hizmetler); if (m.marka) v.marka = markaTemiz(m.marka);
+    depo.kaydet(id);
+    if (v.kullanici !== eskiK || v.gibSifre !== eskiS) gibBirak(id);
+  }
+}
+/* Mükellef etkinlik günlüğü (ofis görür): son 300 işlem */
+function gunluk(o, mid, eylem, belge) {
+  try { const v = depo.mukellef(o, mid).veri; (v.gunluk = v.gunluk || []).push({ zaman: new Date().toISOString(), kim: o.kullanici, rol: o.rol, eylem, belge: belge || "" }); if (v.gunluk.length > 300) v.gunluk.shift(); depo.kaydet(mid); } catch (e) { /* günlük zorunlu değil */ }
 }
 
 /* ---------- http ---------- */
@@ -133,15 +103,22 @@ const GUV = {
 };
 const cevap = (res, kod, nesne, baslik) => { res.writeHead(kod, Object.assign({ "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }, GUV, baslik)); res.end(JSON.stringify(nesne)); };
 const cerez = (req) => { const m = /(?:^|;\s*)oturum=([a-f0-9]+)/.exec(req.headers.cookie || ""); return m && m[1]; };
-const girisli = (req) => { const c = cerez(req), b = oturumlar.get(c); return !!(key && b && b > Date.now()); };
-function oturumAc(req) {
-  const c = crypto.randomBytes(24).toString("hex"); oturumlar.set(c, Date.now() + 8 * 3600e3);
+function oturumBul(req) {
+  const c = cerez(req), o = c && oturumlar.get(c);
+  if (!o) return null;
+  if (o.bitis <= Date.now()) { oturumKapat(c); return null; }
+  return o;
+}
+function oturumAc(req, o) {
+  const c = crypto.randomBytes(24).toString("hex"); o.bitis = Date.now() + 8 * 3600e3; oturumlar.set(c, o);
   const https = GUVENLI || (PROXY && req.headers["x-forwarded-proto"] === "https");
   return { "set-cookie": `oturum=${c}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${https ? "; Secure" : ""}` };
 }
+function oturumKapat(c) { oturumlar.delete(c); depo.temizle(oturumlar.values()); }
+setInterval(() => { for (const [c, o] of oturumlar) if (o.bitis <= Date.now()) oturumlar.delete(c); depo.temizle(oturumlar.values()); }, 60e3).unref();
 const hataBilgi = (e) => (e && e.message) || "Bilinmeyen hata";
+const HATA403 = /yetkiniz yok/;
 
-const mukellefBul = (id) => veri.mukellefler.filter((m) => m.id === id)[0];
 function istemci(m) {
   if (!gibler.has(m.id)) gibler.set(m.id, gib.istemci(m.kullanici, m.gibSifre));
   /* GİB aynı kullanıcı koduyla tek oturuma izin verir: kullanılmayınca 10 dk sonra oturum bırakılır (portala girmek isteyince çakışmasın) */
@@ -197,45 +174,120 @@ function modelTemiz(g, tam) {
   return m;
 }
 
+/* Giriş denemesi kısıtı: IP + kullanıcı adı başına (5. hatadan sonra artan bekleme) */
+const kisitBekle = (ip, ad) => Math.max(kilitli(ip), ad ? kilitli("u:" + ad) : 0);
+const kisitHata = (ip, ad) => { hataSay(ip); if (ad) hataSay("u:" + ad); };
+const kisitTemizle = (ip, ad) => { denemeler.delete(ip); if (ad) denemeler.delete("u:" + ad); };
+const SIFRE_HATA = "Kullanıcı adı ya da şifre yanlış.";
+function sifreKontrol(sifre, min) { if (!sifre || String(sifre).length < min) throw new Error("Şifre en az " + min + " karakter olmalı."); }
+const ofisGerek = (o) => { if (!o || o.rol !== "ofis") throw new Error("Bu işlem için yetkiniz yok (yalnız ofis hesabı)."); };
+async function oturumBaslat(req, res, o, ip, ad) {
+  kisitTemizle(ip, ad);
+  if (o.rol === "mukellef") { const e = depo.mukellef(o, o.mid); e.veri.sonGiris = new Date().toISOString(); depo.kaydet(o.mid); }
+  return cevap(res, 200, { ok: true }, oturumAc(req, o));
+}
+
 async function api(req, res, yol) {
   if (req.method !== "GET" && !/application\/json/.test(req.headers["content-type"] || "")) return cevap(res, 415, { hata: "JSON bekleniyor." });
-  if (yol === "/api/durum") return cevap(res, 200, { kurulu: kasaVar(), giris: girisli(req), sahte: gib.MOCK, surum: SURUM, sifreMin });
+  const o = oturumBul(req);
+  if (yol === "/api/durum") return cevap(res, 200, { kurulu: depo.kurulu, eski: depo.eskiVar, giris: !!o, rol: o && o.rol, kullanici: o && o.kullanici, sahte: gib.MOCK, surum: SURUM, sifreMin, mSifreMin });
   if (yol === "/api/kurulum" && req.method === "POST") {
-    if (kasaVar()) return cevap(res, 409, { hata: "Zaten kurulu." });
-    const { sifre } = await oku(req);
-    if (!sifre || sifre.length < sifreMin) return cevap(res, 400, { hata: "Şifre en az " + sifreMin + " karakter olmalı." });
-    tuz = crypto.randomBytes(16); key = await anahtar(sifre, tuz, ITER); veri = varsayilan(); yaz();
-    return cevap(res, 200, { ok: true }, oturumAc(req));
+    if (depo.kurulu || depo.eskiVar) return cevap(res, 409, { hata: "Zaten kurulu." });
+    const { kullanici, sifre } = await oku(req), ad = adTemiz(kullanici);
+    if (!adGecerli(ad)) return cevap(res, 400, { hata: "Kullanıcı adı 3-32 karakter olmalı (harf, rakam, nokta, tire, alt çizgi)." });
+    try { sifreKontrol(sifre, sifreMin); } catch (e) { return cevap(res, 400, { hata: e.message }); }
+    return oturumBaslat(req, res, await depo.ofisOlustur(ad, String(sifre)), istemciIp(req), ad);
   }
   if (yol === "/api/geriyukle" && req.method === "POST") {
-    if (kasaVar()) return cevap(res, 409, { hata: "Sunucuda kayıt zaten var." });
-    const ip = istemciIp(req), bek = kilitli(ip);
+    if (depo.kurulu) return cevap(res, 409, { hata: "Sunucuda kayıt zaten var." });
+    const ip = istemciIp(req), g = await oku(req, 40e6), ad = adTemiz(g.kullanici), bek = kisitBekle(ip, ad);
     if (bek) return cevap(res, 429, { hata: "Çok fazla yanlış deneme; " + bek + " saniye sonra tekrar deneyin." });
-    const { kasa, sifre } = await oku(req, 8e6);
-    try { await kasaGeriYukle(kasa, String(sifre || "")); denemeler.delete(ip); return cevap(res, 200, { ok: true }, oturumAc(req)); }
-    catch (e) { if (/biçimi/.test(e.message)) return cevap(res, 400, { hata: e.message }); hataSay(ip); return cevap(res, 401, { hata: "Şifre yanlış ya da yedek bozuk." }); }
+    try {
+      let ofis;
+      if (g.paket) ofis = await depo.paketYukle(g.paket, ad, String(g.sifre || ""));
+      else if (g.kasa) { // eski (v1) cihaz yedeği: yazılır, sonra çok kullanıcılı yapıya taşınır
+        if (!kasaBicimi(g.kasa)) throw new Error("Yedek biçimi geçersiz.");
+        const yazildi = !depo.eskiVar; if (yazildi) depo.yazDosya(depo.eski, g.kasa);
+        try { ofis = await depo.eskiyiTasi(ad, String(g.sifre || "")); } catch (e) { if (yazildi) try { fs.unlinkSync(depo.eski); } catch (x) { /* yok */ } throw e; }
+      } else throw new Error("Yedek biçimi geçersiz.");
+      return oturumBaslat(req, res, ofis, ip, ad);
+    } catch (e) { if (/biçimi|3-32/.test(e.message)) return cevap(res, 400, { hata: e.message }); kisitHata(ip, ad); return cevap(res, 401, { hata: "Şifre yanlış ya da yedek bozuk." }); }
   }
   if (yol === "/api/giris" && req.method === "POST") {
-    const ip = istemciIp(req), bek = kilitli(ip);
+    const ip = istemciIp(req), { kullanici, sifre } = await oku(req), ad = adTemiz(kullanici), bek = kisitBekle(ip, ad);
     if (bek) return cevap(res, 429, { hata: "Çok fazla yanlış deneme; " + bek + " saniye sonra tekrar deneyin." });
-    const { sifre } = await oku(req);
-    try { await ac(String(sifre || "")); denemeler.delete(ip); return cevap(res, 200, { ok: true }, oturumAc(req)); }
-    catch (e) { hataSay(ip); return cevap(res, 401, { hata: "Şifre yanlış." }); }
+    try {
+      const yeni = depo.eskiVar ? await depo.eskiyiTasi(ad, String(sifre || "")) : await depo.giris(ad, String(sifre || ""));
+      return oturumBaslat(req, res, yeni, ip, ad);
+    } catch (e) { if (/3-32/.test(e.message)) return cevap(res, 400, { hata: e.message }); kisitHata(ip, ad); return cevap(res, 401, { hata: SIFRE_HATA }); }
   }
-  if (!girisli(req)) return cevap(res, 401, { hata: "Giriş gerekli." });
-  if (yol === "/api/cikis") { oturumlar.delete(cerez(req)); await gibHepsiniBirak(); key = null; veri = null; gibler.clear(); return cevap(res, 200, { ok: true }); }
-  if (yol === "/api/kasa" && req.method === "GET") return cevap(res, 200, { kasa: JSON.parse(fs.readFileSync(KASA, "utf8")), zaman: new Date().toISOString() });
-  if (yol === "/api/yedek" && req.method === "GET") { res.writeHead(200, Object.assign({ "content-type": "application/json", "content-disposition": "attachment; filename=fatura-yedek-" + new Date().toISOString().slice(0, 10) + ".json", "cache-control": "no-store" }, GUV)); return res.end(fs.readFileSync(KASA)); }
-  if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz());
-  if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req, 4e6); if (!Array.isArray(g.mukellefler) || !Array.isArray(g.hizmetler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(g); return cevap(res, 200, temiz()); }
+  if (!o) return cevap(res, 401, { hata: "Giriş gerekli." });
+  if (yol === "/api/cikis") {
+    const ids = depo.mukellefIdleri(o); oturumKapat(cerez(req));
+    await Promise.race([Promise.all(ids.map(gibBirak)), new Promise((ok) => setTimeout(ok, 5000))]);
+    return cevap(res, 200, { ok: true });
+  }
+  if (yol === "/api/kasa" && req.method === "GET") { ofisGerek(o); return cevap(res, 200, { paket: depo.paket(o), zaman: new Date().toISOString() }); }
+  if (yol === "/api/yedek" && req.method === "GET") {
+    ofisGerek(o);
+    res.writeHead(200, Object.assign({ "content-type": "application/json", "content-disposition": "attachment; filename=fatura-yedek-" + new Date().toISOString().slice(0, 10) + ".json", "cache-control": "no-store" }, GUV));
+    return res.end(JSON.stringify(depo.paket(o)));
+  }
+  if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz(o));
+  if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req, 8e6); if (!Array.isArray(g.mukellefler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(o, g); return cevap(res, 200, temiz(o)); }
+  if (yol.startsWith("/api/marka") && req.method === "GET") {
+    const mid = o.rol === "mukellef" ? o.mid : decodeURIComponent((req.url.split("mid=")[1] || "").split("&")[0]);
+    if (!depo.yetkili(o, mid)) return cevap(res, 403, { hata: "Bu mükellef için yetkiniz yok." });
+    const mr = depo.mukellef(o, mid).veri.marka || {}; return cevap(res, 200, { logo: mr.logo || "", imza: mr.imza || "" });
+  }
+  if (yol === "/api/sifre" && req.method === "POST") {
+    const { eski, yeni } = await oku(req); sifreKontrol(yeni, o.rol === "ofis" ? sifreMin : mSifreMin);
+    const ip = istemciIp(req), kb = "s:" + o.kullanici; if (kilitli(kb)) return cevap(res, 429, { hata: "Çok fazla yanlış deneme; biraz bekleyin." });
+    try { await depo.sifreDegistir(o, String(eski || ""), String(yeni)); denemeler.delete(kb); } catch (e) { hataSay(kb); return cevap(res, 401, { hata: "Mevcut şifre yanlış." }); }
+    return cevap(res, 200, { ok: true });
+  }
+  /* ---- ofis: mükellef ve hesap yönetimi ---- */
+  if (yol === "/api/mukellef/ekle" && req.method === "POST") {
+    ofisGerek(o); const g = await oku(req);
+    if (!String(g.ad || "").trim()) return cevap(res, 400, { hata: "Mükellef unvanını yazın." });
+    const hk = String(g.hesapKullanici || "").trim();
+    if (hk) { const ad = adTemiz(hk); if (!adGecerli(ad)) return cevap(res, 400, { hata: "Giriş kullanıcı adı 3-32 karakter olmalı (harf, rakam, nokta, tire, alt çizgi)." }); if (!depo.adMusait(ad)) return cevap(res, 400, { hata: "Bu kullanıcı adı kullanılıyor." }); sifreKontrol(g.hesapSifre, mSifreMin); }
+    const id = await depo.mukellefEkle(o, g);
+    if (hk) await depo.hesapAyarla(o, id, hk, String(g.hesapSifre));
+    gunluk(o, id, "Mükellef eklendi");
+    return cevap(res, 200, { id, veri: temiz(o) });
+  }
+  if (yol === "/api/hesap" && req.method === "POST") {
+    ofisGerek(o); const g = await oku(req), mid = String(g.mid || "");
+    if (g.sifre) sifreKontrol(g.sifre, mSifreMin);
+    const ad = await depo.hesapAyarla(o, mid, g.kullanici, g.sifre ? String(g.sifre) : ""); gunluk(o, mid, g.sifre ? "Giriş şifresi belirlendi/sıfırlandı" : "Giriş kullanıcı adı değişti");
+    return cevap(res, 200, { kullanici: ad });
+  }
+  if (yol === "/api/hesap/kaldir" && req.method === "POST") { ofisGerek(o); const g = await oku(req); depo.hesapKaldir(o, String(g.mid || "")); for (const [c, x] of oturumlar) if (x.rol === "mukellef" && x.mid === g.mid) oturumKapat(c); gunluk(o, String(g.mid), "Giriş hesabı kaldırıldı"); return cevap(res, 200, { ok: true }); }
+  if (yol === "/api/mukellef/sil" && req.method === "POST") {
+    ofisGerek(o); const g = await oku(req), mid = String(g.mid || "");
+    await gibBirak(mid); for (const [c, x] of oturumlar) if (x.rol === "mukellef" && x.mid === mid) oturumlar.delete(c);
+    for (const [u, k] of bekleyen) if (k.mukellefId === mid) bekleyen.delete(u);
+    depo.mukellefSil(o, mid); depo.temizle(oturumlar.values());
+    return cevap(res, 200, { veri: temiz(o) });
+  }
+  if (yol.startsWith("/api/etkinlik") && req.method === "GET") {
+    ofisGerek(o); const mid = decodeURIComponent((req.url.split("mid=")[1] || "").split("&")[0]);
+    return cevap(res, 200, { gunluk: (depo.mukellef(o, mid).veri.gunluk || []).slice().reverse().slice(0, 100) });
+  }
   if (yol === "/api/hesapla" && req.method === "POST") {
     const g = await oku(req), m = modelTemiz(g, false);
     return cevap(res, 200, { satirlar: m._h.satirlar, toplam: m._h.toplam, not: m.not });
   }
-  if (yol === "/api/gecmis" && req.method === "GET") return cevap(res, 200, { kayitlar: veri.gecmis.slice().reverse().slice(0, 1000) });
+  if (yol === "/api/gecmis" && req.method === "GET") {
+    const hepsi = []; for (const id of depo.mukellefIdleri(o)) hepsi.push(...(depo.mukellef(o, id).veri.gecmis || []));
+    return cevap(res, 200, { kayitlar: hepsi.sort((a, b) => String(a.zaman).localeCompare(String(b.zaman))).reverse().slice(0, 1000) });
+  }
 
-  const g = await oku(req), m = mukellefBul(g.mukellefId);
-  if (!m) return cevap(res, 400, { hata: "Mükellef seçin." });
+  /* ---- mükellef işlemleri (GİB): mükellef hesabı yalnız kendi kasasında çalışır ---- */
+  const g = await oku(req), mid = o.rol === "mukellef" ? o.mid : String(g.mukellefId || "");
+  if (!mid || !depo.yetkili(o, mid)) return cevap(res, 400, { hata: "Mükellef seçin." });
+  const m = depo.mukellef(o, mid).veri;
   if (!m.kullanici || (!m.gibSifre && !gib.MOCK)) return cevap(res, 400, { hata: "Bu mükellef için GİB kullanıcı kodu/şifresi girilmemiş (Ayarlar)." });
   if (yol === "/api/taslak") {
     const x = modelTemiz(g, true), uuid = crypto.randomUUID();
@@ -244,18 +296,19 @@ async function api(req, res, yol) {
     const kayit = {
       id: r.uuid, zaman: new Date().toISOString(), mukellefId: m.id, mukellef: { ad: m.ad, vkn: m.vkn }, belgeNo: (r.satir && r.satir.belgeNumarasi) || "",
       aliciUnvan: x.alici.unvan, aliciVkn: x.alici.vkn, aliciAdres: x.alici.adres, vergiDairesi: x.alici.vd, tarih: x.tarih, tip: x.tip, para: x.para, kur: x.kur,
-      kalemler: satirlar, hesap: x._h.toplam, not: x.not, durum: "Taslak", iade: x.iade,
+      kalemler: satirlar, hesap: x._h.toplam, not: x.not, durum: "Taslak", iade: x.iade, olusturan: o.kullanici,
       form: { alici: x.alici, tip: x.tip, para: x.para, kur: x.kur, dahil: x.kdvDahil, iade: x.iade, kalemler: x.kalemler, notEk: x.notEk, notIrsaliye: x.notIrsaliye } // "Tekrarla" için
     };
-    bekleyen.set(r.uuid, kayit);
+    bekleyen.set(r.uuid, kayit); gunluk(o, mid, "Taslak oluşturuldu", kayit.belgeNo + " · " + kayit.aliciUnvan);
     return cevap(res, 200, { uuid: r.uuid, mesaj: r.mesaj, hesap: x._h.toplam, kayit });
   }
   if (yol === "/api/sms") return cevap(res, 200, await istemci(m).smsGonder());
   if (yol === "/api/imzala") {
     if (!g.uuid || !/^[A-Za-z0-9]{4,12}$/.test(String(g.kod || "").trim())) return cevap(res, 400, { hata: "SMS kodunu yazın." });
     const r = await istemci(m).imzala(g.uuid, String(g.kod).trim(), g.oid, g.tarih);
-    const kayit = bekleyen.get(g.uuid);
-    if (kayit) { kayit.durum = "Onaylandı"; kayit.onayZamani = new Date().toISOString(); veri.gecmis.push(kayit); if (veri.gecmis.length > 2000) veri.gecmis.shift(); bekleyen.delete(g.uuid); yaz(); }
+    const kayit = bekleyen.get(g.uuid) && bekleyen.get(g.uuid).mukellefId === m.id ? bekleyen.get(g.uuid) : null;
+    if (kayit) { kayit.durum = "Onaylandı"; kayit.onayZamani = new Date().toISOString(); m.gecmis.push(kayit); if (m.gecmis.length > 2000) m.gecmis.shift(); bekleyen.delete(g.uuid); depo.kaydet(mid); }
+    gunluk(o, mid, "Fatura onaylandı", (kayit && kayit.belgeNo) || g.uuid);
     return cevap(res, 200, { mesaj: r.mesaj, kayit: kayit || null });
   }
   if (yol === "/api/sil" || yol === "/api/iptal") {
@@ -264,8 +317,9 @@ async function api(req, res, yol) {
     if (!neden) return cevap(res, 400, { hata: (sil ? "Silme" : "İptal") + " nedenini yazın." });
     const r = await (sil ? istemci(m).sil(g.uuid, neden, g.tarih) : istemci(m).iptal(g.uuid, neden, g.tarih));
     bekleyen.delete(g.uuid);
-    const k = veri.gecmis.filter((x) => x.id === g.uuid)[0];
-    if (k && !sil) { k.durum = "İptal talebi"; k.iptalNedeni = neden; k.iptalZamani = new Date().toISOString(); yaz(); }
+    const k = (m.gecmis || []).filter((x) => x.id === g.uuid)[0];
+    if (k && !sil) { k.durum = "İptal talebi"; k.iptalNedeni = neden; k.iptalZamani = new Date().toISOString(); depo.kaydet(mid); }
+    gunluk(o, mid, sil ? "Taslak silindi" : "İptal talebi gönderildi", (k && k.belgeNo) || g.uuid);
     return cevap(res, 200, { mesaj: r.mesaj, durum: r.durum });
   }
   if (yol === "/api/sorgu") {
@@ -275,7 +329,7 @@ async function api(req, res, yol) {
   if (yol === "/api/liste") {
     const t = (d) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); if (!q) throw new Error("Tarih seçin."); return `${q[3]}/${q[2]}/${q[1]}`; };
     const liste = await istemci(m).listeAralik(t(g.bas), t(g.bit));
-    for (const b of liste) { const k = bekleyen.get(b.ettn) || veri.gecmis.filter((x) => x.id === b.ettn)[0]; if (k && k.hesap) b.tutar = k.hesap.odenecek; } // tutar GİB listesinde yok; bu programdan açılanlar için bilinir
+    for (const b of liste) { const k = bekleyen.get(b.ettn) || (m.gecmis || []).filter((x) => x.id === b.ettn)[0]; if (k && k.hesap && k.mukellefId === m.id) b.tutar = k.hesap.odenecek; } // tutar GİB listesinde yok; bu programdan açılanlar için bilinir
     return cevap(res, 200, { belgeler: liste });
   }
   if (yol === "/api/gorunum") {
@@ -288,7 +342,7 @@ async function api(req, res, yol) {
 const SAYFA = path.join(__dirname, "public", "index.html");
 http.createServer((req, res) => {
   const yol = req.url.split("?")[0];
-  if (yol.startsWith("/api/")) return api(req, res, yol).catch((e) => { console.error(e.message); cevap(res, 500, { hata: hataBilgi(e) }); });
+  if (yol.startsWith("/api/")) return api(req, res, yol).catch((e) => { console.error(e.message); cevap(res, HATA403.test(e.message) ? 403 : 500, { hata: hataBilgi(e) }); });
   const STATIK = { "/manifest.webmanifest": "application/manifest+json", "/sw.js": "text/javascript; charset=utf-8", "/ikon.svg": "image/svg+xml", "/ikon-180.png": "image/png", "/ikon-192.png": "image/png", "/ikon-512.png": "image/png" };
   /* iPhone/iPad: COOP başlığı gönderilmez (ana ekran uygulamasında güvenlik başlığı sorunlarından kaçınmak için). */
   const ios = /iPhone|iPad|iPod/.test(req.headers["user-agent"] || "");

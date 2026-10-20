@@ -227,7 +227,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <form class="card" id="girisForm">
     <p class="not" id="girisYazi"></p>
     <p class="not" id="girisSurum" style="font-size:.75rem"></p>
-    <input type="password" id="s1" placeholder="Uygulama şifresi" aria-label="Uygulama şifresi" autocomplete="new-password">
+    <input id="k1" placeholder="Kullanıcı adı" aria-label="Kullanıcı adı" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <input type="password" id="s1" placeholder="Şifre" aria-label="Şifre" autocomplete="new-password">
     <input type="password" id="s2" placeholder="Şifre (tekrar)" aria-label="Şifre tekrar" autocomplete="new-password" hidden>
     <button class="btn" type="submit" id="girisBtn">Aç</button>
     <div class="durum" id="girisDurum" role="status"></div>
@@ -241,7 +242,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
 <div id="uyg" hidden>
   <header class="bar"><div class="bar-ic">
-    <div class="marka"><div class="logo" id="logoKutu"><img alt="" src="/ikon.svg"></div><div><h1>e-Arşiv Fatura</h1><small id="surum"></small></div></div>
+    <div class="marka"><div class="logo" id="logoKutu"><img alt="" src="/ikon.svg"></div><div><h1>e-Arşiv Fatura</h1><small id="surum"></small><small id="kimlik" style="display:block;font-weight:600;color:var(--fg)"></small></div></div>
     <nav class="sekmeler" id="sekmeler" aria-label="Bölümler">
       <button type="button" data-sekme="yeni" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>Yeni fatura</button>
       <button type="button" data-sekme="taslak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Taslaklar<span class="rozet" id="tRozet" hidden></span></button>
@@ -257,7 +258,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
   <section data-sayfa="yeni" class="izgara">
   <div class="sol">
-  <div class="card" style="gap:8px"><label style="margin:0">Mükellef (faturayı kesen)</label><div class="chips" id="mChips"></div><p class="not" id="mYok" hidden>Önce Ayarlar bölümünden mükellef ekleyin.</p></div>
+  <div class="card" id="mKart" style="gap:8px"><label style="margin:0">Mükellef (faturayı kesen)</label><div class="chips" id="mChips"></div><p class="not" id="mYok" hidden>Önce Ayarlar bölümünden mükellef ekleyin.</p></div>
 
   <details class="card bolum" id="mesajKart"><summary><span class="no">✨</span><span class="bas">Müşterinin mesajından doldur</span></summary><div class="icerik">
     <textarea id="mesaj" placeholder="Müşterinin mesajı: Ahmet Yılmaz'a 5.000 TL servis taşımacılık, kdv hariç" aria-label="Müşterinin mesajı"></textarea>
@@ -374,10 +375,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
   <section data-sayfa="ayar" class="liste" hidden>
   <div class="card" id="ayar">
-    <div class="kartbas"><h2>Ayarlar</h2><a href="/api/yedek" download class="k" style="text-decoration:none">Yedeği indir</a></div>
-    <p class="not" id="yedekDurum"></p>
-    <p class="not">Ücretsiz sunucu güncelleme ya da uyku sonrası kayıtları sıfırlayabilir; bu cihazdaki şifreli yedekten şifrenizle geri yüklenir. Birden çok cihaz kullanıyorsanız en son kullandığınız cihazdaki yedek geçerli olur. Kalıcı çözüm: ücretli sunucu + disk.</p>
-    <p class="not">Yedek dosyası uygulama şifrenizle şifrelidir; başka cihaza taşımak için de kullanılır.</p>
+    <div class="kartbas"><h2>Ayarlar</h2></div>
     <div id="ayarIc" style="display:flex;flex-direction:column;gap:10px"></div>
   </div>
   <div class="card" id="yuklePanel" hidden>
@@ -434,8 +432,9 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   };
   var yedekZaman = null, yedekTimer = null;
   function yedekle(){
+    if (ROL !== "ofis") return Promise.resolve();
     return fetch("/api/kasa").then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
-      if (!j || !j.kasa) return; return YDB.yaz(j).then(function(ok){ if (ok) { yedekZaman = j.zaman; yedekYazi(); } });
+      if (!j || !j.paket) return; return YDB.yaz(j).then(function(ok){ if (ok) { yedekZaman = j.zaman; yedekYazi(); } });
     }).catch(function(){});
   }
   function yedekSoon(){ clearTimeout(yedekTimer); yedekTimer = setTimeout(yedekle, 1500); }
@@ -449,53 +448,66 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
   /* ---------- giriş ---------- */
   var kurulu = false, sifreMin = 8;
+  var kurulu = false, eskiKayit = false, sifreMin = 8, mSifreMin = 8, ROL = "", KULLANICI = "", yedek = null;
   function acilis(){
     api("/api/durum").then(function(d){
-      kurulu = d.kurulu; $("sahte").hidden = !d.sahte; $("surum").textContent = d.surum ? "sürüm " + d.surum : ""; $("girisSurum").textContent = d.surum ? "Sürüm " + d.surum + (ANA_EKRAN ? " · ana ekran kipi" : "") : ""; sifreMin = d.sifreMin || 8;
-      if (d.giris) return basla();
-      $("uyg").hidden = true; $("giris").hidden = false;
-      $("girisYazi").textContent = kurulu ? "Devam etmek için şifrenizi girin." : "İlk kurulum: bir uygulama şifresi belirleyin (en az " + sifreMin + " karakter). GİB şifreleri bununla şifrelenerek saklanır.";
-      $("s2").hidden = kurulu; $("girisBtn").textContent = kurulu ? "Aç" : "Şifreyi belirle";
-      $("yedekSecenek").hidden = kurulu; $("yeniKurulum").hidden = true; yedek = null;
-      if (!kurulu) YDB.al().then(function(y){ if (y && y.kasa) yedekKipi(y); });
+      kurulu = d.kurulu; eskiKayit = !!d.eski; $("sahte").hidden = !d.sahte; $("surum").textContent = d.surum ? "sürüm " + d.surum : ""; $("girisSurum").textContent = d.surum ? "Sürüm " + d.surum + (ANA_EKRAN ? " · ana ekran kipi" : "") : ""; sifreMin = d.sifreMin || 8; mSifreMin = d.mSifreMin || 8;
+      if (d.giris) { ROL = d.rol; KULLANICI = d.kullanici; return basla(); }
+      ROL = ""; KULLANICI = ""; $("uyg").hidden = true; $("giris").hidden = false; yedek = null; girisKipi();
+      if (!kurulu) YDB.al().then(function(y){ if (y && (y.paket || y.kasa)) yedekKipi(y); });
     });
   }
-  var yedek = null;
+  /* Giriş ekranı sunucu durumuna göre: giriş / ilk kurulum (ofis hesabı) / eski tek kullanıcılı kayıttan taşıma */
+  function girisKipi(){
+    $("yedekSecenek").hidden = kurulu; $("yeniKurulum").hidden = true; $("k1").hidden = false;
+    if (kurulu) { $("girisYazi").textContent = "Devam etmek için kullanıcı adı ve şifrenizi girin."; $("s2").hidden = true; $("girisBtn").textContent = "Giriş yap"; }
+    else if (eskiKayit) { $("girisYazi").textContent = "Eski tek kullanıcılı kayıt bulundu. Ofis hesabınız için yeni bir kullanıcı adı belirleyin ve eski uygulama şifrenizi yazın; kayıtlarınız mükellef başına ayrılarak yeni yapıya taşınır (eski dosya yedek olarak saklanır)."; $("s2").hidden = true; $("girisBtn").textContent = "Taşı ve gir"; }
+    else { $("girisYazi").textContent = "İlk kurulum — ofis hesabı: bir kullanıcı adı ve şifre belirleyin (şifre en az " + sifreMin + " karakter). Mükellef hesaplarını sonra Ayarlar’dan açarsınız."; $("s2").hidden = false; $("girisBtn").textContent = "Kur"; }
+  }
   function yedekKipi(y){
     yedek = y; $("s2").hidden = true; $("girisBtn").textContent = "Yedekten aç"; $("yeniKurulum").hidden = false;
-    $("girisYazi").textContent = "Sunucuda kayıt bulunamadı (ücretsiz sunucu sıfırlanmış olabilir), ama " + (y.zaman && y.zaman !== "dosya" ? new Date(y.zaman).toLocaleString("tr-TR") + " tarihli " : "") + "şifreli yedek var. Uygulama şifrenizi yazıp “Yedekten aç”a basın.";
+    $("girisYazi").textContent = "Sunucuda kayıt bulunamadı (sunucu sıfırlanmış olabilir), ama " + (y.zaman && y.zaman !== "dosya" ? new Date(y.zaman).toLocaleString("tr-TR") + " tarihli " : "") + "şifreli yedek var. " +
+      (y.paket ? "Ofis kullanıcı adınızı ve şifrenizi yazıp “Yedekten aç”a basın." : "Bu eski tek kullanıcılı bir yedek: ofis hesabınız için yeni bir kullanıcı adı belirleyin, eski uygulama şifrenizi yazıp “Yedekten aç”a basın.");
   }
   $("yeniKurulum").addEventListener("click", function(){
     if (!confirm("Yedek kullanılmayacak. Yeni kurulum yapılırsa eski mükellef ve şifre kayıtları bu cihazdan silinir. Devam edilsin mi?")) return;
-    YDB.sil().then(function(){ yedek = null; $("yeniKurulum").hidden = true; $("s2").hidden = false; $("girisBtn").textContent = "Şifreyi belirle"; $("girisYazi").textContent = "İlk kurulum: bir uygulama şifresi belirleyin (en az " + sifreMin + " karakter). GİB şifreleri bununla şifrelenerek saklanır."; });
+    YDB.sil().then(function(){ yedek = null; $("yeniKurulum").hidden = true; girisKipi(); });
   });
   $("yedekDosya").addEventListener("change", function(){
     var f = this.files[0], d = $("girisDurum"); if (!f) return;
-    var o = new FileReader(); o.onload = function(){ try { var k = JSON.parse(o.result); if (!k || !k.veri) throw 0; yedekKipi({ kasa: k, zaman: "dosya" }); d.textContent = ""; } catch (e) { d.className = "durum hata"; d.textContent = "Bu dosya geçerli bir yedek değil."; } }; o.readAsText(f);
+    var o = new FileReader(); o.onload = function(){ try { var k = JSON.parse(o.result); if (k && k.sistem && k.kasalar) yedekKipi({ paket: k, zaman: "dosya" }); else if (k && k.veri) yedekKipi({ kasa: k, zaman: "dosya" }); else throw 0; d.textContent = ""; } catch (e) { d.className = "durum hata"; d.textContent = "Bu dosya geçerli bir yedek değil."; } }; o.readAsText(f);
   });
   sifreleriHazirla($("girisForm"));
   $("girisForm").addEventListener("submit", function(e){
     e.preventDefault(); var d = $("girisDurum"); d.className = "durum"; d.textContent = "";
-    var s = $("s1").value;
-    if (!kurulu && !yedek && s !== $("s2").value) { d.className = "durum hata"; d.textContent = "Şifreler aynı değil."; return; }
-    api(kurulu ? "/api/giris" : yedek ? "/api/geriyukle" : "/api/kurulum", "POST", yedek && !kurulu ? { sifre: s, kasa: yedek.kasa } : { sifre: s }).then(function(){ $("s1").value = ""; $("s2").value = ""; basla(); }, function(er){ d.className = "durum hata"; d.textContent = er.message; });
+    var s = $("s1").value, ad = $("k1").value.trim();
+    if (!ad) { d.className = "durum hata"; d.textContent = "Kullanıcı adını yazın."; return; }
+    if (!kurulu && !yedek && !eskiKayit && s !== $("s2").value) { d.className = "durum hata"; d.textContent = "Şifreler aynı değil."; return; }
+    var govde = { kullanici: ad, sifre: s }; if (!kurulu && yedek) { if (yedek.paket) govde.paket = yedek.paket; else govde.kasa = yedek.kasa; }
+    api(kurulu || eskiKayit ? "/api/giris" : yedek ? "/api/geriyukle" : "/api/kurulum", "POST", govde).then(function(){ $("s1").value = ""; $("s2").value = ""; $("k1").value = ""; acilis(); }, function(er){ d.className = "durum hata"; d.textContent = er.message; });
   });
-  $("cikis").addEventListener("click", function(){ api("/api/cikis", "POST", {}).then(function(){ V = null; acilis(); }); });
+  $("cikis").addEventListener("click", function(){ api("/api/cikis", "POST", {}).then(function(){ V = null; ROL = ""; markaUygula(); acilis(); }); });
   function oturumDustu(er){ if (er.kod === 401) { acilis(); return true; } return false; }
 
   function basla(){
-    yedekle();
     api("/api/veri").then(function(v){
-      V = v; $("giris").hidden = true; $("uyg").hidden = false;
-      mSec = V.mukellefler.length ? V.mukellefler[0].id : null; F.alici = ""; F.kalemler = [ilkKalem()]; F.tip = F.kalemler[0].tev !== "0" ? "TEVKIFAT" : "SATIS";
-      hepsi(); gecmisYukle();
+      V = v; ROL = v.rol; KULLANICI = v.kullanici; $("giris").hidden = true; $("uyg").hidden = false; yedekle();
+      mSec = V.mukellefler.length ? V.mukellefler[0].id : null; F.alici = ""; F.kalemler = [ilkKalem()]; F.tip = "SATIS";
+      $("mKart").hidden = ROL === "mukellef"; $("kimlik").textContent = ROL === "ofis" ? "Ofis · " + KULLANICI : (V.mukellefler[0] ? V.mukellefler[0].ad : KULLANICI);
+      if (ROL === "mukellef") V.mukellefler.forEach(function(m){ ayarAcik["m:" + m.id] = true; });
+      hepsi(); gecmisYukle(); markaYukle(mSec);
       if (!$("gBit").value) { var d0 = new Date(); $("gBit").value = bugunStr(); d0.setDate(d0.getDate() - 30); $("gBas").value = d0.getFullYear() + "-" + String(d0.getMonth() + 1).padStart(2, "0") + "-" + String(d0.getDate()).padStart(2, "0"); }
     });
   }
-  function kaydetV(){ return api("/api/veri", "PUT", V).then(function(v){ V = v; }); }
+  function kaydetV(){
+    var govde = { mukellefler: V.mukellefler.map(function(m){ var c = {}; for (var a in m) if (a !== "markaVar") c[a] = m[a]; if (MARKADEGISTI[m.id] && MARKA[m.id]) c.marka = MARKA[m.id]; return c; }) };
+    return api("/api/veri", "PUT", govde).then(function(v){ V = v; MARKADEGISTI = {}; });
+  }
 
   /* ---------- çizim ---------- */
-  var mk = function(){ return V.mukellefler.filter(function(x){ return x.id === mSec; })[0] || null; };
+  var mk = function(){ return (V && V.mukellefler.filter(function(x){ return x.id === mSec; })[0]) || null; };
+  /* Hizmet listesi ve marka (logo/imza) seçili mükellefe aittir */
+  function HZ(){ var m = mk(); return (m && m.hizmetler) || []; }
   function bugunStr(){ var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
   var BIRIMLER = [["C62","Adet"],["KGM","Kg"],["TNE","Ton"],["LTR","Litre"],["MTR","Metre"],["MTK","m²"],["MTQ","m³"],["DAY","Gün"],["MON","Ay"],["HUR","Saat"],["PA","Paket"],["BX","Kutu"]];
   var PARASEM = { TRY: "₺", USD: "$", EUR: "€", GBP: "£" };
@@ -519,7 +531,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function kalemHtml(k, i){
     var tev = F.tip === "TEVKIFAT";
-    var pre = '<option value="">— Elle yaz —</option>' + V.hizmetler.map(function(h){ return '<option value="' + h.id + '"' + (h.id === k.preset ? " selected" : "") + '>' + esc(h.etiket || h.ad) + '</option>'; }).join("");
+    var pre = '<option value="">— Elle yaz —</option>' + HZ().map(function(h){ return '<option value="' + h.id + '"' + (h.id === k.preset ? " selected" : "") + '>' + esc(h.etiket || h.ad) + '</option>'; }).join("");
     var bir = BIRIMLER.map(function(b){ return '<option value="' + b[0] + '"' + (b[0] === k.birim ? " selected" : "") + '>' + esc(b[1]) + '</option>'; }).join("");
     var tevSec = ""; for (var j = 0; j <= 9; j++) tevSec += '<option value="' + j + '"' + (String(j) === String(k.tev) ? " selected" : "") + '>' + (j ? j + "/10" : "Yok") + '</option>';
     return '<div class="kalem" data-k="' + i + '"><div class="baslik"><span>Satır ' + (i + 1) + '</span>' + (F.kalemler.length > 1 ? '<button class="k" type="button" data-ksil="' + i + '">Sil</button>' : "") + '</div>' +
@@ -656,7 +668,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var k0 = F.kalemler[0];
     if (sec) k0.fiyat = sec.n.toLocaleString("tr-TR", { useGrouping: false, maximumFractionDigits: 2 });
     if (/dahil/.test(kt)) F.dahil = true; else if (/hariç|haric|\+\s*kdv|kdv\s*ayrı/.test(kt)) F.dahil = false;
-    V.hizmetler.forEach(function(x){ (x.anah || "").split(",").forEach(function(w){ w = trk(w).trim(); if (w && kt.indexOf(w) > -1) hazirUygula(k0, x); }); });
+    HZ().forEach(function(x){ (x.anah || "").split(",").forEach(function(w){ w = trk(w).trim(); if (w && kt.indexOf(w) > -1) hazirUygula(k0, x); }); });
     if (/tevkifats[ıi]z/.test(kt)) F.tip = "SATIS";
     var bul = null;
     if (m) m.aliciler.forEach(function(a){
@@ -816,7 +828,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("gorunumKapat").addEventListener("click", function(){ gorunumKapat(false); });
 
   /* ---------- olaylar ---------- */
-  $("mChips").addEventListener("click", function(e){ var t = e.target.closest("button"); if (!t) return; mSec = t.getAttribute("data-m"); F.alici = ""; cizM(); cizAlici(); onizle(); });
+  $("mChips").addEventListener("click", function(e){ var t = e.target.closest("button"); if (!t) return; mSec = t.getAttribute("data-m"); F.alici = ""; cizM(); cizAlici(); cizKalemler(); markaUygula(); markaYukle(mSec); onizle(); });
   document.querySelectorAll("[data-dahil]").forEach(function(b){ b.addEventListener("click", function(){ F.dahil = b.getAttribute("data-dahil") === "1"; formDoldur(); onizle(); }); });
   $("alici").addEventListener("change", function(){
     F.alici = this.value;
@@ -828,7 +840,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     F.tip = this.value; formDoldur();
     if (F.tip === "ISTISNA") F.kalemler.forEach(function(k){ k.kdv = "0"; k.istisna = k.istisna || "301"; });
     else F.kalemler.forEach(function(k){ if (k.kdv === "0" && k.istisna) { k.kdv = "20"; k.istisna = ""; } });
-    if (F.tip === "TEVKIFAT") F.kalemler.forEach(function(k){ var h = V.hizmetler.filter(function(x){ return x.id === k.preset; })[0]; if (h && (!k.tev || k.tev === "0")) { k.tev = String(h.tev); k.kod = k.kod || h.kod || ""; } });
+    if (F.tip === "TEVKIFAT") F.kalemler.forEach(function(k){ var h = HZ().filter(function(x){ return x.id === k.preset; })[0]; if (h && (!k.tev || k.tev === "0")) { k.tev = String(h.tev); k.kod = k.kod || h.kod || ""; } });
     cizKalemler(); onizle();
   });
   $("para").addEventListener("change", function(){ F.para = this.value; formDoldur(); cizKalemler(); onizle(); });
@@ -846,7 +858,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("kalemler").addEventListener("change", function(e){
     var f = e.target.getAttribute("data-kf"), d = e.target.closest("[data-k]"); if (!f || !d) return;
     var k = F.kalemler[+d.getAttribute("data-k")];
-    if (f === "preset") { var h = V.hizmetler.filter(function(x){ return x.id === e.target.value; })[0]; if (h) { hazirUygula(k, h); formDoldur(); } else k.preset = ""; cizKalemler(); onizle(); }
+    if (f === "preset") { var h = HZ().filter(function(x){ return x.id === e.target.value; })[0]; if (h) { hazirUygula(k, h); formDoldur(); } else k.preset = ""; cizKalemler(); onizle(); }
     else if (f === "birim" || f === "tev" || f === "istisna") { k[f] = e.target.value; onizle(); }
     else if (f === "kodsec") {
       var v = e.target.value, h = TEVKODLAR.filter(function(x){ return x[0] === v; })[0];
@@ -1065,41 +1077,100 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   });
 
   /* ---------- ayarlar ---------- */
-  /* Ayarlar: gruplar ve kayıtlar açılır/kapanırdır; açık olanlar yeniden çizimde korunur */
+  /* Ofis hesabı tüm mükellefleri ve giriş hesaplarını yönetir; mükellef hesabı yalnız kendi bilgilerini, hizmetlerini, alıcılarını, logosunu düzenler.
+   * Gruplar ve kayıtlar açılır/kapanırdır; açık olanlar yeniden çizimde korunur. */
   var ayarAcik = {};
   var ac = function(k){ return ayarAcik[k] ? " open" : ""; };
-  function cizAyar(){
-    var h = markaHtml() + '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler (' + V.mukellefler.length + ')</summary><div class="icerik">';
-    V.mukellefler.forEach(function(m){
-      h += '<details class="kayit" data-mid="' + m.id + '" data-ak="m:' + m.id + '"' + ac("m:" + m.id) + '><summary><span data-ozet>' + esc(m.ad || "(adsız)") + '</span><small data-ozet2>' + esc(m.vkn) + '</small></summary><div class="icerik">' +
-        '<div><label>Mükellef unvanı</label><input data-f="ad" value="' + esc(m.ad) + '"></div>' +
-        '<div><label>VKN / TCKN</label><input data-f="vkn" inputmode="numeric" value="' + esc(m.vkn) + '"></div>' +
-        '<div><label>GİB e-Arşiv kullanıcı kodu</label><input data-f="kullanici" autocomplete="off" value="' + esc(m.kullanici) + '"></div>' +
-        '<div><label>GİB e-Arşiv şifresi ' + (m.sifreVar ? '(kayıtlı — değiştirmek için yazın)' : '(kayıtlı değil)') + '</label><input data-f="gibSifre" type="password" autocomplete="new-password" value=""></div>';
-      if (m.aliciler.length) {
-        h += '<details class="alt2" data-ak="a:' + m.id + '"' + ac("a:" + m.id) + '><summary>Kayıtlı alıcılar (' + m.aliciler.length + ')</summary><div class="icerik">';
-        m.aliciler.forEach(function(a){ h += '<div class="satir" data-aid="' + a.id + '"><span>' + esc(a.ad) + '<br><small>' + esc(a.vkn) + '</small></span><button class="btn tehlike" type="button" data-sil-a="' + a.id + '">Sil</button></div>'; });
-        h += '</div></details>';
-      }
-      h += '<button class="btn tehlike" type="button" data-sil-m="' + m.id + '">Mükellefi sil</button></div></details>';
-    });
-    h += '<button class="btn ikincil" type="button" id="mEkle">+ Mükellef ekle</button></div></details>';
-    h += '<details class="grup" data-ak="g:h"' + ac("g:h") + '><summary>Hizmetler (' + V.hizmetler.length + ')</summary><div class="icerik">';
-    V.hizmetler.forEach(function(x){
-      h += '<details class="kayit" data-hid="' + x.id + '" data-ak="h:' + x.id + '"' + ac("h:" + x.id) + '><summary><span data-ozet>' + esc(x.ad || "(adsız)") + '</span><small data-ozet2>' + hizmetOzet(x) + '</small></summary><div class="icerik">' +
+  function mBul(id){ return V.mukellefler.filter(function(x){ return x.id === id; })[0]; }
+  function mDurum(id, msg, tip){ var el = document.querySelector('[data-mid="' + id + '"] [data-md]'); if (el) { el.className = "durum " + (tip || ""); el.textContent = msg; } }
+  function hesabimHtml(){
+    return '<details class="grup" data-ak="g:hs"' + ac("g:hs") + '><summary>Hesabım <small>' + esc(KULLANICI) + (ROL === "ofis" ? " · ofis" : "") + '</small></summary><div class="icerik">' +
+      '<div><label>Mevcut şifre</label><input id="sEski" type="password" autocomplete="off"></div>' +
+      '<div><label>Yeni şifre (en az ' + (ROL === "ofis" ? sifreMin : mSifreMin) + ' karakter)</label><input id="sYeni" type="password" autocomplete="new-password"></div>' +
+      '<div><label>Yeni şifre (tekrar)</label><input id="sYeni2" type="password" autocomplete="new-password"></div>' +
+      '<button class="btn ikincil" type="button" id="sDegistir">Şifremi değiştir</button><div class="durum" id="sDurum" role="status"></div></div></details>';
+  }
+  function mukellefEkleHtml(){
+    return '<details class="grup" data-ak="g:me"' + ac("g:me") + '><summary>+ Yeni mükellef ekle</summary><div class="icerik">' +
+      '<div><label>Mükellef unvanı</label><input id="meAd" autocomplete="off"></div>' +
+      '<div><label>VKN / TCKN</label><input id="meVkn" inputmode="numeric" autocomplete="off"></div>' +
+      '<div><label>GİB e-Arşiv kullanıcı kodu</label><input id="meGk" autocomplete="off"></div>' +
+      '<div><label>GİB e-Arşiv şifresi</label><input id="meGs" type="password" autocomplete="new-password"></div>' +
+      '<p class="not">İsterseniz mükellefe uygulamaya giriş hesabı da açın (kendi faturasını kendisi kessin). Boş bırakırsanız yalnız siz bu mükellef adına fatura kesersiniz; hesabı sonra da açabilirsiniz.</p>' +
+      '<div class="satir"><div><label>Giriş kullanıcı adı</label><input id="meHk" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div><label>Giriş şifresi (en az ' + mSifreMin + ')</label><input id="meHs" type="password" autocomplete="new-password"></div></div>' +
+      '<button class="btn" type="button" id="mEkle">Mükellefi ekle</button><div class="durum" id="meDurum" role="status"></div></div></details>';
+  }
+  function hizmetHtml(m){
+    var h = '<details class="alt2" data-ak="h:' + m.id + '"' + ac("h:" + m.id) + '><summary>Hizmetler (' + (m.hizmetler || []).length + ')</summary><div class="icerik">';
+    (m.hizmetler || []).forEach(function(x){
+      h += '<details class="kayit" data-hid="' + esc(x.id) + '" data-ak="hh:' + m.id + ':' + esc(x.id) + '"' + ac("hh:" + m.id + ":" + x.id) + '><summary><span data-ozet>' + esc(x.ad || "(adsız)") + '</span><small data-ozet2>' + hizmetOzet(x) + '</small></summary><div class="icerik">' +
         '<div><label>Listede görünen ad</label><input data-f="etiket" value="' + esc(x.etiket || x.ad) + '"></div>' +
         '<div><label>Faturaya yazılacak hizmet adı</label><input data-f="ad" value="' + esc(x.ad) + '"></div>' +
         '<div class="satir"><div><label>KDV %</label><input data-f="kdv" inputmode="decimal" value="' + esc(x.kdv) + '"></div><div><label>Tevkifat x/10</label><input data-f="tev" inputmode="numeric" value="' + esc(x.tev) + '"></div></div>' +
-        '<div><label>Tevkifat kodu</label><input data-f="kod" inputmode="numeric" value="' + esc(x.kod) + '"></div><div><label>İstisna sebep kodu (istisna ise, örn. 302)</label><input data-f="istisna" inputmode="numeric" value="' + esc(x.istisna || "") + '"></div><div><label>Mesajda aranacak kelimeler</label><input data-f="anah" value="' + esc(x.anah) + '"></div>' +
-        '<button class="btn tehlike" type="button" data-sil-h="' + x.id + '">Hizmeti sil</button></div></details>';
+        '<div><label>Tevkifat kodu</label><input data-f="kod" inputmode="numeric" value="' + esc(x.kod) + '"></div>' +
+        '<div><label>İstisna sebep kodu (istisna ise, örn. 302)</label><input data-f="istisna" inputmode="numeric" value="' + esc(x.istisna || "") + '"></div>' +
+        '<div><label>Mesajda aranacak kelimeler</label><input data-f="anah" value="' + esc(x.anah || "") + '"></div>' +
+        '<button class="btn tehlike" type="button" data-sil-h="' + esc(x.id) + '">Hizmeti sil</button></div></details>';
     });
-    h += '<button class="btn ikincil" type="button" id="hEkle">+ Hizmet ekle</button></div></details>';
-    h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
-    $("ayarIc").innerHTML = h; sifreleriHazirla($("ayarIc"));
+    return h + '<button class="btn ikincil" type="button" data-hekle="' + m.id + '">+ Hizmet ekle</button></div></details>';
   }
-  /* ---------- marka: logo, imza ---------- */
+  function markaHtml(m){
+    var mr = MARKA[m.id] || {};
+    function kutu(ad, etiket, v){ return '<div><label>' + etiket + '</label><div class="resimkutu">' + (v ? '<img alt="" src="' + v + '">' : '<span class="not">Yok</span>') + '<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><label class="k" style="margin:0;cursor:pointer">Seç<input type="file" accept="image/png,image/jpeg,image/webp" data-resim="' + ad + '" hidden></label>' + (v ? '<button class="k" type="button" data-resim-sil="' + ad + '">Kaldır</button>' : "") + '</span></div></div>'; }
+    return '<details class="alt2" data-ak="k:' + m.id + '"' + ac("k:" + m.id) + '><summary>Logo ve imza</summary><div class="icerik">' +
+      '<p class="not">Logo uygulamanın üst köşesinde ve faturada, imza görseli faturanın altında görünür. Alttaki “Adem Yılmaz · SMMM · smmmyilmaz.com” satırı sabittir. GİB’deki resmî belgeye dokunulmaz; yalnız ekranda görünen ve yazdırılan kopya değişir.</p>' +
+      kutu("logo", "Logo (kare ya da yatay, PNG/JPG)", mr.logo || "") + kutu("imza", "İmza görseli (isteğe bağlı, şeffaf PNG önerilir)", mr.imza || "") + '</div></details>';
+  }
+  function hesapHtml(m){
+    return '<details class="alt2" data-ak="c:' + m.id + '"' + ac("c:" + m.id) + '><summary>Giriş hesabı <small>' + (m.hesapKullanici ? esc(m.hesapKullanici) + (m.sonGiris ? " · son giriş " + new Date(m.sonGiris).toLocaleString("tr-TR") : " · henüz girmedi") : "yok") + '</small></summary><div class="icerik">' +
+      '<p class="not">Mükellef bu kullanıcı adı ve şifreyle girer; yalnız kendi mükellefinin faturalarını görür ve keser. Şifresini unutursa buradan yeni şifre belirlersiniz.</p>' +
+      '<div><label>Kullanıcı adı</label><input data-hk autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(m.hesapKullanici || "") + '"></div>' +
+      '<div><label>Şifre ' + (m.hesapKullanici ? "(değiştirmek için yazın)" : "(en az " + mSifreMin + " karakter)") + '</label><input data-hs type="password" autocomplete="new-password"></div>' +
+      '<button class="btn ikincil" type="button" data-hesap-kaydet="' + m.id + '">' + (m.hesapKullanici ? "Hesabı güncelle" : "Hesap aç") + '</button>' +
+      (m.hesapKullanici ? '<button class="btn tehlike" type="button" data-hesap-kaldir="' + m.id + '">Giriş hesabını kaldır</button>' : "") + '</div></details>';
+  }
+  function etkinlikHtml(m){
+    return '<details class="alt2" data-ak="e:' + m.id + '"' + ac("e:" + m.id) + '><summary>Son işlemler</summary><div class="icerik"><button class="k" type="button" data-etkinlik="' + m.id + '">Göster</button><div data-et></div></div></details>';
+  }
+  function mukellefAyarHtml(m){
+    var ofis = ROL === "ofis";
+    return '<details class="kayit" data-mid="' + m.id + '" data-ak="m:' + m.id + '"' + ac("m:" + m.id) + '><summary><span data-ozet>' + esc(m.ad || "(adsız)") + '</span><small data-ozet2>' + esc(m.vkn) + '</small></summary><div class="icerik">' +
+      '<div><label>Mükellef unvanı</label><input data-f="ad" value="' + esc(m.ad) + '"></div>' +
+      '<div><label>VKN / TCKN</label><input data-f="vkn" inputmode="numeric" value="' + esc(m.vkn) + '"></div>' +
+      '<div><label>GİB e-Arşiv kullanıcı kodu</label><input data-f="kullanici" autocomplete="off" value="' + esc(m.kullanici) + '"></div>' +
+      '<div><label>GİB e-Arşiv şifresi ' + (m.sifreVar ? '(kayıtlı — değiştirmek için yazın)' : '(kayıtlı değil)') + '</label><input data-f="gibSifre" type="password" autocomplete="new-password" value=""></div>' +
+      (ofis ? hesapHtml(m) : "") + hizmetHtml(m) + aliciHtml(m) + markaHtml(m) + (ofis ? etkinlikHtml(m) : "") +
+      '<div class="durum" data-md role="status"></div>' +
+      (ofis ? '<button class="btn tehlike" type="button" data-sil-m="' + m.id + '">Mükellefi sil</button>' : "") + '</div></details>';
+  }
+  function aliciHtml(m){
+    if (!(m.aliciler || []).length) return "";
+    var h = '<details class="alt2" data-ak="a:' + m.id + '"' + ac("a:" + m.id) + '><summary>Kayıtlı alıcılar (' + m.aliciler.length + ')</summary><div class="icerik">';
+    m.aliciler.forEach(function(a){ h += '<div class="satir" data-aid="' + esc(a.id) + '"><span>' + esc(a.ad) + '<br><small>' + esc(a.vkn) + '</small></span><button class="btn tehlike" type="button" data-sil-a="' + esc(a.id) + '">Sil</button></div>'; });
+    return h + '</div></details>';
+  }
+  function yedekHtml(){
+    return '<details class="grup" data-ak="g:yd"' + ac("g:yd") + '><summary>Yedek</summary><div class="icerik">' +
+      '<a href="/api/yedek" download class="btn ikincil" style="text-decoration:none;text-align:center">Tam yedeği indir (tüm mükellefler)</a>' +
+      '<p class="not" id="yedekDurum"></p>' +
+      '<p class="not">Yedek dosyası şifrelidir (ofis şifrenizle açılır); yeni bir sunucuya taşımak için de kullanılır. Bu cihazda da otomatik şifreli bir kopya tutulur. Kalıcı disk (ücretli sunucu) varsa kayıtlar zaten silinmez; yine de ara sıra yedek indirin.</p></div></details>';
+  }
+  function cizAyar(){
+    var ofis = ROL === "ofis", h = hesabimHtml();
+    if (ofis) h += mukellefEkleHtml() + '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler (' + V.mukellefler.length + ')</summary><div class="icerik">' + V.mukellefler.map(mukellefAyarHtml).join("") + '</div></details>' + yedekHtml();
+    else h += V.mukellefler.map(mukellefAyarHtml).join("");
+    h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
+    $("ayarIc").innerHTML = h; sifreleriHazirla($("ayarIc")); yedekYazi();
+  }
+  /* ---------- marka: logo, imza (seçili mükellefe ait) ---------- */
   var MARKA0 = { ad: "Adem Yılmaz", unvan: "Serbest Muhasebeci Mali Müşavir", web: "smmmyilmaz.com", logo: "", imza: "" };
-  function marka(){ var m = V && V.marka || {}; return { ad: MARKA0.ad, unvan: MARKA0.unvan, web: MARKA0.web, logo: m.logo || "", imza: m.imza || "" }; }
+  /* Logo/imza büyük olduğundan listeyle gelmez; seçilen mükellef için /api/marka’dan alınıp bellekte tutulur. Yalnız değişenler kaydedilirken gönderilir. */
+  var MARKA = {}, MARKADEGISTI = {};
+  function markaYukle(id){
+    if (!id || MARKA[id]) return Promise.resolve(MARKA[id] || null);
+    return api("/api/marka?mid=" + encodeURIComponent(id)).then(function(r){ MARKA[id] = r; if (id === mSec) markaUygula(); return r; }, function(){ return null; });
+  }
+  function marka(){ var m = (mSec && MARKA[mSec]) || {}; return { ad: MARKA0.ad, unvan: MARKA0.unvan, web: MARKA0.web, logo: m.logo || "", imza: m.imza || "" }; }
   function markaUygula(){
     var m = marka(), svg = $("logoKutu").getAttribute("data-svg");
     if (svg === null) { svg = $("logoKutu").innerHTML; $("logoKutu").setAttribute("data-svg", svg); }
@@ -1107,7 +1178,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("altImza").innerHTML = (m.imza ? '<img alt="İmza" src="' + m.imza + '">' : "") + (m.ad ? "<b>" + esc(m.ad) + "</b>" : "") + (m.unvan ? " · " + esc(m.unvan) : "") +
       (m.web ? '<br><a href="https://' + esc(m.web) + '" target="_blank" rel="noopener">' + esc(m.web) + "</a>" : "");
   }
-  /* Seçilen resmi tarayıcıda küçültüp PNG/JPEG veri adresine çevirir (kasa dosyası şişmesin) */
+  /* Seçilen resmi tarayıcıda küçültüp PNG veri adresine çevirir (kasa dosyası şişmesin) */
   function resimKucult(dosya, enx, eny){
     return new Promise(function(ok, no){
       if (!/^image\/(png|jpeg|webp)$/.test(dosya.type)) return no(new Error("PNG, JPG ya da WebP seçin."));
@@ -1131,46 +1202,79 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       o.readAsDataURL(dosya);
     });
   }
-  function markaHtml(){
-    var m = V.marka || MARKA0;
-    function kutu(ad, etiket, v){ return '<div><label>' + etiket + '</label><div class="resimkutu">' + (v ? '<img alt="" src="' + v + '">' : '<span class="not">Yok</span>') + '<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><label class="k" style="margin:0;cursor:pointer">Seç<input type="file" accept="image/png,image/jpeg,image/webp" data-resim="' + ad + '" hidden></label>' + (v ? '<button class="k" type="button" data-resim-sil="' + ad + '">Kaldır</button>' : "") + '</span></div></div>'; }
-    return '<details class="grup" data-ak="g:k"' + ac("g:k") + '><summary>Logo ve imza</summary><div class="icerik">' +
-      '<p class="not">Logo uygulamanın üst köşesinde, imza görseli sayfa altında görünür. Alttaki “Adem Yılmaz · SMMM · smmmyilmaz.com” satırı sabittir, değiştirilemez. Fatura çıktısındaki GİB belgesine dokunulmaz; yalnız program kopyasında kullanılır.</p>' +
-      kutu("logo", "Logo (kare ya da yatay, PNG/JPG)", m.logo || "") + kutu("imza", "İmza görseli (isteğe bağlı, şeffaf PNG önerilir)", m.imza || "") +
-      '<div class="durum" id="markaDurum" role="status"></div></div></details>';
-  }
-  function markaVer(){ if (!V.marka) V.marka = { logo: "", imza: "" }; return V.marka; }
-  $("ayarIc").addEventListener("change", function(e){
-    var ad = e.target.getAttribute("data-resim"); if (!ad || !e.target.files[0]) return;
-    var d = $("markaDurum");
-    resimKucult(e.target.files[0], ad === "logo" ? 800 : 1000, ad === "logo" ? 800 : 400).then(function(u){ markaVer()[ad] = u; markaUygula(); cizAyar(); $("markaDurum").className = "durum ok"; $("markaDurum").textContent = "Eklendi. Kalıcı olması için “Ayarları kaydet”e basın."; },
-      function(er){ d.className = "durum hata"; d.textContent = er.message; });
-  });
-  $("ayarIc").addEventListener("click", function(e){ var ad = e.target.getAttribute("data-resim-sil"); if (!ad) return; markaVer()[ad] = ""; markaUygula(); cizAyar(); });
   function hizmetOzet(x){ return (x.istisna ? "İstisna " + esc(x.istisna) + " · " : "") + "KDV %" + esc(String(x.kdv).replace(".", ",")) + (x.tev > 0 ? " · tevkifat " + esc(x.tev) + "/10" + (x.kod ? " (" + esc(x.kod) + ")" : "") : " · tevkifatsız"); }
   /* aç/kapa durumunu hatırla (toggle olayı kabarcıklanmaz, yakalama aşamasında dinlenir) */
-  $("ayarIc").addEventListener("toggle", function(e){ var k = e.target.getAttribute && e.target.getAttribute("data-ak"); if (k) ayarAcik[k] = e.target.open; }, true);
+  $("ayarIc").addEventListener("toggle", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-ak"); if (!k) return; ayarAcik[k] = e.target.open;
+    if (e.target.open && k.indexOf("k:") === 0 && !MARKA[k.slice(2)]) markaYukle(k.slice(2)).then(function(){ if (ayarAcik[k]) cizAyar(); }); // yalnız ilk açılışta; yeniden çizim toggle’ı tekrar tetikler
+  }, true);
+  $("ayarIc").addEventListener("change", function(e){
+    var ad = e.target.getAttribute("data-resim"); if (!ad || !e.target.files[0]) return;
+    var mEl = e.target.closest("[data-mid]"), mm = mBul(mEl.getAttribute("data-mid")), id = mm.id;
+    resimKucult(e.target.files[0], ad === "logo" ? 800 : 1000, ad === "logo" ? 800 : 400).then(function(u){
+      MARKA[id] = MARKA[id] || { logo: "", imza: "" }; MARKA[id][ad] = u; MARKADEGISTI[id] = true; if (id === mSec) markaUygula(); cizAyar(); mDurum(id, "Eklendi. Kalıcı olması için “Ayarları kaydet”e basın.", "ok");
+    }, function(er){ mDurum(id, er.message, "hata"); });
+  });
   $("ayarIc").addEventListener("input", function(e){
     var f = e.target.getAttribute("data-f"); if (!f) return;
-    var mEl = e.target.closest("[data-mid]"), hEl = e.target.closest("[data-hid]"), v = e.target.value;
-    if (mEl) {
-      var mm = V.mukellefler.filter(function(x){ return x.id === mEl.getAttribute("data-mid"); })[0]; mm[f] = v;
-      var o1 = mEl.querySelector("summary [data-ozet]"), o2 = mEl.querySelector("summary [data-ozet2]");
-      if (f === "ad" && o1) o1.textContent = v || "(adsız)"; if (f === "vkn" && o2) o2.textContent = v;
-    } else if (hEl) {
-      var x = V.hizmetler.filter(function(q){ return q.id === hEl.getAttribute("data-hid"); })[0]; x[f] = f === "kdv" ? sayi(v) : f === "tev" ? Math.min(9, Math.max(0, parseInt(v, 10) || 0)) : v;
+    var mEl = e.target.closest("[data-mid]"); if (!mEl) return;
+    var mm = mBul(mEl.getAttribute("data-mid")), hEl = e.target.closest("[data-hid]"), v = e.target.value;
+    if (hEl) {
+      var x = (mm.hizmetler || []).filter(function(q){ return q.id === hEl.getAttribute("data-hid"); })[0]; x[f] = f === "kdv" ? sayi(v) : f === "tev" ? Math.min(9, Math.max(0, parseInt(v, 10) || 0)) : v;
       var h1 = hEl.querySelector("summary [data-ozet]"), h2 = hEl.querySelector("summary [data-ozet2]");
       if (f === "ad" && h1) h1.textContent = v || "(adsız)"; if (h2 && (f === "kdv" || f === "tev" || f === "kod")) h2.innerHTML = hizmetOzet(x);
+    } else {
+      mm[f] = v; var o1 = mEl.querySelector("summary [data-ozet]"), o2 = mEl.querySelector("summary [data-ozet2]");
+      if (f === "ad" && o1) { o1.textContent = v || "(adsız)"; cizM(); } if (f === "vkn" && o2) o2.textContent = v;
     }
   });
+  function ayarHata(el, er){ if (oturumDustu(er)) return; el.className = "durum hata"; el.textContent = er.message; }
   $("ayarIc").addEventListener("click", function(e){
-    var t = e.target, id, yenile = true;
-    if ((id = t.getAttribute("data-sil-m"))) { if (!confirm("Mükellef ve alıcıları silinsin mi?")) return; V.mukellefler = V.mukellefler.filter(function(x){ return x.id !== id; }); if (mSec === id) mSec = V.mukellefler[0] ? V.mukellefler[0].id : null; F.alici = ""; }
-    else if ((id = t.getAttribute("data-sil-a"))) { var m = V.mukellefler.filter(function(x){ return x.id === t.closest("[data-mid]").getAttribute("data-mid"); })[0]; m.aliciler = m.aliciler.filter(function(x){ return x.id !== id; }); if (F.alici === id) F.alici = ""; }
-    else if ((id = t.getAttribute("data-sil-h"))) { if (V.hizmetler.length < 2) return; V.hizmetler = V.hizmetler.filter(function(x){ return x.id !== id; }); }
-    else if (t.id === "mEkle") { var n = { id: uid(), ad: "Yeni mükellef", vkn: "", kullanici: "", sifreVar: false, aliciler: [] }; V.mukellefler.push(n); if (!mSec) mSec = n.id; ayarAcik["g:m"] = true; ayarAcik["m:" + n.id] = true; }
-    else if (t.id === "hEkle") { var nh = { id: uid(), ad: "Yeni hizmet", kdv: 20, tev: 0, kod: "", anah: "" }; V.hizmetler.push(nh); ayarAcik["g:h"] = true; ayarAcik["h:" + nh.id] = true; }
-    else if (t.id === "ayarKaydet") { yenile = false; kaydetV().then(function(){ hepsi(); var d = $("ayarDurum"); d.className = "durum ok"; d.textContent = "Kaydedildi."; }, function(er){ var d = $("ayarDurum"); d.className = "durum hata"; d.textContent = er.message; }); return; }
+    var t = e.target, id, mEl = t.closest("[data-mid]"), mm = mEl && mBul(mEl.getAttribute("data-mid")), yenile = true;
+    if ((id = t.getAttribute("data-sil-m"))) {
+      var ad = mm.ad || "";
+      var yaz = prompt("DİKKAT: " + ad + " mükellefinin tüm kayıtları (alıcılar, geçmiş, giriş hesabı) kalıcı olarak silinir.\n\nOnaylamak için mükellef unvanını aynen yazın:");
+      if (yaz === null) return; if (yaz.trim() !== ad.trim()) { mDurum(id, "Unvan eşleşmedi; silinmedi.", "hata"); return; }
+      api("/api/mukellef/sil", "POST", { mid: id }).then(function(r){ V = r.veri; if (mSec === id) mSec = V.mukellefler[0] ? V.mukellefler[0].id : null; F.alici = ""; hepsi(); gecmisYukle(); }, function(er){ ayarHata($("ayarDurum"), er); });
+      return;
+    }
+    if ((id = t.getAttribute("data-hesap-kaydet"))) {
+      var hk = mEl.querySelector("[data-hk]").value, hs = mEl.querySelector("[data-hs]").value;
+      api("/api/hesap", "POST", { mid: id, kullanici: hk, sifre: hs }).then(function(r){
+        mm.hesapKullanici = r.kullanici; cizAyar(); mDurum(id, "Giriş hesabı kaydedildi: " + r.kullanici + (hs ? ". Şifre belirlendi; kullanıcı adını ve şifreyi mükellefe iletin." : "."), "ok");
+      }, function(er){ ayarHata(mEl.querySelector("[data-md]"), er); });
+      return;
+    }
+    if ((id = t.getAttribute("data-hesap-kaldir"))) {
+      if (!confirm("Mükellefin giriş hesabı kaldırılsın mı? Artık uygulamaya giremez (verileri silinmez).")) return;
+      api("/api/hesap/kaldir", "POST", { mid: id }).then(function(){ mm.hesapKullanici = ""; mm.sonGiris = null; cizAyar(); mDurum(id, "Giriş hesabı kaldırıldı.", "ok"); }, function(er){ ayarHata(mEl.querySelector("[data-md]"), er); });
+      return;
+    }
+    if ((id = t.getAttribute("data-etkinlik"))) {
+      var kap = mEl.querySelector("[data-et]"); kap.textContent = "Yükleniyor…";
+      api("/api/etkinlik?mid=" + encodeURIComponent(id)).then(function(r){
+        kap.innerHTML = r.gunluk.length ? r.gunluk.map(function(x){ return '<div class="not"><b>' + esc(new Date(x.zaman).toLocaleString("tr-TR")) + '</b> · ' + esc(x.kim) + ' · ' + esc(x.eylem) + (x.belge ? ' · ' + esc(x.belge) : "") + '</div>'; }).join("") : '<div class="not">Henüz işlem yok.</div>';
+      }, function(er){ kap.textContent = er.message; });
+      return;
+    }
+    if (t.id === "mEkle") {
+      var g = { ad: $("meAd").value, vkn: $("meVkn").value, kullanici: $("meGk").value, gibSifre: $("meGs").value, hesapKullanici: $("meHk").value, hesapSifre: $("meHs").value }, d = $("meDurum");
+      if (!g.ad.trim()) { d.className = "durum hata"; d.textContent = "Mükellef unvanını yazın."; return; }
+      d.className = "durum"; d.textContent = "Ekleniyor…";
+      api("/api/mukellef/ekle", "POST", g).then(function(r){ V = r.veri; mSec = r.id; F.alici = ""; ayarAcik["g:me"] = false; ayarAcik["g:m"] = true; ayarAcik["m:" + r.id] = true; hepsi(); var dd = $("meDurum"); if (dd) { dd.className = "durum ok"; dd.textContent = "Eklendi."; } gecmisYukle(); }, function(er){ ayarHata(d, er); });
+      return;
+    }
+    if (t.id === "sDegistir") {
+      var d2 = $("sDurum"), eski = $("sEski").value, yeni = $("sYeni").value;
+      if (yeni !== $("sYeni2").value) { d2.className = "durum hata"; d2.textContent = "Yeni şifreler aynı değil."; return; }
+      api("/api/sifre", "POST", { eski: eski, yeni: yeni }).then(function(){ $("sEski").value = $("sYeni").value = $("sYeni2").value = ""; d2.className = "durum ok"; d2.textContent = "Şifreniz değiştirildi."; }, function(er){ ayarHata(d2, er); });
+      return;
+    }
+    if (t.id === "ayarKaydet") { kaydetV().then(function(){ hepsi(); var d = $("ayarDurum"); d.className = "durum ok"; d.textContent = "Kaydedildi."; }, function(er){ ayarHata($("ayarDurum"), er); }); return; }
+    if ((id = t.getAttribute("data-resim-sil"))) { MARKA[mm.id] = MARKA[mm.id] || { logo: "", imza: "" }; MARKA[mm.id][id] = ""; MARKADEGISTI[mm.id] = true; if (mm.id === mSec) markaUygula(); cizAyar(); return; }
+    if ((id = t.getAttribute("data-sil-a"))) { mm.aliciler = mm.aliciler.filter(function(x){ return x.id !== id; }); if (F.alici === id) F.alici = ""; }
+    else if ((id = t.getAttribute("data-sil-h"))) { if ((mm.hizmetler || []).length < 2) return; mm.hizmetler = mm.hizmetler.filter(function(x){ return x.id !== id; }); }
+    else if ((id = t.getAttribute("data-hekle"))) { var nh = { id: uid(), etiket: "", ad: "Yeni hizmet", kdv: 20, tev: 0, kod: "", anah: "" }; mm.hizmetler = (mm.hizmetler || []).concat([nh]); ayarAcik["h:" + mm.id] = true; ayarAcik["hh:" + mm.id + ":" + nh.id] = true; }
     else return;
     kaydetV().then(hepsi);
   });
