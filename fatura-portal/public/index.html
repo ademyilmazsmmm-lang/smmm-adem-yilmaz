@@ -177,6 +177,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 .altbar .btn{margin-left:auto;min-height:44px;background:var(--accent);color:var(--accent-fg)}
 
 /* fatura görünümü: tam ekran */
+#kabul{position:fixed;inset:0;z-index:80;background:var(--bg);display:flex;flex-direction:column}
+#kabul .kbas{padding:14px 16px;border-bottom:1px solid var(--line2);font-weight:700;font-size:1.05rem}
+#kabul .kmetin{flex:1;overflow:auto;padding:14px 16px;font-size:.92rem;line-height:1.55;-webkit-overflow-scrolling:touch}
+#kabul .kmetin h3{margin:16px 0 4px;font-size:1rem}#kabul .kmetin ul,#kabul .kmetin ol{margin:4px 0 4px 20px;padding:0}
+#kabul .kalt{padding:12px 16px calc(12px + var(--safe));border-top:1px solid var(--line2);display:flex;flex-direction:column;gap:10px;background:var(--surface)}
 #gorunum{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;gap:0}
 #gorunum .gbas{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--surface)}
 #gorunum .gbas h2{margin:0 auto}
@@ -398,6 +403,33 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
   <div class="altbar" id="altbar" hidden><div><small>Ödenecek</small><b id="abTutar">—</b></div><button class="btn" type="button" id="abDevam" disabled>Taslak oluştur</button></div>
 
+  <div id="kabul" hidden role="dialog" aria-modal="true" aria-label="Aydınlatma ve onay metni">
+    <div class="kbas">e-Arşiv Fatura — Bilgilendirme ve Onay</div>
+    <div class="kmetin">
+      <p>Uygulamayı kullanmadan önce lütfen aşağıdaki metni okuyun ve onaylayın.</p>
+      <h3>1. Veri sorumlusu ve hizmet</h3>
+      <p><b>Adem Yılmaz — Serbest Muhasebeci Mali Müşavir</b> (“Ofis”, smmmyilmaz.com), sizin adınıza Gelir İdaresi Başkanlığı (GİB) e-Arşiv Portalı üzerinden e-Arşiv fatura taslağı hazırlar, siz onaylayınca faturayı düzenler, görüntüler, iptal talebi açar ve geçmiş kayıtlarını tutar. Bu işlemleri bu uygulama üzerinden siz de kendi kullanıcı adı ve şifrenizle yapabilirsiniz.</p>
+      <h3>2. İşlenen veriler</h3>
+      <ul><li>Kimlik ve iletişim: unvan / ad soyad, VKN / TCKN, vergi dairesi, adres, telefon, e-posta</li><li>GİB e-Arşiv Portalı kullanıcı kodu ve şifresi</li><li>Fatura verileri: alıcıların unvan / ad soyad, VKN / TCKN, adres bilgileri; hizmet, tutar ve vergi bilgileri</li><li>Kullanım kayıtları: hangi kullanıcının hangi işlemi ne zaman yaptığı</li></ul>
+      <h3>3. Amaç ve hukuki sebep</h3>
+      <p>Veriler; e-Arşiv fatura düzenleme hizmetinin sunulması, vergi mevzuatından doğan yükümlülüklerin yerine getirilmesi ve hakların korunması amacıyla işlenir. Hukuki sebepler: sözleşmenin ifası, hukuki yükümlülük, meşru menfaat ve GİB şifrenizin saklanması bakımından açık rızanız.</p>
+      <h3>4. Saklama ve güvenlik</h3>
+      <ul><li>Veriler, uygulamanın çalıştığı bulut sunucuda ve yedek olarak özel bir GitHub deposunda <b>şifreli</b> biçimde tutulur. GİB şifreniz düz metin olarak saklanmaz.</li><li>Her mükellef yalnızca kendi kayıtlarını görür.</li><li>Yanlış giriş denemeleri sınırlanır; oturumlar süreli ve güvenli çerezlerle yürütülür.</li><li><b>Fatura onayı, kayıtlı telefonunuza gelen SMS kodu ile sizde kalır;</b> SMS kodunu yazmadan fatura kesilemez.</li><li>Veriler, hizmet ilişkisi sürdüğü ve ilgili mevzuattaki saklama süreleri boyunca tutulur; süre bitiminde ya da talebiniz üzerine (yasal saklama yükümlülükleri saklı kalmak üzere) silinir veya anonim hale getirilir.</li></ul>
+      <h3>5. Yurt dışına aktarım</h3>
+      <p>Uygulamanın barındırıldığı ve yedeğin tutulduğu bulut hizmet sağlayıcıları (Render, GitHub) yurt dışında bulunabilir. Verilerinizin şifreli olarak bu sağlayıcılara aktarılabileceğini bilmektesiniz.</p>
+      <h3>6. Haklarınız</h3>
+      <p>6698 sayılı KVKK’nın 11. maddesi uyarınca; verilerinizin işlenip işlenmediğini öğrenme, bilgi talep etme, düzeltilmesini veya silinmesini isteme, itiraz etme ve zarar halinde tazminat talep etme haklarına sahipsiniz. Başvurularınızı Ofise yazılı olarak iletebilirsiniz. İstediğiniz zaman GİB şifrenizi değiştirerek Ofisin portal erişimini sonlandırabilirsiniz.</p>
+      <h3>7. Onay ve yetkilendirme</h3>
+      <p>Aşağıdaki kutuyu işaretleyerek; bu metni okuduğunuzu ve anladığınızı, e-Arşiv fatura işlemleriniz için GİB e-Arşiv Portalı kullanıcı kodunuzu ve şifrenizi Ofise teslim ettiğinizi ve bunların yukarıda anlatılan şekilde şifreli saklanıp yalnızca fatura işlemlerinizde kullanılmasına, Ofisin adınıza fatura taslağı hazırlamasına ve faturayı <b>SMS onayınızla</b> düzenlemesine, verilerinizin yurt dışındaki hizmet sağlayıcılara aktarılmasına <b>açık rıza verdiğinizi</b> beyan edersiniz.</p>
+    </div>
+    <div class="kalt">
+      <label class="onay"><input type="checkbox" id="kabulKutu"> Okudum, anladım, kabul ediyorum.</label>
+      <button class="btn" type="button" id="kabulBtn" disabled>Kabul ediyorum, devam et</button>
+      <div class="durum" id="kabulDurum" role="status"></div>
+      <button class="k" type="button" id="kabulCikis">Kabul etmiyorum, çıkış yap</button>
+    </div>
+  </div>
+
   <div id="gorunum" hidden role="dialog" aria-label="Fatura görünümü">
     <div class="gbas"><button class="btn ikincil" type="button" id="gorunumKapat">← Geri</button><h2>Fatura</h2><button class="btn" type="button" id="yazdir">Yazdır / PDF</button></div>
     <p class="iptalbant" id="gIptal" hidden>İPTAL — bu fatura için iptal talebi gönderilmiştir.</p>
@@ -503,7 +535,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var govde = { kullanici: ad, sifre: s }; if (!kurulu && yedek) { if (yedek.paket) govde.paket = yedek.paket; else govde.kasa = yedek.kasa; }
     api(kurulu || eskiKayit ? "/api/giris" : yedek ? "/api/geriyukle" : "/api/kurulum", "POST", govde).then(function(){ $("s1").value = ""; $("s2").value = ""; $("k1").value = ""; acilis(); }, function(er){ d.className = "durum hata"; d.textContent = er.message; });
   });
-  $("cikis").addEventListener("click", function(){ api("/api/cikis", "POST", {}).then(function(){ V = null; ROL = ""; markaUygula(); acilis(); }); });
+  $("cikis").addEventListener("click", function(){ api("/api/cikis", "POST", {}).then(function(){ V = null; ROL = ""; kabulKontrol(); markaUygula(); acilis(); }); });
   function oturumDustu(er){ if (er.kod === 401) { acilis(); return true; } return false; }
 
   function basla(){
@@ -533,7 +565,19 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function yeniKalem(h){ return { preset: h ? h.id : "", ad: h ? h.ad : "", aciklama: "", miktar: "1", birim: "C62", fiyat: "", kdv: h ? String(h.kdv) : "20", tev: h ? String(h.tev) : "0", kod: h ? (h.kod || "") : "", istisna: h ? (h.istisna || "") : "" }; }
   /* İlk açılışta boş satır ve fatura tipi Satış; hazır hizmet seçilince tip (tevkifat/istisna) kendiliğinden ayarlanır */
   function ilkKalem(){ return yeniKalem(null); }
-  function hepsi(){ if (!$("tarih").value) $("tarih").value = bugunStr(); $("tarih").max = bugunStr(); cizM(); cizAlici(); cizKalemler(); formDoldur(); onizle(); cizAyar(); markaUygula(); }
+  function hepsi(){ if (!$("tarih").value) $("tarih").value = bugunStr(); $("tarih").max = bugunStr(); cizM(); cizAlici(); cizKalemler(); formDoldur(); onizle(); cizAyar(); markaUygula(); kabulKontrol(); }
+  /* mükellef ilk girişinde (ve metin sürümü değişince) aydınlatma/onay metni gösterilir; kabul sunucuya tarihle kaydedilir */
+  function kabulKontrol(){
+    var gerek = ROL === "mukellef" && V && V.mukellefler && V.mukellefler.some(function(m){ return m.kabulGerek; });
+    $("kabul").hidden = !gerek; document.body.style.overflow = gerek ? "hidden" : "";
+    if (gerek) { $("kabulKutu").checked = false; $("kabulBtn").disabled = true; $("kabulDurum").textContent = ""; $("kabulDurum").className = "durum"; var km = $("kabul").querySelector(".kmetin"); if (km) km.scrollTop = 0; }
+  }
+  $("kabulKutu").addEventListener("change", function(){ $("kabulBtn").disabled = !this.checked; });
+  $("kabulBtn").addEventListener("click", function(){
+    var b = this; b.disabled = true;
+    api("/api/kabul", "POST", {}).then(function(){ V.mukellefler.forEach(function(m){ m.kabulGerek = false; }); kabulKontrol(); }, function(er){ if (oturumDustu(er)) return; $("kabulDurum").className = "durum hata"; $("kabulDurum").textContent = er.message; b.disabled = !$("kabulKutu").checked; });
+  });
+  $("kabulCikis").addEventListener("click", function(){ $("cikis").click(); });
   function cizM(){
     $("mChips").innerHTML = V.mukellefler.map(function(m){ return '<button class="chip" type="button" data-m="' + m.id + '" aria-pressed="' + (m.id === mSec) + '">' + esc(m.ad || "(adsız)") + '</button>'; }).join("");
     $("mYok").hidden = V.mukellefler.length > 0;
@@ -1252,6 +1296,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function hesapHtml(m){
     return '<details class="alt2" data-ak="c:' + m.id + '"' + ac("c:" + m.id) + '><summary>Giriş hesabı <small>' + (m.hesapKullanici ? esc(m.hesapKullanici) + (m.sonGiris ? " · son giriş " + new Date(m.sonGiris).toLocaleString("tr-TR") : " · henüz girmedi") : "yok") + '</small></summary><div class="icerik">' +
       '<p class="not">Mükellef bu kullanıcı adı ve şifreyle girer; yalnız kendi mükellefinin faturalarını görür ve keser. Şifresini unutursa buradan yeni şifre belirlersiniz.</p>' +
+      '<p class="not" style="margin:0">Bilgilendirme ve onay metni: <b>' + (m.kabul ? "kabul etti · " + new Date(m.kabul.zaman).toLocaleString("tr-TR") : "henüz kabul etmedi") + '</b></p>' +
       '<div><label>Kullanıcı adı</label><input data-hk autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(m.hesapKullanici || "") + '"></div>' +
       '<div><label>Şifre ' + (m.hesapKullanici ? "(değiştirmek için yazın)" : "(en az " + mSifreMin + " karakter)") + '</label><input data-hs type="password" autocomplete="new-password"></div>' +
       '<button class="btn ikincil" type="button" data-hesap-kaydet="' + m.id + '">' + (m.hesapKullanici ? "Hesabı güncelle" : "Hesap aç") + '</button>' +

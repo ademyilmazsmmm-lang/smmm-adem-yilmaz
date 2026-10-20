@@ -16,7 +16,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-20-63";
+const SURUM = "2026-10-20-64";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -82,9 +82,11 @@ const profilTemiz = (p) => {
   const mail = k(p.eposta, 120), tel = k(p.tel, 30).replace(/[^\d+()\-\s]/g, "");
   return { vd: k(p.vd, 100), adres: k(p.adres, 250), tel, eposta: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail) ? mail : "", web: k(p.web, 120) };
 };
+/* Aydınlatma / onay metni sürümü: public/index.html'deki #kabul metni değişirse bu sayı da artırılır (mükelleflerden yeniden onay istenir) */
+const KABUL_SURUM = "1";
 function temizMukellef(o, id) {
   const v = depo.mukellef(o, id).veri;
-  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, profil: v.profil || {}, aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
+  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: o.rol === "mukellef" && !(v.kabul && v.kabul.surum === KABUL_SURUM), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
     hesapKullanici: o.rol === "ofis" ? depo.hesapKullanicisi(id) : undefined, sonGiris: v.sonGiris || null };
 }
 const temiz = (o) => ({ rol: o.rol, kullanici: o.kullanici, mukellefler: depo.mukellefIdleri(o).map((id) => temizMukellef(o, id)) });
@@ -211,6 +213,12 @@ async function api(req, res, yol) {
   if (req.method !== "GET" && !/application\/json/.test(req.headers["content-type"] || "")) return cevap(res, 415, { hata: "JSON bekleniyor." });
   const o = oturumBul(req);
   if (yol === "/api/durum") return cevap(res, 200, { kurulu: depo.kurulu, eski: depo.eskiVar, giris: !!o, rol: o && o.rol, kullanici: o && o.kullanici, sahte: gib.MOCK, surum: SURUM, sifreMin, mSifreMin });
+  if (yol === "/api/kabul" && req.method === "POST") {
+    if (!o || o.rol !== "mukellef") return cevap(res, 403, { hata: "Bu işlem yalnız mükellef hesabı içindir." });
+    const e = depo.mukellef(o, o.mid); e.veri.kabul = { zaman: new Date().toISOString(), surum: KABUL_SURUM }; depo.kaydet(o.mid);
+    gunluk(o, o.mid, "Aydınlatma ve onay metni kabul edildi");
+    return cevap(res, 200, { ok: true });
+  }
   if (yol === "/api/yansi") { ofisGerek(o); return cevap(res, 200, yansi ? yansi.durum : { acik: false }); }
   if (yol === "/api/kurulum" && req.method === "POST") {
     if (depo.kurulu || depo.eskiVar) return cevap(res, 409, { hata: "Zaten kurulu." });
