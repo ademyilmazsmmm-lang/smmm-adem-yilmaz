@@ -471,6 +471,24 @@ Gib.prototype.sil = function (uuid, neden, tarih) { return this.belgeIslemi("sil
 Gib.prototype.iptal = function (uuid, neden, tarih) { return this.belgeIslemi("iptal", uuid, neden, tarih); };
 
 /* Fatura görünümü (HTML). Taslak için onay="Onaylanmadı", kesilmiş için "Onaylandı". DOĞRULANACAK: komut/alan adları */
+/* Adıma düzenlenen (gelen) e-Arşiv belgeleri. Komut açık kaynak kütüphaneden (mlevent/fatura getAllIssuedToMe) alındı; kütüphane "artık stabil çalışmıyor
+ * olabilir" uyarısı veriyor, bu yüzden hata mesajı olduğu gibi gösterilir. Tarihler dd/mm/yyyy, en çok 365 gün, 31 günlük parçalarla. */
+Gib.prototype.gelenArsiv = async function (bas, bit) {
+  const al = (t) => { const [g, a, y] = t.split("/").map(Number); return new Date(y, a - 1, g); };
+  const p = (n) => String(n).padStart(2, "0"), f = (d) => `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+  let bs = al(bas); const son = al(bit);
+  if (!(bs <= son)) throw new Error("Başlangıç tarihi bitişten sonra olamaz.");
+  if (son - bs > 365 * 864e5) bs = new Date(son - 365 * 864e5);
+  const hepsi = new Map(); let hamOrnek = null;
+  for (let c = bs; c <= son; c = new Date(+c + 31 * 864e5)) {
+    const kb = new Date(Math.min(+c + 30 * 864e5, +son));
+    const y = await this.dispatch("EARSIV_PORTAL_ADIMA_KESILEN_BELGELERI_GETIR", "RG_ALICI_TASLAKLAR", { baslangic: f(c), bitis: f(kb), hourlySearchInterval: "NONE" });
+    for (const x of Array.isArray(y.data) ? y.data : []) if (x && typeof x === "object") { if (!hamOrnek) hamOrnek = x; hepsi.set(x.ettn || x.belgeNumarasi || JSON.stringify(x), x); }
+  }
+  const ivd = require("./ivd");
+  const liste = [...hepsi.values()];
+  return { kayitlar: ivd.kayitlar(liste), sekil: ivd.sekil(liste) };
+};
 Gib.prototype.faturaVerisi = async function (uuid, onay) {
   return this.indirHam(uuid, onay === "Onaylandı" ? "Onaylandı" : "Onaylanmadı", faturaVeriCikar);
 };
@@ -518,6 +536,11 @@ class SahteGib {
     const hepsi = [];
     for (const [m, d] of [[SahteGib.t, "Onaylanmadı"], [SahteGib.o, "Onaylandı"], [SahteGib.i, "İptal Edildi"]]) for (const [id, g] of (m || new Map())) hepsi.push({ belgeNo: g._no, alici: g.aliciUnvan || (g.aliciAdi + " " + g.aliciSoyadi), vkn: g.vknTckn, tarih: g.faturaTarihi.replace(/\//g, "-"), durum: d, ettn: id });
     return hepsi;
+  }
+  async gelenArsiv() {
+    const d = [{ belgeNumarasi: "ABC2026000000417", belgeTarihi: "15-10-2026", saticiUnvan: "Örnek Gıda Toptan Ltd. Şti.", saticiVknTckn: "1234567890", toplamTutar: "4.250,00", onayDurumu: "Onaylandı" },
+      { belgeNumarasi: "XYZ2026000001208", belgeTarihi: "09-10-2026", saticiUnvan: "Yıldız Kırtasiye", saticiVknTckn: "9876543210", toplamTutar: "612,50", onayDurumu: "Onaylandı" }];
+    const ivd = require("./ivd"); return { kayitlar: ivd.kayitlar(d), sekil: ivd.sekil(d) };
   }
   async faturaVerisi(uuid) {
     const g = (SahteGib.t && SahteGib.t.get(uuid)) || (SahteGib.o && SahteGib.o.get(uuid)) || (SahteGib.i && SahteGib.i.get(uuid));

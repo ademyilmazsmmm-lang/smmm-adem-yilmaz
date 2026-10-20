@@ -163,7 +163,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 .icerik{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 
 /* sekmeler: telefonda altta, geniş ekranda üstte */
-.sekmeler{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);padding:4px 4px calc(4px + var(--safe));height:calc(var(--nav-h) + var(--safe))}
+.sekmeler{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border-top:1px solid var(--line);padding:4px 4px calc(4px + var(--safe));height:calc(var(--nav-h) + var(--safe))}
 .sekmeler button{font:inherit;font-size:.72rem;font-weight:600;border:0;background:transparent;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:12px;cursor:pointer;position:relative}
 .sekmeler button svg{width:22px;height:22px}
 .sekmeler button[aria-current=page]{color:var(--accent)}
@@ -257,6 +257,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       <button type="button" data-sekme="yeni" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>Yeni fatura</button>
       <button type="button" data-sekme="taslak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Taslaklar<span class="rozet" id="tRozet" hidden></span></button>
       <button type="button" data-sekme="gecmis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Geçmiş</button>
+      <button type="button" data-sekme="vd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/></svg>Vergi D.<span class="rozet" id="vdRozet" hidden></span></button>
       <button type="button" data-sekme="ayar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ayarlar</button>
     </nav>
     <button class="k" id="tema" type="button" aria-label="Tema: otomatik" title="Tema"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg> <span class="tl">Otomatik</span></button>
@@ -380,6 +381,20 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     <div class="satir"><div><label for="gBas">Başlangıç</label><input id="gBas" type="date"></div><div><label for="gBit">Bitiş</label><input id="gBit" type="date"></div></div>
     <button class="btn ikincil" type="button" id="gListele">Listele</button>
     <div id="gibListe"></div>
+  </div>
+  </section>
+
+  <section data-sayfa="vd" class="liste" hidden>
+  <div class="card" id="vdKart">
+    <div class="kartbas"><h2>Vergi Dairesi</h2><small id="vdMuk"></small></div>
+    <div id="vdMukSec" hidden><label for="vdSec">Mükellef</label><select id="vdSec"></select></div>
+    <div class="seg" id="vdSeg" role="group" aria-label="Sorgu türü" style="display:flex;width:100%"><button class="chip" type="button" data-vd="borc" aria-pressed="true" style="flex:1;padding:6px 2px;font-size:.8rem">Borç durumu</button><button class="chip" type="button" data-vd="mesaj" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Tebligat / mesaj</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Gelen fatura</button></div>
+    <p class="not" id="vdNot"></p>
+    <div class="satir" id="vdTarih" hidden><div><label for="vdBas">Başlangıç</label><input id="vdBas" type="date"></div><div><label for="vdBit">Bitiş</label><input id="vdBit" type="date"></div></div>
+    <button class="btn ikincil" type="button" id="vdSorgula">Sorgula</button>
+    <div class="durum" id="vdDurum" role="status"></div>
+    <div id="vdListe" class="liste" style="gap:8px"></div>
+    <details class="alt2" id="vdTani" hidden><summary>Tanı (yanıtın yapısı, değerler maskeli)</summary><div class="icerik"><pre id="vdTaniMetin" style="white-space:pre-wrap;font-size:.72rem;margin:0;max-height:260px;overflow:auto"></pre><button class="k" type="button" id="vdTaniKopya">Kopyala</button></div></details>
   </div>
   </section>
 
@@ -1618,12 +1633,72 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   });
 
   /* ---------- sekmeler ---------- */
+  /* ---------- Vergi Dairesi: borç durumu, tebligat/mesaj, gelen e-Arşiv faturalar ---------- */
+  var VD = { sek: "borc", sonuc: {}, mid: null };
+  var VDNOT = {
+    borc: "Dijital Vergi Dairesi’nden canlı sorgulanır; borç, vade ve gecikme bilgisi vergi dairesindeki kayıtlardır.",
+    mesaj: "Vergi dairesinin bıraktığı mesajlar ve ceza ihbarnameleri. Resmî elektronik tebligat (PTT / e-Tebligat) bu listede olmayabilir.",
+    gelen: "Adınıza düzenlenmiş e-Arşiv belgeleri (e-Arşiv portalından). Başlangıç ve bitiş tarihini seçip sorgulayın."
+  };
+  var KELIME = { satici: "Satıcı", alici: "Alıcı", vkn: "VKN", tckn: "TCKN", donem: "Dönem", borc: "Borç", zammi: "Zammı", odenecek: "Ödenecek", turu: "Türü", gonderen: "Gönderen", onay: "Onay", belge: "Belge", numarasi: "Numarası", tutari: "Tutarı", tutar: "Tutar", durumu: "Durumu", ihbarname: "İhbarname", aciklama: "Açıklama", gecikme: "Gecikme", odeme: "Ödeme", vergi: "Vergi", tarihi: "Tarihi", unvan: "Unvan", konu: "Konu", tur: "Tür", ad: "Ad", soyad: "Soyad", mesaj: "Mesaj", okunma: "Okunma" };
+  function insanAd(k){ return String(k).replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g, "$1 $2").replace(/[_-]+/g, " ").split(" ").map(function(w){ var l = w.toLocaleLowerCase("tr-TR"); return KELIME[l] || (l.charAt(0).toLocaleUpperCase("tr-TR") + l.slice(1)); }).join(" "); }
+  function degerYaz(k, v){
+    if (typeof v === "number" && /tutar|borc|zam|toplam|odenecek|bedel/i.test(k)) return v.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺";
+    return String(v);
+  }
+  function vdKayitHtml(r){
+    var an = Object.keys(r), bas = an.filter(function(k){ return /^(konu|baslik|vergiTuru|vergi|unvan|saticiUnvan|belgeNumarasi|belgeNo|ad|aciklama|tur)/i.test(k); })[0] || an[0];
+    var h = '<div class="kayit"><b>' + esc(degerYaz(bas, r[bas])) + '</b>';
+    h += '<div class="not" style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0">';
+    an.filter(function(k){ return k !== bas; }).slice(0, 12).forEach(function(k){ h += '<span>' + esc(insanAd(k)) + '</span><span style="color:var(--fg)">' + esc(degerYaz(k, r[k])) + '</span>'; });
+    return h + '</div></div>';
+  }
+  function vdCiz(){
+    var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
+    if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
+    var h = "";
+    if (s.kayitlar.length || !s.ceza || !s.ceza.length) h += s.kayitlar.length ? "" : '<p class="not">Kayıt bulunamadı.</p>';
+    h += s.kayitlar.map(vdKayitHtml).join("");
+    if (s.ceza && s.ceza.length) h += '<p class="not" style="margin:6px 0 0"><b>Ceza ihbarnameleri</b></p>' + s.ceza.map(vdKayitHtml).join("");
+    liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + (s.ceza && s.ceza.length ? " + " + s.ceza.length : "") + " kayıt · " + esc(s.zaman) + "</p>" + h;
+    $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false;
+  }
+  function vdRozet(){
+    var n = 0, b = VD.sonuc.borc, m = VD.sonuc.mesaj;
+    if (b) n += b.kayitlar.length;
+    if (m) n += m.kayitlar.filter(function(r){ return Object.keys(r).some(function(k){ return /durum|okun/i.test(k) && /okunmad/i.test(String(r[k])); }); }).length;
+    $("vdRozet").hidden = !n; $("vdRozet").textContent = n;
+  }
+  function vdSekmeCiz(){
+    $("vdSeg").querySelectorAll("[data-vd]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-vd") === VD.sek ? "true" : "false"); });
+    $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen"; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdCiz();
+  }
+  function vdAc(){
+    var l = V && V.mukellefler || [], ofis = ROL === "ofis";
+    $("vdMukSec").hidden = !(ofis && l.length > 1);
+    if (ofis) $("vdSec").innerHTML = l.map(function(m){ return '<option value="' + esc(m.id) + '"' + (m.id === mSec ? " selected" : "") + '>' + esc(m.ad) + '</option>'; }).join("");
+    var m = l.filter(function(x){ return x.id === mSec; })[0] || l[0]; if (m && m.id !== VD.mid) { VD.mid = m.id; VD.sonuc = {}; vdRozet(); }
+    $("vdMuk").textContent = m ? m.ad : "";
+    if (!$("vdBit").value) { $("vdBit").value = bugunStr(); var d = new Date(); d.setMonth(d.getMonth() - 3); $("vdBas").value = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+    vdSekmeCiz();
+  }
+  $("vdSec").addEventListener("change", function(){ mSec = this.value; F.alici = ""; cizM(); cizAlici(); markaYukle(mSec); vdAc(); });
+  $("vdSeg").addEventListener("click", function(e){ var b = e.target.closest("[data-vd]"); if (!b) return; VD.sek = b.getAttribute("data-vd"); vdSekmeCiz(); });
+  $("vdSorgula").addEventListener("click", function(){
+    var b = this, sek = VD.sek, d = $("vdDurum"); if (!VD.mid) return;
+    b.disabled = true; d.className = "durum"; d.textContent = "Sorgulanıyor… (GİB’e bağlanılıyor, 10–30 sn sürebilir)";
+    api("/api/vd/" + sek, "POST", { mukellefId: VD.mid, bas: $("vdBas").value, bit: $("vdBit").value }).then(function(r){
+      r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc[sek] = r; d.textContent = ""; vdRozet(); if (VD.sek === sek) vdCiz();
+    }, function(er){ if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = er.message; }).then(function(){ b.disabled = false; });
+  });
+  $("vdTaniKopya").addEventListener("click", function(){ var t = $("vdTaniMetin").textContent; try { navigator.clipboard.writeText(t); this.textContent = "Kopyalandı"; } catch (e) { var r = document.createRange(); r.selectNodeContents($("vdTaniMetin")); var sl = getSelection(); sl.removeAllRanges(); sl.addRange(r); } });
   var aktifSekme = "yeni", tYuklendi = false;
   function sekme(ad){
     aktifSekme = ad;
     document.querySelectorAll("[data-sayfa]").forEach(function(x){ x.hidden = x.getAttribute("data-sayfa") !== ad; });
     document.querySelectorAll("[data-sekme]").forEach(function(b){ if (b.getAttribute("data-sekme") === ad) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
     if (ad === "taslak" && !tYuklendi && mSec) taslakGetir();
+    if (ad === "vd") vdAc();
   }
   $("sekmeler").addEventListener("click", function(e){
     var b = e.target.closest("[data-sekme]"); if (!b) return;

@@ -9,6 +9,7 @@ const crypto = require("crypto");
 const gib = require("./gib");
 const { Depo, adTemiz, adGecerli } = require("./kasa");
 const { Yansi } = require("./yansi");
+const ivd = require("./ivd");
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || "127.0.0.1";
@@ -16,7 +17,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-20-70";
+const SURUM = "2026-10-20-71";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -99,7 +100,7 @@ function birlestir(o, g) {
     if (m.gibSifre) v.gibSifre = String(m.gibSifre);
     v.aliciler = aliciTemiz(m.aliciler); v.hizmetler = hizmetTemiz(m.hizmetler); if (m.marka) v.marka = markaTemiz(m.marka); if (m.profil) v.profil = profilTemiz(m.profil);
     depo.kaydet(id);
-    if (v.kullanici !== eskiK || v.gibSifre !== eskiS) gibBirak(id);
+    if (v.kullanici !== eskiK || v.gibSifre !== eskiS) { gibBirak(id); ivdBirak(id); ivdKilit.delete(id); }
   }
 }
 /* Mükellef etkinlik günlüğü (ofis görür): son 300 işlem */
@@ -145,6 +146,21 @@ function istemci(m, ms) {
   if (!gibler.has(m.id)) gibler.set(m.id, gib.istemci(m.kullanici, m.gibSifre));
   gibKisalt(m.id, ms || GIB_BOSTA);
   return gibler.get(m.id);
+}
+/* Dijital Vergi Dairesi oturumları (e-Arşiv'den ayrı): kısa süre sonra kapatılır. Girişte başarısızlık olursa, kullanıcı kodunu kilitlememek için 10 dk yeniden denenmez. */
+const ivdler = new Map(), ivdZaman = new Map(), ivdSon = new Map(), ivdKilit = new Map();
+async function ivdBirak(id) { clearTimeout(ivdZaman.get(id)); ivdZaman.delete(id); const x = ivdler.get(id); ivdler.delete(id); if (x) await x.cikis().catch(() => {}); }
+function ivdIstemci(m) {
+  if (!ivdler.has(m.id)) ivdler.set(m.id, ivd.istemci(m.kullanici, m.gibSifre));
+  clearTimeout(ivdZaman.get(m.id)); ivdZaman.set(m.id, setTimeout(() => ivdBirak(m.id), 3 * 60e3).unref());
+  return ivdler.get(m.id);
+}
+async function vdSorgu(m, calistir) {
+  const kilit = ivdKilit.get(m.id); if (kilit && kilit > Date.now()) throw new Error("Dijital Vergi Dairesi girişi az önce başarısız oldu; kullanıcı kodunun kilitlenmemesi için " + Math.ceil((kilit - Date.now()) / 60e3) + " dakika sonra tekrar deneyin.");
+  const son = ivdSon.get(m.id) || 0; if (Date.now() - son < 8e3) throw new Error("Çok sık sorgu: birkaç saniye bekleyin.");
+  ivdSon.set(m.id, Date.now());
+  try { return await calistir(); }
+  catch (e) { if (e && e.giris) { ivdKilit.set(m.id, Date.now() + 10 * 60e3); await ivdBirak(m.id); } throw e; }
 }
 const bekleyen = new Map(); // taslak kimliği -> geçmiş kaydı taslağı (onaylanınca kalıcı olur)
 const TIPLER = ["SATIS", "TEVKIFAT", "IADE", "ISTISNA"]; // Özel Matrah: portal isteği alınınca eklenecek
@@ -258,7 +274,7 @@ async function api(req, res, yol) {
     const kendi = cerez(req);
     const ids = depo.mukellefIdleri(o).filter((id) => o.rol !== "ofis" || ![...oturumlar].some(([c, x]) => c !== kendi && x.rol === "mukellef" && x.mid === id));
     oturumKapat(kendi);
-    await Promise.race([Promise.all(ids.map(gibBirak)), new Promise((ok) => setTimeout(ok, 5000))]);
+    await Promise.race([Promise.all(ids.map((id) => Promise.all([gibBirak(id), ivdBirak(id)]))), new Promise((ok) => setTimeout(ok, 5000))]);
     return cevap(res, 200, { ok: true });
   }
   if (yol === "/api/kasa" && req.method === "GET") { ofisGerek(o); return cevap(res, 200, { paket: depo.paket(o), zaman: new Date().toISOString() }); }
@@ -355,6 +371,16 @@ async function api(req, res, yol) {
     if (k && !sil) { k.durum = "İptal talebi"; k.iptalNedeni = neden; k.iptalZamani = new Date().toISOString(); depo.kaydet(mid); }
     gunluk(o, mid, sil ? "Taslak silindi" : "İptal talebi gönderildi", (k && k.belgeNo) || g.uuid); gibKisalt(m.id, 45e3);
     return cevap(res, 200, { mesaj: r.mesaj, durum: r.durum });
+  }
+  if (yol.startsWith("/api/vd/")) {
+    const ne = yol.slice(8);
+    if (ne === "borc") return cevap(res, 200, await vdSorgu(m, () => ivdIstemci(m).borc()));
+    if (ne === "mesaj") return cevap(res, 200, await vdSorgu(m, async () => { const x = ivdIstemci(m), a = await x.mesajlar(); let c = { kayitlar: [], sekil: [] }; try { c = await x.cezaIhbar(); } catch (e) { /* ceza ihbarnamesi isteğe bağlı */ } return { kayitlar: a.kayitlar, ceza: c.kayitlar, sekil: { mesajlar: a.sekil, ceza: c.sekil } }; }));
+    if (ne === "gelen") {
+      const t = (d) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); if (!q) throw new Error("Tarih seçin."); return `${q[3]}/${q[2]}/${q[1]}`; };
+      return cevap(res, 200, await istemci(m).gelenArsiv(t(g.bas), t(g.bit)));
+    }
+    return cevap(res, 404, { hata: "Bulunamadı." });
   }
   if (yol === "/api/sorgu") {
     if (!/^\d{10,11}$/.test(String(g.vkn || ""))) return cevap(res, 400, { hata: "10 ya da 11 haneli VKN/TCKN girin." });
