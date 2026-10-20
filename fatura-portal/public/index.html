@@ -390,7 +390,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     <div id="vdMukSec" hidden><label for="vdSec">Mükellef</label><select id="vdSec"></select></div>
     <div class="seg" id="vdSeg" role="group" aria-label="Sorgu türü" style="display:flex;width:100%"><button class="chip" type="button" data-vd="borc" aria-pressed="true" style="flex:1;padding:6px 2px;font-size:.8rem">Borç durumu</button><button class="chip" type="button" data-vd="mesaj" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Tebligat / mesaj</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Gelen fatura</button><button class="chip" type="button" data-vd="dene" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Bağlantı</button></div>
     <p class="not" id="vdNot"></p>
-    <a class="btn ikincil" id="vdPortal" href="https://dijital.gib.gov.tr/portal/login" target="_blank" rel="noopener" style="text-align:center;text-decoration:none">Dijital Vergi Dairesi’ni aç (borç ve tebligat için)</a>
     <div class="satir" id="vdTarih" hidden><div><label for="vdBas">Başlangıç</label><input id="vdBas" type="date"></div><div><label for="vdBit">Bitiş</label><input id="vdBit" type="date"></div></div>
     <button class="btn ikincil" type="button" id="vdSorgula">Sorgula</button>
     <div class="durum" id="vdDurum" role="status"></div>
@@ -1666,7 +1665,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   /* ---------- Vergi Dairesi: borç durumu, tebligat/mesaj, gelen e-Arşiv faturalar ---------- */
   var VD = { sek: "borc", sonuc: {}, mid: null };
   var VDNOT = {
-    borc: "DENEYSEL: Dijital Vergi Dairesi’nden sorgulanır. GİB bu oturumu şu an kabul etmeyip “sistem hatası” dönebilir; borç için yandaki Dijital Vergi Dairesi bağlantısını kullanın.",
+    borc: "DENEYSEL: Dijital Vergi Dairesi’nden sorgulanır. GİB bu oturumu şu an kabul etmeyip “sistem hatası” dönebilir;",
     mesaj: "DENEYSEL: Vergi dairesinin bıraktığı mesajlar ve ceza ihbarnameleri. Resmî elektronik tebligat (PTT / e-Tebligat) bu listede olmayabilir; boş gelebilir.",
     gelen: "Adınıza düzenlenmiş e-Arşiv belgeleri (e-Arşiv portalından). Başlangıç ve bitiş tarihini seçip sorgulayın.",
     dene: "DENEYSEL (yalnız ofis): Giriş sınaması. Oturum gerçekten bu mükellefe ait mi diye mükellefin kendi sicil bilgisi istenir (kimlik numaraları maskelenir)."
