@@ -281,7 +281,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         </select></div>
     </div>
     <div class="alt" id="iadeAlan" hidden>
-      <p class="not"><b>İade faturasında iade edilen faturanın numarası ve tarihi zorunludur.</b> Geçmişten “İade” düğmesiyle de doldurabilirsiniz.</p>
+      <p class="not"><b>İade faturasında iade edilen faturanın numarası ve tarihi zorunludur.</b> İade faturası, <b>aldığınız</b> bir faturadaki malı iade ederken karşı tarafa kesilir; asıl faturanın numarasını ve tarihini girin. Kendi kestiğiniz faturayı geri almak için Geçmiş’ten <b>İptal</b> kullanın.</p>
       <div class="satir"><div><label for="iadeNo">İade edilen fatura no *</label><input id="iadeNo" autocomplete="off" placeholder="GIB2026000000023"></div><div><label for="iadeTarih">Düzenlenme tarihi *</label><input id="iadeTarih" type="date"></div></div>
     </div>
     <div class="satir">
@@ -906,7 +906,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       $("ozGecmis").textContent = gecmis.length ? gecmis.length + " kayıt" : "";
       $("gecmisListe").innerHTML = gecmis.length ? gecmis.slice(0, 30).map(function(k, i){
         var t = (k.tarih || "").split("-").reverse().join("/");
-        return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " ₺", esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad), '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button> <button class="k" type="button" data-gi="' + i + '">İade</button>' + (/^İptal/.test(k.durum || "") ? ' <small>İPTAL TALEBİ GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>');
+        return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " ₺", esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad), '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (/^İptal/.test(k.durum || "") ? ' <small>İPTAL TALEBİ GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>');
       }).join("") : '<p class="not">Bu programdan kesilen fatura henüz yok.</p>';
     }, function(er){ oturumDustu(er); });
   }
@@ -921,10 +921,9 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     });
   }
   $("gecmisListe").addEventListener("click", function(e){
-    var t = e.target.getAttribute("data-gt"), ia = e.target.getAttribute("data-gi"), ip = e.target.getAttribute("data-gp");
+    var t = e.target.getAttribute("data-gt"), ip = e.target.getAttribute("data-gp");
     if (ip != null) { var kp = gecmis[+ip]; mSec = kp.mukellefId || mSec; return belgeIslemi("iptal", kp.id, kp.tarih, (kp.belgeNo || "Fatura") + " — " + kp.aliciUnvan); }
     if (t != null) return tekrarla(gecmis[+t]);
-    if (ia != null) return tekrarla(gecmis[+ia], true);
     var i = e.target.getAttribute("data-gk"); if (i == null) return;
     var k = gecmis[+i]; resmiGoster(k.mukellefId, k.id, k);
   });
