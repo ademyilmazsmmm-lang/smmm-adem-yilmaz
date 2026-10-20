@@ -1228,12 +1228,21 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     });
     return h + '<button class="btn ikincil" type="button" data-hekle="' + m.id + '">+ Hizmet ekle</button></div></details>';
   }
-  function markaHtml(m){
+  function markaHtml(m, ust){
     var mr = MARKA[m.id] || {};
     function kutu(ad, etiket, v){ return '<div><label>' + etiket + '</label><div class="resimkutu">' + (v ? '<img alt="" src="' + v + '">' : '<span class="not">Yok</span>') + '<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><label class="k" style="margin:0;cursor:pointer">Seç<input type="file" accept="image/png,image/jpeg,image/webp" data-resim="' + ad + '" hidden></label>' + (v ? '<button class="k" type="button" data-resim-sil="' + ad + '">Kaldır</button>' : "") + '</span></div></div>'; }
-    return '<details class="alt2" data-ak="k:' + m.id + '"' + ac("k:" + m.id) + '><summary>Logo ve imza</summary><div class="icerik">' +
+    var ak = (ust ? "ku:" : "k:") + m.id;
+    return '<details class="' + (ust ? "grup" : "alt2") + '" data-ak="' + ak + '"' + ac(ak) + '><summary>Logo ve imza' + (ust ? ' <small>' + esc(m.ad) + '</small>' : '') + '</summary><div class="icerik">' +
       '<p class="not">Logo uygulamanın üst köşesinde ve faturada, imza görseli faturanın altında görünür. Alttaki “Adem Yılmaz · SMMM · smmmyilmaz.com” satırı sabittir. GİB’deki resmî belgeye dokunulmaz; yalnız ekranda görünen ve yazdırılan kopya değişir.</p>' +
-      kutu("logo", "Logo (kare ya da yatay, PNG/JPG)", mr.logo || "") + kutu("imza", "İmza görseli (isteğe bağlı, şeffaf PNG önerilir)", mr.imza || "") + '</div></details>';
+      kutu("logo", "Logo (kare ya da yatay, PNG/JPG)", mr.logo || "") + kutu("imza", "İmza görseli (isteğe bağlı, şeffaf PNG önerilir)", mr.imza || "") + (ust ? '<div class="durum" data-md role="status"></div><button class="btn" type="button" data-logo-kaydet>Logo ve imzayı kaydet</button>' : "") + '</div></details>';
+  }
+  /* Ayarlar’ın en üstünde, tek dokunuşla ulaşılan logo/imza bölümü (seçili mükellef için) */
+  var AYARMUK = null;
+  function markaUstHtml(){
+    var l = V.mukellefler || []; if (!l.length) return "";
+    var m = l.filter(function(x){ return x.id === AYARMUK; })[0] || l.filter(function(x){ return x.id === mSec; })[0] || l[0];
+    var sec = ROL === "ofis" && l.length > 1 ? '<div><label>Hangi mükellef için</label><select data-logosec>' + l.map(function(x){ return '<option value="' + esc(x.id) + '"' + (x.id === m.id ? " selected" : "") + '>' + esc(x.ad) + '</option>'; }).join("") + '</select></div>' : "";
+    return '<div data-mid="' + esc(m.id) + '">' + markaHtml(m, true).replace('<div class="icerik">', '<div class="icerik">' + sec) + '</div>';
   }
   function hesapHtml(m){
     return '<details class="alt2" data-ak="c:' + m.id + '"' + ac("c:" + m.id) + '><summary>Giriş hesabı <small>' + (m.hesapKullanici ? esc(m.hesapKullanici) + (m.sonGiris ? " · son giriş " + new Date(m.sonGiris).toLocaleString("tr-TR") : " · henüz girmedi") : "yok") + '</small></summary><div class="icerik">' +
@@ -1367,7 +1376,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       '<p class="not">Yedek dosyası şifrelidir (ofis şifrenizle açılır); yeni bir sunucuya taşımak için de kullanılır. Bu cihazda da otomatik şifreli bir kopya tutulur. Kalıcı disk (ücretli sunucu) varsa kayıtlar zaten silinmez; yine de ara sıra yedek indirin.</p></div></details>';
   }
   function cizAyar(){
-    var ofis = ROL === "ofis", h = hesabimHtml();
+    var ofis = ROL === "ofis", h = hesabimHtml() + markaUstHtml();
     if (ofis) h += mukellefEkleHtml() + '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler (' + V.mukellefler.length + ')</summary><div class="icerik">' + V.mukellefler.map(mukellefAyarHtml).join("") + '</div></details>' + yedekHtml();
     else h += V.mukellefler.map(mukellefAyarHtml).join("");
     h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
@@ -1418,13 +1427,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   /* aç/kapa durumunu hatırla (toggle olayı kabarcıklanmaz, yakalama aşamasında dinlenir) */
   $("ayarIc").addEventListener("toggle", function(e){
     var k = e.target.getAttribute && e.target.getAttribute("data-ak"); if (!k) return; ayarAcik[k] = e.target.open;
-    if (e.target.open && k.indexOf("k:") === 0 && !MARKA[k.slice(2)]) markaYukle(k.slice(2)).then(function(){ if (ayarAcik[k]) cizAyar(); }); // yalnız ilk açılışta; yeniden çizim toggle’ı tekrar tetikler
+    if (e.target.open && /^ku?:/.test(k) && !MARKA[k.replace(/^ku?:/, "")]) markaYukle(k.replace(/^ku?:/, "")).then(function(){ if (ayarAcik[k]) cizAyar(); }); // yalnız ilk açılışta; yeniden çizim toggle’ı tekrar tetikler
   }, true);
   $("ayarIc").addEventListener("change", function(e){
+    if (e.target.hasAttribute("data-logosec")) { var yid = e.target.value; AYARMUK = yid; ayarAcik["ku:" + yid] = true; markaYukle(yid).then(cizAyar); return; }
     var ad = e.target.getAttribute("data-resim"); if (!ad || !e.target.files[0]) return;
-    var mEl = e.target.closest("[data-mid]"), mm = mBul(mEl.getAttribute("data-mid")), id = mm.id;
+    var mEl = e.target.closest("[data-mid]"), mm = mBul(mEl.getAttribute("data-mid")), id = mm.id, ustte = !!e.target.closest('details[data-ak^="ku:"]');
     resimKucult(e.target.files[0], ad === "logo" ? 800 : 1000, ad === "logo" ? 800 : 400).then(function(u){
-      MARKA[id] = MARKA[id] || { logo: "", imza: "" }; MARKA[id][ad] = u; MARKADEGISTI[id] = true; if (id === mSec) markaUygula(); cizAyar(); mDurum(id, "Eklendi. Kalıcı olması için “Ayarları kaydet”e basın.", "ok");
+      MARKA[id] = MARKA[id] || { logo: "", imza: "" }; MARKA[id][ad] = u; MARKADEGISTI[id] = true; if (id === mSec) markaUygula(); cizAyar(); mDurum(id, "Eklendi. Kalıcı olması için “" + (ustte ? "Logo ve imzayı kaydet" : "Ayarları kaydet") + "”e basın.", "ok");
     }, function(er){ mDurum(id, er.message, "hata"); });
   });
   $("ayarIc").addEventListener("input", function(e){
@@ -1491,6 +1501,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       api("/api/sifre", "POST", { eski: eski, yeni: yeni }).then(function(){ $("sEski").value = $("sYeni").value = $("sYeni2").value = ""; d2.className = "durum ok"; d2.textContent = "Şifreniz değiştirildi."; }, function(er){ ayarHata(d2, er); });
       return;
     }
+    if (t.hasAttribute("data-logo-kaydet")) { var lid = mEl && mEl.getAttribute("data-mid"); mDurum(lid, "Kaydediliyor…", ""); kaydetV().then(function(){ hepsi(); mDurum(lid, "Kaydedildi.", "ok"); }, function(er){ mDurum(lid, er.message, "hata"); }); return; }
     if (t.id === "ayarKaydet") { kaydetV().then(function(){ hepsi(); var d = $("ayarDurum"); d.className = "durum ok"; d.textContent = "Kaydedildi."; }, function(er){ ayarHata($("ayarDurum"), er); }); return; }
     if ((id = t.getAttribute("data-resim-sil"))) { MARKA[mm.id] = MARKA[mm.id] || { logo: "", imza: "" }; MARKA[mm.id][id] = ""; MARKADEGISTI[mm.id] = true; if (mm.id === mSec) markaUygula(); cizAyar(); return; }
     if ((id = t.getAttribute("data-sil-a"))) { mm.aliciler = mm.aliciler.filter(function(x){ return x.id !== id; }); if (F.alici === id) F.alici = ""; }
