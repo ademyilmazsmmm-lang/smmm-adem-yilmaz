@@ -388,7 +388,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <div class="card" id="vdKart">
     <div class="kartbas"><h2>Vergi Dairesi</h2><small id="vdMuk"></small></div>
     <div id="vdMukSec" hidden><label for="vdSec">Mükellef</label><select id="vdSec"></select></div>
-    <div class="seg" id="vdSeg" role="group" aria-label="Sorgu türü" style="display:flex;width:100%"><button class="chip" type="button" data-vd="borc" aria-pressed="true" style="flex:1;padding:6px 2px;font-size:.8rem">Borç durumu</button><button class="chip" type="button" data-vd="mesaj" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Tebligat / mesaj</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Gelen fatura</button></div>
+    <div class="seg" id="vdSeg" role="group" aria-label="Sorgu türü" style="display:flex;width:100%"><button class="chip" type="button" data-vd="borc" aria-pressed="true" style="flex:1;padding:6px 2px;font-size:.8rem">Borç durumu</button><button class="chip" type="button" data-vd="mesaj" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Tebligat / mesaj</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Gelen fatura</button><button class="chip" type="button" data-vd="dene" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Bağlantı</button></div>
     <p class="not" id="vdNot"></p>
     <div class="satir" id="vdTarih" hidden><div><label for="vdBas">Başlangıç</label><input id="vdBas" type="date"></div><div><label for="vdBit">Bitiş</label><input id="vdBit" type="date"></div></div>
     <button class="btn ikincil" type="button" id="vdSorgula">Sorgula</button>
@@ -1667,7 +1667,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   var VDNOT = {
     borc: "Dijital Vergi Dairesi’nden canlı sorgulanır; borç, vade ve gecikme bilgisi vergi dairesindeki kayıtlardır.",
     mesaj: "Vergi dairesinin bıraktığı mesajlar ve ceza ihbarnameleri. Resmî elektronik tebligat (PTT / e-Tebligat) bu listede olmayabilir.",
-    gelen: "Adınıza düzenlenmiş e-Arşiv belgeleri (e-Arşiv portalından). Başlangıç ve bitiş tarihini seçip sorgulayın."
+    gelen: "Adınıza düzenlenmiş e-Arşiv belgeleri (e-Arşiv portalından). Başlangıç ve bitiş tarihini seçip sorgulayın.",
+    dene: "Giriş sınaması: Dijital Vergi Dairesi oturumu gerçekten bu mükellefe ait mi? Mükellefin kendi sicil bilgisi istenir (kimlik numaraları maskelenir). Borç ya da mesaj boş/hatalı geliyorsa önce bunu deneyin."
   };
   var KELIME = { satici: "Satıcı", alici: "Alıcı", vkn: "VKN", tckn: "TCKN", donem: "Dönem", borc: "Borç", zammi: "Zammı", odenecek: "Ödenecek", turu: "Türü", gonderen: "Gönderen", onay: "Onay", belge: "Belge", numarasi: "Numarası", tutari: "Tutarı", tutar: "Tutar", durumu: "Durumu", ihbarname: "İhbarname", aciklama: "Açıklama", gecikme: "Gecikme", odeme: "Ödeme", vergi: "Vergi", tarihi: "Tarihi", unvan: "Unvan", konu: "Konu", tur: "Tür", ad: "Ad", soyad: "Soyad", mesaj: "Mesaj", okunma: "Okunma" };
   function insanAd(k){ return String(k).replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g, "$1 $2").replace(/[_-]+/g, " ").split(" ").map(function(w){ var l = w.toLocaleLowerCase("tr-TR"); return KELIME[l] || (l.charAt(0).toLocaleUpperCase("tr-TR") + l.slice(1)); }).join(" "); }
@@ -1689,7 +1690,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (s.kayitlar.length || !s.ceza || !s.ceza.length) h += s.kayitlar.length ? "" : '<p class="not">Kayıt bulunamadı.</p>';
     h += s.kayitlar.map(vdKayitHtml).join("");
     if (s.ceza && s.ceza.length) h += '<p class="not" style="margin:6px 0 0"><b>Ceza ihbarnameleri</b></p>' + s.ceza.map(vdKayitHtml).join("");
-    liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + (s.ceza && s.ceza.length ? " + " + s.ceza.length : "") + " kayıt · " + esc(s.zaman) + "</p>" + h;
+    liste.innerHTML = (s.bilgi ? '<p class="durum ok" style="margin:0">' + esc(s.bilgi) + '</p>' : "") + '<p class="not" style="margin:0">' + s.kayitlar.length + (s.ceza && s.ceza.length ? " + " + s.ceza.length : "") + " kayıt · " + esc(s.zaman) + "</p>" + h;
     $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false;
   }
   function vdRozet(){

@@ -17,7 +17,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-20-74";
+const SURUM = "2026-10-20-75";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -374,6 +374,7 @@ async function api(req, res, yol) {
   }
   if (yol.startsWith("/api/vd/")) {
     const ne = yol.slice(8);
+    if (ne === "dene") return cevap(res, 200, await vdSorgu(m, () => ivdIstemci(m).dene()));
     if (ne === "borc") return cevap(res, 200, await vdSorgu(m, () => ivdIstemci(m).borc()));
     if (ne === "mesaj") return cevap(res, 200, await vdSorgu(m, async () => { const x = ivdIstemci(m), a = await x.mesajlar(); let c = { kayitlar: [], sekil: [] }; try { c = await x.cezaIhbar(); } catch (e) { /* ceza ihbarnamesi isteğe bağlı */ } return { kayitlar: a.kayitlar, ceza: c.kayitlar, sekil: { mesajlar: a.sekil, ceza: c.sekil } }; }));
     if (ne === "gelen") {

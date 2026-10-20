@@ -82,6 +82,8 @@ class Ivd {
   }
   /* sorgular; her biri { kayitlar, sekil } döndürür */
   async borc() { const d = await this.dispatch("tvdBorcIslemleri_borcGetirYeni", "P_DASHBOARD", "e95931c2f24ce-145", {}); return { kayitlar: kayitlar(d), sekil: sekil(d) }; }
+  /* oturumun GERÇEKTEN o kullanıcıya ait olup olmadığını sınar: kendi sicil/kimlik bilgisini ister (token almak giriş yapıldığını kanıtlamaz, misafir oturumu da token verir) */
+  async dene() { const d = await this.dispatch("sicilIslemleri_evdoYsicilTckimliknoVknCevrimiMernisAdsoyad", "RG_SICIL", "151218977cdcc-29", {}); const k = kayitlar(d); return { kayitlar: k.map((r) => { const o = {}; for (const [a, v] of Object.entries(r)) o[a] = /tc|vkn|kimlik|no$/i.test(a) && typeof v !== "object" ? String(v).replace(/\d(?=\d{3})/g, "*") : v; return o; }), sekil: sekil(d), bilgi: "Giriş doğrulandı: oturum kullanıcı bilgisini döndürdü (kimlik numaraları maskelendi)." }; }
   async mesajlar() { const d = await this.dispatch("kullaniciMesajlariService_kullaniciMesajlariGetir", "PG_MAIN_DYNAMIC", "e61d39920010c-61", {}); return { kayitlar: kayitlar(d), sekil: sekil(d) }; }
   async cezaIhbar() { const d = await this.dispatch("cezaIhbarnameleriService_cezaIhbarnameleriGetir", "P_CEZA_IHBARNAMELERI", "0861bf80b5f42-37", {}); return { kayitlar: kayitlar(d), sekil: sekil(d) }; }
 }
@@ -99,6 +101,7 @@ class SahteIvd {
   }
   async mesajlar() { const d = [{ konu: "Ödeme emri", tarih: "18.10.2026", durum: "Okunmadı", gonderen: "Vergi Dairesi Müdürlüğü" }, { konu: "Bilgi isteme yazısı", tarih: "15.10.2026", durum: "Okunmadı", gonderen: "Vergi Dairesi Müdürlüğü" }, { konu: "Tahakkuk bildirimi", tarih: "28.08.2026", durum: "Okundu", gonderen: "Vergi Dairesi Müdürlüğü" }]; return { kayitlar: kayitlar(d), sekil: sekil(d) }; }
   async cezaIhbar() { return { kayitlar: [], sekil: [] }; }
+  async dene() { const d = [{ adSoyad: "ÖRNEK KİŞİ", tckn: "1234567890" }]; return { kayitlar: kayitlar(d), sekil: sekil(d), bilgi: "Giriş doğrulandı (deneme kipi)." }; }
 }
 
 module.exports = { istemci: (k, s) => (MOCK ? new SahteIvd(k) : new Ivd(k, s)), sekil, kayitlar };
