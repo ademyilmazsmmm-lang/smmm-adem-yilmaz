@@ -1043,7 +1043,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       var bitti = false, f;
       function son(fn, v){ if (bitti) return; bitti = true; clearTimeout(zt); window.removeEventListener("message", dinle); if (f) f.remove(); fn(v); }
       function dinle(e){ if (!f || e.source !== f.contentWindow) return; var d = e.data || {}; if (d.statikHtml) son(res, d.statikHtml); else if (d.pdfHata) son(rej, new Error(d.pdfHata)); }
-      var zt = setTimeout(function(){ son(rej, new Error("fatura hazırlanamadı (zaman aşımı)")); }, 40000);
+      var zt = setTimeout(function(){ son(rej, new Error("2/3 aşamasında (karekod hazırlama) zaman aşımı")); }, 25000);
       window.addEventListener("message", dinle);
       f = cerceveAc("allow-scripts", gorunumHtml(html, true, mid), function(fr){ try { fr.contentWindow.postMessage({ statik: 1 }, "*"); } catch (er) { son(rej, er); } });
     });
@@ -1057,7 +1057,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         var bitti = false, zt;
         var f = cerceveAc("allow-same-origin", r[1], function(fr){
           function bit(fn, v){ if (bitti) return; bitti = true; clearTimeout(zt); fr.remove(); fn(v); }
-          zt = setTimeout(function(){ bit(rej, new Error("PDF çizimi çok uzun sürdü (zaman aşımı)")); }, 45000);
+          zt = setTimeout(function(){ bit(rej, new Error("3/3 aşamasında (PDF çizimi) zaman aşımı")); }, 30000);
           setTimeout(function(){
             var d; try { d = fr.contentDocument.documentElement; } catch (er) { return bit(rej, er); }
             /* hız: 1,5x ölçek (A4 için yeterli), dış adresli resimler (GİB sunucusu) atlanır: çizime zaten katılamazlar, yalnız bekletirler */
@@ -1103,11 +1103,12 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     function goster(){ d.className = "durum"; d.textContent = "PDF hazırlanıyor — " + asama + "… (" + Math.round((Date.now() - t0) / 1000) + " sn)"; }
     goster(); var sayac = setInterval(goster, 1000);
     function ilerle(m){ asama = m; goster(); }
+    var alinanHtml = null;
     var ak = mid + "|" + uuid + "|" + onay, baslik = "Fatura " + (ad || ""), ad2 = "fatura-" + String(ad || "belge").replace(/[^\w.-]+/g, "_") + ".pdf";
     var hazir = PDFOnbellek[ak];
-    (hazir ? Promise.resolve(hazir) : markaYukle(mid).then(function(){ return api("/api/gorunum", "POST", { mukellefId: mid, uuid: uuid, onay: onay }); }).then(function(r){ return pdfUret(r.html, mid, ilerle); }).then(function(buf){ var f = new File([buf], ad2, { type: "application/pdf" }); PDFOnbellek[ak] = f; return f; }))
+    (hazir ? Promise.resolve(hazir) : markaYukle(mid).then(function(){ return api("/api/gorunum", "POST", { mukellefId: mid, uuid: uuid, onay: onay }); }).then(function(r){ alinanHtml = r.html; return pdfUret(r.html, mid, ilerle); }).then(function(buf){ var f = new File([buf], ad2, { type: "application/pdf" }); PDFOnbellek[ak] = f; return f; }))
       .then(function(dosya){ clearInterval(sayac); d.textContent = ""; return pdfVer(dosya, baslik, d); })
-      .catch(function(er){ clearInterval(sayac); if (er && er.name === "AbortError") return; if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = "PDF oluşturulamadı: " + (er.message || er) + ". Faturayı “Görüntüle” ile açıp “Yazdır / PDF”i de kullanabilirsiniz."; } });
+      .catch(function(er){ clearInterval(sayac); if (er && er.name === "AbortError") return; if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = "PDF oluşturulamadı: " + (er.message || er) + (alinanHtml ? ". Fatura açıldı; “Yazdır / PDF” ile kaydedebilirsiniz." : "."); if (alinanHtml) gorunumAc(alinanHtml, true, mid); } });
   }
   $("tListe").addEventListener("click", function(e){
     var g = e.target.getAttribute("data-tg"), o = e.target.getAttribute("data-to"), sl = e.target.getAttribute("data-ts"), tp = e.target.getAttribute("data-tp"), x;

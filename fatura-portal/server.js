@@ -16,7 +16,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-20-66";
+const SURUM = "2026-10-20-67";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -367,7 +367,9 @@ async function api(req, res, yol) {
   }
   if (yol === "/api/gorunum") {
     if (!/^[A-Za-z0-9:_=.-]{8,4000}$/.test(String(g.uuid || ""))) return cevap(res, 400, { hata: "Fatura seçilmedi." });
-    return cevap(res, 200, { html: await istemci(m).faturaHtml(g.uuid, g.onay) });
+    const t0 = Date.now(); let html;
+    try { html = await istemci(m).faturaHtml(g.uuid, g.onay); } finally { console.log("fatura görünümü: " + (Date.now() - t0) + " ms"); } // yalnız süre (teşhis); içerik yazılmaz
+    return cevap(res, 200, { html });
   }
   cevap(res, 404, { hata: "Bulunamadı." });
 }

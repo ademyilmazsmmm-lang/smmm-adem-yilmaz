@@ -264,7 +264,9 @@ class Gib {
   async post(yol, alanlar) {
     const baslik = { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" };
     if (this.cerez.size) baslik.cookie = this.cerezBaslik();
-    const r = await fetch(BASE + yol, { method: "POST", headers: baslik, body: new URLSearchParams(alanlar) });
+    let r;
+    try { r = await fetch(BASE + yol, { method: "POST", headers: baslik, body: new URLSearchParams(alanlar), signal: AbortSignal.timeout(25000) }); }
+    catch (e) { throw new Error(e && (e.name === "TimeoutError" || e.name === "AbortError") ? "GİB portalı 25 saniyede yanıt vermedi (zaman aşımı); biraz sonra tekrar deneyin." : e.message); }
     this.cerezTopla(r);
     const t = await r.text();
     try { return JSON.parse(t); } catch (e) { throw new Error("Portal beklenmeyen yanıt verdi (" + r.status + ")."); }
@@ -389,7 +391,8 @@ class Gib {
       try {
         const q = new URLSearchParams(alanlar).toString();
         const bas = this.cerez.size ? { cookie: this.cerezBaslik() } : {};
-        const r = yontem === "GET" ? await fetch(yol + "?" + q, { headers: bas }) : await fetch(yol, { method: "POST", headers: Object.assign({ "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }, bas), body: q });
+        const sinyal = AbortSignal.timeout(25000);
+        const r = yontem === "GET" ? await fetch(yol + "?" + q, { headers: bas, signal: sinyal }) : await fetch(yol, { method: "POST", headers: Object.assign({ "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }, bas), body: q, signal: sinyal });
         const b = Buffer.from(await r.arrayBuffer());
         try { return coz(b); } catch (e) { hatalar.push(yontem + " " + r.status + ": " + e.message + " [" + b.slice(0, 120).toString("utf8").replace(/\s+/g, " ") + "]"); }
       } catch (e) { hatalar.push(yontem + ": " + e.message); }
