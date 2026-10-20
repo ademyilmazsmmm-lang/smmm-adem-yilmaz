@@ -374,6 +374,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <div id="gorunum" hidden role="dialog" aria-label="Fatura görünümü">
     <div class="gbas"><button class="btn ikincil" type="button" id="gorunumKapat">← Geri</button><h2>Fatura</h2><button class="btn" type="button" id="yazdir">Yazdır / PDF</button></div>
     <iframe id="cerceve" sandbox="allow-scripts allow-modals" title="Fatura"></iframe>
+    <p class="not" id="gTani" style="font-size:.7rem;word-break:break-all"></p>
     <p class="not">“Yazdır / PDF”e basınca yazdırma ekranında “PDF olarak kaydet”i seçin (telefonda Paylaş ile gönderebilirsiniz). Geri dönmek için “← Geri”ye ya da telefonun geri hareketine basın.</p>
   </div>
 </div>
@@ -678,7 +679,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   /* Fatura görünümü: tam ekran katman. Geri hareketi/düğmesi katmanı kapatır (sayfa geçmişine bir kayıt eklenir). */
   var gorunumAcik = false;
   function gorunumAc(html, gib){
-    $("cerceve").srcdoc = gorunumHtml(html, gib); $("gorunum").hidden = false;
+    $("gTani").textContent = ""; $("cerceve").srcdoc = gorunumHtml(html, gib); $("gorunum").hidden = false;
     if (!gorunumAcik) { gorunumAcik = true; try { history.pushState({ g: 1 }, ""); } catch (e) {} }
   }
   function gorunumKapat(geri){
@@ -705,7 +706,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       }
       else if (son) { L.style.cssText = "display:block;text-align:right;margin:6px 0"; document.body.insertBefore(L, document.body.firstChild); yerlesti = true; }
     }
-    function boyut(){ parent.postMessage({ fatura: 1, h: Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0) }, "*"); }
+    function boyut(){
+      var im = [].slice.call(document.images).map(function(i){ return (/^data:/.test(i.src) ? "data:" + (i.src.length > 1000 ? "uzun" : "kısa") : (i.src || "").slice(0, 70)) + (i.complete && i.naturalWidth ? "" : " (YÜKLENMEDİ)"); });
+      parent.postMessage({ fatura: 1, h: Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0),
+        tani: "Karekod: " + (bul() ? "bulundu" : "bulunamadı") + " · resim " + im.length + " · canvas " + document.querySelectorAll("canvas").length + " · betik " + document.scripts.length + (im.length ? " · " + im.slice(0, 4).join(" | ") : "") }, "*");
+    }
     addEventListener("load", function(){ setTimeout(function(){ yerles(false); boyut(); }, 300); setTimeout(function(){ yerles(false); boyut(); }, 900); setTimeout(function(){ yerles(true); boyut(); }, 1600); });
   }
   /* gib=true: GİB’in resmî HTML’i (logo/imza eklenir); yerel kopya zaten logo/imza içerir */
@@ -719,7 +724,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   window.addEventListener("message", function(e){
     if (e.source !== $("cerceve").contentWindow) return;
-    var d = e.data; if (d && d.fatura && d.h > 100) document.documentElement.style.setProperty("--fh", Math.ceil(d.h) + "px");
+    var d = e.data; if (d && d.fatura && d.h > 100) { document.documentElement.style.setProperty("--fh", Math.ceil(d.h) + "px"); if (d.tani) $("gTani").textContent = d.tani; }
   });
   function goster(uuid, onay){
     function ac(html, gib){ gorunumAc(html, gib); }
