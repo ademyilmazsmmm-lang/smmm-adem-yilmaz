@@ -16,17 +16,17 @@
 <script>try{var t=localStorage.getItem("tema");if(t==="acik"||t==="koyu")document.documentElement.setAttribute("data-tema",t)}catch(e){}</script>
 <style>
 :root{
-  --bg:#f2f4f3;--surface:#fff;--surface2:#f7f9f8;--fg:#0f1d19;--muted:#5d6b66;--line:#dfe5e2;--line2:#cfd8d4;
+  --bg:#f2f4f3;--surface:#f7f9f8;--surface2:#eef2f0;--field:#fff;--fg:#0f1d19;--muted:#5d6b66;--line:#dfe5e2;--line2:#cfd8d4;
   --accent:#0d6b55;--accent2:#0a5544;--accent-fg:#fff;--accent-soft:#e2f1eb;--danger:#b3261e;--danger-soft:#fbe9e7;--warn:#8a5200;--warn-soft:#fdf0d8;
   --shadow:0 1px 2px rgba(16,30,25,.05),0 4px 14px rgba(16,30,25,.05);--r:14px;--r2:10px;
   --nav-h:64px;--safe:env(safe-area-inset-bottom,0px)
 }
 @media (prefers-color-scheme:dark){:root:not([data-tema="acik"]){
-  --bg:#0b1210;--surface:#141d1a;--surface2:#101816;--fg:#e6eeea;--muted:#97a8a1;--line:#24312c;--line2:#2f3f39;
+  --bg:#0b1210;--surface:#111a17;--surface2:#0d1512;--field:#16211d;--fg:#e6eeea;--muted:#97a8a1;--line:#24312c;--line2:#2f3f39;
   --accent:#56c6a6;--accent2:#7ad6bb;--accent-fg:#06110d;--accent-soft:#163029;--danger:#f19389;--danger-soft:#3a1c19;--warn:#eab866;--warn-soft:#33270f;
   --shadow:0 1px 2px rgba(0,0,0,.3);color-scheme:dark}}
 :root[data-tema="koyu"]{
-  --bg:#0b1210;--surface:#141d1a;--surface2:#101816;--fg:#e6eeea;--muted:#97a8a1;--line:#24312c;--line2:#2f3f39;
+  --bg:#0b1210;--surface:#111a17;--surface2:#0d1512;--field:#16211d;--fg:#e6eeea;--muted:#97a8a1;--line:#24312c;--line2:#2f3f39;
   --accent:#56c6a6;--accent2:#7ad6bb;--accent-fg:#06110d;--accent-soft:#163029;--danger:#f19389;--danger-soft:#3a1c19;--warn:#eab866;--warn-soft:#33270f;
   --shadow:0 1px 2px rgba(0,0,0,.3);color-scheme:dark}
 :root[data-tema="acik"]{color-scheme:light}
@@ -34,10 +34,10 @@
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 h1{font-size:1.25rem;margin:0;letter-spacing:-.01em}
-h2{font-size:1.05rem;margin:0;font-weight:800;color:var(--fg);letter-spacing:-.005em}
+h2{font-size:1rem;margin:0;font-weight:650;letter-spacing:-.005em}
 a{color:var(--accent)}
 label{font-size:.8rem;color:var(--muted);display:block;margin-bottom:5px;font-weight:500}
-input,select,textarea{width:100%;font:inherit;padding:11px 12px;border:1px solid var(--line2);border-radius:var(--r2);background:var(--surface);color:var(--fg);min-height:48px;transition:border-color .15s,box-shadow .15s}
+input,select,textarea{width:100%;font:inherit;padding:11px 12px;border:1px solid var(--line2);border-radius:var(--r2);background:var(--field);color:var(--fg);min-height:48px;transition:border-color .15s,box-shadow .15s}
 select{appearance:none;-webkit-appearance:none;padding-right:36px;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 21px,calc(100% - 13px) 21px;background-size:5px 5px;background-repeat:no-repeat}
 textarea{min-height:88px;resize:vertical}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -93,8 +93,8 @@ details>summary{cursor:pointer;list-style:none}
 details>summary::-webkit-details-marker{display:none}
 details.bolum{padding:0;gap:0}
 details.bolum>summary{display:flex;align-items:center;gap:10px;padding:14px 16px;min-height:56px}
-details.bolum>summary .bas{font-weight:800;font-size:1.08rem;color:var(--fg)}
-details.bolum>summary small{margin-left:auto;color:var(--fg);opacity:.8;font-weight:600;font-size:.85rem;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:58%}
+details.bolum>summary .bas{font-weight:650}
+details.bolum>summary small{margin-left:auto;color:var(--muted);font-size:.85rem;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:58%}
 details.bolum>summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin:-4px 4px 0 2px;transition:transform .2s;flex:none}
 details.bolum[open]>summary::after{transform:rotate(-135deg);margin-top:4px}
 details.bolum[open]>summary{border-bottom:1px solid var(--line)}
