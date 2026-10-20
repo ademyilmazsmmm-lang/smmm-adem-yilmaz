@@ -179,6 +179,73 @@ function htmlCikar(b) {
   throw new Error("İndirilen dosya HTML değil.");
 }
 
+/* ---------- eski faturalardan cari ve hizmet çıkarma ---------- */
+const xmlDecode = (t) => String(t == null ? "" : t).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n)).replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+const ublBlok = (x, ad) => { const r = new RegExp("<(?:\\w+:)?" + ad + "(?:\\s[^>]*)?>([\\s\\S]*?)</(?:\\w+:)?" + ad + ">", "g"), o = []; let m; while ((m = r.exec(x))) o.push(m[1]); return o; };
+const ublDeger = (x, ad) => { const m = new RegExp("<(?:\\w+:)?" + ad + "(?:\\s([^>]*))?>([\\s\\S]*?)</(?:\\w+:)?" + ad + ">").exec(x || ""); return m ? { v: xmlDecode(m[2]), oz: m[1] || "" } : null; };
+const ublMetin = (x, ad) => { const d = ublDeger(x, ad); return d ? d.v : ""; };
+const sayiOku = (t) => { const n = parseFloat(String(t).replace(",", ".")); return Number.isFinite(n) ? n : 0; };
+/* UBL-TR e-Arşiv XML’inden alıcı ve satırlar. Kimlik: AccountingCustomerParty (satıcı alınmaz). */
+function ublCoz(xml) {
+  const mus = ublBlok(xml, "AccountingCustomerParty")[0] || "";
+  if (!mus) throw new Error("XML’de alıcı bölümü yok");
+  let vkn = "";
+  for (const m of mus.matchAll(/<(?:\w+:)?ID\s[^>]*schemeID="(?:VKN|TCKN)"[^>]*>([^<]+)</g)) { vkn = xmlDecode(m[1]); break; }
+  if (!vkn) { const d = /<(?:\w+:)?ID[^>]*>\s*(\d{10,11})\s*</.exec(mus); vkn = d ? d[1] : ""; }
+  const kisi = ublBlok(mus, "Person")[0] || "";
+  const unvan = ublMetin(ublBlok(mus, "PartyName")[0] || "", "Name") || [ublMetin(kisi, "FirstName"), ublMetin(kisi, "FamilyName")].filter(Boolean).join(" ");
+  const vd = ublMetin(ublBlok(mus, "PartyTaxScheme")[0] || "", "Name");
+  const ad = ublBlok(mus, "PostalAddress")[0] || "";
+  const adres = ["StreetName", "BuildingName", "BuildingNumber", "Room", "CitySubdivisionName", "CityName"].map((k) => ublMetin(ad, k)).filter(Boolean).join(" ");
+  const kalemler = ublBlok(xml, "InvoiceLine").map((l) => {
+    const q = ublDeger(l, "InvoicedQuantity"), item = ublBlok(l, "Item")[0] || "";
+    const tevB = ublBlok(l, "WithholdingTaxTotal")[0] || "", kdvB = ublBlok(l, "TaxTotal")[0] || "";
+    const tevYuzde = sayiOku(ublMetin(tevB, "Percent"));
+    const birim = /unitCode="([^"]*)"/.exec((q && q.oz) || "");
+    const ist = ublMetin(kdvB, "TaxExemptionReasonCode");
+    return {
+      ad: ublMetin(item, "Name") || ublMetin(item, "Description"), miktar: q ? sayiOku(q.v) : 1, birim: birim ? birim[1] : "C62", fiyat: sayiOku(ublMetin(ublBlok(l, "Price")[0] || "", "PriceAmount")),
+      kdv: sayiOku(ublMetin(kdvB, "Percent")), tev: tevYuzde > 0 ? Math.min(9, Math.round(tevYuzde / 10)) : 0, kod: tevYuzde > 0 ? ublMetin(tevB, "TaxTypeCode") : "", istisna: ist
+    };
+  }).filter((k) => k.ad);
+  if (!kalemler.length) throw new Error("XML’de fatura satırı yok");
+  return { kaynak: "xml", alici: { unvan, vkn, vd, adres }, kalemler };
+}
+/* XML yoksa: GİB’in HTML görünümünden satır tablosu (başlıklarına göre) ve alıcı VKN’si; en iyi çaba */
+function htmlCoz(html) {
+  const metin = (h) => xmlDecode(String(h).replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, " "));
+  const kalemler = [];
+  for (const tablo of html.match(/<table[\s\S]*?<\/table>/gi) || []) {
+    const satirlar = tablo.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+    const hi = satirlar.findIndex((r) => /Mal\s*Hizmet/i.test(r) && /Miktar/i.test(r));
+    if (hi < 0) continue;
+    const bas = (satirlar[hi].match(/<t[hd][\s\S]*?<\/t[hd]>/gi) || []).map(metin);
+    const ix = (re) => bas.findIndex((b) => re.test(b));
+    const iAd = ix(/Mal\s*Hizmet(?!\s*Tutar)/i), iMik = ix(/Miktar/i), iFiy = ix(/Birim\s*Fiyat/i), iKdv = ix(/KDV\s*Oran/i);
+    if (iAd < 0) continue;
+    for (const r of satirlar.slice(hi + 1)) {
+      const h = (r.match(/<t[hd][\s\S]*?<\/t[hd]>/gi) || []).map(metin);
+      if (!h[iAd] || /^\d+$/.test(h[iAd]) && h.length < 4) continue;
+      const mk = iMik >= 0 ? /([\d.,]+)\s*(\S*)/.exec(h[iMik] || "") : null;
+      kalemler.push({ ad: h[iAd], miktar: mk ? sayiOku(mk[1].replace(/\./g, "")) || 1 : 1, birim: "C62", fiyat: iFiy >= 0 ? sayiOku((h[iFiy] || "").replace(/\./g, "")) : 0, kdv: iKdv >= 0 ? sayiOku((h[iKdv] || "").replace("%", "").replace(",", ".")) : 20, tev: 0, kod: "", istisna: "" });
+    }
+    if (kalemler.length) break;
+  }
+  if (!kalemler.length) throw new Error("HTML’de fatura satırı bulunamadı");
+  const v = /(?:VKN|TCKN|VKN\/TCKN)[^\d]{0,12}(\d{10,11})/i.exec(metin(html));
+  return { kaynak: "html", alici: { unvan: "", vkn: v ? v[1] : "", vd: "", adres: "" }, kalemler };
+}
+function faturaVeriCikar(b) {
+  let xml = "", html = "";
+  if (b.length > 4 && b[0] === 0x50 && b[1] === 0x4b) {
+    for (const [isim, v] of zipDosyalari(b)) { if (/\.xml$/i.test(isim) && !xml) xml = v.toString("utf8"); else if (/\.html?$/i.test(isim) && !html) html = v.toString("utf8"); }
+  } else { const t = b.toString("utf8"); if (/<(?:\w+:)?Invoice[\s>]/i.test(t.slice(0, 2000))) xml = t; else html = t; }
+  let xmlHata = "";
+  if (xml) { try { return ublCoz(xml); } catch (e) { xmlHata = e.message; } }
+  if (html) { try { const r = htmlCoz(html); r.not = xmlHata; return r; } catch (e) { throw new Error((xmlHata ? xmlHata + "; " : "") + e.message); } }
+  throw new Error(xmlHata || "İndirilen dosyada XML/HTML yok");
+}
+
 class Gib {
   constructor(kullanici, sifre) { this.k = kullanici; this.s = sifre; this.token = null; this.cerez = new Map(); }
   /* Tarayıcı gibi oturum çerezini (JSESSIONID) saklayıp geri göndeririz; bazı servisler (örn. kimlik sorgusu) oturuma bakıyor. */
@@ -311,7 +378,9 @@ class Gib {
     return { uuid: satirId(k), mesaj: y.data, satir: k };
   }
   /* Portalın "İndir" isteği. DOĞRULANACAK: adres biçimi; GET ve POST sırayla denenir, hata ayrıntısı döner. */
-  async indir(uuid, onay) {
+  async indir(uuid, onay) { return this.indirHam(uuid, onay, htmlCikar); }
+  /* coz: indirilen baytları işleyen işlev (HTML ya da fatura verisi çıkarır); hata verirse öteki yöntem denenir */
+  async indirHam(uuid, onay, coz) {
     if (!this.token) await this.giris();
     const alanlar = { token: this.token, ettn: uuid, belgeTip: "FATURA", onayDurumu: onay === "Onaylandı" ? "Onaylandı" : "Onaylanmadı", cmd: "EARSIV_PORTAL_BELGE_INDIR" };
     const yol = BASE + "/earsiv-services/download";
@@ -322,7 +391,7 @@ class Gib {
         const bas = this.cerez.size ? { cookie: this.cerezBaslik() } : {};
         const r = yontem === "GET" ? await fetch(yol + "?" + q, { headers: bas }) : await fetch(yol, { method: "POST", headers: Object.assign({ "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }, bas), body: q });
         const b = Buffer.from(await r.arrayBuffer());
-        try { return htmlCikar(b); } catch (e) { hatalar.push(yontem + " " + r.status + ": " + e.message + " [" + b.slice(0, 120).toString("utf8").replace(/\s+/g, " ") + "]"); }
+        try { return coz(b); } catch (e) { hatalar.push(yontem + " " + r.status + ": " + e.message + " [" + b.slice(0, 120).toString("utf8").replace(/\s+/g, " ") + "]"); }
       } catch (e) { hatalar.push(yontem + ": " + e.message); }
     }
     throw new Error(hatalar.join(" ; "));
@@ -398,6 +467,9 @@ Gib.prototype.sil = function (uuid, neden, tarih) { return this.belgeIslemi("sil
 Gib.prototype.iptal = function (uuid, neden, tarih) { return this.belgeIslemi("iptal", uuid, neden, tarih); };
 
 /* Fatura görünümü (HTML). Taslak için onay="Onaylanmadı", kesilmiş için "Onaylandı". DOĞRULANACAK: komut/alan adları */
+Gib.prototype.faturaVerisi = async function (uuid, onay) {
+  return this.indirHam(uuid, onay === "Onaylandı" ? "Onaylandı" : "Onaylanmadı", faturaVeriCikar);
+};
 Gib.prototype.faturaHtml = async function (id, onay) {
   let uuid = id;
   if (String(id).startsWith("j:")) { try { uuid = JSON.parse(Buffer.from(String(id).slice(2), "base64url").toString("utf8")).ettn; } catch (e) { uuid = ""; } }
@@ -443,6 +515,12 @@ class SahteGib {
     for (const [m, d] of [[SahteGib.t, "Onaylanmadı"], [SahteGib.o, "Onaylandı"], [SahteGib.i, "İptal Edildi"]]) for (const [id, g] of (m || new Map())) hepsi.push({ belgeNo: g._no, alici: g.aliciUnvan || (g.aliciAdi + " " + g.aliciSoyadi), vkn: g.vknTckn, tarih: g.faturaTarihi.replace(/\//g, "-"), durum: d, ettn: id });
     return hepsi;
   }
+  async faturaVerisi(uuid) {
+    const g = (SahteGib.t && SahteGib.t.get(uuid)) || (SahteGib.o && SahteGib.o.get(uuid)) || (SahteGib.i && SahteGib.i.get(uuid));
+    if (!g) throw new Error("Fatura bulunamadı.");
+    return { kaynak: "xml", alici: { unvan: g.aliciUnvan || (g.aliciAdi + " " + g.aliciSoyadi).trim(), vkn: g.vknTckn, vd: g.vergiDairesi || "", adres: g.bulvarcaddesokak || "" },
+      kalemler: g.malHizmetTable.map((k) => ({ ad: k.malHizmet, miktar: k.miktar, birim: k.birim, fiyat: Number(k.birimFiyat), kdv: Number(k.kdvOrani), tev: k.V9015Orani ? Math.round(k.V9015Orani / 10) : 0, kod: k.tevkifatKodu || "", istisna: k.istisnaKodu || "" })) };
+  }
   async faturaHtml(uuid) {
     const g = (SahteGib.t && SahteGib.t.get(uuid)) || (SahteGib.o && SahteGib.o.get(uuid));
     if (!g) throw new Error("Fatura bulunamadı.");
@@ -451,4 +529,4 @@ class SahteGib {
   }
 }
 
-module.exports = { trBugunStr, zipDosyalari, htmlCikar, hesaplaFatura, notUret, tutarYazi, temizMetin, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };
+module.exports = { ublCoz, htmlCoz, faturaVeriCikar, trBugunStr, zipDosyalari, htmlCikar, hesaplaFatura, notUret, tutarYazi, temizMetin, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };

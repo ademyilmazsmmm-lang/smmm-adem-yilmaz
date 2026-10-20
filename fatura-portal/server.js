@@ -15,7 +15,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-20-57-ck";
+const SURUM = "2026-10-20-58";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -331,6 +331,10 @@ async function api(req, res, yol) {
     const liste = await istemci(m).listeAralik(t(g.bas), t(g.bit));
     for (const b of liste) { const k = bekleyen.get(b.ettn) || (m.gecmis || []).filter((x) => x.id === b.ettn)[0]; if (k && k.hesap && k.mukellefId === m.id) b.tutar = k.hesap.odenecek; } // tutar GİB listesinde yok; bu programdan açılanlar için bilinir
     return cevap(res, 200, { belgeler: liste });
+  }
+  if (yol === "/api/fatura-veri") {
+    if (!/^[A-Za-z0-9:_=.-]{8,4000}$/.test(String(g.uuid || ""))) return cevap(res, 400, { hata: "Fatura seçilmedi." });
+    return cevap(res, 200, await istemci(m).faturaVerisi(g.uuid, g.onay));
   }
   if (yol === "/api/gorunum") {
     if (!/^[A-Za-z0-9:_=.-]{8,4000}$/.test(String(g.uuid || ""))) return cevap(res, 400, { hata: "Fatura seçilmedi." });
