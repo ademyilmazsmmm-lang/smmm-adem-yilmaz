@@ -365,8 +365,9 @@ class Gib {
   }
 }
 
-/* Taslak silme ve onaylı fatura iptali. DOĞRULANMADI: portalın gerçek isteği (DevTools) alınana kadar olası biçimler sırayla denenir;
- * hiçbiri belgenin durumunu değiştirmezse hata verilir. Doğru biçim bulununca yalnız bu iki liste güncellenir. */
+/* Taslak silme ve onaylı fatura iptali. İptal: portalın gerçek isteğiyle doğrulandı. Silme: kullanıcı gerçek GİB'de çalıştığını bildirdi
+ * (komut EARSIV_PORTAL_FATURA_SIL; hangi sayfa adının kabul edildiği kaydedilmedi, bu yüzden iki varyant sırayla denenir).
+ * Hiçbiri belgenin durumunu değiştirmezse hata verilir. */
 const SIL_DENEMELERI = (f, neden) => [
   ["EARSIV_PORTAL_FATURA_SIL", "RG_BASITTASLAKLAR", { silinecekler: [f], aciklama: neden }],
   ["EARSIV_PORTAL_FATURA_SIL", "RG_TASLAKLAR", { silinecekler: [f], aciklama: neden }]
