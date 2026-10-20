@@ -343,7 +343,21 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <section data-sayfa="gecmis" class="liste" hidden>
   <div class="card" id="gecmisKart">
     <div class="kartbas"><h2>Geçmiş faturalar</h2><small id="ozGecmis"></small></div>
+    <div class="alt" id="gFiltre">
+      <input id="gAra" type="search" placeholder="Ara: alıcı, VKN/TCKN, fatura no" aria-label="Geçmişte ara" autocomplete="off">
+      <div class="satir">
+        <select id="gDurumF" aria-label="Durum"><option value="">Durum</option><option value="onayli">Onaylı</option><option value="iptal">İptal talebi</option></select>
+        <select id="gTipF" aria-label="Fatura tipi"><option value="">Tip</option><option value="SATIS">Satış</option><option value="TEVKIFAT">Tevkifat</option><option value="ISTISNA">İstisna</option><option value="IADE">İade</option></select>
+      </div>
+      <div class="satir">
+        <select id="gTarihF" aria-label="Tarih"><option value="">Tarih</option><option value="bu">Bu ay</option><option value="gecen">Geçen ay</option><option value="30">Son 30 gün</option><option value="ozel">Tarih aralığı…</option></select>
+        <select id="gMukF" aria-label="Mükellef" hidden></select>
+      </div>
+      <div class="satir" id="gOzel" hidden><div><label for="gF1">Başlangıç</label><input id="gF1" type="date"></div><div><label for="gF2">Bitiş</label><input id="gF2" type="date"></div></div>
+      <div class="not" id="gOzetF"></div>
+    </div>
     <div id="gecmisListe"><p class="not">Bu programdan kesilen faturalar burada listelenir.</p></div>
+    <button class="btn ikincil" type="button" id="gDaha" hidden>Daha fazla göster</button>
     <div class="durum" id="gDurum" role="status"></div>
   </div>
   <div class="card">
@@ -928,14 +942,47 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   /* ---------- geçmiş ---------- */
   var gecmis = [];
   function satirHtml(ust, alt, dugme){ return '<div class="kayit"><div class="ust2"><span>' + ust + '<br><small>' + alt + '</small></span>' + dugme + '</div></div>'; }
+  var gSayfa = 30;
+  function gTarihAraligi(){
+    var v = $("gTarihF").value, d = new Date(), y = d.getFullYear(), a = d.getMonth(), p2 = function(n){ return String(n).padStart(2, "0"); }, f = function(x){ return x.getFullYear() + "-" + p2(x.getMonth() + 1) + "-" + p2(x.getDate()); };
+    if (v === "bu") return [f(new Date(y, a, 1)), f(new Date(y, a + 1, 0))];
+    if (v === "gecen") return [f(new Date(y, a - 1, 1)), f(new Date(y, a, 0))];
+    if (v === "30") { var b = new Date(); b.setDate(b.getDate() - 30); return [f(b), f(d)]; }
+    if (v === "ozel") return [$("gF1").value || "0000-00-00", $("gF2").value || "9999-99-99"];
+    return null;
+  }
+  /* Geçmiş listesi: arama, durum, tip, tarih ve mükellef filtresi; özet satırında adet ve para birimine göre toplam */
+  function gecmisCiz(){
+    var ara = trk($("gAra").value).trim(), dur = $("gDurumF").value, tip = $("gTipF").value, tr = gTarihAraligi(), mk2 = $("gMukF").hidden ? "" : $("gMukF").value;
+    var liste = [];
+    gecmis.forEach(function(k, i){
+      var iptal = /^İptal/.test(k.durum || "");
+      if (dur === "onayli" && iptal) return; if (dur === "iptal" && !iptal) return;
+      if (tip && (k.tip || (k.tevkifat ? "TEVKIFAT" : "SATIS")) !== tip) return;
+      if (tr && !(k.tarih >= tr[0] && k.tarih <= tr[1])) return;
+      if (mk2 && k.mukellefId !== mk2) return;
+      if (ara && trk([k.aliciUnvan, k.aliciVkn, k.belgeNo, k.mukellef && k.mukellef.ad].join(" ")).indexOf(ara) < 0) return;
+      liste.push({ k: k, i: i, iptal: iptal });
+    });
+    var top = {}; liste.forEach(function(x){ if (x.iptal) return; var pb = x.k.para || "TRY"; top[pb] = (top[pb] || 0) + (x.k.hesap && x.k.hesap.odenecek || 0); });
+    var ipt = liste.filter(function(x){ return x.iptal; }).length;
+    $("gOzetF").textContent = liste.length ? liste.length + " fatura" + (Object.keys(top).length ? " · toplam " + Object.keys(top).map(function(pb){ return fmt(top[pb]) + " " + (PARASEM[pb] || pb); }).join(" + ") : "") + (ipt ? " (iptal talepli " + ipt + " fatura toplama dahil değil)" : "") : (gecmis.length ? "Filtreye uyan fatura yok." : "");
+    $("gecmisListe").innerHTML = liste.length ? liste.slice(0, gSayfa).map(function(x){
+      var k = x.k, i = x.i, t = (k.tarih || "").split("-").reverse().join("/");
+      return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " " + (PARASEM[k.para] || "₺"), esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad),
+        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (x.iptal ? ' <small>İPTAL TALEBİ GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>');
+    }).join("") : '<p class="not">' + (gecmis.length ? "Filtreye uyan fatura yok." : "Bu programdan kesilen fatura henüz yok.") + '</p>';
+    $("gDaha").hidden = liste.length <= gSayfa; $("gDaha").textContent = "Daha fazla göster (" + Math.max(0, liste.length - gSayfa) + " fatura daha)";
+  }
+  ["gAra", "gDurumF", "gTipF", "gTarihF", "gMukF", "gF1", "gF2"].forEach(function(i){ $(i).addEventListener("input", function(){ gSayfa = 30; if (i === "gTarihF") $("gOzel").hidden = $("gTarihF").value !== "ozel"; gecmisCiz(); }); $(i).addEventListener("change", function(){ gSayfa = 30; if (i === "gTarihF") $("gOzel").hidden = $("gTarihF").value !== "ozel"; gecmisCiz(); }); });
+  $("gDaha").addEventListener("click", function(){ gSayfa += 30; gecmisCiz(); });
   function gecmisYukle(){
     api("/api/gecmis").then(function(r){
       gecmis = r.kayitlar || [];
       $("ozGecmis").textContent = gecmis.length ? gecmis.length + " kayıt" : "";
-      $("gecmisListe").innerHTML = gecmis.length ? gecmis.slice(0, 30).map(function(k, i){
-        var t = (k.tarih || "").split("-").reverse().join("/");
-        return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " ₺", esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad), '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (/^İptal/.test(k.durum || "") ? ' <small>İPTAL TALEBİ GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>');
-      }).join("") : '<p class="not">Bu programdan kesilen fatura henüz yok.</p>';
+      var mk = V && V.mukellefler || [], sec = $("gMukF"), onceki = sec.value;
+      sec.hidden = mk.length < 2; sec.innerHTML = '<option value="">Mükellef</option>' + mk.map(function(m){ return '<option value="' + esc(m.id) + '">' + esc(m.ad || "(adsız)") + '</option>'; }).join(""); sec.value = onceki;
+      gecmisCiz();
     }, function(er){ oturumDustu(er); });
   }
   function resmiGoster(mukellefId, uuid, kayit){

@@ -15,7 +15,7 @@ const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const KASA = path.join(DIR, "kasa.json");
 const ITER = 250000;
-const SURUM = "2026-10-20-50";
+const SURUM = "2026-10-20-51";
 
 let key = null, tuz = null, veri = null; // yalnızca giriş yapılınca bellekte
 const oturumlar = new Map(); // çerez -> bitiş zamanı
@@ -232,7 +232,7 @@ async function api(req, res, yol) {
     const g = await oku(req), m = modelTemiz(g, false);
     return cevap(res, 200, { satirlar: m._h.satirlar, toplam: m._h.toplam, not: m.not });
   }
-  if (yol === "/api/gecmis" && req.method === "GET") return cevap(res, 200, { kayitlar: veri.gecmis.slice().reverse().slice(0, 200) });
+  if (yol === "/api/gecmis" && req.method === "GET") return cevap(res, 200, { kayitlar: veri.gecmis.slice().reverse().slice(0, 1000) });
 
   const g = await oku(req), m = mukellefBul(g.mukellefId);
   if (!m) return cevap(res, 400, { hata: "Mükellef seçin." });
