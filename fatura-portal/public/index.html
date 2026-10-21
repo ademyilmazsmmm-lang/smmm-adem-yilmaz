@@ -71,6 +71,11 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6}
 /* yapı */
 .bar{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
 .bar-ic{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px}
+.bar-m{border-top:1px solid var(--line)}
+.bar-ic2{padding-top:6px;padding-bottom:8px;gap:10px}
+.bar-et{font-size:.74rem;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;flex:none}
+.bar-m .chips{flex:1;min-width:0}
+.bar-m .chip{min-height:34px;padding:5px 13px;font-size:.86rem}
 .marka{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
 .logo{width:36px;height:36px;border-radius:10px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;flex:none}
 .bar .k{white-space:nowrap;flex:none}
@@ -262,14 +267,15 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     </nav>
     <button class="k" id="tema" type="button" aria-label="Tema: otomatik" title="Tema"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg> <span class="tl">Otomatik</span></button>
     <button class="k" id="cikis" type="button">Çıkış</button>
-  </div></header>
+  </div>
+  <div class="bar-m" id="mSerit" hidden><div class="bar-ic bar-ic2"><span class="bar-et">Mükellef</span><div class="chips" id="mChips" role="group" aria-label="Mükellef seç"></div></div></div></header>
 
   <div class="sayfa">
   <div class="sahte" id="sahte" hidden style="margin-bottom:14px">Deneme modu: GİB’e bağlanılmıyor, gerçek fatura kesilmez.</div>
 
   <section data-sayfa="yeni" class="izgara">
   <div class="sol">
-  <div class="card" id="mKart" style="gap:8px"><label style="margin:0">Mükellef (faturayı kesen)</label><div class="chips" id="mChips"></div><p class="not" id="mYok" hidden>Önce Ayarlar bölümünden mükellef ekleyin.</p></div>
+  <p class="not" id="mYok" hidden>Önce Ayarlar bölümünden mükellef ekleyin.</p>
 
   <details class="card bolum" id="mesajKart"><summary><span class="no">✨</span><span class="bas">Müşterinin mesajından doldur</span></summary><div class="icerik">
     <textarea id="mesaj" placeholder="Müşterinin mesajı: Ahmet Yılmaz'a 5.000 TL servis taşımacılık, kdv hariç" aria-label="Müşterinin mesajı"></textarea>
@@ -387,7 +393,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <section data-sayfa="vd" class="liste" hidden>
   <div class="card" id="vdKart">
     <div class="kartbas"><h2>Vergi Dairesi</h2><small id="vdMuk"></small></div>
-    <div id="vdMukSec" hidden><label for="vdSec">Mükellef</label><select id="vdSec"></select></div>
     <div class="seg" id="vdSeg" role="group" aria-label="Sorgu türü" style="display:flex;width:100%"><button class="chip" type="button" data-vd="borc" aria-pressed="true" style="flex:1;padding:6px 2px;font-size:.8rem">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Tebligat</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Gelen fatura</button></div>
     <div id="vdBaglan" style="display:grid;gap:8px">
       <p class="not" style="margin:0">Dijital Vergi Dairesi’ne bağlanmak için resimdeki <b>doğrulama kodunu</b> resimde göründüğü gibi (büyük/küçük harf aynen) yazın. Kullanıcı kodu ve şifre Ayarlar’daki GİB bilgisinden alınır.</p>
@@ -565,7 +570,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     api("/api/veri").then(function(v){
       V = v; ROL = v.rol; KULLANICI = v.kullanici; $("giris").hidden = true; $("uyg").hidden = false; yedekle();
       mSec = V.mukellefler.length ? V.mukellefler[0].id : null; F.alici = ""; F.kalemler = [ilkKalem()]; F.tip = "SATIS";
-      $("mKart").hidden = ROL === "mukellef"; $("kimlik").textContent = ROL === "ofis" ? "Ofis · " + KULLANICI : (V.mukellefler[0] ? V.mukellefler[0].ad : KULLANICI);
+      $("kimlik").textContent = ROL === "ofis" ? "Ofis · " + KULLANICI : (V.mukellefler[0] ? V.mukellefler[0].ad : KULLANICI);
       /* ayarlar bölümleri kapalı açılır (düzenli görünsün) */
       hepsi(); gecmisYukle(); markaYukle(mSec);
       if (!$("gBit").value) { var d0 = new Date(); $("gBit").value = bugunStr(); d0.setDate(d0.getDate() - 30); $("gBas").value = d0.getFullYear() + "-" + String(d0.getMonth() + 1).padStart(2, "0") + "-" + String(d0.getDate()).padStart(2, "0"); }
@@ -603,8 +608,9 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("kabulCikis").addEventListener("click", function(){ $("cikis").click(); });
   function cizM(){
     $("mChips").innerHTML = V.mukellefler.map(function(m){ return '<button class="chip" type="button" data-m="' + m.id + '" aria-pressed="' + (m.id === mSec) + '">' + esc(m.ad || "(adsız)") + '</button>'; }).join("");
-    $("mYok").hidden = V.mukellefler.length > 0;
+    $("mYok").hidden = V.mukellefler.length > 0; seritGoster();
   }
+  function seritGoster(){ $("mSerit").hidden = !(ROL === "ofis" && V && V.mukellefler.length > 0) || aktifSekme === "ayar"; }
   function cizAlici(){
     var m = mk(), h = '<option value="">— Alıcı seç —</option>';
     if (m) m.aliciler.forEach(function(a){ h += '<option value="' + a.id + '"' + (a.id === F.alici ? " selected" : "") + '>' + esc(a.ad) + '</option>'; });
@@ -1779,8 +1785,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function vdAc(){
     var l = V && V.mukellefler || [], ofis = ROL === "ofis";
-    $("vdMukSec").hidden = !(ofis && l.length > 1);
-    if (ofis) $("vdSec").innerHTML = l.map(function(m){ return '<option value="' + esc(m.id) + '"' + (m.id === mSec ? " selected" : "") + '>' + esc(m.ad) + '</option>'; }).join("");
     var m = l.filter(function(x){ return x.id === mSec; })[0] || l[0];
     if (m && m.id !== VD.mid) { if (VD.mid && VD.bagli) api("/api/vd/cikis", "POST", { mukellefId: VD.mid }).catch(function(){}); VD.mid = m.id; VD.sonuc = {}; VD.bagli = false; $("vdKodKutu").style.display = "none"; vdRozet(); }
     $("vdMuk").textContent = m ? m.ad : "";
@@ -1795,7 +1799,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc[sek] = r; d.textContent = ""; vdRozet(); if (VD.sek === sek) vdCiz();
     }, function(er){ VD.sonuc[sek] = null; if (VD.sek === sek) vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });
   }
-  $("vdSec").addEventListener("change", function(){ mSec = this.value; F.alici = ""; cizM(); cizAlici(); markaYukle(mSec); vdAc(); });
   $("vdSeg").addEventListener("click", function(e){ var b = e.target.closest("[data-vd]"); if (!b) return; VD.sek = b.getAttribute("data-vd"); vdSekmeCiz(); if (VD.bagli && !VD.sonuc[VD.sek]) vdSorgula(); });
   $("vdSorgula").addEventListener("click", vdSorgula);
   $("vdListe").addEventListener("click", function(e){
@@ -1839,6 +1842,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     document.querySelectorAll("[data-sayfa]").forEach(function(x){ x.hidden = x.getAttribute("data-sayfa") !== ad; });
     document.querySelectorAll("[data-sekme]").forEach(function(b){ if (b.getAttribute("data-sekme") === ad) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
     if (ad === "taslak" && !tYuklendi && mSec) taslakGetir();
+    seritGoster();
     if (ad === "vd") vdAc();
   }
   $("sekmeler").addEventListener("click", function(e){
@@ -1846,7 +1850,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     sekme(b.getAttribute("data-sekme")); window.scrollTo(0, 0);
   });
   /* mükellef değişince taslak listesi yeniden yüklensin */
-  $("mChips").addEventListener("click", function(){ tYuklendi = false; $("tRozet").hidden = true; if (aktifSekme === "taslak") setTimeout(taslakGetir, 0); });
+  $("mChips").addEventListener("click", function(){ tYuklendi = false; $("tRozet").hidden = true; if (aktifSekme === "taslak") setTimeout(taslakGetir, 0); if (aktifSekme === "vd") vdAc(); });
 
   /* ---------- uygulama olarak yükleme (PWA) ---------- */
   var yuklenecek = null, bagimsiz = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
