@@ -121,3 +121,13 @@ Sana gelen her hatırlatma mailinde **"✓ Yapıldı, tamamlandı say"** düğme
 ## Telefonda ana ekrana ekleme (tam ekran uygulama)
 
 Sayfa, çalışan Fatura Portalı ile aynı yapıyla kurulur: `hatirlatma-manifest.json` (display: standalone), simgeler ve Apple meta satırları. iPhone'da Safari'de sayfayı açıp **Paylaş → Ana Ekrana Ekle** demek yeterlidir. Simge eklendiği andaki ayarı hatırladığı için ayar değişince eski simge silinip yeniden eklenmelidir. (Not: iPhone'da tam ekranda yazı yazılamıyorsa, manifest'siz eski usul ekleme ya da eski simge kullanılıyordur; simgeyi silip yeniden ekleyin.)
+
+### Tam ekranda klavye açılmazsa: uygulama içi klavye
+
+iOS 18'de ana ekrandan açılan (tam ekran) web uygulamalarında, sistem klavyesi zaman zaman hiç açılmıyor (WebKit hatası; sayfa kodundan düzeltilemiyor). Bu yüzden sayfada yalnızca ana ekran modunda devreye giren, Türkçe harfli (ı, ğ, ü, ş, ö, ç; büyük İ/I doğru) bir **uygulama içi klavye** vardır:
+
+- Bir yazı kutusuna dokunduğunuzda sistem klavyesi açılırsa o kullanılır; kutu odak almazsa ya da aynı kutuya 5 saniye içinde ikinci kez dokunulduğunda hâlâ klavye görünmüyorsa uygulama içi klavye kendiliğinden açılır.
+- Kilit ekranında ve ilk kurulumda "Klavye açılmıyor mu? Uygulama içi klavyeyi aç" bağlantısı vardır.
+- **Ayarlar → Klavye**: *Otomatik* (varsayılan), *Her zaman uygulama içi* ya da *Yalnızca sistem klavyesi*. Seçim telefonda saklanır.
+- Klavyede **Yapıştır** (panodan), **Bitti** (kapatır) ve **Git** (formu kaydeder / giriş yapar) tuşları bulunur.
+- Normal Safari'de (ana ekran dışında) bu klavye hiç görünmez.
