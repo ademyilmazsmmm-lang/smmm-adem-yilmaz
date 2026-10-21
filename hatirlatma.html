@@ -5,12 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#1f6f5c">
-<!-- apple-mobile-web-app-capable bilerek yok: iPhone tam ekran kipinde (iOS 18) klavye açılmıyor; Fatura Portalı'nda da aynı. Simge Safari içinde açılır. Geri eklemeyin. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Hatırlatma">
-<link rel="apple-touch-icon" href="hatirlatma-ikon.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/hatirlatma-manifest.json">
+<link rel="icon" href="/hatirlatma-ikon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/hatirlatma-ikon.png">
 <title>Hatırlatma</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script>
+/* Fatura Portalı'ndaki (iPhone tam ekranda yazılabilen) kurulumla aynı ortam: manifest + meta satırları; ana ekran uygulamasında dış yazı tipi yüklenmez (sistem yazı tipi),
+   Google yazı tipleri yalnızca tarayıcıda yüklenir. */
+(function(){
+  var tam = navigator.standalone===true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
+  if(tam) return;
+  var l=document.createElement("link"); l.rel="stylesheet";
+  l.href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap";
+  document.head.appendChild(l);
+})();
+</script>
 <style>
 :root{--bg:#edf1ee;--surface:#fff;--surface-2:#f5f8f6;--fg:#16211d;--muted:#5a6962;--line:#d3dcd7;--accent:#1f6f5c;--accent-fg:#fff;--accent-soft:#daece5;--warn:#935600;--warn-soft:#fae9cf;--danger:#b3261e;--danger-soft:#f8e0dc;--vergi:#2c4a8e;--vergi-soft:#e1e8f6;--surec:#7a4a24;--surec-soft:#f2e5d9;--is:#3f5f55;--is-soft:#e3ece8;--scrim:rgba(10,20,16,.42);--shadow:0 10px 30px rgba(15,35,28,.16);--f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;--f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace}
 @media (prefers-color-scheme:dark){:root{--bg:#0e1412;--surface:#17201c;--surface-2:#1d2823;--fg:#e5ece8;--muted:#9aaba3;--line:#2a3832;--accent:#5fc3a8;--accent-fg:#0b1411;--accent-soft:#1b3730;--warn:#e8b460;--warn-soft:#3a2b13;--danger:#f08a80;--danger-soft:#3b1e1b;--vergi:#9fb5ee;--vergi-soft:#1d2742;--surec:#dda676;--surec-soft:#352518;--is:#a9c7bc;--is-soft:#1f2d28;--scrim:rgba(0,0,0,.6);--shadow:0 10px 30px rgba(0,0,0,.5);color-scheme:dark}}
@@ -1027,7 +1040,7 @@ button,input,select,textarea{font-family:inherit}
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "28";
+  var SURUM = "29";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -1043,19 +1056,21 @@ button,input,select,textarea{font-family:inherit}
   /* iPhone ana ekran uygulamasında (Fatura Portalı'nda doğrulandı): şifre yöneticisi ipuçları (gizli kullanıcı adı kutusu, form autocomplete="on",
      current-password) iOS 18'de yazmayı bozuyor. O kipte hepsi kaldırılır; tarayıcı kipinde olduğu gibi kalır. */
   if(ANA_EKRAN){
-    /* iOS 18 tam ekran: dokunuş bazen kutuyu etkinleştirmiyor (klavye açılmıyor). Kullanıcının kendi dokunuşunun içinde odak vermek serbesttir:
-       dokunulan kutu odakta değilse aynı dokunuşta odaklanır. Koddan, dokunuşsuz odaklanma yine yapılmaz. */
-    document.addEventListener("touchend", function(e){
-      var el=e.target && e.target.closest ? e.target.closest("input,textarea") : null;
-      if(!el || el.disabled || el.readOnly || /^(checkbox|radio|button|submit|range|file)$/.test(el.type)) return;
-      if(document.activeElement!==el){ try { el.focus(); } catch(x){} }
-    }, {passive:true});
     Array.prototype.slice.call(document.querySelectorAll(".kullanici-gizli")).forEach(function(n){ n.parentNode.removeChild(n); });
     ["kurulumForm","kilitForm"].forEach(function(id){ var f=$(id); if(f) f.setAttribute("autocomplete","off"); });
     ["sifreGir","sifre1","sifre2","anahtarGir"].forEach(function(id){ var e=$(id); if(e){ e.setAttribute("autocomplete", e.type==="password" ? "new-password" : "off"); e.removeAttribute("name"); } });
     Array.prototype.forEach.call(document.querySelectorAll("input[type=text],input[type=search],input[type=date],input[type=time]"), function(e){ if(!e.hasAttribute("autocomplete")) e.setAttribute("autocomplete","off"); });
   }
   $("surum").textContent = "Sürüm "+SURUM+(ANA_EKRAN ? " · ana ekran modu" : "");
+  /* Ana ekran uygulamasında kutu etkinleşmiyorsa nedenini görmek için küçük sayaç: dokunuş / odak / yazı. (Sorun çözülünce kaldırılacak.) */
+  if(ANA_EKRAN){
+    var SAY={d:0,o:0,y:0};
+    var sayYaz=function(){ $("surum").textContent = "Sürüm "+SURUM+" · ana ekran modu · dokunuş "+SAY.d+" · odak "+SAY.o+" · yazı "+SAY.y; };
+    var kutuMu=function(e){ var el=e.target; return el && el.tagName && /^(INPUT|TEXTAREA)$/.test(el.tagName); };
+    document.addEventListener("touchstart", function(e){ if(kutuMu(e)){ SAY.d++; sayYaz(); } }, true);
+    document.addEventListener("focusin", function(e){ if(kutuMu(e)){ SAY.o++; sayYaz(); } }, true);
+    document.addEventListener("input", function(e){ if(kutuMu(e)){ SAY.y++; sayYaz(); } }, true);
+  }
 
   /* ---------- kurulum ve giriş ---------- */
   function gizle(){ ["kurulum","kilit","ana"].forEach(function(id){ $(id).hidden=true; }); $("girisBaslik").hidden=false; }
