@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#1f6f5c">
-<!-- apple-mobile-web-app-capable bilerek yok: iOS 18 tam ekran kipinde yazı alanlarına yazılamıyor; ana ekran simgesi Safari içinde açılır. Geri eklemeyin. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Hatırlatma">
 <link rel="apple-touch-icon" href="hatirlatma-ikon.png">
 <title>Hatırlatma</title>
@@ -1026,7 +1026,7 @@ button,input,select,textarea{font-family:inherit}
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "23";
+  var SURUM = "24";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -1039,6 +1039,14 @@ button,input,select,textarea{font-family:inherit}
   }
   function sifreGorunur(el, goster){ if(OZEL_SIFRE) el.style.webkitTextSecurity = goster ? "none" : "disc"; else el.type = goster ? "text" : "password"; }
   ["sifreGir","sifre1","sifre2"].forEach(sifreAlaniHazirla);
+  /* iPhone ana ekran uygulamasında (Fatura Portalı'nda doğrulandı): şifre yöneticisi ipuçları (gizli kullanıcı adı kutusu, form autocomplete="on",
+     current-password) iOS 18'de yazmayı bozuyor. O kipte hepsi kaldırılır; tarayıcı kipinde olduğu gibi kalır. */
+  if(ANA_EKRAN){
+    Array.prototype.slice.call(document.querySelectorAll(".kullanici-gizli")).forEach(function(n){ n.parentNode.removeChild(n); });
+    ["kurulumForm","kilitForm"].forEach(function(id){ var f=$(id); if(f) f.setAttribute("autocomplete","off"); });
+    ["sifreGir","sifre1","sifre2","anahtarGir"].forEach(function(id){ var e=$(id); if(e){ e.setAttribute("autocomplete", e.type==="password" ? "new-password" : "off"); e.removeAttribute("name"); } });
+    Array.prototype.forEach.call(document.querySelectorAll("input[type=text],input[type=search],input[type=date],input[type=time]"), function(e){ if(!e.hasAttribute("autocomplete")) e.setAttribute("autocomplete","off"); });
+  }
   $("surum").textContent = "Sürüm "+SURUM+(ANA_EKRAN ? " · ana ekran modu" : "");
 
   /* ---------- kurulum ve giriş ---------- */
