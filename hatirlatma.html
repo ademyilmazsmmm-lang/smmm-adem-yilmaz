@@ -1027,7 +1027,7 @@ button,input,select,textarea{font-family:inherit}
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "26";
+  var SURUM = "27";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -1043,6 +1043,13 @@ button,input,select,textarea{font-family:inherit}
   /* iPhone ana ekran uygulamasında (Fatura Portalı'nda doğrulandı): şifre yöneticisi ipuçları (gizli kullanıcı adı kutusu, form autocomplete="on",
      current-password) iOS 18'de yazmayı bozuyor. O kipte hepsi kaldırılır; tarayıcı kipinde olduğu gibi kalır. */
   if(ANA_EKRAN){
+    /* iOS 18 tam ekran: dokunuş bazen kutuyu etkinleştirmiyor (klavye açılmıyor). Kullanıcının kendi dokunuşunun içinde odak vermek serbesttir:
+       dokunulan kutu odakta değilse aynı dokunuşta odaklanır. Koddan, dokunuşsuz odaklanma yine yapılmaz. */
+    document.addEventListener("touchend", function(e){
+      var el=e.target && e.target.closest ? e.target.closest("input,textarea") : null;
+      if(!el || el.disabled || el.readOnly || /^(checkbox|radio|button|submit|range|file)$/.test(el.type)) return;
+      if(document.activeElement!==el){ try { el.focus(); } catch(x){} }
+    }, {passive:true});
     Array.prototype.slice.call(document.querySelectorAll(".kullanici-gizli")).forEach(function(n){ n.parentNode.removeChild(n); });
     ["kurulumForm","kilitForm"].forEach(function(id){ var f=$(id); if(f) f.setAttribute("autocomplete","off"); });
     ["sifreGir","sifre1","sifre2","anahtarGir"].forEach(function(id){ var e=$(id); if(e){ e.setAttribute("autocomplete", e.type==="password" ? "new-password" : "off"); e.removeAttribute("name"); } });
