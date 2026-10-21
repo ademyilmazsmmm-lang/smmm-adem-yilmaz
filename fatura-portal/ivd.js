@@ -74,6 +74,7 @@ class Ivd {
     if (!r.ok || y === null) {
       const msj = y ? this.mesajMetni(y) : "";
       if (/hesaplan/i.test(msj)) { const e = new Error(msj); e.hesap = true; throw e; }
+      if (/bulunmamaktad[ıi]r|bulunamad[ıi]|kay[ıi]t yok/i.test(msj)) { const e = new Error(msj); e.bos = true; throw e; }
       throw new Error("Dijital Vergi Dairesi " + (msj ? "hatası: " + msj : "beklenmeyen yanıt verdi (HTTP " + r.status + ", " + (/^\s*</.test(t) ? "HTML sayfa" : "JSON değil") + ")") + ".");
     }
     return y;
@@ -165,15 +166,20 @@ class Ivd {
     let uyari = ""; if (bs < enEski) { bs = enEski; uyari = "Portal en erken " + yaz(enEski) + " tarihine kadar bakıyor; başlangıç buna çekildi."; }
     if (bt < bs) throw new Error("Seçilen aralık portalın sorgulayabildiği dönemin (son 2–3 ay) dışında.");
     const dilimler = []; for (let b = bs; b <= bt; b += 7 * 864e5) dilimler.push([b, Math.min(b + 6 * 864e5, bt)]);
-    const sonuc = new Array(dilimler.length); let ilkSekil = null;
-    for (let i = 0; i < dilimler.length; i += 4) { // 4'erli paralel
+    const sonuc = new Array(dilimler.length); let ilkSekil = null; const hatalar = [];
+    for (let i = 0; i < dilimler.length; i += 4) { // 4'erli paralel; kaydı olmayan dilim hata değil, boş sayılır
       await Promise.all(dilimler.slice(i, i + 4).map(async ([b, e], j) => {
-        const y = await this.istek("POST", GW + "/eislemler/earsiv/alici-list", this.tablo({ duzenlenmeTarihiBas: yaz(b), duzenlenmeTarihiSon: yaz(e) }, 500, { alan: "faturaNo", yon: "DESC" }), true);
-        if (!ilkSekil) ilkSekil = sekil(y);
-        const dizi = (y && (y.resultListDenormalized || (y.data && y.data.resultListDenormalized))) || null;
-        sonuc[i + j] = dizi ? kayitlar(dizi) : [];
+        try {
+          const y = await this.istek("POST", GW + "/eislemler/earsiv/alici-list", this.tablo({ duzenlenmeTarihiBas: yaz(b), duzenlenmeTarihiSon: yaz(e) }, 500, { alan: "faturaNo", yon: "DESC" }), true);
+          if (!ilkSekil) ilkSekil = sekil(y);
+          const dizi = (y && (y.resultListDenormalized || (y.data && y.data.resultListDenormalized))) || null;
+          const mj = y && this.mesajMetni(y); if (!dizi && mj && /bulunmamaktad[ıi]r/i.test(mj)) { sonuc[i + j] = []; return; }
+          sonuc[i + j] = dizi ? kayitlar(dizi) : [];
+        } catch (er) { if (er.bos) { sonuc[i + j] = []; return; } if (er.oturum) throw er; sonuc[i + j] = []; hatalar.push(yaz(b) + ": " + er.message); }
       }));
     }
+    if (hatalar.length === dilimler.length) throw new Error(hatalar[0].replace(/^[\d\/]+: /, ""));
+    if (hatalar.length) uyari = (uyari ? uyari + " " : "") + hatalar.length + " dilim alınamadı (" + hatalar[0] + ").";
     const hepsi = [].concat(...sonuc).sort((a, b) => String(b.duzenlenmeTarihi || "").localeCompare(String(a.duzenlenmeTarihi || "")));
     return { kayitlar: hepsi.slice(0, 500), sekil: ilkSekil, uyari, aralik: yaz(bs) + " – " + yaz(bt) };
   }

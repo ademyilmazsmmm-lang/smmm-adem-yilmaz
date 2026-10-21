@@ -1782,7 +1782,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     b.disabled = true; d.className = "durum"; d.textContent = "Sorgulanıyor…";
     api("/api/vd/" + sek, "POST", { mukellefId: VD.mid, bas: $("vdBas").value, bit: $("vdBit").value }).then(function(r){
       r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc[sek] = r; d.textContent = ""; vdRozet(); if (VD.sek === sek) vdCiz();
-    }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
+    }, function(er){ VD.sonuc[sek] = null; if (VD.sek === sek) vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });
   }
   $("vdSec").addEventListener("change", function(){ mSec = this.value; F.alici = ""; cizM(); cizAlici(); markaYukle(mSec); vdAc(); });
   $("vdSeg").addEventListener("click", function(e){ var b = e.target.closest("[data-vd]"); if (!b) return; VD.sek = b.getAttribute("data-vd"); vdSekmeCiz(); if (VD.bagli && !VD.sonuc[VD.sek]) vdSorgula(); });
