@@ -1040,7 +1040,7 @@ button,input,select,textarea{font-family:inherit}
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "29";
+  var SURUM = "30";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -1062,15 +1062,6 @@ button,input,select,textarea{font-family:inherit}
     Array.prototype.forEach.call(document.querySelectorAll("input[type=text],input[type=search],input[type=date],input[type=time]"), function(e){ if(!e.hasAttribute("autocomplete")) e.setAttribute("autocomplete","off"); });
   }
   $("surum").textContent = "Sürüm "+SURUM+(ANA_EKRAN ? " · ana ekran modu" : "");
-  /* Ana ekran uygulamasında kutu etkinleşmiyorsa nedenini görmek için küçük sayaç: dokunuş / odak / yazı. (Sorun çözülünce kaldırılacak.) */
-  if(ANA_EKRAN){
-    var SAY={d:0,o:0,y:0};
-    var sayYaz=function(){ $("surum").textContent = "Sürüm "+SURUM+" · ana ekran modu · dokunuş "+SAY.d+" · odak "+SAY.o+" · yazı "+SAY.y; };
-    var kutuMu=function(e){ var el=e.target; return el && el.tagName && /^(INPUT|TEXTAREA)$/.test(el.tagName); };
-    document.addEventListener("touchstart", function(e){ if(kutuMu(e)){ SAY.d++; sayYaz(); } }, true);
-    document.addEventListener("focusin", function(e){ if(kutuMu(e)){ SAY.o++; sayYaz(); } }, true);
-    document.addEventListener("input", function(e){ if(kutuMu(e)){ SAY.y++; sayYaz(); } }, true);
-  }
 
   /* ---------- kurulum ve giriş ---------- */
   function gizle(){ ["kurulum","kilit","ana"].forEach(function(id){ $(id).hidden=true; }); $("girisBaslik").hidden=false; }
