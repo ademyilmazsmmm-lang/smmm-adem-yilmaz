@@ -24,7 +24,7 @@ function sekil(v, d = 0) {
 /* yanıttaki nesne dizilerini düz kayıtlara çevirir (arayüz, anahtarları bilmeden gösterebilsin) */
 function kayitlar(veri) {
   const out = [];
-  const duz = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) { if (v === null || v === undefined || v === "") continue; if (typeof v === "object") { r[k] = JSON.stringify(v).slice(0, 200); } else r[k] = v; } return r; };
+  const duz = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) { if (v === null || v === undefined || v === "") continue; if (Array.isArray(v)) { if (v.length && typeof v[0] !== "object") r[k] = v.join(", ").slice(0, 200); } else if (typeof v === "object") { for (const [k2, v2] of Object.entries(v)) if (v2 !== null && v2 !== undefined && v2 !== "" && typeof v2 !== "object") r[k + "." + k2] = v2; } else r[k] = v; } return r; };
   const gez = (v, d) => {
     if (d > 4 || v === null || v === undefined) return;
     if (Array.isArray(v)) { if (v.length && typeof v[0] === "object") v.slice(0, 500).forEach((x) => out.push(duz(x))); else v.slice(0, 500).forEach((x) => out.push({ değer: x })); return; }
@@ -48,6 +48,7 @@ class Ivd {
     if (r.status === 401 || r.status === 403) { this.token = null; const e = new Error("Dijital Vergi Dairesi oturumu kapandı; doğrulama koduyla yeniden bağlanın."); e.oturum = true; throw e; }
     if (!r.ok || y === null) {
       const msj = y ? this.mesajMetni(y) : "";
+      if (/hesaplan/i.test(msj)) { const e = new Error(msj); e.hesap = true; throw e; }
       throw new Error("Dijital Vergi Dairesi " + (msj ? "hatası: " + msj : "beklenmeyen yanıt verdi (HTTP " + r.status + ", " + (/^\s*</.test(t) ? "HTML sayfa" : "JSON değil") + ")") + ".");
     }
     return y;
@@ -81,34 +82,51 @@ class Ivd {
   }
   /* tablo bileşeninin gövdesi */
   tablo(veri, sayfaBoyu, sira) { return { meta: { pagination: { pageNo: 1, pageSize: sayfaBoyu || 100 }, sortFieldName: sira && sira.alan, sortType: sira && sira.yon, filters: [] }, data: veri || {} }; }
+  /* portal "borcunuz hesaplanıyor" uyarısı verebilir; kendi arayüzü de birkaç kez yeniden dener */
   async borc() {
-    const ozet = await this.istek("POST", GW + "/payment/api/debtinformation-homepage-summary/false", { meta: { filters: [], pagination: { pageNo: 1, pageSize: 50 } } }, true);
+    const hesapUyari = (y) => /hesaplan/i.test(this.mesajMetni(y) || "");
+    let ozet = null;
+    for (let n = 0; n < 6; n++) {
+      try { ozet = await this.istek("POST", GW + "/payment/api/debtinformation-homepage-summary/false", { meta: { filters: [], pagination: { pageNo: 1, pageSize: 50 } } }, true); if (!hesapUyari(ozet)) break; }
+      catch (e) { if (!e.hesap) throw e; if (n === 5) throw new Error("GİB borç tutarını hâlâ hesaplıyor; bir dakika sonra tekrar Sorgula'ya basın."); }
+      await new Promise((r) => setTimeout(r, 3500));
+    }
     let liste = null, listeHata = "";
     try { liste = await this.istek("POST", GW + "/payment/api/debtinformation/1", this.tablo({}, 100, { alan: "vdAdi", yon: "ASC" }), true); }
     catch (e) { if (e.oturum) throw e; listeHata = e.message; }
-    const k = liste ? kayitlar(liste) : [];
-    return { kayitlar: k.length ? k : kayitlar(ozet), ozet: kayitlar(ozet), sekil: { ozet: sekil(ozet), liste: liste ? sekil(liste) : listeHata } };
+    const k = liste ? kayitlar(liste.resultListDenormalized || (liste.data && (liste.data.resultList || liste.data.list)) || liste) : [];
+    const oz = ozet ? kayitlar(ozet.data || ozet) : [];
+    return { kayitlar: k.length ? k : oz, ozet: oz, sekil: { ozet: sekil(ozet), liste: liste ? sekil(liste) : listeHata } };
   }
   async tebligat() {
     let say = null; try { say = await this.istek("GET", GW + "/etebligat/etebligat/tebligat-sayilari", undefined, true); } catch (e) { if (e.oturum) throw e; }
     const liste = await this.istek("POST", GW + "/etebligat/etebligat/tebligat-listele", this.tablo({}, 100, { alan: "tebligTarihi", yon: "DESC" }), true);
-    return { kayitlar: kayitlar(liste), say: say ? kayitlar(say)[0] || null : null, sekil: { sayilar: sekil(say), liste: sekil(liste) } };
+    const dizi = liste && liste.data && Array.isArray(liste.data.tebligatDtoList) ? liste.data.tebligatDtoList : null;
+    const toplam = liste && liste.data && liste.data.count;
+    const sy = say ? kayitlar(say.data || say)[0] || null : null;
+    return { kayitlar: dizi ? kayitlar(dizi) : kayitlar(liste), say: sy, toplam, sekil: { sayilar: sekil(say), liste: dizi ? sekil(dizi) : sekil(liste) } };
   }
-  /* gelen e-Arşiv: portal en çok 7 günlük aralık kabul eder; bas/bit "GG/AA/YYYY" */
+  /* gelen e-Arşiv: portal en çok 7 günlük aralık kabul eder ve en erken 2 ay önceki ayın başına bakar; aralık dilimlenip birleştirilir.
+   * bas/bit "GG/AA/YYYY" */
   async gelen(bas, bit) {
     const par = (t) => { const [g, a, y] = t.split("/").map(Number); return Date.UTC(y, a - 1, g); };
     const yaz = (ms) => { const d = new Date(ms); return String(d.getUTCDate()).padStart(2, "0") + "/" + String(d.getUTCMonth() + 1).padStart(2, "0") + "/" + d.getUTCFullYear(); };
-    const bs = par(bas), bt = par(bit); if (!(bt >= bs)) throw new Error("Bitiş tarihi başlangıçtan önce olamaz.");
-    if ((bt - bs) / 864e5 > 92) throw new Error("En çok 3 aylık aralık sorgulanabilir.");
-    const hepsi = []; let ilkSekil = null;
-    for (let b = bs; b <= bt; b += 7 * 864e5) {
-      const s = Math.min(b + 6 * 864e5, bt);
-      const y = await this.istek("POST", GW + "/eislemler/earsiv/alici-list", this.tablo({ duzenlenmeTarihiBas: yaz(b), duzenlenmeTarihiSon: yaz(s) }, 100, { alan: "faturaNo", yon: "DESC" }), true);
-      if (!ilkSekil) ilkSekil = sekil(y);
-      const dizi = (y && (y.resultListDenormalized || (y.data && y.data.resultListDenormalized))) || null;
-      hepsi.push(...(dizi ? kayitlar(dizi) : kayitlar(y)));
+    let bs = par(bas); const bt = par(bit); if (!(bt >= bs)) throw new Error("Bitiş tarihi başlangıçtan önce olamaz.");
+    const simdi = new Date(), enEski = Date.UTC(simdi.getUTCFullYear(), simdi.getUTCMonth() - 2, 1);
+    let uyari = ""; if (bs < enEski) { bs = enEski; uyari = "Portal en erken " + yaz(enEski) + " tarihine kadar bakıyor; başlangıç buna çekildi."; }
+    if (bt < bs) throw new Error("Seçilen aralık portalın sorgulayabildiği dönemin (son 2–3 ay) dışında.");
+    const dilimler = []; for (let b = bs; b <= bt; b += 7 * 864e5) dilimler.push([b, Math.min(b + 6 * 864e5, bt)]);
+    const sonuc = new Array(dilimler.length); let ilkSekil = null;
+    for (let i = 0; i < dilimler.length; i += 4) { // 4'erli paralel
+      await Promise.all(dilimler.slice(i, i + 4).map(async ([b, e], j) => {
+        const y = await this.istek("POST", GW + "/eislemler/earsiv/alici-list", this.tablo({ duzenlenmeTarihiBas: yaz(b), duzenlenmeTarihiSon: yaz(e) }, 500, { alan: "faturaNo", yon: "DESC" }), true);
+        if (!ilkSekil) ilkSekil = sekil(y);
+        const dizi = (y && (y.resultListDenormalized || (y.data && y.data.resultListDenormalized))) || null;
+        sonuc[i + j] = dizi ? kayitlar(dizi) : [];
+      }));
     }
-    return { kayitlar: hepsi.slice(0, 500), sekil: ilkSekil };
+    const hepsi = [].concat(...sonuc).sort((a, b) => String(b.duzenlenmeTarihi || "").localeCompare(String(a.duzenlenmeTarihi || "")));
+    return { kayitlar: hepsi.slice(0, 500), sekil: ilkSekil, uyari, aralik: yaz(bs) + " – " + yaz(bt) };
   }
 }
 

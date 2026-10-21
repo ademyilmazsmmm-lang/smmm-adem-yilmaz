@@ -45,8 +45,8 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outli
 .satir>*,.satir3>*{min-width:0}
 input{max-width:100%}
 /* iOS tarih alanı: kendi biçimini bırakıp diğer kutularla aynı boyda dursun */
-input[type=date]{-webkit-appearance:none;appearance:none;display:block;height:48px;min-height:48px;line-height:1.2;text-align:left;padding-top:0;padding-bottom:0}
-input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0;min-height:1.2em}
+input[type=date]{-webkit-appearance:none;appearance:none;display:flex;align-items:center;height:48px;min-height:48px;line-height:1.2;text-align:left;padding-top:0;padding-bottom:0}
+input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0;min-height:0;line-height:1.2}
 input[type=date]::-webkit-calendar-picker-indicator{opacity:.6}
 .satir{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .satir3{display:grid;grid-template-columns:.9fr 1.1fr 1.4fr;gap:8px}
@@ -396,7 +396,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     </div>
     <div id="vdBagli" style="display:none;justify-content:space-between;align-items:center;gap:8px"><span class="not" style="margin:0">✓ Dijital Vergi Dairesi’ne bağlı</span><button class="k" type="button" id="vdKapat">Kapat</button></div>
     <p class="not" id="vdNot"></p>
-    <div class="satir" id="vdTarih" hidden><div><label for="vdBas">Başlangıç</label><input id="vdBas" type="date"></div><div><label for="vdBit">Bitiş</label><input id="vdBit" type="date"></div></div>
+    <div id="vdTarih" hidden style="display:grid;gap:8px"><div id="vdHizli" style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" type="button" data-gun="7">Son 7 gün</button><button class="chip" type="button" data-gun="30">Son 30 gün</button><button class="chip" type="button" data-gun="ay">Bu ay</button><button class="chip" type="button" data-gun="gecen">Geçen ay</button><button class="chip" type="button" data-gun="60">Son 2 ay</button></div><div class="satir"><div><label for="vdBas">Başlangıç</label><input id="vdBas" type="date"></div><div><label for="vdBit">Bitiş</label><input id="vdBit" type="date"></div></div></div>
     <button class="btn ikincil" type="button" id="vdSorgula">Sorgula</button>
     <div class="durum" id="vdDurum" role="status"></div>
     <div id="vdListe" class="liste" style="gap:8px"></div>
@@ -1675,33 +1675,40 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     tebligat: "E-Tebligat ekranındaki tebligatlar. Okunmamış olanlar sekme rozetinde sayılır.",
     gelen: "Adınıza düzenlenmiş e-Arşiv faturalar (e-Arşiv Faturalarım ekranı). Portal en çok son 2–3 ayı ve 7’şer günlük dilimleri gösterir; uygulama dilimleri birleştirir."
   };
-  var KELIME = { satici: "Satıcı", alici: "Alıcı", vkn: "VKN", tckn: "TCKN", donem: "Dönem", borc: "Borç", zammi: "Zammı", odenecek: "Ödenecek", turu: "Türü", gonderen: "Gönderen", onay: "Onay", belge: "Belge", numarasi: "Numarası", tutari: "Tutarı", tutar: "Tutar", durumu: "Durumu", ihbarname: "İhbarname", aciklama: "Açıklama", gecikme: "Gecikme", odeme: "Ödeme", vergi: "Vergi", tarihi: "Tarihi", unvan: "Unvan", konu: "Konu", tur: "Tür", ad: "Ad", soyad: "Soyad", mesaj: "Mesaj", okunma: "Okunma" };
-  function insanAd(k){ return String(k).replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g, "$1 $2").replace(/[_-]+/g, " ").split(" ").map(function(w){ var l = w.toLocaleLowerCase("tr-TR"); return KELIME[l] || (l.charAt(0).toLocaleUpperCase("tr-TR") + l.slice(1)); }).join(" "); }
+  var ETIKET = { duzenlenmeTarihi: "Düzenlenme tarihi", faturaNo: "Fatura no", gonderimSekli: "Gönderim şekli", tcknVkn: "TCKN / VKN", unvan: "Unvan", toplamTutar: "Toplam tutar", odenecekTutar: "Ödenecek tutar", vergilerTutari: "Vergiler", paraBirimi: "Para birimi", iptalItirazDurum: "İptal/itiraz durumu", iptalItirazTarih: "İptal/itiraz tarihi", tesisatNumarasi: "Tesisat no", belgeNo: "Belge no", belgeTuru: "Belge türü", altKurum: "Kurum", vdAdi: "Vergi dairesi", vergiTuru: "Vergi türü", donem: "Dönem", vadeTarihi: "Vade tarihi", borcTutari: "Borç tutarı", gecikmeZammi: "Gecikme zammı", durum: "Durum", tebligTarihi: "Tebliğ tarihi", gonderen: "Gönderen",
+    digerKurumOkunmamisTebligatSayisi: "Okunmamış tebligat", digerKurumOkunmusTebligatSayisi: "Okunmuş tebligat", digerKurumArsivlenmisTebligatSayisi: "Arşivlenmiş tebligat" };
+  var TEKNIK = /^(id|oid|dizin|uuid|ettn)$|(^|\.)(oid|id)$|Oid$|Id$|secure|key$|hash/i;
+  function insanAd(k){ if (ETIKET[k]) return ETIKET[k]; var son = String(k).split(".").pop(); if (ETIKET[son]) return ETIKET[son]; var t = son.replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g, "$1 $2").replace(/[_-]+/g, " ").toLocaleLowerCase("tr-TR"); return t.charAt(0).toLocaleUpperCase("tr-TR") + t.slice(1); }
   function degerYaz(k, v){
-    if (typeof v === "number" && /tutar|borc|zam|toplam|odenecek|bedel/i.test(k)) return v.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺";
-    return String(v);
+    if (typeof v === "number" && /tutar|borc|zam|toplam|odenecek|bedel|vergiler/i.test(k)) return v.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺";
+    var t = String(v), m = /^(\d{4})-(\d{2})-(\d{2})([T ]00:00:00(\.0+)?)?$/.exec(t); if (m) return m[3] + "." + m[2] + "." + m[1];
+    m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(t); if (m) return m[3] + "." + m[2] + "." + m[1] + " " + m[4] + ":" + m[5];
+    return t;
   }
   function vdKayitHtml(r){
-    var an = Object.keys(r), bas = an.filter(function(k){ return /^(konu|baslik|vergiTuru|vergi|unvan|saticiUnvan|belgeNumarasi|belgeNo|ad|aciklama|tur)/i.test(k); })[0] || an[0];
+    var an = Object.keys(r).filter(function(k){ return r[k] !== "" && !/^-+$/.test(String(r[k])) && !TEKNIK.test(k) && String(r[k]).length < 160; });
+    var bas = an.filter(function(k){ return /^(unvan|belgeTuru|konu|baslik|vergiTuru|saticiUnvan|aciklama|tur)/i.test(k); })[0] || an[0];
+    if (!bas) return "";
     var h = '<div class="kayit"><b>' + esc(degerYaz(bas, r[bas])) + '</b>';
     h += '<div class="not" style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0">';
-    an.filter(function(k){ return k !== bas; }).slice(0, 12).forEach(function(k){ h += '<span>' + esc(insanAd(k)) + '</span><span style="color:var(--fg)">' + esc(degerYaz(k, r[k])) + '</span>'; });
+    an.filter(function(k){ return k !== bas; }).slice(0, 14).forEach(function(k){ h += '<span>' + esc(insanAd(k)) + '</span><span style="color:var(--fg);overflow-wrap:anywhere">' + esc(degerYaz(k, r[k])) + '</span>'; });
     return h + '</div></div>';
   }
   function vdCiz(){
     var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
     var h = s.kayitlar.length ? "" : '<p class="not">Kayıt bulunamadı.</p>';
-    if (s.say) h += '<p class="not" style="margin:0">' + Object.keys(s.say).map(function(k){ return esc(insanAd(k)) + ": " + esc(String(s.say[k])); }).join(" · ") + '</p>';
+    if (s.say) h += '<p class="not" style="margin:0"><b>' + Object.keys(s.say).filter(function(k){ return typeof s.say[k] === "number"; }).map(function(k){ return esc(insanAd(k)) + ": " + esc(String(s.say[k])); }).join(" · ") + '</b></p>';
+    if (s.uyari) h += '<p class="not" style="margin:0">' + esc(s.uyari) + '</p>';
     h += s.kayitlar.map(vdKayitHtml).join("");
-    liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + " kayıt · " + esc(s.zaman) + "</p>" + h;
+    liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + (s.toplam && s.toplam > s.kayitlar.length ? " / " + s.toplam : "") + " kayıt" + (s.aralik ? " · " + esc(s.aralik) : "") + " · " + esc(s.zaman) + "</p>" + h;
     $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false;
   }
   function vdRozet(){
     var n = 0, b = VD.sonuc.borc, m = VD.sonuc.tebligat;
     if (b) n += b.kayitlar.length;
-    if (m) n += m.kayitlar.filter(function(r){ return Object.keys(r).some(function(k){ return /durum|okun/i.test(k) && /okunmad|false/i.test(String(r[k])); }); }).length;
-    $("vdRozet").hidden = !n; $("vdRozet").textContent = n;
+    if (m && m.say) Object.keys(m.say).forEach(function(k){ if (/okunmam/i.test(k) && typeof m.say[k] === "number") n += m.say[k]; });
+    $("vdRozet").hidden = !n; $("vdRozet").textContent = n > 99 ? "99+" : n;
   }
   function vdBagDurum(){
     var b = VD.bagli;
@@ -1731,8 +1738,16 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
   }
   $("vdSec").addEventListener("change", function(){ mSec = this.value; F.alici = ""; cizM(); cizAlici(); markaYukle(mSec); vdAc(); });
-  $("vdSeg").addEventListener("click", function(e){ var b = e.target.closest("[data-vd]"); if (!b) return; VD.sek = b.getAttribute("data-vd"); vdSekmeCiz(); if (VD.bagli && !VD.sonuc[VD.sek] && VD.sek !== "gelen") vdSorgula(); });
+  $("vdSeg").addEventListener("click", function(e){ var b = e.target.closest("[data-vd]"); if (!b) return; VD.sek = b.getAttribute("data-vd"); vdSekmeCiz(); if (VD.bagli && !VD.sonuc[VD.sek]) vdSorgula(); });
   $("vdSorgula").addEventListener("click", vdSorgula);
+  function tStr(d){ return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  $("vdHizli").addEventListener("click", function(e){
+    var b = e.target.closest("[data-gun]"); if (!b) return; var k = b.getAttribute("data-gun"), bit = new Date(), bas = new Date();
+    if (k === "ay") bas = new Date(bit.getFullYear(), bit.getMonth(), 1);
+    else if (k === "gecen") { bas = new Date(bit.getFullYear(), bit.getMonth() - 1, 1); bit = new Date(bit.getFullYear(), bit.getMonth(), 0); }
+    else bas.setDate(bas.getDate() - (+k - 1));
+    $("vdBas").value = tStr(bas); $("vdBit").value = tStr(bit); vdSorgula();
+  });
   $("vdKodIste").addEventListener("click", function(){
     var b = this, d = $("vdDurum"); if (!VD.mid) return; b.disabled = true; d.className = "durum"; d.textContent = "Doğrulama kodu isteniyor…";
     api("/api/vd/captcha", "POST", { mukellefId: VD.mid }).then(function(r){
@@ -1744,7 +1759,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (dk.length < 4) { d.className = "durum hata"; d.textContent = "Resimdeki kodu yazın."; return; }
     b.disabled = true; d.className = "durum"; d.textContent = "Bağlanılıyor… (10–30 sn sürebilir)";
     api("/api/vd/giris", "POST", { mukellefId: VD.mid, dk: dk }).then(function(){
-      VD.bagli = true; $("vdKod").value = ""; $("vdKodIste").textContent = "Doğrulama kodu al"; d.textContent = ""; vdSekmeCiz(); if (VD.sek !== "gelen") vdSorgula();
+      VD.bagli = true; $("vdKod").value = ""; $("vdKodIste").textContent = "Doğrulama kodu al"; d.textContent = ""; vdSekmeCiz(); vdSorgula();
     }, function(er){ $("vdKodKutu").style.display = "none"; $("vdKodIste").textContent = "Yeni doğrulama kodu al"; vdHata(er, d); }).then(function(){ b.disabled = false; });
   }
   $("vdGiris").addEventListener("click", vdGiris);
