@@ -246,6 +246,7 @@ button,input,select,textarea{font-family:inherit}
     <button class="kaydet" type="submit">Aç</button>
     <div class="durum" id="kilitDurum" role="status" aria-live="polite"></div>
   </form>
+  <a href="#kurulum" id="yeniKurulum" style="font-size:.9rem">GitHub anahtarını yeniledim: yeni anahtarla kurulum</a>
 </section>
 
 <div id="ana" hidden style="display:flex;flex-direction:column;gap:18px">
@@ -1026,7 +1027,7 @@ button,input,select,textarea{font-family:inherit}
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "24";
+  var SURUM = "25";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -1088,6 +1089,7 @@ button,input,select,textarea{font-family:inherit}
     e.preventDefault(); var k=kasaOku()||GENEL;
     if(k) kasaMetniGoster(k); else { durum("Bu cihazda gösterilecek giriş metni yok.","hata"); }
   });
+  $("yeniKurulum").addEventListener("click", function(e){ e.preventDefault(); kurulumGoster(); });
   $("sifreDegistir").addEventListener("click", function(e){ e.preventDefault(); kurulumGoster(); });
 
   $("kurulumForm").addEventListener("submit", function(e){
