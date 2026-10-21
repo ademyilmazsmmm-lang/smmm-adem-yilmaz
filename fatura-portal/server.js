@@ -17,7 +17,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-21-82";
+const SURUM = "2026-10-21-83";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -287,6 +287,19 @@ async function api(req, res, yol) {
   }
   if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz(o));
   if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req, 8e6); if (!Array.isArray(g.mukellefler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(o, g); return cevap(res, 200, temiz(o)); }
+  if (yol === "/api/vd/belge" && req.method === "GET") {
+    const q = new URL(req.url, "http://x").searchParams, mid = o.rol === "mukellef" ? o.mid : q.get("mid") || "";
+    const duz = (kod, metin) => { res.writeHead(kod, Object.assign({ "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }, GUV)); res.end(metin); };
+    if (!depo.yetkili(o, mid)) return duz(403, "Bu mükellef için yetkiniz yok.");
+    const x = ivdler.get(mid); if (!x || !x.girildi) return duz(409, "Önce Dijital Vergi Dairesi'ne bağlanın (Vergi D. sekmesi).");
+    try {
+      ivdKontrol({ id: mid }, "b"); ivdZamanla(mid);
+      const d = await x.belgeIndir(Number(q.get("n")));
+      gunluk(o, mid, "Tebligat belgesi açıldı", d.ad);
+      res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": (d.satir ? "inline" : "attachment") + "; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:" }));
+      return res.end(d.veri);
+    } catch (e) { if (e && e.oturum) await ivdBirak(mid); return duz(500, "Belge alınamadı: " + e.message); }
+  }
   if (yol.startsWith("/api/marka") && req.method === "GET") {
     const mid = o.rol === "mukellef" ? o.mid : decodeURIComponent((req.url.split("mid=")[1] || "").split("&")[0]);
     if (!depo.yetkili(o, mid)) return cevap(res, 403, { hata: "Bu mükellef için yetkiniz yok." });
@@ -391,6 +404,11 @@ async function api(req, res, yol) {
       if (ne === "cikis") { await ivdBirak(m.id); return cevap(res, 200, { tamam: true }); }
       if (ne === "borc") return cevap(res, 200, await vdSorgu(m, (x) => x.borc()));
       if (ne === "tebligat") return cevap(res, 200, await vdSorgu(m, (x) => x.tebligat()));
+      if (ne === "belge") {
+        const al = (a) => { const v = String(g[a] || ""); if (!/^[\w.\-]{1,128}$/.test(v)) throw new Error("Geçersiz tebligat kimliği."); return v; };
+        const p = { tarafId: al("tarafId"), tarafSecureId: al("tarafSecureId"), tebligId: al("tebligId"), tebligSecureId: al("tebligSecureId") };
+        return cevap(res, 200, await vdSorgu(m, (x) => x.belgeListe(p)));
+      }
       if (ne === "gelen") {
         const t = (d) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); if (!q) throw new Error("Tarih seçin."); return `${q[3]}/${q[2]}/${q[1]}`; };
         const bas = t(g.bas), bit = t(g.bit);

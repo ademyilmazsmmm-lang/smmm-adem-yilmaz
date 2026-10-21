@@ -130,6 +130,31 @@ class Ivd {
     const sy = say ? kayitlar(say.data || say)[0] || null : null;
     return { kayitlar: dizi ? kayitlar(dizi) : kayitlar(liste), say: sy, toplam, sekil: { sayilar: sekil(say), liste: dizi ? sekil(dizi) : sekil(liste) } };
   }
+  /* tebligat belgesi: önce belge/ek listesi, sonra seçilen belgenin dosyası (portalın "Görüntüle" akışı) */
+  async belgeListe(p) {
+    const y = await this.istek("POST", GW + "/etebligat/etebligat/belge-ek-listele", { tebligId: p.tebligId, tebligSecureId: p.tebligSecureId }, true);
+    const d = y && (y.tebligBelge || y.ekler ? y : y.data) || {};
+    const hepsi = []; if (d.tebligBelge) hepsi.push(Object.assign({}, d.tebligBelge, { ek: false })); (d.ekler || []).forEach((e) => hepsi.push(Object.assign({}, e, { ek: true })));
+    this.belgeler = hepsi.map((b) => ({ id: b.id, secureId: b.secureId, belgeTip: b.belgeTip, uzanti: b.uzanti, adi: b.adi, tarafId: p.tarafId, tarafSecureId: p.tarafSecureId }));
+    return { belgeler: hepsi.map((b, n) => ({ n, ad: b.adi || "Belge", uzanti: b.uzanti || "", ek: b.ek })), sekil: sekil(y) };
+  }
+  async belgeIndir(n) {
+    const b = (this.belgeler || [])[n]; if (!b) throw new Error("Belge bulunamadı; tebligatı yeniden açın.");
+    const y = await this.istek("POST", GW + "/etebligat/etebligat/belge-getir", { data: { id: b.id, secureId: b.secureId, belgeTip: b.belgeTip, tarafId: b.tarafId, tarafSecureId: b.tarafSecureId, uzanti: b.uzanti, belgeAdi: b.adi } }, true);
+    const baglanti = y && (y.reportLink || (y.data && y.data.reportLink)); if (!baglanti) throw new Error("GİB belge bağlantısı vermedi.");
+    const url = /^https?:\/\//i.test(baglanti) ? baglanti : "https://dijital.gib.gov.tr" + (baglanti.startsWith("/") ? "" : "/") + baglanti;
+    let u; try { u = new URL(url); } catch (e) { throw new Error("GİB belge bağlantısı geçersiz."); }
+    if (u.protocol !== "https:" || !/(^|\.)gib\.gov\.tr$/i.test(u.hostname)) throw new Error("GİB belge bağlantısı beklenmeyen bir adrese işaret ediyor; açılmadı.");
+    let r = await fetch(u, { signal: AbortSignal.timeout(30000), redirect: "follow" });
+    if ((r.status === 401 || r.status === 403) && this.token) r = await fetch(u, { headers: { authorization: "Bearer " + this.token }, signal: AbortSignal.timeout(30000), redirect: "follow" });
+    if (!r.ok) throw new Error("Belge indirilemedi (HTTP " + r.status + ").");
+    const veri = Buffer.from(await r.arrayBuffer()); if (veri.length > 25e6) throw new Error("Belge çok büyük.");
+    const ut = (r.headers.get("content-type") || "").toLowerCase(), uz = String(b.uzanti || "").toLowerCase().replace(/^\./, "");
+    const pdf = /pdf/.test(ut) || uz === "pdf" || veri.slice(0, 4).toString() === "%PDF";
+    const resim = !pdf && (/^image\/(png|jpe?g|gif)/.test(ut) ? ut.split(";")[0] : { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif" }[uz]);
+    const ad = String(b.adi || "belge").replace(/[\\/:*?"<>|\r\n]+/g, " ").trim(); const adUz = uz && !ad.toLowerCase().endsWith("." + uz) ? ad + "." + uz : ad;
+    return { veri, tur: pdf ? "application/pdf" : resim || "application/octet-stream", satir: !!(pdf || resim), ad: adUz };
+  }
   /* gelen e-Arşiv: portal en çok 7 günlük aralık kabul eder ve en erken 2 ay önceki ayın başına bakar; aralık dilimlenip birleştirilir.
    * bas/bit "GG/AA/YYYY" */
   async gelen(bas, bit) {
@@ -180,11 +205,17 @@ class SahteIvd {
   }
   async tebligat() {
     const d = [
-      { belgeTuruAciklama: "ODEME EMRI", belgeNo: "2026091366OEY0001088", altKurum: "ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "18/09/2026 16:44:48", tebligZamani: "2026-09-18T16:44:48", gerceklesenOtomatikOkunmaZamani: "2026-09-23T16:46:00" },
-      { belgeTuruAciklama: "BILGI ISTEME YAZISI", belgeNo: "2026101566BIY0000077", altKurum: "ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "15/10/2026 10:00:00", tebligZamani: "2026-10-15T10:00:00" },
-      { belgeTuruAciklama: "TAHAKKUK BILDIRIMI", belgeNo: "2026082866TBY0000012", altKurum: "ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "28/08/2026 09:00:00", tebligZamani: "2026-08-28T09:00:00", mukellefOkumaZamani: "2026-08-29T08:00:00" }
+      { belgeTuruAciklama: "ODEME EMRI", belgeNo: "2026091366OEY0001088", tarafId: "T1", tarafSecureId: "S1", tebligId: "B1", tebligSecureId: "C1", altKurum: "ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "18/09/2026 16:44:48", tebligZamani: "2026-09-18T16:44:48", gerceklesenOtomatikOkunmaZamani: "2026-09-23T16:46:00" },
+      { belgeTuruAciklama: "BILGI ISTEME YAZISI", belgeNo: "2026101566BIY0000077", tarafId: "T1", tarafSecureId: "S1", tebligId: "B1", tebligSecureId: "C1", altKurum: "ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "15/10/2026 10:00:00", tebligZamani: "2026-10-15T10:00:00" },
+      { belgeTuruAciklama: "TAHAKKUK BILDIRIMI", belgeNo: "2026082866TBY0000012", tarafId: "T1", tarafSecureId: "S1", tebligId: "B1", tebligSecureId: "C1", altKurum: "ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "28/08/2026 09:00:00", tebligZamani: "2026-08-28T09:00:00", mukellefOkumaZamani: "2026-08-29T08:00:00" }
     ];
     return { kayitlar: kayitlar(d), say: { digerKurumOkunmamisTebligatSayisi: 2, digerKurumOkunmusTebligatSayisi: 1, digerKurumArsivlenmisTebligatSayisi: 0 }, toplam: 3, sekil: sekil(d) };
+  }
+  async belgeListe() { this.belgeler = [{ adi: "Ödeme emri" }]; return { belgeler: [{ n: 0, ad: "Ödeme emri", uzanti: "pdf", ek: false }, { n: 1, ad: "Ek: hesap dökümü", uzanti: "pdf", ek: true }], sekil: {} }; }
+  async belgeIndir(n) {
+    if (!(n >= 0 && n < 2)) throw new Error("Belge bulunamadı; tebligatı yeniden açın.");
+    const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 18 Tf 20 60 Td (ORNEK TEBLIGAT) Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF";
+    return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "tebligat.pdf" };
   }
   async gelen() { const d = [{ unvan: "ÖRNEK TEDARİKÇİ A.Ş.", faturaNo: "ABC2026000000012", duzenlenmeTarihi: "12.10.2026", toplamTutar: 11800, odenecekTutar: 11800, paraBirimi: "TRY" }]; return { kayitlar: kayitlar(d), sekil: sekil(d) }; }
 }
