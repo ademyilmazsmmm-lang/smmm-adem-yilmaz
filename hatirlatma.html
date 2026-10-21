@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#1f6f5c">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<!-- apple-mobile-web-app-capable bilerek yok: iPhone tam ekran kipinde (iOS 18) klavye açılmıyor; Fatura Portalı'nda da aynı. Simge Safari içinde açılır. Geri eklemeyin. -->
 <meta name="apple-mobile-web-app-title" content="Hatırlatma">
 <link rel="apple-touch-icon" href="hatirlatma-ikon.png">
 <title>Hatırlatma</title>
@@ -1027,7 +1027,7 @@ button,input,select,textarea{font-family:inherit}
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "27";
+  var SURUM = "28";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
