@@ -97,6 +97,11 @@ a{color:var(--accent)}
 .sifre-satir .chip{min-width:78px}
 .kullanici-gizli{position:absolute;left:-9999px;top:auto;width:1px;height:1px;opacity:0;overflow:hidden}
 .surum{font-size:.75rem;color:var(--muted);text-align:center}
+.klavyeUyari{position:fixed;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:60;max-height:70vh;overflow:auto;background:var(--surface);color:var(--fg);border:2px solid var(--warn);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);font-size:.9rem;line-height:1.45}
+.klavyeUyari b{display:block;margin-bottom:4px;color:var(--warn);font-size:1rem}
+.klavyeUyari ol{margin:6px 0 8px;padding-left:20px}
+.klavyeUyari .sayac{font-size:.75rem;color:var(--muted);margin:4px 0 8px}
+.klavyeUyari a.chip{text-decoration:none;display:inline-flex;align-items:center}
 details.card summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center}
 details.card[open] summary{margin-bottom:0}
 textarea{width:100%;font:inherit;font-size:16px;line-height:1.5;padding:11px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);resize:vertical}
@@ -232,7 +237,26 @@ button,input,select,textarea{font-family:inherit}
 <body>
 <div class="kayitUyari" id="kayitUyari" role="alert" hidden><span id="kayitUyariMetin"></span><button type="button" id="kayitUyariKapat">Tamam</button></div>
 <div class="kayitOk" id="kayitOk" role="status" aria-live="polite" hidden>✓ Kaydedildi</div>
+<div class="klavyeUyari" id="klavyeUyari" role="alert" hidden>
+  <b>Klavye açılmadı mı?</b>
+  iPhone'daki ana ekran uygulamalarında bilinen bir iOS hatası olabilir (Safari'de çalışır). Sırayla dene:
+  <ol>
+    <li>Uygulamayı kapat: ekranın altından yukarı kaydırıp uygulamayı yukarı at, sonra yeniden aç.</li>
+    <li>Olmazsa iPhone'u yeniden başlat: yan düğme + ses düğmesini basılı tut, kaydırarak kapat, sonra aç. Çoğu zaman bu çözer.</li>
+    <li>Şimdilik yazman gerekiyorsa aşağıdaki düğmeyle Safari'de aç.</li>
+  </ol>
+  <div class="sayac" id="klavyeSayac"></div>
+  <div class="chips">
+    <a class="chip" id="klavyeSafari" href="https://ademyilmazsmmm-lang.github.io/smmm-adem-yilmaz/hatirlatma.html?safari=1" target="_blank" rel="noopener">Safari'de aç</a>
+    <button type="button" class="chip" id="klavyeKapat">Kapat</button>
+  </div>
+</div>
 <main>
+<div class="uyari" id="ipucuAnaEkran" hidden role="note">
+  <b>Tam ekran uygulama olarak kullanmak için:</b> şu an Safari'de açık. Ana ekrandaki eski simgeyi sil, Safari'de bu sayfayı aç,
+  <b>Paylaş → Ana Ekrana Ekle</b> de (“Web Uygulaması Olarak Aç” anahtarı açık olsun).
+  <div class="chips" style="margin-top:8px"><button type="button" class="chip" id="ipucuKapat">Tamam, bir daha gösterme</button></div>
+</div>
 <h1 id="girisBaslik">Hatırlatma</h1>
 
 <section class="card" id="kurulum" hidden>
@@ -1040,8 +1064,9 @@ button,input,select,textarea{font-family:inherit}
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "29";
+  var SURUM = "30";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
+  var IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
   function sifreAlaniHazirla(id){
@@ -1052,7 +1077,7 @@ button,input,select,textarea{font-family:inherit}
     el.removeAttribute("name");
   }
   function sifreGorunur(el, goster){ if(OZEL_SIFRE) el.style.webkitTextSecurity = goster ? "none" : "disc"; else el.type = goster ? "text" : "password"; }
-  ["sifreGir","sifre1","sifre2"].forEach(sifreAlaniHazirla);
+  ["sifreGir","sifre1","sifre2","anahtarGir"].forEach(sifreAlaniHazirla);
   /* iPhone ana ekran uygulamasında (Fatura Portalı'nda doğrulandı): şifre yöneticisi ipuçları (gizli kullanıcı adı kutusu, form autocomplete="on",
      current-password) iOS 18'de yazmayı bozuyor. O kipte hepsi kaldırılır; tarayıcı kipinde olduğu gibi kalır. */
   if(ANA_EKRAN){
@@ -1061,15 +1086,51 @@ button,input,select,textarea{font-family:inherit}
     ["sifreGir","sifre1","sifre2","anahtarGir"].forEach(function(id){ var e=$(id); if(e){ e.setAttribute("autocomplete", e.type==="password" ? "new-password" : "off"); e.removeAttribute("name"); } });
     Array.prototype.forEach.call(document.querySelectorAll("input[type=text],input[type=search],input[type=date],input[type=time]"), function(e){ if(!e.hasAttribute("autocomplete")) e.setAttribute("autocomplete","off"); });
   }
-  $("surum").textContent = "Sürüm "+SURUM+(ANA_EKRAN ? " · ana ekran modu" : "");
-  /* Ana ekran uygulamasında kutu etkinleşmiyorsa nedenini görmek için küçük sayaç: dokunuş / odak / yazı. (Sorun çözülünce kaldırılacak.) */
+  var MOD = ANA_EKRAN ? " · tam ekran (ana ekran) modu" : (IOS ? " · Safari'de açık" : "");
+  $("surum").textContent = "Sürüm "+SURUM+MOD;
+
+  /* Safari'de (tam ekran değil) açık iPhone/iPad: tam ekran uygulama için nasıl ekleneceği bir kere hatırlatılır.
+     Eski simge "Safari gibi" açılıyorsa nedeni budur: simge eklendiği andaki kipi saklar, değişince silinip yeniden eklenmelidir. */
+  if(IOS && !ANA_EKRAN && !/[?&]safari=1\b/.test(location.search)){
+    var ipucuGorulmus=false; try { ipucuGorulmus = localStorage.getItem("hatirlatma_ipucu")==="1"; } catch(e){}
+    if(!ipucuGorulmus){
+      $("ipucuAnaEkran").hidden=false;
+      $("ipucuKapat").addEventListener("click", function(){ $("ipucuAnaEkran").hidden=true; try { localStorage.setItem("hatirlatma_ipucu","1"); } catch(e){} });
+    }
+  }
+
+  /* Ana ekran uygulamasında kutu etkinleşmiyorsa nedenini görmek için sayaç: dokunuş / odak / yazı.
+     Bir metin kutusuna dokunulup 3,5 sn içinde ne klavye açılır ne de yazı yazılırsa (iOS'un bilinen ana ekran klavye hatası)
+     ne yapılacağını anlatan uyarı çıkar. Klavye açıksa ya da yazılıyorsa hiçbir şey gösterilmez. */
   if(ANA_EKRAN){
     var SAY={d:0,o:0,y:0};
-    var sayYaz=function(){ $("surum").textContent = "Sürüm "+SURUM+" · ana ekran modu · dokunuş "+SAY.d+" · odak "+SAY.o+" · yazı "+SAY.y; };
-    var kutuMu=function(e){ var el=e.target; return el && el.tagName && /^(INPUT|TEXTAREA)$/.test(el.tagName); };
-    document.addEventListener("touchstart", function(e){ if(kutuMu(e)){ SAY.d++; sayYaz(); } }, true);
+    var sayYaz=function(){ $("surum").textContent = "Sürüm "+SURUM+MOD+" · dokunuş "+SAY.d+" · odak "+SAY.o+" · yazı "+SAY.y; };
+    var metinKutusu=function(el){ return !!el && !!el.tagName && (el.tagName==="TEXTAREA" || (el.tagName==="INPUT" && /^(text|search|password|email|url|tel|number)$/.test(el.type||"text"))); };
+    var kutuMu=function(e){ return metinKutusu(e.target); };
+    document.addEventListener("touchstart", function(e){ if(kutuMu(e)){ SAY.d++; sayYaz(); } }, {capture:true, passive:true});
     document.addEventListener("focusin", function(e){ if(kutuMu(e)){ SAY.o++; sayYaz(); } }, true);
     document.addEventListener("input", function(e){ if(kutuMu(e)){ SAY.y++; sayYaz(); } }, true);
+    if(IOS){   // klavye uyarısı yalnız iPhone/iPad ana ekran uygulamasında (Android/masaüstü uygulamasında gösterilmez)
+      var gorunenYuk=function(){ return window.visualViewport ? window.visualViewport.height : window.innerHeight; };
+      var TABAN_YUK=gorunenYuk(), uyarildi=false, bekle=0, o0=0, y0=0;
+      var klavyeAcik=function(){ return gorunenYuk() < TABAN_YUK-80; };
+      if(window.visualViewport) window.visualViewport.addEventListener("resize", function(){ if(!klavyeAcik()) TABAN_YUK=Math.max(TABAN_YUK, gorunenYuk()); });
+      window.addEventListener("orientationchange", function(){ setTimeout(function(){ TABAN_YUK=gorunenYuk(); }, 600); });
+      var klavyeKontrol=function(){
+        bekle=0;
+        if(uyarildi || SAY.y>y0 || klavyeAcik()) return;                  // yazıldı ya da klavye açıldı: sorun yok
+        if(SAY.o===o0 || metinKutusu(document.activeElement)){            // hiç odaklanmadı, ya da odaklandı ama klavye gelmedi
+          uyarildi=true;
+          $("klavyeSayac").textContent="dokunuş "+SAY.d+" · odak "+SAY.o+" · yazı "+SAY.y+" · klavye kapalı";
+          $("klavyeUyari").hidden=false;
+        }
+      };
+      $("klavyeKapat").addEventListener("click", function(){ $("klavyeUyari").hidden=true; });
+      document.addEventListener("touchstart", function(e){
+        if(!kutuMu(e) || bekle || uyarildi || klavyeAcik()) return;
+        o0=SAY.o; y0=SAY.y; bekle=setTimeout(klavyeKontrol, 3500);
+      }, {capture:true, passive:true});
+    }
   }
 
   /* ---------- kurulum ve giriş ---------- */

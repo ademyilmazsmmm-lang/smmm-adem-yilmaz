@@ -120,4 +120,19 @@ Sana gelen her hatırlatma mailinde **"✓ Yapıldı, tamamlandı say"** düğme
 
 ## Telefonda ana ekrana ekleme (tam ekran uygulama)
 
-Sayfa, çalışan Fatura Portalı ile aynı yapıyla kurulur: `hatirlatma-manifest.json` (display: standalone), simgeler ve Apple meta satırları. iPhone'da Safari'de sayfayı açıp **Paylaş → Ana Ekrana Ekle** demek yeterlidir. Simge eklendiği andaki ayarı hatırladığı için ayar değişince eski simge silinip yeniden eklenmelidir. Ana ekran uygulamasında açılış ekranının altında "dokunuş / odak / yazı" sayaçları görünür; bir kutuya dokunup yazınca sayılar artmalıdır (klavye sorunu olursa nedeni göstermek içindir).
+Sayfa, Fatura Portalı ile aynı yapıyla kurulur: `hatirlatma-manifest.json` (display: standalone, scope: `/`), simgeler ve Apple meta satırları.
+
+**Ekleme:** iPhone'da Safari'de `https://smmmyilmaz.com/hatirlatma.html` adresini aç → **Paylaş → Ana Ekrana Ekle**. Açılan ekranda **"Web Uygulaması Olarak Aç"** anahtarı **açık** olsun. Anahtar görünmüyorsa Safari manifesti henüz almamıştır: sayfayı yenileyip tekrar dene.
+
+**Simge "Safari gibi" açılıyorsa:** Simge, eklendiği andaki kipi saklar; sayfa sonradan değişse de eski simge değişmez. Eski simgeyi sil (basılı tut → Uygulamayı Sil) ve yukarıdaki gibi yeniden ekle. Sayfanın en altında hangi kipte açıldığı yazar: `tam ekran (ana ekran) modu`, ya da iPhone'da Safari'de açılmışsa `Safari'de açık` (bu durumda sayfanın üstünde ekleme ipucu da çıkar).
+
+**Klavye açılmıyor / yazı yazılamıyorsa:** Çoğu zaman sayfadaki bir hata değildir; iOS'un ana ekran uygulamalarındaki bilinen klavye hatasıdır ([WebKit #279904](https://bugs.webkit.org/show_bug.cgi?id=279904)): bir ana ekran uygulamasında başlayınca hepsinde görülebilir, Safari'de çalışır. Sırayla dene:
+1. Uygulamayı kapat (ekranın altından yukarı kaydırıp uygulamayı yukarı at) ve yeniden aç.
+2. iPhone'u yeniden başlat (yan düğme + ses düğmesi → kaydırarak kapat, sonra aç). Çoğu zaman bunu çözer.
+3. Simgeyi silip yeniden ekle.
+4. Kontrol: Fatura Portalı'nı tam ekran açıp bir kutuya dokun. Orada da klavye açılmıyorsa sorun telefondadır. Yalnız Hatırlatma'da açılmıyorsa sayfanın altındaki "dokunuş / odak / yazı" sayılarını not et (dokunuş artıp odak artmıyorsa kutu etkinleşmiyor, odak artıp yazı artmıyorsa klavye gelmiyor demektir).
+5. Geçici çözüm: sayfanın çıkardığı **Safari'de aç** düğmesi ya da Safari'den kullanmak.
+
+Sayfa, ana ekran uygulamasında bir metin kutusuna dokunulduğu halde 3,5 sn içinde ne klavye açılır ne yazı yazılırsa bu adımları kendisi gösterir. Klavye açıksa ya da yazılıyorsa hiçbir şey göstermez.
+
+Ana ekran uygulamasında şifre ve GitHub anahtarı kutuları (Fatura Portalı'ndaki gibi) noktalarla maskelenmiş sıradan metin kutusudur; iOS'un parola yöneticisi bunlara karışmaz. Tarayıcıda (masaüstü, Safari) normal şifre kutusu kalır.
