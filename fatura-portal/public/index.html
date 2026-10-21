@@ -1676,8 +1676,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     gelen: "Adınıza düzenlenmiş e-Arşiv faturalar (e-Arşiv Faturalarım ekranı). Portal en çok son 2–3 ayı ve 7’şer günlük dilimleri gösterir; uygulama dilimleri birleştirir."
   };
   var ETIKET = { duzenlenmeTarihi: "Düzenlenme tarihi", faturaNo: "Fatura no", gonderimSekli: "Gönderim şekli", tcknVkn: "TCKN / VKN", unvan: "Unvan", toplamTutar: "Toplam tutar", odenecekTutar: "Ödenecek tutar", vergilerTutari: "Vergiler", paraBirimi: "Para birimi", iptalItirazDurum: "İptal/itiraz durumu", iptalItirazTarih: "İptal/itiraz tarihi", tesisatNumarasi: "Tesisat no", belgeNo: "Belge no", belgeTuru: "Belge türü", altKurum: "Kurum", vdAdi: "Vergi dairesi", vergiTuru: "Vergi türü", donem: "Dönem", vadeTarihi: "Vade tarihi", borcTutari: "Borç tutarı", gecikmeZammi: "Gecikme zammı", durum: "Durum", tebligTarihi: "Tebliğ tarihi", gonderen: "Gönderen",
-    digerKurumOkunmamisTebligatSayisi: "Okunmamış tebligat", digerKurumOkunmusTebligatSayisi: "Okunmuş tebligat", digerKurumArsivlenmisTebligatSayisi: "Arşivlenmiş tebligat" };
-  var TEKNIK = /^(id|oid|dizin|uuid|ettn)$|(^|\.)(oid|id)$|Oid$|Id$|secure|key$|hash/i;
+    asilBorc: "Asıl borç", toplam: "Toplam", digerKurumOkunmamisTebligatSayisi: "Okunmamış tebligat", digerKurumOkunmusTebligatSayisi: "Okunmuş tebligat", digerKurumArsivlenmisTebligatSayisi: "Arşivlenmiş tebligat" };
+  var TEKNIK = /^_|^(id|oid|dizin|uuid|ettn)$|(^|\.)(oid|id)$|Oid$|Id$|secure|key$|hash/i;
   function insanAd(k){ if (ETIKET[k]) return ETIKET[k]; var son = String(k).split(".").pop(); if (ETIKET[son]) return ETIKET[son]; var t = son.replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g, "$1 $2").replace(/[_-]+/g, " ").toLocaleLowerCase("tr-TR"); return t.charAt(0).toLocaleUpperCase("tr-TR") + t.slice(1); }
   function degerYaz(k, v){
     if (typeof v === "number" && /tutar|borc|zam|toplam|odenecek|bedel|vergiler/i.test(k)) return v.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺";
@@ -1689,15 +1689,23 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var an = Object.keys(r).filter(function(k){ return r[k] !== "" && !/^-+$/.test(String(r[k])) && !TEKNIK.test(k) && String(r[k]).length < 160; });
     var bas = an.filter(function(k){ return /^(unvan|belgeTuru|konu|baslik|vergiTuru|saticiUnvan|aciklama|tur)/i.test(k); })[0] || an[0];
     if (!bas) return "";
-    var h = '<div class="kayit"><b>' + esc(degerYaz(bas, r[bas])) + '</b>';
+    var h = '<div class="kayit"' + (r._gecmis ? ' style="border-left:4px solid #c0392b"' : "") + '><b>' + esc(degerYaz(bas, r[bas])) + '</b>';
     h += '<div class="not" style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0">';
     an.filter(function(k){ return k !== bas; }).slice(0, 14).forEach(function(k){ h += '<span>' + esc(insanAd(k)) + '</span><span style="color:var(--fg);overflow-wrap:anywhere">' + esc(degerYaz(k, r[k])) + '</span>'; });
     return h + '</div></div>';
+  }
+  function tl(n){ return Number(n || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺"; }
+  function vdBorcKart(k){
+    function kutu(baslik, x, renk, buyuk){
+      return '<div style="flex:1 1 ' + (buyuk ? "100%" : "130px") + ';border-left:5px solid ' + renk + ';background:color-mix(in srgb,' + renk + ' 12%,transparent);border-radius:10px;padding:10px 12px"><div class="not" style="margin:0;font-weight:600">' + baslik + '</div><div style="font-size:' + (buyuk ? "1.6rem" : "1.2rem") + ';font-weight:700;line-height:1.3;margin:2px 0">' + tl(x.toplam) + '</div><div class="not" style="margin:0;font-size:.78rem">Asıl borç ' + tl(x.asil) + '<br>Gecikme zammı ' + tl(x.gz) + (x.adet ? "<br>" + x.adet + " kalem" : "") + '</div></div>';
+    }
+    return '<div style="display:flex;flex-wrap:wrap;gap:8px">' + kutu("Toplam borç", k.toplam, "#34495e", true) + kutu("Vadesi geçmiş", k.gecmis, "#c0392b") + kutu("Vadesi gelmemiş", k.gecmemis, "#2f7d6b") + '</div>' + (k.zaman ? '<p class="not" style="margin:0">GİB hesaplama zamanı: ' + esc(degerYaz("zaman", k.zaman)) + '</p>' : "");
   }
   function vdCiz(){
     var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
     var h = s.kayitlar.length ? "" : '<p class="not">Kayıt bulunamadı.</p>';
+    if (s.ozetKart) h += vdBorcKart(s.ozetKart);
     if (s.say) h += '<p class="not" style="margin:0"><b>' + Object.keys(s.say).filter(function(k){ return typeof s.say[k] === "number"; }).map(function(k){ return esc(insanAd(k)) + ": " + esc(String(s.say[k])); }).join(" · ") + '</b></p>';
     if (s.uyari) h += '<p class="not" style="margin:0">' + esc(s.uyari) + '</p>';
     h += s.kayitlar.map(vdKayitHtml).join("");
@@ -1706,7 +1714,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function vdRozet(){
     var n = 0, b = VD.sonuc.borc, m = VD.sonuc.tebligat;
-    if (b) n += b.kayitlar.length;
+    if (b) n += b.ozetKart ? b.ozetKart.gecmis.adet : b.kayitlar.length;
     if (m && m.say) Object.keys(m.say).forEach(function(k){ if (/okunmam/i.test(k) && typeof m.say[k] === "number") n += m.say[k]; });
     $("vdRozet").hidden = !n; $("vdRozet").textContent = n > 99 ? "99+" : n;
   }

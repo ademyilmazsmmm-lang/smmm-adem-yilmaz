@@ -34,6 +34,31 @@ function kayitlar(veri) {
   return out.slice(0, 500);
 }
 
+const sayiya = (v) => { const n = Number(String(v === null || v === undefined ? "" : v).replace(",", ".")); return Number.isFinite(n) ? n : 0; };
+const yuvarla = (n) => Math.round(n * 100) / 100;
+/* borç özeti + borç satırları -> arayüzün çizdiği yapı: { ozetKart: { gecmis, gecmemis, toplam: { toplam, asil, gz, adet }, zaman }, kayitlar } */
+function borcDuzenle(ozet, liste) {
+  const bugun = new Date().toISOString().slice(0, 10);
+  const tarih = (t) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(t || "")) || /^(\d{2})[./](\d{2})[./](\d{4})/.exec(String(t || "")); if (!m) return ""; return m[1].length === 4 ? m[1] + "-" + m[2] + "-" + m[3] : m[3] + "-" + m[2] + "-" + m[1]; };
+  const satirlar = ((liste && liste.borclar) || []).map((b) => {
+    const v = tarih(b.vadeTarihi), gecmis = !!v && v < bugun;
+    const r = { vergiTuru: b.vergiTuru || b.vergiAdi || "", donem: b.donem, vadeTarihi: b.vadeTarihi, durum: v ? (gecmis ? "Vadesi geçmiş" : "Vadesi gelmemiş") : "", asilBorc: sayiya(b.asilBorc), gecikmeZammi: sayiya(b.gecikmeZammi), toplam: sayiya(b.toplam), belgeNo: b.belgeNo, vdAdi: b.vdAdi };
+    Object.defineProperty(r, "_gecmis", { value: gecmis, enumerable: false });
+    return r;
+  }).sort((a, b) => (tarih(a.vadeTarihi) || "9").localeCompare(tarih(b.vadeTarihi) || "9"));
+  const kart = (adet, toplam, gz, vab) => ({ toplam: yuvarla(toplam), asil: yuvarla(vab), gz: yuvarla(gz), adet });
+  const ob = (ozet && ozet.ozetBilgi) || [];
+  const bul = (re, ters) => ob.find((x) => { const t = String(x.tipAciklama || "").toLocaleLowerCase("tr-TR"); return re.test(t) && !(ters && ters.test(t)); });
+  const gG = bul(/geçmiş/, /geçmemiş/), gM = bul(/geçmemiş/), gT = bul(/toplam/);
+  const topla = (x) => x ? { toplam: sayiya(x.toplam), gz: sayiya(x.toplamGzSum), vab: sayiya(x.toplamVabSum) } : null;
+  const g1 = topla(gG), g2 = topla(gM), g3 = topla(gT);
+  const hesap = (f) => satirlar.filter(f).reduce((a, r) => ({ toplam: a.toplam + r.toplam, gz: a.gz + r.gecikmeZammi, vab: a.vab + r.asilBorc }), { toplam: 0, gz: 0, vab: 0 });
+  const h1 = hesap((r) => r._gecmis), h2 = hesap((r) => !r._gecmis);
+  const A = g1 || h1, B = g2 || h2;
+  const T = g3 || { toplam: A.toplam + B.toplam, gz: A.gz + B.gz, vab: A.vab + B.vab };
+  return { ozetKart: { gecmis: kart(satirlar.filter((r) => r._gecmis).length, A.toplam, A.gz, A.vab), gecmemis: kart(satirlar.filter((r) => !r._gecmis).length, B.toplam, B.gz, B.vab), toplam: kart(satirlar.length, T.toplam, T.gz, T.vab), zaman: (ozet && ozet.hesaplamaZamani) || "" }, kayitlar: satirlar.map((r) => Object.assign({}, r, { _gecmis: r._gecmis })) };
+}
+
 class Ivd {
   constructor(kullanici, sifre) { this.k = kullanici; this.s = sifre; this.token = null; this.cid = null; }
   get girildi() { return !!this.token; }
@@ -94,9 +119,8 @@ class Ivd {
     let liste = null, listeHata = "";
     try { liste = await this.istek("POST", GW + "/payment/api/debtinformation/1", this.tablo({}, 100, { alan: "vdAdi", yon: "ASC" }), true); }
     catch (e) { if (e.oturum) throw e; listeHata = e.message; }
-    const k = liste ? kayitlar(liste.resultListDenormalized || (liste.data && (liste.data.resultList || liste.data.list)) || liste) : [];
-    const oz = ozet ? kayitlar(ozet.data || ozet) : [];
-    return { kayitlar: k.length ? k : oz, ozet: oz, sekil: { ozet: sekil(ozet), liste: liste ? sekil(liste) : listeHata } };
+    const o = ozet && (ozet.data || ozet);
+    return Object.assign(borcDuzenle(o, liste && (liste.data || liste)), { sekil: { ozet: sekil(ozet), liste: liste ? sekil(liste) : listeHata } });
   }
   async tebligat() {
     let say = null; try { say = await this.istek("GET", GW + "/etebligat/etebligat/tebligat-sayilari", undefined, true); } catch (e) { if (e.oturum) throw e; }
@@ -147,11 +171,12 @@ class SahteIvd {
     this.token = "sahte-token";
   }
   async borc() {
-    const d = [
-      { vdAdi: "Örnek V.D.", vergiTuru: "Muhtasar ve Prim Hizmet", donem: "2026/08", vadeTarihi: "26.09.2026", borcTutari: 12400, gecikmeZammi: 541.6, durum: "Vadesi geçmiş" },
-      { vdAdi: "Örnek V.D.", vergiTuru: "KDV", donem: "2026/09", vadeTarihi: "26.10.2026", borcTutari: 35850, gecikmeZammi: 0, durum: "Ödenmedi" }
-    ];
-    return { kayitlar: kayitlar(d), ozet: [{ toplamBorc: 48250 }], sekil: sekil({ ozet: { toplamBorc: 1 }, liste: d }) };
+    const liste = { borclar: [
+      { vergiTuru: "0032 GELİR GEÇİCİ VERGİ", donem: "2026/04-2026/06", vadeTarihi: "2026-08-17T00:00:00", asilBorc: 26556.75, gecikmeZammi: 2096.28, toplam: 28653.03, belgeNo: "2026081401OFa0000313", vdAdi: "ÖRNEK" },
+      { vergiTuru: "0015 KDV", donem: "2026/09", vadeTarihi: "2027-12-26T00:00:00", asilBorc: 35850, gecikmeZammi: 0, toplam: 35850, belgeNo: "2026102601KDV0000001", vdAdi: "ÖRNEK" }
+    ] };
+    const ozet = { ozetBilgi: [{ tip: "1", tipAciklama: "Vadesi Geçmiş", toplam: "28653.03", toplamGzSum: "2096.28", toplamVabSum: "26556.75" }, { tip: "2", tipAciklama: "Vadesi Geçmemiş", toplam: "35850.00", toplamGzSum: "0.00", toplamVabSum: "35850.00" }, { tip: "3", tipAciklama: "Toplam", toplam: "64503.03", toplamGzSum: "2096.28", toplamVabSum: "62406.75" }], hesaplamaZamani: "2026-10-21T03:40:00" };
+    return Object.assign(borcDuzenle(ozet, liste), { sekil: sekil({ ozet, liste }) });
   }
   async tebligat() { const d = [{ belgeTuru: "Ödeme emri", tebligTarihi: "18.10.2026", durum: "Okunmadı", gonderen: "Vergi Dairesi Müdürlüğü" }, { belgeTuru: "Bilgi isteme yazısı", tebligTarihi: "15.10.2026", durum: "Okunmadı", gonderen: "Vergi Dairesi Müdürlüğü" }, { belgeTuru: "Tahakkuk bildirimi", tebligTarihi: "28.08.2026", durum: "Okundu", gonderen: "Vergi Dairesi Müdürlüğü" }]; return { kayitlar: kayitlar(d), say: { okunmamis: 2 }, sekil: sekil(d) }; }
   async gelen() { const d = [{ unvan: "ÖRNEK TEDARİKÇİ A.Ş.", faturaNo: "ABC2026000000012", duzenlenmeTarihi: "12.10.2026", toplamTutar: 11800, odenecekTutar: 11800, paraBirimi: "TRY" }]; return { kayitlar: kayitlar(d), sekil: sekil(d) }; }
