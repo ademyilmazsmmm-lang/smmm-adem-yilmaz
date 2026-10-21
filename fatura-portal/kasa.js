@@ -105,8 +105,9 @@ class Depo {
   }
   /* Etkin oturumlardan hiçbirinin erişemediği kasalar bellekten atılır (anahtarlar dahil). */
   temizle(oturumlar) {
+    const liste = [...oturumlar]; // oturumlar tek kullanımlık bir yineleyici olabilir (Map.values()): bir kez diziye alınmalı, yoksa ilk kasadan sonra boş görünür
     for (const id of [...this.acik.keys()]) {
-      if (![...oturumlar].some((o) => o.rol === "ofis" || o.mid === id)) this.acik.delete(id);
+      if (!liste.some((o) => o.rol === "ofis" || o.mid === id)) this.acik.delete(id);
     }
   }
 
