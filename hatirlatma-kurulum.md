@@ -117,3 +117,7 @@ Sana gelen her hatırlatma mailinde **"✓ Yapıldı, tamamlandı say"** düğme
 - Tekrarlı hatırlatmalarda (KDV gibi) yalnızca o tarih tamamlanır, sonraki dönem yine hatırlatılır.
 - Gmail okuma, gönderimdeki uygulama şifresiyle (IMAP) yapılır; ayrı ayar gerekmez. Okuma başarısız olursa hatırlatmalar yine gider.
 - Kişilere giden kopyalarda bu düğme yoktur.
+
+## Telefonda ana ekrana ekleme (tam ekran uygulama)
+
+Sayfa, çalışan Fatura Portalı ile aynı yapıyla kurulur: `hatirlatma-manifest.json` (display: standalone), simgeler ve Apple meta satırları. iPhone'da Safari'de sayfayı açıp **Paylaş → Ana Ekrana Ekle** demek yeterlidir. Simge eklendiği andaki ayarı hatırladığı için ayar değişince eski simge silinip yeniden eklenmelidir. Ana ekran uygulamasında açılış ekranının altında "dokunuş / odak / yazı" sayaçları görünür; bir kutuya dokunup yazınca sayılar artmalıdır (klavye sorunu olursa nedeni göstermek içindir).
