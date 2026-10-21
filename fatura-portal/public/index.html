@@ -1713,24 +1713,35 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     return null;
   }
   function tarihYaz(t, saat){ var d = tarihAl(t); if (!d) return ""; var g = String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear(); return saat ? g + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") : g; }
+  function gunFark(t){ var d = tarihAl(t); if (!d) return null; var bugun = new Date(); bugun.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0); return Math.round((d - bugun) / 864e5); }
   function tebKart(r){
-    var onem = tebOnemli(r), oku = tebOkunmadi(r), tz = r.tebligZamani || r.gonderimZamani || r.kayitZamani;
-    var rozet = oku ? '<span style="background:#c0392b;color:#fff;border-radius:99px;padding:1px 8px;font-size:.72rem;font-weight:600;white-space:nowrap">Okunmadı</span>' : '<span class="not" style="margin:0;font-size:.72rem;white-space:nowrap">Okundu</span>';
-    var satir = function(a, v){ return v ? '<div style="display:flex;justify-content:space-between;gap:12px"><span>' + esc(a) + '</span><span style="color:var(--fg);text-align:right;overflow-wrap:anywhere">' + esc(v) + '</span></div>' : ""; };
-    return '<details class="kayit"' + (onem ? ' style="border-left:4px solid #c0392b"' : "") + '><summary style="display:flex;flex-direction:row;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;list-style:none"><span style="min-width:0"><b style="display:block">' + esc(tebAd(r.belgeTuruAciklama || "Tebligat")) + '</b><span class="not" style="margin:0;font-size:.8rem">' + esc(tarihYaz(tz)) + (r.kurumAciklama ? " · " + esc(tebAd(r.kurumAciklama)) : "") + '</span></span>' + rozet + '</summary>'
-      + '<div class="not" style="margin:8px 0 0;display:grid;gap:3px;font-size:.8rem">' + satir("Kurum", tebAd(r.altKurum)) + satir("Belge no", r.belgeNo) + satir("Gönderim", tarihYaz(r.gonderimZamani, 1)) + satir("Tebliğ", tarihYaz(r.tebligZamani, 1)) + satir("Otomatik okunma", tarihYaz(r.gerceklesenOtomatikOkunmaZamani, 1)) + satir("Okuma", tarihYaz(r.mukellefOkumaZamani, 1)) + '</div><div style="margin-top:10px"><button class="btn ikincil" type="button" data-teb="' + VD.tebListe.indexOf(r) + '">Belgeyi göster</button><div data-tebbelge style="display:grid;gap:6px;margin-top:8px"></div></div></details>';
+    var onem = tebOnemli(r), oku = tebOkunmadi(r), tz = r.tebligZamani || r.gonderimZamani || r.kayitZamani, g = gunFark(tz);
+    var rozet = oku ? '<span style="background:#2563c9;color:#fff;border-radius:99px;padding:1px 9px;font-size:.72rem;font-weight:600;white-space:nowrap">Okunmadı</span>' : '<span style="background:color-mix(in srgb,currentColor 12%,transparent);border-radius:99px;padding:1px 9px;font-size:.72rem;white-space:nowrap">Okundu</span>';
+    var alt = "Tebliğ: " + tarihYaz(tz) + (g !== null && g < 0 ? " (" + (-g) + " gün önce)" : "") + (r.kurumAciklama ? " · " + tebAd(r.kurumAciklama) : "");
+    var kucuk = [r.belgeNo ? "Belge no " + r.belgeNo : "", r.mukellefOkumaZamani ? "Okundu: " + tarihYaz(r.mukellefOkumaZamani, 1) : (r.gerceklesenOtomatikOkunmaZamani ? "Otomatik okundu: " + tarihYaz(r.gerceklesenOtomatikOkunmaZamani, 1) : "")].filter(Boolean).join(" · ");
+    return '<div class="kayit"' + (onem ? ' style="border-left:4px solid #c0392b"' : "") + '><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="min-width:0"><b style="display:block">' + (oku ? '<span style="color:#2563c9">● </span>' : "") + esc(tebAd(r.belgeTuruAciklama || "Tebligat")) + '</b><span class="not" style="margin:0;font-size:.8rem;display:block">' + esc(alt) + '</span></div>' + rozet + '</div>'
+      + (kucuk ? '<div class="not" style="margin:0;font-size:.74rem;overflow-wrap:anywhere">' + esc(kucuk) + '</div>' : "")
+      + '<div><button class="btn ikincil" type="button" data-teb="' + VD.tebListe.indexOf(r) + '" style="width:100%">Görüntüle</button><div data-tebbelge style="display:grid;gap:6px;margin-top:8px"></div></div></div>';
   }
   function vdTebHtml(s){
     var k = s.kayitlar.slice().sort(function(a, b){ var x = tarihAl(a.tebligZamani || a.gonderimZamani || a.kayitZamani), y = tarihAl(b.tebligZamani || b.gonderimZamani || b.kayitZamani); return (y ? y.getTime() : 0) - (x ? x.getTime() : 0); });
     VD.tebListe = k;
-    var onemli = k.filter(tebOnemli), diger = k.filter(function(r){ return !tebOnemli(r); }), okunmaz = k.filter(tebOkunmadi).length, onemOkunmaz = onemli.filter(tebOkunmadi).length;
-    var say = s.say || {}, toplamOkunmaz = 0; Object.keys(say).forEach(function(a){ if (/okunmam/i.test(a) && typeof say[a] === "number") toplamOkunmaz += say[a]; });
-    var kutu = function(b, n, renk){ return '<div style="flex:1 1 90px;border-left:5px solid ' + renk + ';background:color-mix(in srgb,' + renk + ' 12%,transparent);border-radius:10px;padding:8px 10px"><div class="not" style="margin:0;font-size:.78rem;font-weight:600">' + b + '</div><div style="font-size:1.4rem;font-weight:700;line-height:1.2">' + n + '</div></div>'; };
-    var h = '<div style="display:flex;flex-wrap:wrap;gap:8px">' + kutu("Önemli okunmamış", onemOkunmaz, "#c0392b") + kutu("Okunmamış", toplamOkunmaz || okunmaz, "#d68910") + kutu("Toplam", s.toplam || k.length, "#34495e") + '</div>';
-    if (onemli.length) h += '<p class="not" style="margin:4px 0 0"><b>Önemli (' + onemli.length + ')</b> · ödeme emri, ihtar, inceleme, bilgi/belge isteme vb.</p>' + onemli.map(tebKart).join("");
-    if (diger.length) h += '<details style="margin-top:4px"><summary class="not" style="margin:0;cursor:pointer"><b>Diğer tebligatlar (' + diger.length + ')</b></summary><div style="display:grid;gap:8px;margin-top:8px">' + diger.map(tebKart).join("") + '</div></details>';
-    if (!k.length) h += '<p class="not">Tebligat bulunamadı.</p>';
+    var f = VD.tebF || "hepsi", okunmaz = k.filter(tebOkunmadi), onemli = k.filter(tebOnemli);
+    var goster = f === "okunmadi" ? okunmaz : f === "onemli" ? onemli : k;
+    var cip = function(ad, n, a){ return '<button class="chip" type="button" data-tebf="' + a + '" aria-pressed="' + (f === a ? "true" : "false") + '">' + ad + " " + n + '</button>'; };
+    var h = '<div style="display:flex;gap:6px;flex-wrap:wrap">' + cip("Tümü", s.toplam || k.length, "hepsi") + cip("Okunmadı", okunmaz.length, "okunmadi") + cip("Önemli", onemli.length, "onemli") + '</div>';
+    h += goster.length ? goster.map(tebKart).join("") : '<p class="not">Bu süzgeçte tebligat yok.</p>';
+    if (s.toplam && s.toplam > k.length) h += '<p class="not">İlk ' + k.length + ' tebligat gösteriliyor (toplam ' + s.toplam + ').</p>';
     return h;
+  }
+  /* borç kalemi: başlık + tutar, dönem/vade, gün rozeti */
+  function borcKalem(r){
+    var g = gunFark(r.vadeTarihi), gec = g !== null && g < 0, renk = gec ? "#c0392b" : "inherit";
+    var chip = g === null ? "" : gec ? '<span style="background:#c0392b;color:#fff;border-radius:99px;padding:1px 9px;font-size:.74rem;font-weight:600">' + (-g) + ' gün gecikti</span>' : '<span style="background:color-mix(in srgb,' + (g <= 30 ? "#d68910" : "#2f7d6b") + ' 18%,transparent);border-radius:99px;padding:1px 9px;font-size:.74rem;font-weight:600">' + (g === 0 ? "bugün son gün" : g + " gün kaldı") + '</span>';
+    return '<div class="kayit"' + (gec ? ' style="border:1px solid #c0392b;background:color-mix(in srgb,#c0392b 8%,transparent)"' : "") + '><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b>' + esc(r.vergiTuru || "Borç") + '</b><b style="color:' + renk + ';white-space:nowrap">' + tl(r.toplam) + '</b></div>'
+      + '<div class="not" style="margin:0;font-size:.8rem">' + esc([r.donem, r.vadeTarihi ? "vade " + tarihYaz(r.vadeTarihi) : ""].filter(Boolean).join(" · ")) + '</div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">' + chip + (r.gecikmeZammi ? '<span class="not" style="margin:0;font-size:.76rem">Gecikme zammı dahil: ' + tl(r.gecikmeZammi) + '</span>' : "") + '</div>'
+      + (r.belgeNo || r.vdAdi ? '<div class="not" style="margin:0;font-size:.72rem">' + esc([r.vdAdi, r.belgeNo].filter(Boolean).join(" · ")) + '</div>' : "") + '</div>';
   }
   function tl(n){ return Number(n || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺"; }
   function vdBorcKart(k){
@@ -1744,7 +1755,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
     if (VD.sek === "tebligat") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdTebHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     var h = s.kayitlar.length ? "" : '<p class="not">Kayıt bulunamadı.</p>';
-    if (s.ozetKart) h += vdBorcKart(s.ozetKart);
+    if (s.ozetKart) { h += vdBorcKart(s.ozetKart) + s.kayitlar.map(borcKalem).join(""); liste.innerHTML = h; $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (s.say) h += '<p class="not" style="margin:0"><b>' + Object.keys(s.say).filter(function(k){ return typeof s.say[k] === "number"; }).map(function(k){ return esc(insanAd(k)) + ": " + esc(String(s.say[k])); }).join(" · ") + '</b></p>';
     if (s.uyari) h += '<p class="not" style="margin:0">' + esc(s.uyari) + '</p>';
     h += s.kayitlar.map(vdKayitHtml).join("");
@@ -1788,6 +1799,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("vdSeg").addEventListener("click", function(e){ var b = e.target.closest("[data-vd]"); if (!b) return; VD.sek = b.getAttribute("data-vd"); vdSekmeCiz(); if (VD.bagli && !VD.sonuc[VD.sek]) vdSorgula(); });
   $("vdSorgula").addEventListener("click", vdSorgula);
   $("vdListe").addEventListener("click", function(e){
+    var f = e.target.closest("[data-tebf]"); if (f) { VD.tebF = f.getAttribute("data-tebf"); vdCiz(); return; }
     var b = e.target.closest("[data-teb]"); if (!b) return; var r = VD.tebListe[+b.getAttribute("data-teb")], kap = b.parentNode.querySelector("[data-tebbelge]"); if (!r || !VD.mid) return;
     if (tebOkunmadi(r) && !confirm("Bu tebligat henüz okunmadı. Belgeyi açmak GİB’de “okundu” sayılabilir ve itiraz/ödeme süreleri başlayabilir.\n\nDevam edilsin mi?")) return;
     b.disabled = true; kap.textContent = "Belge hazırlanıyor…";
