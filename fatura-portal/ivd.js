@@ -178,7 +178,14 @@ class SahteIvd {
     const ozet = { ozetBilgi: [{ tip: "1", tipAciklama: "Vadesi Geçmiş", toplam: "28653.03", toplamGzSum: "2096.28", toplamVabSum: "26556.75" }, { tip: "2", tipAciklama: "Vadesi Geçmemiş", toplam: "35850.00", toplamGzSum: "0.00", toplamVabSum: "35850.00" }, { tip: "3", tipAciklama: "Toplam", toplam: "64503.03", toplamGzSum: "2096.28", toplamVabSum: "62406.75" }], hesaplamaZamani: "2026-10-21T03:40:00" };
     return Object.assign(borcDuzenle(ozet, liste), { sekil: sekil({ ozet, liste }) });
   }
-  async tebligat() { const d = [{ belgeTuru: "Ödeme emri", tebligTarihi: "18.10.2026", durum: "Okunmadı", gonderen: "Vergi Dairesi Müdürlüğü" }, { belgeTuru: "Bilgi isteme yazısı", tebligTarihi: "15.10.2026", durum: "Okunmadı", gonderen: "Vergi Dairesi Müdürlüğü" }, { belgeTuru: "Tahakkuk bildirimi", tebligTarihi: "28.08.2026", durum: "Okundu", gonderen: "Vergi Dairesi Müdürlüğü" }]; return { kayitlar: kayitlar(d), say: { okunmamis: 2 }, sekil: sekil(d) }; }
+  async tebligat() {
+    const d = [
+      { belgeTuruAciklama: "ODEME EMRI", belgeNo: "2026091366OEY0001088", altKurum: "ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "18/09/2026 16:44:48", tebligZamani: "2026-09-18T16:44:48", gerceklesenOtomatikOkunmaZamani: "2026-09-23T16:46:00" },
+      { belgeTuruAciklama: "BILGI ISTEME YAZISI", belgeNo: "2026101566BIY0000077", altKurum: "ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "15/10/2026 10:00:00", tebligZamani: "2026-10-15T10:00:00" },
+      { belgeTuruAciklama: "TAHAKKUK BILDIRIMI", belgeNo: "2026082866TBY0000012", altKurum: "ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "28/08/2026 09:00:00", tebligZamani: "2026-08-28T09:00:00", mukellefOkumaZamani: "2026-08-29T08:00:00" }
+    ];
+    return { kayitlar: kayitlar(d), say: { digerKurumOkunmamisTebligatSayisi: 2, digerKurumOkunmusTebligatSayisi: 1, digerKurumArsivlenmisTebligatSayisi: 0 }, toplam: 3, sekil: sekil(d) };
+  }
   async gelen() { const d = [{ unvan: "ÖRNEK TEDARİKÇİ A.Ş.", faturaNo: "ABC2026000000012", duzenlenmeTarihi: "12.10.2026", toplamTutar: 11800, odenecekTutar: 11800, paraBirimi: "TRY" }]; return { kayitlar: kayitlar(d), sekil: sekil(d) }; }
 }
 
