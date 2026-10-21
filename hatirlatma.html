@@ -227,6 +227,24 @@ button,input,select,textarea{font-family:inherit}
 .secim button small{color:var(--muted);font-size:.78rem}
 .secim .genis{grid-column:1/-1}
 @media (prefers-reduced-motion: no-preference){ .sayfa{animation:yuksel .2s ease-out} @keyframes yuksel{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}} }
+
+/* ---------- uygulama içi klavye (iPhone tam ekran kipinde sistem klavyesi açılmazsa) ---------- */
+.oklavye{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--surface-2);border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.12);
+  padding:6px max(6px,env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.oklavye .ic{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:6px}
+.ok-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px 2px;font-size:.78rem;color:var(--muted)}
+.ok-bar .sag{display:flex;gap:6px}
+.ok-bar button{font:inherit;font-size:.85rem;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;min-height:34px;padding:0 12px;cursor:pointer}
+.ok-sira{display:flex;gap:5px}
+.ok-sira.orta{padding:0 4.5%}
+.ok-tus{flex:1 1 0;min-width:0;height:46px;border:0;border-radius:8px;background:var(--surface);color:var(--fg);font:500 1.15rem var(--f-body);box-shadow:0 1px 0 var(--line);cursor:pointer;display:grid;place-items:center;padding:0}
+.ok-tus:active{background:var(--accent-soft)}
+.ok-tus.genis{flex:1.5 1 0;background:var(--accent-soft);font-size:1rem}
+.ok-tus.bosluk{flex:5 1 0;font-size:.9rem;color:var(--muted)}
+.ok-tus.gir{flex:1.8 1 0;background:var(--accent);color:var(--accent-fg);font-size:1rem}
+.ok-tus.acik{background:var(--fg);color:var(--bg)}
+.ok-ipucu{font-size:.85rem;color:var(--muted);margin:2px 0 0}
+.ok-ipucu button{font:inherit;color:var(--accent);background:none;border:0;padding:6px 0;text-decoration:underline;cursor:pointer}
 </style>
 </head>
 <body>
@@ -246,6 +264,7 @@ button,input,select,textarea{font-family:inherit}
     <button class="kaydet" type="submit">Kur</button>
     <div class="durum" id="kurulumDurum" role="status" aria-live="polite"></div>
   </form>
+  <p class="ok-ipucu" id="kurulumKlavye" hidden>Klavye açılmıyor mu? Kutuya iki kez dokun ya da <button type="button" data-klavye="anahtarGir">uygulama içi klavyeyi aç</button>.</p>
 </section>
 
 <section class="card" id="kilit" hidden>
@@ -259,6 +278,7 @@ button,input,select,textarea{font-family:inherit}
     <button class="kaydet" type="submit">Aç</button>
     <div class="durum" id="kilitDurum" role="status" aria-live="polite"></div>
   </form>
+  <p class="ok-ipucu" id="kilitKlavye" hidden>Klavye açılmıyor mu? <button type="button" data-klavye="sifreGir">Uygulama içi klavyeyi aç</button></p>
   <a href="#kurulum" id="yeniKurulum" hidden style="font-size:.9rem">GitHub anahtarını yeniledim: yeni anahtarla kurulum</a>
 </section>
 
@@ -423,7 +443,7 @@ button,input,select,textarea{font-family:inherit}
   <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
     <div id="kisiListe"></div>
     <form id="kisiForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px">
-      <div><label for="kisiAd">Adı</label><input type="text" id="kisiAd" maxlength="80" placeholder="Örn. Ahmet"></div>
+      <div><label for="kisiAd">Adı</label><input type="text" id="kisiAd" maxlength="80" placeholder="Örn. Ahmet" autocapitalize="words"></div>
       <div><label for="kisiEposta">E-posta</label><input type="text" id="kisiEposta" maxlength="120" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ornek@mail.com"></div>
       <label style="display:flex;gap:10px;align-items:center;margin:0"><input type="checkbox" id="kisiVergi" style="width:22px;height:22px"> Vergi takvimi hatırlatmalarını da alsın</label>
       <button class="kaydet" type="submit" id="kisiEkle">Kişiyi ekle</button>
@@ -448,6 +468,14 @@ button,input,select,textarea{font-family:inherit}
       <div class="durum" id="sablonDurum" role="status" aria-live="polite"></div>
     </div>
   </details>
+  <div class="card" id="klavyeKart" hidden>
+    <label for="klavyeKip" style="margin:0">Klavye (iPhone ana ekran uygulaması)</label>
+    <select id="klavyeKip">
+      <option value="otomatik">Otomatik: sistem klavyesi açılmazsa uygulama içi klavye gelir</option>
+      <option value="her">Her zaman uygulama içi klavye</option>
+      <option value="kapali">Yalnızca sistem klavyesi</option>
+    </select>
+  </div>
   <div class="card menu-kart">
     <a href="#" id="kasaGoster">Giriş metnini göster</a>
     <a href="#" id="sifreDegistir">Şifreyi değiştir</a>
@@ -465,7 +493,7 @@ button,input,select,textarea{font-family:inherit}
     <summary>+ Yeni süreç başlat</summary>
     <form id="surecForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
       <div id="surecSablonSatir"><label for="surecSablon">Şablon</label><select id="surecSablon"></select></div>
-      <div><label for="surecFirma">Firma adı</label><input type="text" id="surecFirma" maxlength="120" placeholder="Örn. ABC Ltd. Şti."></div>
+      <div><label for="surecFirma">Firma adı</label><input type="text" id="surecFirma" maxlength="120" placeholder="Örn. ABC Ltd. Şti." autocapitalize="words"></div>
       <div><label for="surecTarih">Başlangıç tarihi (süreler bu tarihten sayılır)</label><input type="date" id="surecTarih" required></div>
       <div><span class="lbl">Süreli maddeler için mail kaç gün önce gelsin?</span><div class="chips" id="surecGunler"></div></div>
       <div><label for="surecSaat">Mail saati</label><input type="time" id="surecSaat" value="09:00"></div>
@@ -478,7 +506,7 @@ button,input,select,textarea{font-family:inherit}
   <details class="card" id="tasfiyeKutu">
     <summary>+ Yeni tasfiye süreci başlat</summary>
     <form id="tasfiyeForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
-      <div><label for="tasfiyeFirma">Firma adı</label><input type="text" id="tasfiyeFirma" maxlength="120" placeholder="Örn. ABC Ltd. Şti."></div>
+      <div><label for="tasfiyeFirma">Firma adı</label><input type="text" id="tasfiyeFirma" maxlength="120" placeholder="Örn. ABC Ltd. Şti." autocapitalize="words"></div>
       <div><label for="tasfiyeGiris">Tasfiyeye giriş tarihi</label><input type="date" id="tasfiyeGiris" required></div>
       <div><label for="tasfiyeIlan">3. ilan tarihi (biliyorsan, sonra da girebilirsin)</label><input type="date" id="tasfiyeIlan"></div>
       <div><label for="tasfiyeKapanis">Kapanış tarihi (biliyorsan, sonra da girebilirsin)</label><input type="date" id="tasfiyeKapanis"></div>
@@ -493,7 +521,7 @@ button,input,select,textarea{font-family:inherit}
   <details class="card" id="sahisKutu">
     <summary>+ Yeni şahıs kapanış süreci başlat</summary>
     <form id="sahisForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
-      <div><label for="sahisFirma">Adı / firma</label><input type="text" id="sahisFirma" maxlength="120" placeholder="Örn. Ali Yılmaz"></div>
+      <div><label for="sahisFirma">Adı / firma</label><input type="text" id="sahisFirma" maxlength="120" placeholder="Örn. Ali Yılmaz" autocapitalize="words"></div>
       <div><label for="sahisTarih">Kapanış tarihi (süreler bu tarihten sayılır)</label><input type="date" id="sahisTarih" required></div>
       <label class="onay"><input type="checkbox" id="sahisBirinci" checked> 1. sınıf tüccar (e-defter ve e-fatura kapanış dilekçeleri)</label>
       <label class="onay"><input type="checkbox" id="sahisSgk"> SGK'lı çalışanı var (işten çıkışlar)</label>
@@ -1040,7 +1068,7 @@ button,input,select,textarea{font-family:inherit}
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "30";
+  var SURUM = "32";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -1067,6 +1095,191 @@ button,input,select,textarea{font-family:inherit}
   function gizle(){ ["kurulum","kilit","ana"].forEach(function(id){ $(id).hidden=true; }); $("girisBaslik").hidden=false; }
   // Dokunmatik cihazlarda (iPhone/iPad) kutuya kod ile odaklanmaz: klavye açılmaz ve sonraki dokunuş da işe yaramaz.
   function odakla(el){ if(!(navigator.maxTouchPoints>0)) el.focus(); }
+  /* ---------- uygulama içi klavye ----------
+     iPhone'da (iOS 18) tam ekran ana ekran uygulamasında sistem klavyesi zaman zaman hiç açılmıyor (bilinen WebKit sorunu). Bu kipte, kutuya dokunulduğu halde
+     kutu etkinleşmezse ya da ikinci dokunuşta klavye görünmezse Türkçe Q klavye uygulamanın içinde açılır. Tarayıcıda (Safari/Chrome) hiç devreye girmez. */
+  var KLAVYE = (function(){
+    var KIP = "otomatik"; try { KIP = localStorage.getItem("hatirlatma_klavye") || "otomatik"; } catch(e){}
+    var kök = null, hedef = null, sayfa = "harf", shift = false, kilit = false, oncekiMod = null, son = {el:null, t:0};
+    var TABAN = Math.max(window.innerHeight || 0, (window.visualViewport && window.visualViewport.height) || 0);
+    var HARF = [["q","w","e","r","t","y","u","ı","o","p","ğ","ü"], ["a","s","d","f","g","h","j","k","l","ş","i"], ["z","x","c","v","b","n","m","ö","ç"]];
+    var SAYI = [["1","2","3","4","5","6","7","8","9","0"], ["-","/",":",";","(",")","₺","&","@","\""], [".",",","?","!","'","_","+","=","%"]];
+    function kutuMu(el){
+      if(!el || !el.tagName || el.disabled || el.readOnly) return false;
+      if(el.tagName==="TEXTAREA") return true;
+      return el.tagName==="INPUT" && /^(text|search|password|email|tel|url)$/.test(el.type);
+    }
+    function gizliMi(el){ return el.type==="password" || (el.style && el.style.webkitTextSecurity==="disc"); }
+    function sistemKlavyesiGorunuyor(){
+      var vv = window.visualViewport; if(!vv) return null;
+      return vv.height < TABAN - 120;
+    }
+    window.addEventListener("orientationchange", function(){ setTimeout(function(){ TABAN = Math.max(window.innerHeight||0, (window.visualViewport&&window.visualViewport.height)||0); }, 400); });
+    function ekle(m){
+      var el = hedef; if(!el) return;
+      var v = el.value, a = el.selectionStart, b = el.selectionEnd;
+      if(a==null){ a = b = v.length; }
+      if(el.maxLength>0 && v.length-(b-a)+m.length>el.maxLength) return;
+      el.value = v.slice(0,a)+m+v.slice(b);
+      try { el.setSelectionRange(a+m.length, a+m.length); } catch(e){}
+      el.dispatchEvent(new Event("input", {bubbles:true}));
+    }
+    function geri(){
+      var el = hedef; if(!el) return;
+      var v = el.value, a = el.selectionStart, b = el.selectionEnd;
+      if(a==null){ a = b = v.length; }
+      if(a===b){ if(a===0) return; a--; }
+      el.value = v.slice(0,a)+v.slice(b);
+      try { el.setSelectionRange(a,a); } catch(e){}
+      el.dispatchEvent(new Event("input", {bubbles:true}));
+    }
+    function otoBuyuk(){
+      var el = hedef; if(!el || gizliMi(el) || el.type==="email" || el.type==="url") return false;
+      var a = el.selectionStart; if(a==null) a = el.value.length;
+      var onceki = el.value.slice(0,a);
+      if(el.getAttribute("autocapitalize")==="words") return onceki==="" || /\s$/.test(onceki);
+      return onceki==="" || /[.!?]\s+$|\n$/.test(onceki);
+    }
+    function gir(){
+      var el = hedef; if(!el) return;
+      if(el.tagName==="TEXTAREA"){ ekle("\n"); return; }
+      var f = el.form;
+      if(f){ if(f.requestSubmit) f.requestSubmit(); else f.dispatchEvent(new Event("submit", {bubbles:true, cancelable:true})); }
+      kapat();
+    }
+    function tus(yazi, sinif, islev, tekrar){
+      var b = document.createElement("button"); b.type = "button"; b.className = "ok-tus"+(sinif?" "+sinif:""); b.textContent = yazi;
+      var z, t, son = 0;
+      var dur = function(){ clearTimeout(z); clearInterval(t); };
+      // iPhone'da dokunuş olayları ile işaretçi olayları aynı dokunuş için ikisi de gelir: 80 ms içinde ikincisi yok sayılır
+      var bas = function(e){
+        e.preventDefault();
+        var n = Date.now(); if(n-son<80) return; son = n;
+        islev();
+        if(tekrar){ dur(); z = setTimeout(function(){ t = setInterval(islev, 70); }, 420); }
+      };
+      b.addEventListener("touchstart", bas, {passive:false});
+      b.addEventListener("pointerdown", bas);
+      ["touchend","touchcancel","pointerup","pointercancel","pointerleave"].forEach(function(n){ b.addEventListener(n, dur); });
+      return b;
+    }
+    function sira(tuslar, orta){
+      var d = document.createElement("div"); d.className = "ok-sira"+(orta?" orta":"");
+      tuslar.forEach(function(x){ d.appendChild(x); }); return d;
+    }
+    function ciz(){
+      if(!kök) return;
+      var g = kök.querySelector(".ic"); g.querySelectorAll(".ok-sira").forEach(function(n){ n.parentNode.removeChild(n); });
+      var yaz = function(c){ return (shift||kilit) ? c.toLocaleUpperCase("tr") : c; };
+      var tusla = function(c){ return tus(sayfa==="harf" ? yaz(c) : c, "", function(){ ekle(sayfa==="harf" ? yaz(c) : c); if(shift && !kilit){ shift = false; ciz(); } }); };
+      if(sayfa==="harf"){
+        g.appendChild(sira(HARF[0].map(tusla)));
+        g.appendChild(sira(HARF[1].map(tusla), true));
+        var shiftTus = tus("⇧", "genis"+((shift||kilit)?" acik":""), function(){
+          if(shift && !kilit){ kilit = true; } else if(kilit){ kilit = false; shift = false; } else { shift = true; }
+          ciz();
+        });
+        g.appendChild(sira([shiftTus].concat(HARF[2].map(tusla)).concat([tus("⌫", "genis", geri, true)])));
+      } else {
+        g.appendChild(sira(SAYI[0].map(tusla)));
+        g.appendChild(sira(SAYI[1].map(tusla)));
+        g.appendChild(sira(SAYI[2].map(tusla).concat([tus("⌫", "genis", geri, true)])));
+      }
+      g.appendChild(sira([
+        tus(sayfa==="harf" ? "123" : "ABC", "genis", function(){ sayfa = sayfa==="harf" ? "sayi" : "harf"; ciz(); }),
+        tus("boşluk", "bosluk", function(){ ekle(" "); if(otoBuyuk() && sayfa==="harf") { shift = true; ciz(); } }),
+        tus(".", "", function(){ ekle("."); }),
+        tus(hedef && hedef.tagName==="TEXTAREA" ? "↵" : "Git", "gir", gir)
+      ]));
+    }
+    function kur(){
+      if(kök) return;
+      kök = document.createElement("div"); kök.className = "oklavye"; kök.id = "oklavye"; kök.hidden = true;
+      kök.setAttribute("role","group"); kök.setAttribute("aria-label","Uygulama içi klavye");
+      var ic = document.createElement("div"); ic.className = "ic";
+      var bar = document.createElement("div"); bar.className = "ok-bar";
+      var sol = document.createElement("span"); sol.textContent = "Uygulama içi klavye";
+      var sag = document.createElement("span"); sag.className = "sag";
+      var yap = document.createElement("button"); yap.type = "button"; yap.textContent = "Yapıştır";
+      var yapistir = function(e){
+        e.preventDefault();
+        try { navigator.clipboard.readText().then(function(m){ if(m) ekle(m.replace(/\r?\n/g," ")); }).catch(function(){}); } catch(x){}
+      };
+      var yson = 0;
+      yap.addEventListener("pointerdown", function(e){ var n=Date.now(); if(n-yson<300) return e.preventDefault(); yson=n; yapistir(e); });
+      yap.addEventListener("touchstart", function(e){ var n=Date.now(); if(n-yson<300) return e.preventDefault(); yson=n; yapistir(e); }, {passive:false});
+      var bit = document.createElement("button"); bit.type = "button"; bit.textContent = "Bitti";
+      bit.addEventListener("pointerdown", function(e){ e.preventDefault(); kapat(); });
+      bit.addEventListener("touchstart", function(e){ e.preventDefault(); kapat(); }, {passive:false});
+      sag.appendChild(yap); sag.appendChild(bit); bar.appendChild(sol); bar.appendChild(sag);
+      ic.appendChild(bar); kök.appendChild(ic); document.body.appendChild(kök);
+    }
+    function yerles(){
+      var h = kök.offsetHeight || 260;
+      document.body.style.paddingBottom = "calc(110px + "+h+"px + env(safe-area-inset-bottom))";
+      var sy = $("sayfa");
+      if(sy && !sy.hidden){ sy.style.bottom = h+"px"; sy.style.maxHeight = Math.max(200, window.innerHeight - h - 24)+"px"; }
+      var el = hedef; if(!el) return;
+      var r = el.getBoundingClientRect(), alt = window.innerHeight - h - 10;
+      if(r.bottom > alt){
+        var d = r.bottom - alt + 8;
+        if(sy && !sy.hidden && sy.contains(el)) sy.scrollTop += d; else window.scrollBy(0, d);
+      } else if(r.top < 60){ window.scrollBy(0, r.top - 70); }
+    }
+    function ac(el){
+      if(!kutuMu(el)) return;
+      kur();
+      if(hedef && hedef!==el) birak(hedef);
+      hedef = el;
+      if(!el.hasAttribute("data-ok-mod")) el.setAttribute("data-ok-mod", el.getAttribute("inputmode")===null ? "-" : el.getAttribute("inputmode"));
+      el.setAttribute("inputmode", "none");
+      sayfa = "harf"; kilit = false; shift = otoBuyuk();
+      kök.hidden = false; ciz();
+      try { el.focus({preventScroll:true}); } catch(e){ el.focus(); }
+      yerles();
+    }
+    function birak(el){
+      if(!el || !el.hasAttribute("data-ok-mod")) return;
+      var m = el.getAttribute("data-ok-mod"); el.removeAttribute("data-ok-mod");
+      if(m==="-") el.removeAttribute("inputmode"); else el.setAttribute("inputmode", m);
+      el.dispatchEvent(new Event("change", {bubbles:true}));
+    }
+    function kapat(){
+      if(!kök || kök.hidden) return;
+      kök.hidden = true; var el = hedef; hedef = null; birak(el);
+      document.body.style.paddingBottom = "";
+      var sy = $("sayfa"); if(sy){ sy.style.bottom = ""; sy.style.maxHeight = ""; }
+      if(el && el.blur) el.blur();
+    }
+    function kipYaz(k){ KIP = k; try { localStorage.setItem("hatirlatma_klavye", k); } catch(e){} }
+    function baslat(){
+      if(!ANA_EKRAN) return;
+      $("klavyeKart").hidden = false; $("klavyeKip").value = KIP;
+      $("klavyeKip").addEventListener("change", function(){ kipYaz(this.value); if(this.value==="kapali") kapat(); });
+      ["kilitKlavye","kurulumKlavye"].forEach(function(id){ var e=$(id); if(e) e.hidden = false; });
+      Array.prototype.forEach.call(document.querySelectorAll("[data-klavye]"), function(b){
+        b.addEventListener("click", function(){ var el=$(b.getAttribute("data-klavye")); if(el) ac(el); });
+      });
+      document.addEventListener("touchend", function(e){
+        if(KIP==="kapali") return;
+        var hedefEl = e.target && e.target.closest ? e.target : null; if(!hedefEl) return;
+        if(hedefEl.closest("#oklavye")) return;
+        var el = hedefEl.closest("input,textarea");
+        if(!kutuMu(el)){ if(kök && !kök.hidden && !hedefEl.closest("label")) kapat(); return; }
+        if(KIP==="her" || (kök && !kök.hidden && el!==hedef)){ ac(el); return; }
+        var t = Date.now(), ikinci = (son.el===el && t-son.t<5000);
+        son = {el:el, t:t};
+        setTimeout(function(){
+          var odakta = document.activeElement===el;
+          var sk = sistemKlavyesiGorunuyor();
+          if(!odakta || (ikinci && sk===false)) ac(el);
+        }, 450);
+      }, {passive:true});
+    }
+    return {baslat:baslat, ac:ac, kapat:kapat, kutuMu:kutuMu};
+  })();
+  KLAVYE.baslat();
+
   function kurulumGoster(){ gizle(); $("kurulum").hidden=false; odakla($("anahtarGir")); }
   var anahtarSorunu=false;
   function kilitGoster(){ gizle(); $("kilit").hidden=false; $("yeniKurulum").hidden=!anahtarSorunu; odakla($("sifreGir")); }
