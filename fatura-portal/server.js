@@ -17,7 +17,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-20-77";
+const SURUM = "2026-10-21-78";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -100,7 +100,7 @@ function birlestir(o, g) {
     if (m.gibSifre) v.gibSifre = String(m.gibSifre);
     v.aliciler = aliciTemiz(m.aliciler); v.hizmetler = hizmetTemiz(m.hizmetler); if (m.marka) v.marka = markaTemiz(m.marka); if (m.profil) v.profil = profilTemiz(m.profil);
     depo.kaydet(id);
-    if (v.kullanici !== eskiK || v.gibSifre !== eskiS) { gibBirak(id); ivdBirak(id); ivdKilit.delete(id); }
+    if (v.kullanici !== eskiK || v.gibSifre !== eskiS) { gibBirak(id); ivdBirak(id); ivdKilit.delete(id); ivdHata.delete(id); }
   }
 }
 /* Mükellef etkinlik günlüğü (ofis görür): son 300 işlem */
@@ -147,20 +147,22 @@ function istemci(m, ms) {
   gibKisalt(m.id, ms || GIB_BOSTA);
   return gibler.get(m.id);
 }
-/* Dijital Vergi Dairesi oturumları (e-Arşiv'den ayrı): kısa süre sonra kapatılır. Girişte başarısızlık olursa, kullanıcı kodunu kilitlememek için 10 dk yeniden denenmez. */
-const ivdler = new Map(), ivdZaman = new Map(), ivdSon = new Map(), ivdKilit = new Map();
+/* Dijital Vergi Dairesi oturumları (e-Arşiv'den ayrı): her bağlanışta kullanıcı doğrulama kodunu yazar; boşta kısa süre sonra kapatılır.
+ * Art arda 3 başarısız girişte kullanıcı kodunu kilitlememek için 10 dk beklenir. */
+const ivdler = new Map(), ivdZaman = new Map(), ivdSon = new Map(), ivdKilit = new Map(), ivdHata = new Map();
 async function ivdBirak(id) { clearTimeout(ivdZaman.get(id)); ivdZaman.delete(id); const x = ivdler.get(id); ivdler.delete(id); if (x) await x.cikis().catch(() => {}); }
-function ivdIstemci(m) {
-  if (!ivdler.has(m.id)) ivdler.set(m.id, ivd.istemci(m.kullanici, m.gibSifre));
-  clearTimeout(ivdZaman.get(m.id)); ivdZaman.set(m.id, setTimeout(() => ivdBirak(m.id), 3 * 60e3).unref());
-  return ivdler.get(m.id);
+function ivdZamanla(id) { clearTimeout(ivdZaman.get(id)); ivdZaman.set(id, setTimeout(() => ivdBirak(id), 5 * 60e3).unref()); }
+function ivdKontrol(m, tur) {
+  const kilit = ivdKilit.get(m.id); if (kilit && kilit > Date.now()) throw new Error("Dijital Vergi Dairesi girişi art arda başarısız oldu; kullanıcı kodunun kilitlenmemesi için " + Math.ceil((kilit - Date.now()) / 60e3) + " dakika sonra tekrar deneyin.");
+  const an = m.id + ":" + tur, son = ivdSon.get(an) || 0; if (Date.now() - son < 3e3) throw new Error("Çok sık istek: birkaç saniye bekleyin.");
+  ivdSon.set(an, Date.now());
 }
 async function vdSorgu(m, calistir) {
-  const kilit = ivdKilit.get(m.id); if (kilit && kilit > Date.now()) throw new Error("Dijital Vergi Dairesi girişi az önce başarısız oldu; kullanıcı kodunun kilitlenmemesi için " + Math.ceil((kilit - Date.now()) / 60e3) + " dakika sonra tekrar deneyin.");
-  const son = ivdSon.get(m.id) || 0; if (Date.now() - son < 8e3) throw new Error("Çok sık sorgu: birkaç saniye bekleyin.");
-  ivdSon.set(m.id, Date.now());
-  try { return await calistir(); }
-  catch (e) { if (e && e.giris) { ivdKilit.set(m.id, Date.now() + 10 * 60e3); await ivdBirak(m.id); } throw e; }
+  const x = ivdler.get(m.id);
+  if (!x || !x.girildi) { const e = new Error("Önce Dijital Vergi Dairesi'ne bağlanın (doğrulama kodu)."); e.girisGerek = true; throw e; }
+  ivdZamanla(m.id);
+  try { return await calistir(x); }
+  catch (e) { if (e && e.oturum) { await ivdBirak(m.id); e.girisGerek = true; } throw e; }
 }
 const bekleyen = new Map(); // taslak kimliği -> geçmiş kaydı taslağı (onaylanınca kalıcı olur)
 const TIPLER = ["SATIS", "TEVKIFAT", "IADE", "ISTISNA"]; // Özel Matrah: portal isteği alınınca eklenecek
@@ -374,13 +376,27 @@ async function api(req, res, yol) {
   }
   if (yol.startsWith("/api/vd/")) {
     const ne = yol.slice(8);
-    if (ne === "dene") return cevap(res, 200, await vdSorgu(m, () => ivdIstemci(m).dene()));
-    if (ne === "borc") return cevap(res, 200, await vdSorgu(m, () => ivdIstemci(m).borc()));
-    if (ne === "mesaj") return cevap(res, 200, await vdSorgu(m, async () => { const x = ivdIstemci(m), a = await x.mesajlar(); let c = { kayitlar: [], sekil: [] }; try { c = await x.cezaIhbar(); } catch (e) { /* ceza ihbarnamesi isteğe bağlı */ } return { kayitlar: a.kayitlar, ceza: c.kayitlar, sekil: { mesajlar: a.sekil, ceza: c.sekil } }; }));
-    if (ne === "gelen") {
-      const t = (d) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); if (!q) throw new Error("Tarih seçin."); return `${q[3]}/${q[2]}/${q[1]}`; };
-      return cevap(res, 200, await istemci(m).gelenArsiv(t(g.bas), t(g.bit)));
-    }
+    try {
+      if (ne === "captcha") {
+        ivdKontrol(m, "c"); await ivdBirak(m.id);
+        const x = ivd.istemci(m.kullanici, m.gibSifre); ivdler.set(m.id, x); ivdZamanla(m.id);
+        return cevap(res, 200, await x.captcha());
+      }
+      if (ne === "giris") {
+        ivdKontrol(m, "g"); const x = ivdler.get(m.id);
+        if (!x) return cevap(res, 409, { hata: "Önce doğrulama kodu resmini isteyin.", girisGerek: true });
+        try { await x.giris(g.dk); ivdHata.delete(m.id); ivdZamanla(m.id); gunluk(o, mid, "Dijital Vergi Dairesi bağlantısı", ""); return cevap(res, 200, { tamam: true }); }
+        catch (e) { if (e && e.giris) { const n = (ivdHata.get(m.id) || 0) + 1; ivdHata.set(m.id, n); if (n >= 3) { ivdKilit.set(m.id, Date.now() + 10 * 60e3); ivdHata.delete(m.id); } } await ivdBirak(m.id); throw e; }
+      }
+      if (ne === "cikis") { await ivdBirak(m.id); return cevap(res, 200, { tamam: true }); }
+      if (ne === "borc") return cevap(res, 200, await vdSorgu(m, (x) => x.borc()));
+      if (ne === "tebligat") return cevap(res, 200, await vdSorgu(m, (x) => x.tebligat()));
+      if (ne === "gelen") {
+        const t = (d) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); if (!q) throw new Error("Tarih seçin."); return `${q[3]}/${q[2]}/${q[1]}`; };
+        const bas = t(g.bas), bit = t(g.bit);
+        return cevap(res, 200, await vdSorgu(m, (x) => x.gelen(bas, bit)));
+      }
+    } catch (e) { if (e && e.girisGerek) return cevap(res, 409, { hata: e.message, girisGerek: true }); throw e; }
     return cevap(res, 404, { hata: "Bulunamadı." });
   }
   if (yol === "/api/sorgu") {
