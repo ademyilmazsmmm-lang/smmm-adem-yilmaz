@@ -871,18 +871,51 @@ class Arayuz:
             self.kz.sonucu_goster()  # fatura indirme sekmesinde yeni ay indirilmis olabilir
 
     def _sol_panel(self, govde):
-        p = tk.Frame(govde, bg=ZEMIN, width=330, padx=22, pady=16)
-        p.pack(side="left", fill="y")
-        p.pack_propagate(False)
+        """Sol panel: Çalıştır/Durdur altta SABİT; üstteki ayarlar pencereye sığmazsa (küçük pencere, yüksek DPI)
+        kaydırma çubuğu çıkar, böylece hiçbir düğme alta taşıp kaybolmaz."""
+        dis = tk.Frame(govde, bg=ZEMIN, width=330)
+        dis.pack(side="left", fill="y")
+        dis.pack_propagate(False)
+        alt = tk.Frame(dis, bg=ZEMIN)
+        alt.pack(side="bottom", fill="x", padx=22, pady=(4, 14))
+        self.calistir_dugmesi = dugme(alt, "Çalıştır", self.calistir, ana=True)
+        self.calistir_dugmesi.pack(side="left", fill="x", expand=True, padx=(0, 6))
+        self.durdur_dugmesi = dugme(alt, "Durdur", self.durdur, state="disabled")
+        self.durdur_dugmesi.pack(side="left", fill="x", expand=True)
+
+        tuval = tk.Canvas(dis, bg=ZEMIN, highlightthickness=0, bd=0)
+        kaydirma = ttk.Scrollbar(dis, orient="vertical", command=tuval.yview)
+        tuval.configure(yscrollcommand=kaydirma.set)
+        p = tk.Frame(tuval, bg=ZEMIN, padx=22, pady=12)
+        pencere = tuval.create_window((0, 0), window=p, anchor="nw")
+        tuval.pack(side="left", fill="both", expand=True)
+
+        def boyutla(_e=None):
+            tuval.configure(scrollregion=(0, 0, p.winfo_reqwidth(), p.winfo_reqheight()))
+            tuval.itemconfigure(pencere, width=tuval.winfo_width())
+            sigmiyor = p.winfo_reqheight() > tuval.winfo_height() > 1
+            if sigmiyor and not kaydirma.winfo_ismapped():
+                kaydirma.pack(side="right", fill="y", before=tuval)
+            elif not sigmiyor and kaydirma.winfo_ismapped():
+                kaydirma.pack_forget()
+                tuval.yview_moveto(0)
+
+        p.bind("<Configure>", boyutla)
+        tuval.bind("<Configure>", boyutla)
+        self.sol_tuval, self.sol_kaydirma = tuval, kaydirma
+        if not getattr(self, "_sol_tekerlek_bagli", False):  # tema degisince panel yeniden kurulur; bir kez baglanir
+            self._sol_tekerlek_bagli = True
+            for olay in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+                self.kok.bind_all(olay, self._sol_tekerlek, add="+")
 
         bolum_basligi(p, "Luca Girişi").pack(fill="x")
         satir = tk.Frame(p, bg=ZEMIN)
-        satir.pack(fill="x", pady=(6, 14))
+        satir.pack(fill="x", pady=(6, 8))
         self.giris_ozeti = tk.Label(satir, text="", font=GOVDE, fg=YAZI, bg=ZEMIN, anchor="w",
                                     justify="left")
         self.giris_ozeti.pack(side="left", fill="x", expand=True)
         dugme(satir, "Değiştir", self.giris_penceresi).pack(side="right")
-        dugme(p, "Kurulum Sihirbazı…", self.sihirbazi_ac).pack(fill="x", pady=(0, 12))
+        dugme(p, "Kurulum Sihirbazı…", self.sihirbazi_ac).pack(fill="x", pady=(0, 8))
 
         bolum_basligi(p, "Firma Listesi").pack(fill="x")
         self.luca_liste_dugmesi = dugme(p, "Luca'dan Firma Listesini Çek…", self.firma_listesi_cek)
@@ -892,7 +925,7 @@ class Arayuz:
                  bg=ZEMIN, anchor="w").pack(fill="x", pady=(10, 3))
         giris_kutusu(p, self.v_firma).pack(fill="x", ipady=4)
 
-        bolum_basligi(p, "Tarih Aralığı").pack(fill="x", pady=(16, 0))
+        bolum_basligi(p, "Tarih Aralığı").pack(fill="x", pady=(10, 0))
         t = tk.Frame(p, bg=ZEMIN)
         t.pack(fill="x", pady=(6, 0))
         for i, (ad, v) in enumerate((("Başlangıç", self.v_bas), ("Bitiş", self.v_bit))):
@@ -905,7 +938,7 @@ class Arayuz:
         t.columnconfigure(0, weight=1)
         t.columnconfigure(1, weight=1)
 
-        bolum_basligi(p, "Ekranlar").pack(fill="x", pady=(16, 4))
+        bolum_basligi(p, "Ekranlar").pack(fill="x", pady=(10, 2))
         tk.Checkbutton(p, text="Hepsini Seç", variable=self.v_hepsi, command=self._hepsi_degisti,
                        font=GOVDE_KALIN, **self._kutu_renk()).pack(anchor="w")
         tk.Frame(p, bg=CIZGI, height=1).pack(fill="x", pady=4)
@@ -916,19 +949,27 @@ class Arayuz:
                            command=self._ekran_degisti, font=GOVDE, **self._kutu_renk()
                            ).grid(row=i // 2, column=i % 2, sticky="w")
         tk.Checkbutton(p, text="Bugün bitenleri atla (kaldığı yerden)", variable=self.v_devam,
-                       font=KUCUK, **self._kutu_renk()).pack(anchor="w", pady=(12, 0))
-        bolum_basligi(p, "İndirme").pack(fill="x", pady=(12, 0))
-        tk.Checkbutton(p, text="Fatura (XML belge paketi) indir", variable=self.v_belge_indir,
-                       font=KUCUK, **self._kutu_renk()).pack(anchor="w", pady=(4, 0))
-        tk.Checkbutton(p, text="Excel fatura listesi indir", variable=self.v_excel_indir,
-                       font=KUCUK, **self._kutu_renk()).pack(anchor="w")
+                       font=KUCUK, **self._kutu_renk()).pack(anchor="w", pady=(6, 0))
+        ind = self.indirme_kutulari = tk.Frame(p, bg=ZEMIN)
+        ind.pack(fill="x")
+        tk.Checkbutton(ind, text="Fatura (XML) indir", variable=self.v_belge_indir,
+                       font=KUCUK, **self._kutu_renk()).grid(row=0, column=0, sticky="w")
+        tk.Checkbutton(ind, text="Excel listesi indir", variable=self.v_excel_indir,
+                       font=KUCUK, **self._kutu_renk()).grid(row=0, column=1, sticky="w", padx=(10, 0))
 
-        alt = tk.Frame(p, bg=ZEMIN)
-        alt.pack(side="bottom", fill="x")
-        self.calistir_dugmesi = dugme(alt, "Çalıştır", self.calistir, ana=True)
-        self.calistir_dugmesi.pack(side="left", fill="x", expand=True, padx=(0, 6))
-        self.durdur_dugmesi = dugme(alt, "Durdur", self.durdur, state="disabled")
-        self.durdur_dugmesi.pack(side="left", fill="x", expand=True)
+
+    def _sol_tekerlek(self, e):
+        """Fare tekerlegi: yalnizca imlec sol panelin ustundeyken ve panel kaydirilabiliyorsa panel kayar."""
+        try:
+            tuval, kay = self.sol_tuval, self.sol_kaydirma
+            if not kay.winfo_ismapped():
+                return
+            x, y = tuval.winfo_pointerxy()
+            if tuval.winfo_rootx() <= x < tuval.winfo_rootx() + tuval.winfo_width() \
+                    and tuval.winfo_rooty() <= y < tuval.winfo_rooty() + tuval.winfo_height():
+                tuval.yview_scroll(-1 if (getattr(e, "delta", 0) > 0 or getattr(e, "num", 0) == 4) else 1, "units")
+        except tk.TclError:
+            pass
 
     @staticmethod
     def _kutu_renk():

@@ -941,6 +941,26 @@ class TablolarVeSekmelerTestleri(ArayuzZemini):
         self.assertEqual(etiket["BIRLIK TIC"], "tamam")
         self.assertEqual(etiket["YILDIZ OTO"], "hata")
 
+    def test_sol_panelde_calistir_her_boyutta_gorunur_sigmazsa_kaydirilir(self):
+        """Pencere kisa / yazi tipi buyukken de Çalıştır-Durdur gorunur; ayarlar sigmazsa kaydirma cubugu cikar."""
+        for yukseklik in (900, 720, 560):
+            self.kok.geometry(f"1020x{yukseklik}")
+            self.kok.update()
+            sinir = self.kok.winfo_rooty() + self.kok.winfo_height()
+            for w in (self.app.calistir_dugmesi, self.app.durdur_dugmesi):
+                self.assertTrue(w.winfo_ismapped(), yukseklik)
+                self.assertLessEqual(w.winfo_rooty() + w.winfo_height(), sinir, (yukseklik, w))
+        # 560 px'te ayarlar sigmaz: kaydirma cubugu var ve en alttaki indirme kutusuna kaydirarak ulasilir
+        self.assertTrue(self.app.sol_kaydirma.winfo_ismapped())
+        self.app.sol_tuval.yview_moveto(1.0)
+        self.kok.update()
+        tuval = self.app.sol_tuval
+        kutu = self.app.indirme_kutulari
+        self.assertLessEqual(kutu.winfo_rooty() + kutu.winfo_height(), tuval.winfo_rooty() + tuval.winfo_height() + 2)
+        self.kok.geometry("1020x1400")  # bol yer: kaydirma cubugu kaybolur
+        self.kok.update()
+        self.assertFalse(self.app.sol_kaydirma.winfo_ismapped())
+
     def test_indirme_secenekleri_komuta_ve_ayara_yansir(self):
         from tkinter import messagebox
         self.assertFalse({"--belge-indirme-yok", "--excel-indirme-yok"} & set(self.app.komut()))  # varsayilan: ikisi de
