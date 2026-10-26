@@ -387,7 +387,14 @@ def _firma_anahtari(ad):
 
 
 def _hane_farki(a, b):
-    return sum(x != y for x, y in zip(a, b)) if len(a) == len(b) else 99
+    """İki rakam dizisi arasındaki düzenleme (Levenshtein) mesafesi."""
+    onceki = list(range(len(b) + 1))
+    for i, x in enumerate(a, start=1):
+        simdiki = [i]
+        for j, y in enumerate(b, start=1):
+            simdiki.append(min(onceki[j] + 1, simdiki[j - 1] + 1, onceki[j - 1] + (x != y)))
+        onceki = simdiki
+    return onceki[-1]
 
 
 def fisleri_tutarli_hale_getir(tum_fisler):
@@ -522,15 +529,17 @@ def excel_olustur(tum_fisler, cikti_yolu):
 # --------------------------------------------------------------------------
 
 LUCA_BASLIKLAR = [
-    "İŞLEM", "KATEGORİ", "BELGE TURU", "TARİH", "TARİH", "SERİ NO", "FİŞ NO",
-    "Vergi/TC No", "VERGİ DAİRESİ", "Firma Adı", "ADI DEVAMI", "ADRES",
+    "İŞLEM", "KATEGORİ", "BELGE TURU", "EVRAK TARİHİ", "KAYIT TARİHİ", "SERİ NO",
+    "EVRAK NO", "TCKN/VKN", "VERGİ DAİRESİ", "SOYADI ÜNVAN", "ADI DEVAMI", "ADRES",
     "CARİ HESAP", "KDV İSTİSNASI", "KOD", "BELGE TÜRÜ(DB)", "ALIŞ/SATIŞ TÜRÜ",
-    "Ürün Adı", "MAL VE HİZMET KODU", "AÇIKLAMA", "MİKTAR", "B.FİYAT",
-    "TUTAR", "TEVKİFAT", "KDV Oranı (%)", "ÖZEL MATRAH İŞLEM BEDELİ",
+    "KAYIT ALT TÜRÜ", "MAL VE HİZMET KODU", "AÇIKLAMA", "MİKTAR", "B.FİYAT",
+    "TUTAR", "TEVKİFAT", "KDV ORANI", "ÖZEL MATRAH İŞLEM BEDELİ",
     "MATRAHTAN DÜŞÜLECEK TUTAR", "MATRAHA DAHİL OLMAYAN BEDEL", "KDV TUTARI",
-    "Dahil Tutar", "KREDİLİ TUTAR", "STOPAJ KODU", "STOPAJ TUTARI",
+    "TOPLAM TUTAR", "KREDİLİ TUTAR", "STOPAJ KODU", "STOPAJ TUTARI",
     "DÖNEMSELLİK İLKESİ", "FAALIYET KODU", "ÖDEME TÜRÜ",
 ]
+# Metin olması gereken sütunlar (başındaki sıfırlar kaybolmasın): 0-tabanlı indeks
+LUCA_METIN_SUTUNLARI = (3, 4, 6, 7)  # EVRAK TARİHİ, KAYIT TARİHİ, EVRAK NO, TCKN/VKN
 
 
 def sayiyi_floata_cevir(deger):
@@ -668,78 +677,90 @@ def fisleri_normalle(fis_listesi):
 
 
 def _bilesenleri_etiketle(a):
+    """Boolean maskedeki bağlantılı bileşenleri numaralar (4-komşuluk)."""
     h, w = a.shape
-    etiket = np.zeros((h, w), np.int32)
+    et = np.zeros((h, w), np.int32)
     n = 0
     for sy in range(h):
         for sx in range(w):
-            if a[sy, sx] and etiket[sy, sx] == 0:
+            if a[sy, sx] and et[sy, sx] == 0:
                 n += 1
-                yigin = [(sy, sx)]; etiket[sy, sx] = n
+                yigin = [(sy, sx)]
+                et[sy, sx] = n
                 while yigin:
                     cy, cx = yigin.pop()
-                    for ny, nx in ((cy+1,cx),(cy-1,cx),(cy,cx+1),(cy,cx-1)):
-                        if 0 <= ny < h and 0 <= nx < w and a[ny, nx] and etiket[ny, nx] == 0:
-                            etiket[ny, nx] = n; yigin.append((ny, nx))
-    return etiket, n
+                    for ny, nx in ((cy + 1, cx), (cy - 1, cx), (cy, cx + 1), (cy, cx - 1)):
+                        if 0 <= ny < h and 0 <= nx < w and a[ny, nx] and et[ny, nx] == 0:
+                            et[ny, nx] = n
+                            yigin.append((ny, nx))
+    return et, n
 
-def _asindir_maske(a, boyut):
-    im = Image.fromarray((a * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(boyut))
-    return np.array(im) > 0
 
-def _bitisik_fisleri_bol(blob, min_tohum):
-    """Birbirine değen fişleri, maskeyi aşındırıp ayrılan çekirdeklerden
-    büyüterek böler."""
-    for _ in range(40):
-        blob_e = _asindir_maske(blob if _ == 0 else blob_e, 3)
-        et, n = _bilesenleri_etiketle(blob_e)
-        tohumlar = [k for k in range(1, n + 1) if (et == k).sum() >= min_tohum]
-        if len(tohumlar) >= 2:
-            h, w = blob.shape
-            atama = np.zeros((h, w), np.int32)
-            kuyruk = []
-            for i, k in enumerate(tohumlar, start=1):
-                ys, xs = np.where(et == k)
-                atama[ys, xs] = i
-                kuyruk.extend(zip(ys.tolist(), xs.tolist()))
-            bas = 0
-            while bas < len(kuyruk):
-                cy, cx = kuyruk[bas]; bas += 1
-                for ny, nx in ((cy+1,cx),(cy-1,cx),(cy,cx+1),(cy,cx-1)):
-                    if 0 <= ny < h and 0 <= nx < w and blob[ny, nx] and atama[ny, nx] == 0:
-                        atama[ny, nx] = atama[cy, cx]; kuyruk.append((ny, nx))
-            return [atama == i for i in range(1, len(tohumlar) + 1)]
-        if n == 0:
+def _kenara_uzaklik(blob, maks=80):
+    """Her piksel için arka plana uzaklık (kaç aşındırmada hayatta kaldığı)."""
+    d = np.zeros(blob.shape, np.int32)
+    cur = blob.copy()
+    for _ in range(maks):
+        p = np.pad(cur, 1)
+        yeni = cur & p[:-2, 1:-1] & p[2:, 1:-1] & p[1:-1, :-2] & p[1:-1, 2:]
+        if not yeni.any():
             break
-    return [blob]
+        d[yeni] += 1
+        cur = yeni
+    return d + blob.astype(np.int32)
 
-def fisleri_segmentle(img, kucuk_genislik=480, min_alan_orani=0.01):
-    """Zemini (ahşap masa vb.) renk doygunluğuyla ayırıp beyaz/gri fişleri
-    bulur; birbirine değen fişleri böler. Döner: [(x0,y0,x1,y1 (0-1 göreli),
-    maske)] okuma sırasıyla. Hiç bulamazsa []."""
+
+def _bitisik_fisleri_bol(blob, oran=0.7, min_tohum=12):
+    """Birbirine değen/çok yaklaşan fişleri böler: kenara uzaklığı en yüksek
+    bölgeler (fişlerin 'göbekleri') tohum olur, aradaki ince boyun kopar;
+    kalan pikseller en yakın tohuma verilir."""
+    d = _kenara_uzaklik(blob)
+    esik = max(3, int(round(oran * d.max())))
+    et, n = _bilesenleri_etiketle(d >= esik)
+    tohumlar = [k for k in range(1, n + 1) if (et == k).sum() >= min_tohum]
+    if len(tohumlar) < 2:
+        return [blob]
+    h, w = blob.shape
+    atama = np.zeros((h, w), np.int32)
+    kuyruk = []
+    for i, k in enumerate(tohumlar, start=1):
+        ys, xs = np.where(et == k)
+        atama[ys, xs] = i
+        kuyruk.extend(zip(ys.tolist(), xs.tolist()))
+    bas = 0
+    while bas < len(kuyruk):
+        cy, cx = kuyruk[bas]
+        bas += 1
+        for ny, nx in ((cy + 1, cx), (cy - 1, cx), (cy, cx + 1), (cy, cx - 1)):
+            if 0 <= ny < h and 0 <= nx < w and blob[ny, nx] and atama[ny, nx] == 0:
+                atama[ny, nx] = atama[cy, cx]
+                kuyruk.append((ny, nx))
+    return [atama == i for i in range(1, len(tohumlar) + 1)]
+
+
+def fisleri_segmentle(img, kucuk_genislik=480, min_alan_orani=0.004):
+    """Zemini (ahşap masa, koyu kumaş vb.) renk/parlaklıkla ayırıp açık renkli
+    fişleri bulur; birbirine değen fişleri böler. Döner: [(x0,y0,x1,y1 (0-1
+    göreli), maske)] okuma sırasıyla. Hiç bulamazsa []."""
     g, y = img.size
     kucuk = img.resize((kucuk_genislik, max(1, int(y * kucuk_genislik / g))), Image.BOX)
     hsv = np.array(kucuk.convert("HSV")).astype(np.int16)
     maske = ((hsv[..., 1] < 70) & (hsv[..., 2] > 90)).astype(np.uint8) * 255
     m = Image.fromarray(maske)
-    m = m.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(5))
-    m = m.filter(ImageFilter.MinFilter(13)).filter(ImageFilter.MaxFilter(13))
+    m = m.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3))
+    m = m.filter(ImageFilter.MinFilter(9)).filter(ImageFilter.MaxFilter(9))
     a = np.array(m) > 0
     h, w = a.shape
     et, n = _bilesenleri_etiketle(a)
-    bloblar = [et == k for k in range(1, n + 1) if (et == k).sum() >= min_alan_orani * h * w]
-    if not bloblar:
-        return []
-    alanlar = sorted(int(b.sum()) for b in bloblar)
-    medyan = alanlar[len(alanlar) // 2]
-    sonuc = []
-    for b in bloblar:
-        parcalar = _bitisik_fisleri_bol(b, min_tohum=0.08 * medyan) if b.sum() > 1.6 * medyan else [b]
-        sonuc.extend(parcalar)
+    bloklar = [et == k for k in range(1, n + 1) if (et == k).sum() >= min_alan_orani * h * w]
+    parcalar = []
+    for b in bloklar:
+        parcalar.extend(_bitisik_fisleri_bol(b))
+    parcalar = [b for b in parcalar if b.sum() >= min_alan_orani * h * w]
     cikti = []
-    for b in sonuc:
+    for b in parcalar:
         ys, xs = np.where(b)
-        cikti.append((xs.min()/w, ys.min()/h, (xs.max()+1)/w, (ys.max()+1)/h, b))
+        cikti.append((xs.min() / w, ys.min() / h, (xs.max() + 1) / w, (ys.max() + 1) / h, b))
     # okuma sırası: önce satır (y), sonra x
     cikti.sort(key=lambda c: (round(c[1] * 6), c[0]))
     return cikti
@@ -856,11 +877,15 @@ def sayfayi_isle(gorsel_yolu):
 
         sonuc = []
         for i, kirpik in enumerate(kirpiklar, start=1):
-            fisler = sayfa_fislerini_cikar_dogrulamali(kirpik, tek_fis=True)
-            fisler = [f for f in fisler if isinstance(f, dict)][:1]
+            # Parçada birden fazla fiş kalmış olabilir (çok yakın duran fişler);
+            # hepsini al ki hiçbiri kaybolmasın.
+            fisler = [f for f in sayfa_fislerini_cikar_dogrulamali(kirpik) if isinstance(f, dict)]
             if not fisler:
-                print(f"       UYARI: {i}. fiş okunamadı.")
+                print(f"       UYARI: {i}. parçada fiş okunamadı.")
             sonuc.extend(fisler)
+        if len(sonuc) != len(kirpiklar):
+            print(f"       UYARI: {len(kirpiklar)} parça ayrıştırıldı ama {len(sonuc)} fiş okundu, "
+                  f"bu sayfayı elle kontrol edin.")
         return sonuc
     finally:
         shutil.rmtree(kirpma_klasoru, ignore_errors=True)
@@ -886,87 +911,103 @@ def sayfa_fislerini_cikar_dogrulamali(gorsel_yolu, deneme=2, tek_fis=False):
     return en_iyi
 
 
+def luca_satirlari(tum_fisler):
+    """Her fiş için LUCA şablonundaki 36 sütunluk satırı üretir. Sayısal
+    sütunlar float/None, diğerleri metin olarak döner."""
+    satirlar = []
+    for fis in tum_fisler:
+        dahil = sayiyi_floata_cevir(fis.get("dahil_tutar"))
+        kdv = sayiyi_floata_cevir(fis.get("kdv_tutari"))
+        oran = sayiyi_floata_cevir(fis.get("kdv_orani"))
+        tutar = round(dahil - kdv, 2) if dahil is not None and kdv is not None else None
+        firma = fis.get("firma_adi") or ""
+        satirlar.append([
+            "GİDER",                           # İŞLEM
+            "DEFTER FİŞLERİ",                  # KATEGORİ
+            "ALIŞ",                            # BELGE TURU
+            fis.get("tarih") or "",            # EVRAK TARİHİ
+            fis.get("tarih") or "",            # KAYIT TARİHİ
+            "",                                # SERİ NO
+            fis.get("fis_no") or "",           # EVRAK NO
+            fis.get("vergi_veya_tc_no") or "", # TCKN/VKN
+            "",                                # VERGİ DAİRESİ
+            firma,                             # SOYADI ÜNVAN
+            "A",                               # ADI DEVAMI
+            "", "", "", "",                    # ADRES, CARİ HESAP, KDV İSTİSNASI, KOD
+            "ÖKC FİŞİ",                        # BELGE TÜRÜ(DB)
+            "NORMAL ALIM",                     # ALIŞ/SATIŞ TÜRÜ
+            fis.get("urun_adi") or "",         # KAYIT ALT TÜRÜ
+            "",                                # MAL VE HİZMET KODU
+            firma,                             # AÇIKLAMA
+            "", "",                            # MİKTAR, B.FİYAT
+            tutar,                             # TUTAR
+            "",                                # TEVKİFAT
+            oran,                              # KDV ORANI
+            "", "", "",                        # ÖZEL MATRAH, MATRAHTAN DÜŞÜLECEK, MATRAHA DAHİL OLMAYAN
+            kdv,                               # KDV TUTARI
+            dahil,                             # TOPLAM TUTAR
+            "", "", "", "", "",                # KREDİLİ, STOPAJ KODU, STOPAJ TUTARI, DÖNEMSELLİK, FAALİYET
+            "532009",                          # ÖDEME TÜRÜ
+        ])
+    return satirlar
+
+
+def _luca_sayi_metni(deger):
+    """6570.0 -> '6570', 6450.83 -> '6450,83', 6450.5 -> '6450,5' (şablondaki gibi)."""
+    if deger is None or deger == "":
+        return ""
+    return f"{float(deger):.2f}".rstrip("0").rstrip(".").replace(".", ",")
+
+
 def luca_csv_olustur(tum_fisler, cikti_yolu):
-    """
-    Toplanan fiş verilerini LUCA muhasebe programının "Gelir Hızlı Fiş
-    Aktarım" şablonuna uygun CSV dosyası olarak yazar. Şablondaki sabit
-    alanlar (İŞLEM, KATEGORİ, BELGE TURU vb.) her satırda aynen tekrar
-    eder; sadece fişe özel alanlar (tarih, fiş no, vergi no, firma adı,
-    ürün adı, tutar, KDV oranı/tutarı, dahil tutar) doldurulur.
-    """
+    """Fiş verilerini LUCA "Gelir Hızlı Fiş Aktarım" şablonuna birebir uygun
+    (36 sütun, ; ayraçlı, Windows-1254) CSV olarak yazar."""
     if not tum_fisler:
         print("UYARI: Hiç fiş verisi bulunamadı, LUCA CSV dosyası oluşturulmadı.")
         return
-
     try:
-        with open(cikti_yolu, "w", newline="", encoding="cp1254") as f:
+        with open(cikti_yolu, "w", newline="", encoding="cp1254", errors="replace") as f:
             yazici = csv.writer(f, delimiter=";", lineterminator="\r\n")
             yazici.writerow(LUCA_BASLIKLAR)
-
-            for fis in tum_fisler:
-                tarih = fis.get("tarih") or ""
-                fis_no = fis.get("fis_no") or ""
-                vergi_no = fis.get("vergi_veya_tc_no") or ""
-                firma_adi = fis.get("firma_adi") or ""
-                urun_adi = fis.get("urun_adi") or ""
-
-                dahil_tutar_f = sayiyi_floata_cevir(fis.get("dahil_tutar"))
-                kdv_tutari_f = sayiyi_floata_cevir(fis.get("kdv_tutari"))
-                kdv_orani_str = sayiyi_ondalik_virgule_cevir(fis.get("kdv_orani"))
-                kdv_tutari_str = sayiyi_ondalik_virgule_cevir(fis.get("kdv_tutari"))
-                dahil_tutar_str = sayiyi_ondalik_virgule_cevir(fis.get("dahil_tutar"))
-
-                # TUTAR = KDV hariç (net) tutar = Dahil Tutar - KDV Tutarı
-                if dahil_tutar_f is not None and kdv_tutari_f is not None:
-                    tutar_str = sayiyi_ondalik_virgule_cevir(dahil_tutar_f - kdv_tutari_f)
-                else:
-                    tutar_str = ""
-
-                satir = [
-                    "GİDER",                # İŞLEM
-                    "DEFTER FİŞLERİ",        # KATEGORİ
-                    "ALIŞ",                 # BELGE TURU
-                    tarih,                   # TARİH
-                    tarih,                   # TARİH (tekrar)
-                    "",                      # SERİ NO
-                    fis_no,                  # FİŞ NO
-                    vergi_no,                # Vergi/TC No
-                    "",                      # VERGİ DAİRESİ
-                    firma_adi,               # Firma Adı
-                    "A",                     # ADI DEVAMI
-                    "",                      # ADRES
-                    "",                      # CARİ HESAP
-                    "",                      # KDV İSTİSNASI
-                    "",                      # KOD
-                    "ÖKC FİŞİ",                   # BELGE TÜRÜ(DB)
-                    "NORMAL ALIM",        # ALIŞ/SATIŞ TÜRÜ
-                    urun_adi,                # Ürün Adı
-                    "",                      # MAL VE HİZMET KODU
-                    firma_adi,               # AÇIKLAMA
-                    "",                      # MİKTAR
-                    "",                      # B.FİYAT
-                    tutar_str,               # TUTAR
-                    "",                      # TEVKİFAT
-                    kdv_orani_str,           # KDV Oranı (%)
-                    "",                      # ÖZEL MATRAH İŞLEM BEDELİ
-                    "",                      # MATRAHTAN DÜŞÜLECEK TUTAR
-                    "",                      # MATRAHA DAHİL OLMAYAN BEDEL
-                    kdv_tutari_str,          # KDV TUTARI
-                    dahil_tutar_str,         # Dahil Tutar
-                    "",                      # KREDİLİ TUTAR
-                    "",                      # STOPAJ KODU
-                    "",                      # STOPAJ TUTARI
-                    "",                      # DÖNEMSELLİK İLKESİ
-                    "",                      # FAALIYET KODU
-                    "532009",                # ÖDEME TÜRÜ
-                    "",                      # (şablondaki sondaki boş alan)
-                ]
-                yazici.writerow(satir)
-
+            for satir in luca_satirlari(tum_fisler):
+                yazici.writerow([
+                    _luca_sayi_metni(d) if isinstance(d, float) else d for d in satir
+                ])
         print(f"BAŞARILI: LUCA formatında CSV oluşturuldu -> {cikti_yolu}")
-
     except Exception as e:
         print(f"HATA: LUCA CSV dosyası oluşturulurken bir sorun oluştu: {e}")
+        traceback.print_exc()
+
+
+def luca_xlsx_olustur(tum_fisler, cikti_yolu):
+    """Aynı LUCA şablonunu Excel dosyası olarak yazar. TCKN/VKN, EVRAK NO ve
+    tarih sütunları METİN biçimindedir; Excel'de açınca baştaki sıfırlar
+    (örn. 0420353373) silinmez. (CSV'yi Excel'de açmak sıfırları siler; bu
+    yüzden Excel'de bakmak/düzenlemek için bu dosyayı kullanın.)"""
+    if not tum_fisler:
+        return
+    try:
+        from openpyxl import Workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Hızlı Fiş Aktarım"
+        ws.append(LUCA_BASLIKLAR)
+        for satir in luca_satirlari(tum_fisler):
+            ws.append([None if d == "" else d for d in satir])
+        for r in range(2, ws.max_row + 1):
+            for c in LUCA_METIN_SUTUNLARI:
+                hucre = ws.cell(row=r, column=c + 1)
+                hucre.number_format = "@"
+                hucre.value = str(hucre.value) if hucre.value is not None else None
+            for c in (22, 24, 28, 29):  # TUTAR, KDV ORANI, KDV TUTARI, TOPLAM TUTAR (0-tabanlı 22,24,28,29)
+                ws.cell(row=r, column=c + 1).number_format = "0.00" if c != 24 else "0"
+        for i in range(1, len(LUCA_BASLIKLAR) + 1):
+            ws.column_dimensions[get_column_letter(i)].width = 18
+        ws.freeze_panes = "A2"
+        wb.save(cikti_yolu)
+        print(f"BAŞARILI: LUCA formatında Excel oluşturuldu -> {cikti_yolu}")
+    except Exception as e:
+        print(f"HATA: LUCA Excel dosyası oluşturulurken bir sorun oluştu: {e}")
         traceback.print_exc()
 
 
@@ -1044,6 +1085,7 @@ def klasoru_isle(klasor_yolu, cikti_yolu, luca_csv_yolu=None):
         excel_olustur(tum_fisler, cikti_yolu)
         if luca_csv_yolu:
             luca_csv_olustur(tum_fisler, luca_csv_yolu)
+            luca_xlsx_olustur(tum_fisler, os.path.splitext(luca_csv_yolu)[0] + ".xlsx")
 
     except Exception as e:
         print(f"  HATA: '{klasor_adi}' klasörü işlenirken beklenmeyen bir sorun oluştu: {e}")
