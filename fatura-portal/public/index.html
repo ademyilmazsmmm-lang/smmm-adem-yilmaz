@@ -1553,7 +1553,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function aliciHtml(m){
     if (!(m.aliciler || []).length) return "";
     var h = '<details class="alt2" data-ak="a:' + m.id + '"' + ac("a:" + m.id) + '><summary>Kayıtlı alıcılar (' + m.aliciler.length + ')</summary><div class="icerik">';
-    m.aliciler.forEach(function(a){ h += '<div class="satir" data-aid="' + esc(a.id) + '"><span>' + esc(a.ad) + '<br><small>' + esc(a.vkn) + '</small></span><button class="btn tehlike" type="button" data-sil-a="' + esc(a.id) + '">Sil</button></div>'; });
+    m.aliciler.forEach(function(a){ h += '<div class="satir" data-aid="' + esc(a.id) + '" style="display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center"><span style="min-width:0">' + esc(a.ad) + '<br><small>' + esc(a.vkn) + '</small></span><button class="btn tehlike" type="button" data-sil-a="' + esc(a.id) + '">Sil</button><input data-ae="' + esc(a.id) + '" type="email" inputmode="email" autocapitalize="off" autocomplete="off" placeholder="E-posta (faturayı göndermek için)" value="' + esc(a.eposta || "") + '" style="grid-column:1/-1" aria-label="' + esc(a.ad) + ' e-posta"></div>'; });
     return h + '</div></details>';
   }
   function yedekHtml(){
@@ -1618,6 +1618,12 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (e.target.open && /^ku?:/.test(k) && !MARKA[k.replace(/^ku?:/, "")]) markaYukle(k.replace(/^ku?:/, "")).then(function(){ if (ayarAcik[k]) cizAyar(); }); // yalnız ilk açılışta; yeniden çizim toggle’ı tekrar tetikler
   }, true);
   $("ayarIc").addEventListener("change", function(e){
+    if (e.target.getAttribute && e.target.getAttribute("data-ae") != null) {
+      var v = e.target.value.trim(), d = $("ayarDurum");
+      if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { e.target.style.borderColor = "#c0392b"; if (d) { d.className = "durum hata"; d.textContent = "E-posta adresi geçerli görünmüyor."; } return; }
+      e.target.style.borderColor = ""; kaydetV().then(function(){ if (d) { d.className = "durum ok"; d.textContent = "Alıcının e-postası kaydedildi."; } }, function(er){ ayarHata(d, er); });
+      return;
+    }
     var ad = e.target.getAttribute("data-resim"); if (!ad || !e.target.files[0]) return;
     var mEl = e.target.closest("[data-mid]"), mm = mBul(mEl.getAttribute("data-mid")), id = mm.id, ustte = !!e.target.closest('details[data-ak^="ku:"]');
     resimKucult(e.target.files[0], ad === "logo" ? 800 : 1000, ad === "logo" ? 800 : 400).then(function(u){
@@ -1625,6 +1631,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }, function(er){ mDurum(id, er.message, "hata"); });
   });
   $("ayarIc").addEventListener("input", function(e){
+    var ae = e.target.getAttribute("data-ae");
+    if (ae) { var ame = e.target.closest("[data-mid]"), amm = ame && mBul(ame.getAttribute("data-mid")), aa = amm && (amm.aliciler || []).filter(function(q){ return q.id === ae; })[0]; var av = e.target.value.trim(); if (aa && (!av || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(av))) aa.eposta = av; return; }
     var pf = e.target.getAttribute("data-p");
     if (pf) { var pe = e.target.closest("[data-mid]"), pm = pe && mBul(pe.getAttribute("data-mid")); if (pm) (pm.profil = pm.profil || {})[pf] = e.target.value; return; }
     var f = e.target.getAttribute("data-f"); if (!f) return;
