@@ -10,6 +10,7 @@ const gib = require("./gib");
 const { Depo, adTemiz, adGecerli } = require("./kasa");
 const { Yansi } = require("./yansi");
 const ivd = require("./ivd");
+const posta = require("./mail");
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || "127.0.0.1";
@@ -17,7 +18,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-21-87";
+const SURUM = "2026-10-27-88";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -75,7 +76,7 @@ const markaTemiz = (m) => {
 const hizmetTemiz = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 100).map((h, i) => ({
   id: String(h.id || "h" + i).slice(0, 40), etiket: String(h.etiket || "").slice(0, 120), ad: String(h.ad || "").slice(0, 150), kdv: Number(h.kdv) >= 0 ? Number(h.kdv) : 20,
   tev: Math.min(9, Math.max(0, parseInt(h.tev, 10) || 0)), kod: String(h.kod || "").slice(0, 10), istisna: String(h.istisna || "").slice(0, 4), anah: String(h.anah || "").slice(0, 200) }));
-const aliciTemiz = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 2000).map((a) => ({ id: String(a.id), ad: String(a.ad || "").slice(0, 150), vkn: String(a.vkn || "").slice(0, 11), adres: String(a.adres || "").slice(0, 250), vd: String(a.vd || "").slice(0, 100) }));
+const aliciTemiz = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 2000).map((a) => ({ id: String(a.id), ad: String(a.ad || "").slice(0, 150), vkn: String(a.vkn || "").slice(0, 11), adres: String(a.adres || "").slice(0, 250), vd: String(a.vd || "").slice(0, 100), eposta: posta.EPOSTA.test(String(a.eposta || "").trim()) ? String(a.eposta).trim().slice(0, 120) : "" }));
 /* Mükellef profili: yalnız program içinde (yerel fatura kopyası, iletişim bilgisi) kullanılır; GİB'deki resmî satıcı bilgisini değiştirmez */
 const profilTemiz = (p) => {
   p = p && typeof p === "object" ? p : {};
@@ -164,6 +165,7 @@ async function vdSorgu(m, calistir) {
   try { return await calistir(x); }
   catch (e) { if (e && e.oturum) { await ivdBirak(m.id); e.girisGerek = true; } throw e; }
 }
+const postaSayac = new Map(); // kullanıcı -> son gönderim zamanları (saatlik sınır)
 const bekleyen = new Map(); // taslak kimliği -> geçmiş kaydı taslağı (onaylanınca kalıcı olur)
 const TIPLER = ["SATIS", "TEVKIFAT", "IADE", "ISTISNA"]; // Özel Matrah: portal isteği alınınca eklenecek
 const ISTISNA_AD = { 301: "Mal ihracatı", 302: "Hizmet ihracatı", 303: "Dış ticaret/ihracat kapsamı teslimler", 304: "Yolcu beraberi eşya", 308: "Transit ve gümrük antrepo taşımacılığı", 311: "Uluslararası taşımacılık", 201: "Diplomatik istisna", 350: "Diğer" };
@@ -178,7 +180,7 @@ function modelTemiz(g, tam) {
   if (!PARALAR.includes(para)) throw new Error("Para birimi desteklenmiyor.");
   const kur = Number(g.kur);
   if (para !== "TRY" && !(kur > 0)) throw new Error("Döviz kuru (TL karşılığı) girin.");
-  const alici = { unvan: T(g.aliciUnvan, 150), vkn: String(g.aliciVkn || ""), adres: T(g.aliciAdres, 250), vd: T(g.vergiDairesi, 100) };
+  const alici = { unvan: T(g.aliciUnvan, 150), vkn: String(g.aliciVkn || ""), adres: T(g.aliciAdres, 250), vd: T(g.vergiDairesi, 100), eposta: posta.EPOSTA.test(String(g.aliciEposta || "").trim()) ? String(g.aliciEposta).trim().slice(0, 120) : "" };
   let tarih = String(g.tarih || "");
   if (tam) {
     if (!alici.unvan || !/^\d{10,11}$/.test(alici.vkn)) throw new Error("Alıcı unvanı ve 10/11 haneli VKN/TCKN gerekli.");
@@ -285,6 +287,7 @@ async function api(req, res, yol) {
     res.writeHead(200, Object.assign({ "content-type": "application/json", "content-disposition": "attachment; filename=fatura-yedek-" + new Date().toISOString().slice(0, 10) + ".json", "cache-control": "no-store" }, GUV));
     return res.end(JSON.stringify(depo.paket(o)));
   }
+  if (yol === "/api/mail/durum" && req.method === "GET") return cevap(res, 200, { hazir: posta.hazir(), saglayici: posta.durum().saglayici });
   if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz(o));
   if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req, 8e6); if (!Array.isArray(g.mukellefler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(o, g); return cevap(res, 200, temiz(o)); }
   if (yol === "/api/vd/belge" && req.method === "GET") {
@@ -350,7 +353,7 @@ async function api(req, res, yol) {
   }
 
   /* ---- mükellef işlemleri (GİB): mükellef hesabı yalnız kendi kasasında çalışır ---- */
-  const g = await oku(req), mid = o.rol === "mukellef" ? o.mid : String(g.mukellefId || "");
+  const g = await oku(req, yol === "/api/mail" ? 8e6 : undefined), mid = o.rol === "mukellef" ? o.mid : String(g.mukellefId || "");
   if (!mid || !depo.yetkili(o, mid)) return cevap(res, 400, { hata: "Mükellef seçin." });
   const m = depo.mukellef(o, mid).veri;
   if (!m.kullanici || (!m.gibSifre && !gib.MOCK)) return cevap(res, 400, { hata: "Bu mükellef için GİB kullanıcı kodu/şifresi girilmemiş (Ayarlar)." });
@@ -360,7 +363,7 @@ async function api(req, res, yol) {
     const satirlar = x.kalemler.map((k, i) => Object.assign({}, k, { matrah: x._h.satirlar[i].matrah, kdvTutar: x._h.satirlar[i].kdv, tevKdv: x._h.satirlar[i].tevKdv }));
     const kayit = {
       id: r.uuid, zaman: new Date().toISOString(), mukellefId: m.id, mukellef: { ad: m.ad, vkn: m.vkn }, belgeNo: (r.satir && r.satir.belgeNumarasi) || "",
-      aliciUnvan: x.alici.unvan, aliciVkn: x.alici.vkn, aliciAdres: x.alici.adres, vergiDairesi: x.alici.vd, tarih: x.tarih, tip: x.tip, para: x.para, kur: x.kur,
+      aliciUnvan: x.alici.unvan, aliciVkn: x.alici.vkn, aliciAdres: x.alici.adres, vergiDairesi: x.alici.vd, aliciEposta: x.alici.eposta, epostaGonder: !!g.epostaGonder && !!x.alici.eposta, tarih: x.tarih, tip: x.tip, para: x.para, kur: x.kur,
       kalemler: satirlar, hesap: x._h.toplam, not: x.not, durum: "Taslak", iade: x.iade, olusturan: o.kullanici,
       form: { alici: x.alici, tip: x.tip, para: x.para, kur: x.kur, dahil: x.kdvDahil, iade: x.iade, kalemler: x.kalemler, notEk: x.notEk, notIrsaliye: x.notIrsaliye } // "Tekrarla" için
     };
@@ -375,6 +378,24 @@ async function api(req, res, yol) {
     if (kayit) { kayit.durum = "Onaylandı"; kayit.onayZamani = new Date().toISOString(); m.gecmis.push(kayit); if (m.gecmis.length > 2000) m.gecmis.shift(); bekleyen.delete(g.uuid); depo.kaydet(mid); }
     gunluk(o, mid, "Fatura onaylandı", (kayit && kayit.belgeNo) || g.uuid); gibKisalt(m.id, 45e3);
     return cevap(res, 200, { mesaj: r.mesaj, kayit: kayit || null });
+  }
+  if (yol === "/api/mail") {
+    if (!posta.hazir()) return cevap(res, 400, { hata: "E-posta gönderimi bu sunucuda henüz kurulmadı (sunucu ayarlarında MAIL_ANAHTAR ve MAIL_GONDEREN gerekir)." });
+    const sinir = (postaSayac.get(o.kullanici) || []).filter((t) => Date.now() - t < 3600e3); if (sinir.length >= 40) return cevap(res, 429, { hata: "Saatlik e-posta sınırına ulaşıldı (40). Biraz sonra tekrar deneyin." });
+    const k = (m.gecmis || []).filter((x) => x.id === g.uuid)[0]; if (!k) return cevap(res, 404, { hata: "Fatura bu programın geçmişinde bulunamadı; e-posta gönderilemedi." });
+    const to = (Array.isArray(g.to) ? g.to : [g.to]).map((x) => String(x || "").trim()).filter(Boolean).slice(0, 3);
+    if (!to.length || !to.every((x) => posta.EPOSTA.test(x) && x.length <= 120)) return cevap(res, 400, { hata: "Geçerli bir e-posta adresi yazın." });
+    const b64 = String(g.pdf || ""); if (!/^[A-Za-z0-9+/=]{100,}$/.test(b64) || b64.length > 5.5e6) return cevap(res, 400, { hata: "PDF eki geçersiz ya da çok büyük." });
+    const veri = Buffer.from(b64, "base64"); if (veri.slice(0, 4).toString() !== "%PDF") return cevap(res, 400, { hata: "Ek bir PDF değil." });
+    const pr = m.profil || {}, para = k.para || "TRY", tutar = k.hesap && typeof k.hesap.odenecek === "number" ? (k.hesap.odenecek / 100).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + (para === "TRY" ? "TL" : para) : "";
+    const tarih = String(k.tarih || "").split("-").reverse().join(".");
+    const metin = "Sayın " + (k.aliciUnvan || "yetkili") + ",\n\n" + (k.belgeNo ? k.belgeNo + " numaralı " : "") + (tarih ? tarih + " tarihli " : "") + "e-Arşiv faturanız ektedir" + (tutar ? " (toplam: " + tutar + ")" : "") + ".\n\nİyi çalışmalar dileriz.\n" + m.ad + (pr.tel ? "\nTel: " + pr.tel : "") + (pr.eposta ? "\nE-posta: " + pr.eposta : "") + "\n\n— Bu ileti e-Arşiv fatura portalı üzerinden gönderilmiştir.";
+    const kopya = pr.eposta && posta.EPOSTA.test(pr.eposta) && !to.includes(pr.eposta) ? [pr.eposta] : [];
+    await posta.gonder({ gonderenAd: m.ad, to, cc: kopya, yanit: pr.eposta || "", konu: "Fatura" + (k.belgeNo ? " " + k.belgeNo : "") + " — " + m.ad, metin, ek: { ad: "fatura-" + String(k.belgeNo || "belge").replace(/[^\w.-]+/g, "_") + ".pdf", veri } }, DIR);
+    sinir.push(Date.now()); postaSayac.set(o.kullanici, sinir);
+    (k.epostalar = k.epostalar || []).push({ zaman: new Date().toISOString(), to: to.join(", ") }); if (k.epostalar.length > 20) k.epostalar.shift(); depo.kaydet(mid);
+    gunluk(o, mid, "Fatura e-postayla gönderildi", (k.belgeNo || g.uuid) + " → " + to.join(", "));
+    return cevap(res, 200, { tamam: true, to, kopya });
   }
   if (yol === "/api/sil" || yol === "/api/iptal") {
     const sil = yol === "/api/sil", neden = gib.temizMetin(g.neden, 200);

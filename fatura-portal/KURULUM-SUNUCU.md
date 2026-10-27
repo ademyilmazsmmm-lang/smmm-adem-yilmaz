@@ -44,3 +44,10 @@ Sınırlar: veri GitHub'a gidene kadar ~3 sn gecikme vardır; Render servisi yen
 - Veri dosyası AES-256-GCM ile şifrelidir. Düzenli olarak **Ayarlar → Şifreli yedeği indir** ile yedek alın.
 - GİB tarafında oturum IP'ye bağlı değil; yine de sunucu IP'sinden ilk girişte GİB ek doğrulama isteyebilir.
   Çalışmazsa bilgisayardaki sürümü kullanmaya devam edebilirsiniz.
+
+## E-posta ile fatura gönderimi (isteğe bağlı)
+Render ücretsiz planı SMTP portlarını kapattığı için gönderim bir e-posta servisinin HTTPS API'siyle yapılır (Brevo önerilir: ücretsiz günde 300 ileti).
+1. brevo.com'da hesap açın → **Senders, Domains** bölümünde gönderen adresini/alan adını doğrulayın (kendi alan adınızdan bir adres, örn. `fatura@smmmyilmaz.com`; gmail.com gibi adresler spam'e düşer).
+2. **SMTP & API → API Keys** bölümünden bir anahtar oluşturun.
+3. Render → servis → Environment: `MAIL_ANAHTAR` = anahtar, `MAIL_GONDEREN` = doğrulanmış adres (isteğe bağlı `MAIL_SAGLAYICI` = `brevo` ya da `resend`). Kaydedince servis yeniden başlar.
+4. Yeni fatura → alıcı alanında e-posta yazılı ve "onaylanınca gönder" işaretliyse onaydan hemen sonra PDF ekli gönderilir; Geçmiş'te her faturada "E-posta" düğmesi vardır.

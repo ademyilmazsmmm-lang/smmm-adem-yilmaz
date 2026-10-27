@@ -291,6 +291,9 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       <div class="durum" id="sorguDurum" role="status"></div>
       <div><label for="yAdres">Adres (faturaya yazılır)</label><input id="yAdres" autocomplete="off" placeholder="Mahalle, cadde, no, ilçe/il"></div>
       <div><label for="yVd">Vergi dairesi</label><input id="yVd" autocomplete="off"></div>
+      <div><label for="yEposta">E-posta (faturayı göndermek için, isteğe bağlı)</label><input id="yEposta" type="email" inputmode="email" autocapitalize="off" autocomplete="off" placeholder="musteri@ornek.com"></div>
+      <label id="yEpostaSatir" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" id="yEpostaGonder" checked style="margin-top:3px;flex:none"><span>Onaylanınca faturayı bu adrese PDF olarak e-postayla gönder</span></label>
+      <p class="not" id="yEpostaNot" hidden style="margin:0"></p>
       <button class="btn ikincil" type="button" id="aliciKaydet">Alıcıyı kaydet / güncelle</button>
     </div>
   </div></details>
@@ -572,7 +575,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       mSec = V.mukellefler.length ? V.mukellefler[0].id : null; F.alici = ""; F.kalemler = [ilkKalem()]; F.tip = "SATIS";
       $("kimlik").textContent = ROL === "ofis" ? "Ofis · " + KULLANICI : (V.mukellefler[0] ? V.mukellefler[0].ad : KULLANICI);
       /* ayarlar bölümleri kapalı açılır (düzenli görünsün) */
-      hepsi(); gecmisYukle(); markaYukle(mSec);
+      hepsi(); gecmisYukle(); markaYukle(mSec); postaDurumu();
       if (!$("gBit").value) { var d0 = new Date(); $("gBit").value = bugunStr(); d0.setDate(d0.getDate() - 30); $("gBas").value = d0.getFullYear() + "-" + String(d0.getMonth() + 1).padStart(2, "0") + "-" + String(d0.getDate()).padStart(2, "0"); }
     });
   }
@@ -617,7 +620,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     h += '<option value="__yeni"' + (F.alici === "__yeni" ? " selected" : "") + '>+ Yeni alıcı…</option>';
     $("alici").innerHTML = h; $("yeniAlici").hidden = !F.alici;
     var k = m && m.aliciler.filter(function(a){ return a.id === F.alici; })[0];
-    if (k) { $("yAd").value = k.ad; $("yVkn").value = k.vkn; $("yAdres").value = k.adres || ""; $("yVd").value = k.vd || ""; }
+    if (k) { $("yAd").value = k.ad; $("yVkn").value = k.vkn; $("yAdres").value = k.adres || ""; $("yVd").value = k.vd || ""; $("yEposta").value = k.eposta || ""; }
   }
   function kalemHtml(k, i){
     var tev = F.tip === "TEVKIFAT";
@@ -665,12 +668,12 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     document.querySelectorAll("[data-dahil]").forEach(function(b){ b.setAttribute("aria-pressed", String((b.getAttribute("data-dahil") === "1") === F.dahil)); });
   }
   function aliciBilgi(){
-    if (!F.alici) return { ad: "", vkn: "", adres: "", vd: "" };
-    return { ad: $("yAd").value.trim(), vkn: $("yVkn").value.trim(), adres: $("yAdres").value.trim(), vd: $("yVd").value.trim() };
+    if (!F.alici) return { ad: "", vkn: "", adres: "", vd: "", eposta: "" };
+    return { ad: $("yAd").value.trim(), vkn: $("yVkn").value.trim(), adres: $("yAdres").value.trim(), vd: $("yVd").value.trim(), eposta: $("yEposta").value.trim() };
   }
   function girdi(){
     var a = aliciBilgi();
-    return { mukellefId: mSec, aliciUnvan: a.ad, aliciVkn: a.vkn, aliciAdres: a.adres, vergiDairesi: a.vd, tarih: $("tarih").value, tip: F.tip, para: F.para, kur: sayi(F.kur), kdvDahil: F.dahil,
+    return { mukellefId: mSec, aliciUnvan: a.ad, aliciVkn: a.vkn, aliciAdres: a.adres, vergiDairesi: a.vd, aliciEposta: a.eposta, epostaGonder: $("yEpostaGonder").checked && !!a.eposta && MAILHAZIR, tarih: $("tarih").value, tip: F.tip, para: F.para, kur: sayi(F.kur), kdvDahil: F.dahil,
       kalemler: F.kalemler.map(function(k){ return { ad: k.ad, aciklama: k.aciklama, miktar: sayi(k.miktar), birim: k.birim, fiyat: sayi(k.fiyat), kdv: sayi(k.kdv), tev: parseInt(k.tev, 10) || 0, kod: k.kod, istisna: k.istisna || "" }; }),
       notEk: $("ekNot").value.trim(), notIrsaliye: $("notIrs").checked, iadeNo: $("iadeNo").value.trim(), iadeTarih: $("iadeTarih").value };
   }
@@ -819,6 +822,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       onayKapat(); son = { uuid: uuid, oid: null, hesap: null, imzali: true, kayit: kayit, mid: mid };
       var d = $("tDurum"); d.className = "durum ok"; d.textContent = (r.mesaj || "Fatura onaylandı.") + " Fatura açıldı; “Yazdır / PDF” ile kaydedebilirsiniz.";
       goster(uuid, "Onaylandı"); gecmisYukle(); tYuklendi = false; taslakGetir();
+      if (kayit && kayit.epostaGonder && kayit.aliciEposta) epostaGonder(kayit.mukellefId || mid, uuid, kayit.belgeNo, "tDurum", kayit.aliciEposta);
     }, function(er){ if (!oturumDustu(er)) { od.className = "durum hata"; od.textContent = er.message; } }).then(function(){ b.disabled = false; });
   });
   $("temizle").addEventListener("click", function(){ formuTemizle(); sifirla(); durum("Form temizlendi.", ""); });
@@ -974,10 +978,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   document.querySelectorAll("[data-dahil]").forEach(function(b){ b.addEventListener("click", function(){ F.dahil = b.getAttribute("data-dahil") === "1"; formDoldur(); onizle(); }); });
   $("alici").addEventListener("change", function(){
     F.alici = this.value;
-    if (F.alici === "__yeni") { $("yAd").value = ""; $("yVkn").value = ""; $("yAdres").value = ""; $("yVd").value = ""; $("sorguDurum").textContent = ""; }
+    if (F.alici === "__yeni") { $("yAd").value = ""; $("yVkn").value = ""; $("yAdres").value = ""; $("yVd").value = ""; $("yEposta").value = ""; $("sorguDurum").textContent = ""; }
     cizAlici(); onizle();
   });
-  ["tarih", "ekNot", "notIrs", "iadeNo", "iadeTarih", "yAd", "yVkn", "yAdres", "yVd"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
+  ["tarih", "ekNot", "notIrs", "iadeNo", "iadeTarih", "yAd", "yVkn", "yAdres", "yVd", "yEposta"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
   $("tip").addEventListener("change", function(){
     F.tip = this.value; formDoldur();
     if (F.tip === "ISTISNA") F.kalemler.forEach(function(k){ k.kdv = "0"; k.istisna = k.istisna || "301"; });
@@ -1047,8 +1051,9 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("aliciKaydet").addEventListener("click", function(){
     var m = mk(), a = aliciBilgi(); if (!m) return durum("Önce mükellef ekleyin.", "hata");
     if (!a.ad || !/^\d{10,11}$/.test(a.vkn)) return durum("Unvan ve 10/11 haneli VKN/TCKN gerekli.", "hata");
-    if (F.alici === "__yeni") { var n = { id: uid(), ad: a.ad, vkn: a.vkn, adres: a.adres, vd: a.vd }; m.aliciler.push(n); F.alici = n.id; }
-    else { var k = m.aliciler.filter(function(q){ return q.id === F.alici; })[0]; if (k) { k.ad = a.ad; k.vkn = a.vkn; k.adres = a.adres; k.vd = a.vd; } }
+    if (F.alici === "__yeni") { var n = { id: uid(), ad: a.ad, vkn: a.vkn, adres: a.adres, vd: a.vd, eposta: a.eposta }; m.aliciler.push(n); F.alici = n.id; }
+    else { var k = m.aliciler.filter(function(q){ return q.id === F.alici; })[0]; if (k) { k.ad = a.ad; k.vkn = a.vkn; k.adres = a.adres; k.vd = a.vd; k.eposta = a.eposta; } }
+    if (a.eposta && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.eposta)) return durum("E-posta adresi geçerli görünmüyor.", "hata");
     kaydetV().then(function(){ cizAlici(); cizAyar(); onizle(); durum("Alıcı kaydedildi.", "ok"); }, function(er){ durum(er.message, "hata"); });
   });
 
@@ -1190,6 +1195,26 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }
     panel();
   }
+  /* E-posta: PDF paylaş ile aynı hat üzerinden üretilir (önbellekten de gelir), sunucu e-posta servisiyle gönderir */
+  var MAILHAZIR = false;
+  function postaDurumu(){
+    api("/api/mail/durum").then(function(r){ MAILHAZIR = !!r.hazir; var n = $("yEpostaNot"); $("yEpostaSatir").hidden = !MAILHAZIR; n.hidden = MAILHAZIR; n.textContent = MAILHAZIR ? "" : "E-posta gönderimi bu sunucuda henüz kurulu değil (kurulunca burada “onaylanınca gönder” seçeneği açılır)."; }, function(){ MAILHAZIR = false; });
+  }
+  function pdfDosyaAl(mid, uuid, onay, ad, ilerle){
+    var ak = mid + "|" + uuid + "|" + onay, ad2 = "fatura-" + String(ad || "belge").replace(/[^\w.-]+/g, "_") + ".pdf";
+    if (PDFOnbellek[ak]) return Promise.resolve(PDFOnbellek[ak]);
+    return markaYukle(mid).then(function(){ return api("/api/gorunum", "POST", { mukellefId: mid, uuid: uuid, onay: onay }); }).then(function(r){ return pdfUret(r.html, mid, ilerle); }).then(function(buf){ var f = new File([buf], ad2, { type: "application/pdf" }); PDFOnbellek[ak] = f; return f; });
+  }
+  function dosyaB64(f){ return new Promise(function(ok, no){ var r = new FileReader(); r.onload = function(){ ok(String(r.result).split(",")[1] || ""); }; r.onerror = function(){ no(new Error("PDF okunamadı")); }; r.readAsDataURL(f); }); }
+  function epostaGonder(mid, uuid, ad, durumId, adres){
+    var d = $(durumId), t0 = Date.now(), asama = "PDF hazırlanıyor";
+    function goster(){ d.className = "durum"; d.textContent = "E-posta için " + asama + "… (" + Math.round((Date.now() - t0) / 1000) + " sn)"; }
+    goster(); var sayac = setInterval(goster, 1000);
+    return pdfDosyaAl(mid, uuid, "Onaylandı", ad, function(m){ asama = m; goster(); })
+      .then(dosyaB64).then(function(b64){ asama = "gönderiliyor"; goster(); return api("/api/mail", "POST", { mukellefId: mid, uuid: uuid, to: [adres], pdf: b64 }); })
+      .then(function(r){ clearInterval(sayac); d.className = "durum ok"; d.textContent = "E-posta gönderildi: " + r.to.join(", ") + (r.kopya && r.kopya.length ? " (kopya: " + r.kopya.join(", ") + ")" : "") + "."; gecmisYukle(); },
+        function(er){ clearInterval(sayac); if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = "E-posta gönderilemedi: " + (er.message || er) + " Geçmiş sekmesindeki “E-posta” düğmesiyle yeniden deneyebilirsiniz."; });
+  }
   function paylas(mid, uuid, onay, ad, durumId){
     var d = $(durumId); d.className = "durum"; var asama = "1/3 Fatura GİB’den alınıyor", t0 = Date.now();
     function goster(){ d.className = "durum"; d.textContent = "PDF hazırlanıyor — " + asama + "… (" + Math.round((Date.now() - t0) / 1000) + " sn)"; }
@@ -1245,7 +1270,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("gecmisListe").innerHTML = liste.length ? liste.slice(0, gSayfa).map(function(x){
       var k = x.k, i = x.i, t = (k.tarih || "").split("-").reverse().join("/");
       return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " " + (PARASEM[k.para] || "₺"), esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad),
-        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (x.iptal ? ' <small class="iptalyazi" style="font-size:.68rem">TALEP GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>', x.iptal);
+        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-ge="' + i + '">E-posta</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (x.iptal ? ' <small class="iptalyazi" style="font-size:.68rem">TALEP GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>', x.iptal);
     }).join("") : '<p class="not">' + (gecmis.length ? "Filtreye uyan fatura yok." : "Bu programdan kesilen fatura henüz yok.") + '</p>';
     $("gDaha").hidden = liste.length <= gSayfa; $("gDaha").textContent = "Daha fazla göster (" + Math.max(0, liste.length - gSayfa) + " fatura daha)";
   }
@@ -1273,6 +1298,13 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   $("gecmisListe").addEventListener("click", function(e){
     var t = e.target.getAttribute("data-gt"), ip = e.target.getAttribute("data-gp"), gs = e.target.getAttribute("data-gs");
+    var ge = e.target.getAttribute("data-ge");
+    if (ge != null) {
+      var ke = gecmis[+ge], adr = prompt("Faturayı hangi e-posta adresine gönderelim?" + (ke.epostalar && ke.epostalar.length ? "\n(Daha önce: " + ke.epostalar[ke.epostalar.length - 1].to + ")" : ""), ke.aliciEposta || (ke.epostalar && ke.epostalar.length ? ke.epostalar[ke.epostalar.length - 1].to : "") || "");
+      if (!adr) return; adr = adr.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adr)) { var dg = $("gDurum"); dg.className = "durum hata"; dg.textContent = "E-posta adresi geçerli görünmüyor."; return; }
+      return epostaGonder(ke.mukellefId || mSec, ke.id, ke.belgeNo, "gDurum", adr);
+    }
     if (gs != null) { var kg = gecmis[+gs]; return paylas(kg.mukellefId || mSec, kg.id, "Onaylandı", kg.belgeNo, "gDurum"); }
     if (ip != null) { var kp = gecmis[+ip]; mSec = kp.mukellefId || mSec; return belgeIslemi("iptal", kp.id, kp.tarih, (kp.belgeNo || "Fatura") + " — " + kp.aliciUnvan); }
     if (t != null) return tekrarla(gecmis[+t]);
@@ -1295,7 +1327,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     F.kalemler = f.kalemler.map(function(x){ return { preset: "", ad: x.ad, aciklama: x.aciklama || "", miktar: String(x.miktar), birim: x.birim || "C62", fiyat: String(x.fiyat).replace(".", ","), kdv: String(x.kdv), tev: String(x.tev || 0), kod: x.kod || "", istisna: x.istisna || "" }; });
     var m = mk(), kay = m && m.aliciler.filter(function(a){ return a.vkn === f.alici.vkn; })[0];
     if (kay) F.alici = kay.id;
-    else { F.alici = "__yeni"; $("yAd").value = f.alici.unvan || ""; $("yVkn").value = f.alici.vkn || ""; $("yAdres").value = f.alici.adres || ""; $("yVd").value = f.alici.vd || ""; }
+    else { F.alici = "__yeni"; $("yAd").value = f.alici.unvan || ""; $("yVkn").value = f.alici.vkn || ""; $("yAdres").value = f.alici.adres || ""; $("yVd").value = f.alici.vd || ""; $("yEposta").value = f.alici.eposta || ""; }
     $("tarih").value = bugunStr(); $("ekNot").value = f.notEk || ""; $("notIrs").checked = f.notIrsaliye !== false; $("sorguDurum").textContent = "";
     $("iadeNo").value = iade ? (k.belgeNo || "") : ""; $("iadeTarih").value = iade ? (k.tarih || "") : "";
     cizAlici(); cizKalemler(); formDoldur(); onizle();
