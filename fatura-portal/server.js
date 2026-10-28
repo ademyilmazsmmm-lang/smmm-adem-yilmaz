@@ -18,7 +18,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-28-92";
+const SURUM = "2026-10-28-93";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -380,10 +380,8 @@ async function api(req, res, yol) {
       const son = k.tahsilat.pop(); depo.kaydet(mid); gunluk(o, mid, "Tahsilat kaydı geri alındı", (k.belgeNo || g.uuid) + " · " + tl(son.tutar) + " " + para);
       return cevap(res, 200, { kayit: k });
     }
-    const tutar = Math.round(Number(g.tutar));
-    if (!(tutar > 0)) return cevap(res, 400, { hata: "Tutarı yazın." });
     if (kalan <= 0) return cevap(res, 400, { hata: "Bu faturanın tamamı zaten tahsil edilmiş." });
-    if (tutar > kalan) return cevap(res, 400, { hata: "Tutar kalan tutardan (" + tl(kalan) + " " + para + ") fazla olamaz." });
+    const tutar = kalan; // kısmi tahsilat yok: her kayıt faturanın kalan tutarının tamamını kapatır
     const tarih = String(g.tarih || ""); if (!/^\d{4}-\d{2}-\d{2}$/.test(tarih)) return cevap(res, 400, { hata: "Tahsilat tarihini seçin." });
     if (tarih > gib.trBugunStr()) return cevap(res, 400, { hata: "Tahsilat tarihi bugünden ileri olamaz." });
     const YONTEMLER = ["Havale / EFT", "Nakit", "Kredi kartı", "Çek", "Diğer"], yontem = YONTEMLER.includes(g.yontem) ? g.yontem : "Havale / EFT";
