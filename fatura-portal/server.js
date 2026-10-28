@@ -18,7 +18,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-28-91";
+const SURUM = "2026-10-28-92";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -368,6 +368,30 @@ async function api(req, res, yol) {
   const g = await oku(req, yol === "/api/mail" ? 8e6 : undefined), mid = o.rol === "mukellef" ? o.mid : String(g.mukellefId || "");
   if (!mid || !depo.yetkili(o, mid)) return cevap(res, 400, { hata: "Mükellef seçin." });
   const m = depo.mukellef(o, mid).veri;
+  /* tahsilat kaydı: yalnız bu programda tutulur (GİB'e gitmez); kısmi tahsilat desteklenir */
+  if (yol === "/api/tahsilat") {
+    const k = (m.gecmis || []).filter((x) => x.id === g.uuid)[0]; if (!k) return cevap(res, 404, { hata: "Fatura bu programın geçmişinde bulunamadı." });
+    if (/^İptal/.test(k.durum || "") || k.tip === "IADE") return cevap(res, 400, { hata: "İptal ve iade faturaları için tahsilat kaydı tutulmaz." });
+    const odenecek = (k.hesap && k.hesap.odenecek) || 0; k.tahsilat = Array.isArray(k.tahsilat) ? k.tahsilat : [];
+    const alinan = k.tahsilat.reduce((t, x) => t + (x.tutar || 0), 0), kalan = odenecek - alinan, para = (k.para || "TRY") === "TRY" ? "TL" : k.para;
+    const tl = (n) => (n / 100).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (g.islem === "geri") {
+      if (!k.tahsilat.length) return cevap(res, 400, { hata: "Silinecek tahsilat kaydı yok." });
+      const son = k.tahsilat.pop(); depo.kaydet(mid); gunluk(o, mid, "Tahsilat kaydı geri alındı", (k.belgeNo || g.uuid) + " · " + tl(son.tutar) + " " + para);
+      return cevap(res, 200, { kayit: k });
+    }
+    const tutar = Math.round(Number(g.tutar));
+    if (!(tutar > 0)) return cevap(res, 400, { hata: "Tutarı yazın." });
+    if (kalan <= 0) return cevap(res, 400, { hata: "Bu faturanın tamamı zaten tahsil edilmiş." });
+    if (tutar > kalan) return cevap(res, 400, { hata: "Tutar kalan tutardan (" + tl(kalan) + " " + para + ") fazla olamaz." });
+    const tarih = String(g.tarih || ""); if (!/^\d{4}-\d{2}-\d{2}$/.test(tarih)) return cevap(res, 400, { hata: "Tahsilat tarihini seçin." });
+    if (tarih > gib.trBugunStr()) return cevap(res, 400, { hata: "Tahsilat tarihi bugünden ileri olamaz." });
+    const YONTEMLER = ["Havale / EFT", "Nakit", "Kredi kartı", "Çek", "Diğer"], yontem = YONTEMLER.includes(g.yontem) ? g.yontem : "Havale / EFT";
+    k.tahsilat.push({ tutar, tarih, yontem, not: gib.temizMetin(g.not, 100), zaman: new Date().toISOString(), kim: o.kullanici });
+    if (k.tahsilat.length > 50) k.tahsilat.shift();
+    depo.kaydet(mid); gunluk(o, mid, "Tahsilat kaydedildi", (k.belgeNo || g.uuid) + " · " + tl(tutar) + " " + para + " · " + yontem);
+    return cevap(res, 200, { kayit: k });
+  }
   if (!m.kullanici || (!m.gibSifre && !gib.MOCK)) return cevap(res, 400, { hata: "Bu mükellef için GİB kullanıcı kodu/şifresi girilmemiş (Ayarlar)." });
   if (yol === "/api/taslak") {
     const x = modelTemiz(g, true), uuid = crypto.randomUUID();

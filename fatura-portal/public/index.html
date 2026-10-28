@@ -380,6 +380,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       </div>
       <div class="satir" id="gOzel" hidden><div><label for="gF1">Başlangıç</label><input id="gF1" type="date"></div><div><label for="gF2">Bitiş</label><input id="gF2" type="date"></div></div>
       <div class="not" id="gOzetF"></div>
+      <div id="gTah" style="display:grid;gap:10px"></div>
     </div>
     <div id="gecmisListe"><p class="not">Bu programdan kesilen faturalar burada listelenir.</p></div>
     <button class="btn ikincil" type="button" id="gDaha" hidden>Daha fazla göster</button>
@@ -428,6 +429,17 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <footer class="imza" id="altImza" style="padding:0 16px calc(var(--nav-h) + var(--safe) + 24px)"></footer>
 
 
+  <div id="tahPerde" hidden style="position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center">
+    <div id="tahPencere" role="dialog" aria-modal="true" aria-labelledby="tahBaslik" style="width:100%;max-width:520px;max-height:92vh;overflow:auto;background:var(--surface);border-radius:20px 20px 0 0;padding:16px 18px calc(22px + env(safe-area-inset-bottom));display:grid;gap:10px;box-shadow:0 -10px 40px rgba(0,0,0,.3)">
+      <div style="width:44px;height:5px;border-radius:9px;background:var(--line2);margin:0 auto 2px"></div>
+      <div><b id="tahBaslik" style="font-size:1.1rem">Tahsilat kaydı</b><div class="not" id="tahAlt" style="margin:2px 0 0"></div></div>
+      <div><label for="tahTutar">Tutar</label><input id="tahTutar" inputmode="decimal" autocomplete="off"><div class="not" id="tahKalan" style="margin:3px 0 0;font-size:.78rem"></div></div>
+      <div class="satir"><div><label for="tahTarih">Tarih</label><input id="tahTarih" type="date"></div><div><label for="tahYontem">Yöntem</label><select id="tahYontem"><option>Havale / EFT</option><option>Nakit</option><option>Kredi kartı</option><option>Çek</option><option>Diğer</option></select></div></div>
+      <div><label for="tahNot">Not (isteğe bağlı)</label><input id="tahNot" maxlength="100" autocomplete="off" placeholder="Örn: dekont no"></div>
+      <div class="durum" id="tahDurum" role="status"></div>
+      <div style="display:flex;gap:8px"><button class="btn ikincil" type="button" id="tahVazgec" style="flex:1">Vazgeç</button><button class="btn" type="button" id="tahKaydet" style="flex:2">✓ Tahsil edildi olarak kaydet</button></div>
+    </div>
+  </div>
   <div id="kabul" hidden role="dialog" aria-modal="true" aria-label="Aydınlatma ve onay metni">
     <div class="kbas">e-Arşiv Fatura — Bilgilendirme ve Onay</div>
     <div class="kmetin">
@@ -1241,7 +1253,29 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
   /* ---------- geçmiş ---------- */
   var gecmis = [];
-  function satirHtml(ust, alt, dugme, iptal){ return '<div class="kayit' + (iptal ? ' iptal' : '') + '"><div class="ust2"><span>' + (iptal ? '<span class="iptalyazi">İPTAL</span>' : '') + ust + '<br><small>' + alt + '</small></span>' + dugme + '</div></div>'; }
+  function satirHtml(ust, alt, dugme, iptal, ek){ return '<div class="kayit' + (iptal ? ' iptal' : '') + '"><div class="ust2"><span>' + (iptal ? '<span class="iptalyazi">İPTAL</span>' : '') + ust + '<br><small>' + alt + '</small></span>' + dugme + '</div>' + (ek || "") + '</div>'; }
+  /* tahsilat: fatura kaydındaki tahsilat[] dizisinden durum çıkarır (iptal ve iade faturalarında tutulmaz) */
+  var gTahF = "hepsi";
+  function tahDurum(k){
+    var uygun = !/^İptal/.test(k.durum || "") && k.tip !== "IADE", od = (k.hesap && k.hesap.odenecek) || 0, ls = Array.isArray(k.tahsilat) ? k.tahsilat : [];
+    var alinan = ls.reduce(function(t, x){ return t + (x.tutar || 0); }, 0);
+    return { uygun: uygun && od > 0, odenecek: od, alinan: alinan, kalan: Math.max(0, od - alinan), tam: od > 0 && alinan >= od, ls: ls, son: ls[ls.length - 1] };
+  }
+  function tahBlok(k, i){
+    var d = tahDurum(k); if (!d.uygun) return "";
+    var pb = PARASEM[k.para] || k.para || "₺", rozet = function(metin, renk){ return '<span style="background:color-mix(in srgb,' + renk + ' 20%,transparent);border-radius:99px;padding:2px 10px;font-size:.78rem;font-weight:650">' + metin + '</span>'; };
+    var geri = ' <button class="k" type="button" data-gtg="' + i + '" style="font-size:.76rem">Geri al</button>', ode = '<button class="btn" type="button" data-gth="' + i + '" style="min-height:38px;padding:6px 14px">✓ Tahsil edildi</button>';
+    var h = '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:space-between">';
+    if (d.tam) {
+      var s2 = d.son; h += rozet("✓ Tahsil edildi · " + esc((s2.tarih || "").split("-").reverse().join(".")) + " · " + esc(s2.yontem || "") + (d.ls.length > 1 ? " · " + d.ls.length + " kısım" : ""), "#2f7d6b") + '<span>' + geri + '</span>';
+    } else {
+      var t0 = tarihAl(k.onayZamani || k.tarih), gun = t0 ? Math.max(0, Math.floor((Date.now() - t0.getTime()) / 864e5)) : null;
+      if (d.alinan > 0) h += rozet("Kısmen tahsil: " + fmt(d.alinan) + " " + pb + " · kalan " + fmt(d.kalan) + " " + pb, "#d68910");
+      else h += rozet("Tahsil bekliyor" + (gun ? " · " + gun + " gündür" : ""), gun !== null && gun >= 30 ? "#c0392b" : "#d68910");
+      h += '<span style="display:flex;gap:6px;align-items:center">' + (d.alinan > 0 ? geri : "") + ode + '</span>';
+    }
+    return h + '</div>';
+  }
   var gSayfa = 30;
   function gTarihAraligi(){
     var v = $("gTarihF").value, d = new Date(), y = d.getFullYear(), a = d.getMonth(), p2 = function(n){ return String(n).padStart(2, "0"); }, f = function(x){ return x.getFullYear() + "-" + p2(x.getMonth() + 1) + "-" + p2(x.getDate()); };
@@ -1264,13 +1298,22 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       if (ara && trk([k.aliciUnvan, k.aliciVkn, k.belgeNo, k.mukellef && k.mukellef.ad].join(" ")).indexOf(ara) < 0) return;
       liste.push({ k: k, i: i, iptal: iptal });
     });
+    /* tahsilat özeti ve süzgeci (öteki süzgeçlerden sonra) */
+    var bek = {}, tah = {}, nBek = 0, nTah = 0, nUygun = 0;
+    liste.forEach(function(x){ var d = tahDurum(x.k); x.td = d; if (!d.uygun) return; nUygun++; var pb = x.k.para || "TRY"; if (d.kalan > 0) { nBek++; bek[pb] = (bek[pb] || 0) + d.kalan; } if (d.alinan > 0) { tah[pb] = (tah[pb] || 0) + d.alinan; } if (d.tam) nTah++; });
+    var topla = function(o){ var a = Object.keys(o).map(function(pb){ return fmt(o[pb]) + " " + (PARASEM[pb] || pb); }); return a.length ? a.join(" + ") : "0,00 ₺"; };
+    var kutu = function(b, t, a, c){ return '<div style="flex:1 1 130px;border-left:5px solid ' + c + ';background:color-mix(in srgb,' + c + ' 12%,transparent);border-radius:10px;padding:9px 12px"><div class="not" style="margin:0;font-size:.78rem;font-weight:600">' + b + '</div><div style="font-size:1.02rem;font-weight:700;line-height:1.3">' + esc(t) + '</div><div class="not" style="margin:0;font-size:.76rem">' + a + '</div></div>'; };
+    var cip = function(ad, n, a){ return '<button class="chip" type="button" data-gtah="' + a + '" aria-pressed="' + (gTahF === a) + '" style="min-height:34px;padding:5px 12px;font-size:.84rem">' + ad + " " + n + '</button>'; };
+    $("gTah").innerHTML = nUygun ? '<div style="display:flex;gap:8px;flex-wrap:wrap">' + kutu("Bekleyen tahsilat", topla(bek), nBek + " fatura", "#d68910") + kutu("Tahsil edilen", topla(tah), nTah + " fatura tamamen", "#2f7d6b") + '</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + cip("Tümü", liste.length, "hepsi") + cip("Bekleyen", nBek, "bekleyen") + cip("Tahsil edildi", nTah, "tahsil") + '</div>' : "";
+    if (gTahF === "bekleyen") liste = liste.filter(function(x){ return x.td.uygun && x.td.kalan > 0; });
+    else if (gTahF === "tahsil") liste = liste.filter(function(x){ return x.td.uygun && x.td.tam; });
     var top = {}; liste.forEach(function(x){ if (x.iptal) return; var pb = x.k.para || "TRY"; top[pb] = (top[pb] || 0) + (x.k.hesap && x.k.hesap.odenecek || 0); });
     var ipt = liste.filter(function(x){ return x.iptal; }).length;
     $("gOzetF").textContent = liste.length ? liste.length + " fatura" + (Object.keys(top).length ? " · toplam " + Object.keys(top).map(function(pb){ return fmt(top[pb]) + " " + (PARASEM[pb] || pb); }).join(" + ") : "") + (ipt ? " (iptal talepli " + ipt + " fatura toplama dahil değil)" : "") : (gecmis.length ? "Filtreye uyan fatura yok." : "");
     $("gecmisListe").innerHTML = liste.length ? liste.slice(0, gSayfa).map(function(x){
       var k = x.k, i = x.i, t = (k.tarih || "").split("-").reverse().join("/");
       return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " " + (PARASEM[k.para] || "₺"), esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad),
-        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-ge="' + i + '">E-posta</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (x.iptal ? ' <small class="iptalyazi" style="font-size:.68rem">TALEP GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>', x.iptal);
+        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-ge="' + i + '">E-posta</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (x.iptal ? ' <small class="iptalyazi" style="font-size:.68rem">TALEP GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>', x.iptal, tahBlok(k, i));
     }).join("") : '<p class="not">' + (gecmis.length ? "Filtreye uyan fatura yok." : "Bu programdan kesilen fatura henüz yok.") + '</p>';
     $("gDaha").hidden = liste.length <= gSayfa; $("gDaha").textContent = "Daha fazla göster (" + Math.max(0, liste.length - gSayfa) + " fatura daha)";
   }
@@ -1296,6 +1339,36 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       else d.textContent = "GİB görünümü alınamadı: " + er.message;
     });
   }
+  /* tahsilat penceresi */
+  var tahI = -1;
+  function tahAc(i){
+    var k = gecmis[i], d = tahDurum(k), pb = PARASEM[k.para] || k.para || "₺"; if (!k || !d.uygun || d.kalan <= 0) return; tahI = i;
+    $("tahAlt").textContent = (k.aliciUnvan || "") + " · " + (k.belgeNo || "") + " · " + fmt(d.odenecek) + " " + pb;
+    $("tahTutar").value = (d.kalan / 100).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
+    $("tahKalan").textContent = (d.alinan > 0 ? "Daha önce tahsil edilen: " + fmt(d.alinan) + " " + pb + ". " : "") + "Kısmi tahsilat ise tutarı değiştirin; kalan “bekleyen” görünür.";
+    $("tahTarih").value = bugunStr(); $("tahTarih").max = bugunStr(); $("tahYontem").value = d.son ? d.son.yontem : "Havale / EFT"; $("tahNot").value = ""; $("tahDurum").textContent = ""; $("tahDurum").className = "durum";
+    $("tahPerde").hidden = false; setTimeout(function(){ $("tahTutar").focus(); $("tahTutar").select(); }, 60);
+  }
+  function tahKapat(){ $("tahPerde").hidden = true; tahI = -1; }
+  $("tahVazgec").addEventListener("click", tahKapat);
+  $("tahPerde").addEventListener("click", function(e){ if (e.target === this) tahKapat(); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !$("tahPerde").hidden) tahKapat(); });
+  function tahIstek(i, govde, d, b){
+    var k = gecmis[i]; b.disabled = true;
+    return api("/api/tahsilat", "POST", Object.assign({ mukellefId: k.mukellefId, uuid: k.id }, govde)).then(function(r){ r.kayit.mukellef = r.kayit.mukellef || k.mukellef; gecmis[i] = r.kayit; gecmisCiz(); return true; }, function(er){ if (oturumDustu(er)) return false; d.className = "durum hata"; d.textContent = er.message; return false; }).then(function(ok){ b.disabled = false; return ok; });
+  }
+  $("tahKaydet").addEventListener("click", function(){
+    var d = $("tahDurum"), tutar = Math.round(sayi($("tahTutar").value) * 100);
+    if (!(tutar > 0)) { d.className = "durum hata"; d.textContent = "Tutarı yazın."; return; }
+    d.className = "durum"; d.textContent = "Kaydediliyor…";
+    tahIstek(tahI, { islem: "ekle", tutar: tutar, tarih: $("tahTarih").value, yontem: $("tahYontem").value, not: $("tahNot").value.trim() }, d, this).then(function(ok){ if (ok) tahKapat(); });
+  });
+  $("gFiltre").addEventListener("click", function(e){ var c = e.target.closest("[data-gtah]"); if (!c) return; gTahF = c.getAttribute("data-gtah"); gSayfa = 30; gecmisCiz(); });
+  $("gecmisListe").addEventListener("click", function(e){
+    var th = e.target.getAttribute("data-gth"), tg = e.target.getAttribute("data-gtg");
+    if (th != null) return tahAc(+th);
+    if (tg != null) { var kt = gecmis[+tg]; if (!confirm("Son tahsilat kaydı silinsin mi?\n" + (kt.aliciUnvan || "") + " · " + (kt.belgeNo || ""))) return; var dg = $("gDurum"); dg.className = "durum"; dg.textContent = "Geri alınıyor…"; return tahIstek(+tg, { islem: "geri" }, dg, e.target).then(function(ok){ if (ok) dg.textContent = ""; }); }
+  });
   $("gecmisListe").addEventListener("click", function(e){
     var t = e.target.getAttribute("data-gt"), ip = e.target.getAttribute("data-gp"), gs = e.target.getAttribute("data-gs");
     var ge = e.target.getAttribute("data-ge");
