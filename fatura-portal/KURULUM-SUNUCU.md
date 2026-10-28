@@ -51,3 +51,12 @@ Render ücretsiz planı SMTP portlarını kapattığı için gönderim bir e-pos
 2. **SMTP & API → API Keys** bölümünden bir anahtar oluşturun.
 3. Render → servis → Environment: `MAIL_ANAHTAR` = anahtar, `MAIL_GONDEREN` = doğrulanmış adres (isteğe bağlı `MAIL_SAGLAYICI` = `brevo` ya da `resend`). Kaydedince servis yeniden başlar.
 4. Yeni fatura → alıcı alanında e-posta yazılı ve "onaylanınca gönder" işaretliyse onaydan hemen sonra PDF ekli gönderilir; Geçmiş'te her faturada "E-posta" düğmesi vardır.
+
+### Gmail hesabından gönderim (Gmail API)
+Render ücretsiz planı doğrudan Gmail SMTP'ye izin vermediği için Gmail'in HTTPS API'si kullanılır; mailler kendi Gmail adresinizden gider.
+1. console.cloud.google.com → yeni proje → **APIs & Services → Library → Gmail API → Enable**.
+2. **OAuth consent screen**: User type **External**, uygulama adı ve e-postanızı yazın. **Audience/Publishing status → Publish app (In production)** — "Testing" kalırsa anahtar 7 günde ölür.
+3. **Credentials → Create credentials → OAuth client ID → Web application**; *Authorized redirect URIs* alanına `https://developers.google.com/oauthplayground` ekleyin. **Client ID** ve **Client secret**'ı not edin.
+4. developers.google.com/oauthplayground → sağ üst dişli → **Use your own OAuth credentials** → ID/secret'ı girin. Sol listeden **Gmail API v1 → https://www.googleapis.com/auth/gmail.send** seçin → **Authorize APIs** → Gmail hesabınızla izin verin ("Google bu uygulamayı doğrulamadı" uyarısında *Gelişmiş → devam*). **Exchange authorization code for tokens** → **Refresh token**'ı kopyalayın.
+5. Render → Environment: `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `MAIL_GONDEREN` = Gmail adresiniz.
+Gmail şifresi değiştirilirse ya da izin geri alınırsa anahtar iptal olur; adım 4'ü tekrarlayın. Günlük sınır ~500 mail.
