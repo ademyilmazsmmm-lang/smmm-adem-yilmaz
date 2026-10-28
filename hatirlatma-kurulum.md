@@ -131,3 +131,7 @@ iOS 18'de ana ekrandan açılan (tam ekran) web uygulamalarında, sistem klavyes
 - **Ayarlar → Klavye**: *Otomatik* (varsayılan), *Her zaman uygulama içi* ya da *Yalnızca sistem klavyesi*. Seçim telefonda saklanır.
 - Klavyede **Yapıştır** (panodan), **Bitti** (kapatır) ve **Git** (formu kaydeder / giriş yapar) tuşları bulunur.
 - Normal Safari'de (ana ekran dışında) bu klavye hiç görünmez.
+
+### Bilgisayarda (Chrome / Edge) uygulama gibi açma
+
+Masaüstüne sadece adres kısayolu bırakılırsa sayfa normal sekmede açılır. Uygulama penceresi (adres çubuğu yok, e-Arşiv Fatura gibi) için sayfa Chrome'da açılıp adres çubuğunun sağındaki **Yükle** simgesine tıklanır (ya da ⋮ → Kaydet ve paylaş → **Sayfayı uygulama olarak yükle**). Eski kısayol silinir. Uygulama penceresinde uygulama içi klavye görünmez (yalnızca dokunmatik cihazlarda çıkar).
