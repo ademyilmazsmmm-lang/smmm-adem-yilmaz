@@ -1068,7 +1068,7 @@ button,input,select,textarea{font-family:inherit}
   /* ---------- ana ekran modunda şifre kutusu ---------- */
   // iPhone'da ana ekran uygulamasında yerel şifre kutusu (iCloud Anahtar Zinciri) klavyeyi/yazmayı bozabiliyor.
   // Bu modda şifre kutuları, noktalarla maskelenmiş sıradan metin kutusu olur. Safari'de yerel kutu kalır.
-  var SURUM = "32";
+  var SURUM = "33";
   var ANA_EKRAN = (window.navigator.standalone === true) || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
   var MASKE = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security","disc"));
   var OZEL_SIFRE = ANA_EKRAN && MASKE;
@@ -1253,7 +1253,7 @@ button,input,select,textarea{font-family:inherit}
     }
     function kipYaz(k){ KIP = k; try { localStorage.setItem("hatirlatma_klavye", k); } catch(e){} }
     function baslat(){
-      if(!ANA_EKRAN) return;
+      if(!ANA_EKRAN || !(navigator.maxTouchPoints>0)) return;   // bilgisayardaki uygulama penceresinde gerekmez
       $("klavyeKart").hidden = false; $("klavyeKip").value = KIP;
       $("klavyeKip").addEventListener("change", function(){ kipYaz(this.value); if(this.value==="kapali") kapat(); });
       ["kilitKlavye","kurulumKlavye"].forEach(function(id){ var e=$(id); if(e) e.hidden = false; });
