@@ -35,7 +35,7 @@ function mimeKur(m) {
   h.push("Subject: " + baslikKodla(m.konu), "MIME-Version: 1.0", "Content-Type: multipart/mixed; boundary=\"" + sinir + "\"");
   const parca = (tur, icerik) => "Content-Type: " + tur + "; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" + satirla(b64s(icerik));
   let g = h.join("\r\n") + "\r\n\r\n--" + sinir + "\r\nContent-Type: multipart/alternative; boundary=\"" + alt + "\"\r\n\r\n--" + alt + "\r\n" + parca("text/plain", m.metin) + "\r\n--" + alt + "\r\n" + parca("text/html", m.html) + "\r\n--" + alt + "--\r\n";
-  if (m.ek) g += "--" + sinir + "\r\nContent-Type: application/pdf; name=\"" + m.ek.ad + "\"\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"" + m.ek.ad + "\"\r\n\r\n" + satirla(m.ek.veri.toString("base64")) + "\r\n";
+  if (m.ek) g += "--" + sinir + "\r\nContent-Type: " + (m.ek.tur || "application/pdf") + "; name=\"" + m.ek.ad + "\"\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"" + m.ek.ad + "\"\r\n\r\n" + satirla(m.ek.veri.toString("base64")) + "\r\n";
   return g + "--" + sinir + "--\r\n";
 }
 let gToken = { deger: "", bitis: 0 };

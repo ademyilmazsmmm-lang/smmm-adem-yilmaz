@@ -18,7 +18,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-28-90";
+const SURUM = "2026-10-28-91";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -287,7 +287,19 @@ async function api(req, res, yol) {
     res.writeHead(200, Object.assign({ "content-type": "application/json", "content-disposition": "attachment; filename=fatura-yedek-" + new Date().toISOString().slice(0, 10) + ".json", "cache-control": "no-store" }, GUV));
     return res.end(JSON.stringify(depo.paket(o)));
   }
-  if (yol === "/api/mail/durum" && req.method === "GET") return cevap(res, 200, { hazir: posta.hazir(), saglayici: posta.durum().saglayici });
+  if (yol === "/api/yedek/mail" && req.method === "POST") {
+    ofisGerek(o);
+    if (!posta.hazir()) return cevap(res, 400, { hata: "E-posta gönderimi bu sunucuda henüz kurulmadı." });
+    const b = await oku(req), to = String(b.to || "").trim();
+    if (!posta.EPOSTA.test(to) || to.length > 120) return cevap(res, 400, { hata: "Geçerli bir e-posta adresi yazın." });
+    const sinir = (postaSayac.get(o.kullanici) || []).filter((t) => Date.now() - t < 3600e3); if (sinir.length >= 40) return cevap(res, 429, { hata: "Saatlik e-posta sınırına ulaşıldı (40). Biraz sonra tekrar deneyin." });
+    const veri = Buffer.from(JSON.stringify(depo.paket(o))), gun = new Date().toISOString().slice(0, 10);
+    if (veri.length > 12e6) return cevap(res, 413, { hata: "Yedek e-posta için çok büyük (" + Math.round(veri.length / 1e6) + " MB); “Tam yedeği indir” ile alın." });
+    await posta.gonder({ gonderenAd: "Fatura portalı yedeği", to: [to], cc: [], yanit: "", konu: "Fatura portalı yedeği — " + gun, metin: "Fatura portalının şifreli yedeği ektedir (" + gun + ").\n\nDosya ofis şifrenizle açılır; içinde düz metin parola ya da GİB şifresi yoktur. Yeni bir sunucuya taşımak için kurulum ekranındaki “yedekten geri yükle” seçeneğiyle kullanılır.\nBu dosyayı güvenli bir yerde saklayın.", ek: { ad: "fatura-yedek-" + gun + ".json", tur: "application/json", veri } }, DIR);
+    sinir.push(Date.now()); postaSayac.set(o.kullanici, sinir);
+    return cevap(res, 200, { tamam: true, to, boyut: veri.length });
+  }
+  if (yol === "/api/mail/durum" && req.method === "GET") return cevap(res, 200, { hazir: posta.hazir(), saglayici: posta.durum().saglayici, gonderen: o.rol === "ofis" ? posta.durum().gonderen : undefined });
   if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz(o));
   if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req, 8e6); if (!Array.isArray(g.mukellefler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(o, g); return cevap(res, 200, temiz(o)); }
   if (yol === "/api/vd/belge" && req.method === "GET") {

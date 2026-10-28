@@ -1198,7 +1198,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   /* E-posta: PDF paylaş ile aynı hat üzerinden üretilir (önbellekten de gelir), sunucu e-posta servisiyle gönderir */
   var MAILHAZIR = false;
   function postaDurumu(){
-    api("/api/mail/durum").then(function(r){ MAILHAZIR = !!r.hazir; var n = $("yEpostaNot"); $("yEpostaSatir").hidden = !MAILHAZIR; n.hidden = MAILHAZIR; n.textContent = MAILHAZIR ? "" : "E-posta gönderimi bu sunucuda henüz kurulu değil (kurulunca burada “onaylanınca gönder” seçeneği açılır)."; }, function(){ MAILHAZIR = false; });
+    api("/api/mail/durum").then(function(r){ MAILHAZIR = !!r.hazir; MAILGONDEREN = r.gonderen || ""; var n = $("yEpostaNot"); $("yEpostaSatir").hidden = !MAILHAZIR; n.hidden = MAILHAZIR; n.textContent = MAILHAZIR ? "" : "E-posta gönderimi bu sunucuda henüz kurulu değil (kurulunca burada “onaylanınca gönder” seçeneği açılır)."; if (V && $("ayarIc")) cizAyar(); }, function(){ MAILHAZIR = false; });
   }
   function pdfDosyaAl(mid, uuid, onay, ad, ilerle){
     var ak = mid + "|" + uuid + "|" + onay, ad2 = "fatura-" + String(ad || "belge").replace(/[^\w.-]+/g, "_") + ".pdf";
@@ -1556,9 +1556,27 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     m.aliciler.forEach(function(a){ h += '<div class="satir" data-aid="' + esc(a.id) + '" style="display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center"><span style="min-width:0">' + esc(a.ad) + '<br><small>' + esc(a.vkn) + '</small></span><button class="btn tehlike" type="button" data-sil-a="' + esc(a.id) + '">Sil</button><input data-ae="' + esc(a.id) + '" type="email" inputmode="email" autocapitalize="off" autocomplete="off" placeholder="E-posta (faturayı göndermek için)" value="' + esc(a.eposta || "") + '" style="grid-column:1/-1" aria-label="' + esc(a.ad) + ' e-posta"></div>'; });
     return h + '</div></details>';
   }
+  /* yedeği e-postayla gönder */
+  var MAILGONDEREN = "";
+  function yedekAdresAl(){ var a = ""; try { a = localStorage.getItem("yedekAdres") || ""; } catch (e) {} return a || MAILGONDEREN; }
+  function yedekOtoAl(){ try { return localStorage.getItem("yedekOtoMail") === "1"; } catch (e) { return false; } }
+  function yedekMailGonder(){
+    var d = $("yedekMailDurum"), a = ($("yedekAdres").value || "").trim(), b = $("yedekMail");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a)) { d.className = "durum hata"; d.textContent = "Geçerli bir e-posta adresi yazın."; return Promise.resolve(); }
+    try { localStorage.setItem("yedekAdres", a); } catch (e) {}
+    b.disabled = true; d.className = "durum"; d.textContent = "Yedek gönderiliyor…";
+    return api("/api/yedek/mail", "POST", { to: a }).then(function(r){ d.className = "durum ok"; d.textContent = "Yedek gönderildi: " + r.to + " (" + Math.max(1, Math.round(r.boyut / 1024)) + " KB)."; }, function(er){ if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = "Yedek gönderilemedi: " + er.message; }).then(function(){ b.disabled = false; });
+  }
+  $("ayarIc").addEventListener("click", function(e){
+    if (e.target.closest("#yedekMail")) return yedekMailGonder();
+    if (e.target.closest("#yedekIndir") && $("yedekOtoMail") && $("yedekOtoMail").checked) yedekMailGonder(); /* indirme kendi akışında sürer */
+  });
+  $("ayarIc").addEventListener("change", function(e){ if (e.target.id === "yedekOtoMail") { try { localStorage.setItem("yedekOtoMail", e.target.checked ? "1" : "0"); } catch (x) {} } });
   function yedekHtml(){
     return '<details class="grup" data-ak="g:yd"' + ac("g:yd") + '><summary>Yedek</summary><div class="icerik">' +
-      '<a href="/api/yedek" download class="btn ikincil" style="text-decoration:none;text-align:center">Tam yedeği indir (tüm mükellefler)</a>' +
+      '<a href="/api/yedek" download id="yedekIndir" class="btn ikincil" style="text-decoration:none;text-align:center">Tam yedeği indir (tüm mükellefler)</a>' +
+      (MAILHAZIR ? '<div style="display:grid;gap:8px"><label for="yedekAdres" style="margin:0">Yedeği e-postayla gönder</label><input id="yedekAdres" type="email" inputmode="email" autocapitalize="off" autocomplete="off" placeholder="adres@ornek.com" value="' + esc(yedekAdresAl()) + '"><button class="btn ikincil" type="button" id="yedekMail">Yedeği e-postayla gönder</button>' +
+        '<label style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" id="yedekOtoMail" style="margin-top:3px;flex:none"' + (yedekOtoAl() ? " checked" : "") + '><span>“Tam yedeği indir”e basınca bu adrese e-postayla da gönder</span></label><div class="durum" id="yedekMailDurum" role="status"></div></div>' : '<p class="not">Yedeği e-postayla göndermek için sunucuda e-posta gönderimi kurulu olmalı.</p>') +
       '<p class="not" id="yedekDurum"></p><p class="not" id="yansiDurum"></p>' +
       '<p class="not">Yedek dosyası şifrelidir (ofis şifrenizle açılır); yeni bir sunucuya taşımak için de kullanılır. Bu cihazda da otomatik şifreli bir kopya tutulur. Kalıcı disk (ücretli sunucu) varsa kayıtlar zaten silinmez; yine de ara sıra yedek indirin.</p></div></details>';
   }
