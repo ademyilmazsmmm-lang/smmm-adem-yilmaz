@@ -150,14 +150,27 @@ class Sgk {
     for (let n = 0; n < 4 && !anaSayfaMi(html) && (basliyorMu(html) || n === 0); n++) {
       const ayni = (u) => { try { return new URL(u).hostname === this.s.sunucu; } catch (e) { return false; } };
       const sonraki = devamAdresleri(html, url).find((u) => !denenen.has(u) && ayni(u));
-      const form = !sonraki && formCoz(html).find((f) => f.eylem && !/kullaniciIlkKontrollerGiris/.test(f.eylem));
-      if (!sonraki && !form) break;
-      const hedef = sonraki || new URL(form.eylem, url).href; denenen.add(hedef);
-      try { const r2 = form && !sonraki ? await this.git(form.yontem === "post" ? "POST" : "GET", hedef, form.gizli) : await this.git("GET", sonraki); html = r2.veri.toString("utf8"); url = r2.url; this.zincir.push(url); this.sayfalar.push({ url, html }); }
+      const betik = !sonraki && basliyorMu(html) ? await this.betiktenAdres(html, url) : "";
+      const form = !sonraki && !betik && formCoz(html).find((f) => f.eylem && !/kullaniciIlkKontrollerGiris/.test(f.eylem));
+      if (!sonraki && !betik && !form) break;
+      const hedef = sonraki || betik || new URL(form.eylem, url).href; if (denenen.has(hedef)) break; denenen.add(hedef);
+      try { const r2 = form && !sonraki && !betik ? await this.git(form.yontem === "post" ? "POST" : "GET", hedef, form.gizli) : await this.git("GET", hedef); html = r2.veri.toString("utf8"); url = r2.url; this.zincir.push(url); this.sayfalar.push({ url, html }); }
       catch (e) { if (n === 0) throw e; break; }
     }
     if (/kullaniciIlkKontrollerGiris/.test(html)) { const e = new Error("SGK oturumu açılamadı: uygulama penceresi giriş sayfasına döndü."); e.giris = true; throw e; }
     this.girdi = true; this.ana = html; this.anaUrl = url;
+  }
+  /* başlatıcı sayfanın harici betiği uygulamayı window.open(window.location.pathname + "/pages/baslangic.jsf") ile açar; tarayıcıda sayfa yolu giriş sonrası sistem köküne çekildiği için adres kök + yol olur */
+  async betiktenAdres(html, url) {
+    for (const m of [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].slice(0, 6)) {
+      try {
+        const r = await this.git("GET", new URL(coz(m[1]), url).href), js = r.veri.toString("utf8");
+        const w = /window\.open\(\s*window\.location\.pathname\s*\+\s*["']([^"']+)["']/.exec(js);
+        if (w) return new URL(this.s.kok + w[1], url).href;
+        const d = /window\.open\(\s*["']([^"']+)["']/.exec(js); if (d) return new URL(d[1], url).href;
+      } catch (e) { /* sonraki betik */ }
+    }
+    return "";
   }
   /* giriş sonrası ana sayfadaki bağlantılar (adres keşfi için tanı) */
   async tani(derin) {
