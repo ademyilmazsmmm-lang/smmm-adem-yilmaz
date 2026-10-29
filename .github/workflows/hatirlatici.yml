@@ -59,7 +59,7 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           # Gönderim kaydı ve mailden gelen "Tamam" yanıtlarıyla değişen dosyalar (hangisi varsa).
-          for f in gonderim.json onay.json hatirlatmalar.json yapilacaklar.json; do [ -f "$f" ] && git add "$f"; done
+          for f in gonderim.json onay.json hatirlatmalar.json yapilacaklar.json takvim-durum.json; do [ -f "$f" ] && git add "$f"; done
           git diff --cached --quiet && exit 0
           git commit -m "Gönderim kaydı"
           for i in 1 2 3; do
