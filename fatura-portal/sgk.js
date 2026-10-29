@@ -10,9 +10,18 @@ const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 
 const sade = (h) => String(h || "").replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 function hataMetni(html) {
-  const m = []; const t = sade(html);
-  for (const s of t.split(/(?<=[.!?])\s+/)) if (/hatal|yanlış|geçersiz|güvenlik|bloke|kilit|bulunamad|süresi|izin|yetki/i.test(s) && s.length < 220) m.push(s);
-  return (m.slice(0, 2).join(" ") || "").slice(0, 240);
+  /* 1) bilinen hata kapları (Struts actionError/errorMessage, kırmızı yazı, alert) */
+  const aday = [];
+  for (const m of html.matchAll(/<(?:ul|div|span)\b[^>]*class\s*=\s*["'][^"']*(?:errorMessage|actionError|fieldError|error|hata|uyari)[^"']*["'][^>]*>([\s\S]*?)<\/(?:ul|div|span)>/gi)) aday.push(sade(m[1]));
+  for (const m of html.matchAll(/alert\(\s*["']([^"']{3,200})["']/gi)) aday.push(m[1]);
+  for (const m of html.matchAll(/<(?:font|span|p|div|td|li)\b[^>]*(?:color\s*[:=]\s*["']?\s*(?:red|#f00|#ff0000|#c00|#cc0000))[^>]*>([\s\S]*?)<\/(?:font|span|p|div|td|li)>/gi)) aday.push(sade(m[1]));
+  const bulunan = aday.map((x) => x.trim()).filter((x) => x && x.length < 240)[0];
+  if (bulunan) return bulunan;
+  /* 2) bilinen sayfa metinlerini çıkarıp kalan metne bak (başlık/alt bilgi/yükleniyor yazısı hata sayılmaz) */
+  let t = sade(html);
+  for (const k of ["İşlem Devam Ediyor Lütfen Bekleyiniz!", "T.C. SOSYAL GÜVENLİK KURUMU", "T.C. Sosyal Güvenlik Kurumu", "SGK ANA SAYFA", "İşveren Sistemi Kullanıcı Girişi", "Kullanıcı Adı", "Sistem Şifresi", "İşyeri Şifresi", "Lütfen Güvenlik Anahtarını yanında bulunan kutuya yazıp GİRİŞ tuşuna basınız.", "Giriş Yap", "Türkiye Cumhuriyeti Sosyal Güvenlik Kurumu © 2012", "İletişim", "Loading..."]) t = t.split(k).join(" ");
+  t = t.replace(/\s+/g, " ").replace(/^[\s\-]+|[\s\-]+$/g, "").trim();
+  return t && t.length > 3 ? t.slice(0, 240) : "";
 }
 /* sayfadaki bağlantılar ve form adresleri (tanı için; kişisel veri içermez) */
 function baglantilar(html) {
@@ -57,7 +66,11 @@ class Sgk {
     const r = await this.git("POST", GIRIS + "/login/kullaniciIlkKontrollerGiris.action", { username: k.kullanici, isyeri_kod: k.isyeriKod, password: k.sistemSifre, isyeri_sifre: k.isyeriSifre, isyeri_guvenlik: String(dk || "").trim() });
     const html = r.veri.toString("utf8");
     const formVar = /kullaniciIlkKontrollerGiris/.test(html), cikisVar = /ÇIKIŞ|Çıkış|çıkış|cikis|logout/i.test(html);
-    if (formVar || !cikisVar) { const m = hataMetni(html); const e = new Error("SGK girişi başarısız" + (m ? ": " + m : " (kullanıcı adı, şifreler ya da güvenlik kodu kabul edilmedi)") + "."); e.giris = true; throw e; }
+    if (formVar || !cikisVar) {
+      const m = hataMetni(html);
+      const e = new Error("SGK girişi kabul edilmedi" + (m ? ": " + m : ": SGK aynı giriş formunu yeniden gösterdi, ayrı bir hata metni vermedi. Güvenlik kodu (resimdeki gibi, büyük/küçük harf aynen), kullanıcı adı, işyeri kodu ve iki şifreyi kontrol edin") + ".");
+      e.giris = true; throw e;
+    }
     this.girdi = true; this.ana = html; this.anaUrl = r.url;
   }
   /* giriş sonrası ana sayfadaki bağlantılar (adres keşfi için tanı) */
