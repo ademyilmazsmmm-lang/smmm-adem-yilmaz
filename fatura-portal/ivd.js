@@ -34,11 +34,15 @@ function kayitlar(veri) {
   return out.slice(0, 500);
 }
 
+/* GİB tarihleri Türkiye saatine göre ister; sunucu UTC olabilir (gece yarısından sonra bir gün geride kalır) */
+const trTarih = (gunOnce) => { const d = new Date(Date.now() - (gunOnce || 0) * 864e5); return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(d); }; // YYYY-MM-DD
+const trTarih8 = (gunOnce) => trTarih(gunOnce).replace(/-/g, "");
+
 const sayiya = (v) => { const n = Number(String(v === null || v === undefined ? "" : v).replace(",", ".")); return Number.isFinite(n) ? n : 0; };
 const yuvarla = (n) => Math.round(n * 100) / 100;
 /* borç özeti + borç satırları -> arayüzün çizdiği yapı: { ozetKart: { gecmis, gecmemis, toplam: { toplam, asil, gz, adet }, zaman }, kayitlar } */
 function borcDuzenle(ozet, liste) {
-  const bugun = new Date().toISOString().slice(0, 10);
+  const bugun = trTarih();
   const tarih = (t) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(t || "")) || /^(\d{2})[./](\d{2})[./](\d{4})/.exec(String(t || "")); if (!m) return ""; return m[1].length === 4 ? m[1] + "-" + m[2] + "-" + m[3] : m[3] + "-" + m[2] + "-" + m[1]; };
   const satirlar = ((liste && liste.borclar) || []).map((b) => {
     const v = tarih(b.vadeTarihi), gecmis = !!v && v < bugun;
@@ -162,15 +166,13 @@ class Ivd {
   }
   /* Borç durum yazısı ("borcu yoktur" yazısı): portalda resmî bir talep (dilekçe) olarak verilir, vergi dairesi cevaplayınca PDF görüntülenir */
   async yaziListe() {
-    const g8 = (d) => d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0"), bugun = new Date();
-    const y = await this.istek("POST", GW + "/api/dilekce/dilekceSorgula", this.tablo({ body: { baslangicTarihi: g8(new Date(bugun.getTime() - 89 * 864e5)), bitisTarihi: g8(bugun) } }, 50, { alan: "talepZamani", yon: "DESC" }), true);
+    const y = await this.istek("POST", GW + "/api/dilekce/dilekceSorgula", this.tablo({ body: { baslangicTarihi: trTarih8(89), bitisTarihi: trTarih8(0) } }, 50, { alan: "talepZamani", yon: "DESC" }), true);
     const dizi = (y && (y.mukellefiyetGonderilmisDilekcelerListeDTOList || (y.data && y.data.mukellefiyetGonderilmisDilekcelerListeDTOList))) || [];
     this.yazilar = dizi.map((d) => ({ id: d.dilekceId, secureId: d.secureId, ad: d.ad, talep: d.talepZamani, cevap: d.cevapZamani, durum: d.durum, eposta: d.eposta }));
     return { yazilar: this.yazilar.map((d, n) => ({ n, ad: d.ad, talep: d.talep, cevap: d.cevap, durum: d.durum, eposta: d.eposta })), sekil: sekil(y) };
   }
   async yaziIste(p) {
-    const g8 = (d) => d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
-    const y = await this.istek("POST", GW + "/api/dilekce/dilekceKaydet", { eposta: p.eposta, baslangicTarihi: null, bitisTarihi: g8(new Date()), talepNedeni: p.neden, verilecekKurum: p.kurum, digerKurum: p.digerKurum || "", yazininHazirlanacagiTarih: "0" }, true);
+    const y = await this.istek("POST", GW + "/api/dilekce/dilekceKaydet", { eposta: p.eposta, baslangicTarihi: null, bitisTarihi: trTarih8(0), talepNedeni: p.neden, verilecekKurum: p.kurum, digerKurum: p.digerKurum || "", yazininHazirlanacagiTarih: "0" }, true);
     const mesajlar = (y && y.messages) || [], basari = mesajlar.some((m) => m && m.type === "SUCCESS");
     if (!basari) throw new Error("Talep alınmadı" + (this.mesajMetni(y) ? ": " + String(this.mesajMetni(y)).slice(0, 200) : " (GİB başarı yanıtı vermedi)") + ".");
     return { tamam: true, mesaj: mesajlar.filter((m) => m && m.text).map((m) => m.text).join(" ") || "Talebiniz işleme alındı.", sekil: sekil(y) };
