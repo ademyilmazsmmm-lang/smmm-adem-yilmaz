@@ -78,16 +78,17 @@ function formCoz(html) {
 }
 /* tablo satırları: her hücrenin metni ve içindeki bağlantılar/simgeler (belge düğmeleri) */
 function tabloSatirlari(html) {
-  const satirlar = [], basliklar = [];
+  const satirlar = [], basliklar = []; let hamSatir = "";
   for (const tr of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
     const hucreler = [...tr[1].matchAll(/<(td|th)\b[^>]*>([\s\S]*?)<\/\1>/gi)];
     if (hucreler.length < 6) continue;
     const h = hucreler.map((c) => ({ metin: sade(c[2]).trim(), baglantilar: [...c[2].matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)].map((a) => ({ href: nitelik(a[1], "href"), onclick: nitelik(a[1], "onclick"), baslik: nitelik(a[1], "title") || nitelik(a[2], "alt") || nitelik(a[2], "title") || sade(a[2]).trim() })) }));
     if (/<th\b/i.test(tr[1]) && !h.some((x) => x.baglantilar.length)) { if (!basliklar.length || h.length > basliklar.length) { basliklar.length = 0; basliklar.push(...h.map((x) => x.metin)); } continue; }
-    if (/^\d{4}\/\d{2}$/.test(h[0].metin)) satirlar.push(h);
+    if (/^\d{4}\/\d{2}$/.test(h[0].metin)) { satirlar.push(h); if (!hamSatir) hamSatir = tr[1]; }
   }
-  return { basliklar, satirlar };
+  return { basliklar, satirlar, hamSatir };
 }
+const hamMaskeli = (h, n) => String(h || "").replace(/[A-Za-z0-9]{24,}/g, "<kod>").replace(/\s+/g, " ").slice(0, n || 2500);
 const betiklerMaskeli = (html) => [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1].trim()).filter(Boolean).join("\n---\n").replace(/[A-Za-z0-9]{24,}/g, "<kod>").slice(0, 1800);
 
 class Sgk {
@@ -149,7 +150,7 @@ class Sgk {
     const ilk = this.sayfalar && this.sayfalar.length > 1 ? baglantilar(this.sayfalar[0].html).map((x) => Object.assign({ not: "başlatıcı sayfa" }, x)) : [];
     const cerceveler = liste.filter((x) => x.tur === "frame" && /sgk\.gov\.tr/i.test(new URL(x.href, this.anaUrl).hostname)).slice(0, 4), ek = [], tum = liste.slice();
     for (const c of cerceveler) { try { const r = await this.git("GET", new URL(c.href, this.anaUrl).href); const b = baglantilar(r.veri.toString("utf8")); ek.push({ kaynak: c.href, baglantilar: b }); tum.push(...b); } catch (e) { ek.push({ kaynak: c.href, hata: e.message }); } }
-    const sonuc = { baslik: (/<title>([\s\S]*?)<\/title>/i.exec(this.ana) || [])[1] || "", baglantilar: liste, baslatici: ilk, baslaticiBetik: this.sayfalar && this.sayfalar.length > 1 ? betiklerMaskeli(this.sayfalar[0].html) : "", zincir: this.zincir || [], cerceveler: ek, adres: this.anaUrl };
+    const sonuc = { baslik: (/<title>([\s\S]*?)<\/title>/i.exec(this.ana) || [])[1] || "", baglantilar: liste, baslatici: ilk, baslaticiBetik: this.sayfalar && this.sayfalar.length > 1 ? betiklerMaskeli(this.sayfalar[0].html) : "", baslaticiHam: basliyorMu((this.sayfalar && this.sayfalar[0] ? this.sayfalar[0].html : this.ana)) ? hamMaskeli((this.sayfalar && this.sayfalar[0] ? this.sayfalar[0].html : this.ana).slice(((this.sayfalar && this.sayfalar[0] ? this.sayfalar[0].html : this.ana).indexOf("<body") + 1) || 0), 3500) : "", zincir: this.zincir || [], cerceveler: ek, adres: this.anaUrl };
     if (derin) { /* menü sayfalarını gez (yalnız okuma: GET); çıkış bağlantıları atlanır */
       const adaylar = [], gor = new Set();
       for (const x of tum) { if (x.tur !== "a" || !/\.(?:action|jsp|do)/i.test(x.href) || /çıkış|cikis|logout|exit/i.test(x.metin + x.href)) continue; const u = new URL(x.href, this.anaUrl).href; if (gor.has(u)) continue; gor.add(u); adaylar.push({ metin: x.metin, u }); }
@@ -177,7 +178,9 @@ class Sgk {
     const r = await this.git("POST", d.eylem, alan), html = r.veri.toString("utf8");
     if (/kullaniciIlkKontrollerGiris/.test(html)) throw this.oturumHata();
     const t = tabloSatirlari(html); this.bsatirlar = t.satirlar;
-    return { basliklar: t.basliklar, satirlar: t.satirlar.map((h, n) => ({ n, hucreler: h.map((c, k) => ({ k, metin: c.metin, belgeler: c.baglantilar.map((b2, j) => ({ j, baslik: b2.baslik || "", var: !!(b2.href && !/^javascript:/i.test(b2.href)) || /["'](\/EBildirgeV2\/[^"']+)["']/.test(b2.onclick) })) })) })), hamMetin: t.satirlar.length ? "" : sade(html).replace(/İşlem Devam Ediyor Lütfen Bekleyiniz!/g, "").replace(/\s+/g, " ").trim().slice(0, 500), onclickOrnek: t.satirlar.length ? (t.satirlar[0].flatMap((c) => c.baglantilar).map((x) => x.onclick || x.href).filter(Boolean).slice(0, 6)) : [] };
+    const VARSAYILAN = ["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Belge Mahiyeti", "Kanun No", "Toplam Çalışan Sayısı", "Toplam Gün Sayısı", "Toplam Pek Tutar", "Tahakkuk", "Hizmet", "S.Hizmet"];
+    if (t.satirlar.length && t.basliklar.length !== t.satirlar[0].length && t.satirlar[0].length === VARSAYILAN.length) t.basliklar = VARSAYILAN;
+    return { basliklar: t.basliklar, satirlar: t.satirlar.map((h, n) => ({ n, hucreler: h.map((c, k) => ({ k, metin: c.metin, belgeler: c.baglantilar.map((b2, j) => ({ j, baslik: b2.baslik || "", var: !!(b2.href && !/^javascript:/i.test(b2.href)) || /["'](\/EBildirgeV2\/[^"']+)["']/.test(b2.onclick) })) })) })), ham: { satir: hamMaskeli(t.hamSatir, 3500), betik: betiklerMaskeli(html) }, hamMetin: t.satirlar.length ? "" : sade(html).replace(/İşlem Devam Ediyor Lütfen Bekleyiniz!/g, "").replace(/\s+/g, " ").trim().slice(0, 500), onclickOrnek: t.satirlar.length ? (t.satirlar[0].flatMap((c) => c.baglantilar).map((x) => x.onclick || x.href).filter(Boolean).slice(0, 6)) : [] };
   }
   async bildirgeBelge(n, k, j) {
     const c = ((this.bsatirlar || [])[n] || [])[k], b = c && c.baglantilar[j]; if (!b) throw new Error("Belge bulunamadı; listeyi yenileyin.");
