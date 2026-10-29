@@ -113,7 +113,7 @@ class Depo {
 
   /* ---- mükellef / hesap yönetimi (yalnız ofis) ---- */
   varsayilanVeri(id, b) {
-    return { id, ad: String(b.ad || "").slice(0, 150), vkn: String(b.vkn || "").slice(0, 11), kullanici: String(b.kullanici || "").slice(0, 60), gibSifre: String(b.gibSifre || ""), aliciler: [],
+    return { id, ad: String(b.ad || "").slice(0, 150), vkn: String(b.vkn || "").slice(0, 11), kullanici: String(b.kullanici || "").slice(0, 60), gibSifre: String(b.gibSifre || ""), earsiv: b.earsiv !== false, aliciler: [],
       hizmetler: this.hizmet.map((h) => Object.assign({}, h)), hazirV2: true, marka: { logo: "", imza: "" }, gecmis: [], gunluk: [], sonGiris: null };
   }
   async mukellefEkle(o, b, veriHazir, idHazir) {

@@ -18,7 +18,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-29-95";
+const SURUM = "2026-10-29-96";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -88,7 +88,7 @@ const profilTemiz = (p) => {
 const KABUL_SURUM = "1";
 function temizMukellef(o, id) {
   const v = depo.mukellef(o, id).veri;
-  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: o.rol === "mukellef" && !(v.kabul && v.kabul.surum === KABUL_SURUM), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
+  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, earsiv: v.earsiv !== false, profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: o.rol === "mukellef" && !(v.kabul && v.kabul.surum === KABUL_SURUM), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
     hesapKullanici: o.rol === "ofis" ? depo.hesapKullanicisi(id) : undefined, sonGiris: v.sonGiris || null };
 }
 const temiz = (o) => ({ rol: o.rol, kullanici: o.kullanici, mukellefler: depo.mukellefIdleri(o).map((id) => temizMukellef(o, id)) });
@@ -99,6 +99,7 @@ function birlestir(o, g) {
     const e = depo.mukellef(o, id), v = e.veri, eskiK = v.kullanici, eskiS = v.gibSifre;
     v.ad = String(m.ad || "").slice(0, 150); v.vkn = String(m.vkn || "").slice(0, 11); v.kullanici = String(m.kullanici || "").slice(0, 60);
     if (m.gibSifre) v.gibSifre = String(m.gibSifre);
+    if (o.rol === "ofis" && typeof m.earsiv === "boolean") v.earsiv = m.earsiv; // e-Arşiv kullanmayan mükellef yalnız Vergi Dairesi bölümünü kullanır
     v.aliciler = aliciTemiz(m.aliciler); v.hizmetler = hizmetTemiz(m.hizmetler); if (m.marka) v.marka = markaTemiz(m.marka); if (m.profil) v.profil = profilTemiz(m.profil);
     depo.kaydet(id);
     if (v.kullanici !== eskiK || v.gibSifre !== eskiS) { gibBirak(id); ivdBirak(id); ivdKilit.delete(id); ivdHata.delete(id); }
@@ -391,7 +392,8 @@ async function api(req, res, yol) {
     depo.kaydet(mid); gunluk(o, mid, "Tahsilat kaydedildi", (k.belgeNo || g.uuid) + " · " + tl(tutar) + " " + para + " · " + yontem);
     return cevap(res, 200, { kayit: k });
   }
-  if (!m.kullanici || (!m.gibSifre && !gib.MOCK)) return cevap(res, 400, { hata: "Bu mükellef için GİB kullanıcı kodu/şifresi girilmemiş (Ayarlar)." });
+  if (m.earsiv === false && !yol.startsWith("/api/vd/") && yol !== "/api/tahsilat" && yol !== "/api/mail") return cevap(res, 400, { hata: "Bu mükellef için e-Arşiv fatura kapalı; yalnız Vergi Dairesi bölümü kullanılabilir." });
+  if (!m.kullanici || (!m.gibSifre && !gib.MOCK)) return cevap(res, 400, { hata: "Bu mükellef için GİB / Dijital Vergi Dairesi kullanıcı kodu ve şifresi girilmemiş (Ayarlar)." });
   if (yol === "/api/taslak") {
     const x = modelTemiz(g, true), uuid = crypto.randomUUID();
     const r = await istemci(m).taslak((v) => gib.faturaGovdesi(x, uuid, v));

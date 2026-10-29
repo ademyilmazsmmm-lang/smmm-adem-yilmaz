@@ -630,7 +630,15 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("kabulCikis").addEventListener("click", function(){ $("cikis").click(); });
   function cizM(){
     $("mChips").innerHTML = V.mukellefler.map(function(m){ return '<button class="chip" type="button" data-m="' + m.id + '" aria-pressed="' + (m.id === mSec) + '">' + esc(m.ad || "(adsız)") + '</button>'; }).join("");
-    $("mYok").hidden = V.mukellefler.length > 0; seritGoster();
+    $("mYok").hidden = V.mukellefler.length > 0; seritGoster(); modulGuncelle();
+  }
+  /* e-Arşiv kullanmayan mükellef: Yeni fatura / Taslaklar (mükellef girişinde Geçmiş de) gizlenir, Vergi D. açılır */
+  function modulGuncelle(){
+    var m = mk(), ea = !m || m.earsiv !== false, gizli = {};
+    if (!ea) { gizli.yeni = 1; gizli.taslak = 1; if (ROL === "mukellef") gizli.gecmis = 1; }
+    var n = 0; document.querySelectorAll("#sekmeler [data-sekme]").forEach(function(b){ var h = !!gizli[b.getAttribute("data-sekme")]; b.hidden = h; b.style.display = h ? "none" : ""; if (!h) n++; });
+    $("sekmeler").style.gridTemplateColumns = "repeat(" + (n || 1) + ", 1fr)";
+    if (gizli[aktifSekme]) sekme("vd");
   }
   function seritGoster(){ $("mSerit").hidden = !(ROL === "ofis" && V && V.mukellefler.length > 0) || aktifSekme === "ayar"; }
   function cizAlici(){
@@ -1463,8 +1471,9 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     return '<details class="grup" data-ak="g:me"' + ac("g:me") + '><summary>+ Yeni mükellef ekle</summary><div class="icerik">' +
       '<div><label>Mükellef unvanı</label><input id="meAd" autocomplete="off"></div>' +
       '<div><label>VKN / TCKN</label><input id="meVkn" inputmode="numeric" autocomplete="off"></div>' +
-      '<div><label>GİB e-Arşiv kullanıcı kodu</label><input id="meGk" autocomplete="off"></div>' +
-      '<div><label>GİB e-Arşiv şifresi</label><input id="meGs" type="password" autocomplete="new-password"></div>' +
+      '<div><label>GİB kullanıcı kodu (e-Arşiv / Dijital Vergi Dairesi)</label><input id="meGk" autocomplete="off"></div>' +
+      '<div><label>GİB şifresi</label><input id="meGs" type="password" autocomplete="new-password"></div>' +
+      '<label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" id="meEa" checked style="margin-top:3px;flex:none"><span>Bu mükellef e-Arşiv fatura kullanıyor <small class="not">(kapatırsanız yalnız Vergi Dairesi bölümü açılır)</small></span></label>' +
       '<p class="not">İsterseniz mükellefe uygulamaya giriş hesabı da açın (kendi faturasını kendisi kessin). Boş bırakırsanız yalnız siz bu mükellef adına fatura kesersiniz; hesabı sonra da açabilirsiniz.</p>' +
       '<div class="satir"><div><label>Giriş kullanıcı adı</label><input id="meHk" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div><label>Giriş şifresi (en az ' + mSifreMin + ')</label><input id="meHs" type="password" autocomplete="new-password"></div></div>' +
       '<button class="btn" type="button" id="mEkle">Mükellefi ekle</button><div class="durum" id="meDurum" role="status"></div></div></details>';
@@ -1517,13 +1526,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function gibBagHtml(m){
     return '<details class="alt2" data-ak="gb:' + m.id + '"' + ac("gb:" + m.id) + '><summary>GİB bağlantısı <small>' + esc(m.kullanici || "kayıtlı değil") + '</small></summary><div class="icerik">' +
       '<div><label>VKN / TCKN</label><input data-f="vkn" inputmode="numeric" value="' + esc(m.vkn) + '"></div>' +
-      '<div><label>GİB e-Arşiv kullanıcı kodu</label><input data-f="kullanici" autocomplete="off" value="' + esc(m.kullanici) + '"></div>' +
-      '<div><label>GİB e-Arşiv şifresi ' + (m.sifreVar ? '(kayıtlı — değiştirmek için yazın)' : '(kayıtlı değil)') + '</label><input data-f="gibSifre" type="password" autocomplete="new-password" value=""></div>' +
+      '<div><label>GİB kullanıcı kodu (e-Arşiv / Dijital Vergi Dairesi)</label><input data-f="kullanici" autocomplete="off" value="' + esc(m.kullanici) + '"></div>' +
+      '<div><label>GİB şifresi ' + (m.sifreVar ? '(kayıtlı — değiştirmek için yazın)' : '(kayıtlı değil)') + '</label><input data-f="gibSifre" type="password" autocomplete="new-password" value=""></div>' +
       '<p class="not" style="margin:0">Değişiklikten sonra sayfanın altındaki “Ayarları kaydet”e basın.</p></div></details>';
   }
   /* bir mükellefin bölümleri: sıra kullanım sıklığına göre; hepsi kapalı gelir, biri açılınca öbürü kapanır */
   function mukellefBolumler(m, ofis){
-    return profilHtml(m) + markaHtml(m, true) + hizmetHtml(m) + aliciHtml(m) + iceHtml(m) + gibBagHtml(m) + (ofis ? hesapHtml(m) + etkinlikHtml(m) : "") +
+    var ea = m.earsiv !== false;
+    return (ofis ? '<label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-ea="' + m.id + '"' + (ea ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>e-Arşiv fatura kullanıyor <small class="not">(kapalıysa yalnız Vergi Dairesi bölümü açılır)</small></span></label>' : "") + profilHtml(m) + (ea ? markaHtml(m, true) + hizmetHtml(m) + aliciHtml(m) + iceHtml(m) : "") + gibBagHtml(m) + (ofis ? hesapHtml(m) + etkinlikHtml(m) : "") +
       '<div class="durum" data-md role="status"></div>' + (ofis ? '<button class="btn tehlike" type="button" data-sil-m="' + m.id + '">Mükellefi sil</button>' : "");
   }
   function mukellefAyarHtml(m){
@@ -1713,6 +1723,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (e.target.open && /^ku?:/.test(k) && !MARKA[k.replace(/^ku?:/, "")]) markaYukle(k.replace(/^ku?:/, "")).then(function(){ if (ayarAcik[k]) cizAyar(); }); // yalnız ilk açılışta; yeniden çizim toggle’ı tekrar tetikler
   }, true);
   $("ayarIc").addEventListener("change", function(e){
+    if (e.target.getAttribute && e.target.getAttribute("data-ea") != null) {
+      var em = mBul(e.target.getAttribute("data-ea")); if (!em) return; em.earsiv = e.target.checked; var de = $("ayarDurum");
+      kaydetV().then(function(){ hepsi(); var d2 = $("ayarDurum"); if (d2) { d2.className = "durum ok"; d2.textContent = em.earsiv ? "e-Arşiv açıldı." : "e-Arşiv kapatıldı; bu mükellef yalnız Vergi Dairesi bölümünü kullanır."; } }, function(er){ em.earsiv = !em.earsiv; ayarHata(de, er); });
+      return;
+    }
     if (e.target.getAttribute && e.target.getAttribute("data-ae") != null) {
       var v = e.target.value.trim(), d = $("ayarDurum");
       if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { e.target.style.borderColor = "#c0392b"; if (d) { d.className = "durum hata"; d.textContent = "E-posta adresi geçerli görünmüyor."; } return; }
@@ -1781,7 +1796,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       return;
     }
     if (t.id === "mEkle") {
-      var g = { ad: $("meAd").value, vkn: $("meVkn").value, kullanici: $("meGk").value, gibSifre: $("meGs").value, hesapKullanici: $("meHk").value, hesapSifre: $("meHs").value }, d = $("meDurum");
+      var g = { ad: $("meAd").value, vkn: $("meVkn").value, earsiv: $("meEa").checked, kullanici: $("meGk").value, gibSifre: $("meGs").value, hesapKullanici: $("meHk").value, hesapSifre: $("meHs").value }, d = $("meDurum");
       if (!g.ad.trim()) { d.className = "durum hata"; d.textContent = "Mükellef unvanını yazın."; return; }
       d.className = "durum"; d.textContent = "Ekleniyor…";
       api("/api/mukellef/ekle", "POST", g).then(function(r){ V = r.veri; mSec = r.id; F.alici = ""; ayarAcik["g:me"] = false; ayarAcik["g:m"] = true; ayarAcik["m:" + r.id] = true; hepsi(); var dd = $("meDurum"); if (dd) { dd.className = "durum ok"; dd.textContent = "Eklendi."; } gecmisYukle(); }, function(er){ ayarHata(d, er); });
