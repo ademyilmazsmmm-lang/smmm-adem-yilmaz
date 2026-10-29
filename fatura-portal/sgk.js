@@ -107,6 +107,24 @@ function islevlerZinciri(js, ad) {
 }
 const betiklerMaskeli = (html) => [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1].trim()).filter(Boolean).join("\n---\n").replace(/[A-Za-z0-9]{24,}/g, "<kod>").slice(0, 1800);
 
+/* e-Bildirge belge düğmeleri: onclick="islem('H','178852-2026-9')" sayfadaki gizli pdfFormId formunu doldurup /tahakkuk/pdfGosterim.action'a gönderir */
+function pdfFormu(html) {
+  for (const f of html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)) {
+    if (!/pdfGosterim/i.test(f[1]) && nitelik(f[1], "id") !== "pdfFormId") continue;
+    const alanlar = {}, idAd = {};
+    for (const i of f[2].matchAll(/<input\b([^>]*)>/gi)) { const n = nitelik(i[1], "name"); if (!n) continue; alanlar[n] = nitelik(i[1], "value"); const id = nitelik(i[1], "id"); if (id) idAd[id] = n; }
+    return { eylem: nitelik(f[1], "action"), alanlar, idAd };
+  }
+  return null;
+}
+function islemTipleri(html) {
+  const o = {};
+  for (const m of html.matchAll(/case\s*["'](\w+)["']\s*:\s*\$\(\s*["']#tipId["']\s*\)\.val\(\s*["']([^"']*)["']\s*\)\s*;?(\s*\$\(\s*["']#downloadId["']\s*\)\.val\(\s*["']true["']\s*\))?/g)) o[m[1]] = { tip: m[2], indir: !!m[3] };
+  return o;
+}
+const ISLEM = /islem\(\s*['"]([A-Z]+)['"]\s*,\s*['"]([^'"]+)['"]\s*\)/;
+const ISLEM_AD = { T: "tahakkuk", H: "hizmet", SH: "s-hizmet" };
+
 class Sgk {
   constructor(k, sistem) { this.k = k || {}; this.s = SISTEMLER[sistem] || SISTEMLER.isveren; this.taban = "https://" + this.s.sunucu; this.cerez = new Map(); /* alan adı -> çerezler */ this.girdi = false; this.ana = ""; }
   cerezTopla(r, host) { let j = this.cerez.get(host); if (!j) { j = new Map(); this.cerez.set(host, j); } for (const sc of (typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [])) { const kv = sc.split(";")[0].trim(), i = kv.indexOf("="); if (i > 0) j.set(kv.slice(0, i), kv.slice(i + 1)); } }
@@ -214,19 +232,31 @@ class Sgk {
     const alan = Object.assign({}, d.f.gizli, { hizmet_yil_ay_index: String(bas), hizmet_yil_ay_index_bitis: String(bit) });
     const r = await this.git("POST", d.eylem, alan), html = r.veri.toString("utf8");
     if (/kullaniciIlkKontrollerGiris/.test(html)) throw this.oturumHata();
-    const t = tabloSatirlari(html); this.bsatirlar = t.satirlar;
+    const t = tabloSatirlari(html); this.bsatirlar = t.satirlar; this.sonSorgu = { bas: String(bas), bit: String(bit) }; this.pdfForm = pdfFormu(html); this.islemHarita = islemTipleri(html);
     const VARSAYILAN = ["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Belge Mahiyeti", "Kanun No", "Toplam Çalışan Sayısı", "Toplam Gün Sayısı", "Toplam Pek Tutar", "Tahakkuk", "Hizmet", "S.Hizmet"];
     if (t.satirlar.length && t.basliklar.length !== t.satirlar[0].length && t.satirlar[0].length === VARSAYILAN.length) t.basliklar = VARSAYILAN;
-    return { basliklar: t.basliklar, satirlar: t.satirlar.map((h, n) => ({ n, hucreler: h.map((c, k) => ({ k, metin: c.metin, belgeler: c.baglantilar.map((b2, j) => ({ j, baslik: b2.baslik || "", var: !!(b2.href && !/^javascript:/i.test(b2.href)) || /["'](\/EBildirgeV2\/[^"']+)["']/.test(b2.onclick) })) })) })), ham: { satir: hamMaskeli(t.hamSatir, 2500), betik: betiklerMaskeli(html), islem: await this.islemKaynagi(html, r.url, "islem"), formlar: formCoz(html).map((f) => ({ eylem: f.eylem, yontem: f.yontem, gizli: Object.fromEntries(Object.entries(f.gizli).map(([a, b]) => [a, hamMaskeli(b, 30)])) })) }, hamMetin: t.satirlar.length ? "" : sade(html).replace(/İşlem Devam Ediyor Lütfen Bekleyiniz!/g, "").replace(/\s+/g, " ").trim().slice(0, 500), onclickOrnek: t.satirlar.length ? (t.satirlar[0].flatMap((c) => c.baglantilar).map((x) => x.onclick || x.href).filter(Boolean).slice(0, 6)) : [] };
+    return { basliklar: t.basliklar, satirlar: t.satirlar.map((h, n) => ({ n, hucreler: h.map((c, k) => ({ k, metin: c.metin, belgeler: c.baglantilar.map((b2, j) => { const im = ISLEM.exec(b2.onclick || ""); return { j, baslik: im ? (im[1].endsWith("D") ? "İndir" : "Görüntüle") : (b2.baslik || ""), var: !!im || !!(b2.href && !/^javascript:/i.test(b2.href)) || /["'](\/EBildirgeV2\/[^"']+)["']/.test(b2.onclick) }; }) })) })), ham: { satir: hamMaskeli(t.hamSatir, 2500), betik: betiklerMaskeli(html), islem: await this.islemKaynagi(html, r.url, "islem"), formlar: formCoz(html).map((f) => ({ eylem: f.eylem, yontem: f.yontem, gizli: Object.fromEntries(Object.entries(f.gizli).map(([a, b]) => [a, hamMaskeli(b, 30)])) })) }, hamMetin: t.satirlar.length ? "" : sade(html).replace(/İşlem Devam Ediyor Lütfen Bekleyiniz!/g, "").replace(/\s+/g, " ").trim().slice(0, 500), onclickOrnek: t.satirlar.length ? (t.satirlar[0].flatMap((c) => c.baglantilar).map((x) => x.onclick || x.href).filter(Boolean).slice(0, 6)) : [] };
   }
   async bildirgeBelge(n, k, j) {
     const c = ((this.bsatirlar || [])[n] || [])[k], b = c && c.baglantilar[j]; if (!b) throw new Error("Belge bulunamadı; listeyi yenileyin.");
+    const im = ISLEM.exec(b.onclick || ""); if (im) return this.pdfAl(im[1], im[2], false);
     let yol = b.href && !/^javascript:/i.test(b.href) ? b.href : ((/["'](\/EBildirgeV2\/[^"']+)["']/.exec(b.onclick) || [])[1] || "");
     if (!yol) throw new Error("Bu belgenin adresi bulunamadı (düğme bir betik çalıştırıyor).");
     const r = await this.git("GET", new URL(coz(yol), this.anaUrl).href), tur = (r.tur || "").toLowerCase().split(";")[0];
     const pdf = /pdf/.test(tur) || r.veri.slice(0, 4).toString() === "%PDF";
     if (/html/.test(tur) && !pdf) throw new Error("SGK belge yerine bir sayfa döndürdü" + (hataMetni(r.veri.toString("utf8")) ? ": " + hataMetni(r.veri.toString("utf8")) : "") + ".");
     return { veri: r.veri, tur: pdf ? "application/pdf" : "application/octet-stream", satir: pdf, ad: "sgk-belge-" + (n + 1) + "-" + (k + 1) + (pdf ? ".pdf" : "") };
+  }
+  /* sayfanın islem() betiğinin yaptığı işi yapar: gizli formu doldurup pdfGosterim.action'a POST eder (token tek kullanımlık olabilir: gerekirse listeyi yenileyip bir kez daha dener) */
+  async pdfAl(kod, ref, tekrar) {
+    if (!this.pdfForm || !this.islemHarita || !this.islemHarita[kod]) { if (!tekrar && this.sonSorgu) { await this.bildirgeListe(this.sonSorgu.bas, this.sonSorgu.bit); return this.pdfAl(kod, ref, true); } throw new Error("Belge türü tanınmadı (" + kod + "); listeyi yenileyin."); }
+    const f = this.pdfForm, t = this.islemHarita[kod], alan = Object.assign({}, f.alanlar), koy = (id, v) => { if (f.idAd[id]) alan[f.idAd[id]] = v; };
+    koy("tipId", t.tip); koy("downloadId", t.indir ? "true" : "false"); koy("bildirgeRefNoId", ref);
+    const r = await this.git("POST", new URL(f.eylem, this.anaUrl).href, alan), tur = (r.tur || "").toLowerCase().split(";")[0], pdf = /pdf/.test(tur) || r.veri.slice(0, 4).toString() === "%PDF";
+    const ad = "sgk-" + (ISLEM_AD[kod.replace(/D$/, "")] || "belge") + "-" + String(ref).replace(/[^\w-]+/g, "_") + ".pdf";
+    if (pdf) return { veri: r.veri, tur: "application/pdf", satir: !t.indir, ad };
+    if (!tekrar && this.sonSorgu) { await this.bildirgeListe(this.sonSorgu.bas, this.sonSorgu.bit); return this.pdfAl(kod, ref, true); }
+    const h = hataMetni(r.veri.toString("utf8")); throw new Error("SGK belge yerine bir sayfa döndürdü" + (h ? ": " + h : " (" + tur + ")") + ".");
   }
   oturumHata() { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; return e; }
   async cikis() {
