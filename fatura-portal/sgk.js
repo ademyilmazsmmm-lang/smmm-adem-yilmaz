@@ -4,7 +4,8 @@
  * DİKKAT: Resmî bir API yoktur; sistem klasik form/oturum çerezi ile çalışır. Adresler değişebilir. Art arda hızlı isteklere sunucu tarafında kısa bekleme uygulanır. Yalnız uyg.sgk.gov.tr adresine gidilir. */
 "use strict";
 const MOCK = process.env.GIB_MOCK === "1";
-const SUNUCU = "uyg.sgk.gov.tr", TABAN = "https://" + SUNUCU, GIRIS = "/IsverenSistemi";
+/* iki ayrı SGK sistemi: İşveren Sistemi (borç, borcu yoktur) ve e-Bildirge (onaylı bildirgeler); ikisinin girişi aynı biçimdedir */
+const SISTEMLER = { isveren: { sunucu: "uyg.sgk.gov.tr", kok: "/IsverenSistemi" }, ebildirge: { sunucu: "ebildirge.sgk.gov.tr", kok: "/EBildirgeV2" } };
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 
 const sade = (h) => String(h || "").replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
@@ -29,14 +30,14 @@ function baglantilar(html) {
   for (const m of html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) { const a = m[1], href = (/href\s*=\s*["']([^"']*)["']/i.exec(a) || [])[1], on = (/onclick\s*=\s*["']([^"']*)["']/i.exec(a) || [])[1]; if (href) ekle(m[2], href, "a"); if (on) ekle(m[2], on, "onclick"); }
   for (const m of html.matchAll(/<form\b[^>]*action\s*=\s*["']([^"']*)["']/gi)) ekle("(form)", m[1], "form");
   for (const m of html.matchAll(/<i?frame\b[^>]*src\s*=\s*["']([^"']*)["']/gi)) ekle("(çerçeve)", m[1], "frame");
-  for (const m of html.matchAll(/["'](\/IsverenSistemi\/[A-Za-z0-9_\/.\-]+\.(?:action|jsp|do|html)[^"']*)["']/g)) ekle("(betik)", m[1], "betik");
+  for (const m of html.matchAll(/["'](\/(?:IsverenSistemi|EBildirgeV2)\/[A-Za-z0-9_\/.\-]+\.(?:action|jsp|do|html)[^"']*)["']/g)) ekle("(betik)", m[1], "betik");
   return o.slice(0, 250);
 }
 
 /* Giriş sonrası SGK önce "Uygulama Çalıştırılıyor / UYGULAMA BAŞLATILDI" başlatıcı sayfasını verir; uygulama ayrı bir pencerede (window.open) açılır.
  * Burada o pencerenin adresi bulunur ve aynı oturumla açılır. */
 const basliyorMu = (h) => /UYGULAMA BAŞLATILDI|Uygulama Çalıştırılıyor/i.test(h);
-const anaSayfaMi = (h) => /<frameset/i.test(h) || /İŞVEREN TESCİL|E-BORCU YOKTUR|ÇIKIŞ|Çıkış/.test(h);
+const anaSayfaMi = (h) => /<frameset/i.test(h) || /İŞVEREN TESCİL|E-BORCU YOKTUR|Onaylanmış Belgeler|Aylık Prim Hizmet Belgesi|ÇIKIŞ|Çıkış/.test(h);
 function devamAdresleri(html, taban) {
   const aday = [], ekle = (x) => { x = String(x || "").trim(); if (!x || /^(javascript:|#|mailto:)/i.test(x)) return; try { const u = new URL(x, taban).href; if (!aday.includes(u)) aday.push(u); } catch (e) { /* geçersiz */ } };
   for (const m of html.matchAll(/window\.open\(\s*["']([^"']+)["']/gi)) ekle(m[1]);
@@ -44,21 +45,35 @@ function devamAdresleri(html, taban) {
   for (const m of html.matchAll(/(?:location(?:\.href)?\s*=|location\.(?:replace|assign)\()\s*["']([^"']+)["']/gi)) ekle(m[1]);
   for (const m of html.matchAll(/<i?frame\b[^>]*src\s*=\s*["']([^"']+)["']/gi)) ekle(m[1]);
   for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) if (/ana\s*sayfa|devam|başlat/i.test(sade(m[2]))) ekle(m[1]);
-  for (const m of html.matchAll(/["'](\/IsverenSistemi\/[A-Za-z0-9_\/.\-]+\.(?:action|jsp|do|html)[^"']*)["']/g)) ekle(m[1]);
+  for (const m of html.matchAll(/["'](\/(?:IsverenSistemi|EBildirgeV2)\/[A-Za-z0-9_\/.\-]+\.(?:action|jsp|do|html)[^"']*)["']/g)) ekle(m[1]);
   return aday.filter((u) => !/\/login\/|kullaniciIlkKontrollerGiris/.test(u));
 }
 
+/* sayfadaki formlar (alan adları, seçenekler) ve tablo başlıkları: adres/alan keşfi için; değerler maskelenir */
+function formlar(html) {
+  const o = [];
+  for (const f of html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)) {
+    const a = f[1], eylem = (/action\s*=\s*["']([^"']*)["']/i.exec(a) || [])[1] || "", yontem = ((/method\s*=\s*["']?(\w+)/i.exec(a) || [])[1] || "get").toLowerCase(), alanlar = [];
+    for (const i of f[2].matchAll(/<input\b([^>]*)>/gi)) { const n = (/name\s*=\s*["']([^"']*)["']/i.exec(i[1]) || [])[1], t = ((/type\s*=\s*["']?(\w+)/i.exec(i[1]) || [])[1] || "text").toLowerCase(); if (n) alanlar.push(n + ":" + t + (t === "hidden" ? "=" + String((/value\s*=\s*["']([^"']*)["']/i.exec(i[1]) || [])[1] || "").slice(0, 20) : "")); }
+    for (const sl of f[2].matchAll(/<select\b([^>]*)>([\s\S]*?)<\/select>/gi)) { const n = (/name\s*=\s*["']([^"']*)["']/i.exec(sl[1]) || [])[1]; const ops = [...sl[2].matchAll(/<option\b[^>]*value\s*=\s*["']([^"']*)["']/gi)].map((x) => x[1]); if (n) alanlar.push(n + ":select[" + ops.slice(0, 6).join("|") + (ops.length > 6 ? "|…" + ops.length : "") + "]"); }
+    for (const b of f[2].matchAll(/<(?:button|input)\b[^>]*(?:type\s*=\s*["']?(?:submit|button)["']?)[^>]*>/gi)) { const n = (/(?:name|value|onclick)\s*=\s*["']([^"']{1,80})["']/i.exec(b[0]) || [])[1]; if (n) alanlar.push("düğme:" + n); }
+    o.push({ eylem, yontem, alanlar: alanlar.slice(0, 30) });
+  }
+  return o.slice(0, 6);
+}
+const tablolar = (html) => [...html.matchAll(/<table\b[\s\S]*?<\/table>/gi)].map((t) => [...t[0].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((x) => sade(x[1]).slice(0, 30)).filter(Boolean)).filter((b) => b.length > 1).slice(0, 4);
+
 class Sgk {
-  constructor(k) { this.k = k || {}; this.cerez = new Map(); this.girdi = false; this.ana = ""; }
+  constructor(k, sistem) { this.k = k || {}; this.s = SISTEMLER[sistem] || SISTEMLER.isveren; this.taban = "https://" + this.s.sunucu; this.cerez = new Map(); this.girdi = false; this.ana = ""; }
   cerezTopla(r) { for (const sc of (typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [])) { const kv = sc.split(";")[0].trim(), i = kv.indexOf("="); if (i > 0) this.cerez.set(kv.slice(0, i), kv.slice(i + 1)); } }
   async git(yontem, yol, govde) {
-    let url = /^https?:/i.test(yol) ? yol : TABAN + yol;
+    let url = /^https?:/i.test(yol) ? yol : this.taban + yol;
     for (let n = 0; n < 6; n++) {
       let u; try { u = new URL(url); } catch (e) { throw new Error("SGK adresi geçersiz."); }
-      if (u.protocol !== "https:" || u.hostname !== SUNUCU) throw new Error("SGK yönlendirmesi beklenmeyen bir adrese gitti; durduruldu.");
+      if (u.protocol !== "https:" || u.hostname !== this.s.sunucu) throw new Error("SGK yönlendirmesi beklenmeyen bir adrese gitti; durduruldu.");
       const h = { "user-agent": UA, accept: "text/html,application/xhtml+xml,image/*,*/*;q=0.8", "accept-language": "tr-TR,tr;q=0.9" };
       if (this.cerez.size) h.cookie = [...this.cerez].map(([a, d]) => a + "=" + d).join("; ");
-      if (govde) { h["content-type"] = "application/x-www-form-urlencoded"; h.referer = TABAN + GIRIS; h.origin = TABAN; }
+      if (govde) { h["content-type"] = "application/x-www-form-urlencoded"; h.referer = this.taban + this.s.kok; h.origin = this.taban; }
       let r;
       try { r = await fetch(url, { method: yontem, headers: h, body: govde ? new URLSearchParams(govde) : undefined, redirect: "manual", signal: AbortSignal.timeout(25000) }); }
       catch (e) { throw new Error(e && (e.name === "TimeoutError" || e.name === "AbortError") ? "SGK 25 saniyede yanıt vermedi (zaman aşımı)." : "SGK'ya ulaşılamadı: " + e.message); }
@@ -70,14 +85,14 @@ class Sgk {
   }
   async captcha() {
     this.cerez.clear(); this.girdi = false;
-    await this.git("GET", GIRIS);
-    const r = await this.git("GET", GIRIS + "/PG?" + Date.now());
+    await this.git("GET", this.s.kok);
+    const r = await this.git("GET", this.s.kok + "/PG?" + Date.now());
     if (!/^image\//i.test(r.tur) || !r.veri.length) throw new Error("SGK güvenlik kodu resmini vermedi.");
     return { resim: "data:" + r.tur.split(";")[0] + ";base64," + r.veri.toString("base64") };
   }
   async giris(dk) {
     const k = this.k;
-    const r = await this.git("POST", GIRIS + "/login/kullaniciIlkKontrollerGiris.action", { username: k.kullanici, isyeri_kod: k.isyeriKod, password: k.sistemSifre, isyeri_sifre: k.isyeriSifre, isyeri_guvenlik: String(dk || "").trim() });
+    const r = await this.git("POST", this.s.kok + "/login/kullaniciIlkKontrollerGiris.action", { username: k.kullanici, isyeri_kod: k.isyeriKod, password: k.sistemSifre, isyeri_sifre: k.isyeriSifre, isyeri_guvenlik: String(dk || "").trim() });
     let html = r.veri.toString("utf8"), url = r.url;
     if (/kullaniciIlkKontrollerGiris/.test(html)) {
       const m = hataMetni(html);
@@ -96,13 +111,20 @@ class Sgk {
     this.girdi = true; this.ana = html; this.anaUrl = url;
   }
   /* giriş sonrası ana sayfadaki bağlantılar (adres keşfi için tanı) */
-  async tani() {
+  async tani(derin) {
     if (!this.girdi) throw this.oturumHata();
     const liste = baglantilar(this.ana);
     const ilk = this.sayfalar && this.sayfalar.length > 1 ? baglantilar(this.sayfalar[0].html).map((x) => Object.assign({ not: "başlatıcı sayfa" }, x)) : [];
-    const cerceveler = liste.filter((x) => x.tur === "frame").slice(0, 4), ek = [];
-    for (const c of cerceveler) { try { const r = await this.git("GET", new URL(c.href, this.anaUrl).href); ek.push({ kaynak: c.href, baglantilar: baglantilar(r.veri.toString("utf8")) }); } catch (e) { ek.push({ kaynak: c.href, hata: e.message }); } }
-    return { baslik: (/<title>([\s\S]*?)<\/title>/i.exec(this.ana) || [])[1] || "", baglantilar: liste, baslatici: ilk, zincir: this.zincir || [], cerceveler: ek, adres: this.anaUrl };
+    const cerceveler = liste.filter((x) => x.tur === "frame").slice(0, 4), ek = [], tum = liste.slice();
+    for (const c of cerceveler) { try { const r = await this.git("GET", new URL(c.href, this.anaUrl).href); const b = baglantilar(r.veri.toString("utf8")); ek.push({ kaynak: c.href, baglantilar: b }); tum.push(...b); } catch (e) { ek.push({ kaynak: c.href, hata: e.message }); } }
+    const sonuc = { baslik: (/<title>([\s\S]*?)<\/title>/i.exec(this.ana) || [])[1] || "", baglantilar: liste, baslatici: ilk, zincir: this.zincir || [], cerceveler: ek, adres: this.anaUrl };
+    if (derin) { /* menü sayfalarını gez (yalnız okuma: GET); çıkış bağlantıları atlanır */
+      const adaylar = [], gor = new Set();
+      for (const x of tum) { if (x.tur !== "a" || !/\.(?:action|jsp|do)/i.test(x.href) || /çıkış|cikis|logout|exit/i.test(x.metin + x.href)) continue; const u = new URL(x.href, this.anaUrl).href; if (gor.has(u)) continue; gor.add(u); adaylar.push({ metin: x.metin, u }); }
+      sonuc.sayfalar = [];
+      for (const a of adaylar.slice(0, 12)) { try { const r = await this.git("GET", a.u); const h = r.veri.toString("utf8"); sonuc.sayfalar.push({ metin: a.metin, adres: a.u.replace(this.taban, ""), formlar: formlar(h), tablolar: tablolar(h), baglantilar: baglantilar(h).slice(0, 15) }); } catch (e) { sonuc.sayfalar.push({ metin: a.metin, adres: a.u.replace(this.taban, ""), hata: e.message }); } }
+    }
+    return sonuc;
   }
   oturumHata() { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; return e; }
   async cikis() {
@@ -113,11 +135,11 @@ class Sgk {
 
 /* deneme kipi: gerçek SGK'ya gitmez. Güvenlik kodu "SGK123" */
 class SahteSgk {
-  constructor(k) { this.k = k || {}; this.girdi = false; this.cid = false; }
+  constructor(k, sistem) { this.k = k || {}; this.sistem = sistem || "isveren"; this.girdi = false; this.cid = false; }
   async captcha() { this.cid = true; const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="50"><rect width="160" height="50" fill="#e8e0d8"/><text x="14" y="36" font-size="30" font-family="monospace" fill="#a33">SGK123</text></svg>'; return { resim: "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64") }; }
   async giris(dk) { if (!this.cid) throw new Error("Önce güvenlik kodu resmini isteyin."); this.cid = false; if (String(dk || "").trim() !== "SGK123") { const e = new Error("SGK girişi başarısız: Güvenlik kodu hatalı."); e.giris = true; throw e; } this.girdi = true; }
-  async tani() { if (!this.girdi) { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; throw e; } return { baslik: "T.C. Sosyal Güvenlik Kurumu", adres: TABAN + GIRIS, zincir: [], baslatici: [], baglantilar: [{ tur: "a", metin: "DÖNEM BORÇ GÖRÜNTÜLEME", href: "/IsverenSistemi/ornek/donemBorc.action" }, { tur: "a", metin: "İHALELERE KATILMAK İÇİN", href: "/IsverenSistemi/ornek/ihale.action" }, { tur: "a", metin: "ÇIKIŞ", href: "/IsverenSistemi/cikis.action" }], cerceveler: [] }; }
+  async tani(derin) { if (!this.girdi) { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; throw e; } return { baslik: "T.C. Sosyal Güvenlik Kurumu", adres: "https://" + (SISTEMLER[this.sistem] || SISTEMLER.isveren).sunucu + (SISTEMLER[this.sistem] || SISTEMLER.isveren).kok, zincir: [], baslatici: [], baglantilar: [{ tur: "a", metin: "DÖNEM BORÇ GÖRÜNTÜLEME", href: "/IsverenSistemi/ornek/donemBorc.action" }, { tur: "a", metin: "İHALELERE KATILMAK İÇİN", href: "/IsverenSistemi/ornek/ihale.action" }, { tur: "a", metin: "ÇIKIŞ", href: "/IsverenSistemi/cikis.action" }], cerceveler: [], sayfalar: derin ? [{ metin: "Onaylanmış Belgeler", adres: "/EBildirgeV2/ornek/onayli.action", formlar: [{ eylem: "/EBildirgeV2/ornek/liste.action", yontem: "post", alanlar: ["bas_donem:select[2026/09|2026/08]", "bit_donem:select[2026/09|2026/08]", "düğme:Bilgileri Getir"] }], tablolar: [["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Toplam Çalışan Sayısı"]], baglantilar: [] }] : undefined }; }
   async cikis() { this.girdi = false; }
 }
 
-module.exports = { istemci: (k) => (MOCK ? new SahteSgk(k) : new Sgk(k)), baglantilar, hataMetni, devamAdresleri, basliyorMu, anaSayfaMi };
+module.exports = { istemci: (k, sistem) => (MOCK ? new SahteSgk(k, sistem) : new Sgk(k, sistem)), baglantilar, hataMetni, devamAdresleri, basliyorMu, anaSayfaMi };

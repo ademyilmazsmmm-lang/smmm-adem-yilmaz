@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-30-102";
+const SURUM = "2026-10-30-103";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -173,8 +173,8 @@ async function vdSorgu(m, calistir) {
 }
 /* SGK İşveren Sistemi oturumları: her bağlanışta kullanıcı güvenlik kodunu yazar; boşta 5 dk sonra kapanır. Yalnız art arda hızlı isteklere 3 sn sınır vardır (kilitleme yok). */
 const sgkler = new Map(), sgkZaman = new Map(), sgkSon = new Map();
-async function sgkBirak(id) { clearTimeout(sgkZaman.get(id)); sgkZaman.delete(id); const x = sgkler.get(id); sgkler.delete(id); if (x) await x.cikis().catch(() => {}); }
-function sgkZamanla(id) { clearTimeout(sgkZaman.get(id)); sgkZaman.set(id, setTimeout(() => sgkBirak(id), 5 * 60e3).unref()); }
+async function sgkBirak(id) { for (const a of [id + ":isveren", id + ":ebildirge"]) { clearTimeout(sgkZaman.get(a)); sgkZaman.delete(a); const x = sgkler.get(a); sgkler.delete(a); if (x) await x.cikis().catch(() => {}); } }
+function sgkZamanla(a) { clearTimeout(sgkZaman.get(a)); sgkZaman.set(a, setTimeout(async () => { sgkZaman.delete(a); const x = sgkler.get(a); sgkler.delete(a); if (x) await x.cikis().catch(() => {}); }, 5 * 60e3).unref()); }
 function sgkKontrol(id, tur) {
   const an = id + ":" + tur, son = sgkSon.get(an) || 0; if (Date.now() - son < 3e3) throw new Error("Çok sık istek: birkaç saniye bekleyin."); sgkSon.set(an, Date.now());
 }
@@ -407,20 +407,21 @@ async function api(req, res, yol) {
   }
   if (m.earsiv === false && !yol.startsWith("/api/vd/") && !yol.startsWith("/api/sgk/") && yol !== "/api/tahsilat" && yol !== "/api/mail") return cevap(res, 400, { hata: "Bu mükellef için e-Arşiv fatura kapalı; yalnız Vergi Dairesi bölümü kullanılabilir." });
   if (yol.startsWith("/api/sgk/")) {
-    const ne = yol.slice(9), k = m.sgk || {};
+    const ne = yol.slice(9), k = m.sgk || {}, sis = g.sistem === "ebildirge" ? "ebildirge" : "isveren", an = m.id + ":" + sis;
+    const birak = async () => { clearTimeout(sgkZaman.get(an)); sgkZaman.delete(an); const x0 = sgkler.get(an); sgkler.delete(an); if (x0) await x0.cikis().catch(() => {}); };
     try {
       if (ne === "captcha" || ne === "giris") if (!k.kullanici || !k.isyeriKod || !k.sistemSifre || !k.isyeriSifre) return cevap(res, 400, { hata: "Önce Ayarlar'da bu mükellefin SGK İşveren Sistemi bilgilerini (kullanıcı adı, işyeri kodu, sistem şifresi, işyeri şifresi) girin." });
-      if (ne === "captcha") { sgkKontrol(m.id, "c"); await sgkBirak(m.id); const x = sgk.istemci(k); sgkler.set(m.id, x); sgkZamanla(m.id); return cevap(res, 200, await x.captcha()); }
+      if (ne === "captcha") { sgkKontrol(an, "c"); await birak(); const x = sgk.istemci(k, sis); sgkler.set(an, x); sgkZamanla(an); return cevap(res, 200, await x.captcha()); }
       if (ne === "giris") {
-        sgkKontrol(m.id, "g"); const x = sgkler.get(m.id); if (!x) return cevap(res, 409, { hata: "Önce güvenlik kodu resmini isteyin.", girisGerek: true });
-        try { await x.giris(g.dk); sgkZamanla(m.id); gunluk(o, mid, "SGK İşveren Sistemi bağlantısı", ""); return cevap(res, 200, { tamam: true }); }
-        catch (e) { await sgkBirak(m.id); throw e; }
+        sgkKontrol(an, "g"); const x = sgkler.get(an); if (!x) return cevap(res, 409, { hata: "Önce güvenlik kodu resmini isteyin.", girisGerek: true });
+        try { await x.giris(g.dk); sgkZamanla(an); gunluk(o, mid, sis === "ebildirge" ? "SGK e-Bildirge bağlantısı" : "SGK İşveren Sistemi bağlantısı", ""); return cevap(res, 200, { tamam: true }); }
+        catch (e) { await birak(); throw e; }
       }
-      if (ne === "cikis") { await sgkBirak(m.id); return cevap(res, 200, { tamam: true }); }
-      const x = sgkler.get(m.id); if (!x || !x.girdi) { const e = new Error("Önce SGK İşveren Sistemi'ne bağlanın (güvenlik kodu)."); e.girisGerek = true; throw e; }
-      sgkZamanla(m.id);
-      if (ne === "tani") return cevap(res, 200, await x.tani());
-    } catch (e) { if (e && e.oturum) { await sgkBirak(m.id); e.girisGerek = true; } if (e && e.girisGerek) return cevap(res, 409, { hata: e.message, girisGerek: true }); throw e; }
+      if (ne === "cikis") { if (g.sistem) await birak(); else await sgkBirak(m.id); return cevap(res, 200, { tamam: true }); }
+      const x = sgkler.get(an); if (!x || !x.girdi) { const e = new Error("Önce SGK'ya bağlanın (güvenlik kodu)."); e.girisGerek = true; throw e; }
+      sgkZamanla(an);
+      if (ne === "tani") return cevap(res, 200, await x.tani(g.derin === true));
+    } catch (e) { if (e && e.oturum) { await birak(); e.girisGerek = true; } if (e && e.girisGerek) return cevap(res, 409, { hata: e.message, girisGerek: true }); throw e; }
     return cevap(res, 404, { hata: "Bulunamadı." });
   }
   if (!m.kullanici || (!m.gibSifre && !gib.MOCK)) return cevap(res, 400, { hata: "Bu mükellef için GİB / Dijital Vergi Dairesi kullanıcı kodu ve şifresi girilmemiş (Ayarlar)." });
