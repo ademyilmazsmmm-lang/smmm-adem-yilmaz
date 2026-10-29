@@ -9,7 +9,7 @@ const SISTEMLER = { isveren: { sunucu: "uyg.sgk.gov.tr", kok: "/IsverenSistemi" 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 
 const coz = (t) => String(t == null ? "" : t).replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(+d)).replace(/&nbsp;/g, " ");
-const nitelik = (a, ad) => coz((new RegExp("\\b" + ad + "\\s*=\\s*[\"']([^\"']*)[\"']", "i").exec(a) || [])[1] || "");
+const nitelik = (a, ad) => { const m = new RegExp("\\b" + ad + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", "i").exec(a); return m ? coz(m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3]) : ""; };
 const sade = (h) => String(h || "").replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 function hataMetni(html) {
   /* 1) bilinen hata kapları (Struts actionError/errorMessage, kırmızı yazı, alert) */
