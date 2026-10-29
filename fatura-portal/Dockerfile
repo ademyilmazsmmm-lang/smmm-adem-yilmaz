@@ -1,7 +1,7 @@
 FROM node:22-alpine
 RUN apk add --no-cache su-exec
 WORKDIR /app
-COPY server.js gib.js kasa.js yansi.js ivd.js mail.js ./
+COPY server.js gib.js kasa.js yansi.js ivd.js mail.js sgk.js ./
 COPY public ./public
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
