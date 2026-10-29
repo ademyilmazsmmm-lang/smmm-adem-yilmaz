@@ -397,7 +397,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <section data-sayfa="vd" class="liste" hidden>
   <div class="card" id="vdKart">
     <div class="kartbas"><h2>Vergi Dairesi</h2><small id="vdMuk"></small></div>
-    <div class="seg" id="vdSeg" role="group" aria-label="Sorgu türü" style="display:flex;width:100%"><button class="chip" type="button" data-vd="borc" aria-pressed="true" style="flex:1;padding:6px 2px;font-size:.8rem">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Tebligat</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.8rem">Gelen fatura</button></div>
+    <div class="seg" id="vdSeg" role="group" aria-label="Sorgu türü" style="display:flex;width:100%"><button class="chip" type="button" data-vd="borc" aria-pressed="true" style="flex:1;padding:6px 2px;font-size:.76rem">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.76rem">Tebligat</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.76rem">Gelen fatura</button><button class="chip" type="button" data-vd="yazi" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.76rem">Borcu yoktur</button></div>
     <div id="vdBaglan" style="display:grid;gap:8px">
       <p class="not" style="margin:0">Dijital Vergi Dairesi’ne bağlanmak için resimdeki <b>doğrulama kodunu</b> resimde göründüğü gibi (büyük/küçük harf aynen) yazın. Kullanıcı kodu ve şifre Ayarlar’daki GİB bilgisinden alınır.</p>
       <button class="btn ikincil" type="button" id="vdKodIste">Doğrulama kodu al</button>
@@ -405,6 +405,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     </div>
     <div id="vdBagli" style="display:none;justify-content:space-between;align-items:center;gap:8px"><span class="not" style="margin:0">✓ Dijital Vergi Dairesi’ne bağlı</span><button class="k" type="button" id="vdKapat">Kapat</button></div>
     <p class="not" id="vdNot"></p>
+    <div id="vdYazi" hidden style="display:grid;gap:8px">
+      <div><label for="vdYKurum">Yazı hangi kuruma verilecek?</label><select id="vdYKurum"><option value="">Seçin</option><option>Kredi Garanti Fonu</option><option>İlgili Belediye Başkanlığına</option><option>KOSGEB'e</option><option>Tarım ve Orman Bakanlığı'na</option><option>Çevre, Şehircilik ve İklim Değişikliği Bakanlığına</option><option>Emniyet Genel Müdürlüğüne</option><option>Çalışma ve Sosyal Güvenlik Bakanlığına</option><option>Enerji ve Tabii Kaynaklar Bakanlığına</option><option>Diğer Kurum Kuruluşlara</option></select></div>
+      <div id="vdYDigerK" hidden><label for="vdYDiger">Kurum / kuruluş adı</label><input id="vdYDiger" maxlength="100" autocomplete="off"></div>
+      <div id="vdYNedenK"><label for="vdYNeden">Yazı talep nedeni</label><select id="vdYNeden"><option value="">Seçin</option><option value="1">Kamu ihale mevzuatı / ihaleye girmek için</option><option value="2">6183 / 22-A / kamu kurumlarından ödeme alabilmek için</option><option value="3">Diğer</option></select></div>
+      <div><label for="vdYEposta">Cevabın bildirileceği e-posta</label><input id="vdYEposta" type="email" inputmode="email" autocapitalize="off" autocomplete="off" placeholder="ornek@eposta.com"></div>
+      <button class="btn" type="button" id="vdYIste">Borç durum (borcu yoktur) yazısı talep et</button>
+      <p class="not" style="margin:0;font-size:.8rem">Bu işlem vergi dairesine resmî bir yazı talebi gönderir (güncel borç durumu). Cevap vergi dairesince verilir; hazır olunca aşağıdaki listede “PDF’yi aç” görünür.</p>
+    </div>
     <div id="vdTarih" hidden style="display:grid;gap:8px"><div id="vdHizli" style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" type="button" data-gun="7">Son 7 gün</button><button class="chip" type="button" data-gun="30">Son 30 gün</button><button class="chip" type="button" data-gun="ay">Bu ay</button><button class="chip" type="button" data-gun="gecen">Geçen ay</button><button class="chip" type="button" data-gun="60">Son 2 ay</button></div><div class="satir"><div><label for="vdBas">Başlangıç</label><input id="vdBas" type="date"></div><div><label for="vdBit">Bitiş</label><input id="vdBit" type="date"></div></div></div>
     <button class="btn ikincil" type="button" id="vdSorgula">Sorgula</button>
     <div class="durum" id="vdDurum" role="status"></div>
@@ -1806,6 +1814,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   var VDNOT = {
     borc: "Dijital Vergi Dairesi’ndeki borç durumu (Ödeme ve Borç İşlemleri ekranı).",
     tebligat: "E-Tebligat ekranındaki tebligatlar. Önemli ve okunmamış olanlar sekme rozetinde sayılır.",
+    yazi: "Vergi dairesinden “borç durum yazısı” (borcu yoktur yazısı) talep edilir; son 90 gündeki talepleriniz aşağıda listelenir.",
     gelen: "Adınıza düzenlenmiş e-Arşiv faturalar (e-Arşiv Faturalarım ekranı). Portal en çok son 2–3 ayı ve 7’şer günlük dilimleri gösterir; uygulama dilimleri birleştirir."
   };
   var ETIKET = { duzenlenmeTarihi: "Düzenlenme tarihi", faturaNo: "Fatura no", gonderimSekli: "Gönderim şekli", tcknVkn: "TCKN / VKN", unvan: "Unvan", toplamTutar: "Toplam tutar", odenecekTutar: "Ödenecek tutar", vergilerTutari: "Vergiler", paraBirimi: "Para birimi", iptalItirazDurum: "İptal/itiraz durumu", iptalItirazTarih: "İptal/itiraz tarihi", tesisatNumarasi: "Tesisat no", belgeNo: "Belge no", belgeTuru: "Belge türü", altKurum: "Kurum", vdAdi: "Vergi dairesi", vergiTuru: "Vergi türü", donem: "Dönem", vadeTarihi: "Vade tarihi", borcTutari: "Borç tutarı", gecikmeZammi: "Gecikme zammı", durum: "Durum", tebligTarihi: "Tebliğ tarihi", gonderen: "Gönderen",
@@ -1886,6 +1895,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function vdCiz(){
     var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
+    if (VD.sek === "yazi") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdYaziHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "tebligat") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdTebHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     var h = s.kayitlar.length ? "" : '<p class="not">Kayıt bulunamadı.</p>';
     if (s.ozetKart) { h += vdBorcKart(s.ozetKart) + s.kayitlar.map(borcKalem).join(""); liste.innerHTML = h; $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
@@ -1908,7 +1918,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function vdSekmeCiz(){
     $("vdSeg").querySelectorAll("[data-vd]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-vd") === VD.sek ? "true" : "false"); });
-    $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen"; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
+    $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen"; $("vdYazi").hidden = VD.sek !== "yazi" || !VD.bagli; if (VD.sek === "yazi" && VD.bagli) vdYaziAlan(); $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
   }
   function vdAc(){
     var l = V && V.mukellefler || [], ofis = ROL === "ofis";
@@ -1919,10 +1929,40 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     vdSekmeCiz();
   }
   function vdHata(er, d){ if (oturumDustu(er)) return; if (er.girisGerek) { VD.bagli = false; vdBagDurum(); } d.className = "durum hata"; d.textContent = er.message; }
+  /* borç durum (borcu yoktur) yazıları */
+  function vdYaziHtml(s){
+    if (!s.yazilar.length) return '<p class="not">Son 90 günde borç durum yazısı talebiniz yok.</p>';
+    return s.yazilar.map(function(y){
+      var d = y.durum === 1 ? ["✓ Cevaplandı", "#2f7d6b"] : y.durum === 9 ? ["Değerlendiriliyor", "#d68910"] : ["Cevaplanmadı", "#7f8c8d"];
+      return '<div class="kayit"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="min-width:0"><b style="display:block">' + esc(y.ad || "Borç Durum Yazısı") + '</b><span class="not" style="margin:0;font-size:.8rem;display:block">Talep: ' + esc(tarihYaz(y.talep, 1)) + (y.eposta ? " · " + esc(y.eposta) : "") + '</span>' + (y.cevap ? '<span class="not" style="margin:0;font-size:.8rem;display:block">Cevap: ' + esc(tarihYaz(y.cevap, 1)) + '</span>' : "") + '</div><span style="background:color-mix(in srgb,' + d[1] + ' 20%,transparent);border-radius:99px;padding:2px 10px;font-size:.78rem;font-weight:650;white-space:nowrap">' + d[0] + '</span></div>'
+        + (y.durum === 1 ? '<a class="btn" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="/api/vd/yazi?mid=' + encodeURIComponent(VD.mid) + '&n=' + y.n + '">PDF’yi aç</a>' : '') + '</div>';
+    }).join("");
+  }
+  function vdYaziAlan(){
+    var dg = $("vdYKurum").value === "Diger Kurum Kuruluşlara" || $("vdYKurum").value === "Diğer Kurum Kuruluşlara", kgf = $("vdYKurum").value === "Kredi Garanti Fonu";
+    $("vdYDigerK").hidden = !dg; $("vdYNedenK").hidden = kgf; if (kgf) $("vdYNeden").value = "2";
+    if (!$("vdYEposta").value) { var m = mBul(VD.mid) || {}, e = (m.profil && m.profil.eposta) || ""; if (!e) { try { e = localStorage.getItem("yaziEposta") || ""; } catch (x) {} } $("vdYEposta").value = e; }
+  }
+  $("vdYKurum").addEventListener("change", vdYaziAlan);
+  $("vdYIste").addEventListener("click", function(){
+    var d = $("vdDurum"), kurum = $("vdYKurum").value, neden = kurum === "Kredi Garanti Fonu" ? "2" : $("vdYNeden").value, diger = $("vdYDiger").value.trim(), ep = $("vdYEposta").value.trim(), b = this;
+    function hata(m){ d.className = "durum hata"; d.textContent = m; }
+    if (!kurum) return hata("Yazının verileceği kurumu seçin.");
+    if (kurum === "Diğer Kurum Kuruluşlara" && diger.length < 3) return hata("Kurum / kuruluş adını yazın.");
+    if (!neden) return hata("Yazı talep nedenini seçin.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ep)) return hata("Geçerli bir e-posta adresi yazın.");
+    var nm = $("vdYNeden").querySelector('option[value="' + neden + '"]').textContent;
+    if (!confirm("Vergi dairesine RESMÎ bir borç durum yazısı talebi gönderilecek.\n\nKurum: " + (kurum === "Diğer Kurum Kuruluşlara" ? diger : kurum) + "\nNeden: " + nm + "\nE-posta: " + ep + "\n\nDevam edilsin mi?")) return;
+    try { localStorage.setItem("yaziEposta", ep); } catch (x) {}
+    b.disabled = true; d.className = "durum"; d.textContent = "Talep gönderiliyor…";
+    api("/api/vd/yazi-iste", "POST", { mukellefId: VD.mid, onay: true, kurum: kurum, digerKurum: diger, neden: neden, eposta: ep }).then(function(r){
+      d.className = "durum ok"; d.textContent = r.mesaj || "Talebiniz işleme alındı."; VD.sonuc.yazi = null; setTimeout(function(){ if (VD.sek === "yazi" && VD.bagli) vdSorgula(); }, 1500);
+    }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
+  });
   function vdSorgula(){
     var b = $("vdSorgula"), sek = VD.sek, d = $("vdDurum"); if (!VD.mid || !VD.bagli) return;
     b.disabled = true; d.className = "durum"; d.textContent = "Sorgulanıyor…";
-    api("/api/vd/" + sek, "POST", { mukellefId: VD.mid, bas: $("vdBas").value, bit: $("vdBit").value }).then(function(r){
+    api("/api/vd/" + (sek === "yazi" ? "yazilar" : sek), "POST", { mukellefId: VD.mid, bas: $("vdBas").value, bit: $("vdBit").value }).then(function(r){
       r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc[sek] = r; d.textContent = ""; vdRozet(); if (VD.sek === sek) vdCiz();
     }, function(er){ VD.sonuc[sek] = null; if (VD.sek === sek) vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });
   }

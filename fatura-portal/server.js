@@ -18,7 +18,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-28-93";
+const SURUM = "2026-10-29-94";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -165,6 +165,7 @@ async function vdSorgu(m, calistir) {
   try { return await calistir(x); }
   catch (e) { if (e && e.oturum) { await ivdBirak(m.id); e.girisGerek = true; } throw e; }
 }
+const yaziSayac = new Map(); // mükellef -> son 24 saatteki borç durum yazısı talepleri
 const postaSayac = new Map(); // kullanıcı -> son gönderim zamanları (saatlik sınır)
 const bekleyen = new Map(); // taslak kimliği -> geçmiş kaydı taslağı (onaylanınca kalıcı olur)
 const TIPLER = ["SATIS", "TEVKIFAT", "IADE", "ISTISNA"]; // Özel Matrah: portal isteği alınınca eklenecek
@@ -302,15 +303,15 @@ async function api(req, res, yol) {
   if (yol === "/api/mail/durum" && req.method === "GET") return cevap(res, 200, { hazir: posta.hazir(), saglayici: posta.durum().saglayici, gonderen: o.rol === "ofis" ? posta.durum().gonderen : undefined });
   if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz(o));
   if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req, 8e6); if (!Array.isArray(g.mukellefler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(o, g); return cevap(res, 200, temiz(o)); }
-  if (yol === "/api/vd/belge" && req.method === "GET") {
+  if ((yol === "/api/vd/belge" || yol === "/api/vd/yazi") && req.method === "GET") {
     const q = new URL(req.url, "http://x").searchParams, mid = o.rol === "mukellef" ? o.mid : q.get("mid") || "";
     const duz = (kod, metin) => { res.writeHead(kod, Object.assign({ "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }, GUV)); res.end(metin); };
     if (!depo.yetkili(o, mid)) return duz(403, "Bu mükellef için yetkiniz yok.");
     const x = ivdler.get(mid); if (!x || !x.girildi) return duz(409, "Önce Dijital Vergi Dairesi'ne bağlanın (Vergi D. sekmesi).");
     try {
       ivdKontrol({ id: mid }, "b"); ivdZamanla(mid);
-      const d = await x.belgeIndir(Number(q.get("n")));
-      gunluk(o, mid, "Tebligat belgesi açıldı", d.ad);
+      const yazi = yol === "/api/vd/yazi", d = yazi ? await x.yaziIndir(Number(q.get("n"))) : await x.belgeIndir(Number(q.get("n")));
+      gunluk(o, mid, yazi ? "Borç durum yazısı açıldı" : "Tebligat belgesi açıldı", d.ad);
       res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": (d.satir ? "inline" : "attachment") + "; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:" }));
       return res.end(d.veri);
     } catch (e) { if (e && e.oturum) await ivdBirak(mid); return duz(500, "Belge alınamadı: " + e.message); }
@@ -463,6 +464,24 @@ async function api(req, res, yol) {
         const al = (a) => { const v = String(g[a] || ""); if (!/^[\w.\-]{1,128}$/.test(v)) throw new Error("Geçersiz tebligat kimliği."); return v; };
         const p = { tarafId: al("tarafId"), tarafSecureId: al("tarafSecureId"), tebligId: al("tebligId"), tebligSecureId: al("tebligSecureId") };
         return cevap(res, 200, await vdSorgu(m, (x) => x.belgeListe(p)));
+      }
+      if (ne === "yazilar") return cevap(res, 200, await vdSorgu(m, (x) => x.yaziListe()));
+      if (ne === "yazi-iste") {
+        /* resmî talep: yalnız açık onayla, mükellef başına günde en çok 3 talep */
+        if (g.onay !== true) return cevap(res, 400, { hata: "Talep için onay gerekli." });
+        const KURUMLAR = ["Kredi Garanti Fonu", "İlgili Belediye Başkanlığına", "KOSGEB'e", "Tarım ve Orman Bakanlığı'na", "Çevre, Şehircilik ve İklim Değişikliği Bakanlığına", "Emniyet Genel Müdürlüğüne", "Çalışma ve Sosyal Güvenlik Bakanlığına", "Enerji ve Tabii Kaynaklar Bakanlığına", "Diğer Kurum Kuruluşlara"];
+        const kurum = String(g.kurum || ""), diger = gib.temizMetin(g.digerKurum, 100), eposta = String(g.eposta || "").trim();
+        let neden = String(g.neden || "");
+        if (!KURUMLAR.includes(kurum)) return cevap(res, 400, { hata: "Yazının verileceği kurumu seçin." });
+        if (kurum === "Kredi Garanti Fonu") neden = "2"; // portal bu kurumda nedeni sabitler
+        if (!["1", "2", "3"].includes(neden)) return cevap(res, 400, { hata: "Yazı talep nedenini seçin." });
+        if (kurum === "Diğer Kurum Kuruluşlara" && diger.length < 3) return cevap(res, 400, { hata: "Kurum / kuruluş adını yazın." });
+        if (!posta.EPOSTA.test(eposta) || eposta.length > 120) return cevap(res, 400, { hata: "Cevabın bildirileceği geçerli bir e-posta adresi yazın." });
+        const sin = (yaziSayac.get(m.id) || []).filter((t) => Date.now() - t < 864e5); if (sin.length >= 3) return cevap(res, 429, { hata: "Bir mükellef için günde en çok 3 yazı talebi gönderilebilir." });
+        const r = await vdSorgu(m, (x) => x.yaziIste({ eposta, neden, kurum, digerKurum: kurum === "Diğer Kurum Kuruluşlara" ? diger : "" }));
+        sin.push(Date.now()); yaziSayac.set(m.id, sin);
+        gunluk(o, mid, "Borç durum yazısı talep edildi", kurum + (diger ? " (" + diger + ")" : "") + " · neden " + neden);
+        return cevap(res, 200, r);
       }
       if (ne === "gelen") {
         const t = (d) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); if (!q) throw new Error("Tarih seçin."); return `${q[3]}/${q[2]}/${q[1]}`; };

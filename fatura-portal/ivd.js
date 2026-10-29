@@ -142,6 +142,10 @@ class Ivd {
   async belgeIndir(n) {
     const b = (this.belgeler || [])[n]; if (!b) throw new Error("Belge bulunamadı; tebligatı yeniden açın.");
     const y = await this.istek("POST", GW + "/etebligat/etebligat/belge-getir", { data: { id: b.id, secureId: b.secureId, belgeTip: b.belgeTip, tarafId: b.tarafId, tarafSecureId: b.tarafSecureId, uzanti: b.uzanti, belgeAdi: b.adi } }, true);
+    return this.dosyaCek(y, b.adi, b.uzanti);
+  }
+  /* GİB'in verdiği reportLink'ten dosyayı indirir; yalnız *.gib.gov.tr adreslerine gider, yalnız PDF/resim satır içi açılır */
+  async dosyaCek(y, adi, uzanti) {
     const baglanti = y && (y.reportLink || (y.data && y.data.reportLink)); if (!baglanti) throw new Error("GİB belge bağlantısı vermedi.");
     const url = /^https?:\/\//i.test(baglanti) ? baglanti : "https://dijital.gib.gov.tr" + (baglanti.startsWith("/") ? "" : "/") + baglanti;
     let u; try { u = new URL(url); } catch (e) { throw new Error("GİB belge bağlantısı geçersiz."); }
@@ -150,11 +154,32 @@ class Ivd {
     if ((r.status === 401 || r.status === 403) && this.token) r = await fetch(u, { headers: { authorization: "Bearer " + this.token }, signal: AbortSignal.timeout(30000), redirect: "follow" });
     if (!r.ok) throw new Error("Belge indirilemedi (HTTP " + r.status + ").");
     const veri = Buffer.from(await r.arrayBuffer()); if (veri.length > 25e6) throw new Error("Belge çok büyük.");
-    const ut = (r.headers.get("content-type") || "").toLowerCase(), uz = String(b.uzanti || "").toLowerCase().replace(/^\./, "");
+    const ut = (r.headers.get("content-type") || "").toLowerCase(), uz = String(uzanti || "").toLowerCase().replace(/^\./, "");
     const pdf = /pdf/.test(ut) || uz === "pdf" || veri.slice(0, 4).toString() === "%PDF";
     const resim = !pdf && (/^image\/(png|jpe?g|gif)/.test(ut) ? ut.split(";")[0] : { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif" }[uz]);
-    const ad = String(b.adi || "belge").replace(/[\\/:*?"<>|\r\n]+/g, " ").trim(); const adUz = uz && !ad.toLowerCase().endsWith("." + uz) ? ad + "." + uz : ad;
+    const ad = String(adi || "belge").replace(/[\\/:*?"<>|\r\n]+/g, " ").trim(); const adUz = uz && !ad.toLowerCase().endsWith("." + uz) ? ad + "." + uz : ad;
     return { veri, tur: pdf ? "application/pdf" : resim || "application/octet-stream", satir: !!(pdf || resim), ad: adUz };
+  }
+  /* Borç durum yazısı ("borcu yoktur" yazısı): portalda resmî bir talep (dilekçe) olarak verilir, vergi dairesi cevaplayınca PDF görüntülenir */
+  async yaziListe() {
+    const g8 = (d) => d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0"), bugun = new Date();
+    const y = await this.istek("POST", GW + "/api/dilekce/dilekceSorgula", this.tablo({ body: { baslangicTarihi: g8(new Date(bugun.getTime() - 89 * 864e5)), bitisTarihi: g8(bugun) } }, 50, { alan: "talepZamani", yon: "DESC" }), true);
+    const dizi = (y && (y.mukellefiyetGonderilmisDilekcelerListeDTOList || (y.data && y.data.mukellefiyetGonderilmisDilekcelerListeDTOList))) || [];
+    this.yazilar = dizi.map((d) => ({ id: d.dilekceId, secureId: d.secureId, ad: d.ad, talep: d.talepZamani, cevap: d.cevapZamani, durum: d.durum, eposta: d.eposta }));
+    return { yazilar: this.yazilar.map((d, n) => ({ n, ad: d.ad, talep: d.talep, cevap: d.cevap, durum: d.durum, eposta: d.eposta })), sekil: sekil(y) };
+  }
+  async yaziIste(p) {
+    const g8 = (d) => d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
+    const y = await this.istek("POST", GW + "/api/dilekce/dilekceKaydet", { eposta: p.eposta, baslangicTarihi: null, bitisTarihi: g8(new Date()), talepNedeni: p.neden, verilecekKurum: p.kurum, digerKurum: p.digerKurum || "", yazininHazirlanacagiTarih: "0" }, true);
+    const mesajlar = (y && y.messages) || [], basari = mesajlar.some((m) => m && m.type === "SUCCESS");
+    if (!basari) throw new Error("Talep alınmadı" + (this.mesajMetni(y) ? ": " + String(this.mesajMetni(y)).slice(0, 200) : " (GİB başarı yanıtı vermedi)") + ".");
+    return { tamam: true, mesaj: mesajlar.filter((m) => m && m.text).map((m) => m.text).join(" ") || "Talebiniz işleme alındı.", sekil: sekil(y) };
+  }
+  async yaziIndir(n) {
+    const d = (this.yazilar || [])[n]; if (!d) throw new Error("Yazı bulunamadı; listeyi yenileyin.");
+    if (d.durum !== 1) throw new Error("Bu talep henüz cevaplanmadı; cevaplanınca PDF açılabilir.");
+    const y = await this.istek("POST", GW + "/api/dilekce/dilekceGoruntulePdf", { data: { dilekceOid: d.id, secureId: d.secureId } }, true);
+    return this.dosyaCek(y, d.ad || "borc-durum-yazisi", "pdf");
   }
   /* gelen e-Arşiv: portal en çok 7 günlük aralık kabul eder ve en erken 2 ay önceki ayın başına bakar; aralık dilimlenip birleştirilir.
    * bas/bit "GG/AA/YYYY" */
@@ -222,6 +247,13 @@ class SahteIvd {
     if (!(n >= 0 && n < 2)) throw new Error("Belge bulunamadı; tebligatı yeniden açın.");
     const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 18 Tf 20 60 Td (ORNEK TEBLIGAT) Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF";
     return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "tebligat.pdf" };
+  }
+  async yaziListe() { const d = this.yazilar = this.yazilar || [{ ad: "Borç Durum Yazısı", talep: "2026-10-20T10:15:00", cevap: "2026-10-20T11:02:00", durum: 1, eposta: "ornek@ornek.com" }]; return { yazilar: d.map((x, n) => Object.assign({ n }, x)), sekil: {} }; }
+  async yaziIste(p) { this.yazilar = this.yazilar || []; this.yazilar.unshift({ ad: "Borç Durum Yazısı", talep: new Date().toISOString().slice(0, 19), cevap: "", durum: 9, eposta: p.eposta }); this.sonIste = p; return { tamam: true, mesaj: "Talebiniz işleme alındı.", sekil: {} }; }
+  async yaziIndir(n) {
+    const d = (this.yazilar || [])[n]; if (!d) throw new Error("Yazı bulunamadı; listeyi yenileyin."); if (d.durum !== 1) throw new Error("Bu talep henüz cevaplanmadı; cevaplanınca PDF açılabilir.");
+    const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 18 Tf 20 60 Td (ORNEK BORC DURUM YAZISI) Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF";
+    return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "borc-durum-yazisi.pdf" };
   }
   async gelen() { const d = [{ unvan: "ÖRNEK TEDARİKÇİ A.Ş.", faturaNo: "ABC2026000000012", duzenlenmeTarihi: "12.10.2026", toplamTutar: 11800, odenecekTutar: 11800, paraBirimi: "TRY" }]; return { kayitlar: kayitlar(d), sekil: sekil(d) }; }
 }
