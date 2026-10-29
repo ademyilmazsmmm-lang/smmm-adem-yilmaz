@@ -40,6 +40,16 @@ jobs:
           MAIL_TO: ${{ secrets.MAIL_TO }}
         run: python3 hatirlatici.py --veri veri
 
+      - name: Google Takvim'i eşitle
+        # Telefona takvim bildirimi düşsün diye hatırlatmalar tek yönlü Google Takvim'e yazılır.
+        # GOOGLE_SA_JSON / TAKVIM_ID tanımlı değilse atlanır; hata verirse mailleri ve kaydı engellemez.
+        if: always() && steps.veri.outcome == 'success'
+        continue-on-error: true
+        env:
+          GOOGLE_SA_JSON: ${{ secrets.GOOGLE_SA_JSON }}
+          TAKVIM_ID: ${{ secrets.TAKVIM_ID }}
+        run: python3 takvim_senkron.py --veri veri
+
       - name: Gönderim kaydını kaydet
         # Gönderme adımı kısmen başarısız olsa bile gidenler kaydedilmeli (aynı mail tekrar gitmesin).
         # Çakışmada değişiklik kaybolursa sorun olmaz: "Tamam" yanıtları son 4 gün içinde yeniden işlenir.
