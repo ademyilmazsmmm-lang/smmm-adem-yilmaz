@@ -67,6 +67,11 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6}
 .seg{display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:99px;padding:3px;gap:2px}
 .seg .chip{border:0;background:transparent;min-height:36px;padding:6px 14px}
 .seg .chip[aria-pressed=true]{background:var(--surface);color:var(--accent);box-shadow:var(--shadow)}
+/* Vergi D. alt sekmeleri: belirgin, büyük, seçili olan dolu renkli */
+.vdsek{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;width:100%}
+.vdsek .chip{min-height:46px;padding:8px 10px;font-size:.95rem;font-weight:650;border:1.5px solid var(--line2);background:var(--field);color:var(--fg);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:normal;text-align:center;line-height:1.2}
+.vdsek .chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);box-shadow:0 2px 8px rgba(0,0,0,.18)}
+@media (min-width:640px){.vdsek{grid-template-columns:repeat(4,1fr)}}
 
 /* yapı */
 .bar{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
@@ -397,7 +402,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <section data-sayfa="vd" class="liste" hidden>
   <div class="card" id="vdKart">
     <div class="kartbas"><h2>Vergi Dairesi</h2><small id="vdMuk"></small></div>
-    <div class="seg" id="vdSeg" role="group" aria-label="Sorgu türü" style="display:flex;width:100%"><button class="chip" type="button" data-vd="borc" aria-pressed="true" style="flex:1;padding:6px 2px;font-size:.76rem">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.76rem">Tebligat</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.76rem">Gelen fatura</button><button class="chip" type="button" data-vd="yazi" aria-pressed="false" style="flex:1;padding:6px 2px;font-size:.76rem">Borcu yoktur</button></div>
+    <div class="vdsek" id="vdSeg" role="group" aria-label="Vergi Dairesi bölümü"><button class="chip" type="button" data-vd="borc" aria-pressed="true">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false">Tebligat</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false">Gelen fatura</button><button class="chip" type="button" data-vd="yazi" aria-pressed="false">Borcu yoktur</button></div>
     <div id="vdBaglan" style="display:grid;gap:8px">
       <p class="not" style="margin:0">Dijital Vergi Dairesi’ne bağlanmak için resimdeki <b>doğrulama kodunu</b> resimde göründüğü gibi (büyük/küçük harf aynen) yazın. Kullanıcı kodu ve şifre Ayarlar’daki GİB bilgisinden alınır.</p>
       <button class="btn ikincil" type="button" id="vdKodIste">Doğrulama kodu al</button>
