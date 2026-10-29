@@ -5,6 +5,11 @@ aynı slot mantığını kullanır: her "kaç gün önce" günü için o gün ve
 (bildirimi takvimin kendi "etkinlik saatinde" ayarı verir). Tamamlanan, silinen ya da değişen
 hatırlatmalar takvimde de kalkar/güncellenir. Eşitleme her çalışmada baştan hesaplanır, durum tutmaz.
 
+Ters yön: takvime elle yazılan (programın açmadığı) etkinlikler hatırlatma olarak uygulamaya alınır
+(etkinlik günü ve 1 gün önce, etkinliğin saatinde). Etkinlik değişir/silinirse hatırlatma da güncellenir/silinir.
+Tekrarlı etkinlikler alınmaz. Etkinlik, hatırlatma kaydı gerçekten yazıldıktan sonraki çalışmada "alındı"
+diye işaretlenir; böylece kayıt bir sebeple yazılamazsa bir sonraki çalışma yeniden dener.
+
 DİKKAT: Bu depo herkese açıktır ve Actions günlükleri herkese görünür. Bu yüzden ekrana hatırlatma
 metni ya da firma adı YAZILMAZ; yalnızca sayılar ve Google'ın hata kodu yazılır.
 
@@ -40,6 +45,11 @@ API = "https://www.googleapis.com/calendar/v3/calendars/"
 TR_OFSET = "+03:00"
 ISARET = "hatirlatma"         # bu program tarafından açılan etkinliklerin gizli işareti
 TUR_ADIM = 100                # bir çalışmada en fazla bu kadar ekleme/güncelleme/silme (kota koruması)
+ALINDI = "ice"                # takvimden uygulamaya alınmış kullanıcı etkinliklerinin gizli işareti
+ALMA_PENCERE = 60             # bugünden itibaren kaç gün ilerisindeki kullanıcı etkinlikleri alınır
+ALMA_GUNLER = [1, 0]          # alınan etkinliklere mail: etkinlik günü ve 1 gün önce
+ALMA_SAAT = "11:00"           # tüm gün etkinliklerinde varsayılan saat
+SILME_SINIRI = 10             # bir çalışmada en fazla bu kadar hatırlatma takvim silmesi nedeniyle silinir
 
 
 # ---------- istenen etkinlikler ----------
@@ -90,9 +100,12 @@ def istenen_etkinlikler(hatirlatmalar, simdi, pencere=PENCERE):
             continue
         saat = datetime.strptime(k["saat"], "%H:%M").time()
         olusturma = datetime.fromisoformat(k["olusturma"]) if k.get("olusturma") else None
+        alinan = bool(k.get("takvim_olay"))       # kullanıcının kendi etkinliği zaten takvimde
         gun = bugun
         while gun <= son:
             for fark in gunler:
+                if alinan and fark == 0 and not k.get("takvim_tum_gun"):
+                    continue                       # etkinliğin kendisi o saatte bildirim verir
                 olay = gun + timedelta(days=fark)
                 if olay.isoformat() in bitenler or not h.olay_mi(k, olay):
                     continue
@@ -102,7 +115,7 @@ def istenen_etkinlikler(hatirlatmalar, simdi, pencere=PENCERE):
                 kid = etkinlik_kimligi(k["id"], olay.isoformat(), fark)
                 sonuc[kid] = _gov(k["id"], olay.isoformat(), fark, k, slot, False)
             gun += timedelta(days=1)
-        if 0 not in gunler:                       # olay günü de takvimde görünsün (bildirimsiz)
+        if 0 not in gunler and not alinan:        # olay günü de takvimde görünsün (bildirimsiz)
             gun = bugun
             while gun <= son:
                 if gun.isoformat() not in bitenler and h.olay_mi(k, gun):
@@ -206,6 +219,37 @@ class Takvim:
             if not sayfa:
                 return sonuc
 
+    ALAN = "nextPageToken,items(id,status,summary,start,updated,recurrence,recurringEventId,extendedProperties)"
+
+    def listele_hepsi(self, zmin, zmax):
+        """Takvimdeki tüm etkinlikler (kullanıcınınkiler dahil)."""
+        sonuc, sayfa = [], None
+        while True:
+            q = {"timeMin": zmin, "timeMax": zmax, "maxResults": 2500, "showDeleted": "false", "fields": self.ALAN}
+            if sayfa:
+                q["pageToken"] = sayfa
+            r = self.http("GET", self.taban + "?" + parse.urlencode(q), token=self.token)
+            sonuc += r.get("items", [])
+            sayfa = r.get("nextPageToken")
+            if not sayfa:
+                return sonuc
+
+    def getir(self, kid):
+        """Tek etkinlik; silinmişse None."""
+        try:
+            e = self.http("GET", f"{self.taban}/{kid}?" + parse.urlencode({"fields": self.ALAN.split("(", 1)[1][:-1]}), token=self.token)
+        except Hata as ex:
+            if ex.durum in (404, 410):
+                return None
+            raise
+        return None if e.get("status") == "cancelled" else e
+
+    def isaretle(self, kid):
+        """Kullanıcı etkinliğini "alındı" diye işaretler; yeni `updated` değerini döndürür."""
+        r = self.http("PATCH", f"{self.taban}/{kid}?fields=updated",
+                      veri={"extendedProperties": {"private": {ALINDI: "1"}}}, token=self.token)
+        return r.get("updated", "")
+
     def ekle(self, kid, gov):
         try:
             self.http("POST", self.taban, veri={"id": kid, **gov}, token=self.token)
@@ -248,6 +292,95 @@ def esitle(takvim, istenen, mevcut, sinir=TUR_ADIM):
     return e, g, s, kalan
 
 
+# ---------- takvimden uygulamaya (kullanıcının kendi etkinlikleri) ----------
+
+def _ozel(ev):
+    return (ev.get("extendedProperties") or {}).get("private") or {}
+
+
+def olay_ozeti(ev):
+    """Etkinlikten (metin, tarih, saat, tüm_gün); anlaşılmazsa None. Saatler Türkiye saatine çevrilir."""
+    bas = ev.get("start") or {}
+    metin = " ".join(str(ev.get("summary") or "").split())[:300] or "Takvim etkinliği"
+    try:
+        if bas.get("dateTime"):
+            d = datetime.fromisoformat(bas["dateTime"].replace("Z", "+00:00"))
+            d = d.astimezone(h.TR).replace(tzinfo=None) if d.tzinfo else d
+            return metin, d.date().isoformat(), d.strftime("%H:%M"), False
+        if bas.get("date"):
+            date.fromisoformat(bas["date"])
+            return metin, bas["date"], ALMA_SAAT, True
+    except ValueError:
+        pass
+    return None
+
+
+def _uygula(r, ozet, guncel):
+    """Alınmış hatırlatmayı etkinliğin güncel hâline getirir; değiştiyse True."""
+    metin, tarih, saat, tum = ozet
+    degisti = (r.get("metin"), r.get("tarih"), r.get("saat")) != (metin, tarih, saat)
+    if degisti:
+        if r.get("tarih") != tarih:
+            r.pop("tamam", None); r.pop("tamamlanma", None)      # tarih kaydıysa yeniden hatırlatılsın
+        r["metin"], r["tarih"], r["saat"] = metin, tarih, saat
+    r["takvim_tum_gun"] = tum
+    r["takvim_guncel"] = guncel
+    return degisti
+
+
+def takvimden_al(takvim, veri, simdi):
+    """Programın açmadığı etkinlikleri `veri` (hatirlatmalar.json sözlüğü) içine hatırlatma olarak alır; yerinde değiştirir.
+    Dönüş: (alınan, güncellenen, silinen)."""
+    hat = veri.setdefault("hatirlatmalar", [])
+    bugun = simdi.date()
+    zmin = datetime.combine(bugun, datetime.min.time()).isoformat(timespec="seconds") + TR_OFSET
+    zmax = datetime.combine(bugun + timedelta(days=ALMA_PENCERE + 1), datetime.min.time()).isoformat(timespec="seconds") + TR_OFSET
+    olaylar = {}
+    for ev in takvim.listele_hepsi(zmin, zmax):
+        if ev.get("status") == "cancelled" or _ozel(ev).get(ISARET) or ev.get("recurrence") or ev.get("recurringEventId"):
+            continue                                   # programın kendi etkinlikleri ve tekrarlılar alınmaz
+        olaylar[ev["id"]] = ev
+    benim = {r["takvim_olay"]: r for r in hat if r.get("takvim_olay")}
+    alinan = guncellenen = silinen = 0
+    for kid, ev in olaylar.items():
+        ozet = olay_ozeti(ev)
+        if not ozet:
+            continue
+        guncel, isaretli = ev.get("updated", ""), _ozel(ev).get(ALINDI) == "1"
+        r = benim.get(kid)
+        if r is None:
+            if isaretli:
+                continue                               # uygulamadan silinmiş: yeniden alınmaz
+            metin, tarih, saat, tum = ozet
+            if (tarih < bugun.isoformat()) if tum else (datetime.fromisoformat(f"{tarih}T{saat}") < simdi):
+                continue                               # geçmiş etkinlik
+            yeni = veri.get("sonraki_id") or (max([x["id"] for x in hat if isinstance(x.get("id"), int)] + [0]) + 1)
+            veri["sonraki_id"] = yeni + 1
+            hat.append({"id": yeni, "gunler": list(ALMA_GUNLER), "saat": saat, "metin": metin,
+                        "olusturma": simdi.isoformat(timespec="minutes"), "tur": "tek", "tarih": tarih,
+                        "takvim_olay": kid, "takvim_guncel": guncel, "takvim_tum_gun": tum})
+            alinan += 1
+            continue
+        if guncel != r.get("takvim_guncel") and _uygula(r, ozet, guncel):
+            guncellenen += 1
+        if not isaretli:                               # kayıt yazılmış (ikinci çalışma): artık işaretle
+            r["takvim_guncel"] = takvim.isaretle(kid)
+    kontrol = 0
+    for kid, r in benim.items():
+        if kid in olaylar or r.get("tarih", "") < bugun.isoformat() or kontrol >= 20:
+            continue
+        kontrol += 1
+        ev = takvim.getir(kid)                         # pencere dışına taşınmış olabilir
+        if ev is None:
+            if silinen < SILME_SINIRI:
+                hat.remove(r); silinen += 1
+        else:
+            ozet = olay_ozeti(ev)
+            if ozet and ev.get("updated", "") != r.get("takvim_guncel") and _uygula(r, ozet, ev.get("updated", "")):
+                guncellenen += 1
+    return alinan, guncellenen, silinen
+
+
 # ---------- ana program ----------
 
 def main(argv=None, http=istek, imzala=rs256_imzala):
@@ -258,11 +391,12 @@ def main(argv=None, http=istek, imzala=rs256_imzala):
     args = ap.parse_args(argv)
 
     simdi = datetime.fromisoformat(args.simdi) if args.simdi else h.simdi_tr()
-    veri = h.json_oku(os.path.join(args.veri, "hatirlatmalar.json"), {"hatirlatmalar": []})
+    hat_yolu = os.path.join(args.veri, "hatirlatmalar.json")
+    veri = h.json_oku(hat_yolu, {"hatirlatmalar": []})
     yap = h.json_oku(os.path.join(args.veri, "yapilacaklar.json"), {"ogeler": []})
-    istenen = istenen_etkinlikler(veri["hatirlatmalar"] + h.gorev_hatirlatmalari(yap), simdi)
 
     if args.dry_run:
+        istenen = istenen_etkinlikler(veri["hatirlatmalar"] + h.gorev_hatirlatmalari(yap), simdi)
         for kid, g in sorted(istenen.items(), key=lambda x: x[1]["start"].get("dateTime") or x[1]["start"]["date"]):
             print(g["start"].get("dateTime") or g["start"]["date"], "|", g["summary"])
         print(f"{len(istenen)} etkinlik üretilecek.")
@@ -276,6 +410,11 @@ def main(argv=None, http=istek, imzala=rs256_imzala):
         sa = json.loads(sa_json)
         token = erisim_anahtari(sa, http, imzala=imzala)
         takvim = Takvim(takvim_id, token, http)
+        onceki = json.dumps(veri, sort_keys=True)
+        alinan, guncellenen, silinen = takvimden_al(takvim, veri, simdi)
+        if json.dumps(veri, sort_keys=True) != onceki:
+            h.json_yaz(hat_yolu, veri)                 # workflow'un "kaydet" adımı bu dosyayı depoya işler
+        istenen = istenen_etkinlikler(veri["hatirlatmalar"] + h.gorev_hatirlatmalari(yap), simdi)
         zmin = datetime.combine(simdi.date(), datetime.min.time()).isoformat(timespec="seconds") + TR_OFSET
         zmax = datetime.combine(simdi.date() + timedelta(days=PENCERE + 1), datetime.min.time()).isoformat(timespec="seconds") + TR_OFSET
         e, g, s, kalan = esitle(takvim, istenen, takvim.listele(zmin, zmax))
@@ -284,7 +423,8 @@ def main(argv=None, http=istek, imzala=rs256_imzala):
         print(f"Takvim eşitlenemedi ({ad}).")      # ayrıntı yazılmaz: günlük herkese açık
         return 1
     print(f"Takvim eşitlendi: {len(istenen)} etkinlik (eklenen {e}, güncellenen {g}, silinen {s})."
-          + (f" {kalan} işlem sonraki çalışmaya kaldı." if kalan else ""))
+          + (f" {kalan} işlem sonraki çalışmaya kaldı." if kalan else "")
+          + (f" Takvimden alınan: {alinan}, güncellenen: {guncellenen}, silinen: {silinen}." if alinan or guncellenen or silinen else ""))
     return 0
 
 

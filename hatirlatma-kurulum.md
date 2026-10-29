@@ -146,3 +146,14 @@ Hatırlatmalar tek yönlü olarak Google Takvim'deki ayrı bir **Hatırlatma** t
 - Gerekli GitHub secret'ları: `GOOGLE_SA_JSON` (hizmet hesabı anahtarının tüm JSON içeriği), `TAKVIM_ID` (takvim ayarlarındaki "Takvim kimliği"). Takvim, hizmet hesabının e-postasıyla "Etkinliklerde değişiklik yap" izniyle paylaşılmış olmalı. Secret yoksa adım sessizce atlanır; hata verirse mailleri engellemez.
 - Günlük herkese açıktır: yalnızca sayılar ve Google'ın hata kodu yazılır (örn. `404 notFound` = takvim paylaşılmamış ya da kimlik yanlış, `400 invalid_grant` = anahtar geçersiz).
 - Bilgisayarda deneme: `python takvim_senkron.py --veri veri --dry-run`.
+
+### Takvimden uygulamaya (takvime elle yazılan etkinlikler)
+
+**Hatırlatma** takvimine kendi yazdığın (telefondan, Google Asistan'dan, bilgisayardan) etkinlikler en geç 10 dakika içinde uygulamaya hatırlatma olarak alınır:
+
+- Tarih ve saat etkinlikten gelir (tüm gün etkinliklerde saat 11:00). Mail **etkinlik günü ve 1 gün önce** gider. Etkinliğin kendisi zaten o saatte bildirim verdiği için programın ayrıca "BUGÜN" etkinliği açılmaz; yalnızca "1 gün kaldı" etkinliği eklenir.
+- Etkinliğin başlığı ya da saati takvimde değişirse hatırlatma da güncellenir (tarih değişirse tamamlandı işareti kalkar). Etkinlik takvimde silinirse hatırlatma da silinir. Uygulamada yaptığın düzenleme, etkinlik değişmedikçe ezilmez.
+- Uygulamadan sildiğin hatırlatma, etkinlik takvimde dursa bile yeniden alınmaz.
+- Programın kendi açtığı etkinlikler ve **tekrarlı** etkinlikler alınmaz (tekrarlı hatırlatmayı uygulamadan ekle). Geçmiş etkinlikler alınmaz; bugünden 60 gün ilerisi taranır.
+- Alınan etkinlikler çalışmanın ikinci turunda gizli bir işaretle (`ice`) "alındı" diye işaretlenir; kayıt bir sebeple depoya yazılamazsa etkinlik işaretsiz kalır ve bir sonraki çalışma yeniden dener.
+- Programın kendi açtığı (işaretli) etkinlikleri takvimden silersen yeniden oluşur; senin kendi etkinliklerine program dokunmaz (yalnızca işaret ekler).
