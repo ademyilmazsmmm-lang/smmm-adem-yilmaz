@@ -64,20 +64,22 @@ function formlar(html) {
 const tablolar = (html) => [...html.matchAll(/<table\b[\s\S]*?<\/table>/gi)].map((t) => [...t[0].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((x) => sade(x[1]).slice(0, 30)).filter(Boolean)).filter((b) => b.length > 1).slice(0, 4);
 
 class Sgk {
-  constructor(k, sistem) { this.k = k || {}; this.s = SISTEMLER[sistem] || SISTEMLER.isveren; this.taban = "https://" + this.s.sunucu; this.cerez = new Map(); this.girdi = false; this.ana = ""; }
-  cerezTopla(r) { for (const sc of (typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [])) { const kv = sc.split(";")[0].trim(), i = kv.indexOf("="); if (i > 0) this.cerez.set(kv.slice(0, i), kv.slice(i + 1)); } }
+  constructor(k, sistem) { this.k = k || {}; this.s = SISTEMLER[sistem] || SISTEMLER.isveren; this.taban = "https://" + this.s.sunucu; this.cerez = new Map(); /* alan adı -> çerezler */ this.girdi = false; this.ana = ""; }
+  cerezTopla(r, host) { let j = this.cerez.get(host); if (!j) { j = new Map(); this.cerez.set(host, j); } for (const sc of (typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [])) { const kv = sc.split(";")[0].trim(), i = kv.indexOf("="); if (i > 0) j.set(kv.slice(0, i), kv.slice(i + 1)); } }
   async git(yontem, yol, govde) {
     let url = /^https?:/i.test(yol) ? yol : this.taban + yol;
     for (let n = 0; n < 6; n++) {
       let u; try { u = new URL(url); } catch (e) { throw new Error("SGK adresi geçersiz."); }
-      if (u.protocol !== "https:" || u.hostname !== this.s.sunucu) throw new Error("SGK yönlendirmesi beklenmeyen bir adrese gitti; durduruldu.");
+      if (u.protocol === "http:") u.protocol = "https:"; // SGK yönlendirmeleri bazen http gösterir
+      if (u.protocol !== "https:" || !/(^|\.)sgk\.gov\.tr$/i.test(u.hostname)) throw new Error("SGK yönlendirmesi beklenmeyen bir adrese gitti (" + String(u.hostname).slice(0, 60) + "); durduruldu.");
+      url = u.href;
       const h = { "user-agent": UA, accept: "text/html,application/xhtml+xml,image/*,*/*;q=0.8", "accept-language": "tr-TR,tr;q=0.9" };
-      if (this.cerez.size) h.cookie = [...this.cerez].map(([a, d]) => a + "=" + d).join("; ");
+      const kavanoz = this.cerez.get(u.hostname); if (kavanoz && kavanoz.size) h.cookie = [...kavanoz].map(([a, d]) => a + "=" + d).join("; ");
       if (govde) { h["content-type"] = "application/x-www-form-urlencoded"; h.referer = this.taban + this.s.kok; h.origin = this.taban; }
       let r;
       try { r = await fetch(url, { method: yontem, headers: h, body: govde ? new URLSearchParams(govde) : undefined, redirect: "manual", signal: AbortSignal.timeout(25000) }); }
       catch (e) { throw new Error(e && (e.name === "TimeoutError" || e.name === "AbortError") ? "SGK 25 saniyede yanıt vermedi (zaman aşımı)." : "SGK'ya ulaşılamadı: " + e.message); }
-      this.cerezTopla(r);
+      this.cerezTopla(r, u.hostname);
       if ([301, 302, 303, 307, 308].includes(r.status)) { url = new URL(r.headers.get("location") || "/", url).href; yontem = "GET"; govde = null; continue; }
       return { durum: r.status, url, tur: r.headers.get("content-type") || "", veri: Buffer.from(await r.arrayBuffer()) };
     }
