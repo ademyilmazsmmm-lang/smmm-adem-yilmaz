@@ -89,6 +89,22 @@ function tabloSatirlari(html) {
   return { basliklar, satirlar, hamSatir };
 }
 const hamMaskeli = (h, n) => String(h || "").replace(/[A-Za-z0-9]{24,}/g, "<kod>").replace(/\s+/g, " ").slice(0, n || 2500);
+/* bir betik işlevinin kaynağı (süslü parantez dengesiyle) ve içinde çağırdığı, aynı betikte tanımlı işlevler */
+function islevKaynagi(js, ad) {
+  const re = new RegExp("(?:function\\s+" + ad + "\\s*\\(|(?:var\\s+|window\\.)?" + ad + "\\s*=\\s*function\\s*\\()"), m = re.exec(js); if (!m) return "";
+  const i = js.indexOf("{", m.index); if (i < 0) return ""; let d = 0, j = i;
+  for (; j < js.length && j - i < 6000; j++) { const c = js[j]; if (c === "{") d++; else if (c === "}") { d--; if (d === 0) { j++; break; } } }
+  return js.slice(m.index, j);
+}
+function islevlerZinciri(js, ad) {
+  const gor = new Set(), cikti = [], sira = [ad];
+  while (sira.length && cikti.length < 5) {
+    const a = sira.shift(); if (gor.has(a)) continue; gor.add(a);
+    const k = islevKaynagi(js, a); if (!k) continue; cikti.push(k);
+    for (const m of k.matchAll(/(?<![\w$.])([A-Za-z_$][\w$]{2,})\s*\(/g)) if (!gor.has(m[1]) && !/^(function|if|for|while|switch|return|catch|alert|confirm|setTimeout|String|Number|parseInt|parseFloat|isNaN)$/.test(m[1])) sira.push(m[1]);
+  }
+  return cikti.join("\n\n");
+}
 const betiklerMaskeli = (html) => [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1].trim()).filter(Boolean).join("\n---\n").replace(/[A-Za-z0-9]{24,}/g, "<kod>").slice(0, 1800);
 
 class Sgk {
@@ -159,6 +175,14 @@ class Sgk {
     }
     return sonuc;
   }
+  async islemKaynagi(html, sayfaUrl, ad) {
+    const satir = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]).join("\n");
+    let k = islevlerZinciri(satir, ad); if (k) return { dosya: "(sayfa içi)", kaynak: hamMaskeli(k, 4500) };
+    for (const m of [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].slice(0, 8)) {
+      try { const r = await this.git("GET", new URL(coz(m[1]), sayfaUrl).href), js = r.veri.toString("utf8"); k = islevlerZinciri(js, ad); if (k) return { dosya: m[1].replace(/\?.*$/, ""), kaynak: hamMaskeli(k, 4500) }; } catch (e) { /* sonraki betik */ }
+    }
+    return { dosya: "", kaynak: "" };
+  }
   /* e-Bildirge > Onaylanmış Belgeler: dönem listesi, sorgu ve belge dosyaları */
   async bildirgeSayfa() {
     if (!this.girdi) throw this.oturumHata();
@@ -180,7 +204,7 @@ class Sgk {
     const t = tabloSatirlari(html); this.bsatirlar = t.satirlar;
     const VARSAYILAN = ["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Belge Mahiyeti", "Kanun No", "Toplam Çalışan Sayısı", "Toplam Gün Sayısı", "Toplam Pek Tutar", "Tahakkuk", "Hizmet", "S.Hizmet"];
     if (t.satirlar.length && t.basliklar.length !== t.satirlar[0].length && t.satirlar[0].length === VARSAYILAN.length) t.basliklar = VARSAYILAN;
-    return { basliklar: t.basliklar, satirlar: t.satirlar.map((h, n) => ({ n, hucreler: h.map((c, k) => ({ k, metin: c.metin, belgeler: c.baglantilar.map((b2, j) => ({ j, baslik: b2.baslik || "", var: !!(b2.href && !/^javascript:/i.test(b2.href)) || /["'](\/EBildirgeV2\/[^"']+)["']/.test(b2.onclick) })) })) })), ham: { satir: hamMaskeli(t.hamSatir, 3500), betik: betiklerMaskeli(html) }, hamMetin: t.satirlar.length ? "" : sade(html).replace(/İşlem Devam Ediyor Lütfen Bekleyiniz!/g, "").replace(/\s+/g, " ").trim().slice(0, 500), onclickOrnek: t.satirlar.length ? (t.satirlar[0].flatMap((c) => c.baglantilar).map((x) => x.onclick || x.href).filter(Boolean).slice(0, 6)) : [] };
+    return { basliklar: t.basliklar, satirlar: t.satirlar.map((h, n) => ({ n, hucreler: h.map((c, k) => ({ k, metin: c.metin, belgeler: c.baglantilar.map((b2, j) => ({ j, baslik: b2.baslik || "", var: !!(b2.href && !/^javascript:/i.test(b2.href)) || /["'](\/EBildirgeV2\/[^"']+)["']/.test(b2.onclick) })) })) })), ham: { satir: hamMaskeli(t.hamSatir, 2500), betik: betiklerMaskeli(html), islem: await this.islemKaynagi(html, r.url, "islem"), formlar: formCoz(html).map((f) => ({ eylem: f.eylem, yontem: f.yontem, gizli: Object.fromEntries(Object.entries(f.gizli).map(([a, b]) => [a, hamMaskeli(b, 30)])) })) }, hamMetin: t.satirlar.length ? "" : sade(html).replace(/İşlem Devam Ediyor Lütfen Bekleyiniz!/g, "").replace(/\s+/g, " ").trim().slice(0, 500), onclickOrnek: t.satirlar.length ? (t.satirlar[0].flatMap((c) => c.baglantilar).map((x) => x.onclick || x.href).filter(Boolean).slice(0, 6)) : [] };
   }
   async bildirgeBelge(n, k, j) {
     const c = ((this.bsatirlar || [])[n] || [])[k], b = c && c.baglantilar[j]; if (!b) throw new Error("Belge bulunamadı; listeyi yenileyin.");
