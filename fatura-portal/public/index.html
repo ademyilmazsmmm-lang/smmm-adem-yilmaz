@@ -269,6 +269,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       <button type="button" data-sekme="taslak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Taslaklar<span class="rozet" id="tRozet" hidden></span></button>
       <button type="button" data-sekme="gecmis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Geçmiş</button>
       <button type="button" data-sekme="vd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/></svg>Vergi D.<span class="rozet" id="vdRozet" hidden></span></button>
+      <button type="button" data-sekme="sgk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>SGK</button>
       <button type="button" data-sekme="ayar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ayarlar</button>
     </nav>
     <button class="k" id="tema" type="button" aria-label="Tema: otomatik" title="Tema"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg> <span class="tl">Otomatik</span></button>
@@ -403,7 +404,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <section data-sayfa="vd" class="liste" hidden>
   <div class="card" id="vdKart">
     <div class="kartbas"><h2>Vergi Dairesi</h2><small id="vdMuk"></small></div>
-    <div class="vdsek" id="vdSeg" role="group" aria-label="Vergi Dairesi bölümü"><button class="chip" type="button" data-vd="borc" aria-pressed="true">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false">Tebligat</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false">Gelen fatura</button><button class="chip" type="button" data-vd="yazi" aria-pressed="false">Borcu yoktur</button><button class="chip" type="button" data-vd="levha" aria-pressed="false">e-Vergi levhası</button><button class="chip" type="button" data-vd="sgk" aria-pressed="false">SGK</button></div>
+    <div class="vdsek" id="vdSeg" role="group" aria-label="Vergi Dairesi bölümü"><button class="chip" type="button" data-vd="borc" aria-pressed="true">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false">Tebligat</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false">Gelen fatura</button><button class="chip" type="button" data-vd="yazi" aria-pressed="false">Borcu yoktur</button><button class="chip" type="button" data-vd="levha" aria-pressed="false">e-Vergi levhası</button></div>
     <div id="vdBaglan" style="display:grid;gap:8px">
       <p class="not" style="margin:0">Dijital Vergi Dairesi’ne bağlanmak için resimdeki <b>doğrulama kodunu</b> resimde göründüğü gibi (büyük/küçük harf aynen) yazın. Kullanıcı kodu ve şifre Ayarlar’daki GİB bilgisinden alınır.</p>
       <button class="btn ikincil" type="button" id="vdKodIste">Doğrulama kodu al</button>
@@ -412,18 +413,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     <div id="vdBagli" style="display:none;justify-content:space-between;align-items:center;gap:8px"><span class="not" style="margin:0">✓ Dijital Vergi Dairesi’ne bağlı</span><button class="k" type="button" id="vdKapat">Kapat</button></div>
     <p class="not" id="vdNot"></p>
     <div id="vdYil" hidden style="display:flex;gap:6px;flex-wrap:wrap"></div>
-    <div id="vdSgk" hidden style="display:grid;gap:10px">
-      <p class="not" id="vdSgkNot" style="margin:0">SGK İşveren Sistemi (borç görüntüleme, borcu yoktur belgesi). Bağlanmak için mükellefin SGK bilgileri Ayarlar’da kayıtlı olmalı; her bağlanışta resimdeki güvenlik kodunu kendiniz, resimdeki gibi (harfler büyük) yazarsınız.</p>
-      <p class="not" id="vdSgkEksik" hidden style="margin:0;color:var(--danger)">Bu mükellefin SGK bilgileri eksik: Ayarlar → mükellef → “SGK İşveren Sistemi bilgileri”.</p>
-      <div id="vdSgkBaglan" style="display:grid;gap:8px">
-        <button class="btn ikincil" type="button" id="vdSgkKodIste">Güvenlik kodu al</button>
-        <div id="vdSgkKodKutu" style="display:none;gap:8px;align-items:center"><img id="vdSgkKodResim" alt="Güvenlik kodu" style="height:50px;border:1px solid var(--line2);border-radius:6px;background:#fff"><input id="vdSgkKod" type="text" maxlength="10" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Kod" style="width:7.5em"><button class="btn" type="button" id="vdSgkGiris">Bağlan</button></div>
-      </div>
-      <div id="vdSgkBagli" style="display:none;justify-content:space-between;align-items:center;gap:8px"><span class="not" style="margin:0">✓ SGK İşveren Sistemi’ne bağlı</span><button class="k" type="button" id="vdSgkKapat">Kapat</button></div>
-      <div id="vdSgkIslem" style="display:none;gap:8px"><button class="btn ikincil" type="button" id="vdSgkTani">Sayfadaki bağlantıları listele (adres keşfi)</button></div>
-      <div class="durum" id="vdSgkDurum" role="status"></div>
-      <div id="vdSgkSonuc" hidden><pre id="vdSgkMetin" style="white-space:pre-wrap;font-size:.72rem;margin:0;max-height:320px;overflow:auto"></pre><button class="k" type="button" id="vdSgkKopya">Kopyala</button></div>
-    </div>
     <div id="vdYazi" hidden style="display:grid;gap:8px">
       <div><label for="vdYKurum">Yazı hangi kuruma verilecek?</label><select id="vdYKurum"><option value="">Seçin</option><option>Kredi Garanti Fonu</option><option>İlgili Belediye Başkanlığına</option><option>KOSGEB'e</option><option>Tarım ve Orman Bakanlığı'na</option><option>Çevre, Şehircilik ve İklim Değişikliği Bakanlığına</option><option>Emniyet Genel Müdürlüğüne</option><option>Çalışma ve Sosyal Güvenlik Bakanlığına</option><option>Enerji ve Tabii Kaynaklar Bakanlığına</option><option>Diğer Kurum Kuruluşlara</option></select></div>
       <div id="vdYDigerK" hidden><label for="vdYDiger">Kurum / kuruluş adı</label><input id="vdYDiger" maxlength="100" autocomplete="off"></div>
@@ -437,6 +426,23 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     <div class="durum" id="vdDurum" role="status"></div>
     <div id="vdListe" class="liste" style="gap:8px"></div>
     <details class="alt2" id="vdTani" hidden><summary>Tanı (yanıtın yapısı, değerler maskeli)</summary><div class="icerik"><pre id="vdTaniMetin" style="white-space:pre-wrap;font-size:.72rem;margin:0;max-height:260px;overflow:auto"></pre><button class="k" type="button" id="vdTaniKopya">Kopyala</button></div></details>
+  </div>
+  </section>
+  <section data-sayfa="sgk" class="liste" hidden>
+  <div class="card" id="sgkKart">
+    <div class="kartbas"><h2>SGK İşveren Sistemi</h2><small id="sgkMuk"></small></div>
+    <div id="vdSgk" style="display:grid;gap:10px">
+      <p class="not" id="vdSgkNot" style="margin:0">SGK İşveren Sistemi (borç görüntüleme, borcu yoktur belgesi). Bağlanmak için mükellefin SGK bilgileri Ayarlar’da kayıtlı olmalı; her bağlanışta resimdeki güvenlik kodunu kendiniz, resimdeki gibi (harfler büyük) yazarsınız.</p>
+      <p class="not" id="vdSgkEksik" hidden style="margin:0;color:var(--danger)">Bu mükellefin SGK bilgileri eksik: Ayarlar → mükellef → “SGK İşveren Sistemi bilgileri”.</p>
+      <div id="vdSgkBaglan" style="display:grid;gap:8px">
+        <button class="btn ikincil" type="button" id="vdSgkKodIste">Güvenlik kodu al</button>
+        <div id="vdSgkKodKutu" style="display:none;gap:8px;align-items:center"><img id="vdSgkKodResim" alt="Güvenlik kodu" style="height:50px;border:1px solid var(--line2);border-radius:6px;background:#fff"><input id="vdSgkKod" type="text" maxlength="10" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Kod" style="width:7.5em"><button class="btn" type="button" id="vdSgkGiris">Bağlan</button></div>
+      </div>
+      <div id="vdSgkBagli" style="display:none;justify-content:space-between;align-items:center;gap:8px"><span class="not" style="margin:0">✓ SGK İşveren Sistemi’ne bağlı</span><button class="k" type="button" id="vdSgkKapat">Kapat</button></div>
+      <div id="vdSgkIslem" style="display:none;gap:8px"><button class="btn ikincil" type="button" id="vdSgkTani">Sayfadaki bağlantıları listele (adres keşfi)</button></div>
+      <div class="durum" id="vdSgkDurum" role="status"></div>
+      <div id="vdSgkSonuc" hidden><pre id="vdSgkMetin" style="white-space:pre-wrap;font-size:.72rem;margin:0;max-height:320px;overflow:auto"></pre><button class="k" type="button" id="vdSgkKopya">Kopyala</button></div>
+    </div>
   </div>
   </section>
 
@@ -1556,7 +1562,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       '<div class="satir"><div><label>Kullanıcı adı (TCKN/VKN)</label><input data-sf="kullanici" inputmode="numeric" maxlength="11" autocomplete="off" value="' + esc(k.kullanici || "") + '"></div><div><label>İşyeri kodu</label><input data-sf="isyeriKod" inputmode="numeric" maxlength="4" autocomplete="off" value="' + esc(k.isyeriKod || "") + '"></div></div>' +
       '<div><label>Sistem şifresi ' + (k.sistemVar ? '(kayıtlı — değiştirmek için yazın)' : '(kayıtlı değil)') + '</label><input data-sf="sistemSifre" type="password" maxlength="20" autocomplete="new-password" value=""></div>' +
       '<div><label>İşyeri şifresi ' + (k.isyeriVar ? '(kayıtlı — değiştirmek için yazın)' : '(kayıtlı değil)') + '</label><input data-sf="isyeriSifre" type="password" maxlength="20" autocomplete="new-password" value=""></div>' +
-      '<p class="not" style="margin:0">SGK İşveren Sistemi (uyg.sgk.gov.tr) girişindeki dört bilgi. Şifreler şifreli kasada saklanır. Yanlış şifrede SGK hesabı kilitleyebilir; bu yüzden uygulama 2 başarısız girişten sonra 15 dakika bekler. Değişiklikten sonra “Ayarları kaydet”e basın.</p></div></details>';
+      '<p class="not" style="margin:0">SGK İşveren Sistemi (uyg.sgk.gov.tr) girişindeki dört bilgi. Şifreler şifreli kasada saklanır. Değişiklikten sonra “Ayarları kaydet”e basın.</p></div></details>';
   }
   function mukellefBolumler(m, ofis){
     var ea = m.earsiv !== false;
@@ -1859,7 +1865,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     borc: "Dijital Vergi Dairesi’ndeki borç durumu (Ödeme ve Borç İşlemleri ekranı).",
     tebligat: "E-Tebligat ekranındaki tebligatlar. Önemli ve okunmamış olanlar sekme rozetinde sayılır.",
     levha: "Daha önce oluşturulmuş e-Vergi levhalarınız (yıla göre). Türkçe ya da İngilizce PDF olarak açabilirsiniz.",
-    sgk: "",
     yazi: "Vergi dairesinden “borç durum yazısı” (borcu yoktur yazısı) talep edilir; son 90 gündeki talepleriniz aşağıda listelenir.",
     gelen: "Adınıza düzenlenmiş e-Arşiv faturalar (e-Arşiv Faturalarım ekranı). Portal en çok son 2–3 ayı ve 7’şer günlük dilimleri gösterir; uygulama dilimleri birleştirir."
   };
@@ -1959,14 +1964,13 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("vdRozet").hidden = !n; $("vdRozet").textContent = n > 99 ? "99+" : n;
   }
   function vdBagDurum(){
-    if (VD.sek === "sgk") { $("vdBaglan").style.display = "none"; $("vdBagli").style.display = "none"; $("vdSorgula").hidden = true; return; }
     var b = VD.bagli;
     $("vdBaglan").style.display = b ? "none" : "grid"; $("vdBagli").style.display = b ? "flex" : "none"; $("vdSorgula").hidden = !b;
     if (b) $("vdKodKutu").style.display = "none";
   }
   function vdSekmeCiz(){
     $("vdSeg").querySelectorAll("[data-vd]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-vd") === VD.sek ? "true" : "false"); });
-    $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen"; $("vdYazi").hidden = VD.sek !== "yazi" || !VD.bagli; if (VD.sek === "yazi" && VD.bagli) vdYaziAlan(); $("vdYil").hidden = VD.sek !== "levha" || !VD.bagli; if (VD.sek === "levha") vdYilCiz(); $("vdSgk").hidden = VD.sek !== "sgk"; $("vdListe").hidden = VD.sek === "sgk"; $("vdTani").hidden = true; if (VD.sek === "sgk") { $("vdTarih").hidden = true; $("vdYazi").hidden = true; vdSgkCiz(); } $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
+    $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen"; $("vdYazi").hidden = VD.sek !== "yazi" || !VD.bagli; if (VD.sek === "yazi" && VD.bagli) vdYaziAlan(); $("vdYil").hidden = VD.sek !== "levha" || !VD.bagli; if (VD.sek === "levha") vdYilCiz(); $("vdTani").hidden = true; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
   }
   function vdAc(){
     var l = V && V.mukellefler || [], ofis = ROL === "ofis";
@@ -1977,6 +1981,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     vdSekmeCiz();
   }
   function vdHata(er, d){ if (oturumDustu(er)) return; if (er.girisGerek) { VD.bagli = false; vdBagDurum(); } d.className = "durum hata"; d.textContent = er.message; }
+  /* SGK sekmesi: seçili mükellef için SGK İşveren Sistemi */
+  function sgkAc(){ vdAc(); var m = mBul(VD.mid); $("sgkMuk").textContent = m ? m.ad : ""; vdSgkCiz(); }
   /* SGK İşveren Sistemi bağlantısı */
   function vdSgkCiz(){
     var b = !!VD.sgkBagli, m = mBul(VD.mid) || {}, k = m.sgk || {}, eksik = !(k.kullanici && k.isyeriKod && k.sistemVar && k.isyeriVar);
@@ -2000,7 +2006,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("vdSgkTani").addEventListener("click", function(){
     var b = this, d = $("vdSgkDurum"); b.disabled = true; d.className = "durum"; d.textContent = "Sayfa okunuyor…";
     api("/api/sgk/tani", "POST", { mukellefId: VD.mid }).then(function(r){
-      var satir = function(x){ return "  " + x.tur + " | " + (x.metin || "") + " | " + x.href; }, t = "Sayfa: " + (r.baslik || "").trim() + "\nAdres: " + (r.adres || "") + "\n\nBağlantılar (" + r.baglantilar.length + "):\n" + r.baglantilar.map(satir).join("\n");
+      var satir = function(x){ return "  " + x.tur + " | " + (x.metin || "") + " | " + x.href; }, t = "Sayfa: " + (r.baslik || "").trim() + "\nAdres: " + (r.adres || "") + "\nGeçiş zinciri: " + (r.zincir || []).map(function(u){ return u.replace(/^https?:\/\/[^/]+/, ""); }).join(" -> ") + "\n\nBağlantılar (" + r.baglantilar.length + "):\n" + r.baglantilar.map(satir).join("\n") + ((r.baslatici || []).length ? "\n\nBaşlatıcı sayfa bağlantıları:\n" + r.baslatici.map(satir).join("\n") : "");
       (r.cerceveler || []).forEach(function(c){ t += "\n\nÇerçeve " + c.kaynak + ": " + (c.hata ? "HATA " + c.hata : "\n" + c.baglantilar.map(satir).join("\n")); });
       $("vdSgkMetin").textContent = t; $("vdSgkSonuc").hidden = false; d.textContent = "";
     }, vdSgkHata).then(function(){ b.disabled = false; });
@@ -2057,7 +2063,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc[sek] = r; d.textContent = ""; vdRozet(); if (VD.sek === sek) vdCiz();
     }, function(er){ VD.sonuc[sek] = null; if (VD.sek === sek) vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });
   }
-  $("vdSeg").addEventListener("click", function(e){ var b = e.target.closest("[data-vd]"); if (!b) return; VD.sek = b.getAttribute("data-vd"); vdSekmeCiz(); if (VD.sek !== "sgk" && VD.bagli && !VD.sonuc[VD.sek]) vdSorgula(); });
+  $("vdSeg").addEventListener("click", function(e){ var b = e.target.closest("[data-vd]"); if (!b) return; VD.sek = b.getAttribute("data-vd"); vdSekmeCiz(); if (VD.bagli && !VD.sonuc[VD.sek]) vdSorgula(); });
   $("vdSorgula").addEventListener("click", vdSorgula);
   $("vdListe").addEventListener("click", function(e){
     var f = e.target.closest("[data-tebf]"); if (f) { VD.tebF = f.getAttribute("data-tebf"); vdCiz(); return; }
@@ -2102,13 +2108,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (ad === "taslak" && !tYuklendi && mSec) taslakGetir();
     seritGoster();
     if (ad === "vd") vdAc();
+    if (ad === "sgk") sgkAc();
   }
   $("sekmeler").addEventListener("click", function(e){
     var b = e.target.closest("[data-sekme]"); if (!b) return;
     sekme(b.getAttribute("data-sekme")); window.scrollTo(0, 0);
   });
   /* mükellef değişince taslak listesi yeniden yüklensin */
-  $("mChips").addEventListener("click", function(){ tYuklendi = false; $("tRozet").hidden = true; if (aktifSekme === "taslak") setTimeout(taslakGetir, 0); if (aktifSekme === "vd") vdAc(); });
+  $("mChips").addEventListener("click", function(){ tYuklendi = false; $("tRozet").hidden = true; if (aktifSekme === "taslak") setTimeout(taslakGetir, 0); if (aktifSekme === "vd") vdAc(); if (aktifSekme === "sgk") sgkAc(); });
 
   /* ---------- uygulama olarak yükleme (PWA) ---------- */
   var yuklenecek = null, bagimsiz = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;

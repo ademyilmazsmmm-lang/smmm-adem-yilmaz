@@ -1,8 +1,7 @@
 /* SGK İşveren Sistemi (uyg.sgk.gov.tr/IsverenSistemi) istemcisi: borç görüntüleme ve borcu yoktur belgesi için.
  *
  * Giriş yarı otomatiktir: güvenlik kodu (captcha) resmi alınır, kullanıcı yazar, sonra mükellefin kayıtlı SGK bilgileriyle giriş yapılır.
- * DİKKAT: Resmî bir API yoktur; sistem klasik form/oturum çerezi ile çalışır. Adresler değişebilir. Yanlış şifreyle art arda denemede SGK
- * şifreyi kilitleyebilir; bu yüzden sunucu tarafında bekleme uygulanır. Yalnız uyg.sgk.gov.tr adresine gidilir. */
+ * DİKKAT: Resmî bir API yoktur; sistem klasik form/oturum çerezi ile çalışır. Adresler değişebilir. Art arda hızlı isteklere sunucu tarafında kısa bekleme uygulanır. Yalnız uyg.sgk.gov.tr adresine gidilir. */
 "use strict";
 const MOCK = process.env.GIB_MOCK === "1";
 const SUNUCU = "uyg.sgk.gov.tr", TABAN = "https://" + SUNUCU, GIRIS = "/IsverenSistemi";
@@ -32,6 +31,21 @@ function baglantilar(html) {
   for (const m of html.matchAll(/<i?frame\b[^>]*src\s*=\s*["']([^"']*)["']/gi)) ekle("(çerçeve)", m[1], "frame");
   for (const m of html.matchAll(/["'](\/IsverenSistemi\/[A-Za-z0-9_\/.\-]+\.(?:action|jsp|do|html)[^"']*)["']/g)) ekle("(betik)", m[1], "betik");
   return o.slice(0, 250);
+}
+
+/* Giriş sonrası SGK önce "Uygulama Çalıştırılıyor / UYGULAMA BAŞLATILDI" başlatıcı sayfasını verir; uygulama ayrı bir pencerede (window.open) açılır.
+ * Burada o pencerenin adresi bulunur ve aynı oturumla açılır. */
+const basliyorMu = (h) => /UYGULAMA BAŞLATILDI|Uygulama Çalıştırılıyor/i.test(h);
+const anaSayfaMi = (h) => /<frameset/i.test(h) || /İŞVEREN TESCİL|E-BORCU YOKTUR|ÇIKIŞ|Çıkış/.test(h);
+function devamAdresleri(html, taban) {
+  const aday = [], ekle = (x) => { x = String(x || "").trim(); if (!x || /^(javascript:|#|mailto:)/i.test(x)) return; try { const u = new URL(x, taban).href; if (!aday.includes(u)) aday.push(u); } catch (e) { /* geçersiz */ } };
+  for (const m of html.matchAll(/window\.open\(\s*["']([^"']+)["']/gi)) ekle(m[1]);
+  for (const m of html.matchAll(/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*content\s*=\s*["'][^"']*url\s*=\s*([^"'>\s]+)/gi)) ekle(m[1]);
+  for (const m of html.matchAll(/(?:location(?:\.href)?\s*=|location\.(?:replace|assign)\()\s*["']([^"']+)["']/gi)) ekle(m[1]);
+  for (const m of html.matchAll(/<i?frame\b[^>]*src\s*=\s*["']([^"']+)["']/gi)) ekle(m[1]);
+  for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) if (/ana\s*sayfa|devam|başlat/i.test(sade(m[2]))) ekle(m[1]);
+  for (const m of html.matchAll(/["'](\/IsverenSistemi\/[A-Za-z0-9_\/.\-]+\.(?:action|jsp|do|html)[^"']*)["']/g)) ekle(m[1]);
+  return aday.filter((u) => !/\/login\/|kullaniciIlkKontrollerGiris/.test(u));
 }
 
 class Sgk {
@@ -64,22 +78,31 @@ class Sgk {
   async giris(dk) {
     const k = this.k;
     const r = await this.git("POST", GIRIS + "/login/kullaniciIlkKontrollerGiris.action", { username: k.kullanici, isyeri_kod: k.isyeriKod, password: k.sistemSifre, isyeri_sifre: k.isyeriSifre, isyeri_guvenlik: String(dk || "").trim() });
-    const html = r.veri.toString("utf8");
-    const formVar = /kullaniciIlkKontrollerGiris/.test(html), cikisVar = /ÇIKIŞ|Çıkış|çıkış|cikis|logout/i.test(html);
-    if (formVar || !cikisVar) {
+    let html = r.veri.toString("utf8"), url = r.url;
+    if (/kullaniciIlkKontrollerGiris/.test(html)) {
       const m = hataMetni(html);
       const e = new Error("SGK girişi kabul edilmedi" + (m ? ": " + m : ": SGK aynı giriş formunu yeniden gösterdi, ayrı bir hata metni vermedi. Güvenlik kodu (resimdeki gibi, büyük/küçük harf aynen), kullanıcı adı, işyeri kodu ve iki şifreyi kontrol edin") + ".");
       e.giris = true; throw e;
     }
-    this.girdi = true; this.ana = html; this.anaUrl = r.url;
+    /* başlatıcı sayfa(lar)dan gerçek uygulama penceresine geç */
+    this.zincir = [url]; this.sayfalar = [{ url, html }]; const denenen = new Set([url]);
+    for (let n = 0; n < 4 && !anaSayfaMi(html) && (basliyorMu(html) || n === 0); n++) {
+      const sonraki = devamAdresleri(html, url).find((u) => !denenen.has(u)); if (!sonraki) break;
+      denenen.add(sonraki);
+      try { const r2 = await this.git("GET", sonraki); html = r2.veri.toString("utf8"); url = r2.url; this.zincir.push(url); this.sayfalar.push({ url, html }); }
+      catch (e) { if (n === 0) throw e; break; }
+    }
+    if (/kullaniciIlkKontrollerGiris/.test(html)) { const e = new Error("SGK oturumu açılamadı: uygulama penceresi giriş sayfasına döndü."); e.giris = true; throw e; }
+    this.girdi = true; this.ana = html; this.anaUrl = url;
   }
   /* giriş sonrası ana sayfadaki bağlantılar (adres keşfi için tanı) */
   async tani() {
     if (!this.girdi) throw this.oturumHata();
     const liste = baglantilar(this.ana);
-    const cerceveler = liste.filter((x) => x.tur === "frame").slice(0, 3), ek = [];
+    const ilk = this.sayfalar && this.sayfalar.length > 1 ? baglantilar(this.sayfalar[0].html).map((x) => Object.assign({ not: "başlatıcı sayfa" }, x)) : [];
+    const cerceveler = liste.filter((x) => x.tur === "frame").slice(0, 4), ek = [];
     for (const c of cerceveler) { try { const r = await this.git("GET", new URL(c.href, this.anaUrl).href); ek.push({ kaynak: c.href, baglantilar: baglantilar(r.veri.toString("utf8")) }); } catch (e) { ek.push({ kaynak: c.href, hata: e.message }); } }
-    return { baslik: (/<title>([\s\S]*?)<\/title>/i.exec(this.ana) || [])[1] || "", baglantilar: liste, cerceveler: ek, adres: this.anaUrl };
+    return { baslik: (/<title>([\s\S]*?)<\/title>/i.exec(this.ana) || [])[1] || "", baglantilar: liste, baslatici: ilk, zincir: this.zincir || [], cerceveler: ek, adres: this.anaUrl };
   }
   oturumHata() { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; return e; }
   async cikis() {
@@ -93,8 +116,8 @@ class SahteSgk {
   constructor(k) { this.k = k || {}; this.girdi = false; this.cid = false; }
   async captcha() { this.cid = true; const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="50"><rect width="160" height="50" fill="#e8e0d8"/><text x="14" y="36" font-size="30" font-family="monospace" fill="#a33">SGK123</text></svg>'; return { resim: "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64") }; }
   async giris(dk) { if (!this.cid) throw new Error("Önce güvenlik kodu resmini isteyin."); this.cid = false; if (String(dk || "").trim() !== "SGK123") { const e = new Error("SGK girişi başarısız: Güvenlik kodu hatalı."); e.giris = true; throw e; } this.girdi = true; }
-  async tani() { if (!this.girdi) { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; throw e; } return { baslik: "T.C. Sosyal Güvenlik Kurumu", adres: TABAN + GIRIS, baglantilar: [{ tur: "a", metin: "DÖNEM BORÇ GÖRÜNTÜLEME", href: "/IsverenSistemi/ornek/donemBorc.action" }, { tur: "a", metin: "İHALELERE KATILMAK İÇİN", href: "/IsverenSistemi/ornek/ihale.action" }, { tur: "a", metin: "ÇIKIŞ", href: "/IsverenSistemi/cikis.action" }], cerceveler: [] }; }
+  async tani() { if (!this.girdi) { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; throw e; } return { baslik: "T.C. Sosyal Güvenlik Kurumu", adres: TABAN + GIRIS, zincir: [], baslatici: [], baglantilar: [{ tur: "a", metin: "DÖNEM BORÇ GÖRÜNTÜLEME", href: "/IsverenSistemi/ornek/donemBorc.action" }, { tur: "a", metin: "İHALELERE KATILMAK İÇİN", href: "/IsverenSistemi/ornek/ihale.action" }, { tur: "a", metin: "ÇIKIŞ", href: "/IsverenSistemi/cikis.action" }], cerceveler: [] }; }
   async cikis() { this.girdi = false; }
 }
 
-module.exports = { istemci: (k) => (MOCK ? new SahteSgk(k) : new Sgk(k)), baglantilar, hataMetni };
+module.exports = { istemci: (k) => (MOCK ? new SahteSgk(k) : new Sgk(k)), baglantilar, hataMetni, devamAdresleri, basliyorMu, anaSayfaMi };
