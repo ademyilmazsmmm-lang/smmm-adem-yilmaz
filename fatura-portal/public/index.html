@@ -68,6 +68,10 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6}
 .seg .chip{border:0;background:transparent;min-height:36px;padding:6px 14px}
 .seg .chip[aria-pressed=true]{background:var(--surface);color:var(--accent);box-shadow:var(--shadow)}
 /* Vergi D. alt sekmeleri: belirgin, büyük, seçili olan dolu renkli */
+.altsek{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.altsek .chip{min-height:46px;padding:8px 6px;font-size:.95rem;font-weight:650;border:1.5px solid var(--line2);background:var(--field);color:var(--fg);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:6px;line-height:1.2}
+.altsek .chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.altsek .rozet{position:static;margin:0}
 .vdsek{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;width:100%}
 .vdsek .chip{min-height:46px;padding:8px 10px;font-size:.95rem;font-weight:650;border:1.5px solid var(--line2);background:var(--field);color:var(--fg);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:normal;text-align:center;line-height:1.2}
 .vdsek .chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);box-shadow:0 2px 8px rgba(0,0,0,.18)}
@@ -80,8 +84,14 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6}
 .bar-m{border-top:1px solid var(--line)}
 .bar-ic2{padding-top:6px;padding-bottom:8px;gap:10px}
 .bar-et{font-size:.74rem;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;flex:none}
-.bar-m .chips{flex:1;min-width:0}
-.bar-m .chip{min-height:34px;padding:5px 13px;font-size:.86rem}
+.msec{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px;padding:6px 14px;border:1.5px solid var(--line2);border-radius:12px;background:var(--field);color:var(--fg);font:inherit;font-weight:650;cursor:pointer}
+.msec span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+#mPanel{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;padding-top:8vh}
+#mPanel[hidden]{display:none}
+.mkutu{width:calc(100% - 24px);max-width:520px;max-height:80vh;background:var(--surface);border-radius:16px;padding:14px;display:grid;gap:10px;grid-template-rows:auto auto minmax(0,1fr);box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.mbas{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#mChips{display:flex;flex-direction:column;gap:6px;overflow:auto;padding:2px;min-height:0}
+#mChips .chip{width:100%;text-align:left;justify-content:flex-start;min-height:44px;font-size:.95rem}
 .marka{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
 .logo{width:36px;height:36px;border-radius:10px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;flex:none}
 .bar .k{white-space:nowrap;flex:none}
@@ -265,9 +275,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <header class="bar"><div class="bar-ic">
     <div class="marka"><div class="logo" id="logoKutu"><img alt="" src="/ikon.svg"></div><div><h1>e-Arşiv Fatura</h1><small id="surum"></small><small id="kimlik" style="display:block;font-weight:600;color:var(--fg)"></small></div></div>
     <nav class="sekmeler" id="sekmeler" aria-label="Bölümler">
-      <button type="button" data-sekme="yeni" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>Yeni fatura</button>
-      <button type="button" data-sekme="taslak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Taslaklar<span class="rozet" id="tRozet" hidden></span></button>
-      <button type="button" data-sekme="gecmis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Geçmiş</button>
+      <button type="button" data-sekme="earsiv" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>e-Arşiv<span class="rozet" id="eRozet" hidden></span></button>
       <button type="button" data-sekme="vd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/></svg>Vergi D.<span class="rozet" id="vdRozet" hidden></span></button>
       <button type="button" data-sekme="sgk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>SGK</button>
       <button type="button" data-sekme="ayar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ayarlar</button>
@@ -275,11 +283,24 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     <button class="k" id="tema" type="button" aria-label="Tema: otomatik" title="Tema"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg> <span class="tl">Otomatik</span></button>
     <button class="k" id="cikis" type="button">Çıkış</button>
   </div>
-  <div class="bar-m" id="mSerit" hidden><div class="bar-ic bar-ic2"><span class="bar-et">Mükellef</span><div class="chips" id="mChips" role="group" aria-label="Mükellef seç"></div></div></div></header>
+  <div class="bar-m" id="mSerit" hidden><div class="bar-ic bar-ic2"><span class="bar-et">Mükellef</span><button type="button" id="mSecBtn" class="msec" aria-haspopup="dialog" aria-expanded="false"><span id="mSecAd">Seçin</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div></div></header>
+<div id="mPanel" hidden role="dialog" aria-modal="true" aria-label="Mükellef seç">
+  <div class="mkutu">
+    <div class="mbas"><b>Mükellef seç</b><button type="button" class="k" id="mKapat">Kapat</button></div>
+    <input id="mAra" type="search" placeholder="Firma ara…" autocomplete="off" aria-label="Firma ara">
+    <div class="chips" id="mChips" role="group" aria-label="Mükellefler"></div>
+    <p class="not" id="mBos" hidden style="margin:0">Eşleşen firma yok.</p>
+  </div>
+</div>
 
   <div class="sayfa">
   <div class="sahte" id="sahte" hidden style="margin-bottom:14px">Deneme modu: GİB’e bağlanılmıyor, gerçek fatura kesilmez.</div>
 
+  <div class="altsek" id="eaAlt" role="group" aria-label="e-Arşiv bölümü">
+    <button class="chip" type="button" data-ea="yeni" aria-pressed="true">Yeni fatura</button>
+    <button class="chip" type="button" data-ea="taslak" aria-pressed="false">Taslaklar<span class="rozet" id="tRozet" hidden></span></button>
+    <button class="chip" type="button" data-ea="gecmis" aria-pressed="false">Geçmiş</button>
+  </div>
   <section data-sayfa="yeni" class="izgara">
   <div class="sol">
   <p class="not" id="mYok" hidden>Önce Ayarlar bölümünden mükellef ekleyin.</p>
@@ -442,6 +463,12 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       </div>
       <div id="vdSgkBagli" style="display:none;justify-content:space-between;align-items:center;gap:8px"><span class="not" style="margin:0">✓ SGK İşveren Sistemi’ne bağlı</span><button class="k" type="button" id="vdSgkKapat">Kapat</button></div>
       <div id="vdSgkIslem" style="display:none;gap:8px"><button class="btn ikincil" type="button" id="vdSgkTani">Sayfadaki bağlantıları listele (adres keşfi)</button></div>
+      <div id="vdSgkBildirge" hidden style="display:grid;gap:8px">
+        <b>Onaylı bildirgeler</b>
+        <div class="satir"><div><label for="bilBas">Başlangıç dönemi</label><select id="bilBas"></select></div><div><label for="bilBit">Bitiş dönemi</label><select id="bilBit"></select></div></div>
+        <button class="btn" type="button" id="bilGetir">Onaylı bildirgeleri getir</button>
+        <div id="bilSonuc" style="display:grid;gap:8px"></div>
+      </div>
       <div class="durum" id="vdSgkDurum" role="status"></div>
       <div id="vdSgkSonuc" hidden><pre id="vdSgkMetin" style="white-space:pre-wrap;font-size:.72rem;margin:0;max-height:320px;overflow:auto"></pre><button class="k" type="button" id="vdSgkKopya">Kopyala</button></div>
     </div>
@@ -656,16 +683,27 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   });
   $("kabulCikis").addEventListener("click", function(){ $("cikis").click(); });
   function cizM(){
-    $("mChips").innerHTML = V.mukellefler.map(function(m){ return '<button class="chip" type="button" data-m="' + m.id + '" aria-pressed="' + (m.id === mSec) + '">' + esc(m.ad || "(adsız)") + '</button>'; }).join("");
+    $("mChips").innerHTML = V.mukellefler.slice().sort(function(a, b){ return String(a.ad || "").localeCompare(String(b.ad || ""), "tr"); }).map(function(m){ return '<button class="chip" type="button" data-m="' + m.id + '" aria-pressed="' + (m.id === mSec) + '">' + esc(m.ad || "(adsız)") + '</button>'; }).join("");
+    var sm = V.mukellefler.filter(function(m){ return m.id === mSec; })[0]; $("mSecAd").textContent = sm ? (sm.ad || "(adsız)") : "Seçin";
     $("mYok").hidden = V.mukellefler.length > 0; seritGoster(); modulGuncelle();
   }
+  /* mükellef filtresi: düğme -> arama kutulu liste */
+  function mPanelAc(){ $("mPanel").hidden = false; $("mSecBtn").setAttribute("aria-expanded", "true"); $("mAra").value = ""; mAraSuz(); setTimeout(function(){ var s0 = document.querySelector("#mChips [aria-pressed=true]"); if (s0 && s0.scrollIntoView) s0.scrollIntoView({ block: "center" }); }, 30); }
+  function mPanelKapat(){ $("mPanel").hidden = true; $("mSecBtn").setAttribute("aria-expanded", "false"); }
+  function mAraSuz(){ var q = trk($("mAra").value).trim(), n = 0; document.querySelectorAll("#mChips .chip").forEach(function(b){ var g = !q || trk(b.textContent).indexOf(q) > -1; b.hidden = !g; if (g) n++; }); $("mBos").hidden = n > 0; }
+  $("mSecBtn").addEventListener("click", mPanelAc);
+  $("mKapat").addEventListener("click", mPanelKapat);
+  $("mAra").addEventListener("input", mAraSuz);
+  $("mPanel").addEventListener("click", function(e){ if (e.target === this) mPanelKapat(); });
+  $("mChips").addEventListener("click", function(e){ if (e.target.closest("button")) mPanelKapat(); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !$("mPanel").hidden) mPanelKapat(); });
   /* e-Arşiv kullanmayan mükellef: Yeni fatura / Taslaklar (mükellef girişinde Geçmiş de) gizlenir, Vergi D. açılır */
   function modulGuncelle(){
     var m = mk(), ea = !m || m.earsiv !== false, gizli = {};
-    if (!ea) { gizli.yeni = 1; gizli.taslak = 1; if (ROL === "mukellef") gizli.gecmis = 1; }
+    if (!ea) gizli.earsiv = 1;
     var n = 0; document.querySelectorAll("#sekmeler [data-sekme]").forEach(function(b){ var h = !!gizli[b.getAttribute("data-sekme")]; b.hidden = h; b.style.display = h ? "none" : ""; if (!h) n++; });
     $("sekmeler").style.gridTemplateColumns = "repeat(" + (n || 1) + ", 1fr)";
-    if (gizli[aktifSekme]) sekme("vd");
+    if (gizli.earsiv && EAGRUP.indexOf(aktifSekme) >= 0) sekme("vd");
   }
   function seritGoster(){ $("mSerit").hidden = !(ROL === "ofis" && V && V.mukellefler.length > 0) || aktifSekme === "ayar"; }
   function cizAlici(){
@@ -1329,7 +1367,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   /* Geçmiş listesi: arama, durum, tip, tarih ve mükellef filtresi; özet satırında adet ve para birimine göre toplam */
   function gecmisCiz(){
-    var ara = trk($("gAra").value).trim(), dur = $("gDurumF").value, tip = $("gTipF").value, tr = gTarihAraligi(), mk2 = $("gMukF").hidden ? "" : $("gMukF").value;
+    var ara = trk($("gAra").value).trim(), dur = $("gDurumF").value, tip = $("gTipF").value, tr = gTarihAraligi(), mk2 = ROL === "ofis" ? (mSec || "") : "";
     var liste = [];
     gecmis.forEach(function(k, i){
       var iptal = /^İptal/.test(k.durum || "");
@@ -1366,7 +1404,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       gecmis = r.kayitlar || [];
       $("ozGecmis").textContent = gecmis.length ? gecmis.length + " kayıt" : "";
       var mk = V && V.mukellefler || [], sec = $("gMukF"), onceki = sec.value;
-      sec.hidden = mk.length < 2; sec.innerHTML = '<option value="">Mükellef</option>' + mk.map(function(m){ return '<option value="' + esc(m.id) + '">' + esc(m.ad || "(adsız)") + '</option>'; }).join(""); sec.value = onceki;
+      sec.hidden = true; sec.innerHTML = '<option value="">Mükellef</option>' + mk.map(function(m){ return '<option value="' + esc(m.id) + '">' + esc(m.ad || "(adsız)") + '</option>'; }).join(""); sec.value = onceki;
       gecmisCiz();
     }, function(er){ oturumDustu(er); });
   }
@@ -1977,7 +2015,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function vdAc(){
     var l = V && V.mukellefler || [], ofis = ROL === "ofis";
     var m = l.filter(function(x){ return x.id === mSec; })[0] || l[0];
-    if (m && m.id !== VD.mid) { if (VD.mid && VD.bagli) api("/api/vd/cikis", "POST", { mukellefId: VD.mid }).catch(function(){}); if (VD.mid && (VD.sgkB.isveren || VD.sgkB.ebildirge)) api("/api/sgk/cikis", "POST", { mukellefId: VD.mid }).catch(function(){}); VD.sgkB = {}; VD.mid = m.id; VD.sonuc = {}; VD.bagli = false; $("vdKodKutu").style.display = "none"; vdRozet(); }
+    if (m && m.id !== VD.mid) { if (VD.mid && VD.bagli) api("/api/vd/cikis", "POST", { mukellefId: VD.mid }).catch(function(){}); if (VD.mid && (VD.sgkB.isveren || VD.sgkB.ebildirge)) api("/api/sgk/cikis", "POST", { mukellefId: VD.mid }).catch(function(){}); VD.sgkB = {}; VD.bilYuklendi = false; VD.mid = m.id; VD.sonuc = {}; VD.bagli = false; $("vdKodKutu").style.display = "none"; vdRozet(); }
     $("vdMuk").textContent = m ? m.ad : "";
     if (!$("vdBit").value) { var dt = new Date(); $("vdBit").value = bugunStr(); dt.setDate(dt.getDate() - 30); $("vdBas").value = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0"); }
     vdSekmeCiz();
@@ -1992,10 +2030,34 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("vdSgkAciklama").textContent = SGKAC[sis];
     $("vdSgkBaglan").style.display = b ? "none" : "grid"; $("vdSgkBagli").style.display = b ? "flex" : "none"; $("vdSgkIslem").style.display = b ? "grid" : "none";
     $("vdSgkEksik").hidden = !eksik; $("vdSgkKodIste").disabled = eksik; if (b) $("vdSgkKodKutu").style.display = "none"; if (!b) $("vdSgkSonuc").hidden = true;
+    var bilGoster = sis === "ebildirge" && b; $("vdSgkBildirge").hidden = !bilGoster; if (bilGoster && !VD.bilYuklendi) bilDonemleriYukle(); if (!b && sis === "ebildirge") { VD.bilYuklendi = false; $("bilSonuc").innerHTML = ""; }
     $("vdSgkBagli").querySelector("span").textContent = "✓ " + (sis === "ebildirge" ? "e-Bildirge’ye bağlı" : "SGK İşveren Sistemi’ne bağlı");
   }
   $("sgkSis").addEventListener("click", function(e){ var b = e.target.closest("[data-sis]"); if (!b) return; VD.sgkSis = b.getAttribute("data-sis"); $("vdSgkDurum").textContent = ""; $("vdSgkDurum").className = "durum"; $("vdSgkKodKutu").style.display = "none"; vdSgkCiz(); });
   function vdSgkHata(er){ if (oturumDustu(er)) return; var d = $("vdSgkDurum"); if (er.girisGerek) { VD.sgkB[VD.sgkSis] = false; vdSgkCiz(); } d.className = "durum hata"; d.textContent = er.message; }
+  /* e-Bildirge: onaylı bildirgeler */
+  function bilDonemleriYukle(){
+    var d = $("vdSgkDurum"); VD.bilYuklendi = true; d.className = "durum"; d.textContent = "Dönemler alınıyor…";
+    api("/api/sgk/bildirge-donemler", "POST", { mukellefId: VD.mid, sistem: "ebildirge" }).then(function(r){
+      var h = r.donemler.map(function(x){ return '<option value="' + esc(x.deger) + '">' + esc(x.etiket) + '</option>'; }).join("");
+      $("bilBas").innerHTML = h; $("bilBit").innerHTML = h; d.textContent = r.donemler.length ? "" : "SGK dönem listesi boş geldi.";
+    }, function(er){ VD.bilYuklendi = false; vdSgkHata(er); });
+  }
+  function bilHtml(r){
+    if (!r.satirlar.length) return '<p class="not">Bu dönemde onaylı bildirge bulunamadı.' + (r.hamMetin ? " SGK’nın cevabı: " + esc(r.hamMetin) : "") + '</p>';
+    var uygun = r.basliklar.length === r.satirlar[0].hucreler.length;
+    return r.satirlar.map(function(sat){
+      var alanlar = sat.hucreler.filter(function(c){ return !c.belgeler.length && c.metin; }).map(function(c){ return '<span>' + esc(uygun ? r.basliklar[c.k] : "Alan " + (c.k + 1)) + '</span><span style="color:var(--fg)">' + esc(c.metin) + '</span>'; }).join("");
+      var belge = sat.hucreler.filter(function(c){ return c.belgeler.length; }).map(function(c){
+        return '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><b style="min-width:6em;font-size:.85rem">' + esc(uygun ? r.basliklar[c.k] : "Belge") + '</b>' + c.belgeler.map(function(b){ return b.var ? '<a class="btn ikincil" style="text-decoration:none;min-height:36px;padding:4px 12px" target="_blank" rel="noopener" href="/api/sgk/belge?mid=' + encodeURIComponent(VD.mid) + '&n=' + sat.n + '&k=' + c.k + '&j=' + b.j + '">' + esc(b.baslik || "Aç") + '</a>' : '<span class="not" style="margin:0">(bağlantı yok)</span>'; }).join("") + '</div>';
+      }).join("");
+      return '<div class="kayit"><div class="not" style="margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:.84rem">' + alanlar + '</div>' + belge + '</div>';
+    }).join("") + (r.onclickOrnek && r.onclickOrnek.length ? '<p class="not" style="font-size:.74rem;word-break:break-all">Belge düğmesi örnekleri: ' + esc(r.onclickOrnek.join(" | ")) + '</p>' : "");
+  }
+  $("bilGetir").addEventListener("click", function(){
+    var b = this, d = $("vdSgkDurum"); b.disabled = true; d.className = "durum"; d.textContent = "SGK’dan bildirgeler getiriliyor…";
+    api("/api/sgk/bildirge-liste", "POST", { mukellefId: VD.mid, sistem: "ebildirge", bas: $("bilBas").value, bit: $("bilBit").value }).then(function(r){ $("bilSonuc").innerHTML = bilHtml(r); d.textContent = ""; }, vdSgkHata).then(function(){ b.disabled = false; });
+  });
   $("vdSgkKodIste").addEventListener("click", function(){
     var b = this, d = $("vdSgkDurum"); if (!VD.mid) return; b.disabled = true; d.className = "durum"; d.textContent = "Güvenlik kodu isteniyor…";
     api("/api/sgk/captcha", "POST", { mukellefId: VD.mid, sistem: VD.sgkSis }).then(function(r){ $("vdSgkKodResim").src = r.resim; $("vdSgkKod").value = ""; $("vdSgkKodKutu").style.display = "flex"; d.textContent = ""; b.textContent = "Kodu yenile"; setTimeout(function(){ $("vdSgkKod").focus(); }, 50); }, vdSgkHata).then(function(){ b.disabled = false; });
@@ -2094,21 +2156,28 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("vdKapat").addEventListener("click", function(){ if (!VD.mid) return; api("/api/vd/cikis", "POST", { mukellefId: VD.mid }).catch(function(){}); VD.bagli = false; vdBagDurum(); });
   $("vdTaniKopya").addEventListener("click", function(){ var t = $("vdTaniMetin").textContent; try { navigator.clipboard.writeText(t); this.textContent = "Kopyalandı"; } catch (e) { var r = document.createRange(); r.selectNodeContents($("vdTaniMetin")); var sl = getSelection(); sl.removeAllRanges(); sl.addRange(r); } });
   var aktifSekme = "yeni", tYuklendi = false;
+  var EAGRUP = ["yeni", "taslak", "gecmis"], EASON = "yeni";
   function sekme(ad){
-    aktifSekme = ad;
+    if (ad === "earsiv") ad = EASON;
+    aktifSekme = ad; var grupta = EAGRUP.indexOf(ad) >= 0; if (grupta) EASON = ad;
     document.querySelectorAll("[data-sayfa]").forEach(function(x){ x.hidden = x.getAttribute("data-sayfa") !== ad; });
-    document.querySelectorAll("[data-sekme]").forEach(function(b){ if (b.getAttribute("data-sekme") === ad) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+    var nav = grupta ? "earsiv" : ad;
+    document.querySelectorAll("#sekmeler [data-sekme]").forEach(function(b){ if (b.getAttribute("data-sekme") === nav) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+    $("eaAlt").hidden = !grupta; document.querySelectorAll("#eaAlt [data-ea]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-ea") === ad ? "true" : "false"); });
     if (ad === "taslak" && !tYuklendi && mSec) taslakGetir();
     seritGoster();
     if (ad === "vd") vdAc();
     if (ad === "sgk") sgkAc();
   }
+  $("eaAlt").addEventListener("click", function(e){ var b = e.target.closest("[data-ea]"); if (!b) return; sekme(b.getAttribute("data-ea")); window.scrollTo(0, 0); });
+  /* taslak sayısı rozeti ana e-Arşiv düğmesinde de görünsün */
+  new MutationObserver(function(){ var t = $("tRozet"); $("eRozet").hidden = t.hidden; $("eRozet").textContent = t.textContent; }).observe($("tRozet"), { attributes: true, childList: true, characterData: true, subtree: true });
   $("sekmeler").addEventListener("click", function(e){
     var b = e.target.closest("[data-sekme]"); if (!b) return;
     sekme(b.getAttribute("data-sekme")); window.scrollTo(0, 0);
   });
   /* mükellef değişince taslak listesi yeniden yüklensin */
-  $("mChips").addEventListener("click", function(){ tYuklendi = false; $("tRozet").hidden = true; if (aktifSekme === "taslak") setTimeout(taslakGetir, 0); if (aktifSekme === "vd") vdAc(); if (aktifSekme === "sgk") sgkAc(); });
+  $("mChips").addEventListener("click", function(){ gSayfa = 30; if (typeof gecmisCiz === "function") gecmisCiz(); tYuklendi = false; $("tRozet").hidden = true; if (aktifSekme === "taslak") setTimeout(taslakGetir, 0); if (aktifSekme === "vd") vdAc(); if (aktifSekme === "sgk") sgkAc(); });
 
   /* ---------- uygulama olarak yükleme (PWA) ---------- */
   var yuklenecek = null, bagimsiz = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;

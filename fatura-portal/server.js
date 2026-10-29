@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-30-104";
+const SURUM = "2026-10-31-105";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -316,6 +316,19 @@ async function api(req, res, yol) {
   if (yol === "/api/mail/durum" && req.method === "GET") return cevap(res, 200, { hazir: posta.hazir(), saglayici: posta.durum().saglayici, gonderen: o.rol === "ofis" ? posta.durum().gonderen : undefined });
   if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz(o));
   if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req, 8e6); if (!Array.isArray(g.mukellefler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(o, g); return cevap(res, 200, temiz(o)); }
+  if (yol === "/api/sgk/belge" && req.method === "GET") {
+    const q = new URL(req.url, "http://x").searchParams, mid = o.rol === "mukellef" ? o.mid : q.get("mid") || "";
+    const duz = (kod, metin) => { res.writeHead(kod, Object.assign({ "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }, GUV)); res.end(metin); };
+    if (!depo.yetkili(o, mid)) return duz(403, "Bu mükellef için yetkiniz yok.");
+    const an = mid + ":ebildirge", x = sgkler.get(an); if (!x || !x.girdi) return duz(409, "Önce SGK e-Bildirge'ye bağlanın (SGK sekmesi).");
+    try {
+      sgkKontrol(an, "b"); sgkZamanla(an);
+      const d = await x.bildirgeBelge(Number(q.get("n")), Number(q.get("k")), Number(q.get("j")));
+      gunluk(o, mid, "SGK belgesi açıldı", d.ad);
+      res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": (d.satir ? "inline" : "attachment") + "; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:" }));
+      return res.end(d.veri);
+    } catch (e) { if (e && e.oturum) { clearTimeout(sgkZaman.get(an)); sgkler.delete(an); } return duz(500, "Belge alınamadı: " + e.message); }
+  }
   if ((yol === "/api/vd/belge" || yol === "/api/vd/yazi" || yol === "/api/vd/levha") && req.method === "GET") {
     const q = new URL(req.url, "http://x").searchParams, mid = o.rol === "mukellef" ? o.mid : q.get("mid") || "";
     const duz = (kod, metin) => { res.writeHead(kod, Object.assign({ "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }, GUV)); res.end(metin); };
@@ -421,6 +434,8 @@ async function api(req, res, yol) {
       const x = sgkler.get(an); if (!x || !x.girdi) { const e = new Error("Önce SGK'ya bağlanın (güvenlik kodu)."); e.girisGerek = true; throw e; }
       sgkZamanla(an);
       if (ne === "tani") return cevap(res, 200, await x.tani(g.derin === true));
+      if (sis === "ebildirge" && ne === "bildirge-donemler") return cevap(res, 200, await x.bildirgeDonemler());
+      if (sis === "ebildirge" && ne === "bildirge-liste") { const t = await x.bildirgeListe(String(g.bas || ""), String(g.bit || "")); gunluk(o, mid, "SGK onaylı bildirge listesi görüntülendi", ""); return cevap(res, 200, t); }
     } catch (e) { if (e && e.oturum) { await birak(); e.girisGerek = true; } if (e && e.girisGerek) return cevap(res, 409, { hata: e.message, girisGerek: true }); throw e; }
     return cevap(res, 404, { hata: "Bulunamadı." });
   }

@@ -8,6 +8,8 @@ const MOCK = process.env.GIB_MOCK === "1";
 const SISTEMLER = { isveren: { sunucu: "uyg.sgk.gov.tr", kok: "/IsverenSistemi" }, ebildirge: { sunucu: "ebildirge.sgk.gov.tr", kok: "/EBildirgeV2" } };
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 
+const coz = (t) => String(t == null ? "" : t).replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(+d)).replace(/&nbsp;/g, " ");
+const nitelik = (a, ad) => coz((new RegExp("\\b" + ad + "\\s*=\\s*[\"']([^\"']*)[\"']", "i").exec(a) || [])[1] || "");
 const sade = (h) => String(h || "").replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 function hataMetni(html) {
   /* 1) bilinen hata kapları (Struts actionError/errorMessage, kırmızı yazı, alert) */
@@ -26,7 +28,7 @@ function hataMetni(html) {
 /* sayfadaki bağlantılar ve form adresleri (tanı için; kişisel veri içermez) */
 function baglantilar(html) {
   const o = [], gor = new Set();
-  const ekle = (metin, href, tur) => { href = String(href || "").trim(); if (!href || /^(javascript:void|#)/i.test(href) && tur === "a") return; const k = tur + "|" + href + "|" + metin; if (gor.has(k)) return; gor.add(k); o.push({ tur, metin: sade(metin).slice(0, 80), href: href.slice(0, 200) }); };
+  const ekle = (metin, href, tur) => { href = coz(href).trim(); if (!href || /^(javascript:void|#)/i.test(href) && tur === "a") return; const k = tur + "|" + href + "|" + metin; if (gor.has(k)) return; gor.add(k); o.push({ tur, metin: sade(metin).slice(0, 80), href: href.slice(0, 200) }); };
   for (const m of html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) { const a = m[1], href = (/href\s*=\s*["']([^"']*)["']/i.exec(a) || [])[1], on = (/onclick\s*=\s*["']([^"']*)["']/i.exec(a) || [])[1]; if (href) ekle(m[2], href, "a"); if (on) ekle(m[2], on, "onclick"); }
   for (const m of html.matchAll(/<form\b[^>]*action\s*=\s*["']([^"']*)["']/gi)) ekle("(form)", m[1], "form");
   for (const m of html.matchAll(/<i?frame\b[^>]*src\s*=\s*["']([^"']*)["']/gi)) ekle("(çerçeve)", m[1], "frame");
@@ -44,7 +46,7 @@ function devamAdresleri(html, taban) {
   for (const m of html.matchAll(/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*content\s*=\s*["'][^"']*url\s*=\s*([^"'>\s]+)/gi)) ekle(m[1]);
   for (const m of html.matchAll(/(?:location(?:\.href)?\s*=|location\.(?:replace|assign)\()\s*["']([^"']+)["']/gi)) ekle(m[1]);
   for (const m of html.matchAll(/<i?frame\b[^>]*src\s*=\s*["']([^"']+)["']/gi)) ekle(m[1]);
-  for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) if (/ana\s*sayfa|devam|başlat/i.test(sade(m[2]))) ekle(m[1]);
+  for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) if (/^\s*ana\s*sayfa\s*$|devam|başlat/i.test(sade(m[2]))) ekle(m[1]);
   for (const m of html.matchAll(/["'](\/(?:IsverenSistemi|EBildirgeV2)\/[A-Za-z0-9_\/.\-]+\.(?:action|jsp|do|html)[^"']*)["']/g)) ekle(m[1]);
   return aday.filter((u) => !/\/login\/|kullaniciIlkKontrollerGiris/.test(u));
 }
@@ -62,6 +64,31 @@ function formlar(html) {
   return o.slice(0, 6);
 }
 const tablolar = (html) => [...html.matchAll(/<table\b[\s\S]*?<\/table>/gi)].map((t) => [...t[0].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((x) => sade(x[1]).slice(0, 30)).filter(Boolean)).filter((b) => b.length > 1).slice(0, 4);
+
+/* formun gerçek alanları (gizli alanlar, seçenek değer/etiketleri) */
+function formCoz(html) {
+  const o = [];
+  for (const f of html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)) {
+    const gizli = {}, secimler = {};
+    for (const i of f[2].matchAll(/<input\b([^>]*)>/gi)) { const n = nitelik(i[1], "name"), t = (nitelik(i[1], "type") || "text").toLowerCase(); if (n && t === "hidden") gizli[n] = nitelik(i[1], "value"); }
+    for (const sl of f[2].matchAll(/<select\b([^>]*)>([\s\S]*?)<\/select>/gi)) { const n = nitelik(sl[1], "name"); if (n) secimler[n] = [...sl[2].matchAll(/<option\b([^>]*)>([\s\S]*?)<\/option>/gi)].map((x) => ({ deger: nitelik(x[1], "value"), etiket: sade(x[2]).trim() })); }
+    o.push({ eylem: nitelik(f[1], "action"), yontem: (nitelik(f[1], "method") || "get").toLowerCase(), gizli, secimler });
+  }
+  return o;
+}
+/* tablo satırları: her hücrenin metni ve içindeki bağlantılar/simgeler (belge düğmeleri) */
+function tabloSatirlari(html) {
+  const satirlar = [], basliklar = [];
+  for (const tr of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const hucreler = [...tr[1].matchAll(/<(td|th)\b[^>]*>([\s\S]*?)<\/\1>/gi)];
+    if (hucreler.length < 6) continue;
+    const h = hucreler.map((c) => ({ metin: sade(c[2]).trim(), baglantilar: [...c[2].matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)].map((a) => ({ href: nitelik(a[1], "href"), onclick: nitelik(a[1], "onclick"), baslik: nitelik(a[1], "title") || nitelik(a[2], "alt") || nitelik(a[2], "title") || sade(a[2]).trim() })) }));
+    if (/<th\b/i.test(tr[1]) && !h.some((x) => x.baglantilar.length)) { if (!basliklar.length || h.length > basliklar.length) { basliklar.length = 0; basliklar.push(...h.map((x) => x.metin)); } continue; }
+    if (/^\d{4}\/\d{2}$/.test(h[0].metin)) satirlar.push(h);
+  }
+  return { basliklar, satirlar };
+}
+const betiklerMaskeli = (html) => [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1].trim()).filter(Boolean).join("\n---\n").replace(/[A-Za-z0-9]{24,}/g, "<kod>").slice(0, 1800);
 
 class Sgk {
   constructor(k, sistem) { this.k = k || {}; this.s = SISTEMLER[sistem] || SISTEMLER.isveren; this.taban = "https://" + this.s.sunucu; this.cerez = new Map(); /* alan adı -> çerezler */ this.girdi = false; this.ana = ""; }
@@ -104,9 +131,12 @@ class Sgk {
     /* başlatıcı sayfa(lar)dan gerçek uygulama penceresine geç */
     this.zincir = [url]; this.sayfalar = [{ url, html }]; const denenen = new Set([url]);
     for (let n = 0; n < 4 && !anaSayfaMi(html) && (basliyorMu(html) || n === 0); n++) {
-      const sonraki = devamAdresleri(html, url).find((u) => !denenen.has(u)); if (!sonraki) break;
-      denenen.add(sonraki);
-      try { const r2 = await this.git("GET", sonraki); html = r2.veri.toString("utf8"); url = r2.url; this.zincir.push(url); this.sayfalar.push({ url, html }); }
+      const ayni = (u) => { try { return new URL(u).hostname === this.s.sunucu; } catch (e) { return false; } };
+      const sonraki = devamAdresleri(html, url).find((u) => !denenen.has(u) && ayni(u));
+      const form = !sonraki && formCoz(html).find((f) => f.eylem && !/kullaniciIlkKontrollerGiris/.test(f.eylem));
+      if (!sonraki && !form) break;
+      const hedef = sonraki || new URL(form.eylem, url).href; denenen.add(hedef);
+      try { const r2 = form && !sonraki ? await this.git(form.yontem === "post" ? "POST" : "GET", hedef, form.gizli) : await this.git("GET", sonraki); html = r2.veri.toString("utf8"); url = r2.url; this.zincir.push(url); this.sayfalar.push({ url, html }); }
       catch (e) { if (n === 0) throw e; break; }
     }
     if (/kullaniciIlkKontrollerGiris/.test(html)) { const e = new Error("SGK oturumu açılamadı: uygulama penceresi giriş sayfasına döndü."); e.giris = true; throw e; }
@@ -117,9 +147,9 @@ class Sgk {
     if (!this.girdi) throw this.oturumHata();
     const liste = baglantilar(this.ana);
     const ilk = this.sayfalar && this.sayfalar.length > 1 ? baglantilar(this.sayfalar[0].html).map((x) => Object.assign({ not: "başlatıcı sayfa" }, x)) : [];
-    const cerceveler = liste.filter((x) => x.tur === "frame").slice(0, 4), ek = [], tum = liste.slice();
+    const cerceveler = liste.filter((x) => x.tur === "frame" && /sgk\.gov\.tr/i.test(new URL(x.href, this.anaUrl).hostname)).slice(0, 4), ek = [], tum = liste.slice();
     for (const c of cerceveler) { try { const r = await this.git("GET", new URL(c.href, this.anaUrl).href); const b = baglantilar(r.veri.toString("utf8")); ek.push({ kaynak: c.href, baglantilar: b }); tum.push(...b); } catch (e) { ek.push({ kaynak: c.href, hata: e.message }); } }
-    const sonuc = { baslik: (/<title>([\s\S]*?)<\/title>/i.exec(this.ana) || [])[1] || "", baglantilar: liste, baslatici: ilk, zincir: this.zincir || [], cerceveler: ek, adres: this.anaUrl };
+    const sonuc = { baslik: (/<title>([\s\S]*?)<\/title>/i.exec(this.ana) || [])[1] || "", baglantilar: liste, baslatici: ilk, baslaticiBetik: this.sayfalar && this.sayfalar.length > 1 ? betiklerMaskeli(this.sayfalar[0].html) : "", zincir: this.zincir || [], cerceveler: ek, adres: this.anaUrl };
     if (derin) { /* menü sayfalarını gez (yalnız okuma: GET); çıkış bağlantıları atlanır */
       const adaylar = [], gor = new Set();
       for (const x of tum) { if (x.tur !== "a" || !/\.(?:action|jsp|do)/i.test(x.href) || /çıkış|cikis|logout|exit/i.test(x.metin + x.href)) continue; const u = new URL(x.href, this.anaUrl).href; if (gor.has(u)) continue; gor.add(u); adaylar.push({ metin: x.metin, u }); }
@@ -127,6 +157,36 @@ class Sgk {
       for (const a of adaylar.slice(0, 12)) { try { const r = await this.git("GET", a.u); const h = r.veri.toString("utf8"); sonuc.sayfalar.push({ metin: a.metin, adres: a.u.replace(this.taban, ""), formlar: formlar(h), tablolar: tablolar(h), baglantilar: baglantilar(h).slice(0, 15) }); } catch (e) { sonuc.sayfalar.push({ metin: a.metin, adres: a.u.replace(this.taban, ""), hata: e.message }); } }
     }
     return sonuc;
+  }
+  /* e-Bildirge > Onaylanmış Belgeler: dönem listesi, sorgu ve belge dosyaları */
+  async bildirgeSayfa() {
+    if (!this.girdi) throw this.oturumHata();
+    const b = baglantilar(this.ana).find((x) => x.tur === "a" && /Onaylanmış Belgeler/i.test(x.metin));
+    if (!b) throw new Error("e-Bildirge ana sayfasında “Onaylanmış Belgeler” bağlantısı bulunamadı.");
+    const r = await this.git("GET", new URL(b.href, this.anaUrl).href), html = r.veri.toString("utf8");
+    if (/kullaniciIlkKontrollerGiris/.test(html)) throw this.oturumHata();
+    const f = formCoz(html).find((x) => /DonemSecildi/i.test(x.eylem)) || formCoz(html)[0];
+    if (!f || !f.secimler.hizmet_yil_ay_index) throw new Error("Onaylanmış Belgeler sayfasında dönem seçimi bulunamadı.");
+    return { f, eylem: new URL(f.eylem, r.url).href };
+  }
+  async bildirgeDonemler() { const d = await this.bildirgeSayfa(); return { donemler: d.f.secimler.hizmet_yil_ay_index.filter((x) => x.deger !== "-1" && x.etiket).map((x) => ({ deger: x.deger, etiket: x.etiket })) }; }
+  async bildirgeListe(bas, bit) {
+    const d = await this.bildirgeSayfa(), gecerli = (v) => d.f.secimler.hizmet_yil_ay_index.some((x) => x.deger === String(v) && x.deger !== "-1");
+    if (!gecerli(bas) || !gecerli(bit)) throw new Error("Geçerli bir dönem seçin.");
+    const alan = Object.assign({}, d.f.gizli, { hizmet_yil_ay_index: String(bas), hizmet_yil_ay_index_bitis: String(bit) });
+    const r = await this.git("POST", d.eylem, alan), html = r.veri.toString("utf8");
+    if (/kullaniciIlkKontrollerGiris/.test(html)) throw this.oturumHata();
+    const t = tabloSatirlari(html); this.bsatirlar = t.satirlar;
+    return { basliklar: t.basliklar, satirlar: t.satirlar.map((h, n) => ({ n, hucreler: h.map((c, k) => ({ k, metin: c.metin, belgeler: c.baglantilar.map((b2, j) => ({ j, baslik: b2.baslik || "", var: !!(b2.href && !/^javascript:/i.test(b2.href)) || /["'](\/EBildirgeV2\/[^"']+)["']/.test(b2.onclick) })) })) })), hamMetin: t.satirlar.length ? "" : sade(html).replace(/İşlem Devam Ediyor Lütfen Bekleyiniz!/g, "").replace(/\s+/g, " ").trim().slice(0, 500), onclickOrnek: t.satirlar.length ? (t.satirlar[0].flatMap((c) => c.baglantilar).map((x) => x.onclick || x.href).filter(Boolean).slice(0, 6)) : [] };
+  }
+  async bildirgeBelge(n, k, j) {
+    const c = ((this.bsatirlar || [])[n] || [])[k], b = c && c.baglantilar[j]; if (!b) throw new Error("Belge bulunamadı; listeyi yenileyin.");
+    let yol = b.href && !/^javascript:/i.test(b.href) ? b.href : ((/["'](\/EBildirgeV2\/[^"']+)["']/.exec(b.onclick) || [])[1] || "");
+    if (!yol) throw new Error("Bu belgenin adresi bulunamadı (düğme bir betik çalıştırıyor).");
+    const r = await this.git("GET", new URL(coz(yol), this.anaUrl).href), tur = (r.tur || "").toLowerCase().split(";")[0];
+    const pdf = /pdf/.test(tur) || r.veri.slice(0, 4).toString() === "%PDF";
+    if (/html/.test(tur) && !pdf) throw new Error("SGK belge yerine bir sayfa döndürdü" + (hataMetni(r.veri.toString("utf8")) ? ": " + hataMetni(r.veri.toString("utf8")) : "") + ".");
+    return { veri: r.veri, tur: pdf ? "application/pdf" : "application/octet-stream", satir: pdf, ad: "sgk-belge-" + (n + 1) + "-" + (k + 1) + (pdf ? ".pdf" : "") };
   }
   oturumHata() { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; return e; }
   async cikis() {
@@ -142,6 +202,10 @@ class SahteSgk {
   async giris(dk) { if (!this.cid) throw new Error("Önce güvenlik kodu resmini isteyin."); this.cid = false; if (String(dk || "").trim() !== "SGK123") { const e = new Error("SGK girişi başarısız: Güvenlik kodu hatalı."); e.giris = true; throw e; } this.girdi = true; }
   async tani(derin) { if (!this.girdi) { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; throw e; } return { baslik: "T.C. Sosyal Güvenlik Kurumu", adres: "https://" + (SISTEMLER[this.sistem] || SISTEMLER.isveren).sunucu + (SISTEMLER[this.sistem] || SISTEMLER.isveren).kok, zincir: [], baslatici: [], baglantilar: [{ tur: "a", metin: "DÖNEM BORÇ GÖRÜNTÜLEME", href: "/IsverenSistemi/ornek/donemBorc.action" }, { tur: "a", metin: "İHALELERE KATILMAK İÇİN", href: "/IsverenSistemi/ornek/ihale.action" }, { tur: "a", metin: "ÇIKIŞ", href: "/IsverenSistemi/cikis.action" }], cerceveler: [], sayfalar: derin ? [{ metin: "Onaylanmış Belgeler", adres: "/EBildirgeV2/ornek/onayli.action", formlar: [{ eylem: "/EBildirgeV2/ornek/liste.action", yontem: "post", alanlar: ["bas_donem:select[2026/09|2026/08]", "bit_donem:select[2026/09|2026/08]", "düğme:Bilgileri Getir"] }], tablolar: [["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Toplam Çalışan Sayısı"]], baglantilar: [] }] : undefined }; }
   async cikis() { this.girdi = false; }
+  async bildirgeDonemler() { if (!this.girdi) throw this.oturumHata2(); return { donemler: [{ deger: "1", etiket: "2026/09" }, { deger: "2", etiket: "2026/08" }, { deger: "3", etiket: "2026/07" }] }; }
+  async bildirgeListe(b, e) { if (!this.girdi) throw this.oturumHata2(); const s = [{ n: 0, hucreler: ["2026/09", "2026/09", "01", "ASIL", "05510", "1", "4", "4.404,00 TL", "", "", ""].map((m, k) => ({ k, metin: m, belgeler: k >= 8 ? [{ j: 0, baslik: "Görüntüle", var: true }, { j: 1, baslik: "İndir", var: true }] : [] })) }]; return { basliklar: ["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Belge Mahiyeti", "Kanun No", "Toplam Çalışan Sayısı", "Toplam Gün Sayısı", "Toplam Pek Tutar", "Tahakkuk", "Hizmet", "S.Hizmet"], satirlar: s, hamMetin: "", onclickOrnek: [] }; }
+  async bildirgeBelge(n, k, j) { if (!this.girdi) throw this.oturumHata2(); const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 16 Tf 20 60 Td (ORNEK SGK BELGESI) Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF"; return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "sgk-belge.pdf" }; }
+  oturumHata2() { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; return e; }
 }
 
-module.exports = { istemci: (k, sistem) => (MOCK ? new SahteSgk(k, sistem) : new Sgk(k, sistem)), baglantilar, hataMetni, devamAdresleri, basliyorMu, anaSayfaMi };
+module.exports = { formCoz, tabloSatirlari, istemci: (k, sistem) => (MOCK ? new SahteSgk(k, sistem) : new Sgk(k, sistem)), baglantilar, hataMetni, devamAdresleri, basliyorMu, anaSayfaMi };
