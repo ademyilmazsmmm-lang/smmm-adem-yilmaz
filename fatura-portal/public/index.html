@@ -403,7 +403,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <section data-sayfa="vd" class="liste" hidden>
   <div class="card" id="vdKart">
     <div class="kartbas"><h2>Vergi Dairesi</h2><small id="vdMuk"></small></div>
-    <div class="vdsek" id="vdSeg" role="group" aria-label="Vergi Dairesi bölümü"><button class="chip" type="button" data-vd="borc" aria-pressed="true">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false">Tebligat</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false">Gelen fatura</button><button class="chip" type="button" data-vd="yazi" aria-pressed="false">Borcu yoktur</button><button class="chip" type="button" data-vd="sgk" aria-pressed="false">SGK</button></div>
+    <div class="vdsek" id="vdSeg" role="group" aria-label="Vergi Dairesi bölümü"><button class="chip" type="button" data-vd="borc" aria-pressed="true">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false">Tebligat</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false">Gelen fatura</button><button class="chip" type="button" data-vd="yazi" aria-pressed="false">Borcu yoktur</button><button class="chip" type="button" data-vd="levha" aria-pressed="false">e-Vergi levhası</button><button class="chip" type="button" data-vd="sgk" aria-pressed="false">SGK</button></div>
     <div id="vdBaglan" style="display:grid;gap:8px">
       <p class="not" style="margin:0">Dijital Vergi Dairesi’ne bağlanmak için resimdeki <b>doğrulama kodunu</b> resimde göründüğü gibi (büyük/küçük harf aynen) yazın. Kullanıcı kodu ve şifre Ayarlar’daki GİB bilgisinden alınır.</p>
       <button class="btn ikincil" type="button" id="vdKodIste">Doğrulama kodu al</button>
@@ -411,6 +411,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     </div>
     <div id="vdBagli" style="display:none;justify-content:space-between;align-items:center;gap:8px"><span class="not" style="margin:0">✓ Dijital Vergi Dairesi’ne bağlı</span><button class="k" type="button" id="vdKapat">Kapat</button></div>
     <p class="not" id="vdNot"></p>
+    <div id="vdYil" hidden style="display:flex;gap:6px;flex-wrap:wrap"></div>
     <div id="vdSgk" hidden style="display:grid;gap:10px">
       <p class="not" id="vdSgkNot" style="margin:0">SGK İşveren Sistemi (borç görüntüleme, borcu yoktur belgesi). Bağlanmak için mükellefin SGK bilgileri Ayarlar’da kayıtlı olmalı; her bağlanışta resimdeki güvenlik kodu yazılır.</p>
       <p class="not" id="vdSgkEksik" hidden style="margin:0;color:var(--danger)">Bu mükellefin SGK bilgileri eksik: Ayarlar → mükellef → “SGK İşveren Sistemi bilgileri”.</p>
@@ -1857,6 +1858,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   var VDNOT = {
     borc: "Dijital Vergi Dairesi’ndeki borç durumu (Ödeme ve Borç İşlemleri ekranı).",
     tebligat: "E-Tebligat ekranındaki tebligatlar. Önemli ve okunmamış olanlar sekme rozetinde sayılır.",
+    levha: "Daha önce oluşturulmuş e-Vergi levhalarınız (yıla göre). Türkçe ya da İngilizce PDF olarak açabilirsiniz.",
     sgk: "",
     yazi: "Vergi dairesinden “borç durum yazısı” (borcu yoktur yazısı) talep edilir; son 90 gündeki talepleriniz aşağıda listelenir.",
     gelen: "Adınıza düzenlenmiş e-Arşiv faturalar (e-Arşiv Faturalarım ekranı). Portal en çok son 2–3 ayı ve 7’şer günlük dilimleri gösterir; uygulama dilimleri birleştirir."
@@ -1939,6 +1941,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function vdCiz(){
     var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
+    if (VD.sek === "levha") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdLevhaHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "yazi") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdYaziHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "tebligat") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdTebHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     var h = s.kayitlar.length ? "" : '<p class="not">Kayıt bulunamadı.</p>';
@@ -1963,7 +1966,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function vdSekmeCiz(){
     $("vdSeg").querySelectorAll("[data-vd]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-vd") === VD.sek ? "true" : "false"); });
-    $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen"; $("vdYazi").hidden = VD.sek !== "yazi" || !VD.bagli; if (VD.sek === "yazi" && VD.bagli) vdYaziAlan(); $("vdSgk").hidden = VD.sek !== "sgk"; $("vdListe").hidden = VD.sek === "sgk"; $("vdTani").hidden = true; if (VD.sek === "sgk") { $("vdTarih").hidden = true; $("vdYazi").hidden = true; vdSgkCiz(); } $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
+    $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen"; $("vdYazi").hidden = VD.sek !== "yazi" || !VD.bagli; if (VD.sek === "yazi" && VD.bagli) vdYaziAlan(); $("vdYil").hidden = VD.sek !== "levha" || !VD.bagli; if (VD.sek === "levha") vdYilCiz(); $("vdSgk").hidden = VD.sek !== "sgk"; $("vdListe").hidden = VD.sek === "sgk"; $("vdTani").hidden = true; if (VD.sek === "sgk") { $("vdTarih").hidden = true; $("vdYazi").hidden = true; vdSgkCiz(); } $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
   }
   function vdAc(){
     var l = V && V.mukellefler || [], ofis = ROL === "ofis";
@@ -2003,6 +2006,20 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }, vdSgkHata).then(function(){ b.disabled = false; });
   });
   $("vdSgkKopya").addEventListener("click", function(){ var t = $("vdSgkMetin").textContent; try { navigator.clipboard.writeText(t); this.textContent = "Kopyalandı"; } catch (e) { var r = document.createRange(); r.selectNodeContents($("vdSgkMetin")); var sl = getSelection(); sl.removeAllRanges(); sl.addRange(r); } });
+  /* e-Vergi levhası */
+  function vdYilCiz(){
+    var y0 = new Date().getFullYear(), h = ""; if (!VD.yil) VD.yil = y0;
+    for (var y = y0; y > y0 - 4; y--) h += '<button class="chip" type="button" data-yil="' + y + '" aria-pressed="' + (VD.yil === y) + '">' + y + '</button>';
+    $("vdYil").innerHTML = h;
+  }
+  $("vdYil").addEventListener("click", function(e){ var b = e.target.closest("[data-yil]"); if (!b) return; VD.yil = +b.getAttribute("data-yil"); vdYilCiz(); vdSorgula(); });
+  function vdLevhaHtml(s){
+    if (!s.levhalar.length) return '<p class="not">' + s.yil + ' yılına ait e-Vergi levhası bulunamadı.</p>';
+    return s.levhalar.map(function(l){
+      var ln = function(dil, ad){ return '<a class="btn' + (dil === "en" ? " ikincil" : "") + '" style="text-align:center;text-decoration:none;flex:1" target="_blank" rel="noopener" href="/api/vd/levha?mid=' + encodeURIComponent(VD.mid) + '&n=' + l.n + '&dil=' + dil + '">' + ad + '</a>'; };
+      return '<div class="kayit"><b>' + esc(tebAd(l.vergiDairesi || "Vergi dairesi")) + '</b><div class="not" style="margin:0;font-size:.82rem;display:grid;grid-template-columns:auto 1fr;gap:2px 10px"><span>Vergi türü</span><span style="color:var(--fg)">' + esc(l.vergiTuru || "-") + '</span><span>Onay kodu</span><span style="color:var(--fg)">' + esc(l.onayKodu) + '</span><span>Onay zamanı</span><span style="color:var(--fg)">' + esc(l.onayZamani || "-") + '</span></div><div style="display:flex;gap:8px">' + ln("tr", "Türkçe PDF") + ln("en", "İngilizce PDF") + '</div></div>';
+    }).join("");
+  }
   /* borç durum (borcu yoktur) yazıları */
   function vdYaziHtml(s){
     if (!s.yazilar.length) return '<p class="not">Son 90 günde borç durum yazısı talebiniz yok.</p>';
@@ -2036,7 +2053,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function vdSorgula(){
     var b = $("vdSorgula"), sek = VD.sek, d = $("vdDurum"); if (!VD.mid || !VD.bagli) return;
     b.disabled = true; d.className = "durum"; d.textContent = "Sorgulanıyor…";
-    api("/api/vd/" + (sek === "yazi" ? "yazilar" : sek), "POST", { mukellefId: VD.mid, bas: $("vdBas").value, bit: $("vdBit").value }).then(function(r){
+    api("/api/vd/" + (sek === "yazi" ? "yazilar" : sek), "POST", { mukellefId: VD.mid, bas: $("vdBas").value, bit: $("vdBit").value, yil: VD.yil }).then(function(r){
       r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc[sek] = r; d.textContent = ""; vdRozet(); if (VD.sek === sek) vdCiz();
     }, function(er){ VD.sonuc[sek] = null; if (VD.sek === sek) vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });
   }

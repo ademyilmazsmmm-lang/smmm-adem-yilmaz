@@ -164,6 +164,18 @@ class Ivd {
     const ad = String(adi || "belge").replace(/[\\/:*?"<>|\r\n]+/g, " ").trim(); const adUz = uz && !ad.toLowerCase().endsWith("." + uz) ? ad + "." + uz : ad;
     return { veri, tur: pdf ? "application/pdf" : resim || "application/octet-stream", satir: !!(pdf || resim), ad: adUz };
   }
+  /* e-Vergi Levhası: yıla göre liste, onay koduyla Türkçe/İngilizce PDF */
+  async levhaListe(yil) {
+    const y = await this.istek("POST", GW + "/api/eVergi-levhasi/eVergi-levhasi-listele", this.tablo({ donem: String(yil) }, 50), true);
+    const dizi = (y && (Array.isArray(y.data) ? y.data : y.data && Array.isArray(y.data.data) ? y.data.data : [])) || [];
+    this.levhalar = dizi.map((d) => ({ vergiDairesi: d.vergiDairesi || "", vergiTuru: d.vergiTuru || "", onayKodu: d.onayKodu || "", onayZamani: d.onayZamani || "" }));
+    return { yil: Number(yil), levhalar: this.levhalar.map((d, n) => Object.assign({ n }, d)), sekil: sekil(y) };
+  }
+  async levhaIndir(n, dil, vkn) {
+    const l = (this.levhalar || [])[n]; if (!l || !l.onayKodu) throw new Error("Vergi levhası bulunamadı; listeyi yenileyin.");
+    const y = await this.istek("POST", GW + "/api/eVergi-levhasi/eVergi-levhasi-dogrula-pdf-diger", { data: { dogrulanacakTcknVkn: String(vkn || ""), dogrulanacakOnayKodu: l.onayKodu, belgeDili: dil === "en" ? "en" : "tr" } }, true);
+    return this.dosyaCek(y, "e-vergi-levhasi-" + l.onayKodu + (dil === "en" ? "-en" : ""), "pdf");
+  }
   /* Borç durum yazısı ("borcu yoktur" yazısı): portalda resmî bir talep (dilekçe) olarak verilir, vergi dairesi cevaplayınca PDF görüntülenir */
   async yaziListe() {
     const y = await this.istek("POST", GW + "/api/dilekce/dilekceSorgula", this.tablo({ body: { baslangicTarihi: trTarih8(89), bitisTarihi: trTarih8(0) } }, 50, { alan: "talepZamani", yon: "DESC" }), true);
@@ -256,6 +268,12 @@ class SahteIvd {
     const d = (this.yazilar || [])[n]; if (!d) throw new Error("Yazı bulunamadı; listeyi yenileyin."); if (d.durum !== 1) throw new Error("Bu talep henüz cevaplanmadı; cevaplanınca PDF açılabilir.");
     const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 18 Tf 20 60 Td (ORNEK BORC DURUM YAZISI) Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF";
     return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "borc-durum-yazisi.pdf" };
+  }
+  async levhaListe(yil) { this.levhalar = [{ vergiDairesi: "ÖRNEK VERGİ DAİRESİ MÜDÜRLÜĞÜ", vergiTuru: "Gelir Vergisi", onayKodu: "ABC12345", onayZamani: "01.02." + yil + " 10:15" }, { vergiDairesi: "ÖRNEK VERGİ DAİRESİ MÜDÜRLÜĞÜ", vergiTuru: "KDV", onayKodu: "XYZ98765", onayZamani: "01.02." + yil + " 10:16" }]; return { yil: Number(yil), levhalar: this.levhalar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
+  async levhaIndir(n, dil) {
+    if (!(this.levhalar || [])[n]) throw new Error("Vergi levhası bulunamadı; listeyi yenileyin.");
+    const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 18 Tf 20 60 Td (ORNEK VERGI LEVHASI " + (dil === "en" ? "EN" : "TR") + ") Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF";
+    return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "e-vergi-levhasi.pdf" };
   }
   async gelen() { const d = [{ unvan: "ÖRNEK TEDARİKÇİ A.Ş.", faturaNo: "ABC2026000000012", duzenlenmeTarihi: "12.10.2026", toplamTutar: 11800, odenecekTutar: 11800, paraBirimi: "TRY" }]; return { kayitlar: kayitlar(d), sekil: sekil(d) }; }
 }
