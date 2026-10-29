@@ -5,6 +5,11 @@ aynı slot mantığını kullanır: her "kaç gün önce" günü için o gün ve
 (bildirimi takvimin kendi "etkinlik saatinde" ayarı verir). Tamamlanan, silinen ya da değişen
 hatırlatmalar takvimde de kalkar/güncellenir. Eşitleme her çalışmada baştan hesaplanır, durum tutmaz.
 
+Takvimden silinen etkinlik uygulamada da karşılığını bulur: programın açtığı bir etkinlik takvimde silinirse
+(Google'da "iptal" olduğu doğrulanırsa) tek seferlik hatırlatma silinir; tekrarlı hatırlatmada o tarih,
+yapılacaklarda görev tamamlandı olur. Hangi etkinliklerin bizim tarafımızdan açıldığını `takvim-durum.json`
+(yalnızca etkinlik kimlikleri) tutar; böylece kendi sildiklerimiz kullanıcı silmesi sanılmaz.
+
 Ters yön: takvime elle yazılan (programın açmadığı) etkinlikler hatırlatma olarak uygulamaya alınır
 (etkinlik günü ve 1 gün önce, etkinliğin saatinde). Etkinlik değişir/silinirse hatırlatma da güncellenir/silinir.
 Tekrarlı etkinlikler alınmaz. Etkinlik, hatırlatma kaydı gerçekten yazıldıktan sonraki çalışmada "alındı"
@@ -49,7 +54,8 @@ ALINDI = "ice"                # takvimden uygulamaya alınmış kullanıcı etki
 ALMA_PENCERE = 60             # bugünden itibaren kaç gün ilerisindeki kullanıcı etkinlikleri alınır
 ALMA_GUNLER = [1, 0]          # alınan etkinliklere mail: etkinlik günü ve 1 gün önce
 ALMA_SAAT = "11:00"           # tüm gün etkinliklerinde varsayılan saat
-SILME_SINIRI = 10             # bir çalışmada en fazla bu kadar hatırlatma takvim silmesi nedeniyle silinir
+SILME_SINIRI = 10             # bir çalışmada en fazla bu kadar alınmış hatırlatma, kullanıcı etkinliği silindiği için silinir
+KULLANICI_SILME_SINIRI = 50   # bir çalışmada en fazla bu kadar etkinlik silmesi uygulamaya yansıtılır
 
 
 # ---------- istenen etkinlikler ----------
@@ -84,10 +90,11 @@ def _gov(kid, olay, fark, k, baslangic, tum_gun):
     return gov
 
 
-def istenen_etkinlikler(hatirlatmalar, simdi, pencere=PENCERE):
+def istenen_etkinlikler(hatirlatmalar, simdi, pencere=PENCERE, kaynak=None):
     """{etkinlik kimliği: gövde}. Mail slotlarıyla aynı kural: her hatırlatma için `gunler` listesindeki her gün
     olay gününden o kadar önce (negatifse sonra) `saat`te bir etkinlik; `gunler`de 0 yoksa olay günü için
-    bildirimsiz bir tüm gün etkinliği de eklenir. Tamamlananlar ve geçmiş slotlar atlanır."""
+    bildirimsiz bir tüm gün etkinliği de eklenir. Tamamlananlar ve geçmiş slotlar atlanır.
+    `kaynak` verilirse {etkinlik kimliği: (hatırlatma kimliği, olay günü)} ile doldurulur."""
     bugun = simdi.date()
     son = bugun + timedelta(days=pencere)
     sonuc = {}
@@ -114,12 +121,17 @@ def istenen_etkinlikler(hatirlatmalar, simdi, pencere=PENCERE):
                     continue
                 kid = etkinlik_kimligi(k["id"], olay.isoformat(), fark)
                 sonuc[kid] = _gov(k["id"], olay.isoformat(), fark, k, slot, False)
+                if kaynak is not None:
+                    kaynak[kid] = (str(k["id"]), olay.isoformat())
             gun += timedelta(days=1)
         if 0 not in gunler and not alinan:        # olay günü de takvimde görünsün (bildirimsiz)
             gun = bugun
             while gun <= son:
                 if gun.isoformat() not in bitenler and h.olay_mi(k, gun):
-                    sonuc[etkinlik_kimligi(k["id"], gun.isoformat(), "d")] = _gov(k["id"], gun.isoformat(), 0, k, None, True)
+                    kid = etkinlik_kimligi(k["id"], gun.isoformat(), "d")
+                    sonuc[kid] = _gov(k["id"], gun.isoformat(), 0, k, None, True)
+                    if kaynak is not None:
+                        kaynak[kid] = (str(k["id"]), gun.isoformat())
                 gun += timedelta(days=1)
     return sonuc
 
@@ -244,6 +256,18 @@ class Takvim:
             raise
         return None if e.get("status") == "cancelled" else e
 
+    def silindi_mi(self, kid):
+        """Etkinlik Google'da gerçekten silinmiş (iptal) mi? Bulunamazsa (404) silinmiş SAYILMAZ."""
+        try:
+            e = self.http("GET", f"{self.taban}/{kid}?fields=status", token=self.token)
+        except Hata as ex:
+            if ex.durum == 410:
+                return True
+            if ex.durum == 404:
+                return False
+            raise
+        return e.get("status") == "cancelled"
+
     def isaretle(self, kid):
         """Kullanıcı etkinliğini "alındı" diye işaretler; yeni `updated` değerini döndürür."""
         r = self.http("PATCH", f"{self.taban}/{kid}?fields=updated",
@@ -271,11 +295,13 @@ class Takvim:
 
 
 def esitle(takvim, istenen, mevcut, sinir=TUR_ADIM):
-    """İstenen ile takvimdekini karşılaştırıp farkı uygular. Dönüş: (eklenen, güncellenen, silinen, kalan)."""
+    """İstenen ile takvimdekini karşılaştırıp farkı uygular.
+    Dönüş: (eklenen, güncellenen, silinen, kalan, işlem sonrası takvimde bulunan istenen kimlikler)."""
     silinecek = sorted(i for i in mevcut if i not in istenen)
     eklenecek = sorted((i for i in istenen if i not in mevcut), key=lambda i: istenen[i]["start"].get("dateTime") or istenen[i]["start"]["date"])
     degisecek = [i for i in istenen if i in mevcut and mevcut[i] != istenen[i]["extendedProperties"]["private"]["h"]]
     e = g = s = 0
+    var = {i for i in istenen if i in mevcut}
     for i in silinecek:
         if e + g + s >= sinir:
             break
@@ -287,9 +313,9 @@ def esitle(takvim, istenen, mevcut, sinir=TUR_ADIM):
     for i in eklenecek:
         if e + g + s >= sinir:
             break
-        takvim.ekle(i, istenen[i]); e += 1
+        takvim.ekle(i, istenen[i]); e += 1; var.add(i)
     kalan = len(silinecek) + len(degisecek) + len(eklenecek) - (e + g + s)
-    return e, g, s, kalan
+    return e, g, s, kalan, var
 
 
 # ---------- takvimden uygulamaya (kullanıcının kendi etkinlikleri) ----------
@@ -381,6 +407,36 @@ def takvimden_al(takvim, veri, simdi):
     return alinan, guncellenen, silinen
 
 
+# ---------- takvimden silinenler uygulamaya ----------
+
+def silinenleri_isle(takvim, kayip, kaynak, veri, yap, simdi):
+    """Takvimde kullanıcı tarafından silinmiş etkinliklerin hatırlatmalarını işler (veri/yap yerinde değişir).
+    Önce her etkinliğin Google'da gerçekten iptal olduğu doğrulanır. Dönüş: işlenen hatırlatma/tarih sayısı."""
+    birimler = []
+    for kid in sorted(kayip)[:KULLANICI_SILME_SINIRI * 2]:
+        if kid in kaynak and takvim.silindi_mi(kid) and kaynak[kid] not in birimler:
+            birimler.append(kaynak[kid])
+    birimler = birimler[:KULLANICI_SILME_SINIRI]
+    damga = simdi.strftime("%d.%m.%Y %H:%M") + " (takvimden)"
+    islenen = 0
+    for rid, olay in birimler:
+        if rid.startswith("g"):
+            for o in yap.get("ogeler", []):
+                if str(o.get("id")) == rid[1:] and not o.get("tamam"):
+                    o["tamam"] = True; o["tamamlanma"] = damga; islenen += 1
+            continue
+        for k in list(veri.get("hatirlatmalar", [])):
+            if str(k.get("id")) != rid:
+                continue
+            if k.get("tur") == "tek":
+                veri["hatirlatmalar"].remove(k); islenen += 1
+            else:
+                l = k.get("tamamlanan") or []
+                if olay not in l:
+                    k["tamamlanan"] = (l + [olay])[-36:]; islenen += 1
+    return islenen
+
+
 # ---------- ana program ----------
 
 def main(argv=None, http=istek, imzala=rs256_imzala):
@@ -392,8 +448,18 @@ def main(argv=None, http=istek, imzala=rs256_imzala):
 
     simdi = datetime.fromisoformat(args.simdi) if args.simdi else h.simdi_tr()
     hat_yolu = os.path.join(args.veri, "hatirlatmalar.json")
+    yap_yolu = os.path.join(args.veri, "yapilacaklar.json")
+    durum_yolu = os.path.join(args.veri, "takvim-durum.json")
     veri = h.json_oku(hat_yolu, {"hatirlatmalar": []})
-    yap = h.json_oku(os.path.join(args.veri, "yapilacaklar.json"), {"ogeler": []})
+    yap = h.json_oku(yap_yolu, {"ogeler": []})
+    durum = h.json_oku(durum_yolu, {"var": []})
+    yazilan = {hat_yolu: json.dumps(veri, sort_keys=True), yap_yolu: json.dumps(yap, sort_keys=True)}
+
+    def kaydet():
+        """Değişen veri dosyalarını yazar (workflow'un "kaydet" adımı depoya işler)."""
+        for yol, nesne in ((hat_yolu, veri), (yap_yolu, yap)):
+            if json.dumps(nesne, sort_keys=True) != yazilan[yol]:
+                h.json_yaz(yol, nesne); yazilan[yol] = json.dumps(nesne, sort_keys=True)
 
     if args.dry_run:
         istenen = istenen_etkinlikler(veri["hatirlatmalar"] + h.gorev_hatirlatmalari(yap), simdi)
@@ -410,21 +476,29 @@ def main(argv=None, http=istek, imzala=rs256_imzala):
         sa = json.loads(sa_json)
         token = erisim_anahtari(sa, http, imzala=imzala)
         takvim = Takvim(takvim_id, token, http)
-        onceki = json.dumps(veri, sort_keys=True)
         alinan, guncellenen, silinen = takvimden_al(takvim, veri, simdi)
-        if json.dumps(veri, sort_keys=True) != onceki:
-            h.json_yaz(hat_yolu, veri)                 # workflow'un "kaydet" adımı bu dosyayı depoya işler
-        istenen = istenen_etkinlikler(veri["hatirlatmalar"] + h.gorev_hatirlatmalari(yap), simdi)
+        kaydet()
+        kaynak = {}
+        istenen = istenen_etkinlikler(veri["hatirlatmalar"] + h.gorev_hatirlatmalari(yap), simdi, kaynak=kaynak)
         zmin = datetime.combine(simdi.date(), datetime.min.time()).isoformat(timespec="seconds") + TR_OFSET
         zmax = datetime.combine(simdi.date() + timedelta(days=PENCERE + 1), datetime.min.time()).isoformat(timespec="seconds") + TR_OFSET
-        e, g, s, kalan = esitle(takvim, istenen, takvim.listele(zmin, zmax))
+        mevcut = takvim.listele(zmin, zmax)
+        kayip = [i for i in durum.get("var", []) if i in istenen and i not in mevcut]   # daha önce vardı, şimdi yok
+        kullanici_silmesi = silinenleri_isle(takvim, kayip, kaynak, veri, yap, simdi) if kayip else 0
+        if kullanici_silmesi:
+            kaydet()
+            istenen = istenen_etkinlikler(veri["hatirlatmalar"] + h.gorev_hatirlatmalari(yap), simdi, kaynak=kaynak)
+        e, g, s, kalan, var = esitle(takvim, istenen, mevcut)
+        if sorted(var) != durum.get("var"):
+            h.json_yaz(durum_yolu, {"var": sorted(var)})
     except (Hata, ValueError, KeyError) as ex:
         ad = f"{ex.durum} {ex.neden}".strip() if isinstance(ex, Hata) else type(ex).__name__
         print(f"Takvim eşitlenemedi ({ad}).")      # ayrıntı yazılmaz: günlük herkese açık
         return 1
     print(f"Takvim eşitlendi: {len(istenen)} etkinlik (eklenen {e}, güncellenen {g}, silinen {s})."
           + (f" {kalan} işlem sonraki çalışmaya kaldı." if kalan else "")
-          + (f" Takvimden alınan: {alinan}, güncellenen: {guncellenen}, silinen: {silinen}." if alinan or guncellenen or silinen else ""))
+          + (f" Takvimden alınan: {alinan}, güncellenen: {guncellenen}, silinen: {silinen}." if alinan or guncellenen or silinen else "")
+          + (f" Takvimde silinen etkinliklere karşılık işlenen hatırlatma: {kullanici_silmesi}." if kullanici_silmesi else ""))
     return 0
 
 

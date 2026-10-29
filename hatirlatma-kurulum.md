@@ -157,3 +157,14 @@ Hatırlatmalar tek yönlü olarak Google Takvim'deki ayrı bir **Hatırlatma** t
 - Programın kendi açtığı etkinlikler ve **tekrarlı** etkinlikler alınmaz (tekrarlı hatırlatmayı uygulamadan ekle). Geçmiş etkinlikler alınmaz; bugünden 60 gün ilerisi taranır.
 - Alınan etkinlikler çalışmanın ikinci turunda gizli bir işaretle (`ice`) "alındı" diye işaretlenir; kayıt bir sebeple depoya yazılamazsa etkinlik işaretsiz kalır ve bir sonraki çalışma yeniden dener.
 - Programın kendi açtığı (işaretli) etkinlikleri takvimden silersen yeniden oluşur; senin kendi etkinliklerine program dokunmaz (yalnızca işaret ekler).
+
+### Takvimde silinen etkinlik uygulamaya yansır
+
+Programın **Hatırlatma** takvimine açtığı bir etkinliği Google Takvim'de silersen (en geç 10 dakika içinde):
+
+- **Tek seferlik hatırlatma** uygulamadan da silinir; aynı hatırlatmanın diğer takvim etkinlikleri de kalkar.
+- **Tekrarlı hatırlatmada** (KDV gibi) yalnızca o tarih "tamamlandı" olur; sonraki dönemler yine hatırlatılır.
+- **Yapılacaklar** (son tarihli görev) tamamlandı olarak işaretlenir.
+- Takvimden alınmış hatırlatmanın ("1 gün kaldı") etkinliği silinirse hatırlatma silinir; senin kendi etkinliğin takvimde kalır ve yeniden alınmaz.
+- Silme, Google'da etkinliğin gerçekten iptal olduğu doğrulandıktan sonra uygulanır. Programın kendi sildiği etkinlikler (hatırlatma tamamlanınca/değişince) kullanıcı silmesi sayılmasın diye `takvim-durum.json` (yalnızca etkinlik kimlikleri) tutulur. Bir çalışmada en fazla 50 silme işlenir.
+- Silinen tek seferlik hatırlatma geri alınamaz (özel veri deposunun geçmişinden ve yedek mailinden bulunabilir). Emin değilsen takvimde değil, uygulamada **Tamamlandı** ile kapat.
