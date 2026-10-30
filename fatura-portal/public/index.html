@@ -81,6 +81,15 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6}
 #vdSgkKodKutu{flex-wrap:wrap}
 #vdSgkKodResim{max-width:100%;height:auto!important;max-height:56px}
 #vdSgkKodKutu input{flex:1 1 6em;min-width:0}
+.tkl{display:flex;flex-direction:column;gap:6px}
+.tk{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r2);background:var(--field)}
+.tk b{font-size:.95rem}.tk small{display:block;color:var(--muted);font-size:.78rem}
+.tk .gun{font-weight:700;font-size:.85rem;white-space:nowrap;color:var(--accent)}
+.tk.yakin{border-color:var(--danger);background:var(--danger-soft)}.tk.yakin .gun{color:var(--danger)}
+.ozet{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ozet button{font:inherit;text-align:left;border:1px solid var(--line2);border-radius:var(--r2);background:var(--field);color:var(--fg);padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0}
+.ozet button span{font-size:.78rem;color:var(--muted)}.ozet button b{font-size:1.05rem;overflow-wrap:anywhere}.ozet button small{font-size:.72rem;color:var(--muted)}
+.ozet button.dik b{color:var(--danger)}.ozet button.iyi b{color:var(--accent)}
 #sgkSis .chip{flex-direction:column;gap:2px;line-height:1.2;text-align:center;min-height:54px;font-size:.92rem}
 #sgkSis .chip small{font-size:.74rem;font-weight:500;opacity:.85}
 @media (min-width:640px){.vdsek{grid-template-columns:repeat(5,1fr)}.vdsek .chip:last-child:nth-child(odd){grid-column:auto}}
@@ -287,9 +296,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <header class="bar"><div class="bar-ic">
     <div class="marka"><div class="logo" id="logoKutu"><img alt="" src="/ikon.svg"></div><div><h1>Mükellef Portalı</h1><small id="surum"></small><small id="kimlik" style="display:block;font-weight:600;color:var(--fg)"></small></div></div>
     <nav class="sekmeler" id="sekmeler" aria-label="Bölümler">
-      <button type="button" data-sekme="earsiv" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>e-Arşiv<span class="rozet" id="eRozet" hidden></span></button>
+      <button type="button" data-sekme="ana" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Ana</button>
+      <button type="button" data-sekme="earsiv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>e-Arşiv<span class="rozet" id="eRozet" hidden></span></button>
       <button type="button" data-sekme="vd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/></svg>Vergi D.<span class="rozet" id="vdRozet" hidden></span></button>
       <button type="button" data-sekme="sgk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>SGK</button>
+      <button type="button" data-sekme="belge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Belge<span class="rozet" id="bRozet" hidden></span></button>
       <button type="button" data-sekme="ayar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ayarlar</button>
     </nav>
     <button class="k" id="tema" type="button" aria-label="Tema: otomatik" title="Tema"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg> <span class="tl">Otomatik</span></button>
@@ -493,6 +504,36 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   </div>
   </section>
 
+  <section data-sayfa="ana" class="liste" hidden>
+    <div id="anaIc" style="display:flex;flex-direction:column;gap:14px"></div>
+  </section>
+  <section data-sayfa="belge" class="liste" hidden>
+  <div class="card" id="belgeKart">
+    <div class="kartbas"><h2>Belgeler ve talepler</h2><small id="belgeMuk"></small></div>
+    <div class="vdsek" id="belgeSeg" role="group" aria-label="Belge bölümü"><button class="chip" type="button" data-bs="belgeler" aria-pressed="true"><span>Belgelerim</span><small>İmza sirküleri, gazete…</small></button><button class="chip" type="button" data-bs="talepler" aria-pressed="false"><span>Ofise talep</span><small>İstek ve sorularınız</small></button></div>
+    <div id="belgeBolum" style="display:grid;gap:10px">
+      <p class="not" id="belgeAciklama" style="margin:0"></p>
+      <div id="belgeYukle" hidden style="display:grid;gap:8px;padding:12px;border:1px dashed var(--line2);border-radius:var(--r2)">
+        <label for="belgeTur">Belge türü</label><select id="belgeTur"></select>
+        <input type="file" id="belgeDosya" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" aria-label="Dosya seç">
+        <button class="btn" type="button" id="belgeGonder">Yükle</button>
+        <p class="not" style="margin:0">En çok 2,5 MB; PDF, JPG, PNG, Word veya Excel. Bir mükellef için en çok 12 belge.</p>
+      </div>
+      <div class="durum" id="belgeDurum" role="status"></div>
+      <div id="belgeListe" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div id="talepBolum" hidden style="display:grid;gap:10px">
+      <p class="not" id="talepAciklama" style="margin:0"></p>
+      <div id="talepForm" style="display:grid;gap:8px">
+        <label for="talepTur">Konu</label><select id="talepTur"></select>
+        <textarea id="talepMetin" rows="3" maxlength="600" placeholder="Ne istiyorsunuz? (kısaca)" aria-label="Talebiniz"></textarea>
+        <button class="btn" type="button" id="talepGonder">Ofise gönder</button>
+      </div>
+      <div class="durum" id="talepDurum" role="status"></div>
+      <div id="talepListe" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+  </div>
+  </section>
   <section data-sayfa="ayar" class="liste" hidden>
   <div class="card" id="ayar">
     <div class="kartbas"><h2>Ayarlar</h2></div>
@@ -603,7 +644,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       e.className = "not" + (r.hata ? " hata" : "");
     }, function(){});
   }
-  var YEDEKSIZ = /^\/api\/(hesapla|sorgu|gorunum|liste|cikis|giris|kurulum|geriyukle|durum|kasa|gecmis|veri)$/;
+  var YEDEKSIZ = /^\/api\/(hesapla|sorgu|gorunum|liste|cikis|giris|kurulum|geriyukle|durum|kasa|gecmis|veri|belge|belge-sil)$/;
   function api(yol, yontem, govde){
     return fetch(yol, { method: yontem || "GET", headers: { "content-type": "application/json" }, body: govde ? JSON.stringify(govde) : undefined })
       .catch(function(){ throw new Error("Sunucuya ulaşılamadı. Birkaç saniye bekleyip tekrar deneyin (ücretsiz sunucu uyuyor olabilir)."); })
@@ -667,6 +708,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       $("kimlik").textContent = ROL === "ofis" ? "Ofis · " + KULLANICI : (V.mukellefler[0] ? V.mukellefler[0].ad : KULLANICI);
       /* ayarlar bölümleri kapalı açılır (düzenli görünsün) */
       hepsi(); gecmisYukle(); markaYukle(mSec); postaDurumu();
+      sekme("ana");
       if (!$("gBit").value) { var d0 = new Date(); $("gBit").value = bugunStr(); d0.setDate(d0.getDate() - 30); $("gBas").value = d0.getFullYear() + "-" + String(d0.getMonth() + 1).padStart(2, "0") + "-" + String(d0.getDate()).padStart(2, "0"); }
     });
   }
@@ -2099,7 +2141,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (r.borc) {
       var bs = r.borc.basliklar || [], sat = (r.borc.satirlar || []).filter(function(c){ return c[0] && c[0] !== "Dönem"; }), sifir = function(v){ return !v || /^0+([.,]0+)?$/.test(v); };
       var tp = sat.filter(function(c){ return /^TOPLAM/i.test(c[0]); })[0], hepsi0 = function(c){ return c.slice(1).every(function(v){ return sifir(v) || !/\d/.test(v); }); };
-      if (tp && hepsi0(tp) && !r.sonuc) h += '<div class="durum" style="display:block;margin-top:6px;background:var(--okbg,#e3f1ec);color:var(--ok,#0b6b52)">✓ Borç yok — toplam 0,00</div>';
+      if (tp && hepsi0(tp) && !r.sonuc) h += '<div class="durum ok" style="display:block;margin-top:6px">✓ Borç yok — toplam 0,00</div>';
       if (tp && !hepsi0(tp)) {
         var son = tp[tp.length - 1], ek = ["Toplam BORÇ", "Toplam GZ"].map(function(n){ var k = bs.indexOf(n); return k > 0 && tp[k] ? n.replace("Toplam ", "") + ": " + tp[k] + " TL" : ""; }).filter(Boolean).join(" · "), n = sat.filter(function(c){ return !/^TOPLAM/i.test(c[0]) && !hepsi0(c); }).length;
         h += '<div style="margin-top:8px"><div class="not" style="margin:0;font-size:.8rem">Toplam bakiye</div><div style="font-size:1.5rem;font-weight:700;color:var(--danger,#b3261e)">' + esc(son) + ' TL</div>' + (ek ? '<div class="not" style="margin:0;font-size:.8rem">' + esc(ek) + '</div>' : "") + (n ? '<div class="not" style="margin:0;font-size:.8rem">' + n + ' kayıtta borç var · ayrıntı için PDF’i açın</div>' : "") + '</div>';
@@ -2216,6 +2258,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     seritGoster();
     if (ad === "vd") vdAc();
     if (ad === "sgk") sgkAc();
+    if (ad === "ana") anaAc();
+    if (ad === "belge") belgeAc();
   }
   $("eaAlt").addEventListener("click", function(e){ var b = e.target.closest("[data-ea]"); if (!b) return; sekme(b.getAttribute("data-ea")); window.scrollTo(0, 0); });
   /* taslak sayısı rozeti ana e-Arşiv düğmesinde de görünsün */
@@ -2225,7 +2269,128 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     sekme(b.getAttribute("data-sekme")); window.scrollTo(0, 0);
   });
   /* mükellef değişince taslak listesi yeniden yüklensin */
-  $("mChips").addEventListener("click", function(){ gSayfa = 30; if (typeof gecmisCiz === "function") gecmisCiz(); tYuklendi = false; $("tRozet").hidden = true; if (aktifSekme === "taslak") setTimeout(taslakGetir, 0); if (aktifSekme === "vd") vdAc(); if (aktifSekme === "sgk") sgkAc(); });
+  $("mChips").addEventListener("click", function(){ gSayfa = 30; if (typeof gecmisCiz === "function") gecmisCiz(); tYuklendi = false; $("tRozet").hidden = true; if (aktifSekme === "taslak") setTimeout(taslakGetir, 0); if (aktifSekme === "vd") vdAc(); if (aktifSekme === "sgk") sgkAc(); if (aktifSekme === "ana") anaAc(); if (aktifSekme === "belge") belgeAc(); });
+
+  /* ---------- Ana sekmesi: yaklaşan vergi/SGK tarihleri, son sorgu özeti ---------- */
+  var TAT_SABIT = ["01-01", "04-23", "05-01", "05-19", "07-15", "08-30", "10-29"];
+  /* dini bayramlar (arefe dahil) her yıl elle eklenir; smmmyilmaz.com ana sayfasındaki vergi takvimiyle aynı liste */
+  var TAT_DINI = ["2026-03-19", "2026-03-20", "2026-03-21", "2026-03-22", "2026-05-26", "2026-05-27", "2026-05-28", "2026-05-29", "2026-05-30", "2027-03-09", "2027-03-10", "2027-03-11", "2027-03-12", "2027-05-15", "2027-05-16", "2027-05-17", "2027-05-18", "2027-05-19"];
+  var AYLAR_UZUN = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"], AYLAR = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"], GUNLER = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+  function p2(n){ return ("0" + n).slice(-2); }
+  function tatilMi(d){ var a = p2(d.getMonth() + 1) + "-" + p2(d.getDate()); return TAT_SABIT.indexOf(a) >= 0 || TAT_DINI.indexOf(d.getFullYear() + "-" + a) >= 0; }
+  function isGunuYap(d){ while (d.getDay() === 0 || d.getDay() === 6 || tatilMi(d)) d.setDate(d.getDate() + 1); return d; }
+  function takvimAy(y, m){
+    var l = [];
+    var dnm = AYLAR_UZUN[(m + 10) % 12] + " dönemi"; /* aylık beyan ve primler bir önceki ayın dönemine aittir */
+    function ekle(ad, gun, donem){ l.push({ ad: ad, d: isGunuYap(gun === "son" ? new Date(y, m, 0) : new Date(y, m - 1, gun)), donem: donem || "" }); }
+    ekle("Muhtasar (stopaj) beyanı", 26, dnm); ekle("KDV beyanı ve ödemesi", 28, dnm); ekle("KDV 2 (tevkifat) beyanı", 25, dnm); ekle("SGK primi ve Bağ-Kur", "son", dnm);
+    if ([2, 5, 8, 11].indexOf(m) >= 0) ekle("Geçici vergi", 17);
+    if ([1, 4, 7, 10].indexOf(m) >= 0) ekle("3 aylık muhtasar", 26);
+    if (m === 3) ekle("Yıllık gelir vergisi", 31);
+    if (m === 4) ekle("Kurumlar vergisi", 30);
+    if (m === 1) ekle("MTV 1. taksit", 31);
+    if (m === 7) ekle("MTV 2. taksit", 31);
+    return l;
+  }
+  function yaklasanTarihler(){
+    var b = new Date(); b.setHours(0, 0, 0, 0); var y = b.getFullYear(), a = b.getMonth() + 1;
+    var l = takvimAy(y, a).concat(takvimAy(a === 12 ? y + 1 : y, a === 12 ? 1 : a + 1));
+    return l.filter(function(x){ return x.d >= b; }).sort(function(x, z){ return x.d - z.d; }).slice(0, 6).map(function(x){ x.kalan = Math.round((x.d - b) / 864e5); return x; });
+  }
+  function anaTl(n){ return Number(n || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " TL"; }
+  function anaZaman(z){ if (!z) return ""; var d = new Date(z); return isNaN(d) ? "" : d.getDate() + " " + AYLAR[d.getMonth()] + " " + p2(d.getHours()) + ":" + p2(d.getMinutes()); }
+  var OZET = null;
+  function anaCiz(r){
+    r = r || {}; var son = r.son || {}, ofis = ROL === "ofis", m = mk();
+    var h = '<div class="card"><div class="kartbas"><h2>' + (m ? esc(m.ad) : "Mükellef Portalı") + '</h2><small>Hoş geldiniz</small></div>' +
+      '<div class="kartbas" style="margin-top:2px"><b style="font-size:1rem">Yaklaşan tarihler</b><small>Vergi ve SGK</small></div><div class="tkl">' +
+      yaklasanTarihler().map(function(x){ var g = x.kalan === 0 ? "Bugün" : x.kalan === 1 ? "Yarın" : x.kalan + " gün"; return '<div class="tk' + (x.kalan <= 3 ? " yakin" : "") + '"><div><b>' + esc(x.ad) + '</b><small>' + x.d.getDate() + ' ' + AYLAR[x.d.getMonth()] + ' ' + x.d.getFullYear() + ' · ' + GUNLER[x.d.getDay()] + (x.donem ? ' · ' + x.donem : '') + '</small></div><span class="gun">' + g + '</span></div>'; }).join("") +
+      '</div><p class="not" style="margin:0">Hafta sonu ve resmî tatiller sonraki iş gününe kayar.</p></div>';
+    var vb = son.vdBorc, sb = son.sgkBorc;
+    h += '<div class="card"><div class="kartbas"><h2>Son durum</h2><small>Son sorguya göre</small></div><div class="ozet">' +
+      '<button type="button" data-git="vd" class="' + (vb ? (vb.toplam > 0 ? "dik" : "iyi") : "") + '"><span>Vergi borcu</span><b>' + (vb ? anaTl(vb.toplam) : "—") + '</b><small>' + (vb ? anaZaman(vb.zaman) + " sorgusu" : "Sorgulamak için dokunun") + '</small></button>' +
+      '<button type="button" data-git="sgk" class="' + (sb ? (sb.toplam > 0 ? "dik" : "iyi") : "") + '"><span>SGK borcu</span><b>' + (sb ? anaTl(sb.toplam) : "—") + '</b><small>' + (sb ? anaZaman(sb.zaman) + " sorgusu" : "Sorgulamak için dokunun") + '</small></button>' +
+      '<button type="button" data-git="belge"><span>Belgelerim</span><b>' + (r.belge == null ? "—" : r.belge) + '</b><small>İmza sirküleri, gazete…</small></button>' +
+      '<button type="button" data-git="talep" class="' + (ofis ? (r.bekleyenToplam > 0 ? "dik" : "") : "") + '"><span>' + (ofis ? "Bekleyen talepler" : "Taleplerim") + '</span><b>' + (ofis ? (r.bekleyenToplam == null ? "—" : r.bekleyenToplam) : (r.acikTalep == null ? "—" : r.acikTalep + " açık")) + '</b><small>' + (ofis ? "Tüm mükellefler" : "Ofise sorularınız") + '</small></button>' +
+      '</div><p class="not" style="margin:0">Vergi dairesi ve SGK tutarları, siz o bölümde sorgulayınca güncellenir (güvenlik kodu gerekir).</p></div>';
+    h += '<div class="card"><div class="kartbas"><h2>Muhasebe ücreti ve tahsilat takibi</h2><small>Yakında</small></div><p class="not" style="margin:0">Muhasebe ücretinizin ve ödemelerinizin takibi buradan yapılacak. <b>Çalışma devam ediyor.</b></p>' +
+      (ofis ? '<a class="btn ikincil" style="text-decoration:none" href="https://smmmyilmaz.pythonanywhere.com/giris" target="_blank" rel="noopener">Takip programını aç</a>' : "") + '</div>';
+    $("anaIc").innerHTML = h;
+  }
+  function anaAc(){
+    var m = mk(); anaCiz(OZET && OZET.mid === (m && m.id) ? OZET : {});
+    if (!m && ROL !== "ofis") return;
+    api("/api/ozet" + (m ? "?mid=" + encodeURIComponent(m.id) : "")).then(function(r){ r.mid = m && m.id; OZET = r; if (aktifSekme === "ana") anaCiz(r); talepRozet(r.bekleyenToplam); }, function(er){ oturumDustu(er); });
+  }
+  function talepRozet(n){ var e = $("bRozet"); if (!e) return; e.hidden = !(ROL === "ofis" && n > 0); e.textContent = n > 0 ? n : ""; }
+  $("anaIc").addEventListener("click", function(e){
+    var b = e.target.closest("[data-git]"); if (!b) return; var g = b.getAttribute("data-git");
+    if (g === "talep") { BS = "talepler"; sekme("belge"); } else sekme(g);
+    window.scrollTo(0, 0);
+  });
+
+  /* ---------- Belge sekmesi: belgelerim (ofis yükler) ve ofise talep ---------- */
+  var BS = "belgeler", BELGE_TUR = [], TALEP_TUR = [];
+  function boyutYaz(n){ return n >= 1e6 ? (n / 1e6).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB"; }
+  function tarihYaz(z){ var d = new Date(z); return isNaN(d) ? "" : p2(d.getDate()) + "." + p2(d.getMonth() + 1) + "." + d.getFullYear(); }
+  function belgeAc(){
+    var m = mk(), ofis = ROL === "ofis"; $("belgeMuk").textContent = m ? m.ad : "";
+    $("belgeSeg").querySelectorAll("[data-bs]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-bs") === BS ? "true" : "false"); });
+    $("belgeBolum").hidden = BS !== "belgeler"; $("talepBolum").hidden = BS !== "talepler";
+    $("belgeAciklama").textContent = ofis ? "Mükellef için saklanan belgeler. Yüklediğiniz belgeyi mükellef kendi ekranından görüp indirir." : "Ofisinizin sizin için sakladığı belgeler: imza sirküleri, ticaret sicil gazetesi, faaliyet belgesi vb. İndirmek için dokunun.";
+    $("talepAciklama").textContent = ofis ? "Mükelleflerin ofise gönderdiği talepler (tüm firmalar). Yapınca “Yapıldı” deyin, isterseniz kısa bir yanıt yazın." : "Ofise iletmek istediğiniz bir şey varsa buraya yazın; yapılınca burada “Yapıldı” görünür.";
+    $("belgeYukle").hidden = !ofis; $("talepForm").hidden = ofis;
+    if (BS === "belgeler") belgeListele(); else talepListele();
+  }
+  function belgeListele(){
+    var m = mk(), d = $("belgeDurum"); if (!m) { $("belgeListe").innerHTML = ""; return; }
+    api("/api/belgeler?mid=" + encodeURIComponent(m.id)).then(function(r){
+      BELGE_TUR = r.turler || []; var s = $("belgeTur"); if (!s.options.length) s.innerHTML = BELGE_TUR.map(function(t){ return '<option>' + esc(t) + '</option>'; }).join("");
+      $("belgeListe").innerHTML = r.belgeler.length ? r.belgeler.map(function(b){
+        return '<div class="kayit" style="display:flex;gap:10px;align-items:center;justify-content:space-between"><div style="min-width:0"><b>' + esc(b.tur) + '</b><div class="not" style="margin:0;word-break:break-all">' + esc(b.ad) + ' · ' + boyutYaz(b.boyut) + ' · ' + tarihYaz(b.zaman) + '</div></div><div style="display:flex;gap:6px;flex:none">' +
+          '<a class="btn ikincil" style="min-height:40px;padding:6px 14px;text-decoration:none" href="/api/belge-indir?mid=' + encodeURIComponent(m.id) + '&id=' + encodeURIComponent(b.id) + '">İndir</a>' + (ROL === "ofis" ? '<button class="k" type="button" data-bsil="' + esc(b.id) + '">Sil</button>' : "") + '</div></div>';
+      }).join("") : '<p class="not" style="margin:0">' + (ROL === "ofis" ? "Bu mükellef için henüz belge yüklenmedi." : "Henüz belge yok. Ofisiniz yükleyince burada görünür.") + '</p>';
+    }, function(er){ if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = er.message; });
+  }
+  $("belgeSeg").addEventListener("click", function(e){ var b = e.target.closest("[data-bs]"); if (!b) return; BS = b.getAttribute("data-bs"); belgeAc(); });
+  $("belgeGonder").addEventListener("click", function(){
+    var f = $("belgeDosya").files[0], d = $("belgeDurum"), m = mk(), btn = this; d.className = "durum"; d.textContent = "";
+    if (!m) { d.className = "durum hata"; d.textContent = "Önce mükellef seçin."; return; }
+    if (!f) { d.className = "durum hata"; d.textContent = "Dosya seçin."; return; }
+    if (f.size > 2.5e6) { d.className = "durum hata"; d.textContent = "Dosya en çok 2,5 MB olabilir; küçültüp yeniden deneyin."; return; }
+    btn.disabled = true; var rd = new FileReader();
+    rd.onerror = function(){ btn.disabled = false; d.className = "durum hata"; d.textContent = "Dosya okunamadı."; };
+    rd.onload = function(){
+      api("/api/belge", "POST", { mukellefId: m.id, tur: $("belgeTur").value, ad: f.name, veri: rd.result }).then(function(){ $("belgeDosya").value = ""; d.className = "durum ok"; d.textContent = "Belge yüklendi."; belgeListele(); }, function(er){ if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = er.message; }).then(function(){ btn.disabled = false; });
+    };
+    rd.readAsDataURL(f);
+  });
+  $("belgeListe").addEventListener("click", function(e){
+    var b = e.target.closest("[data-bsil]"); if (!b || !confirm("Bu belge silinsin mi?")) return; var m = mk();
+    api("/api/belge-sil", "POST", { mukellefId: m.id, id: b.getAttribute("data-bsil") }).then(belgeListele, function(er){ if (oturumDustu(er)) return; var d = $("belgeDurum"); d.className = "durum hata"; d.textContent = er.message; });
+  });
+  function talepListele(){
+    api("/api/talepler").then(function(r){
+      TALEP_TUR = r.turler || []; var s = $("talepTur"); if (!s.options.length) s.innerHTML = TALEP_TUR.map(function(t){ return '<option>' + esc(t) + '</option>'; }).join("");
+      var ofis = ROL === "ofis"; if (ofis) talepRozet(r.talepler.filter(function(t){ return t.durum === "Bekliyor"; }).length);
+      $("talepListe").innerHTML = r.talepler.length ? r.talepler.map(function(t){
+        var bek = t.durum === "Bekliyor";
+        return '<div class="kayit" style="display:grid;gap:6px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + (ofis ? esc(t.firma) + ' · ' : "") + esc(t.tur) + '</b><span class="durum ' + (bek ? "" : "ok") + '" style="padding:2px 10px;min-height:0;border-radius:99px;font-size:.78rem;white-space:nowrap">' + esc(t.durum) + '</span></div>' +
+          '<div style="white-space:pre-wrap;overflow-wrap:anywhere">' + esc(t.metin) + '</div><small class="not">' + tarihYaz(t.zaman) + (t.yanit ? ' · Yanıt: ' + esc(t.yanit) : "") + '</small>' +
+          (ofis ? (bek ? '<input type="text" maxlength="400" placeholder="Yanıt (isteğe bağlı)" data-ty="' + esc(t.id) + '"><button class="btn" type="button" style="min-height:42px" data-tt="' + esc(t.id) + '" data-tm="' + esc(t.mid) + '">Yapıldı</button>' : '<button class="k" type="button" data-tb="' + esc(t.id) + '" data-tm="' + esc(t.mid) + '" style="justify-self:start">Yeniden aç</button>') : "") + '</div>';
+      }).join("") : '<p class="not" style="margin:0">' + (ofis ? "Bekleyen talep yok." : "Henüz talebiniz yok.") + '</p>';
+    }, function(er){ if (oturumDustu(er)) return; var d = $("talepDurum"); d.className = "durum hata"; d.textContent = er.message; });
+  }
+  $("talepGonder").addEventListener("click", function(){
+    var d = $("talepDurum"), btn = this, t = $("talepMetin").value.trim(); d.className = "durum"; d.textContent = "";
+    if (t.length < 3) { d.className = "durum hata"; d.textContent = "Talebinizi birkaç kelimeyle yazın."; return; }
+    btn.disabled = true;
+    api("/api/talep", "POST", { tur: $("talepTur").value, metin: t }).then(function(){ $("talepMetin").value = ""; d.className = "durum ok"; d.textContent = "Talebiniz ofise iletildi."; talepListele(); }, function(er){ if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = er.message; }).then(function(){ btn.disabled = false; });
+  });
+  $("talepListe").addEventListener("click", function(e){
+    var t = e.target.closest("[data-tt],[data-tb]"); if (!t) return; var bek = t.hasAttribute("data-tb"), id = t.getAttribute(bek ? "data-tb" : "data-tt"), inp = bek ? null : $("talepListe").querySelector('[data-ty="' + id + '"]');
+    api("/api/talep-durum", "POST", { mukellefId: t.getAttribute("data-tm"), id: id, durum: bek ? "Bekliyor" : "Yapıldı", yanit: inp ? inp.value : "" }).then(talepListele, function(er){ if (oturumDustu(er)) return; var d = $("talepDurum"); d.className = "durum hata"; d.textContent = er.message; });
+  });
 
   /* ---------- uygulama olarak yükleme (PWA) ---------- */
   var yuklenecek = null, bagimsiz = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;

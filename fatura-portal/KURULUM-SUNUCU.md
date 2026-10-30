@@ -60,3 +60,11 @@ Render ücretsiz planı doğrudan Gmail SMTP'ye izin vermediği için Gmail'in H
 4. developers.google.com/oauthplayground → sağ üst dişli → **Use your own OAuth credentials** → ID/secret'ı girin. Sol listeden **Gmail API v1 → https://www.googleapis.com/auth/gmail.send** seçin → **Authorize APIs** → Gmail hesabınızla izin verin ("Google bu uygulamayı doğrulamadı" uyarısında *Gelişmiş → devam*). **Exchange authorization code for tokens** → **Refresh token**'ı kopyalayın.
 5. Render → Environment: `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `MAIL_GONDEREN` = Gmail adresiniz.
 Gmail şifresi değiştirilirse ya da izin geri alınırsa anahtar iptal olur; adım 4'ü tekrarlayın. Günlük sınır ~500 mail.
+
+## Talep bildirimi (isteğe bağlı)
+
+Mükellef "Ofise talep" gönderdiğinde size e-posta gelmesi için sunucu ayarlarına (Render → Environment) `OFIS_EPOSTA` ekleyin (örn. `adem@smmmyilmaz.com`). E-posta gönderimi zaten kuruluysa (Gmail) başka bir şey gerekmez; tanımlı değilse talepler yalnızca portalda (Belge sekmesi → Ofise talep) görünür.
+
+## Belgelerim (imza sirküleri, gazete, faaliyet belgesi)
+
+Belgeler mükellefin şifreli kasasından ayrı, aynı anahtarla şifreli dosyada (`m/<id>.belge.json`) tutulur ve diğer verilerle birlikte GitHub yansısına gider. Taşınabilir "Tam yedek" dosyasına girmez (boyut); belgelerin aslı sizde kalır. Mükellef başına en çok 12 belge, toplam 9 MB, tek dosya 2,5 MB.

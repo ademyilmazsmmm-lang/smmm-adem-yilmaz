@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-124";
+const SURUM = "2026-10-31-125";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -87,6 +87,13 @@ const profilTemiz = (p) => {
 };
 /* Aydınlatma / onay metni sürümü: public/index.html'deki #kabul metni değişirse bu sayı da artırılır (mükelleflerden yeniden onay istenir) */
 const KABUL_SURUM = "1";
+/* Belgelerim: ofis yükler, mükellef görür/indirir (fatura-fiş yüklemesi bilerek yok) */
+const BELGE_TURLERI = ["İmza sirküleri", "Ticaret sicil gazetesi", "Faaliyet belgesi", "Vergi levhası", "Sözleşme", "Kimlik / vekâletname", "Diğer"];
+const BELGE_TIPLERI = [["pdf", "application/pdf", (b) => b.slice(0, 4).toString() === "%PDF"], ["jpg", "image/jpeg", (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff], ["png", "image/png", (b) => b.slice(0, 4).toString("hex") === "89504e47"],
+  ["docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", (b) => b[0] === 0x50 && b[1] === 0x4b], ["xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", (b) => b[0] === 0x50 && b[1] === 0x4b],
+  ["doc", "application/msword", (b) => b.slice(0, 4).toString("hex") === "d0cf11e0"], ["xls", "application/vnd.ms-excel", (b) => b.slice(0, 4).toString("hex") === "d0cf11e0"]];
+const TALEP_TURLERI = ["Vergi levhası lazım", "Belge / yazı lazım", "Çalışan giriş-çıkış", "Fatura ile ilgili", "Beyanname sorusu", "Diğer"];
+const OFIS_EPOSTA = String(process.env.OFIS_EPOSTA || "").trim();
 const ISVEREN_SAYFALAR = new Set(["DonemBorcGoruntuleme", "CariDonemBorc", "Mufredat", "IAIIBYEB", "IAIOTGBYEB", "IAIOTIBYEB", "IAKBYEB", "IATBYEB", "IAHBYEB", "IASBYEB", "IAKGFBYEB", "IAKU"]);
 function temizMukellef(o, id) {
   const v = depo.mukellef(o, id).veri;
@@ -406,10 +413,70 @@ async function api(req, res, yol) {
     return cevap(res, 200, { kayitlar: hepsi.sort((a, b) => String(a.zaman).localeCompare(String(b.zaman))).reverse().slice(0, 1000) });
   }
 
+  if (yol === "/api/ozet" && req.method === "GET") {
+    const mid = o.rol === "mukellef" ? o.mid : new URL(req.url, "http://x").searchParams.get("mid") || "";
+    let bekleyenToplam = null; if (o.rol === "ofis") { bekleyenToplam = 0; for (const id of depo.mukellefIdleri(o)) bekleyenToplam += (depo.mukellef(o, id).veri.talepler || []).filter((t) => t.durum === "Bekliyor").length; }
+    if (!mid) return cevap(res, 200, { son: {}, belge: null, acikTalep: null, bekleyenToplam });
+    if (!depo.yetkili(o, mid)) return cevap(res, 400, { hata: "Mükellef seçin." });
+    const v = depo.mukellef(o, mid).veri;
+    return cevap(res, 200, { son: v.son || {}, belge: depo.belgeListe(o, mid).length, acikTalep: (v.talepler || []).filter((t) => t.durum === "Bekliyor").length, bekleyenToplam });
+  }
+  if (yol === "/api/belgeler" && req.method === "GET") {
+    const mid = o.rol === "mukellef" ? o.mid : new URL(req.url, "http://x").searchParams.get("mid") || "";
+    if (!mid || !depo.yetkili(o, mid)) return cevap(res, 400, { hata: "Mükellef seçin." });
+    return cevap(res, 200, { belgeler: depo.belgeListe(o, mid), turler: BELGE_TURLERI });
+  }
+  if (yol === "/api/belge-indir" && req.method === "GET") {
+    const q = new URL(req.url, "http://x").searchParams, mid = o.rol === "mukellef" ? o.mid : q.get("mid") || "";
+    const duz = (kod, metin) => { res.writeHead(kod, Object.assign({ "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }, GUV)); res.end(metin); };
+    if (!mid || !depo.yetkili(o, mid)) return duz(403, "Bu mükellef için yetkiniz yok.");
+    let b; try { b = depo.belgeAl(o, mid, String(q.get("id") || "")); } catch (e) { return duz(404, e.message); }
+    gunluk(o, mid, "Belge indirildi", b.tur + " · " + b.ad);
+    res.writeHead(200, Object.assign({}, GUV, { "content-type": b.tip, "content-disposition": "attachment; filename*=UTF-8''" + encodeURIComponent(b.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:" }));
+    return res.end(Buffer.from(b.veri, "base64"));
+  }
+  if (yol === "/api/talepler" && req.method === "GET") {
+    const hepsi = [];
+    for (const id of depo.mukellefIdleri(o)) { const v = depo.mukellef(o, id).veri; for (const t of v.talepler || []) hepsi.push(Object.assign({ mid: id, firma: v.ad }, t)); }
+    hepsi.sort((a, b) => (a.durum === "Bekliyor" ? 0 : 1) - (b.durum === "Bekliyor" ? 0 : 1) || String(b.zaman).localeCompare(String(a.zaman)));
+    return cevap(res, 200, { talepler: hepsi.slice(0, 300), turler: TALEP_TURLERI });
+  }
+
   /* ---- mükellef işlemleri (GİB): mükellef hesabı yalnız kendi kasasında çalışır ---- */
-  const g = await oku(req, yol === "/api/mail" ? 8e6 : undefined), mid = o.rol === "mukellef" ? o.mid : String(g.mukellefId || "");
+  const g = await oku(req, yol === "/api/mail" ? 8e6 : yol === "/api/belge" ? 4e6 : undefined), mid = o.rol === "mukellef" ? o.mid : String(g.mukellefId || "");
   if (!mid || !depo.yetkili(o, mid)) return cevap(res, 400, { hata: "Mükellef seçin." });
   const m = depo.mukellef(o, mid).veri;
+  if (yol === "/api/belge") {
+    ofisGerek(o);
+    const tur = BELGE_TURLERI.includes(g.tur) ? g.tur : "Diğer", ad = gib.temizMetin(g.ad, 100).replace(/[\\/:*?"<>|]+/g, "_") || "belge";
+    const mt = /^data:[^;,]*;base64,([A-Za-z0-9+/=]+)$/.exec(String(g.veri || "")); if (!mt) return cevap(res, 400, { hata: "Dosya okunamadı." });
+    const buf = Buffer.from(mt[1], "base64"); if (buf.length < 100) return cevap(res, 400, { hata: "Dosya boş görünüyor." }); if (buf.length > 2.5e6) return cevap(res, 400, { hata: "Dosya en çok 2,5 MB olabilir; küçültüp yeniden deneyin." });
+    const uz = (ad.split(".").pop() || "").toLowerCase(), tip = BELGE_TIPLERI.filter((t) => t[0] === uz && t[2](buf))[0];
+    if (!tip) return cevap(res, 400, { hata: "Yalnız PDF, JPG, PNG, Word veya Excel dosyası yüklenebilir." });
+    const k = depo.belgeEkle(o, mid, { tur, ad, tip: tip[1], boyut: buf.length, veri: mt[1] });
+    gunluk(o, mid, "Belge yüklendi", tur + " · " + ad);
+    return cevap(res, 200, { belge: { id: k.id, tur: k.tur, ad: k.ad, tip: k.tip, boyut: k.boyut, zaman: k.zaman } });
+  }
+  if (yol === "/api/belge-sil") { ofisGerek(o); const k = depo.belgeSil(o, mid, String(g.id || "")); gunluk(o, mid, "Belge silindi", k.tur + " · " + k.ad); return cevap(res, 200, { tamam: true }); }
+  if (yol === "/api/talep") {
+    if (o.rol !== "mukellef") return cevap(res, 403, { hata: "Talebi mükellef hesabı gönderir." });
+    const metin = gib.temizMetin(g.metin, 600), tur = TALEP_TURLERI.includes(g.tur) ? g.tur : "Diğer";
+    if (metin.length < 3) return cevap(res, 400, { hata: "Talebinizi birkaç kelimeyle yazın." });
+    const liste = (m.talepler = Array.isArray(m.talepler) ? m.talepler : []);
+    if (liste.filter((t) => t.durum === "Bekliyor").length >= 10) return cevap(res, 429, { hata: "Bekleyen 10 talebiniz var; ofis yanıtlayınca yenisini gönderebilirsiniz." });
+    const t = { id: crypto.randomBytes(5).toString("hex"), zaman: new Date().toISOString(), tur, metin, durum: "Bekliyor", yanit: "", yanitZaman: "" };
+    liste.push(t); if (liste.length > 200) liste.shift(); depo.kaydet(mid);
+    gunluk(o, mid, "Ofise talep gönderildi", tur);
+    if (OFIS_EPOSTA && posta.hazir()) posta.gonder({ gonderenAd: "Mükellef Portalı", to: [OFIS_EPOSTA], cc: [], konu: "Yeni talep: " + m.ad + " — " + tur, metin: m.ad + " yeni bir talep gönderdi.\n\nTür: " + tur + "\n\n" + metin + "\n\nYanıtlamak için portalda Belge sekmesinden talepleri açın." }, DIR).catch((e) => console.log("Talep bildirimi gönderilemedi: " + e.message));
+    return cevap(res, 200, { talep: t });
+  }
+  if (yol === "/api/talep-durum") {
+    ofisGerek(o);
+    const t = (m.talepler || []).filter((x) => x.id === g.id)[0]; if (!t) return cevap(res, 404, { hata: "Talep bulunamadı." });
+    t.durum = g.durum === "Bekliyor" ? "Bekliyor" : "Yapıldı"; t.yanit = gib.temizMetin(g.yanit, 400); t.yanitZaman = new Date().toISOString(); depo.kaydet(mid);
+    gunluk(o, mid, "Talep " + t.durum.toLocaleLowerCase("tr-TR"), t.tur);
+    return cevap(res, 200, { talep: t });
+  }
   /* tahsilat kaydı: yalnız bu programda tutulur (GİB'e gitmez); kısmi tahsilat desteklenir */
   if (yol === "/api/tahsilat") {
     const k = (m.gecmis || []).filter((x) => x.id === g.uuid)[0]; if (!k) return cevap(res, 404, { hata: "Fatura bu programın geçmişinde bulunamadı." });
@@ -448,7 +515,9 @@ async function api(req, res, yol) {
       const x = sgkler.get(an); if (!x || !x.girdi) { const e = new Error("Önce SGK'ya bağlanın (güvenlik kodu)."); e.girisGerek = true; throw e; }
       sgkZamanla(an);
       if (ne === "tani") return cevap(res, 200, await x.tani(g.derin === true));
-      if (sis === "isveren" && ne === "sayfa") { const ad = String(g.ad || ""); if (!ISVEREN_SAYFALAR.has(ad)) return cevap(res, 400, { hata: "Bu sayfa desteklenmiyor." }); const t = await x.isverenSayfa(ad); gunluk(o, mid, "SGK İşveren sayfası görüntülendi", ad); return cevap(res, 200, t); }
+      if (sis === "isveren" && ne === "sayfa") { const ad = String(g.ad || ""); if (!ISVEREN_SAYFALAR.has(ad)) return cevap(res, 400, { hata: "Bu sayfa desteklenmiyor." }); const t = await x.isverenSayfa(ad); gunluk(o, mid, "SGK İşveren sayfası görüntülendi", ad);
+        if (ad === "DonemBorcGoruntuleme" && t.borcToplam != null) { (m.son = m.son || {}).sgkBorc = { toplam: t.borcToplam, zaman: new Date().toISOString() }; depo.kaydet(mid); }
+        return cevap(res, 200, t); }
       if (sis === "ebildirge" && ne === "bildirge-donemler") return cevap(res, 200, await x.bildirgeDonemler());
       if (sis === "ebildirge" && ne === "bildirge-liste") { const t = await x.bildirgeListe(String(g.bas || ""), String(g.bit || "")); gunluk(o, mid, "SGK onaylı bildirge listesi görüntülendi", ""); return cevap(res, 200, t); }
     } catch (e) { if (e && e.oturum) { await birak(); e.girisGerek = true; } if (e && e.girisGerek) return cevap(res, 409, { hata: e.message, girisGerek: true }); throw e; }
@@ -521,7 +590,11 @@ async function api(req, res, yol) {
         catch (e) { if (e && e.giris) { const n = (ivdHata.get(m.id) || 0) + 1; ivdHata.set(m.id, n); if (n >= 3) { ivdKilit.set(m.id, Date.now() + 10 * 60e3); ivdHata.delete(m.id); } } await ivdBirak(m.id); throw e; }
       }
       if (ne === "cikis") { await ivdBirak(m.id); return cevap(res, 200, { tamam: true }); }
-      if (ne === "borc") return cevap(res, 200, await vdSorgu(m, (x) => x.borc()));
+      if (ne === "borc") {
+        const r = await vdSorgu(m, (x) => x.borc());
+        try { const t = r && r.ozetKart && r.ozetKart.toplam; if (t) { (m.son = m.son || {}).vdBorc = { toplam: Number(t.toplam) || 0, asil: Number(t.asil) || 0, gz: Number(t.gz) || 0, adet: t.adet || 0, zaman: new Date().toISOString() }; depo.kaydet(mid); } } catch (e) { /* özet kaydı isteğe bağlı */ }
+        return cevap(res, 200, r);
+      }
       if (ne === "tebligat") return cevap(res, 200, await vdSorgu(m, (x) => x.tebligat()));
       if (ne === "belge") {
         const al = (a) => { const v = String(g[a] || ""); if (!/^[\w.\-]{1,128}$/.test(v)) throw new Error("Geçersiz tebligat kimliği."); return v; };

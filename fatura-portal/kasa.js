@@ -150,6 +150,7 @@ class Depo {
     if (!this.yetkili(o, mid)) throw new Error("Mükellef bulunamadı.");
     try { fs.unlinkSync(this.vaultYol(mid)); } catch (e) { /* zaten yok */ }
     if (this.yansi) this.yansi.sil(path.relative(this.dir, this.vaultYol(mid)));
+    try { fs.unlinkSync(this.belgeYol(mid)); if (this.yansi) this.yansi.sil(path.relative(this.dir, this.belgeYol(mid))); } catch (e) { /* belge dosyası yoktu */ }
     this.acik.delete(mid);
     this.sistem.mukellefler = this.sistem.mukellefler.filter((x) => x !== mid); this.sistem.hesaplar = this.sistem.hesaplar.filter((x) => x.id !== mid); this.sistemYaz();
   }
@@ -162,6 +163,38 @@ class Depo {
     const e = this.mukellef(o, o.mid), v = e.baslik;
     ac(await kdf(eski, Buffer.from(v.tuz, "base64"), v.iter), v.wrapSifre); // eski şifre doğrulanır
     const tuz = crypto.randomBytes(16); v.tuz = b64(tuz); v.iter = this.iter; v.wrapSifre = sar(await kdf(yeni, tuz, this.iter), e.K); this.kaydet(o.mid);
+  }
+
+  /* ---- belgeler (imza sirküleri, faaliyet belgesi vb.) ----
+   * Her mükellefin belgeleri ayrı şifreli dosyada (m/<id>.belge.json) durur: asıl kasa her kayıtta yeniden yazıldığı için büyük dosyalar onu şişirmesin.
+   * Aynı kasa anahtarıyla (K) şifrelenir; GitHub yansısına da m/ klasöründen otomatik gider. Taşınabilir yedek paketine girmez (boyut): orijinaller ofiste durur. */
+  belgeYol(id) { if (!KIMLIK.test(id)) throw new Error("Geçersiz mükellef."); return path.join(this.md, id + ".belge.json"); }
+  belgeler(o, mid) {
+    const e = this.mukellef(o, mid);
+    if (!e.belge) {
+      let f = null; try { f = JSON.parse(fs.readFileSync(this.belgeYol(mid), "utf8")); } catch (x) { if (x.code !== "ENOENT") throw x; } // yalnız "dosya yok" boş sayılır; bozuk/şifresi çözülemeyen dosya sessizce sıfırlanmaz
+      e.belge = f ? (JSON.parse(ac(e.K, f.veri).toString("utf8")).belgeler || []) : [];
+    }
+    return e.belge;
+  }
+  belgeYaz(mid) {
+    const e = this.acik.get(mid); if (!e || !e.belge) throw new Error("Kasa açık değil.");
+    this.yazDosya(this.belgeYol(mid), { v: 1, id: mid, veri: sar(e.K, Buffer.from(JSON.stringify({ belgeler: e.belge }), "utf8")) });
+  }
+  belgeListe(o, mid) { return this.belgeler(o, mid).map((b) => ({ id: b.id, tur: b.tur, ad: b.ad, tip: b.tip, boyut: b.boyut, zaman: b.zaman })); }
+  belgeEkle(o, mid, b) {
+    if (o.rol !== "ofis") throw new Error("Belgeleri yalnız ofis yükleyebilir.");
+    const liste = this.belgeler(o, mid);
+    if (liste.length >= 12) throw new Error("Bir mükellef için en çok 12 belge yüklenebilir; önce eskisini silin.");
+    if (liste.reduce((t, x) => t + x.boyut, 0) + b.boyut > 9e6) throw new Error("Bu mükellefin belgeleri toplam 9 MB sınırını aşıyor.");
+    const k = { id: crypto.randomBytes(6).toString("hex"), tur: b.tur, ad: b.ad, tip: b.tip, boyut: b.boyut, zaman: new Date().toISOString(), veri: b.veri };
+    liste.push(k); this.belgeYaz(mid); return k;
+  }
+  belgeAl(o, mid, id) { const b = this.belgeler(o, mid).filter((x) => x.id === id)[0]; if (!b) throw new Error("Belge bulunamadı."); return b; }
+  belgeSil(o, mid, id) {
+    if (o.rol !== "ofis") throw new Error("Belgeleri yalnız ofis silebilir.");
+    const liste = this.belgeler(o, mid), i = liste.findIndex((x) => x.id === id); if (i < 0) throw new Error("Belge bulunamadı.");
+    const [k] = liste.splice(i, 1); this.belgeYaz(mid); return k;
   }
 
   /* ---- yedek ---- */
