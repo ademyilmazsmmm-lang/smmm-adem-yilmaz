@@ -165,15 +165,17 @@ class Sgk {
     }
     /* başlatıcı sayfa(lar)dan gerçek uygulama penceresine geç */
     this.zincir = [url]; this.sayfalar = [{ url, html }]; const denenen = new Set([url]);
-    for (let n = 0; n < 4 && !anaSayfaMi(html) && (basliyorMu(html) || n === 0); n++) {
+    this.iz = [];
+    for (let n = 0; n < 4 && (basliyorMu(html) || (n === 0 && !anaSayfaMi(html))); n++) {
       const ayni = (u) => { try { return new URL(u).hostname === this.s.sunucu; } catch (e) { return false; } };
       const sonraki = devamAdresleri(html, url).find((u) => !denenen.has(u) && ayni(u));
       const betik = !sonraki && basliyorMu(html) ? await this.betiktenAdres(html, url) : "";
       const form = !sonraki && !betik && formCoz(html).find((f) => f.eylem && !/kullaniciIlkKontrollerGiris/.test(f.eylem));
+      this.iz.push("adım " + (n + 1) + ": bağlantı=" + (sonraki || "-") + " betik=" + (betik || "-") + " form=" + (form ? form.eylem : "-"));
       if (!sonraki && !betik && !form) break;
       const hedef = sonraki || betik || new URL(form.eylem, url).href; if (denenen.has(hedef)) break; denenen.add(hedef);
       try { const r2 = form && !sonraki && !betik ? await this.git(form.yontem === "post" ? "POST" : "GET", hedef, form.gizli) : await this.git("GET", hedef); html = r2.veri.toString("utf8"); url = r2.url; this.zincir.push(url); this.sayfalar.push({ url, html }); }
-      catch (e) { if (n === 0) throw e; break; }
+      catch (e) { this.iz.push("hata: " + e.message); if (n === 0) throw e; break; }
     }
     if (/kullaniciIlkKontrollerGiris/.test(html)) { const e = new Error("SGK oturumu açılamadı: uygulama penceresi giriş sayfasına döndü."); e.giris = true; throw e; }
     this.girdi = true; this.ana = html; this.anaUrl = url;
@@ -197,7 +199,7 @@ class Sgk {
     const ilk = this.sayfalar && this.sayfalar.length > 1 ? baglantilar(this.sayfalar[0].html).map((x) => Object.assign({ not: "başlatıcı sayfa" }, x)) : [];
     const cerceveler = liste.filter((x) => x.tur === "frame" && /sgk\.gov\.tr/i.test(new URL(x.href, this.anaUrl).hostname)).slice(0, 4), ek = [], tum = liste.slice();
     for (const c of cerceveler) { try { const r = await this.git("GET", new URL(c.href, this.anaUrl).href); const b = baglantilar(r.veri.toString("utf8")); ek.push({ kaynak: c.href, baglantilar: b }); tum.push(...b); } catch (e) { ek.push({ kaynak: c.href, hata: e.message }); } }
-    const sonuc = { baslik: (/<title>([\s\S]*?)<\/title>/i.exec(this.ana) || [])[1] || "", baglantilar: liste, baslatici: ilk, baslaticiBetik: this.sayfalar && this.sayfalar.length > 1 ? betiklerMaskeli(this.sayfalar[0].html) : "", baslaticiHam: basliyorMu((this.sayfalar && this.sayfalar[0] ? this.sayfalar[0].html : this.ana)) ? hamMaskeli((this.sayfalar && this.sayfalar[0] ? this.sayfalar[0].html : this.ana).slice(((this.sayfalar && this.sayfalar[0] ? this.sayfalar[0].html : this.ana).indexOf("<body") + 1) || 0), 3500) : "", zincir: this.zincir || [], cerceveler: ek, adres: this.anaUrl };
+    const sonuc = { baslik: (/<title>([\s\S]*?)<\/title>/i.exec(this.ana) || [])[1] || "", baglantilar: liste, baslatici: ilk, baslaticiBetik: this.sayfalar && this.sayfalar.length > 1 ? betiklerMaskeli(this.sayfalar[0].html) : "", baslaticiHam: basliyorMu((this.sayfalar && this.sayfalar[0] ? this.sayfalar[0].html : this.ana)) ? hamMaskeli((this.sayfalar && this.sayfalar[0] ? this.sayfalar[0].html : this.ana).slice(((this.sayfalar && this.sayfalar[0] ? this.sayfalar[0].html : this.ana).indexOf("<body") + 1) || 0), 3500) : "", zincir: this.zincir || [], iz: this.iz || [], cerceveler: ek, adres: this.anaUrl };
     if (derin) { /* menü sayfalarını gez (yalnız okuma: GET); çıkış bağlantıları atlanır */
       const adaylar = [], gor = new Set();
       for (const x of tum) { if (x.tur !== "a" || !/\.(?:action|jsp|do)/i.test(x.href) || /çıkış|cikis|logout|exit/i.test(x.metin + x.href)) continue; const u = new URL(x.href, this.anaUrl).href; if (gor.has(u)) continue; gor.add(u); adaylar.push({ metin: x.metin, u }); }
