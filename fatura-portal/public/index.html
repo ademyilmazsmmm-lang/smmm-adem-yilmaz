@@ -12,7 +12,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/ikon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/ikon-180.png">
-<title>e-Arşiv Fatura</title>
+<title>Mükellef Portalı</title>
 <script>try{var t=localStorage.getItem("tema");if(t==="acik"||t==="koyu")document.documentElement.setAttribute("data-tema",t)}catch(e){}</script>
 <style>
 :root{
@@ -217,6 +217,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 #giris .marka{flex-direction:column;align-items:flex-start;gap:12px;margin:0}
 #giris .logo{width:52px;height:52px;border-radius:14px}
 #giris .logo svg{width:28px;height:28px}
+#giris .gbas{font-size:1.65rem;line-height:1.15;letter-spacing:-.01em;margin:0 0 6px}
+#giris .gaciklama{margin:0 0 10px;font-size:1.02rem;color:var(--fg);line-height:1.35}
+#giris .gozel{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:.88rem;color:var(--muted)}
+#giris .gozel li{display:flex;gap:8px;align-items:flex-start;line-height:1.3}
+#giris .gozel li::before{content:"✓";color:var(--accent);font-weight:700;flex:none}
 
 @media (min-width:960px){
   .sayfa{padding-bottom:40px}
@@ -254,7 +259,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 </head>
 <body>
 <main id="giris" hidden>
-  <div class="marka"><div class="logo"><img alt="" src="/ikon.svg"></div><div><h1>e-Arşiv Fatura</h1><p class="not">GİB e-Arşiv Portalı üzerinden hızlı fatura</p></div></div>
+  <div class="marka"><div class="logo"><img alt="" src="/ikon.svg"></div><div><h1 class="gbas">Mükellef Portalı</h1><p class="gaciklama">Fatura, vergi dairesi ve SGK işlemleriniz <b>tek ekranda</b>.</p><ul class="gozel"><li>e-Arşiv fatura kesin, tahsilatı takip edin</li><li>Vergi borcu, tebligat ve e-Vergi levhası</li><li>SGK bildirge ve hizmet dökümü</li></ul></div></div>
   <form class="card" id="girisForm">
     <p class="not" id="girisYazi"></p>
     <p class="not" id="girisSurum" style="font-size:.75rem"></p>
@@ -273,7 +278,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
 <div id="uyg" hidden>
   <header class="bar"><div class="bar-ic">
-    <div class="marka"><div class="logo" id="logoKutu"><img alt="" src="/ikon.svg"></div><div><h1>e-Arşiv Fatura</h1><small id="surum"></small><small id="kimlik" style="display:block;font-weight:600;color:var(--fg)"></small></div></div>
+    <div class="marka"><div class="logo" id="logoKutu"><img alt="" src="/ikon.svg"></div><div><h1>Mükellef Portalı</h1><small id="surum"></small><small id="kimlik" style="display:block;font-weight:600;color:var(--fg)"></small></div></div>
     <nav class="sekmeler" id="sekmeler" aria-label="Bölümler">
       <button type="button" data-sekme="earsiv" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>e-Arşiv<span class="rozet" id="eRozet" hidden></span></button>
       <button type="button" data-sekme="vd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/></svg>Vergi D.<span class="rozet" id="vdRozet" hidden></span></button>
