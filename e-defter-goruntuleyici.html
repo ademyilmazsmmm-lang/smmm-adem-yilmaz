@@ -639,7 +639,7 @@
   var girisEl, layoutEl, listeEl, detayEl, pdfBtn, pdfDurum, dosyaSec;
 
   function renderDetay(d) {
-    detayEl.innerHTML = '<div id="edgPdfIcerik">' + ozetKart(d.info) + icerikGorunum(d.info) + '</div>';
+    detayEl.innerHTML = ozetKart(d.info) + '<div id="edgPdfIcerik">' + icerikGorunum(d.info) + '</div>';
     pdfBtn.disabled = false;
     pdfBtn.onclick = function () { pdfIndir(d); };
   }
