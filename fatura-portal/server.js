@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-129";
+const SURUM = "2026-10-31-130";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -385,6 +385,31 @@ async function api(req, res, yol) {
     if (hk) await depo.hesapAyarla(o, id, hk, String(g.hesapSifre));
     gunluk(o, id, "Mükellef eklendi");
     return cevap(res, 200, { id, veri: temiz(o) });
+  }
+  if (yol === "/api/mukellef/toplu" && req.method === "POST") {
+    /* Excel/CSV'den toplu mükellef: her satır ayrı denenir, sonuç satır satır döner. Şifreler yalnız şifreli kasaya yazılır, günlüğe girmez. */
+    ofisGerek(o); const g = await oku(req, 3e6); const satirlar = Array.isArray(g.satirlar) ? g.satirlar.slice(0, 80) : [];
+    if (!satirlar.length) return cevap(res, 400, { hata: "Yüklenecek satır yok." });
+    const sonuc = [], mevcutVkn = new Set(depo.mukellefIdleri(o).map((id) => String(depo.mukellef(o, id).veri.vkn || "")).filter(Boolean));
+    for (let i = 0; i < satirlar.length; i++) {
+      const r = satirlar[i] || {}, ad = gib.temizMetin(r.ad, 150), vkn = String(r.vkn || "").replace(/\D/g, "");
+      const hata = (mesaj) => sonuc.push({ n: i + 1, ad: ad || "(adsız)", durum: "hata", mesaj });
+      if (!ad) { hata("Unvan boş."); continue; }
+      if (!/^\d{10,11}$/.test(vkn)) { hata("VKN/TCKN 10 ya da 11 haneli olmalı."); continue; }
+      if (mevcutVkn.has(vkn)) { sonuc.push({ n: i + 1, ad, durum: "atlandi", mesaj: "Bu VKN/TCKN ile mükellef zaten kayıtlı." }); continue; }
+      const hk = String(r.hesapKullanici || "").trim(), hs = String(r.hesapSifre || "");
+      if (hk) { const a2 = adTemiz(hk); if (!adGecerli(a2) || !depo.adMusait(a2)) { hata("Giriş kullanıcı adı geçersiz ya da kullanılıyor."); continue; } if (hs.length < mSifreMin) { hata("Giriş şifresi en az " + mSifreMin + " karakter olmalı."); continue; } }
+      try {
+        const id = await depo.mukellefEkle(o, { ad, vkn, kullanici: String(r.gibKullanici || "").slice(0, 60), gibSifre: String(r.gibSifre || ""), earsiv: r.earsiv !== false });
+        const v = depo.mukellef(o, id).veri, sk = { kullanici: String(r.sgkKullanici || "").replace(/\D/g, "").slice(0, 11), isyeriKod: String(r.sgkIsyeriKod || "").replace(/\D/g, "").slice(0, 4), sistemSifre: String(r.sgkSistemSifre || "").slice(0, 20), isyeriSifre: String(r.sgkIsyeriSifre || "").slice(0, 20) };
+        if (sk.kullanici || sk.isyeriKod || sk.sistemSifre || sk.isyeriSifre) v.sgk = sk;
+        depo.kaydet(id); mevcutVkn.add(vkn);
+        let not = ""; if (hk) { try { await depo.hesapAyarla(o, id, hk, hs); } catch (e) { not = "Giriş hesabı açılamadı: " + e.message; } }
+        gunluk(o, id, "Mükellef toplu yüklemeyle eklendi");
+        sonuc.push({ n: i + 1, ad, durum: "eklendi", mesaj: not });
+      } catch (e) { hata(e.message); }
+    }
+    return cevap(res, 200, { sonuc, veri: temiz(o) });
   }
   if (yol === "/api/hesap" && req.method === "POST") {
     ofisGerek(o); const g = await oku(req), mid = String(g.mid || "");

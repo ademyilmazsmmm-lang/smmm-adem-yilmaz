@@ -1635,6 +1635,61 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       '<div class="satir"><div><label>Giriş kullanıcı adı</label><input id="meHk" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div><label>Giriş şifresi (en az ' + mSifreMin + ')</label><input id="meHs" type="password" autocomplete="new-password"></div></div>' +
       '<button class="btn" type="button" id="mEkle">Mükellefi ekle</button><div class="durum" id="meDurum" role="status"></div></div></details>';
   }
+  /* ---- toplu mükellef yükleme (Excel/CSV) ---- */
+  var TOPLU_SUTUN = ["ad", "vkn", "gibKullanici", "gibSifre", "sgkKullanici", "sgkIsyeriKod", "sgkSistemSifre", "sgkIsyeriSifre", "hesapKullanici", "hesapSifre", "earsiv"];
+  var TOPLU_BASLIK = ["Unvan", "VKN/TCKN", "GİB kullanıcı kodu", "GİB şifre", "SGK kullanıcı (TCKN/VKN)", "SGK işyeri kodu", "SGK sistem şifresi", "SGK işyeri şifresi", "Giriş kullanıcı adı", "Giriş şifresi", "e-Arşiv (E/H)"];
+  function topluHtml(){
+    return '<details class="grup" data-ak="g:tp"' + ac("g:tp") + '><summary>Toplu mükellef yükle (Excel / CSV)</summary><div class="icerik">' +
+      '<p class="not" style="margin:0">Excel’de aşağıdaki sütunları <b>bu sırayla</b> hazırlayın; satırları kopyalayıp kutuya yapıştırın ya da .csv/.txt dosyası seçin. Yalnız unvan ve VKN zorunlu; diğerlerini sonra da girebilirsiniz.</p>' +
+      '<p class="not" style="margin:0;font-size:.78rem">' + TOPLU_BASLIK.map(function(b, i){ return (i + 1) + ". " + esc(b); }).join(" · ") + '</p>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="k" type="button" id="tpSablon">Şablonu indir (CSV)</button><label class="k" style="margin:0;cursor:pointer">Dosya seç<input type="file" id="tpDosya" accept=".csv,.txt,.tsv,text/csv,text/plain" hidden></label></div>' +
+      '<textarea id="tpMetin" rows="6" placeholder="Excel’den kopyaladığınız satırları buraya yapıştırın" aria-label="Mükellef listesi" style="font-family:ui-monospace,Menlo,monospace;font-size:.78rem" autocomplete="off" spellcheck="false"></textarea>' +
+      '<button class="btn ikincil" type="button" id="tpOnizle">Önizle</button><div id="tpOnizleAlan" style="display:grid;gap:6px">' + TOPLU_SON + '</div>' +
+      '<p class="not" style="margin:0;font-size:.78rem">Şifreler doğrudan şifreli kasaya yazılır. Şifre listesini sohbet, e-posta veya mesaj uygulamalarına yapıştırmayın.</p></div></details>';
+  }
+  var TOPLU = [], TOPLU_SON = "";
+  function topluCoz(metin){
+    var ham = String(metin || "").replace(/\r/g, "").split("\n").filter(function(l){ return l.trim(); });
+    var out = [];
+    ham.forEach(function(l, i){
+      var ay = l.indexOf("\t") >= 0 ? "\t" : (l.split(";").length > l.split(",").length ? ";" : ","), h = l.split(ay).map(function(x){ return x.trim().replace(/^"(.*)"$/, "$1"); });
+      if (i === 0 && /unvan|ünvan|ad[ıi]|isim|mükellef/i.test(h[0]) && !/^\d{10,11}$/.test((h[1] || "").replace(/\D/g, ""))) return; /* başlık satırı */
+      var r = {}; TOPLU_SUTUN.forEach(function(k, j){ r[k] = h[j] || ""; });
+      r.earsiv = !/^(h|hayır|hayir|0|yok|kapalı|kapali|false)$/i.test(r.earsiv.trim());
+      out.push(r);
+    });
+    return out;
+  }
+  function topluOnizle(){
+    TOPLU = topluCoz($("tpMetin").value); var a = $("tpOnizleAlan");
+    if (!TOPLU.length) { a.innerHTML = '<div class="durum hata">Satır bulunamadı.</div>'; return; }
+    var kay = {}, sorun = 0; (V.mukellefler || []).forEach(function(m){ kay[String(m.vkn)] = 1; });
+    var satir = TOPLU.map(function(r, i){
+      var vk = r.vkn.replace(/\D/g, ""), nt = [];
+      if (!r.ad) nt.push("unvan boş"); if (!/^\d{10,11}$/.test(vk)) nt.push("VKN/TCKN hatalı"); if (kay[vk]) nt.push("zaten kayıtlı, atlanır");
+      if (!r.gibKullanici || !r.gibSifre) nt.push("GİB bilgisi eksik"); if (!(r.sgkKullanici && r.sgkIsyeriKod && r.sgkSistemSifre && r.sgkIsyeriSifre)) nt.push("SGK eksik");
+      var kritik = !r.ad || !/^\d{10,11}$/.test(vk) || kay[vk]; if (kritik) sorun++;
+      return '<div class="kayit" style="padding:8px 10px"><b>' + (i + 1) + '. ' + esc(r.ad || "(adsız)") + '</b> <small class="not">' + esc(vk) + (r.earsiv ? "" : " · e-Arşiv yok") + '</small><div class="not" style="margin:2px 0 0;font-size:.76rem;' + (kritik ? "color:var(--danger)" : "") + '">' + (nt.length ? esc(nt.join(" · ")) : "Hazır") + '</div></div>';
+    }).join("");
+    a.innerHTML = '<div class="not" style="margin:0"><b>' + TOPLU.length + '</b> satır' + (sorun ? ", " + sorun + " satırda sorun var (yüklenmez)" : "") + '. Şifreler gizlendi.</div>' + satir + '<button class="btn" type="button" id="tpYukle">' + TOPLU.length + ' mükellefi yükle</button><div class="durum" id="tpDurum" role="status"></div>';
+  }
+  $("ayarIc").addEventListener("click", function(e){
+    if (e.target.id === "tpSablon") { var csv = "\ufeff" + TOPLU_BASLIK.join(";") + "\r\n" + "ÖRNEK FİRMA LTD. ŞTİ.;1234567890;gibkod;gibsifre;1234567890;0001;sgksistemsifre;sgkisyerisifre;;;E\r\n"; var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "mukellef-sablonu.csv"; document.body.appendChild(a); a.click(); a.remove(); return; }
+    if (e.target.id === "tpOnizle") { topluOnizle(); return; }
+    if (e.target.id === "tpYukle") {
+      var b = e.target, d = $("tpDurum"); b.disabled = true; d.className = "durum"; d.textContent = "Yükleniyor…";
+      api("/api/mukellef/toplu", "POST", { satirlar: TOPLU }).then(function(r){
+        V = r.veri; TOPLU = []; $("tpMetin").value = "";
+        var ek = r.sonuc.filter(function(x){ return x.durum === "eklendi"; }).length, h = r.sonuc.filter(function(x){ return x.durum !== "eklendi"; });
+        TOPLU_SON = '<div class="durum ok" style="display:block">' + ek + ' mükellef eklendi.</div>' + (h.length ? h.map(function(x){ return '<div class="kayit" style="padding:8px 10px"><b>' + x.n + '. ' + esc(x.ad) + '</b><div class="not" style="margin:2px 0 0;color:var(--danger)">' + esc(x.mesaj) + '</div></div>'; }).join("") : "") + r.sonuc.filter(function(x){ return x.durum === "eklendi" && x.mesaj; }).map(function(x){ return '<div class="not">' + esc(x.ad) + ': ' + esc(x.mesaj) + '</div>'; }).join("");
+        if (!mSec && V.mukellefler.length) mSec = V.mukellefler[0].id; ayarAcik["g:m"] = true; ayarAcik["g:tp"] = true; hepsi();
+      }, function(er){ if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = er.message; b.disabled = false; });
+    }
+  });
+  document.addEventListener("change", function(e){
+    if (e.target.id !== "tpDosya" || !e.target.files[0]) return; var f = e.target.files[0]; if (f.size > 1e6) { $("tpOnizleAlan").innerHTML = '<div class="durum hata">Dosya çok büyük.</div>'; return; }
+    var rd = new FileReader(); rd.onload = function(){ var t = String(rd.result || "").replace(/^\ufeff/, ""); $("tpMetin").value = t; topluOnizle(); }; rd.readAsText(f, "utf-8");
+  });
   function hizmetHtml(m){
     var h = '<details class="alt2" data-ak="h:' + m.id + '"' + ac("h:" + m.id) + '><summary>Hizmetler (' + (m.hizmetler || []).length + ')</summary><div class="icerik">';
     (m.hizmetler || []).forEach(function(x){
@@ -1837,7 +1892,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function cizAyar(){
     var ofis = ROL === "ofis", h = hesabimHtml();
-    if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + V.mukellefler.map(mukellefAyarHtml).join("") + '</div></details>' + yedekHtml();
+    if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + topluHtml() + V.mukellefler.map(mukellefAyarHtml).join("") + '</div></details>' + yedekHtml();
     else h += V.mukellefler.map(mukellefAyarHtml).join("");
     h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
     $("ayarIc").innerHTML = h; sifreleriHazirla($("ayarIc")); yedekYazi(); yansiYazi();
