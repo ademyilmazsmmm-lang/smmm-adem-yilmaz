@@ -31,7 +31,7 @@ file,title,meta_description,h1,missing_alt,internal_links,word_count
 ./e-ticaret-muhasebesi.html,E-Ticaret Muhasebesi | SMMM Adem Yılmaz,,,0,0,16
 ./limited-sirket-kurulus.html,Limited Şirket Kuruluşu | SMMM Adem Yılmaz,"Limited şirketin özellikleri, kuruluş adımları ve dikkat edilmesi gerekenler hakkında rehber.",Limited Şirket Kuruluşu Adım Adım Rehber,0,8,545
 ./sirket-kurulus-hizmetleri.html,Şahıs Şirketi Kurulum Rehberi | SMMM Adem Yılmaz,,,0,0,16
-./gizlilik-politikasi.html,Gizlilik Politikası – e-Arşiv Fatura Uygulaması | SMMM Yılmaz,"SMMM Adem Yılmaz e-Arşiv Fatura uygulamasının gizlilik politikası: hangi veriler işlenir, nasıl saklanır, Gmail izni neden kullanılır.",Gizlilik Politikası,0,0,314
+./gizlilik-politikasi.html,Gizlilik Politikası – Mükellef Portalı | SMMM Yılmaz,"SMMM Adem Yılmaz Mükellef Portalı uygulamasının gizlilik politikası: hangi veriler işlenir, nasıl saklanır, Gmail izni neden kullanılır.",Gizlilik Politikası,0,0,362
 ./gider.html,Hangi Harcamalar Gider Yazılır? | SMMM Adem Yılmaz,"2026 güncel rehber: araç, yemek, işyeri ve demirbaş giderlerinden hangileri vergi matrahından indirilebilir? Ümraniye SMMM Adem Yılmaz.",Şirketler Hangi Harcamalarını Gider Gösterebilir?,0,8,637
 ./2025-vergi-takvimi.html,2025 Vergi Takvimi ve Önemli Tarihler | SMMM Adem Yılmaz,"2025 vergi takvimi, geçici vergi, KDV, muhtasar, kurumlar ve gelir vergisi beyannameleri için temel tarihlerin özeti.",2025 Vergi Takvimi ve Önemli Tarihler,0,8,769
 ./pendik-mali-musavir.html,Hizmet Bölgeleri — Türkiye Geneli Online Mali Müşavir | SMMM Adem Yılmaz,,,0,0,24
@@ -149,10 +149,11 @@ file,title,meta_description,h1,missing_alt,internal_links,word_count
 ./zeytinburnu-mali-musavir.html,Hizmet Bölgeleri — Türkiye Geneli Online Mali Müşavir | SMMM Adem Yılmaz,,,0,0,24
 ./muhasebe-uzmani-umraniye.html,SMMM Adem Yılmaz — Ümraniye Mali Müşavir,,,0,0,17
 ./eyt-erken-emeklilik.html,EYT ve Erken Emeklilik Danışmanlığı | SMMM Adem Yılmaz,"EYT, prim günleri, yaş şartı ve emeklilik planlaması hakkında mali müşavir bakışıyla özet bilgiler.",EYT ve Erken Emeklilik Rehberi,0,8,429
+./e-defter-goruntuleyici.html,"E-Defter Görüntüleyici — Yevmiye, Kebir ve Berat Görüntüleme | SMMM Adem Yılmaz","E-Defter Görüntüleyici: Yevmiye defteri, kebir defteri ve beratlarınızı (XML) tarayıcınızda görüntüleyin, hangi dönemin/defterin verildiğini kontrol edin, görünümü PDF olarak indirin. Dosyalar sunucuya yüklenmez.",E-Defter Görüntüleyici,0,0,187
 ./yapi-muteahhitligi-yetki-belgesi.html,Yapı Müteahhitliği Yetki Belgesi Nasıl Alınır? 2026 | SMMM Adem Yılmaz,"Yapı müteahhitliği yetki belgesi nedir, kimler almak zorunda, il müdürlüğüne nasıl başvurulur, yetki belge grupları ve 2026 geçiş süreci hakkında güncel rehber.",Yapı Müteahhitliği Yetki Belgesi Nasıl Alınır?,0,9,1466
 ./iletisim.html,İletişim – SMMM Yılmaz,"SMMM Adem Yılmaz ile iletişime geçin. Ümraniye/İstanbul ofis adresi, telefon, e-posta ve online iletişim formu ile mali müşavirlik hizmeti talep edin.",Bizimle İletişime Geçin,0,7,124
 ./bahcelievler-mali-musavir.html,Hizmet Bölgeleri — Türkiye Geneli Online Mali Müşavir | SMMM Adem Yılmaz,,,0,0,24
-./programlar.html,Programlar | SMMM Adem Yılmaz,SMMM Adem Yılmaz'ın mali müşavirler ve muhasebe ofisleri için geliştirdiği programlar: Dijital Stajyer ve diğerleri.,Programlar,0,0,199
+./programlar.html,Programlar | SMMM Adem Yılmaz,SMMM Adem Yılmaz'ın mali müşavirler ve muhasebe ofisleri için geliştirdiği programlar: Dijital Stajyer ve diğerleri.,Programlar,0,0,320
 ./finanskent-mahallesi-mali-musavir.html,Hizmet Bölgeleri — Türkiye Geneli Online Mali Müşavir | SMMM Adem Yılmaz,,,0,0,24
 ./pazaryeri-muhasebesi.html,Trendyol ve Hepsiburada Muhasebesi | SMMM Adem Yılmaz,"Trendyol, Hepsiburada, N11, PttAVM, Amazon Türkiye ve Shopier üzerinden satış yapan işletmeler için komisyon, kargo, iade ve stok muhasebesi.",Yurt İçi Pazaryerlerinde Kazancınızı Doğru Yönetin,0,8,622
 ./kdv-iade-rehberi.html,KDV İade Rehberi | SMMM Adem Yılmaz,"İhracat ve indirimli oranlı teslimlerde biriken devreden KDV'nin mahsup, nakden iade ve devreden KDV olarak değerlendirilmesi; iade türleri ve şartları.",KDV İade ve Mahsup Süreçlerine Genel Bakış,0,8,260
@@ -179,5 +180,5 @@ file,title,meta_description,h1,missing_alt,internal_links,word_count
 ./gider-pusulasi.html,Gider Pusulası Nedir? | SMMM Adem Yılmaz,"Gider pusulası hangi durumlarda kullanılır, hangi bilgileri içermelidir?","Gider Pusulası Nedir, Ne Zaman Düzenlenir?",0,8,377
 ./petshop-veteriner-muhasebesi.html,Pet Shop ve Veteriner Kliniği Muhasebesi | SMMM Adem Yılmaz,"Pet shop ve veteriner kliniği açılışında ürün-hizmet ayrımı, serbest meslek makbuzu ve stok muhasebesi. Ücretsiz ilk görüşme.",Pet Shop ve Veteriner Klinikleri için Muhasebe Rehberi,0,8,420
 ./taksi.html,Taksiciler için Vergi Rehberi 2026 | SMMM Adem Yılmaz,"Taksicilerin 2026'da basit usulden gerçek usule geçişi, Taksi Mali Cihaz zorunluluğu, KDV oranı, ticari plaka devrinde KDV istisnası ve cezai yaptırımlar.",Taksiciler için 2026 Vergi Rehberi,0,8,697
-./fatura-portal/public/index.html,e-Arşiv Fatura,,e-Arşiv Fatura,2,0,761
-./arsiv/index.html,e-Arşiv Fatura — Giriş | SMMM Adem Yılmaz,,,0,0,16
+./fatura-portal/public/index.html,Mükellef Portalı,,Mükellef Portalı,2,0,990
+./arsiv/index.html,Mükellef Portalı — Giriş | SMMM Adem Yılmaz,,,0,0,16
