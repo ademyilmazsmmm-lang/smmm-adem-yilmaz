@@ -79,26 +79,37 @@ class Depo {
     const ad = adTemiz(kullanici);
     if (ad === this.sistem.ofis.kullanici) return this.ofisAc(ad, sifre);
     const h = this.sistem.hesaplar.filter((x) => x.kullanici === ad)[0];
+    const p = !h && (this.sistem.personel || []).filter((x) => x.kullanici === ad)[0];
+    if (p) { const KEK = await kdf(sifre, Buffer.from(p.tuz, "base64"), p.iter); return { rol: "personel", pid: p.id, S: ac(KEK, p.wrapSifre), kullanici: ad, ad: p.ad }; } // yanlış şifrede fırlatır
     if (!h) { await kdf(sifre, this.sahte, this.iter); throw new Error("Giriş başarısız."); }
     const v = this.vaultOku(h.id);
     if (!v.wrapSifre) throw new Error("Giriş başarısız.");
     const KEK = await kdf(sifre, Buffer.from(v.tuz, "base64"), v.iter), K = ac(KEK, v.wrapSifre);
-    const baslik = { tuz: v.tuz, iter: v.iter, wrapSifre: v.wrapSifre, wrapOfis: v.wrapOfis };
+    const baslik = { tuz: v.tuz, iter: v.iter, wrapSifre: v.wrapSifre, wrapOfis: v.wrapOfis, wrapPersonel: v.wrapPersonel || {} };
     const veri = JSON.parse(ac(K, v.veri).toString("utf8"));
     this.acik.set(h.id, { K, baslik, veri });
     return { rol: "mukellef", mid: h.id, K, kullanici: ad };
   }
 
   /* ---- erişim ---- */
-  yetkili(o, mid) { return o && (o.rol === "ofis" ? this.sistem.mukellefler.includes(mid) : o.mid === mid); }
-  mukellefIdleri(o) { return o.rol === "ofis" ? this.sistem.mukellefler.slice() : [o.mid]; }
+  /* çalışan (personel): yalnız ofisin atadığı mükellefler; atama her istekte sistem kaydından okunur (ofis değiştirince hemen geçerli olur) */
+  atamalar(o) { const p = (this.sistem.personel || []).filter((x) => x.id === o.pid)[0]; return p ? p.atamalar : []; }
+  yetkili(o, mid) {
+    if (!o) return false;
+    if (o.rol === "ofis") return this.sistem.mukellefler.includes(mid);
+    if (o.rol === "personel") return this.sistem.mukellefler.includes(mid) && this.atamalar(o).includes(mid);
+    return o.mid === mid;
+  }
+  mukellefIdleri(o) { return o.rol === "ofis" ? this.sistem.mukellefler.slice() : o.rol === "personel" ? this.atamalar(o).filter((id) => this.sistem.mukellefler.includes(id)) : [o.mid]; }
   mukellef(o, mid) {
     if (!this.yetkili(o, mid)) throw new Error("Bu mükellef için yetkiniz yok.");
     let e = this.acik.get(mid);
     if (!e) {
-      if (o.rol !== "ofis") throw new Error("Kasa açık değil.");
-      const v = this.vaultOku(mid), K = ac(o.M, v.wrapOfis);
-      e = { K, baslik: { tuz: v.tuz, iter: v.iter, wrapSifre: v.wrapSifre, wrapOfis: v.wrapOfis }, veri: JSON.parse(ac(K, v.veri).toString("utf8")) };
+      if (o.rol === "mukellef") throw new Error("Kasa açık değil.");
+      const v = this.vaultOku(mid); let K;
+      if (o.rol === "ofis") K = ac(o.M, v.wrapOfis);
+      else { const w = (v.wrapPersonel || {})[o.pid]; if (!w) throw new Error("Bu mükellef için yetkiniz yok."); K = ac(o.S, w); }
+      e = { K, baslik: { tuz: v.tuz, iter: v.iter, wrapSifre: v.wrapSifre, wrapOfis: v.wrapOfis, wrapPersonel: v.wrapPersonel || {} }, veri: JSON.parse(ac(K, v.veri).toString("utf8")) };
       this.acik.set(mid, e);
     }
     return e;
@@ -107,7 +118,7 @@ class Depo {
   temizle(oturumlar) {
     const liste = [...oturumlar]; // oturumlar tek kullanımlık bir yineleyici olabilir (Map.values()): bir kez diziye alınmalı, yoksa ilk kasadan sonra boş görünür
     for (const id of [...this.acik.keys()]) {
-      if (!liste.some((o) => o.rol === "ofis" || o.mid === id)) this.acik.delete(id);
+      if (!liste.some((o) => o.rol === "ofis" || o.mid === id || (o.rol === "personel" && this.atamalar(o).includes(id)))) this.acik.delete(id);
     }
   }
 
@@ -121,12 +132,45 @@ class Depo {
     const id = idHazir || crypto.randomBytes(5).toString("hex"), K = crypto.randomBytes(32);
     const veri = veriHazir || this.varsayilanVeri(id, b);
     const tuz = crypto.randomBytes(16);
-    this.acik.set(id, { K, baslik: { tuz: b64(tuz), iter: this.iter, wrapSifre: null, wrapOfis: sar(o.M, K) }, veri });
+    this.acik.set(id, { K, baslik: { tuz: b64(tuz), iter: this.iter, wrapSifre: null, wrapOfis: sar(o.M, K), wrapPersonel: {} }, veri });
     this.kaydet(id);
     this.sistem.mukellefler.push(id); this.sistemYaz();
     return id;
   }
-  adMusait(ad, haric) { return ad !== this.sistem.ofis.kullanici && !this.sistem.hesaplar.some((h) => h.kullanici === ad && h.id !== haric); }
+  adMusait(ad, haric) { return ad !== this.sistem.ofis.kullanici && !this.sistem.hesaplar.some((h) => h.kullanici === ad && h.id !== haric) && !(this.sistem.personel || []).some((p) => p.kullanici === ad && p.id !== haric); }
+
+  /* ---- çalışanlar (yalnız ofis yönetir) ----
+   * Her çalışanın rastgele bir anahtarı (S) vardır: şifresiyle ve ofis ana anahtarıyla sarılır. Atanan her mükellefin kasa anahtarı (K) S ile ayrıca sarılıp
+   * mükellef kasasının başlığına yazılır; atanmayan mükellefin kasası çalışan için açılamaz (yalnız ekranda gizlemek değil, şifreleme düzeyinde ayrım). */
+  personelListe(o) { if (o.rol !== "ofis") throw new Error("Yetkiniz yok."); return (this.sistem.personel || []).map((p) => ({ id: p.id, ad: p.ad, kullanici: p.kullanici, atamalar: p.atamalar.slice() })); }
+  async personelEkle(o, b) {
+    if (o.rol !== "ofis") throw new Error("Yetkiniz yok.");
+    const kullanici = adTemiz(b.kullanici), ad = String(b.ad || "").replace(/[\u0000-\u001f<>]/g, " ").trim().slice(0, 80);
+    if (!adGecerli(kullanici)) throw new Error("Kullanıcı adı 3-32 karakter olmalı (harf, rakam, nokta, tire, alt çizgi).");
+    if (!this.adMusait(kullanici)) throw new Error("Bu kullanıcı adı kullanılıyor.");
+    const S = crypto.randomBytes(32), tuz = crypto.randomBytes(16), KEK = await kdf(b.sifre, tuz, this.iter), id = crypto.randomBytes(5).toString("hex");
+    (this.sistem.personel = this.sistem.personel || []).push({ id, ad: ad || kullanici, kullanici, tuz: b64(tuz), iter: this.iter, wrapSifre: sar(KEK, S), wrapOfis: sar(o.M, S), atamalar: [] });
+    this.sistemYaz(); return id;
+  }
+  personelBul(id) { const p = (this.sistem.personel || []).filter((x) => x.id === id)[0]; if (!p) throw new Error("Çalışan bulunamadı."); return p; }
+  personelAta(o, pid, mukellefIdleri) {
+    if (o.rol !== "ofis") throw new Error("Yetkiniz yok.");
+    const p = this.personelBul(pid), S = ac(o.M, p.wrapOfis), yeni = [...new Set(mukellefIdleri.map(String))].filter((id) => this.sistem.mukellefler.includes(id));
+    for (const mid of p.atamalar.filter((id) => !yeni.includes(id))) { try { const e = this.mukellef(o, mid); delete (e.baslik.wrapPersonel || {})[pid]; this.kaydet(mid); } catch (x) { /* mükellef yoksa atlanır */ } }
+    for (const mid of yeni) { const e = this.mukellef(o, mid); e.baslik.wrapPersonel = Object.assign({}, e.baslik.wrapPersonel, { [pid]: sar(S, e.K) }); this.kaydet(mid); }
+    p.atamalar = yeni; this.sistemYaz();
+  }
+  async personelSifre(o, pid, sifre) {
+    if (o.rol !== "ofis") throw new Error("Yetkiniz yok.");
+    const p = this.personelBul(pid), S = ac(o.M, p.wrapOfis), tuz = crypto.randomBytes(16);
+    p.tuz = b64(tuz); p.iter = this.iter; p.wrapSifre = sar(await kdf(sifre, tuz, this.iter), S); this.sistemYaz();
+  }
+  personelSil(o, pid) {
+    if (o.rol !== "ofis") throw new Error("Yetkiniz yok.");
+    const p = this.personelBul(pid);
+    for (const mid of p.atamalar) { try { const e = this.mukellef(o, mid); delete (e.baslik.wrapPersonel || {})[pid]; this.kaydet(mid); } catch (x) { /* atla */ } }
+    this.sistem.personel = this.sistem.personel.filter((x) => x.id !== pid); this.sistemYaz();
+  }
   async hesapAyarla(o, mid, kullanici, sifre) {
     if (o.rol !== "ofis") throw new Error("Yetkiniz yok.");
     const ad = adTemiz(kullanici);
@@ -152,13 +196,19 @@ class Depo {
     if (this.yansi) this.yansi.sil(path.relative(this.dir, this.vaultYol(mid)));
     try { fs.unlinkSync(this.belgeYol(mid)); if (this.yansi) this.yansi.sil(path.relative(this.dir, this.belgeYol(mid))); } catch (e) { /* belge dosyası yoktu */ }
     this.acik.delete(mid);
-    this.sistem.mukellefler = this.sistem.mukellefler.filter((x) => x !== mid); this.sistem.hesaplar = this.sistem.hesaplar.filter((x) => x.id !== mid); this.sistemYaz();
+    this.sistem.mukellefler = this.sistem.mukellefler.filter((x) => x !== mid); this.sistem.hesaplar = this.sistem.hesaplar.filter((x) => x.id !== mid);
+    for (const p of this.sistem.personel || []) p.atamalar = p.atamalar.filter((x) => x !== mid);
+    this.sistemYaz();
   }
   hesapKullanicisi(mid) { const h = this.sistem.hesaplar.filter((x) => x.id === mid)[0]; return h ? h.kullanici : ""; }
   async sifreDegistir(o, eski, yeni) {
     if (o.rol === "ofis") {
       const s = this.sistem.ofis, KEK = await kdf(eski, Buffer.from(s.tuz, "base64"), s.iter); ac(KEK, s.wrap); // eski şifre doğrulanır
       const tuz = crypto.randomBytes(16); s.tuz = b64(tuz); s.iter = this.iter; s.wrap = sar(await kdf(yeni, tuz, this.iter), o.M); this.sistemYaz(); return;
+    }
+    if (o.rol === "personel") {
+      const p = this.personelBul(o.pid); ac(await kdf(eski, Buffer.from(p.tuz, "base64"), p.iter), p.wrapSifre); // eski şifre doğrulanır
+      const tuz = crypto.randomBytes(16); p.tuz = b64(tuz); p.iter = this.iter; p.wrapSifre = sar(await kdf(yeni, tuz, this.iter), o.S); this.sistemYaz(); return;
     }
     const e = this.mukellef(o, o.mid), v = e.baslik;
     ac(await kdf(eski, Buffer.from(v.tuz, "base64"), v.iter), v.wrapSifre); // eski şifre doğrulanır
@@ -183,7 +233,7 @@ class Depo {
   }
   belgeListe(o, mid) { return this.belgeler(o, mid).map((b) => ({ id: b.id, tur: b.tur, ad: b.ad, tip: b.tip, boyut: b.boyut, zaman: b.zaman })); }
   belgeEkle(o, mid, b) {
-    if (o.rol !== "ofis") throw new Error("Belgeleri yalnız ofis yükleyebilir.");
+    if (o.rol === "mukellef") throw new Error("Belgeleri yalnız ofis yükleyebilir.");
     const liste = this.belgeler(o, mid);
     if (liste.length >= 12) throw new Error("Bir mükellef için en çok 12 belge yüklenebilir; önce eskisini silin.");
     if (liste.reduce((t, x) => t + x.boyut, 0) + b.boyut > 9e6) throw new Error("Bu mükellefin belgeleri toplam 9 MB sınırını aşıyor.");
@@ -192,7 +242,7 @@ class Depo {
   }
   belgeAl(o, mid, id) { const b = this.belgeler(o, mid).filter((x) => x.id === id)[0]; if (!b) throw new Error("Belge bulunamadı."); return b; }
   belgeSil(o, mid, id) {
-    if (o.rol !== "ofis") throw new Error("Belgeleri yalnız ofis silebilir.");
+    if (o.rol === "mukellef") throw new Error("Belgeleri yalnız ofis silebilir.");
     const liste = this.belgeler(o, mid), i = liste.findIndex((x) => x.id === id); if (i < 0) throw new Error("Belge bulunamadı.");
     const [k] = liste.splice(i, 1); this.belgeYaz(mid); return k;
   }

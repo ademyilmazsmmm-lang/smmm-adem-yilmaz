@@ -93,6 +93,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6}
 .ozet button span{font-size:.78rem;color:var(--muted);font-weight:600}.ozet button b{font-size:1.12rem;overflow-wrap:anywhere;line-height:1.2}.ozet button small{font-size:.72rem;color:var(--muted)}
 .ozet button.dik{background:var(--danger-soft);border-color:transparent}.ozet button.dik .ik{background:rgba(179,38,30,.14);color:var(--danger)}.ozet button.dik b{color:var(--danger)}
 .ozet button.iyi{border-color:transparent;background:var(--accent-soft)}.ozet button.iyi .ik{background:rgba(255,255,255,.55);color:var(--accent)}.ozet button.iyi b{color:var(--accent)}
+.kiraoran{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:12px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:2px}.kiraoran span{font-size:.78rem;color:var(--muted);font-weight:600}.kiraoran b{font-size:1.5rem;color:var(--accent)}
 .anafatura{display:flex;align-items:center;justify-content:center;gap:8px;font-size:1.02rem}
 .tkl{display:flex;flex-direction:column;gap:8px}
 .tk{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 12px 11px 14px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:var(--r2);background:var(--surface);box-shadow:var(--shadow)}
@@ -661,7 +662,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   };
   var yedekZaman = null, yedekTimer = null;
   function yedekle(){
-    if (ROL !== "ofis") return Promise.resolve();
+    if (ROL !== "ofis" || PERSONEL) return Promise.resolve();
     return fetch("/api/kasa").then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
       if (!j || !j.paket) return; return YDB.yaz(j).then(function(ok){ if (ok) { yedekZaman = j.zaman; yedekYazi(); } });
     }).catch(function(){});
@@ -669,7 +670,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function yedekSoon(){ clearTimeout(yedekTimer); yedekTimer = setTimeout(yedekle, 1500); }
   function yedekYazi(){ var e = $("yedekDurum"); if (!e) return; e.textContent = yedekZaman ? "Bu cihazdaki şifreli yedek: " + new Date(yedekZaman).toLocaleString("tr-TR") : "Bu cihazda yedek alınamadı (tarayıcı depolamayı engelliyor olabilir)."; }
   function yansiYazi(){
-    if (ROL !== "ofis") return;
+    if (ROL !== "ofis" || PERSONEL) return;
     api("/api/yansi").then(function(r){
       var e = $("yansiDurum"); if (!e) return;
       e.textContent = !r.acik ? "" : r.hata ? "GitHub yedeği: SORUN var, " + r.bekleyen + " değişiklik bekliyor (" + r.hata + "). Anahtarın süresi dolmuş ya da yetkisi kalkmış olabilir." : "GitHub yedeği: açık" + (r.sonBasari ? " · son kayıt " + new Date(r.sonBasari).toLocaleString("tr-TR") : "") + (r.bekleyen ? " · " + r.bekleyen + " değişiklik gönderiliyor" : "");
@@ -685,11 +686,13 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
   /* ---------- giriş ---------- */
   var kurulu = false, sifreMin = 8;
-  var kurulu = false, eskiKayit = false, sifreMin = 8, mSifreMin = 8, ROL = "", KULLANICI = "", yedek = null;
+  var kurulu = false, eskiKayit = false, sifreMin = 8, mSifreMin = 8, ROL = "", PERSONEL = false, KULLANICI = "", yedek = null;
+  /* çalışan hesabı arayüzde "ofis" gibi davranır (seçili mükellefler adına işlem) ama yönetim bölümleri (mükellef ekle/sil, yedek, çalışanlar) kapalıdır */
+  function rolAta(r){ PERSONEL = r === "personel"; ROL = PERSONEL ? "ofis" : r; }
   function acilis(){
     api("/api/durum").then(function(d){
       kurulu = d.kurulu; eskiKayit = !!d.eski; $("sahte").hidden = !d.sahte; $("surum").textContent = d.surum ? "sürüm " + d.surum : ""; $("girisSurum").textContent = d.surum ? "Sürüm " + d.surum + (ANA_EKRAN ? " · ana ekran kipi" : "") : ""; sifreMin = d.sifreMin || 8; mSifreMin = d.mSifreMin || 8;
-      if (d.giris) { ROL = d.rol; KULLANICI = d.kullanici; return basla(); }
+      if (d.giris) { rolAta(d.rol); KULLANICI = d.kullanici; return basla(); }
       ROL = ""; KULLANICI = ""; $("uyg").hidden = true; $("giris").hidden = false; yedek = null; girisKipi();
       if (!kurulu) YDB.al().then(function(y){ if (y && (y.paket || y.kasa)) yedekKipi(y); });
     });
@@ -727,7 +730,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("cikis").addEventListener("click", function(){
     var b = this; b.disabled = true; b.textContent = "Çıkılıyor…";
     api("/api/cikis", "POST", {}).then(function(){
-      V = null; ROL = ""; kabulKontrol(); markaUygula(); acilis();
+      V = null; ROL = ""; PERSONEL = false; kabulKontrol(); markaUygula(); acilis();
       var d = $("girisDurum"); d.className = "durum ok"; d.textContent = "Çıkış yapıldı; GİB oturumunuz kapatıldı. Dilerseniz GİB portalına şimdi girebilirsiniz.";
     }, function(er){ if (!oturumDustu(er)) { alert("Çıkış tamamlanamadı: " + er.message); } }).then(function(){ b.disabled = false; b.textContent = "Çıkış"; });
   });
@@ -735,9 +738,9 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
   function basla(){
     api("/api/veri").then(function(v){
-      V = v; ROL = v.rol; KULLANICI = v.kullanici; $("giris").hidden = true; $("uyg").hidden = false; yedekle();
+      V = v; rolAta(v.rol); KULLANICI = v.kullanici; $("giris").hidden = true; $("uyg").hidden = false; yedekle();
       mSec = V.mukellefler.length ? V.mukellefler[0].id : null; F.alici = ""; F.kalemler = [ilkKalem()]; F.tip = "SATIS";
-      $("kimlik").textContent = ROL === "ofis" ? "Ofis · " + KULLANICI : (V.mukellefler[0] ? V.mukellefler[0].ad : KULLANICI);
+      $("kimlik").textContent = ROL === "ofis" ? (PERSONEL ? "Çalışan · " : "Ofis · ") + KULLANICI : (V.mukellefler[0] ? V.mukellefler[0].ad : KULLANICI);
       /* ayarlar bölümleri kapalı açılır (düzenli görünsün) */
       hepsi(); gecmisYukle(); markaYukle(mSec); postaDurumu();
       sekme("ana");
@@ -1618,7 +1621,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function mBul(id){ return V.mukellefler.filter(function(x){ return x.id === id; })[0]; }
   function mDurum(id, msg, tip){ var el = document.querySelector('[data-mid="' + id + '"] [data-md]'); if (el) { el.className = "durum " + (tip || ""); el.textContent = msg; } }
   function hesabimHtml(){
-    return '<details class="grup" data-ak="g:hs"' + ac("g:hs") + '><summary>Hesabım <small>' + esc(KULLANICI) + (ROL === "ofis" ? " · ofis" : "") + '</small></summary><div class="icerik">' +
+    return '<details class="grup" data-ak="g:hs"' + ac("g:hs") + '><summary>Hesabım <small>' + esc(KULLANICI) + (ROL === "ofis" ? (PERSONEL ? " · çalışan" : " · ofis") : "") + '</small></summary><div class="icerik">' +
       '<div><label>Mevcut şifre</label><input id="sEski" type="password" autocomplete="off"></div>' +
       '<div><label>Yeni şifre (en az ' + (ROL === "ofis" ? sifreMin : mSifreMin) + ' karakter)</label><input id="sYeni" type="password" autocomplete="new-password"></div>' +
       '<div><label>Yeni şifre (tekrar)</label><input id="sYeni2" type="password" autocomplete="new-password"></div>' +
@@ -1751,13 +1754,52 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       '<div><label>İşyeri şifresi ' + (k.isyeriVar ? '(kayıtlı — değiştirmek için yazın)' : '(kayıtlı değil)') + '</label><input data-sf="isyeriSifre" type="password" maxlength="20" autocomplete="new-password" value=""></div>' +
       '<p class="not" style="margin:0">SGK İşveren Sistemi (uyg.sgk.gov.tr) girişindeki dört bilgi. Şifreler şifreli kasada saklanır. Değişiklikten sonra “Ayarları kaydet”e basın.</p></div></details>';
   }
+  /* ---- çalışanlar (yalnız ofis): hesap aç, mükellef ata, şifre sıfırla, sil ---- */
+  var PERS = [];
+  function personelHtml(){
+    return '<details class="grup" data-ak="g:pr"' + ac("g:pr") + '><summary>Çalışanlar <small id="prSay">' + PERS.length + '</small></summary><div class="icerik"><p class="not" style="margin:0">Çalışanınıza kullanıcı adı ve şifre verin; yalnız <b>sizin seçtiğiniz mükellefleri</b> görür ve onlar adına işlem yapar (fatura, vergi dairesi, SGK, belge). Mükellef ekleme/silme, yedek ve çalışan yönetimi yalnız size aittir.</p><div id="prIc" style="display:grid;gap:8px">' + personelIcHtml() + '</div></div></details>';
+  }
+  function prKutular(sec, ad){ return V.mukellefler.map(function(m){ return '<label class="onay" style="align-items:flex-start"><input type="checkbox" ' + ad + '="' + esc(m.id) + '"' + (sec.indexOf(m.id) >= 0 ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>' + esc(m.ad || m.vkn) + '</span></label>'; }).join("") || '<p class="not" style="margin:0">Henüz mükellef yok.</p>'; }
+  function personelIcHtml(){
+    return PERS.map(function(p){
+      return '<details class="kayit" data-pid="' + esc(p.id) + '" data-ak="pr:' + esc(p.id) + '"' + ac("pr:" + p.id) + '><summary><span>' + esc(p.ad) + '</span><small>' + esc(p.kullanici) + ' · ' + p.atamalar.length + ' mükellef</small></summary><div class="icerik" style="display:grid;gap:8px">' +
+        '<b style="font-size:.9rem">Görebileceği mükellefler</b><div style="display:grid;gap:6px;max-height:260px;overflow:auto">' + prKutular(p.atamalar, "data-pa") + '</div><button class="btn ikincil" type="button" data-pkaydet="' + esc(p.id) + '">Atamayı kaydet</button>' +
+        '<div class="satir"><div><label>Yeni şifre (en az ' + sifreMin + ')</label><input type="password" data-psif="' + esc(p.id) + '" autocomplete="new-password"></div><div style="align-self:end"><button class="k" type="button" data-psifre="' + esc(p.id) + '">Şifreyi sıfırla</button></div></div>' +
+        '<button class="btn tehlike" type="button" data-psil="' + esc(p.id) + '">Çalışanı sil</button><div class="durum" data-pdurum="' + esc(p.id) + '" role="status"></div></div></details>';
+    }).join("") + '<details class="alt2" data-ak="pr:yeni"' + ac("pr:yeni") + '><summary>+ Yeni çalışan</summary><div class="icerik" style="display:grid;gap:8px"><div><label>Ad soyad</label><input id="pyAd" autocomplete="off"></div><div class="satir"><div><label>Kullanıcı adı</label><input id="pyKul" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div><label>Şifre (en az ' + sifreMin + ')</label><input id="pySif" type="password" autocomplete="new-password"></div></div><b style="font-size:.9rem">Görebileceği mükellefler</b><div style="display:grid;gap:6px;max-height:260px;overflow:auto">' + prKutular([], "data-py") + '</div><button class="btn" type="button" id="pyEkle">Çalışan ekle</button><div class="durum" id="pyDurum" role="status"></div></div></details>';
+  }
+  function personelCiz(){ var e = $("prIc"); if (!e) return; var acik = {}; e.querySelectorAll("details[open]").forEach(function(d){ acik[d.getAttribute("data-ak")] = 1; }); e.innerHTML = personelIcHtml(); e.querySelectorAll("details").forEach(function(d){ if (acik[d.getAttribute("data-ak")]) d.open = true; }); if ($("prSay")) $("prSay").textContent = PERS.length; }
+  function personelYukle(){ api("/api/personel").then(function(r){ PERS = r.personel || []; personelCiz(); }, function(er){ oturumDustu(er); }); }
+  function pDurum(el, t, tip){ if (el) { el.className = "durum" + (tip ? " " + tip : ""); el.textContent = t; } }
+  $("ayarIc").addEventListener("click", function(e){
+    var t = e.target, id;
+    if (t.id === "pyEkle") {
+      var d = $("pyDurum"), mk2 = [].map.call($("prIc").querySelectorAll("[data-py]:checked"), function(x){ return x.getAttribute("data-py"); }); t.disabled = true; pDurum(d, "Ekleniyor…");
+      api("/api/personel/ekle", "POST", { ad: $("pyAd").value, kullanici: $("pyKul").value, sifre: $("pySif").value, mukellefler: mk2 }).then(function(r){ PERS = r.personel; personelCiz(); }, function(er){ if (!oturumDustu(er)) pDurum(d, er.message, "hata"); }).then(function(){ t.disabled = false; });
+      return;
+    }
+    if ((id = t.getAttribute("data-pkaydet"))) {
+      var kart = t.closest("[data-pid]"), sec = [].map.call(kart.querySelectorAll("[data-pa]:checked"), function(x){ return x.getAttribute("data-pa"); }), dd = kart.querySelector("[data-pdurum]"); t.disabled = true; pDurum(dd, "Kaydediliyor…");
+      api("/api/personel/atama", "POST", { pid: id, mukellefler: sec }).then(function(r){ PERS = r.personel; personelCiz(); var k2 = $("prIc").querySelector('[data-pid="' + id + '"] [data-pdurum]'); pDurum(k2, "Atama kaydedildi.", "ok"); }, function(er){ if (!oturumDustu(er)) pDurum(dd, er.message, "hata"); }).then(function(){ t.disabled = false; });
+      return;
+    }
+    if ((id = t.getAttribute("data-psifre"))) {
+      var k3 = t.closest("[data-pid]"), yeni = k3.querySelector("[data-psif]").value, d3 = k3.querySelector("[data-pdurum]"); t.disabled = true; pDurum(d3, "Güncelleniyor…");
+      api("/api/personel/sifre", "POST", { pid: id, sifre: yeni }).then(function(){ k3.querySelector("[data-psif]").value = ""; pDurum(d3, "Şifre değişti; çalışanın açık oturumu kapandı.", "ok"); }, function(er){ if (!oturumDustu(er)) pDurum(d3, er.message, "hata"); }).then(function(){ t.disabled = false; });
+      return;
+    }
+    if ((id = t.getAttribute("data-psil"))) {
+      if (!confirm("Bu çalışan hesabı silinsin mi? Mükellef verilerine dokunulmaz.")) return;
+      api("/api/personel/sil", "POST", { pid: id }).then(function(r){ PERS = r.personel; personelCiz(); }, function(er){ oturumDustu(er); });
+    }
+  });
   function smsAyarHtml(m){
     return '<details class="alt2" data-ak="sms:' + m.id + '"' + ac("sms:" + m.id) + '><summary>Fatura onay SMS telefonu</summary><div class="icerik"><p class="not" style="margin:0">Fatura onaylarken gelen SMS kodu, Dijital Vergi Dairesi profilindeki cep telefonuna gider. Numarayı değiştirmek için aşağıdaki düğmeye basın; Vergi D. sekmesinde bağlanıp yeni numaraya gelen kodla onaylarsınız.</p><button class="btn ikincil" type="button" data-smsgit="' + m.id + '">Telefon numarasını değiştir</button></div></details>';
   }
   function mukellefBolumler(m, ofis){
     var ea = m.earsiv !== false;
-    return (ofis ? '<label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-ea="' + m.id + '"' + (ea ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>e-Arşiv fatura kullanıyor <small class="not">(kapalıysa yalnız Vergi Dairesi bölümü açılır)</small></span></label>' : "") + profilHtml(m) + (ea ? markaHtml(m, true) + hizmetHtml(m) + aliciHtml(m) + iceHtml(m) : "") + gibBagHtml(m) + sgkAyarHtml(m) + smsAyarHtml(m) + (ofis ? hesapHtml(m) + etkinlikHtml(m) : "") +
-      '<div class="durum" data-md role="status"></div>' + (ofis ? '<button class="btn tehlike" type="button" data-sil-m="' + m.id + '">Mükellefi sil</button>' : "");
+    return (ofis ? '<label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-ea="' + m.id + '"' + (ea ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>e-Arşiv fatura kullanıyor <small class="not">(kapalıysa yalnız Vergi Dairesi bölümü açılır)</small></span></label>' : "") + profilHtml(m) + (ea ? markaHtml(m, true) + hizmetHtml(m) + aliciHtml(m) + iceHtml(m) : "") + gibBagHtml(m) + sgkAyarHtml(m) + smsAyarHtml(m) + (ofis && !PERSONEL ? hesapHtml(m) + etkinlikHtml(m) : "") +
+      '<div class="durum" data-md role="status"></div>' + (ofis && !PERSONEL ? '<button class="btn tehlike" type="button" data-sil-m="' + m.id + '">Mükellefi sil</button>' : "");
   }
   function mukellefAyarHtml(m){
     if (ROL !== "ofis") return '<div class="duz" data-mid="' + m.id + '" style="display:flex;flex-direction:column;gap:10px"><p class="not" style="margin:0"><b>' + esc(m.ad || "(adsız)") + '</b> · ' + esc(m.vkn) + '</p>' + mukellefBolumler(m, false) + '</div>';
@@ -1892,10 +1934,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function cizAyar(){
     var ofis = ROL === "ofis", h = hesabimHtml();
-    if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + topluHtml() + V.mukellefler.map(mukellefAyarHtml).join("") + '</div></details>' + yedekHtml();
+    if (ofis && PERSONEL) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + V.mukellefler.map(mukellefAyarHtml).join("") + '</div></details>';
+    else if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + topluHtml() + V.mukellefler.map(mukellefAyarHtml).join("") + '</div></details>' + personelHtml() + yedekHtml();
     else h += V.mukellefler.map(mukellefAyarHtml).join("");
     h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
-    $("ayarIc").innerHTML = h; sifreleriHazirla($("ayarIc")); yedekYazi(); yansiYazi();
+    $("ayarIc").innerHTML = h; sifreleriHazirla($("ayarIc")); yedekYazi(); yansiYazi(); if (ROL === "ofis" && !PERSONEL) personelYukle();
   }
   $("ayarIc").addEventListener("click", function(e){ var b = e.target.closest("[data-smsgit]"); if (!b) return; mSec = b.getAttribute("data-smsgit"); VD.sek = "telefon"; sekme("vd"); window.scrollTo(0, 0); });
   /* ---------- marka: logo, imza (seçili mükellefe ait) ---------- */
@@ -2578,7 +2621,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function anaTl(n){ return Number(n || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " TL"; }
   function anaZaman(z){ if (!z) return ""; var d = new Date(z); return isNaN(d) ? "" : d.getDate() + " " + AYLAR[d.getMonth()] + " " + p2(d.getHours()) + ":" + p2(d.getMinutes()); }
-  var OZET = null;
+  var OZET = null, KIRA = null, KIRA_ZAMAN = 0;
+  function kiraHtml(k){
+    return '<div><div class="abas"><b>' + IKON.durum + 'Güncel kira artış oranı</b><small>' + esc(k.ay) + '</small></div><div class="ozet"><div class="kiraoran"><span>Konut (ev) kirası</span><b>' + esc(k.konut) + '</b></div><div class="kiraoran"><span>İşyeri kirası</span><b>' + esc(k.isyeri) + '</b></div></div><p class="not" style="margin:8px 2px 0;font-size:.78rem">TÜFE 12 aylık ortalama · yasal kira artış tavanı. Her ay güncellenir.</p></div>';
+  }
   var IKON = {
     vd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/></svg>',
     sgk: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>',
@@ -2602,6 +2648,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       kutu("talep", "talep", ofis ? "Bekleyen talepler" : "Taleplerim", ofis ? (r.bekleyenToplam == null ? "—" : String(r.bekleyenToplam)) : (r.acikTalep == null ? "—" : r.acikTalep + " açık"), ofis ? "Tüm mükellefler" : "Ofise sorularınız", ofis && r.bekleyenToplam > 0 ? "dik" : "") +
       '</div><p class="not" style="margin:8px 2px 0;font-size:.78rem">Vergi dairesi ve SGK tutarları, o bölümde sorgulayınca güncellenir (güvenlik kodu gerekir).</p></div>';
     if (m && m.earsiv !== false) h += '<button class="btn anafatura" type="button" data-git="yeni">' + IKON.fatura.replace("<svg ", '<svg width="20" height="20" ') + 'Yeni fatura kes</button>';
+    if (KIRA) h += kiraHtml(KIRA);
     h += '<div><div class="abas"><b>' + IKON.takvim + 'Yaklaşan tarihler</b><small>Vergi ve SGK</small></div><div class="tkl">' +
       yaklasanTarihler().map(function(x){ var g = x.kalan === 0 ? "Bugün" : x.kalan === 1 ? "Yarın" : x.kalan + " gün"; return '<div class="tk' + (x.kalan <= 3 ? " yakin" : x.kalan <= 7 ? " orta" : "") + '"><div><b>' + esc(x.ad) + '</b><small>' + x.d.getDate() + ' ' + AYLAR[x.d.getMonth()] + ' ' + x.d.getFullYear() + ' · ' + GUNLER[x.d.getDay()] + (x.donem ? ' · ' + x.donem : '') + '</small></div><span class="gun">' + g + '</span></div>'; }).join("") +
       '</div><p class="not" style="margin:8px 2px 0;font-size:.78rem">Hafta sonu ve resmî tatiller sonraki iş gününe kayar.</p></div>';
@@ -2610,6 +2657,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("anaIc").innerHTML = h;
   }
   function anaAc(){
+    if (Date.now() - KIRA_ZAMAN > 30 * 60e3) { KIRA_ZAMAN = Date.now(); api("/api/kira-orani").then(function(r){ if (r.oran) { KIRA = r.oran; if (aktifSekme === "ana") anaCiz(OZET || {}); } }, function(){}); }
     var m = mk(); anaCiz(OZET && OZET.mid === (m && m.id) ? OZET : {});
     if (!m && ROL !== "ofis") return;
     api("/api/ozet" + (m ? "?mid=" + encodeURIComponent(m.id) : "")).then(function(r){ r.mid = m && m.id; OZET = r; if (aktifSekme === "ana") anaCiz(r); talepRozet(r.bekleyenToplam); }, function(er){ oturumDustu(er); });

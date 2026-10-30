@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-135";
+const SURUM = "2026-10-31-136";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -112,11 +112,27 @@ function birlestir(o, g) {
       const e0 = v.sgk || {}, y0 = { kullanici: String(m.sgk.kullanici == null ? e0.kullanici || "" : m.sgk.kullanici).replace(/\D/g, "").slice(0, 11), isyeriKod: String(m.sgk.isyeriKod == null ? e0.isyeriKod || "" : m.sgk.isyeriKod).replace(/\D/g, "").slice(0, 4), sistemSifre: m.sgk.sistemSifre ? String(m.sgk.sistemSifre).slice(0, 20) : e0.sistemSifre || "", isyeriSifre: m.sgk.isyeriSifre ? String(m.sgk.isyeriSifre).slice(0, 20) : e0.isyeriSifre || "" };
       if (JSON.stringify(y0) !== JSON.stringify(e0)) { v.sgk = y0; sgkBirak(id); }
     }
-    if (o.rol === "ofis" && typeof m.earsiv === "boolean") v.earsiv = m.earsiv; // e-Arşiv kullanmayan mükellef yalnız Vergi Dairesi bölümünü kullanır
+    if (o.rol !== "mukellef" && typeof m.earsiv === "boolean") v.earsiv = m.earsiv; // e-Arşiv kullanmayan mükellef yalnız Vergi Dairesi bölümünü kullanır
     v.aliciler = aliciTemiz(m.aliciler); v.hizmetler = hizmetTemiz(m.hizmetler); if (m.marka) v.marka = markaTemiz(m.marka); if (m.profil) v.profil = profilTemiz(m.profil);
     depo.kaydet(id);
     if (v.kullanici !== eskiK || v.gibSifre !== eskiS) { gibBirak(id); ivdBirak(id); ivdKilit.delete(id); ivdHata.delete(id); }
   }
+}
+/* Güncel kira artış oranı: web sitesinin ana sayfasında her ay güncellenen kutudan okunur (6 saat önbellek); okunamazsa kart gösterilmez */
+let kiraOnbellek = { zaman: 0, oran: null };
+function kiraOkuHtml(html) {
+  const ay = /class="kira-oran-ay">\s*([^<]+?)\s*</.exec(html), al = (ad) => { const m = new RegExp(ad + "\\s*</span>\\s*<span class=\"kira-oran-value\">\\s*([^<]+?)\\s*<", "i").exec(html); return m ? m[1] : ""; };
+  const konut = al("Konut \\(Ev\\) Kirası"), isyeri = al("İşyeri Kirası");
+  return ay && konut && isyeri ? { ay: ay[1], konut, isyeri } : null;
+}
+async function kiraOrani() {
+  if (Date.now() - kiraOnbellek.zaman < 6 * 3600e3) return kiraOnbellek.oran;
+  kiraOnbellek.zaman = Date.now() - 5 * 3600e3 + 60e3; // hata olursa bir saat sonra yeniden dene
+  try {
+    const r = await fetch(process.env.KIRA_KAYNAK || "https://smmmyilmaz.com/", { signal: AbortSignal.timeout(8000), headers: { "user-agent": "fatura-portali" } });
+    if (r.ok) { const o = kiraOkuHtml(await r.text()); if (o) kiraOnbellek = { zaman: Date.now(), oran: o }; }
+  } catch (e) { /* site okunamadı: eski değer kalır */ }
+  return kiraOnbellek.oran;
 }
 /* Mükellef etkinlik günlüğü (ofis görür): son 300 işlem */
 function gunluk(o, mid, eylem, belge) {
@@ -243,6 +259,7 @@ const kisitTemizle = (ip, ad) => { denemeler.delete(ip); if (ad) denemeler.delet
 const SIFRE_HATA = "Kullanıcı adı ya da şifre yanlış.";
 function sifreKontrol(sifre, min) { if (!sifre || String(sifre).length < min) throw new Error("Şifre en az " + min + " karakter olmalı."); }
 const ofisGerek = (o) => { if (!o || o.rol !== "ofis") throw new Error("Bu işlem için yetkiniz yok (yalnız ofis hesabı)."); };
+const personelOlur = (o) => { if (!o || o.rol === "mukellef") throw new Error("Bu işlem için yetkiniz yok (ofis ya da çalışan hesabı)."); }; /* ofis + atanmış mükellefleri için çalışan */
 async function oturumBaslat(req, res, o, ip, ad) {
   kisitTemizle(ip, ad);
   if (o.rol === "mukellef") { const e = depo.mukellef(o, o.mid); e.veri.sonGiris = new Date().toISOString(); depo.kaydet(o.mid); }
@@ -298,7 +315,7 @@ async function api(req, res, yol) {
   if (yol === "/api/cikis") {
     /* çıkışta GİB oturumları da kapatılır; ofis, o sırada kendi hesabıyla girmiş mükellefin (örn. SMS bekleyen) oturumuna dokunmaz */
     const kendi = cerez(req);
-    const ids = depo.mukellefIdleri(o).filter((id) => o.rol !== "ofis" || ![...oturumlar].some(([c, x]) => c !== kendi && x.rol === "mukellef" && x.mid === id));
+    const ids = depo.mukellefIdleri(o).filter((id) => o.rol === "mukellef" || ![...oturumlar].some(([c, x]) => c !== kendi && x.rol === "mukellef" && x.mid === id));
     oturumKapat(kendi);
     await Promise.race([Promise.all(ids.map((id) => Promise.all([gibBirak(id), ivdBirak(id), sgkBirak(id)]))), new Promise((ok) => setTimeout(ok, 5000))]);
     return cevap(res, 200, { ok: true });
@@ -370,12 +387,27 @@ async function api(req, res, yol) {
     const mr = depo.mukellef(o, mid).veri.marka || {}; return cevap(res, 200, { logo: mr.logo || "", imza: mr.imza || "" });
   }
   if (yol === "/api/sifre" && req.method === "POST") {
-    const { eski, yeni } = await oku(req); sifreKontrol(yeni, o.rol === "ofis" ? sifreMin : mSifreMin);
+    const { eski, yeni } = await oku(req); sifreKontrol(yeni, o.rol === "mukellef" ? mSifreMin : sifreMin);
     const ip = istemciIp(req), kb = "s:" + o.kullanici; if (kilitli(kb)) return cevap(res, 429, { hata: "Çok fazla yanlış deneme; biraz bekleyin." });
     try { await depo.sifreDegistir(o, String(eski || ""), String(yeni)); denemeler.delete(kb); } catch (e) { hataSay(kb); return cevap(res, 401, { hata: "Mevcut şifre yanlış." }); }
     return cevap(res, 200, { ok: true });
   }
   /* ---- ofis: mükellef ve hesap yönetimi ---- */
+  if (yol === "/api/personel" && req.method === "GET") { ofisGerek(o); return cevap(res, 200, { personel: depo.personelListe(o) }); }
+  if (yol.startsWith("/api/personel/") && req.method === "POST") {
+    ofisGerek(o); const g = await oku(req), ne = yol.slice(14);
+    if (ne === "ekle") {
+      try { sifreKontrol(g.sifre, sifreMin); } catch (e) { return cevap(res, 400, { hata: e.message }); }
+      const id = await depo.personelEkle(o, { ad: g.ad, kullanici: g.kullanici, sifre: String(g.sifre) });
+      if (Array.isArray(g.mukellefler) && g.mukellefler.length) depo.personelAta(o, id, g.mukellefler);
+      gunluk(o, depo.mukellefIdleri(o)[0] || "", "Çalışan hesabı açıldı", ""); return cevap(res, 200, { id, personel: depo.personelListe(o) });
+    }
+    const pid = String(g.pid || "");
+    if (ne === "atama") { depo.personelAta(o, pid, Array.isArray(g.mukellefler) ? g.mukellefler : []); return cevap(res, 200, { personel: depo.personelListe(o) }); }
+    if (ne === "sifre") { try { sifreKontrol(g.sifre, sifreMin); } catch (e) { return cevap(res, 400, { hata: e.message }); } await depo.personelSifre(o, pid, String(g.sifre)); for (const [c, x] of oturumlar) if (x.rol === "personel" && x.pid === pid) oturumKapat(c); return cevap(res, 200, { tamam: true }); }
+    if (ne === "sil") { depo.personelSil(o, pid); for (const [c, x] of oturumlar) if (x.rol === "personel" && x.pid === pid) oturumKapat(c); return cevap(res, 200, { personel: depo.personelListe(o) }); }
+    return cevap(res, 404, { hata: "Bulunamadı." });
+  }
   if (yol === "/api/mukellef/ekle" && req.method === "POST") {
     ofisGerek(o); const g = await oku(req);
     if (!String(g.ad || "").trim()) return cevap(res, 400, { hata: "Mükellef unvanını yazın." });
@@ -438,9 +470,10 @@ async function api(req, res, yol) {
     return cevap(res, 200, { kayitlar: hepsi.sort((a, b) => String(a.zaman).localeCompare(String(b.zaman))).reverse().slice(0, 1000) });
   }
 
+  if (yol === "/api/kira-orani" && req.method === "GET") return cevap(res, 200, { oran: await kiraOrani() });
   if (yol === "/api/ozet" && req.method === "GET") {
     const mid = o.rol === "mukellef" ? o.mid : new URL(req.url, "http://x").searchParams.get("mid") || "";
-    let bekleyenToplam = null; if (o.rol === "ofis") { bekleyenToplam = 0; for (const id of depo.mukellefIdleri(o)) bekleyenToplam += (depo.mukellef(o, id).veri.talepler || []).filter((t) => t.durum === "Bekliyor").length; }
+    let bekleyenToplam = null; if (o.rol !== "mukellef") { bekleyenToplam = 0; for (const id of depo.mukellefIdleri(o)) bekleyenToplam += (depo.mukellef(o, id).veri.talepler || []).filter((t) => t.durum === "Bekliyor").length; }
     if (!mid) return cevap(res, 200, { son: {}, belge: null, acikTalep: null, bekleyenToplam });
     if (!depo.yetkili(o, mid)) return cevap(res, 400, { hata: "Mükellef seçin." });
     const v = depo.mukellef(o, mid).veri;
@@ -472,7 +505,7 @@ async function api(req, res, yol) {
   if (!mid || !depo.yetkili(o, mid)) return cevap(res, 400, { hata: "Mükellef seçin." });
   const m = depo.mukellef(o, mid).veri;
   if (yol === "/api/belge") {
-    ofisGerek(o);
+    personelOlur(o);
     const tur = BELGE_TURLERI.includes(g.tur) ? g.tur : "Diğer", ad = gib.temizMetin(g.ad, 100).replace(/[\\/:*?"<>|]+/g, "_") || "belge";
     const mt = /^data:[^;,]*;base64,([A-Za-z0-9+/=]+)$/.exec(String(g.veri || "")); if (!mt) return cevap(res, 400, { hata: "Dosya okunamadı." });
     const buf = Buffer.from(mt[1], "base64"); if (buf.length < 100) return cevap(res, 400, { hata: "Dosya boş görünüyor." }); if (buf.length > 2.5e6) return cevap(res, 400, { hata: "Dosya en çok 2,5 MB olabilir; küçültüp yeniden deneyin." });
@@ -482,7 +515,7 @@ async function api(req, res, yol) {
     gunluk(o, mid, "Belge yüklendi", tur + " · " + ad);
     return cevap(res, 200, { belge: { id: k.id, tur: k.tur, ad: k.ad, tip: k.tip, boyut: k.boyut, zaman: k.zaman } });
   }
-  if (yol === "/api/belge-sil") { ofisGerek(o); const k = depo.belgeSil(o, mid, String(g.id || "")); gunluk(o, mid, "Belge silindi", k.tur + " · " + k.ad); return cevap(res, 200, { tamam: true }); }
+  if (yol === "/api/belge-sil") { personelOlur(o); const k = depo.belgeSil(o, mid, String(g.id || "")); gunluk(o, mid, "Belge silindi", k.tur + " · " + k.ad); return cevap(res, 200, { tamam: true }); }
   if (yol === "/api/talep") {
     if (o.rol !== "mukellef") return cevap(res, 403, { hata: "Talebi mükellef hesabı gönderir." });
     const metin = gib.temizMetin(g.metin, 600), tur = TALEP_TURLERI.includes(g.tur) ? g.tur : "Diğer";
@@ -496,7 +529,7 @@ async function api(req, res, yol) {
     return cevap(res, 200, { talep: t });
   }
   if (yol === "/api/talep-durum") {
-    ofisGerek(o);
+    personelOlur(o);
     const t = (m.talepler || []).filter((x) => x.id === g.id)[0]; if (!t) return cevap(res, 404, { hata: "Talep bulunamadı." });
     t.durum = g.durum === "Bekliyor" ? "Bekliyor" : "Yapıldı"; t.yanit = gib.temizMetin(g.yanit, 400); t.yanitZaman = new Date().toISOString(); depo.kaydet(mid);
     gunluk(o, mid, "Talep " + t.durum.toLocaleLowerCase("tr-TR"), t.tur);
@@ -639,7 +672,7 @@ async function api(req, res, yol) {
       if (ne === "levha") { const yil = Number(g.yil), buYil = Number(gib.trBugunStr().slice(0, 4)); if (!(yil >= buYil - 3 && yil <= buYil)) return cevap(res, 400, { hata: "Yıl seçin." }); return cevap(res, 200, await vdSorgu(m, (x) => x.levhaListe(yil))); }
       if (ne === "yazilar") return cevap(res, 200, await vdSorgu(m, (x) => x.yaziListe()));
       if (ne === "haciz") { const HACIZ = { banka: "P_INTVRG_INTVD_EHACIZ_BANKA_SRG", arac: "P_INTVRG_INTVD_EHACIZ_ARAC_SRG" }; const sayfa = HACIZ[String(g.tur || "")]; if (!sayfa) return cevap(res, 400, { hata: "Bu sorgu henüz desteklenmiyor." }); const r = await vdSorgu(m, (x) => x.interaktifSayfa(sayfa, o.rol === "ofis" && g.derin === true)); gunluk(o, mid, "İnteraktif VD haciz sayfası görüntülendi", String(g.tur)); return cevap(res, 200, r); }
-      if (ne === "zrapor") { if (o.rol !== "ofis") return cevap(res, 400, { hata: "Z raporu için çalışma devam ediyor." }); const r = await vdSorgu(m, (x) => x.interaktifSayfa("", g.derin === true, "intvrg")); gunluk(o, mid, "İnternet VD sayfası görüntülendi", "Z raporu"); return cevap(res, 200, r); }
+      if (ne === "zrapor") { if (o.rol === "mukellef") return cevap(res, 400, { hata: "Z raporu için çalışma devam ediyor." }); const r = await vdSorgu(m, (x) => x.interaktifSayfa("", g.derin === true, "intvrg")); gunluk(o, mid, "İnternet VD sayfası görüntülendi", "Z raporu"); return cevap(res, 200, r); }
       if (ne === "yoklama") return cevap(res, 200, await vdSorgu(m, (x) => x.yoklamaListe()));
       if (ne === "tahakkuk") return cevap(res, 200, await vdSorgu(m, (x) => x.tahakkukListe(String(g.tbas || ""), String(g.tbit || ""))));
       if (ne === "arac") return cevap(res, 200, await vdSorgu(m, (x) => x.aracListe(g.gecmis === true)));

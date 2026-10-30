@@ -330,10 +330,12 @@ class Ivd {
           const uc = [...new Set([...js.matchAll(/["'`]([\w./-]*(?:\.jsp|\.do|\.action|\/rest\/|\/api\/|dispatch|\/service)[\w./?=&%-]*)["'`]/g)].map((m) => m[1]).filter((x) => x.length > 4 && x.length < 120))].slice(0, 40);
           const bag = [...js.matchAll(sayfa ? new RegExp(String(sayfa).replace(/_[A-Z]+$/, "").slice(0, 28), "g") : /Aylık\s*Satış|Satış\s*Rapor|YNOKC|YN_OKC|OKCBildirim|DonemSorgula|Dönem\s*Sorgula|Z\s*Rapor|ZRAPOR/gi)].slice(0, 5).map((m) => js.slice(Math.max(0, m.index - 150), m.index + 350).replace(/\s+/g, " "));
           const ajax = [...js.matchAll(/(?:\$\.ajax|\$\.post|XMLHttpRequest|fetch)\s*\(?[^;]{0,160}/g)].slice(0, 4).map((m) => m[0].replace(/\s+/g, " "));
-          parca.push("# " + ad + " (" + g.metin.length + " bayt)\nuçlar: " + (uc.join(" | ") || "-") + (ajax.length ? "\najax: " + ajax.join(" || ") : "") + (bag.length ? "\nsayfa adı geçen yer: " + bag.join(" ... ") : ""));
+          const bagla = (kalip, n, boy) => [...js.matchAll(kalip)].slice(0, n).map((m) => js.slice(Math.max(0, m.index - 120), m.index + boy).replace(/\s+/g, " "));
+          const yan = /side-common|side-bc|lib_tv|side-user/.test(ad) ? [["dispatch", bagla(/side-dispatch|dispatch-app/g, 3, 700)], ["initSide", bagla(/function\s+initSide|initSide\s*[=:]/g, 2, 900)], ["cmd", [...new Set([...js.matchAll(/["']?cmd["']?\s*[:=]\s*["']([^"']{3,70})["']/g)].map((m) => m[1]))].slice(0, 50)], ["sayfa-menü", bagla(/getPage|loadPage|pageName|menuItems|getMenu/g, 4, 500)]] : [];
+          parca.push("# " + ad + " (" + g.metin.length + " bayt)" + yan.filter((x) => x[1].length).map((x) => "\n[" + x[0] + "] " + x[1].join(" ... ")).join("") + "\nuçlar: " + (uc.join(" | ") || "-") + (ajax.length ? "\najax: " + ajax.join(" || ") : "") + (bag.length ? "\nsayfa adı geçen yer: " + bag.join(" ... ") : ""));
         } catch (e) { parca.push("# " + b + " okunamadı: " + e.message); }
       }
-      betikOzet = maske(parca.join("\n\n")).slice(0, 12000);
+      betikOzet = maske(parca.join("\n\n")).slice(0, 24000);
     }
     return { betikOzet, uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: maske(r.url.replace(/^https:\/\/[^/]+/, "")) + " (HTTP " + r.durum + ")", baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || ""), metin: sade(html).slice(0, 1500),
       formlar: formCoz(html).map((f) => ({ eylem: maske(f.eylem), yontem: f.yontem, gizli: Object.keys(f.gizli), secimler: f.secimler })), alanlar: formlar(html), tablolar: tablolar(html),
