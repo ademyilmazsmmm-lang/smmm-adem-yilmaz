@@ -637,6 +637,9 @@
       if (info.kind === 'yevmiye-berati' || info.kind === 'kebir-berati' || info.kind === 'defter-raporu') paraBerat(info);
       else if (info.kind === 'yevmiye') paraYevmiye(info);
       else if (info.kind === 'kebir') paraKebir(info);
+      if ((info.kind === 'yevmiye-berati' || info.kind === 'kebir-berati') && !(info.imza && info.imza.gibOnay)) {
+        throw new Error('GİB onayı bulunmayan berat; bu araç yalnızca GİB onaylı beratları gösterir.');
+      }
       return { ad: file.name, info: info };
     });
   }
@@ -668,25 +671,50 @@
     });
   }
 
+  var PDF_OLCEK = 2;
+
+  function sayfaKirilmaNoktalari(toplamCss, pageHCss, blokBaslangiclari) {
+    var noktalar = [0], mevcut = 0;
+    while (mevcut < toplamCss) {
+      var aday = mevcut + pageHCss;
+      if (aday >= toplamCss) { noktalar.push(toplamCss); break; }
+      var secilen = aday;
+      for (var i = 0; i < blokBaslangiclari.length; i++) {
+        var b = blokBaslangiclari[i];
+        if (b > mevcut + 20 && b <= aday) secilen = b;
+      }
+      if (secilen <= mevcut) secilen = aday;
+      noktalar.push(secilen);
+      mevcut = secilen;
+    }
+    return noktalar;
+  }
+
   function pdfIndir(d) {
     pdfBtn.disabled = true;
     pdfDurum.textContent = 'PDF hazırlanıyor…';
+    var el = document.getElementById('edgPdfIcerik');
+    var blokSecici = d.info.fisler ? '.edg-fis-ayrac' : (d.info.hesapGruplari ? '.edg-kebir-hesap-baslik' : null);
     kitaplikYukle().then(function () {
-      return window.html2canvas(document.getElementById('edgPdfIcerik'), { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+      return window.html2canvas(el, { scale: PDF_OLCEK, backgroundColor: '#ffffff', useCORS: true });
     }).then(function (canvas) {
       var jsPDFCtor = window.jspdf.jsPDF;
       var pdf = new jsPDFCtor('p', 'pt', 'a4');
       var pageW = pdf.internal.pageSize.getWidth(), pageH = pdf.internal.pageSize.getHeight();
-      var imgW = pageW, imgH = canvas.height * imgW / canvas.width;
+      var k = pageW / el.scrollWidth;
+      var pageHCss = pageH / k;
+      var toplamCss = el.scrollHeight;
+      var blokBaslangiclari = blokSecici
+        ? Array.prototype.map.call(el.querySelectorAll(blokSecici), function (m) { return m.offsetTop; })
+        : [];
+      var kirilmalar = sayfaKirilmaNoktalari(toplamCss, pageHCss, blokBaslangiclari);
       var imgData = canvas.toDataURL('image/jpeg', 0.92);
-      var heightLeft = imgH, position = 0;
-      pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH);
-      heightLeft -= pageH;
-      while (heightLeft > 0) {
-        position = heightLeft - imgH;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH);
-        heightLeft -= pageH;
+      var imgW = pageW, imgFullH = toplamCss * k;
+      for (var p = 0; p < kirilmalar.length - 1; p++) {
+        var ustCss = kirilmalar[p], altCss = kirilmalar[p + 1];
+        if (altCss - ustCss <= 0) continue;
+        if (p > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, -(ustCss * k), imgW, imgFullH);
       }
       var ad = (TUR_DOSYA_ADI[d.info.kind] || 'e-defter') + (d.info.periodStart ? '-' + d.info.periodStart : '') + '.pdf';
       pdf.save(ad);
