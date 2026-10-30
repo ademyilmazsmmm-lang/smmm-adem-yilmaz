@@ -213,10 +213,20 @@ class Sgk {
   /* İşveren Sistemi menü sayfası (yalnız okuma: GET). ad: menüdeki internetLink<ad>.action */
   async isverenSayfa(ad) {
     if (!this.girdi) throw this.oturumHata();
-    const r = await this.git("GET", this.s.kok + "/internetLink" + ad + ".action"), html = r.veri.toString("utf8");
+    const jeton = (t) => String(t || "").replace(/(isverenToken|token)=[^"'&\s;]+/gi, "$1=<jeton>");
+    let r = await this.git("GET", this.s.kok + "/internetLink" + ad + ".action"), html = r.veri.toString("utf8"), adimlar = [];
     if (/kullaniciIlkKontrollerGiris/.test(html)) throw this.oturumHata();
-    const i = html.search(/id\s*=\s*["']contentContainer["']/i), icerik = i >= 0 ? html.slice(i) : html;
-    return { adres: r.url.replace(this.taban, ""), baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || ""), metin: sade(icerik).slice(0, 1800), hata: hataMetni(html), formlar: formCoz(icerik).map((f) => ({ eylem: f.eylem, yontem: f.yontem, gizli: Object.keys(f.gizli), secimler: f.secimler })), alanlar: formlar(icerik), tablolar: tablolar(icerik), ham: hamMaskeli(icerik.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, ""), 3500) };
+    adimlar.push(jeton(r.url.replace(this.taban, "")));
+    /* menü sayfası gerçek uygulamayı bir iframe içinde açar: iframe adresini izle (en çok 2 kademe) */
+    for (let n = 0; n < 2; n++) {
+      const i = html.search(/id\s*=\s*["']contentContainer["']/i), kap = i >= 0 ? html.slice(i) : html;
+      const f = /<iframe\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i.exec(kap); if (!f) break;
+      const u = new URL(coz(f[1]), r.url); if (!/(^|\.)sgk\.gov\.tr$/i.test(u.hostname)) break;
+      r = await this.git("GET", u.href); html = r.veri.toString("utf8"); adimlar.push(jeton(r.url.replace(this.taban, "")));
+      if (/kullaniciIlkKontrollerGiris/.test(html)) throw this.oturumHata();
+    }
+    const i2 = html.search(/id\s*=\s*["']contentContainer["']/i), icerik = i2 >= 0 ? html.slice(i2) : html;
+    return { adres: adimlar.join(" -> "), baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || ""), metin: sade(icerik).slice(0, 1800), hata: hataMetni(html), formlar: formCoz(icerik).map((f) => ({ eylem: jeton(f.eylem), yontem: f.yontem, gizli: Object.keys(f.gizli), secimler: f.secimler })), alanlar: formlar(icerik), tablolar: tablolar(icerik), baglantilar: baglantilar(icerik).slice(0, 25).map((x) => ({ tur: x.tur, metin: x.metin, href: jeton(x.href) })), ham: jeton(hamMaskeli(icerik.replace(/<style[\s\S]*?<\/style>/gi, ""), 4500)) };
   }
   async islemKaynagi(html, sayfaUrl, ad) {
     const satir = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]).join("\n");
