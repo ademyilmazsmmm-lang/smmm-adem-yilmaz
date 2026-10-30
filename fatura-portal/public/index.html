@@ -468,6 +468,13 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       </div>
       <div id="vdSgkBagli" style="display:none;justify-content:space-between;align-items:center;gap:8px"><span class="not" style="margin:0">✓ SGK İşveren Sistemi’ne bağlı</span><button class="k" type="button" id="vdSgkKapat">Kapat</button></div>
       <div id="vdSgkIslem" style="display:none;gap:8px"><button class="btn ikincil" type="button" id="vdSgkTani">Sayfadaki bağlantıları listele (adres keşfi)</button></div>
+      <div id="vdSgkIsv" hidden style="display:grid;gap:8px">
+        <b>İşveren Sistemi</b>
+        <div class="satir"><button class="btn" type="button" data-isv="DonemBorcGoruntuleme">Dönem borç görüntüleme</button><button class="btn ikincil" type="button" data-isv="CariDonemBorc">Cari dönem borç</button></div>
+        <label for="isvBorcsuz">E-Borcu Yoktur belgesi</label>
+        <div class="satir"><select id="isvBorcsuz"><option value="IAIIBYEB">İhalelere katılmak için</option><option value="IAIOTGBYEB">İhale dışı · Türkiye geneli</option><option value="IAIOTIBYEB">İhale dışı · Tek işyeri</option><option value="IAKBYEB">KOSGEB’e verilmek üzere</option><option value="IATBYEB">TÜBİTAK’a verilmek üzere</option><option value="IAHBYEB">Hazine ve Maliye Bakanlığı’na</option><option value="IASBYEB">Sanayi ve Teknoloji Bakanlığı’na</option><option value="IAKGFBYEB">Kredi Garanti Fonu’na</option><option value="IAKU">Belge kontrol</option></select><button class="btn ikincil" type="button" data-isv-sec="1">Aç</button></div>
+        <div id="isvSonuc" style="display:grid;gap:8px"></div>
+      </div>
       <div id="vdSgkBildirge" hidden style="display:grid;gap:8px">
         <b>Onaylı bildirgeler</b>
         <div class="satir"><div><label for="bilBas">Başlangıç dönemi</label><select id="bilBas"></select></div><div><label for="bilBit">Bitiş dönemi</label><select id="bilBit"></select></div></div>
@@ -2035,6 +2042,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("vdSgkAciklama").textContent = SGKAC[sis];
     $("vdSgkBaglan").style.display = b ? "none" : "grid"; $("vdSgkBagli").style.display = b ? "flex" : "none"; $("vdSgkIslem").style.display = b ? "grid" : "none";
     $("vdSgkEksik").hidden = !eksik; $("vdSgkKodIste").disabled = eksik; if (b) $("vdSgkKodKutu").style.display = "none"; if (!b) $("vdSgkSonuc").hidden = true;
+    $("vdSgkIsv").hidden = !(sis === "isveren" && b); if (!(sis === "isveren" && b)) $("isvSonuc").innerHTML = "";
     var bilGoster = sis === "ebildirge" && b; $("vdSgkBildirge").hidden = !bilGoster; if (bilGoster && !VD.bilYuklendi) bilDonemleriYukle(); if (!b && sis === "ebildirge") { VD.bilYuklendi = false; $("bilSonuc").innerHTML = ""; }
     $("vdSgkBagli").querySelector("span").textContent = "✓ " + (sis === "ebildirge" ? "e-Bildirge’ye bağlı" : "SGK İşveren Sistemi’ne bağlı");
   }
@@ -2077,6 +2085,18 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("vdSgkGiris").addEventListener("click", vdSgkGiris);
   $("vdSgkKod").addEventListener("keydown", function(e){ if (e.key === "Enter") { e.preventDefault(); vdSgkGiris(); } });
   $("vdSgkKapat").addEventListener("click", function(){ if (!VD.mid) return; api("/api/sgk/cikis", "POST", { mukellefId: VD.mid, sistem: VD.sgkSis }).catch(function(){}); VD.sgkB[VD.sgkSis] = false; vdSgkCiz(); });
+  function isvHtml(r){
+    var h = '<div class="kayit"><b>' + esc(r.baslik || "Sayfa") + '</b>' + (r.hata ? '<div class="durum hata" style="display:block">' + esc(r.hata) + '</div>' : "") + (r.metin ? '<p class="not" style="margin:4px 0 0;font-size:.82rem">' + esc(r.metin) + '</p>' : "");
+    (r.formlar || []).forEach(function(f){ var sec = f.secimler || {}; var ks = Object.keys(sec); if (!ks.length) return; h += '<div class="not" style="margin-top:6px;font-size:.8rem">' + ks.map(function(k){ return esc(k) + ": " + sec[k].slice(0, 14).map(function(o){ return esc(o.etiket || o.deger); }).join(" · "); }).join("<br>") + '</div>'; });
+    (r.tablolar || []).forEach(function(t){ h += '<div class="not" style="margin-top:6px;font-size:.78rem">Tablo: ' + t.map(esc).join(" | ") + '</div>'; });
+    return h + '</div><details class="alt2"><summary>Teknik ayrıntı (sayfa beklediğiniz gibi değilse bunu gönderin)</summary><div class="icerik"><pre id="isvHam" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;margin:0;max-height:260px;overflow:auto">' + esc("Adres: " + r.adres + "\nFormlar: " + JSON.stringify(r.formlar || []) + "\nAlanlar: " + JSON.stringify(r.alanlar || []) + "\nTablolar: " + JSON.stringify(r.tablolar || []) + "\n\n" + (r.ham || "")) + '</pre><button class="k" type="button" id="isvKopya">Kopyala</button></div></details>';
+  }
+  $("vdSgkIsv").addEventListener("click", function(e){
+    if (e.target.id === "isvKopya") { var t = $("isvHam").textContent; try { navigator.clipboard.writeText(t); e.target.textContent = "Kopyalandı"; } catch (x) { var rg = document.createRange(); rg.selectNodeContents($("isvHam")); var sl = getSelection(); sl.removeAllRanges(); sl.addRange(rg); } return; }
+    var b = e.target.closest("[data-isv],[data-isv-sec]"); if (!b) return;
+    var ad = b.hasAttribute("data-isv-sec") ? $("isvBorcsuz").value : b.getAttribute("data-isv"), d = $("vdSgkDurum"); b.disabled = true; d.className = "durum"; d.textContent = "SGK sayfası açılıyor…";
+    api("/api/sgk/sayfa", "POST", { mukellefId: VD.mid, sistem: "isveren", ad: ad }).then(function(r){ $("isvSonuc").innerHTML = isvHtml(r); d.textContent = ""; }, vdSgkHata).then(function(){ b.disabled = false; });
+  });
   $("vdSgkTani").addEventListener("click", function(){
     var b = this, d = $("vdSgkDurum"), sis = VD.sgkSis; b.disabled = true; d.className = "durum"; d.textContent = sis === "ebildirge" ? "Menü sayfaları okunuyor (biraz sürebilir)…" : "Sayfa okunuyor…";
     api("/api/sgk/tani", "POST", { mukellefId: VD.mid, sistem: sis, derin: sis === "ebildirge" }).then(function(r){

@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-113";
+const SURUM = "2026-10-31-114";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -87,6 +87,7 @@ const profilTemiz = (p) => {
 };
 /* Aydınlatma / onay metni sürümü: public/index.html'deki #kabul metni değişirse bu sayı da artırılır (mükelleflerden yeniden onay istenir) */
 const KABUL_SURUM = "1";
+const ISVEREN_SAYFALAR = new Set(["DonemBorcGoruntuleme", "CariDonemBorc", "Mufredat", "IAIIBYEB", "IAIOTGBYEB", "IAIOTIBYEB", "IAKBYEB", "IATBYEB", "IAHBYEB", "IASBYEB", "IAKGFBYEB", "IAKU"]);
 function temizMukellef(o, id) {
   const v = depo.mukellef(o, id).veri;
   return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, earsiv: v.earsiv !== false, sgk: { kullanici: (v.sgk && v.sgk.kullanici) || "", isyeriKod: (v.sgk && v.sgk.isyeriKod) || "", sistemVar: !!(v.sgk && v.sgk.sistemSifre), isyeriVar: !!(v.sgk && v.sgk.isyeriSifre) }, profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: o.rol === "mukellef" && !(v.kabul && v.kabul.surum === KABUL_SURUM), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
@@ -434,6 +435,7 @@ async function api(req, res, yol) {
       const x = sgkler.get(an); if (!x || !x.girdi) { const e = new Error("Önce SGK'ya bağlanın (güvenlik kodu)."); e.girisGerek = true; throw e; }
       sgkZamanla(an);
       if (ne === "tani") return cevap(res, 200, await x.tani(g.derin === true));
+      if (sis === "isveren" && ne === "sayfa") { const ad = String(g.ad || ""); if (!ISVEREN_SAYFALAR.has(ad)) return cevap(res, 400, { hata: "Bu sayfa desteklenmiyor." }); const t = await x.isverenSayfa(ad); gunluk(o, mid, "SGK İşveren sayfası görüntülendi", ad); return cevap(res, 200, t); }
       if (sis === "ebildirge" && ne === "bildirge-donemler") return cevap(res, 200, await x.bildirgeDonemler());
       if (sis === "ebildirge" && ne === "bildirge-liste") { const t = await x.bildirgeListe(String(g.bas || ""), String(g.bit || "")); gunluk(o, mid, "SGK onaylı bildirge listesi görüntülendi", ""); return cevap(res, 200, t); }
     } catch (e) { if (e && e.oturum) { await birak(); e.girisGerek = true; } if (e && e.girisGerek) return cevap(res, 409, { hata: e.message, girisGerek: true }); throw e; }

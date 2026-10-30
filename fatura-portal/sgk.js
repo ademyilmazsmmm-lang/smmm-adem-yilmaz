@@ -210,6 +210,14 @@ class Sgk {
     }
     return sonuc;
   }
+  /* İşveren Sistemi menü sayfası (yalnız okuma: GET). ad: menüdeki internetLink<ad>.action */
+  async isverenSayfa(ad) {
+    if (!this.girdi) throw this.oturumHata();
+    const r = await this.git("GET", this.s.kok + "/internetLink" + ad + ".action"), html = r.veri.toString("utf8");
+    if (/kullaniciIlkKontrollerGiris/.test(html)) throw this.oturumHata();
+    const i = html.search(/id\s*=\s*["']contentContainer["']/i), icerik = i >= 0 ? html.slice(i) : html;
+    return { adres: r.url.replace(this.taban, ""), baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || ""), metin: sade(icerik).slice(0, 1800), hata: hataMetni(html), formlar: formCoz(icerik).map((f) => ({ eylem: f.eylem, yontem: f.yontem, gizli: Object.keys(f.gizli), secimler: f.secimler })), alanlar: formlar(icerik), tablolar: tablolar(icerik), ham: hamMaskeli(icerik.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, ""), 3500) };
+  }
   async islemKaynagi(html, sayfaUrl, ad) {
     const satir = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]).join("\n");
     let k = islevlerZinciri(satir, ad); if (k) return { dosya: "(sayfa içi)", kaynak: hamMaskeli(k, 4500) };
@@ -276,6 +284,7 @@ class SahteSgk {
   async giris(dk) { if (!this.cid) throw new Error("Önce güvenlik kodu resmini isteyin."); this.cid = false; if (String(dk || "").trim() !== "SGK123") { const e = new Error("SGK girişi başarısız: Güvenlik kodu hatalı."); e.giris = true; throw e; } this.girdi = true; }
   async tani(derin) { if (!this.girdi) { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; throw e; } return { baslik: "T.C. Sosyal Güvenlik Kurumu", adres: "https://" + (SISTEMLER[this.sistem] || SISTEMLER.isveren).sunucu + (SISTEMLER[this.sistem] || SISTEMLER.isveren).kok, zincir: [], baslatici: [], baglantilar: [{ tur: "a", metin: "DÖNEM BORÇ GÖRÜNTÜLEME", href: "/IsverenSistemi/ornek/donemBorc.action" }, { tur: "a", metin: "İHALELERE KATILMAK İÇİN", href: "/IsverenSistemi/ornek/ihale.action" }, { tur: "a", metin: "ÇIKIŞ", href: "/IsverenSistemi/cikis.action" }], cerceveler: [], sayfalar: derin ? [{ metin: "Onaylanmış Belgeler", adres: "/EBildirgeV2/ornek/onayli.action", formlar: [{ eylem: "/EBildirgeV2/ornek/liste.action", yontem: "post", alanlar: ["bas_donem:select[2026/09|2026/08]", "bit_donem:select[2026/09|2026/08]", "düğme:Bilgileri Getir"] }], tablolar: [["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Toplam Çalışan Sayısı"]], baglantilar: [] }] : undefined }; }
   async cikis() { this.girdi = false; }
+  async isverenSayfa(ad) { if (!this.girdi) throw this.oturumHata2(); return { adres: "/IsverenSistemi/internetLink" + ad + ".action", baslik: "Örnek sayfa " + ad, metin: "Örnek içerik", hata: "", formlar: [{ eylem: "/IsverenSistemi/x.action", yontem: "post", gizli: ["token"], secimler: { donem: [{ deger: "1", etiket: "2026/09" }] } }], alanlar: [{ eylem: "/x", yontem: "post", alanlar: ["donem:select[1]"] }], tablolar: [["Dönem", "Borç"]], ham: "<form>…</form>" }; }
   async bildirgeDonemler() { if (!this.girdi) throw this.oturumHata2(); return { donemler: [{ deger: "1", etiket: "2026/09" }, { deger: "2", etiket: "2026/08" }, { deger: "3", etiket: "2026/07" }] }; }
   async bildirgeListe(b, e) { if (!this.girdi) throw this.oturumHata2(); const s = [{ n: 0, hucreler: ["2026/09", "2026/09", "01", "ASIL", "05510", "1", "4", "4.404,00 TL", "", "", ""].map((m, k) => ({ k, metin: m, belgeler: k >= 8 ? [{ j: 0, baslik: "Görüntüle", var: true }, { j: 1, baslik: "İndir", var: true }] : [] })) }]; return { basliklar: ["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Belge Mahiyeti", "Kanun No", "Toplam Çalışan Sayısı", "Toplam Gün Sayısı", "Toplam Pek Tutar", "Tahakkuk", "Hizmet", "S.Hizmet"], satirlar: s, hamMetin: "", onclickOrnek: [] }; }
   async bildirgeBelge(n, k, j) { if (!this.girdi) throw this.oturumHata2(); const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 16 Tf 20 60 Td (ORNEK SGK BELGESI) Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF"; return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "sgk-belge.pdf" }; }
