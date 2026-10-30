@@ -2190,6 +2190,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("vdHacizBanka").addEventListener("click", function(){ hacizSorgu(this, "banka", false); });
   $("vdHacizArac").addEventListener("click", function(){ hacizSorgu(this, "arac", false); });
   $("vdHacizDerin").addEventListener("click", function(){ hacizSorgu(this, VD.hacizTur || "banka", true); });
+  $("vdListe").addEventListener("click", function(e){
+    if (e.target.id !== "vdZOku") return; var b = e.target, d = $("vdDurum"); b.disabled = true; d.className = "durum"; d.textContent = "İnternet Vergi Dairesi okunuyor…";
+    api("/api/vd/zrapor", "POST", { mukellefId: VD.mid, derin: true }).then(function(r){ VD.sonuc.zrapor = r; d.textContent = ""; if (VD.sek === "zrapor") vdCiz(); }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
+  });
   $("vdListe").addEventListener("click", function(e){ if (e.target.id !== "isvKopya") return; var t = $("isvHam").textContent; try { navigator.clipboard.writeText(t); e.target.textContent = "Kopyalandı"; } catch (x) { var rg = document.createRange(); rg.selectNodeContents($("isvHam")); var sl = getSelection(); sl.removeAllRanges(); sl.addRange(rg); } });
   $("vdArac").addEventListener("click", function(e){ var b = e.target.closest("[data-arac]"); if (!b) return; VD.aracGecmis = b.getAttribute("data-arac") === "1"; $("vdArac").querySelectorAll("[data-arac]").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); vdSorgula(); });
   $("vdTelKod").addEventListener("click", function(){
@@ -2275,7 +2279,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("kdvDur").addEventListener("click", function(){ KR.dur = true; });
   function vdCiz(){
     var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
-    if (VD.sek === "zrapor") { liste.innerHTML = '<div class="kayit"><b>Aylık Z raporu / satış raporu</b><p class="not" style="margin:4px 0 0">Aylık Z raporu ve satış raporu burada görünecek. <b>Çalışma devam ediyor.</b></p></div>'; tani.hidden = true; return; }
+    if (VD.sek === "zrapor") { liste.innerHTML = '<div class="kayit"><b>Aylık Z raporu / satış raporu</b><p class="not" style="margin:4px 0 0">Aylık Z raporu ve satış raporu burada görünecek. <b>Çalışma devam ediyor.</b></p>' + (ROL === "ofis" && VD.bagli ? '<button class="k" type="button" id="vdZOku" style="margin-top:8px">İnternet VD sayfasını oku (geliştirme)</button>' : "") + '</div>' + (s ? isvHtml(s, "İnternet Vergi Dairesi · Z raporu") : ""); tani.hidden = true; return; }
     if (VD.sek === "haciz") { liste.innerHTML = s ? '<p class="not" style="margin:0">' + esc(s.zaman) + '</p>' + isvHtml(s, (VD.hacizTur === "arac" ? "Araçlar" : "Banka hesapları") + " · haciz sorgusu") : ""; tani.hidden = true; return; }
     if (VD.sek === "telefon" || VD.sek === "kdv") { liste.innerHTML = ""; tani.hidden = true; return; }
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
@@ -2302,7 +2306,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function vdBagDurum(){
     var b = VD.bagli;
-    var pl = VD.sek === "zrapor", ozel = pl || VD.sek === "telefon" || VD.sek === "kdv" || VD.sek === "haciz"; /* haciz / Z raporu: henüz yapılmadı (bağlantı gerekmez); telefon: kendi düğmeleri var */
+    var pl = VD.sek === "zrapor" && ROL !== "ofis", ozel = pl || VD.sek === "telefon" || VD.sek === "kdv" || VD.sek === "haciz" || VD.sek === "zrapor"; /* haciz / Z raporu: henüz yapılmadı (bağlantı gerekmez); telefon: kendi düğmeleri var */
     $("vdBaglan").style.display = (b || pl) ? "none" : "grid"; $("vdBagli").style.display = b && !pl ? "flex" : "none"; $("vdSorgula").hidden = !b || ozel;
     if (b) $("vdKodKutu").style.display = "none";
   }
