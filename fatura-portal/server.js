@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-131";
+const SURUM = "2026-10-31-132";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -350,16 +350,16 @@ async function api(req, res, yol) {
       return res.end(d.veri);
     } catch (e) { if (e && e.oturum) { clearTimeout(sgkZaman.get(an)); sgkler.delete(an); } return duz(500, "Belge alınamadı: " + e.message); }
   }
-  if ((yol === "/api/vd/belge" || yol === "/api/vd/yazi" || yol === "/api/vd/levha" || yol === "/api/vd/tahakkuk") && req.method === "GET") {
+  if ((yol === "/api/vd/belge" || yol === "/api/vd/yazi" || yol === "/api/vd/levha" || yol === "/api/vd/tahakkuk" || yol === "/api/vd/yoklama") && req.method === "GET") {
     const q = new URL(req.url, "http://x").searchParams, mid = o.rol === "mukellef" ? o.mid : q.get("mid") || "";
     const duz = (kod, metin) => { res.writeHead(kod, Object.assign({ "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }, GUV)); res.end(metin); };
     if (!depo.yetkili(o, mid)) return duz(403, "Bu mükellef için yetkiniz yok.");
     const x = ivdler.get(mid); if (!x || !x.girildi) return duz(409, "Önce Dijital Vergi Dairesi'ne bağlanın (Vergi D. sekmesi).");
     try {
       ivdKontrol({ id: mid }, "b"); ivdZamanla(mid);
-      const n = Number(q.get("n")), yazi = yol === "/api/vd/yazi", levha = yol === "/api/vd/levha", thk = yol === "/api/vd/tahakkuk";
-      const d = levha ? await x.levhaIndir(n, q.get("dil"), (depo.mukellef(o, mid).veri.vkn || "").replace(/\D/g, "")) : yazi ? await x.yaziIndir(n) : thk ? await x.tahakkukIndir(n) : await x.belgeIndir(n);
-      gunluk(o, mid, levha ? "e-Vergi levhası açıldı" : yazi ? "Borç durum yazısı açıldı" : thk ? "Tahakkuk fişi açıldı" : "Tebligat belgesi açıldı", d.ad);
+      const n = Number(q.get("n")), yazi = yol === "/api/vd/yazi", levha = yol === "/api/vd/levha", thk = yol === "/api/vd/tahakkuk", yok = yol === "/api/vd/yoklama";
+      const d = levha ? await x.levhaIndir(n, q.get("dil"), (depo.mukellef(o, mid).veri.vkn || "").replace(/\D/g, "")) : yazi ? await x.yaziIndir(n) : thk ? await x.tahakkukIndir(n) : yok ? await x.yoklamaIndir(n) : await x.belgeIndir(n);
+      gunluk(o, mid, levha ? "e-Vergi levhası açıldı" : yazi ? "Borç durum yazısı açıldı" : thk ? "Tahakkuk fişi açıldı" : yok ? "Yoklama fişi açıldı" : "Tebligat belgesi açıldı", d.ad);
       res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": (d.satir ? "inline" : "attachment") + "; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:" }));
       return res.end(d.veri);
     } catch (e) { if (e && e.oturum) await ivdBirak(mid); return duz(500, "Belge alınamadı: " + e.message); }
@@ -629,6 +629,7 @@ async function api(req, res, yol) {
       if (ne === "levha") { const yil = Number(g.yil), buYil = Number(gib.trBugunStr().slice(0, 4)); if (!(yil >= buYil - 3 && yil <= buYil)) return cevap(res, 400, { hata: "Yıl seçin." }); return cevap(res, 200, await vdSorgu(m, (x) => x.levhaListe(yil))); }
       if (ne === "yazilar") return cevap(res, 200, await vdSorgu(m, (x) => x.yaziListe()));
       if (ne === "haciz") { const HACIZ = { banka: "P_INTVRG_INTVD_EHACIZ_BANKA_SRG", arac: "P_INTVRG_INTVD_EHACIZ_ARAC_SRG" }; const sayfa = HACIZ[String(g.tur || "")]; if (!sayfa) return cevap(res, 400, { hata: "Bu sorgu henüz desteklenmiyor." }); const r = await vdSorgu(m, (x) => x.interaktifSayfa(sayfa, o.rol === "ofis" && g.derin === true)); gunluk(o, mid, "İnteraktif VD haciz sayfası görüntülendi", String(g.tur)); return cevap(res, 200, r); }
+      if (ne === "yoklama") return cevap(res, 200, await vdSorgu(m, (x) => x.yoklamaListe()));
       if (ne === "tahakkuk") return cevap(res, 200, await vdSorgu(m, (x) => x.tahakkukListe(String(g.tbas || ""), String(g.tbit || ""))));
       if (ne === "arac") return cevap(res, 200, await vdSorgu(m, (x) => x.aracListe(g.gecmis === true)));
       if (ne === "pos") return cevap(res, 200, await vdSorgu(m, (x) => x.posListe(String(g.yil || ""), String(g.ay || ""))));

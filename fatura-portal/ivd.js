@@ -263,6 +263,18 @@ class Ivd {
     const y = await this.istek("POST", GW + "/api/tahakkuklarim/tahakkuk-goruntule", { data: { secureId: d.secureId, orgoid: d.orgOid, thkFisNo: d.fisNo } }, true);
     return this.dosyaCek(y, "tahakkuk-" + String(d.fisNo || n + 1), "pdf");
   }
+  /* ---- e-Yoklama tutanakları (vergi dairesi yoklama fişi): liste + PDF ---- */
+  async yoklamaListe() {
+    const y = await this.istek("POST", GW + "/api/yoklamalar/get-yoklama-list", this.tablo({}, 100, { alan: "vdKoduText", yon: "ASC" }), true);
+    const dizi = (y && (Array.isArray(y.yoklamaList) ? y.yoklamaList : y.data && Array.isArray(y.data.yoklamaList) ? y.data.yoklamaList : [])) || [];
+    this.yoklamalar = dizi.slice(0, 100).map((d) => ({ yoklamaTuru: d.yoklamaTuruText || "", baslama: d.baslamaTarihi || "", tarih: d.tarih || "", vd: d.vdKoduText || "", kod: d.ykodu || "", secureId: d.secureId || "" }));
+    return { kayitlar: this.yoklamalar.map((d, n) => ({ n, yoklamaTuru: d.yoklamaTuru, baslama: d.baslama, tarih: d.tarih, vd: d.vd, kod: d.kod })), sekil: sekil(y) };
+  }
+  async yoklamaIndir(n) {
+    const d = (this.yoklamalar || [])[n]; if (!d) throw new Error("Yoklama bulunamadı; listeyi yenileyin.");
+    const y = await this.istek("POST", GW + "/api/yoklamalar/get-yoklama-pdf", { data: { yoklamaKodu: d.kod, secureId: d.secureId } }, true);
+    return this.dosyaCek(y, "yoklama-" + String(d.kod || n + 1), "pdf");
+  }
   /* ---- Araçlarım (Araç Bilgilerim): mevcut ya da geçmiş araçlar ---- */
   async aracListe(gecmis) {
     const y = await this.istek("POST", GW + "/api/aracBilgilerim/list", this.tablo({ sorgulamaTuru: gecmis ? "2" : "1" }, 100, { alan: "tescilTarihi", yon: "DESC" }), true);
@@ -404,6 +416,8 @@ class SahteIvd {
   ornekPdf(metin) { return { veri: Buffer.from("%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 16 Tf 20 60 Td (" + metin + ") Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF"), tur: "application/pdf", satir: true, ad: String(metin).toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".pdf" }; }
   async tahakkukListe(bas, bit) { if (!bas || !bit) throw new Error("Başlangıç ve bitiş ayını seçin."); this.tahakkuklar = [{ vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0015 - KDV", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:12:00", fisNo: "2026102601KDV0001" }, { vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0003 - MUHTASAR", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:05:00", fisNo: "2026102601MUH0002" }]; return { kayitlar: this.tahakkuklar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
   async tahakkukIndir(n) { if (!(this.tahakkuklar || [])[n]) throw new Error("Tahakkuk bulunamadı; listeyi yenileyin."); return this.ornekPdf("ORNEK TAHAKKUK " + (n + 1)); }
+  async yoklamaListe() { this.yoklamalar = [{ yoklamaTuru: "Yoklama", baslama: "2026-09-14", tarih: "2026-09-14", vd: "ÖRNEK VERGİ DAİRESİ", kod: "YKL2026000123", secureId: "x" }]; return { kayitlar: this.yoklamalar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
+  async yoklamaIndir(n) { if (!(this.yoklamalar || [])[n]) throw new Error("Yoklama bulunamadı; listeyi yenileyin."); return this.ornekPdf("ORNEK YOKLAMA FISI"); }
   async aracListe(gecmis) { return { araclar: gecmis ? [{ plaka: "34 ABC 123", marka: "FORD", model: "2012", tip: "TRANSIT", cinsAd: "KAMYONET", tescilDurumu: "Satıldı" }] : [{ plaka: "34 XYZ 789", ozelPlaka: "-", tescilTarihi: "2021-03-04", marka: "RENAULT", model: "2020", tip: "CLIO", cinsAd: "OTOMOBİL", motorGucu: "66", silindirHacmi: "999", koltukSayisi: "5", tescilDurumu: "Tescilli" }], uyari: "", sekil: {} }; }
   async posListe(yil, ay) { if (!yil || !ay) throw new Error("Yıl ve ay seçin."); return { yil: Number(yil), ay: String(ay).padStart(2, "0"), banka: [{ vkn: "1234567890", unvan: "ÖRNEK BANKA A.Ş.", uyeIsyeriNo: "000123", tutar: 85200.5 }], odeme: [{ vkn: "9876543210", unvan: "ÖRNEK ÖDEME KURULUŞU", uyeIsyeriNo: "77", tutar: 12000 }], bankaToplam: 85200.5, odemeToplam: 12000, toplam: 97200.5, sekil: {} }; }
   async telefonBilgi() { return { telefon: this.tel || "05320000000", sekil: {} }; }

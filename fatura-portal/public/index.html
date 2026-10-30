@@ -461,7 +461,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <section data-sayfa="vd" class="liste" hidden>
   <div class="card" id="vdKart">
     <div class="kartbas"><h2>Vergi Dairesi</h2><small id="vdMuk"></small></div>
-    <div class="vdsek" id="vdSeg" role="group" aria-label="Vergi Dairesi bölümü"><button class="chip" type="button" data-vd="borc" aria-pressed="true">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false">Tebligat</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false">Gelen fatura</button><button class="chip" type="button" data-vd="yazi" aria-pressed="false">Borcu yoktur</button><button class="chip" type="button" data-vd="levha" aria-pressed="false">e-Vergi levhası</button><button class="chip" type="button" data-vd="tahakkuk" aria-pressed="false">Tahakkuk</button><button class="chip" type="button" data-vd="arac" aria-pressed="false">Araçlarım</button><button class="chip" type="button" data-vd="pos" aria-pressed="false">POS</button><button class="chip" type="button" data-vd="haciz" aria-pressed="false">Haciz</button><button class="chip" type="button" data-vd="zrapor" aria-pressed="false">Z raporu</button><button class="chip" type="button" data-vd="kdv" aria-pressed="false">KDV raporu</button><button class="chip" type="button" data-vd="telefon" aria-pressed="false">SMS telefonu</button></div>
+    <div class="vdsek" id="vdSeg" role="group" aria-label="Vergi Dairesi bölümü"><button class="chip" type="button" data-vd="borc" aria-pressed="true">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false">Tebligat</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false">Gelen fatura</button><button class="chip" type="button" data-vd="yazi" aria-pressed="false">Borcu yoktur</button><button class="chip" type="button" data-vd="levha" aria-pressed="false">e-Vergi levhası</button><button class="chip" type="button" data-vd="tahakkuk" aria-pressed="false">Tahakkuk</button><button class="chip" type="button" data-vd="yoklama" aria-pressed="false">Yoklama fişi</button><button class="chip" type="button" data-vd="arac" aria-pressed="false">Araçlarım</button><button class="chip" type="button" data-vd="pos" aria-pressed="false">POS</button><button class="chip" type="button" data-vd="haciz" aria-pressed="false">Haciz</button><button class="chip" type="button" data-vd="zrapor" aria-pressed="false">Z raporu</button><button class="chip" type="button" data-vd="kdv" aria-pressed="false">KDV raporu</button><button class="chip" type="button" data-vd="telefon" aria-pressed="false">SMS telefonu</button></div>
     <div id="vdBaglan" style="display:grid;gap:8px">
       <p class="not" style="margin:0">Dijital Vergi Dairesi’ne bağlanmak için resimdeki <b>doğrulama kodunu</b> resimde göründüğü gibi (büyük/küçük harf aynen) yazın. Kullanıcı kodu ve şifre Ayarlar’daki GİB bilgisinden alınır.</p>
       <button class="btn ikincil" type="button" id="vdKodIste">Doğrulama kodu al</button>
@@ -2058,6 +2058,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     levha: "Daha önce oluşturulmuş e-Vergi levhalarınız (yıla göre). Türkçe ya da İngilizce PDF olarak açabilirsiniz.",
     yazi: "Vergi dairesinden “borç durum yazısı” (borcu yoktur yazısı) talep edilir; son 90 gündeki talepleriniz aşağıda listelenir.",
     tahakkuk: "Tahakkuk Bilgilerim: seçtiğiniz aylardaki tahakkuk fişleri (son 10 yıl). Her fiş için PDF açabilirsiniz.",
+    yoklama: "Vergi dairesinin adınıza düzenlediği e-Yoklama tutanakları (yoklama fişi). Her biri için PDF açabilirsiniz.",
     arac: "Üzerinize kayıtlı motorlu taşıtlar (Araç Bilgilerim). Geçmiş araçlar satılmış, hurdaya ayrılmış ya da trafikten çekilmiş olanlardır.",
     pos: "POS İşlem Bilgilerim: bankalar ve ödeme kuruluşları üzerinden kredi kartıyla tahsil edilen KDV dahil tutarlar (ay ay).",
     haciz: "Banka hesaplarınıza ve araçlarınıza haciz konulup konulmadığı.",
@@ -2148,6 +2149,12 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     return s.kayitlar.map(function(d){
       return '<div class="kayit" style="display:flex;gap:10px;justify-content:space-between;align-items:center"><div style="min-width:0"><b>' + esc(d.vergiKodu || "Tahakkuk") + '</b><div class="not" style="margin:0;font-size:.8rem;overflow-wrap:anywhere">' + esc([ayAdi(d.vergiDonem) + " dönemi", d.kabulTarihi ? "kabul " + tarihYaz(d.kabulTarihi) : "", d.fisNo ? "fiş " + d.fisNo : ""].filter(Boolean).join(" · ")) + (d.vdAdi ? '<br>' + esc(tebAd(d.vdAdi)) : "") + '</div></div>' +
         '<a class="btn" style="min-height:42px;padding:6px 16px;text-decoration:none;flex:none" target="_blank" rel="noopener" href="/api/vd/tahakkuk?mid=' + encodeURIComponent(VD.mid) + '&n=' + d.n + '">PDF</a></div>';
+    }).join("");
+  }
+  function vdYokHtml(s){
+    if (!s.kayitlar.length) return '<p class="not">Adınıza düzenlenmiş yoklama tutanağı bulunamadı.</p>';
+    return s.kayitlar.map(function(d){
+      return '<div class="kayit" style="display:flex;gap:10px;justify-content:space-between;align-items:center"><div style="min-width:0"><b>' + esc(tebAd(d.yoklamaTuru || "Yoklama")) + '</b><div class="not" style="margin:0;font-size:.8rem;overflow-wrap:anywhere">' + esc([d.tarih && d.tarih !== "----------" ? tarihYaz(d.tarih) : "", d.vd && d.vd !== "----------" ? tebAd(d.vd) : "", d.kod && d.kod !== "----------" ? "kod " + d.kod : ""].filter(Boolean).join(" · ")) + '</div></div><a class="btn" style="min-height:42px;padding:6px 16px;text-decoration:none;flex:none" target="_blank" rel="noopener" href="/api/vd/yoklama?mid=' + encodeURIComponent(VD.mid) + '&n=' + d.n + '">PDF</a></div>';
     }).join("");
   }
   function vdAracHtml(s){
@@ -2273,6 +2280,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (VD.sek === "telefon" || VD.sek === "kdv") { liste.innerHTML = ""; tani.hidden = true; return; }
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
     if (VD.sek === "tahakkuk") { liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + ' tahakkuk · ' + esc(s.zaman) + "</p>" + vdThkHtml(s); $("vdTaniMetin").textContent = JSON.stringify({ sekil: s.sekil, denenenBicimler: s.deneme }, null, 1); tani.hidden = false; return; }
+    if (VD.sek === "yoklama") { liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + ' yoklama · ' + esc(s.zaman) + '</p>' + vdYokHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "arac") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + (s.uyari ? " · " + esc(s.uyari) : "") + "</p>" + vdAracHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "pos") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdPosHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "levha") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdLevhaHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
