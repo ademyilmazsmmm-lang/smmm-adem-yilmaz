@@ -188,8 +188,10 @@ class Sgk {
         const w = /window\.open\(\s*window\.location\.pathname\s*\+\s*["']([^"']+)["']/.exec(js);
         if (w) return new URL(this.s.kok + w[1], url).href;
         const d = /window\.open\(\s*["']([^"']+)["']/.exec(js); if (d) return new URL(d[1], url).href;
-      } catch (e) { /* sonraki betik */ }
+      } catch (e) { (this.iz = this.iz || []).push("betik okunamadı: " + e.message); }
     }
+    /* betik okunamasa da başlatıcı bilinen kalıpsa (uygulamaBaslat) adres, betiğin kurduğu adrestir */
+    if (/uygulamaBaslat\(/.test(html)) { (this.iz = this.iz || []).push("betik okunamadı/bulunamadı; bilinen adres kullanıldı"); return new URL(this.s.kok + "/pages/baslangic.jsf", url).href; }
     return "";
   }
   /* giriş sonrası ana sayfadaki bağlantılar (adres keşfi için tanı) */
