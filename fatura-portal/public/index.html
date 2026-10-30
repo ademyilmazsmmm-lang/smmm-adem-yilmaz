@@ -475,7 +475,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       <div class="durum" id="kdvDurum" role="status"></div>
       <div id="kdvSonuc" style="display:grid;gap:8px"></div>
     </div>
-    <div id="vdHaciz" hidden style="display:grid;gap:8px"><button class="btn" type="button" id="vdHacizBanka">Banka hesaplarına haciz sorgula</button><p class="not" style="margin:0">Sorgu İnteraktif Vergi Dairesi’nden (e-Haciz) yapılır. Araçlara haciz sorgusu için <b>çalışma devam ediyor</b>.</p></div>
+    <div id="vdHaciz" hidden style="display:grid;gap:8px"><button class="btn" type="button" id="vdHacizBanka">Banka hesaplarına haciz sorgula</button><button class="btn" type="button" id="vdHacizArac">Araçlara haciz sorgula</button><button class="k" type="button" id="vdHacizDerin" hidden style="justify-self:start">Sayfa betiklerini oku (geliştirme)</button><p class="not" style="margin:0">Sorgu İnteraktif Vergi Dairesi’nden (e-Haciz) yapılır. <b>Çalışma devam ediyor:</b> sonuç ekranı henüz düzenlenmedi.</p></div>
     <div id="vdTahakkuk" hidden class="satir"><div><label for="vdTBas">Başlangıç ayı</label><input id="vdTBas" type="month"></div><div><label for="vdTBit">Bitiş ayı</label><input id="vdTBit" type="month"></div></div>
     <div id="vdArac" hidden style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" type="button" data-arac="0" aria-pressed="true">Mevcut araçlar</button><button class="chip" type="button" data-arac="1" aria-pressed="false">Geçmiş araçlar</button></div>
     <div id="vdPos" hidden class="satir"><div><label for="vdPosYil">Yıl</label><select id="vdPosYil"></select></div><div><label for="vdPosAy">Ay</label><select id="vdPosAy"></select></div></div>
@@ -2176,10 +2176,13 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var e = $("vdTelMevcut"); e.textContent = "Mevcut numara sorgulanıyor…";
     api("/api/vd/telefon", "POST", { mukellefId: VD.mid, islem: "bilgi" }).then(function(r){ e.textContent = "Mevcut numara: " + telGizle(r.telefon); }, function(er){ e.textContent = ""; vdHata(er, $("vdDurum")); });
   }
-  $("vdHacizBanka").addEventListener("click", function(){
-    var b = this, d = $("vdDurum"); if (!VD.mid || !VD.bagli) return; b.disabled = true; d.className = "durum"; d.textContent = "İnteraktif Vergi Dairesi’ne bağlanılıyor…";
-    api("/api/vd/haciz", "POST", { mukellefId: VD.mid, tur: "banka" }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.haciz = r; d.textContent = ""; if (VD.sek === "haciz") vdCiz(); }, function(er){ VD.sonuc.haciz = null; if (VD.sek === "haciz") vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });
-  });
+  function hacizSorgu(b, tur, derin){
+    var d = $("vdDurum"); if (!VD.mid || !VD.bagli) return; b.disabled = true; d.className = "durum"; d.textContent = "İnteraktif Vergi Dairesi’ne bağlanılıyor…"; VD.hacizTur = tur;
+    api("/api/vd/haciz", "POST", { mukellefId: VD.mid, tur: tur, derin: !!derin }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.haciz = r; d.textContent = ""; if (VD.sek === "haciz") vdCiz(); }, function(er){ VD.sonuc.haciz = null; if (VD.sek === "haciz") vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });
+  }
+  $("vdHacizBanka").addEventListener("click", function(){ hacizSorgu(this, "banka", false); });
+  $("vdHacizArac").addEventListener("click", function(){ hacizSorgu(this, "arac", false); });
+  $("vdHacizDerin").addEventListener("click", function(){ hacizSorgu(this, VD.hacizTur || "banka", true); });
   $("vdListe").addEventListener("click", function(e){ if (e.target.id !== "isvKopya") return; var t = $("isvHam").textContent; try { navigator.clipboard.writeText(t); e.target.textContent = "Kopyalandı"; } catch (x) { var rg = document.createRange(); rg.selectNodeContents($("isvHam")); var sl = getSelection(); sl.removeAllRanges(); sl.addRange(rg); } });
   $("vdArac").addEventListener("click", function(e){ var b = e.target.closest("[data-arac]"); if (!b) return; VD.aracGecmis = b.getAttribute("data-arac") === "1"; $("vdArac").querySelectorAll("[data-arac]").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); vdSorgula(); });
   $("vdTelKod").addEventListener("click", function(){
@@ -2266,10 +2269,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function vdCiz(){
     var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
     if (VD.sek === "zrapor") { liste.innerHTML = '<div class="kayit"><b>Aylık Z raporu / satış raporu</b><p class="not" style="margin:4px 0 0">Aylık Z raporu ve satış raporu burada görünecek. <b>Çalışma devam ediyor.</b></p></div>'; tani.hidden = true; return; }
-    if (VD.sek === "haciz") { liste.innerHTML = s ? '<p class="not" style="margin:0">' + esc(s.zaman) + '</p>' + isvHtml(s, "Banka hesapları · haciz sorgusu") : ""; tani.hidden = true; return; }
+    if (VD.sek === "haciz") { liste.innerHTML = s ? '<p class="not" style="margin:0">' + esc(s.zaman) + '</p>' + isvHtml(s, (VD.hacizTur === "arac" ? "Araçlar" : "Banka hesapları") + " · haciz sorgusu") : ""; tani.hidden = true; return; }
     if (VD.sek === "telefon" || VD.sek === "kdv") { liste.innerHTML = ""; tani.hidden = true; return; }
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
-    if (VD.sek === "tahakkuk") { liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + ' tahakkuk · ' + esc(s.zaman) + "</p>" + vdThkHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
+    if (VD.sek === "tahakkuk") { liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + ' tahakkuk · ' + esc(s.zaman) + "</p>" + vdThkHtml(s); $("vdTaniMetin").textContent = JSON.stringify({ sekil: s.sekil, denenenBicimler: s.deneme }, null, 1); tani.hidden = false; return; }
     if (VD.sek === "arac") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + (s.uyari ? " · " + esc(s.uyari) : "") + "</p>" + vdAracHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "pos") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdPosHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "levha") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdLevhaHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
@@ -2298,7 +2301,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function vdSekmeCiz(){
     $("vdSeg").querySelectorAll("[data-vd]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-vd") === VD.sek ? "true" : "false"); });
     $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen"; $("vdYazi").hidden = VD.sek !== "yazi" || !VD.bagli; if (VD.sek === "yazi" && VD.bagli) vdYaziAlan(); $("vdYil").hidden = VD.sek !== "levha" || !VD.bagli; if (VD.sek === "levha") vdYilCiz();
-    $("vdTahakkuk").hidden = VD.sek !== "tahakkuk" || !VD.bagli; $("vdArac").hidden = VD.sek !== "arac" || !VD.bagli; $("vdPos").hidden = VD.sek !== "pos" || !VD.bagli; $("vdTel").hidden = VD.sek !== "telefon" || !VD.bagli; $("vdKdv").hidden = VD.sek !== "kdv"; $("vdHaciz").hidden = VD.sek !== "haciz" || !VD.bagli; if (VD.sek === "kdv") kdvEtiket(); if (VD.sek === "tahakkuk") vdTahakkukAlan(); if (VD.sek === "pos") vdPosAlan(); if (VD.sek === "telefon" && VD.bagli) vdTelAc(); $("vdTani").hidden = true; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
+    $("vdTahakkuk").hidden = VD.sek !== "tahakkuk" || !VD.bagli; $("vdArac").hidden = VD.sek !== "arac" || !VD.bagli; $("vdPos").hidden = VD.sek !== "pos" || !VD.bagli; $("vdTel").hidden = VD.sek !== "telefon" || !VD.bagli; $("vdKdv").hidden = VD.sek !== "kdv"; $("vdHaciz").hidden = VD.sek !== "haciz" || !VD.bagli; $("vdHacizDerin").hidden = ROL !== "ofis"; if (VD.sek === "kdv") kdvEtiket(); if (VD.sek === "tahakkuk") vdTahakkukAlan(); if (VD.sek === "pos") vdPosAlan(); if (VD.sek === "telefon" && VD.bagli) vdTelAc(); $("vdTani").hidden = true; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
   }
   function vdAc(){
     var l = V && V.mukellefler || [], ofis = ROL === "ofis";
@@ -2376,7 +2379,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       }
     } else if (r.metin && !r.uyari && !(r.ciftler && r.ciftler.length)) h += '<p class="not" style="margin:6px 0 0;font-size:.84rem">' + esc(r.metin) + '</p>';
     if ((r.dugmeler || []).length) h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' + r.dugmeler.map(function(d){ return '<a class="btn ikincil" style="text-decoration:none;min-height:40px;padding:6px 14px" target="_blank" rel="noopener" href="/api/sgk/form?mid=' + encodeURIComponent(VD.mid) + '&i=' + d.i + '">' + esc(d.etiket) + '</a>'; }).join("") + '</div>';
-    return h + '</div><details class="alt2"><summary>Teknik ayrıntı (sayfa beklediğiniz gibi değilse bunu gönderin)</summary><div class="icerik"><pre id="isvHam" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;margin:0;max-height:260px;overflow:auto">' + esc("Adres: " + r.adres + "\nFormlar: " + JSON.stringify(r.formlar || []) + "\nAlanlar: " + JSON.stringify(r.alanlar || []) + "\nTablolar: " + JSON.stringify(r.tablolar || []) + "\nBağlantılar: " + JSON.stringify(r.baglantilar || []) + "\nYönlendirme: " + JSON.stringify(r.yonlendirme || []) + "\nSatırlar: " + JSON.stringify(r.satirlar || []) + "\n\nTablo ham:\n" + (r.tabloHam || "") + "\n\n" + (r.ham || "")) + '</pre><button class="k" type="button" id="isvKopya">Kopyala</button></div></details>';
+    return h + '</div><details class="alt2"><summary>Teknik ayrıntı (sayfa beklediğiniz gibi değilse bunu gönderin)</summary><div class="icerik"><pre id="isvHam" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;margin:0;max-height:260px;overflow:auto">' + esc("Adres: " + r.adres + "\nFormlar: " + JSON.stringify(r.formlar || []) + "\nAlanlar: " + JSON.stringify(r.alanlar || []) + "\nTablolar: " + JSON.stringify(r.tablolar || []) + "\nBağlantılar: " + JSON.stringify(r.baglantilar || []) + "\nYönlendirme: " + JSON.stringify(r.yonlendirme || []) + "\nSatırlar: " + JSON.stringify(r.satirlar || []) + "\n\nTablo ham:\n" + (r.tabloHam || "") + (r.betikOzet ? "\n\nBetik özeti:\n" + r.betikOzet : "") + "\n\n" + (r.ham || "")) + '</pre><button class="k" type="button" id="isvKopya">Kopyala</button></div></details>';
   }
   $("vdSgkIsv").addEventListener("click", function(e){
     if (e.target.id === "isvKopya") { var t = $("isvHam").textContent; try { navigator.clipboard.writeText(t); e.target.textContent = "Kopyalandı"; } catch (x) { var rg = document.createRange(); rg.selectNodeContents($("isvHam")); var sl = getSelection(); sl.removeAllRanges(); sl.addRange(rg); } return; }
