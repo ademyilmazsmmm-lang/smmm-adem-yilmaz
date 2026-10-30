@@ -349,4 +349,4 @@ class SahteSgk {
   oturumHata2() { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; return e; }
 }
 
-module.exports = { formCoz, tabloSatirlari, istemci: (k, sistem) => (MOCK ? new SahteSgk(k, sistem) : new Sgk(k, sistem)), baglantilar, hataMetni, devamAdresleri, basliyorMu, anaSayfaMi };
+module.exports = { sade, formlar, tablolar, hamMaskeli, formCoz, tabloSatirlari, istemci: (k, sistem) => (MOCK ? new SahteSgk(k, sistem) : new Sgk(k, sistem)), baglantilar, hataMetni, devamAdresleri, basliyorMu, anaSayfaMi };

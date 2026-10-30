@@ -81,15 +81,25 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6}
 #vdSgkKodKutu{flex-wrap:wrap}
 #vdSgkKodResim{max-width:100%;height:auto!important;max-height:56px}
 #vdSgkKodKutu input{flex:1 1 6em;min-width:0}
-.tkl{display:flex;flex-direction:column;gap:6px}
-.tk{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r2);background:var(--field)}
+.anahero{display:flex;gap:14px;align-items:center;padding:18px;border-radius:var(--r);background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);color:var(--accent-fg);box-shadow:var(--shadow)}
+.anahero .av{width:52px;height:52px;border-radius:16px;background:rgba(255,255,255,.2);display:grid;place-items:center;font-weight:800;font-size:1.35rem;flex:none}
+.anahero h2{margin:1px 0;font-size:1.2rem;color:inherit;overflow-wrap:anywhere}.anahero small{display:block;opacity:.88;font-size:.82rem}
+.abas{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 2px 8px}.abas b{font-size:1rem;display:flex;align-items:center;gap:8px}.abas small{color:var(--muted);font-size:.8rem}
+.abas svg{width:20px;height:20px;color:var(--accent)}
+.ozet{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ozet button{font:inherit;text-align:left;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--fg);padding:12px;cursor:pointer;display:flex;flex-direction:column;gap:3px;min-width:0;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.ozet button .ik{width:34px;height:34px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;margin-bottom:4px}
+.ozet button .ik svg{width:19px;height:19px}
+.ozet button span{font-size:.78rem;color:var(--muted);font-weight:600}.ozet button b{font-size:1.12rem;overflow-wrap:anywhere;line-height:1.2}.ozet button small{font-size:.72rem;color:var(--muted)}
+.ozet button.dik{background:var(--danger-soft);border-color:transparent}.ozet button.dik .ik{background:rgba(179,38,30,.14);color:var(--danger)}.ozet button.dik b{color:var(--danger)}
+.ozet button.iyi{border-color:transparent;background:var(--accent-soft)}.ozet button.iyi .ik{background:rgba(255,255,255,.55);color:var(--accent)}.ozet button.iyi b{color:var(--accent)}
+.anafatura{display:flex;align-items:center;justify-content:center;gap:8px;font-size:1.02rem}
+.tkl{display:flex;flex-direction:column;gap:8px}
+.tk{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 12px 11px 14px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:var(--r2);background:var(--surface);box-shadow:var(--shadow)}
 .tk b{font-size:.95rem}.tk small{display:block;color:var(--muted);font-size:.78rem}
-.tk .gun{font-weight:700;font-size:.85rem;white-space:nowrap;color:var(--accent)}
-.tk.yakin{border-color:var(--danger);background:var(--danger-soft)}.tk.yakin .gun{color:var(--danger)}
-.ozet{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.ozet button{font:inherit;text-align:left;border:1px solid var(--line2);border-radius:var(--r2);background:var(--field);color:var(--fg);padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0}
-.ozet button span{font-size:.78rem;color:var(--muted)}.ozet button b{font-size:1.05rem;overflow-wrap:anywhere}.ozet button small{font-size:.72rem;color:var(--muted)}
-.ozet button.dik b{color:var(--danger)}.ozet button.iyi b{color:var(--accent)}
+.tk .gun{font-weight:700;font-size:.8rem;white-space:nowrap;color:var(--accent);background:var(--accent-soft);padding:4px 10px;border-radius:99px}
+.tk.orta{border-left-color:var(--warn)}.tk.orta .gun{color:var(--warn);background:var(--warn-soft)}
+.tk.yakin{border-left-color:var(--danger);background:var(--danger-soft);border-top-color:transparent;border-right-color:transparent;border-bottom-color:transparent}.tk.yakin .gun{color:#fff;background:var(--danger)}
 #vdSeg{grid-template-columns:repeat(3,minmax(0,1fr))}
 #vdSeg .chip{font-size:.85rem;padding:8px 4px;min-height:44px;text-align:center;line-height:1.15}
 #vdSeg .chip:last-child:nth-child(odd){grid-column:auto}
@@ -465,6 +475,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       <div class="durum" id="kdvDurum" role="status"></div>
       <div id="kdvSonuc" style="display:grid;gap:8px"></div>
     </div>
+    <div id="vdHaciz" hidden style="display:grid;gap:8px"><button class="btn" type="button" id="vdHacizBanka">Banka hesaplarına haciz sorgula</button><p class="not" style="margin:0">Sorgu İnteraktif Vergi Dairesi’nden (e-Haciz) yapılır. Araçlara haciz sorgusu için <b>çalışma devam ediyor</b>.</p></div>
     <div id="vdTahakkuk" hidden class="satir"><div><label for="vdTBas">Başlangıç ayı</label><input id="vdTBas" type="month"></div><div><label for="vdTBit">Bitiş ayı</label><input id="vdTBit" type="month"></div></div>
     <div id="vdArac" hidden style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" type="button" data-arac="0" aria-pressed="true">Mevcut araçlar</button><button class="chip" type="button" data-arac="1" aria-pressed="false">Geçmiş araçlar</button></div>
     <div id="vdPos" hidden class="satir"><div><label for="vdPosYil">Yıl</label><select id="vdPosYil"></select></div><div><label for="vdPosAy">Ay</label><select id="vdPosAy"></select></div></div>
@@ -497,6 +508,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     <div id="vdSgk" style="display:grid;gap:10px">
       <div class="vdsek" id="sgkSis" role="group" aria-label="SGK sistemi"><button class="chip" type="button" data-sis="isveren" aria-pressed="true"><span>Borç sorgulama</span><small>E-Borcu Yoktur belgesi</small></button><button class="chip" type="button" data-sis="ebildirge" aria-pressed="false"><span>Hizmet · Tahakkuk</span><small>PDF dökümleri</small></button></div>
       <p class="not" id="vdSgkAciklama" style="margin:0"></p>
+      <div class="kayit" id="sgkTesvik" style="border-left:4px solid var(--accent)"><b>Potansiyel teşvik sorgulama</b><p class="not" style="margin:4px 0 0">Personel işe almadan önce, adayın TC kimlik numarasıyla teşvik durumuna bakın. <b>Çalışma devam ediyor.</b></p></div>
       <p class="not" id="vdSgkNot" style="margin:0">Bağlanmak için mükellefin SGK bilgileri Ayarlar’da kayıtlı olmalı; her bağlanışta resimdeki güvenlik kodunu kendiniz, resimdeki gibi (harfler büyük) yazarsınız.</p>
       <p class="not" id="vdSgkEksik" hidden style="margin:0;color:var(--danger)">Bu mükellefin SGK bilgileri eksik: Ayarlar → mükellef → “SGK İşveren Sistemi bilgileri”.</p>
       <div id="vdSgkBaglan" style="display:grid;gap:8px">
@@ -510,7 +522,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         <div id="isvBorcsuz" hidden style="display:none;gap:6px;grid-template-columns:1fr">
           <button class="chip" type="button" data-isv="IAIIBYEB" data-eb="1">İhalelere katılmak için</button><button class="chip" type="button" data-isv="IAIOTGBYEB" data-eb="1">İhale dışı · Türkiye geneli</button><button class="chip" type="button" data-isv="IAIOTIBYEB" data-eb="1">İhale dışı · Tek işyeri</button><button class="chip" type="button" data-isv="IAKBYEB" data-eb="1">KOSGEB’e verilmek üzere</button><button class="chip" type="button" data-isv="IATBYEB" data-eb="1">TÜBİTAK’a verilmek üzere</button><button class="chip" type="button" data-isv="IAHBYEB" data-eb="1">Hazine ve Maliye Bakanlığı’na</button><button class="chip" type="button" data-isv="IASBYEB" data-eb="1">Sanayi ve Teknoloji Bakanlığı’na</button><button class="chip" type="button" data-isv="IAKGFBYEB" data-eb="1">Kredi Garanti Fonu’na</button><button class="chip" type="button" data-isv="IAKU" data-eb="1">Belge kontrol</button>
         </div>
-        <div class="kayit"><b>Potansiyel teşvik sorgulama</b><p class="not" style="margin:4px 0 0">Personel işe almadan önce, adayın TC kimlik numarasıyla teşvik durumuna bakın. <b>Çalışma devam ediyor.</b></p><button class="btn ikincil" type="button" id="isvTesvikGel" data-isv="TesvikPotansiyel" hidden style="margin-top:8px">Sayfayı oku (geliştirme için)</button></div>
+        <button class="k" type="button" id="isvTesvikGel" data-isv="TesvikPotansiyel" hidden style="justify-self:start">Potansiyel teşvik sayfasını oku (geliştirme)</button>
         <div id="isvSonuc" style="display:grid;gap:8px"></div>
       </div>
       <div id="vdSgkBildirge" hidden style="display:grid;gap:8px">
@@ -2109,6 +2121,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var e = $("vdTelMevcut"); e.textContent = "Mevcut numara sorgulanıyor…";
     api("/api/vd/telefon", "POST", { mukellefId: VD.mid, islem: "bilgi" }).then(function(r){ e.textContent = "Mevcut numara: " + telGizle(r.telefon); }, function(er){ e.textContent = ""; vdHata(er, $("vdDurum")); });
   }
+  $("vdHacizBanka").addEventListener("click", function(){
+    var b = this, d = $("vdDurum"); if (!VD.mid || !VD.bagli) return; b.disabled = true; d.className = "durum"; d.textContent = "İnteraktif Vergi Dairesi’ne bağlanılıyor…";
+    api("/api/vd/haciz", "POST", { mukellefId: VD.mid, tur: "banka" }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.haciz = r; d.textContent = ""; if (VD.sek === "haciz") vdCiz(); }, function(er){ VD.sonuc.haciz = null; if (VD.sek === "haciz") vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });
+  });
+  $("vdListe").addEventListener("click", function(e){ if (e.target.id !== "isvKopya") return; var t = $("isvHam").textContent; try { navigator.clipboard.writeText(t); e.target.textContent = "Kopyalandı"; } catch (x) { var rg = document.createRange(); rg.selectNodeContents($("isvHam")); var sl = getSelection(); sl.removeAllRanges(); sl.addRange(rg); } });
   $("vdArac").addEventListener("click", function(e){ var b = e.target.closest("[data-arac]"); if (!b) return; VD.aracGecmis = b.getAttribute("data-arac") === "1"; $("vdArac").querySelectorAll("[data-arac]").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); vdSorgula(); });
   $("vdTelKod").addEventListener("click", function(){
     var btn = this, d = $("vdDurum"), tel = $("vdTelYeni").value.replace(/\D/g, ""); if (/^5\d{9}$/.test(tel)) tel = "0" + tel;
@@ -2193,7 +2210,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("kdvDur").addEventListener("click", function(){ KR.dur = true; });
   function vdCiz(){
     var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
-    if (VD.sek === "haciz" || VD.sek === "zrapor") { liste.innerHTML = '<div class="kayit"><b>' + (VD.sek === "haciz" ? "Haciz sorgulama" : "Aylık Z raporu / satış raporu") + '</b><p class="not" style="margin:4px 0 0">' + (VD.sek === "haciz" ? "Banka hesaplarınıza ve araçlarınıza haciz uygulanıp uygulanmadığı burada görünecek." : "Aylık Z raporu ve satış raporu burada görünecek.") + ' <b>Çalışma devam ediyor.</b></p></div>'; tani.hidden = true; return; }
+    if (VD.sek === "zrapor") { liste.innerHTML = '<div class="kayit"><b>Aylık Z raporu / satış raporu</b><p class="not" style="margin:4px 0 0">Aylık Z raporu ve satış raporu burada görünecek. <b>Çalışma devam ediyor.</b></p></div>'; tani.hidden = true; return; }
+    if (VD.sek === "haciz") { liste.innerHTML = s ? '<p class="not" style="margin:0">' + esc(s.zaman) + '</p>' + isvHtml(s, "Banka hesapları · haciz sorgusu") : ""; tani.hidden = true; return; }
     if (VD.sek === "telefon" || VD.sek === "kdv") { liste.innerHTML = ""; tani.hidden = true; return; }
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
     if (VD.sek === "tahakkuk") { liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + ' tahakkuk · ' + esc(s.zaman) + "</p>" + vdThkHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
@@ -2218,14 +2236,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function vdBagDurum(){
     var b = VD.bagli;
-    var pl = VD.sek === "haciz" || VD.sek === "zrapor", ozel = pl || VD.sek === "telefon" || VD.sek === "kdv"; /* haciz / Z raporu: henüz yapılmadı (bağlantı gerekmez); telefon: kendi düğmeleri var */
+    var pl = VD.sek === "zrapor", ozel = pl || VD.sek === "telefon" || VD.sek === "kdv" || VD.sek === "haciz"; /* haciz / Z raporu: henüz yapılmadı (bağlantı gerekmez); telefon: kendi düğmeleri var */
     $("vdBaglan").style.display = (b || pl) ? "none" : "grid"; $("vdBagli").style.display = b && !pl ? "flex" : "none"; $("vdSorgula").hidden = !b || ozel;
     if (b) $("vdKodKutu").style.display = "none";
   }
   function vdSekmeCiz(){
     $("vdSeg").querySelectorAll("[data-vd]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-vd") === VD.sek ? "true" : "false"); });
     $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen"; $("vdYazi").hidden = VD.sek !== "yazi" || !VD.bagli; if (VD.sek === "yazi" && VD.bagli) vdYaziAlan(); $("vdYil").hidden = VD.sek !== "levha" || !VD.bagli; if (VD.sek === "levha") vdYilCiz();
-    $("vdTahakkuk").hidden = VD.sek !== "tahakkuk" || !VD.bagli; $("vdArac").hidden = VD.sek !== "arac" || !VD.bagli; $("vdPos").hidden = VD.sek !== "pos" || !VD.bagli; $("vdTel").hidden = VD.sek !== "telefon" || !VD.bagli; $("vdKdv").hidden = VD.sek !== "kdv"; if (VD.sek === "kdv") kdvEtiket(); if (VD.sek === "tahakkuk") vdTahakkukAlan(); if (VD.sek === "pos") vdPosAlan(); if (VD.sek === "telefon" && VD.bagli) vdTelAc(); $("vdTani").hidden = true; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
+    $("vdTahakkuk").hidden = VD.sek !== "tahakkuk" || !VD.bagli; $("vdArac").hidden = VD.sek !== "arac" || !VD.bagli; $("vdPos").hidden = VD.sek !== "pos" || !VD.bagli; $("vdTel").hidden = VD.sek !== "telefon" || !VD.bagli; $("vdKdv").hidden = VD.sek !== "kdv"; $("vdHaciz").hidden = VD.sek !== "haciz" || !VD.bagli; if (VD.sek === "kdv") kdvEtiket(); if (VD.sek === "tahakkuk") vdTahakkukAlan(); if (VD.sek === "pos") vdPosAlan(); if (VD.sek === "telefon" && VD.bagli) vdTelAc(); $("vdTani").hidden = true; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
   }
   function vdAc(){
     var l = V && V.mukellefler || [], ofis = ROL === "ofis";
@@ -2245,7 +2263,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("vdSgkAciklama").textContent = SGKAC[sis];
     $("vdSgkBaglan").style.display = b ? "none" : "grid"; $("vdSgkBagli").style.display = b ? "flex" : "none";
     $("vdSgkEksik").hidden = !eksik; $("vdSgkKodIste").disabled = eksik; if (b) $("vdSgkKodKutu").style.display = "none";
-    $("isvTesvikGel").hidden = ROL !== "ofis"; $("vdSgkIsv").hidden = !(sis === "isveren" && b); if (!(sis === "isveren" && b)) $("isvSonuc").innerHTML = "";
+    $("sgkTesvik").hidden = sis !== "isveren"; $("isvTesvikGel").hidden = ROL !== "ofis"; $("vdSgkIsv").hidden = !(sis === "isveren" && b); if (!(sis === "isveren" && b)) $("isvSonuc").innerHTML = "";
     var bilGoster = sis === "ebildirge" && b; $("vdSgkBildirge").hidden = !bilGoster; if (bilGoster && !VD.bilYuklendi) bilDonemleriYukle(); if (!b && sis === "ebildirge") { VD.bilYuklendi = false; $("bilSonuc").innerHTML = ""; }
     $("vdSgkBagli").querySelector("span").textContent = "✓ SGK’ya bağlı";
   }
@@ -2457,21 +2475,34 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function anaTl(n){ return Number(n || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " TL"; }
   function anaZaman(z){ if (!z) return ""; var d = new Date(z); return isNaN(d) ? "" : d.getDate() + " " + AYLAR[d.getMonth()] + " " + p2(d.getHours()) + ":" + p2(d.getMinutes()); }
   var OZET = null;
+  var IKON = {
+    vd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/></svg>',
+    sgk: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>',
+    belge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+    talep: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
+    takvim: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>',
+    durum: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>',
+    fatura: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>',
+    saat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+  };
+  function anaSelam(){ var h = new Date().getHours(); return h < 6 ? "İyi geceler" : h < 12 ? "Günaydın" : h < 18 ? "İyi günler" : "İyi akşamlar"; }
   function anaCiz(r){
-    r = r || {}; var son = r.son || {}, ofis = ROL === "ofis", m = mk();
-    var h = '<div class="card"><div class="kartbas"><h2>' + (m ? esc(m.ad) : "Mükellef Portalı") + '</h2><small>Hoş geldiniz</small></div>' +
-      '<div class="kartbas" style="margin-top:2px"><b style="font-size:1rem">Yaklaşan tarihler</b><small>Vergi ve SGK</small></div><div class="tkl">' +
-      yaklasanTarihler().map(function(x){ var g = x.kalan === 0 ? "Bugün" : x.kalan === 1 ? "Yarın" : x.kalan + " gün"; return '<div class="tk' + (x.kalan <= 3 ? " yakin" : "") + '"><div><b>' + esc(x.ad) + '</b><small>' + x.d.getDate() + ' ' + AYLAR[x.d.getMonth()] + ' ' + x.d.getFullYear() + ' · ' + GUNLER[x.d.getDay()] + (x.donem ? ' · ' + x.donem : '') + '</small></div><span class="gun">' + g + '</span></div>'; }).join("") +
-      '</div><p class="not" style="margin:0">Hafta sonu ve resmî tatiller sonraki iş gününe kayar.</p></div>';
+    r = r || {}; var son = r.son || {}, ofis = ROL === "ofis", m = mk(), now = new Date(), ad = m ? m.ad : "Mükellef Portalı";
+    var h = '<div class="anahero"><div class="av">' + esc((String(ad).trim().charAt(0) || "M").toLocaleUpperCase("tr-TR")) + '</div><div style="min-width:0"><small>' + anaSelam() + (ROL === "mukellef" ? "" : " · ofis görünümü") + '</small><h2>' + esc(ad) + '</h2><small>' + now.getDate() + ' ' + AYLAR_UZUN[now.getMonth()] + ' ' + now.getFullYear() + ' · ' + GUNLER[now.getDay()] + '</small></div></div>';
     var vb = son.vdBorc, sb = son.sgkBorc;
-    h += '<div class="card"><div class="kartbas"><h2>Son durum</h2><small>Son sorguya göre</small></div><div class="ozet">' +
-      '<button type="button" data-git="vd" class="' + (vb ? (vb.toplam > 0 ? "dik" : "iyi") : "") + '"><span>Vergi borcu</span><b>' + (vb ? anaTl(vb.toplam) : "—") + '</b><small>' + (vb ? anaZaman(vb.zaman) + " sorgusu" : "Sorgulamak için dokunun") + '</small></button>' +
-      '<button type="button" data-git="sgk" class="' + (sb ? (sb.toplam > 0 ? "dik" : "iyi") : "") + '"><span>SGK borcu</span><b>' + (sb ? anaTl(sb.toplam) : "—") + '</b><small>' + (sb ? anaZaman(sb.zaman) + " sorgusu" : "Sorgulamak için dokunun") + '</small></button>' +
-      '<button type="button" data-git="belge"><span>Belgelerim</span><b>' + (r.belge == null ? "—" : r.belge) + '</b><small>İmza sirküleri, gazete…</small></button>' +
-      '<button type="button" data-git="talep" class="' + (ofis ? (r.bekleyenToplam > 0 ? "dik" : "") : "") + '"><span>' + (ofis ? "Bekleyen talepler" : "Taleplerim") + '</span><b>' + (ofis ? (r.bekleyenToplam == null ? "—" : r.bekleyenToplam) : (r.acikTalep == null ? "—" : r.acikTalep + " açık")) + '</b><small>' + (ofis ? "Tüm mükellefler" : "Ofise sorularınız") + '</small></button>' +
-      '</div><p class="not" style="margin:0">Vergi dairesi ve SGK tutarları, siz o bölümde sorgulayınca güncellenir (güvenlik kodu gerekir).</p></div>';
-    h += '<div class="card"><div class="kartbas"><h2>Muhasebe ücreti ve tahsilat takibi</h2><small>Yakında</small></div><p class="not" style="margin:0">Muhasebe ücretinizin ve ödemelerinizin takibi buradan yapılacak. <b>Çalışma devam ediyor.</b></p>' +
-      (ofis ? '<a class="btn ikincil" style="text-decoration:none" href="https://smmmyilmaz.pythonanywhere.com/giris" target="_blank" rel="noopener">Takip programını aç</a>' : "") + '</div>';
+    var kutu = function(git, ikon, baslik, deger, alt, sinif){ return '<button type="button" data-git="' + git + '" class="' + sinif + '"><span class="ik">' + IKON[ikon] + '</span><span>' + baslik + '</span><b>' + deger + '</b><small>' + alt + '</small></button>'; };
+    h += '<div><div class="abas"><b>' + IKON.durum + 'Son durum</b><small>Son sorguya göre</small></div><div class="ozet">' +
+      kutu("vd", "vd", "Vergi borcu", vb ? anaTl(vb.toplam) : "—", vb ? anaZaman(vb.zaman) + " sorgusu" : "Sorgulamak için dokunun", vb ? (vb.toplam > 0 ? "dik" : "iyi") : "") +
+      kutu("sgk", "sgk", "SGK borcu", sb ? anaTl(sb.toplam) : "—", sb ? anaZaman(sb.zaman) + " sorgusu" : "Sorgulamak için dokunun", sb ? (sb.toplam > 0 ? "dik" : "iyi") : "") +
+      kutu("belge", "belge", "Belgelerim", r.belge == null ? "—" : String(r.belge), "İmza sirküleri, gazete…", "") +
+      kutu("talep", "talep", ofis ? "Bekleyen talepler" : "Taleplerim", ofis ? (r.bekleyenToplam == null ? "—" : String(r.bekleyenToplam)) : (r.acikTalep == null ? "—" : r.acikTalep + " açık"), ofis ? "Tüm mükellefler" : "Ofise sorularınız", ofis && r.bekleyenToplam > 0 ? "dik" : "") +
+      '</div><p class="not" style="margin:8px 2px 0;font-size:.78rem">Vergi dairesi ve SGK tutarları, o bölümde sorgulayınca güncellenir (güvenlik kodu gerekir).</p></div>';
+    if (m && m.earsiv !== false) h += '<button class="btn anafatura" type="button" data-git="yeni">' + IKON.fatura.replace("<svg ", '<svg width="20" height="20" ') + 'Yeni fatura kes</button>';
+    h += '<div><div class="abas"><b>' + IKON.takvim + 'Yaklaşan tarihler</b><small>Vergi ve SGK</small></div><div class="tkl">' +
+      yaklasanTarihler().map(function(x){ var g = x.kalan === 0 ? "Bugün" : x.kalan === 1 ? "Yarın" : x.kalan + " gün"; return '<div class="tk' + (x.kalan <= 3 ? " yakin" : x.kalan <= 7 ? " orta" : "") + '"><div><b>' + esc(x.ad) + '</b><small>' + x.d.getDate() + ' ' + AYLAR[x.d.getMonth()] + ' ' + x.d.getFullYear() + ' · ' + GUNLER[x.d.getDay()] + (x.donem ? ' · ' + x.donem : '') + '</small></div><span class="gun">' + g + '</span></div>'; }).join("") +
+      '</div><p class="not" style="margin:8px 2px 0;font-size:.78rem">Hafta sonu ve resmî tatiller sonraki iş gününe kayar.</p></div>';
+    h += '<div class="card" style="gap:6px"><div class="abas" style="margin:0"><b>' + IKON.saat + 'Muhasebe ücreti ve tahsilat takibi</b><small>Yakında</small></div><p class="not" style="margin:0">Muhasebe ücretinizin ve ödemelerinizin takibi buradan yapılacak. <b>Çalışma devam ediyor.</b></p>' +
+      (ofis ? '<a class="btn ikincil" style="text-decoration:none;margin-top:6px" href="https://smmmyilmaz.pythonanywhere.com/giris" target="_blank" rel="noopener">Takip programını aç</a>' : "") + '</div>';
     $("anaIc").innerHTML = h;
   }
   function anaAc(){

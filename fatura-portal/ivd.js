@@ -5,6 +5,7 @@
  * "şekli" (anahtarlar ve türler, değerler maskeli) tanı için ayrıca üretilir. Giriş başarısızsa sunucu tarafında bekleme uygulanır (kod kilitlenmesin). */
 "use strict";
 const crypto = require("crypto");
+const sgkYardim = require("./sgk.js");
 
 const MOCK = process.env.GIB_MOCK === "1";
 const GW = "https://dijital.gib.gov.tr/apigateway";
@@ -231,10 +232,12 @@ class Ivd {
     const vy = await this.istek("POST", GW + "/api/sicil-bilgileri/tahakkuka-gore-vergi-daireleri-list", {}, true);
     const vdler = ((vy && ((vy.data && vy.data.vdArr) || vy.vdArr)) || []).map((d) => ({ kod: d.vdKodu, ad: d.vdAdi })).filter((d) => d.kod);
     if (!vdler.length) throw new Error("Tahakkuk kaydı olan vergi dairesi bulunamadı.");
-    const [by, bm] = bas.split("-"), [ey, em] = bit.split("-");
-    const bicimler = [[by + bm + "01", ey + em + "01"], [by + bm, ey + em], [bm + "." + by, em + "." + ey], [by + "-" + bm + "-01", ey + "-" + em + "-01"], ["01." + bm + "." + by, "01." + em + "." + ey]];
+    const [by, bm] = bas.split("-"), [ey, em] = bit.split("-"), son1 = new Date(Date.UTC(+ey, +em, 0)).getUTCDate();
+    /* Portalın ay seçicisinin gönderdiği biçim koddan kesin anlaşılamıyor; yanlış biçimde GİB hata vermeden BOŞ liste dönebiliyor.
+     * Bu yüzden boş sonuç "bu biçim olmadı" sayılır ve sıradaki denenir; ilk dolu sonuç veren biçim hatırlanır. */
+    const bicimler = [[by + bm, ey + em], [by + bm + "01", ey + em + "01"], [by + bm + "01", ey + em + String(son1).padStart(2, "0")], [by + "-" + bm + "-01", ey + "-" + em + "-" + String(son1).padStart(2, "0")], [bm + "." + by, em + "." + ey], ["01/" + bm + "/" + by, String(son1).padStart(2, "0") + "/" + em + "/" + ey], ["01." + bm + "." + by, String(son1).padStart(2, "0") + "." + em + "." + ey], [by + "-" + bm, ey + "-" + em], [by + "-" + bm + "-01T00:00:00", ey + "-" + em + "-" + String(son1).padStart(2, "0") + "T00:00:00"]];
     const sirala = this.tahakkukBicim != null ? [bicimler[this.tahakkukBicim]].concat(bicimler.filter((_, i) => i !== this.tahakkukBicim)) : bicimler;
-    let son = null, sonHata = null, hepsi = null;
+    let son = null, sonHata = null, hepsi = null, bosGeldi = false;
     for (const b of sirala) {
       const topla = [], yanitlar = [];
       try {
@@ -244,10 +247,12 @@ class Ivd {
           if (!dizi) throw new Error("Tahakkuk listesi alınamadı (" + (this.mesajMetni(y) || "beklenmeyen yanıt") + ").");
           for (const d of dizi) topla.push(d);
         }
-        hepsi = topla; son = yanitlar[yanitlar.length - 1]; this.tahakkukBicim = bicimler.indexOf(b); break;
-      } catch (e) { if (e.oturum) throw e; if (e.bos) { hepsi = []; son = null; this.tahakkukBicim = bicimler.indexOf(b); break; } sonHata = e; }
+        son = yanitlar[yanitlar.length - 1];
+        if (topla.length) { hepsi = topla; this.tahakkukBicim = bicimler.indexOf(b); break; }
+        bosGeldi = true; // bu biçimle hiç kayıt gelmedi: ya dönemde tahakkuk yok ya da biçim yanlış
+      } catch (e) { if (e.oturum) throw e; if (e.bos) { bosGeldi = true; continue; } sonHata = e; }
     }
-    if (hepsi === null) throw sonHata || new Error("Tahakkuk sorgusu kabul edilmedi.");
+    if (hepsi === null) { if (bosGeldi) hepsi = []; else throw sonHata || new Error("Tahakkuk sorgusu kabul edilmedi."); }
     this.tahakkuklar = hepsi;
     const kayit = hepsi.map((d, n) => ({ n, vdAdi: d.vdAdi || "", vergiKodu: d.vergiKodu || "", vergiDonem: d.vergiDonem || "", kabulTarihi: d.kabulTarihi || "", fisNo: d.fisNo || "" }));
     return { kayitlar: kayit, sekil: sekil(son) };
@@ -276,6 +281,35 @@ class Ivd {
     const [b, o] = await Promise.all([getir("banka-bilgileri"), getir("odeme-kurulus-bilgileri")]);
     const top = (l) => yuvarla(l.reduce((t, x) => t + x.tutar, 0));
     return { yil: Number(yil), ay: String(ay).padStart(2, "0"), banka: b.satir, odeme: o.satir, bankaToplam: top(b.satir), odemeToplam: top(o.satir), toplam: yuvarla(top(b.satir) + top(o.satir)), sekil: sekil(b.y || o.y) };
+  }
+  /* ---- İnteraktif Vergi Dairesi (ivd.gib.gov.tr) sayfaları: Dijital VD'den tek kullanımlık jetonla geçilir (portalın "İnteraktif VD" düğmesi).
+   * Haciz sorguları bu sistemdedir (örn. page=P_INTVRG_INTVD_EHACIZ_BANKA_SRG). Yalnız okuma; adres/jeton günlüğe ya da arayüze yazılmaz. */
+  async gibGit(url0) {
+    const jar = (this.ivdCerez = this.ivdCerez || new Map()), yon = [];
+    let url = url0;
+    for (let n = 0; n < 6; n++) {
+      let u; try { u = new URL(url); } catch (e) { throw new Error("İnteraktif Vergi Dairesi adresi geçersiz."); }
+      if (u.protocol !== "https:" || !/(^|\.)gib\.gov\.tr$/i.test(u.hostname)) throw new Error("İnteraktif Vergi Dairesi beklenmeyen bir adrese yönlendirdi (" + String(u.hostname).slice(0, 60) + "); durduruldu.");
+      const h = { "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36", accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8", "accept-language": "tr-TR,tr;q=0.9", referer: "https://dijital.gib.gov.tr/" };
+      const c = jar.get(u.hostname); if (c && c.size) h.cookie = [...c].map(([a, d]) => a + "=" + d).join("; ");
+      let r; try { r = await fetch(u, { headers: h, redirect: "manual", signal: AbortSignal.timeout(25000) }); } catch (e) { throw new Error(e && (e.name === "TimeoutError" || e.name === "AbortError") ? "İnteraktif Vergi Dairesi 25 saniyede yanıt vermedi." : "İnteraktif Vergi Dairesi'ne ulaşılamadı: " + e.message); }
+      for (const sc of (typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [])) { const kv = sc.split(";")[0].trim(), i = kv.indexOf("="); if (i > 0) { let m = jar.get(u.hostname); if (!m) jar.set(u.hostname, (m = new Map())); m.set(kv.slice(0, i), kv.slice(i + 1)); } }
+      if ([301, 302, 303, 307, 308].includes(r.status)) { yon.push(r.status + " " + u.pathname + " -> " + (r.headers.get("location") || "").replace(/token=[^&\s]+/gi, "token=<jeton>")); url = new URL(r.headers.get("location") || "/", u).href; continue; }
+      return { url: u.href, durum: r.status, tur: r.headers.get("content-type") || "", metin: Buffer.from(await r.arrayBuffer()).toString("utf8"), yon };
+    }
+    throw new Error("İnteraktif Vergi Dairesi çok fazla yönlendirme yaptı.");
+  }
+  async interaktifSayfa(sayfa) {
+    if (!/^[A-Z0-9_]{5,80}$/.test(String(sayfa))) throw new Error("Geçersiz sayfa.");
+    const y = await this.istek("GET", GW + "/auth/tdvd/interaktif-login", undefined, true);
+    const hedef = y && y.redirectUrl; if (!hedef) throw new Error("İnteraktif Vergi Dairesi bağlantı adresi alınamadı" + (this.mesajMetni(y) ? ": " + this.mesajMetni(y) : "") + ".");
+    const r = await this.gibGit(hedef + (hedef.includes("?") ? "&" : "?") + "page=" + sayfa);
+    const maske = (t) => String(t || "").replace(/(token|jeton|sid|session[a-z]*)=[^&"'\s;<>]+/gi, "$1=<jeton>");
+    const { sade, formlar, tablolar, hamMaskeli, formCoz } = sgkYardim, html = r.metin, ham = html.replace(/<style[\s\S]*?<\/style>/gi, "");
+    const betikler = [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => maske(m[1])).slice(0, 12), cerceveler = [...html.matchAll(/<i?frame\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => maske(m[1])).slice(0, 6);
+    return { uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: maske(r.url.replace(/^https:\/\/[^/]+/, "")) + " (HTTP " + r.durum + ")", baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || ""), metin: sade(html).slice(0, 1500),
+      formlar: formCoz(html).map((f) => ({ eylem: maske(f.eylem), yontem: f.yontem, gizli: Object.keys(f.gizli), secimler: f.secimler })), alanlar: formlar(html), tablolar: tablolar(html),
+      baglantilar: cerceveler.map((c) => ({ tur: "çerçeve", metin: "", href: c })).concat(betikler.map((b) => ({ tur: "betik", metin: "", href: b }))), yonlendirme: r.yon, satirlar: [], tabloHam: "", ham: maske(hamMaskeli(ham.slice(Math.max(0, ham.search(/<body/i)), undefined), 4500)) };
   }
   /* ---- Onay SMS telefonu (profil → telefon güncelle): mevcut numara, yeni numaraya kod, kodla güncelleme ---- */
   async telefonBilgi() {
@@ -351,6 +385,7 @@ class SahteIvd {
     return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "e-vergi-levhasi.pdf" };
   }
   async gelen() { const d = [{ unvan: "ÖRNEK TEDARİKÇİ A.Ş.", faturaNo: "ABC2026000000012", duzenlenmeTarihi: "12.10.2026", toplamTutar: 11800, odenecekTutar: 11800, vergilerTutari: 1800, paraBirimi: "TRY" }]; return { kayitlar: kayitlar(d), sekil: sekil(d) }; }
+  async interaktifSayfa(sayfa) { if (!/^[A-Z0-9_]{5,80}$/.test(String(sayfa))) throw new Error("Geçersiz sayfa."); return { uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: "/tvd_side/index.jsp?token=<jeton> (HTTP 200)", baslik: "Örnek haciz sorgusu", metin: "Örnek içerik: kayıt bulunamadı.", formlar: [], alanlar: [], tablolar: [], baglantilar: [], yonlendirme: [], satirlar: [], tabloHam: "", ham: "<html>örnek</html>" }; }
   ornekPdf(metin) { return { veri: Buffer.from("%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 16 Tf 20 60 Td (" + metin + ") Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF"), tur: "application/pdf", satir: true, ad: String(metin).toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".pdf" }; }
   async tahakkukListe(bas, bit) { if (!bas || !bit) throw new Error("Başlangıç ve bitiş ayını seçin."); this.tahakkuklar = [{ vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0015 - KDV", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:12:00", fisNo: "2026102601KDV0001" }, { vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0003 - MUHTASAR", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:05:00", fisNo: "2026102601MUH0002" }]; return { kayitlar: this.tahakkuklar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
   async tahakkukIndir(n) { if (!(this.tahakkuklar || [])[n]) throw new Error("Tahakkuk bulunamadı; listeyi yenileyin."); return this.ornekPdf("ORNEK TAHAKKUK " + (n + 1)); }
