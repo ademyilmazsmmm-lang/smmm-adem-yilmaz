@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <path id="edgLogoArc" d="M 15,62 A 45,45 0 1,1 105,62" />
+    <linearGradient id="edgLogoGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0dfa8"/>
+      <stop offset="0.5" stop-color="#d4af5a"/>
+      <stop offset="1" stop-color="#b8943f"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="58" fill="#081222"/>
+  <circle cx="60" cy="60" r="58" fill="none" stroke="url(#edgLogoGold)" stroke-width="3"/>
+  <circle cx="60" cy="60" r="49" fill="none" stroke="#d4af5a" stroke-width="1" stroke-dasharray="2 3" opacity="0.55"/>
+  <text font-family="Georgia, 'Times New Roman', serif" font-size="9.5" font-weight="700" fill="#d4af5a" letter-spacing="2.2">
+    <textPath href="#edgLogoArc" startOffset="3">E - D E F T E R</textPath>
+  </text>
+  <g transform="translate(60,70)">
+    <rect x="-17" y="-25" width="28" height="38" rx="3" fill="#1a3052" stroke="#d4af5a" stroke-width="1.4" transform="rotate(-7)"/>
+    <rect x="-12" y="-21" width="28" height="38" rx="3" fill="#ffffff" stroke="#d4af5a" stroke-width="1.4"/>
+    <line x1="-7" y1="-11" x2="11" y2="-11" stroke="#8a97ab" stroke-width="1.5"/>
+    <line x1="-7" y1="-5" x2="11" y2="-5" stroke="#8a97ab" stroke-width="1.5"/>
+    <line x1="-7" y1="1" x2="7" y2="1" stroke="#8a97ab" stroke-width="1.5"/>
+    <circle cx="13" cy="10" r="10.5" fill="#d4af5a"/>
+    <path d="M 8.5,10 L 12,13.5 L 18,5.5" stroke="#081222" stroke-width="2.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
