@@ -88,7 +88,7 @@ function tabloSatirlari(html) {
   }
   return { basliklar, satirlar, hamSatir };
 }
-const hamMaskeli = (h, n) => String(h || "").replace(/[A-Za-z0-9]{24,}/g, "<kod>").replace(/\s+/g, " ").slice(0, n || 2500);
+const hamMaskeli = (h, n) => String(h || "").replace(/[A-Za-z0-9]{24,}/g, (m) => (/\d/.test(m) ? "<kod>" : m)).replace(/\s+/g, " ").slice(0, n || 2500);
 /* bir betik işlevinin kaynağı (süslü parantez dengesiyle) ve içinde çağırdığı, aynı betikte tanımlı işlevler */
 function islevKaynagi(js, ad) {
   const re = new RegExp("(?:function\\s+" + ad + "\\s*\\(|(?:var\\s+|window\\.)?" + ad + "\\s*=\\s*function\\s*\\()"), m = re.exec(js); if (!m) return "";
@@ -138,11 +138,12 @@ class Sgk {
       const h = { "user-agent": UA, accept: "text/html,application/xhtml+xml,image/*,*/*;q=0.8", "accept-language": "tr-TR,tr;q=0.9" };
       const kavanoz = this.cerez.get(u.hostname); if (kavanoz && kavanoz.size) h.cookie = [...kavanoz].map(([a, d]) => a + "=" + d).join("; ");
       if (govde) { h["content-type"] = "application/x-www-form-urlencoded"; h.referer = this.taban + this.s.kok; h.origin = this.taban; }
+      if (this.ref) h.referer = this.ref;
       let r;
       try { r = await fetch(url, { method: yontem, headers: h, body: govde ? new URLSearchParams(govde) : undefined, redirect: "manual", signal: AbortSignal.timeout(25000) }); }
       catch (e) { throw new Error(e && (e.name === "TimeoutError" || e.name === "AbortError") ? "SGK 25 saniyede yanıt vermedi (zaman aşımı)." : "SGK'ya ulaşılamadı: " + e.message); }
       this.cerezTopla(r, u.hostname);
-      if ([301, 302, 303, 307, 308].includes(r.status)) { url = new URL(r.headers.get("location") || "/", url).href; yontem = "GET"; govde = null; continue; }
+      if ([301, 302, 303, 307, 308].includes(r.status)) { const hdf = r.headers.get("location") || "/"; (this.yon = this.yon || []).push(r.status + " " + u.pathname + u.search + " -> " + hdf); url = new URL(hdf, url).href; yontem = "GET"; govde = null; continue; }
       return { durum: r.status, url, tur: r.headers.get("content-type") || "", veri: Buffer.from(await r.arrayBuffer()) };
     }
     throw new Error("SGK çok fazla yönlendirme yaptı.");
@@ -214,6 +215,7 @@ class Sgk {
   async isverenSayfa(ad) {
     if (!this.girdi) throw this.oturumHata();
     const jeton = (t) => String(t || "").replace(/(isverenToken|token)=[^"'&\s;]+/gi, "$1=<jeton>");
+    this.yon = []; this.ref = null;
     let r = await this.git("GET", this.s.kok + "/internetLink" + ad + ".action"), html = r.veri.toString("utf8"), adimlar = [];
     if (/kullaniciIlkKontrollerGiris/.test(html)) throw this.oturumHata();
     adimlar.push(jeton(r.url.replace(this.taban, "")));
@@ -222,11 +224,18 @@ class Sgk {
       const i = html.search(/id\s*=\s*["']contentContainer["']/i), kap = i >= 0 ? html.slice(i) : html;
       const f = /<iframe\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i.exec(kap); if (!f) break;
       const u = new URL(coz(f[1]), r.url); if (!/(^|\.)sgk\.gov\.tr$/i.test(u.hostname)) break;
-      r = await this.git("GET", u.href); html = r.veri.toString("utf8"); adimlar.push(jeton(r.url.replace(this.taban, "")));
+      this.ref = r.url; try { r = await this.git("GET", u.href); } finally { this.ref = null; } html = r.veri.toString("utf8"); adimlar.push(jeton(r.url.replace(this.taban, "")));
       if (/kullaniciIlkKontrollerGiris/.test(html)) throw this.oturumHata();
     }
     const i2 = html.search(/id\s*=\s*["']contentContainer["']/i), icerik = i2 >= 0 ? html.slice(i2) : html;
-    return { adres: adimlar.join(" -> "), baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || ""), metin: sade(icerik).slice(0, 1800), hata: hataMetni(html), formlar: formCoz(icerik).map((f) => ({ eylem: jeton(f.eylem), yontem: f.yontem, gizli: Object.keys(f.gizli), secimler: f.secimler })), alanlar: formlar(icerik), tablolar: tablolar(icerik), baglantilar: baglantilar(icerik).slice(0, 25).map((x) => ({ tur: x.tur, metin: x.metin, href: jeton(x.href) })), ham: jeton(hamMaskeli(icerik.replace(/<style[\s\S]*?<\/style>/gi, ""), 4500)) };
+    const satirlar = [];
+    for (const tr of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+      const h = [...tr[1].matchAll(/<(td|th)\b[^>]*>([\s\S]*?)<\/\1>/gi)].map((c) => sade(c[2]).trim()); if (h.length < 8 || h.every((x) => !x)) continue;
+      const eylem = [...tr[1].matchAll(/(?:onclick|href)\s*=\s*["']([^"']{3,160})["']/gi)].map((m) => coz(m[1])).filter((x) => !/^#$/.test(x)).slice(0, 4);
+      satirlar.push({ h: h.map((x) => x.slice(0, 40)), eylem: eylem.map(jeton) }); if (satirlar.length >= 60) break;
+    }
+    const th = html.search(/<th\b/i), tabloHam = th >= 0 ? jeton(hamMaskeli(html.slice(Math.max(0, th - 200)).replace(/<style[\s\S]*?<\/style>/gi, ""), 4500)) : "";
+    return { yonlendirme: (this.yon || []).map(jeton), satirlar, tabloHam, adres: adimlar.join(" -> "), baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || ""), metin: sade(icerik).slice(0, 1800), hata: hataMetni(html), formlar: formCoz(icerik).map((f) => ({ eylem: jeton(f.eylem), yontem: f.yontem, gizli: Object.keys(f.gizli), secimler: f.secimler })), alanlar: formlar(icerik), tablolar: tablolar(icerik), baglantilar: baglantilar(icerik).slice(0, 25).map((x) => ({ tur: x.tur, metin: x.metin, href: jeton(x.href) })), ham: jeton(hamMaskeli(icerik.replace(/<style[\s\S]*?<\/style>/gi, ""), 4500)) };
   }
   async islemKaynagi(html, sayfaUrl, ad) {
     const satir = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]).join("\n");
