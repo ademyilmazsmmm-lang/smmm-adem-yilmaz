@@ -93,31 +93,56 @@
     .edg-pdf-btn { background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); color: var(--navy); font-weight: 700; border: none; padding: 10px 20px; border-radius: 999px; cursor: pointer; font-size: .92rem; }
     .edg-pdf-btn:disabled { opacity: .5; cursor: default; }
     .edg-pdf-durum { font-size: .85rem; color: #6b7c8f; }
-    .edg-letterhead { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid var(--gold); padding-bottom: 12px; margin-bottom: 18px; }
-    .edg-letterhead strong { display: block; color: var(--navy); font-family: Georgia, serif; }
-    .edg-letterhead span { display: block; font-size: .78rem; color: #6b7c8f; }
     .edg-badge { display: inline-block; background: var(--navy); color: var(--gold-light); font-size: .78rem; font-weight: 700; padding: 4px 12px; border-radius: 999px; margin-bottom: 14px; }
     .edg-ozet { background: #f8f9fc; border: 1px solid #e3e8f2; border-radius: 12px; padding: 16px 18px; margin-bottom: 20px; }
     .edg-ozet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 20px; }
     .edg-ozet-satir strong { display: block; font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: #8a97ab; }
     .edg-ozet-satir span { font-size: .95rem; color: var(--ink); }
     .edg-mut { color: #6b7c8f; font-weight: 400; font-size: .85em; }
-    .edg-kutu { background: #f8f9fc; border: 1px solid #e3e8f2; border-radius: 10px; padding: 14px 16px; margin: 6px 0 18px; }
-    .edg-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; font-size: .9rem; }
-    @media (max-width: 600px) { .edg-grid2 { grid-template-columns: 1fr; } }
-    .edg-tablo { width: 100%; border-collapse: collapse; font-size: .88rem; margin: 8px 0 18px; }
-    .edg-tablo th { text-align: left; background: var(--navy); color: #fff; padding: 8px 10px; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
-    .edg-tablo td { padding: 7px 10px; border-bottom: 1px solid #e9ecf3; }
-    .edg-tablo tfoot td { font-weight: 700; border-top: 2px solid var(--navy); border-bottom: none; }
     .edg-sayi { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .edg-tablo-kucuk { font-size: .82rem; }
-    .edg-fis { border: 1px solid #e3e8f2; border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
-    .edg-fis summary { cursor: pointer; padding: 10px 14px; background: #f8f9fc; font-size: .9rem; list-style: none; }
-    .edg-fis summary::-webkit-details-marker { display: none; }
-    .edg-fis summary::before { content: '▸ '; color: var(--gold-dark); }
-    .edg-fis[open] summary::before { content: '▾ '; }
-    .edg-fisno { font-weight: 700; color: var(--navy-mid); }
-    .edg-fis .edg-tablo { margin: 0; overflow-x: auto; display: block; }
+
+    /* resmi belge görünümü (GİB e-Defter berat/defter çıktısına benzer düzen) */
+    .edg-resmi { font-family: Arial, Helvetica, sans-serif; color: #15202b; font-size: .84rem; line-height: 1.5; background: #fff; }
+    .edg-cerceve { border: 5px solid #333; padding: 5px; }
+    .edg-cerceve-ic { border: 1.4px solid #333; padding: 30px 34px; }
+    .edg-resmi-logo-blok { text-align: center; margin-bottom: 10px; }
+    .edg-resmi-logo-blok img { width: 76px; height: 76px; }
+    .edg-resmi-baslik { font-size: 1.3rem; font-weight: 800; letter-spacing: .02em; margin-top: 8px; }
+    .edg-cizgi-baslik { position: relative; text-align: center; margin: 26px 0 16px; font-weight: 700; font-size: .86rem; letter-spacing: .03em; }
+    .edg-cizgi-baslik::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; border-top: 1px solid #9aa3ad; }
+    .edg-cizgi-baslik span { background: #fff; padding: 0 16px; position: relative; }
+    .edg-resmi-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 40px; }
+    .edg-resmi-dokuman { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 40px; }
+    @media (max-width: 640px) { .edg-resmi-2col, .edg-resmi-dokuman { grid-template-columns: 1fr; } }
+    .edg-resmi-satir { display: grid; grid-template-columns: 128px 1fr; gap: 10px; font-size: .82rem; margin: 5px 0; }
+    .edg-resmi-dokuman .edg-resmi-satir { grid-template-columns: 150px 1fr; }
+    .edg-resmi-satir b { text-align: right; font-weight: 700; }
+    .edg-resmi-tablo { border-collapse: collapse; margin: 10px auto; font-size: .82rem; }
+    .edg-resmi-tablo th, .edg-resmi-tablo td { border: 1px solid #333; padding: 6px 14px; }
+    .edg-resmi-tablo th { background: #f1f3f7; font-weight: 700; text-align: center; }
+    .edg-imza-kutu { border: 1px solid #333; background: #fafbfc; padding: 14px 16px; font-family: "Courier New", monospace; font-size: .68rem; line-height: 1.5; word-break: break-all; margin: 6px 0 4px; }
+
+    /* Yevmiye / Kebir resmi liste görünümü */
+    .edg-yev-ust { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; flex-wrap: wrap; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 4px; }
+    .edg-yev-tip { font-size: 1.15rem; font-weight: 800; letter-spacing: .02em; }
+    .edg-yev-vergi { font-size: .82rem; color: #455a64; margin: 4px 0 14px; }
+    .edg-yev-aciklama { text-align: center; font-weight: 700; font-size: .88rem; margin: 10px 0 16px; }
+    .edg-yev-kolon-baslik { display: grid; grid-template-columns: 60px 1fr 180px 100px 100px; gap: 8px; font-weight: 700; font-size: .76rem; text-transform: uppercase; letter-spacing: .02em; border-bottom: 1px dashed #9aa3ad; padding-bottom: 6px; margin-bottom: 4px; }
+    .edg-fis-ayrac { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: .8rem; margin: 18px 0 8px; }
+    .edg-fis-ayrac .cizgi { flex: 1; border-top: 1px dashed #9aa3ad; }
+    .edg-yev-satir { display: grid; grid-template-columns: 60px 1fr 180px 100px 100px; gap: 8px; font-size: .82rem; padding: 2px 0; align-items: baseline; }
+    .edg-yev-satir.edg-alacak { padding-left: 36px; }
+    .edg-yev-satir > *, .edg-yev-kolon-baslik > * { min-width: 0; overflow-wrap: anywhere; }
+    .edg-kebir-hesap-baslik > span { min-width: 0; overflow-wrap: anywhere; }
+    .edg-kebir-hesap-baslik > span:last-child { flex-shrink: 0; margin-left: 12px; }
+    .edg-yev-kod { font-weight: 700; }
+    .edg-yev-ad { font-weight: 700; text-transform: uppercase; font-size: .8rem; }
+    .edg-yev-alt-satir { color: #45586b; font-size: .78rem; margin: -2px 0 2px 68px; }
+    .edg-yev-alt-satir.edg-alacak { margin-left: 104px; }
+    .edg-yev-belge { font-style: italic; color: #45586b; font-size: .76rem; margin: 0 0 4px 68px; }
+    .edg-yev-belge.edg-alacak { margin-left: 104px; }
+    .edg-fis-alt { text-align: center; font-size: .78rem; color: #30404f; margin: 6px 0 2px; }
+    .edg-kebir-hesap-baslik { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; font-size: .88rem; border-bottom: 1.4px solid #333; padding-bottom: 5px; margin: 22px 0 8px; }
   </style>
   <style>
   :root{
@@ -311,11 +336,18 @@
 
     var context = doc.getElementsByTagName('xbrli:context')[0];
     var vkn = context ? qt(context, 'xbrli:identifier') : '';
+    var segment = context ? context.getElementsByTagName('xbrli:segment')[0] : null;
+
+    var docTuru = entriesType === 'ledger' ? 'Kebir Defteri' : (entriesType === 'trialbalance' ? 'Defter Raporu (Mizan)' : 'Yevmiye Defteri');
 
     return {
       kind: kind,
       entriesType: entriesType,
+      docTuru: docTuru,
       vkn: vkn,
+      ettn: segment ? qt(segment, 'gl-cor:uniqueID') : '',
+      maddeSayisi: segment ? qt(segment, 'gl-bus:numberOfEntries') : '',
+      boyut: segment ? qt(segment, 'gl-bus:measurableQuantity') : '',
       uniqueID: qt(docInfo, 'gl-cor:uniqueID'),
       creationDate: qt(docInfo, 'gl-cor:creationDate'),
       comment: qt(docInfo, 'gl-cor:entriesComment'),
@@ -327,11 +359,15 @@
       il: qt(entInfo, 'gl-bus:organizationAddressCity'),
       posta: qt(entInfo, 'gl-bus:organizationAddressZipOrPostalCode'),
       tel: qt(entInfo, 'gl-bus:phoneNumber'),
+      fax: qt(entInfo, 'gl-bus:entityFaxNumber'),
       eposta: qt(entInfo, 'gl-bus:entityEmailAddress'),
       nace: qt(entInfo, 'gl-bus:businessDescription'),
+      fyStart: qt(entInfo, 'gl-bus:fiscalYearStart'),
+      fyEnd: qt(entInfo, 'gl-bus:fiscalYearEnd'),
       muhasebeciAd: qt(entInfo, 'gl-bus:accountantName'),
       muhasebeciSozlesme: qt(entInfo, 'gl-bus:accountantEngagementTypeDescription'),
       muhasebeciTel: qt(entInfo, 'gl-bus:accountantContactPhoneNumber'),
+      muhasebeciFax: qt(entInfo, 'gl-bus:accountantContactFaxNumber'),
       muhasebeciEposta: qt(entInfo, 'gl-bus:accountantContactEmailAddress'),
       accEntries: accEntries
     };
@@ -348,6 +384,23 @@
     };
   }
 
+  function tagAra(el, tag) {
+    while (el && el.nodeType === 1 && el.tagName !== tag) el = el.parentNode;
+    return (el && el.nodeType === 1) ? el : null;
+  }
+
+  function paraImza(info) {
+    var root = info.accEntries.ownerDocument.documentElement;
+    var degerler = qa(root, 'ds:SignatureValue');
+    var belgeImza = '', gibOnay = '';
+    degerler.forEach(function (el) {
+      var deger = (el.textContent || '').replace(/\s+/g, '');
+      if (el.parentNode === root) belgeImza = deger;
+      else if (tagAra(el.parentNode, 'xades:CounterSignature')) gibOnay = deger;
+    });
+    info.imza = { belgeImza: belgeImza, gibOnay: gibOnay };
+  }
+
   function paraBerat(info) {
     var detaylar = qa(info.accEntries, 'gl-cor:entryDetail');
     var hesaplar = [], idx = {};
@@ -360,13 +413,7 @@
       if (dc === 'D') row.borc += tutar; else if (dc === 'C') row.alacak += tutar;
     });
     info.hesaplar = hesaplar;
-
-    var subjects = qa(info.accEntries.ownerDocument.documentElement, 'ds:X509SubjectName').map(function (n) { return n.textContent.trim(); });
-    var times = qa(info.accEntries.ownerDocument.documentElement, 'xades:SigningTime').map(function (n) { return n.textContent.trim(); });
-    info.imza = {
-      muhasebeciImza: subjects[0] || '', muhasebeciImzaTarihi: times[0] || '',
-      gibOnay: subjects[1] || '', gibOnayTarihi: times[1] || ''
-    };
+    paraImza(info);
   }
 
   function paraYevmiye(info) {
@@ -434,9 +481,6 @@
   function satir(etiket, deger) {
     return '<div class="edg-ozet-satir"><strong>' + etiket + '</strong><span>' + deger + '</span></div>';
   }
-  function bilgi(etiket, deger) {
-    return '<div><strong>' + etiket + ':</strong> ' + esc(deger || '-') + '</div>';
-  }
 
   function ozetKart(info) {
     return '<div class="edg-ozet">'
@@ -451,60 +495,123 @@
       + '</div></div>';
   }
 
+  function resmiSatir(etiket, deger) {
+    return '<div class="edg-resmi-satir"><b>' + etiket + ' :</b><span>' + esc(deger || '-') + '</span></div>';
+  }
+
   function beratGorunum(info) {
     var satirlarHtml = info.hesaplar.map(function (h) {
-      return '<tr><td>' + esc(h.kod) + '</td><td>' + esc(h.ad) + '</td><td class="edg-sayi">' + (h.borc ? tl(h.borc) : '-') + '</td><td class="edg-sayi">' + (h.alacak ? tl(h.alacak) : '-') + '</td></tr>';
+      return '<tr><td>' + esc(h.kod) + '</td><td>' + esc(h.ad) + '</td><td class="edg-sayi">' + tl(h.borc) + '</td><td class="edg-sayi">' + tl(h.alacak) + '</td></tr>';
     }).join('');
-    var toplamBorc = info.hesaplar.reduce(function (a, h) { return a + h.borc; }, 0);
-    var toplamAlacak = info.hesaplar.reduce(function (a, h) { return a + h.alacak; }, 0);
+
+    var dokumanSol = [
+      ['DOKÜMAN TİPİ', info.docTuru],
+      ['DÖNEMİ', td(info.periodStart) + ' - ' + td(info.periodEnd)],
+      ['OLUŞTURMA TARİHİ', td(info.creationDate)],
+      ['HESAP DÖNEMİ', info.fyStart ? (td(info.fyStart) + ' - ' + td(info.fyEnd)) : '-'],
+      ['AÇIKLAMA', info.comment]
+    ];
+    if (info.maddeSayisi) dokumanSol.push(['YEVMİYE MADDESİ SAYISI', info.maddeSayisi]);
+    var dokumanSag = [
+      ['OLUŞTURAN', info.muhasebeciAd],
+      ['TEKİL NO', info.uniqueID],
+      ['KAYNAK UYGULAMA', info.sourceApp],
+      ['ETTN', info.ettn],
+      ['İLGİLİ DEFTER BOYUTU', info.boyut ? (info.boyut + ' MB') : '-']
+    ];
+
     var imzaHtml = '';
-    if (info.imza && (info.imza.muhasebeciImza || info.imza.gibOnay)) {
-      imzaHtml = '<h3>İmza / Onay Bilgileri</h3><div class="edg-kutu">'
-        + (info.imza.muhasebeciImza ? '<p><strong>Meslek Mensubu İmzası:</strong> ' + esc(info.imza.muhasebeciImza) + (info.imza.muhasebeciImzaTarihi ? ' · ' + esc(info.imza.muhasebeciImzaTarihi) : '') + '</p>' : '')
-        + (info.imza.gibOnay ? '<p><strong>GİB Onayı:</strong> ' + esc(info.imza.gibOnay) + (info.imza.gibOnayTarihi ? ' · ' + esc(info.imza.gibOnayTarihi) : '') + '</p>' : '')
-        + '</div>';
+    if (info.imza && info.imza.belgeImza) {
+      imzaHtml += '<div class="edg-cizgi-baslik"><span>BERAT\'A KONU OLAN DOKÜMANIN İMZA DEĞERİ</span></div>'
+        + '<div class="edg-imza-kutu">' + esc(info.imza.belgeImza) + '</div>';
     }
-    return '<h3>Mükellef Bilgileri</h3><div class="edg-kutu edg-grid2">'
-      + bilgi('Unvan', info.unvan) + bilgi('VKN', info.vkn) + bilgi('Adres', (info.adres + ' ' + info.il + ' ' + info.posta).trim())
-      + bilgi('Telefon', info.tel) + bilgi('E-posta', info.eposta) + bilgi('NACE Kodu', info.nace)
+    if (info.imza && info.imza.gibOnay) {
+      imzaHtml += '<div class="edg-cizgi-baslik"><span>GİB ONAY BİLGİLERİ</span></div>'
+        + '<div class="edg-imza-kutu">' + esc(info.imza.gibOnay) + '</div>';
+    }
+
+    return '<div class="edg-cerceve"><div class="edg-cerceve-ic edg-resmi">'
+      + '<div class="edg-resmi-logo-blok"><img src="programlar/e-defter-goruntuleyici-logo.svg" alt="" width="76" height="76">'
+      + '<div class="edg-resmi-baslik">' + (info.kind === 'defter-raporu' ? 'DEFTER RAPORU' : 'E-DEFTER BERATI') + '</div></div>'
+      + '<div class="edg-resmi-2col">'
+      + '<div><div class="edg-cizgi-baslik"><span>MÜKELLEF BİLGİLERİ</span></div>'
+      + resmiSatir('VKN', info.vkn) + resmiSatir('UNVAN', info.unvan) + resmiSatir('TELEFON', info.tel) + resmiSatir('FAX', info.fax) + resmiSatir('E-POSTA', info.eposta)
       + '</div>'
-      + '<h3>Meslek Mensubu Bilgileri</h3><div class="edg-kutu edg-grid2">'
-      + bilgi('Ad Soyad', info.muhasebeciAd) + bilgi('Sözleşme', info.muhasebeciSozlesme)
-      + bilgi('Telefon', info.muhasebeciTel) + bilgi('E-posta', info.muhasebeciEposta)
+      + '<div><div class="edg-cizgi-baslik"><span>MESLEK MENSUBU BİLGİLERİ</span></div>'
+      + resmiSatir('UNVAN', info.muhasebeciAd) + resmiSatir('TELEFON', info.muhasebeciTel) + resmiSatir('FAX', info.muhasebeciFax) + resmiSatir('E-POSTA', info.muhasebeciEposta) + resmiSatir('SÖZLEŞME NO', info.muhasebeciSozlesme)
       + '</div>'
-      + '<h3>Vergi Detayı</h3>'
-      + '<table class="edg-tablo"><thead><tr><th>Hesap Kodu</th><th>Hesap Adı</th><th>Borç</th><th>Alacak</th></tr></thead><tbody>'
+      + '</div>'
+      + '<div class="edg-cizgi-baslik"><span>DOKÜMAN BİLGİLERİ</span></div>'
+      + '<div class="edg-resmi-dokuman">'
+      + '<div>' + dokumanSol.map(function (p) { return resmiSatir(p[0], p[1]); }).join('') + '</div>'
+      + '<div>' + dokumanSag.map(function (p) { return resmiSatir(p[0], p[1]); }).join('') + '</div>'
+      + '</div>'
+      + '<div class="edg-cizgi-baslik"><span>VERGİ DETAYI</span></div>'
+      + '<div style="text-align:center"><table class="edg-resmi-tablo" style="display:inline-table"><thead><tr><th rowspan="2">HESAP KODU</th><th rowspan="2">HESAP ADI</th><th colspan="2">DÖNEM İÇİ DEĞİŞİKLİKLER</th></tr><tr><th>BORÇ</th><th>ALACAK</th></tr></thead><tbody>'
       + satirlarHtml
-      + '</tbody><tfoot><tr><td colspan="2">Toplam</td><td class="edg-sayi">' + tl(toplamBorc) + '</td><td class="edg-sayi">' + tl(toplamAlacak) + '</td></tr></tfoot></table>'
-      + imzaHtml;
+      + '</tbody></table></div>'
+      + imzaHtml
+      + '</div></div>';
+  }
+
+  function yevSatirHtml(s) {
+    var taraf = s.dc;
+    var sinifEki = taraf === 'C' ? ' edg-alacak' : '';
+    var html = '<div class="edg-yev-satir' + sinifEki + '">'
+      + '<div class="edg-yev-kod">' + esc(s.kod) + '</div>'
+      + '<div class="edg-yev-ad">' + esc(s.ad) + '</div>'
+      + '<div>' + esc(s.aciklama) + '</div>'
+      + '<div class="edg-sayi">' + (taraf === 'D' ? tl(s.tutar) : '') + '</div>'
+      + '<div class="edg-sayi">' + (taraf === 'C' ? tl(s.tutar) : '') + '</div>'
+      + '</div>';
+    if (s.altKod || s.altAd) {
+      html += '<div class="edg-yev-alt-satir' + sinifEki + '">' + esc(s.altKod) + (s.altKod && s.altAd ? ' ' : '') + esc(s.altAd) + '</div>';
+    }
+    if (s.belgeNo) {
+      var etiket = s.belgeTuru === 'invoice' ? 'Fatura' : 'Muhasebe Fişi';
+      html += '<div class="edg-yev-belge' + sinifEki + '">' + etiket + ' No : ' + esc(s.belgeNo) + (s.belgeTarihi ? ' ' + etiket + ' Tarihi : ' + td(s.belgeTarihi) : '') + '</div>';
+    }
+    return html;
   }
 
   function yevmiyeGorunum(info) {
-    return '<h3>Yevmiye Kayıtları (' + info.fisler.length + ' fiş)</h3>'
-      + info.fisler.map(function (f) {
-        var satirlar = f.satirlar.map(function (s) {
-          return '<tr><td>' + esc(s.kod) + (s.altKod ? ' / ' + esc(s.altKod) : '') + '</td><td>' + esc(s.altAd || s.ad) + '</td>'
-            + '<td>' + esc(s.belgeNo) + '</td><td>' + td(s.belgeTarihi) + '</td><td>' + esc(s.aciklama) + '</td>'
-            + '<td class="edg-sayi">' + (s.dc === 'D' ? tl(s.tutar) : '-') + '</td><td class="edg-sayi">' + (s.dc === 'C' ? tl(s.tutar) : '-') + '</td></tr>';
-        }).join('');
-        return '<details class="edg-fis"><summary><span class="edg-fisno">Fiş ' + esc(f.fisNo) + '</span> · ' + td(f.tarih) + ' · ' + esc(f.aciklama) + ' <span class="edg-mut">(' + tl(f.toplamBorc) + ' ₺)</span></summary>'
-          + '<table class="edg-tablo edg-tablo-kucuk"><thead><tr><th>Hesap</th><th>Alt Hesap / Cari</th><th>Belge No</th><th>Belge Tarihi</th><th>Açıklama</th><th>Borç</th><th>Alacak</th></tr></thead><tbody>' + satirlar + '</tbody></table>'
-          + '</details>';
-      }).join('');
+    var govde = info.fisler.map(function (f) {
+      var satirlar = f.satirlar.map(yevSatirHtml).join('');
+      return '<div class="edg-fis-ayrac"><span class="cizgi"></span><span>[ ' + esc(f.fisNo) + ' ]</span><span class="cizgi"></span><span>[ ' + td(f.tarih) + ' ]</span><span class="cizgi"></span></div>'
+        + satirlar
+        + (f.aciklama ? '<div class="edg-fis-alt">' + esc(f.aciklama) + '</div>' : '')
+        + '<div class="edg-fis-alt">Muhasebe Fiş No : ' + esc(f.fisNo) + '</div>';
+    }).join('');
+
+    return '<div class="edg-resmi">'
+      + '<div class="edg-yev-ust"><b>Kurum Unvanı: ' + esc(info.unvan) + '</b><span class="edg-yev-tip">' + esc(info.docTuru.toUpperCase()) + '</span></div>'
+      + '<div class="edg-yev-vergi">Vergi No: ' + esc(info.vkn) + '</div>'
+      + '<div class="edg-yev-aciklama">' + esc(info.comment) + '</div>'
+      + '<div class="edg-yev-kolon-baslik"><div>Hesap Kodu</div><div>Hesap Adı</div><div>Açıklama</div><div class="edg-sayi">Borç</div><div class="edg-sayi">Alacak</div></div>'
+      + govde
+      + '</div>';
   }
 
   function kebirGorunum(info) {
-    return '<h3>Kebir Hesapları (' + info.hesapGruplari.length + ' hesap)</h3>'
-      + info.hesapGruplari.map(function (g) {
-        var satirlar = g.satirlar.map(function (s) {
-          return '<tr><td>' + td(s.tarih) + '</td><td>' + esc(s.belgeTuru) + '</td><td>' + esc(s.belgeNo) + '</td><td>' + esc(s.aciklama) + '</td>'
-            + '<td class="edg-sayi">' + (s.dc === 'D' ? tl(s.tutar) : '-') + '</td><td class="edg-sayi">' + (s.dc === 'C' ? tl(s.tutar) : '-') + '</td>'
-            + '<td class="edg-sayi">' + tl(s.bakiye) + '</td></tr>';
-        }).join('');
-        return '<details class="edg-fis"><summary><span class="edg-fisno">' + esc(g.kod) + ' — ' + esc(g.ad) + '</span> <span class="edg-mut">(Borç ' + tl(g.toplamBorc) + ' ₺ · Alacak ' + tl(g.toplamAlacak) + ' ₺)</span></summary>'
-          + '<table class="edg-tablo edg-tablo-kucuk"><thead><tr><th>Tarih</th><th>Belge Türü</th><th>Belge No</th><th>Açıklama</th><th>Borç</th><th>Alacak</th><th>Dönem İçi Bakiye</th></tr></thead><tbody>' + satirlar + '</tbody></table>'
-          + '</details>';
+    var kolonStil = 'grid-template-columns:90px 110px 90px 1fr 100px 100px 110px;';
+    var govde = info.hesapGruplari.map(function (g) {
+      var satirlar = g.satirlar.map(function (s) {
+        return '<div class="edg-yev-satir" style="' + kolonStil + '">'
+          + '<div>' + td(s.tarih) + '</div><div>' + esc(s.belgeTuru) + '</div><div>' + esc(s.belgeNo) + '</div><div>' + esc(s.aciklama) + '</div>'
+          + '<div class="edg-sayi">' + (s.dc === 'D' ? tl(s.tutar) : '') + '</div><div class="edg-sayi">' + (s.dc === 'C' ? tl(s.tutar) : '') + '</div>'
+          + '<div class="edg-sayi">' + tl(s.bakiye) + '</div></div>';
       }).join('');
+      return '<div class="edg-kebir-hesap-baslik"><span>' + esc(g.kod) + ' — ' + esc(g.ad) + '</span><span class="edg-mut">Borç ' + tl(g.toplamBorc) + ' ₺ · Alacak ' + tl(g.toplamAlacak) + ' ₺</span></div>'
+        + '<div class="edg-yev-kolon-baslik" style="' + kolonStil + '"><div>Tarih</div><div>Belge Türü</div><div>Belge No</div><div>Açıklama</div><div class="edg-sayi">Borç</div><div class="edg-sayi">Alacak</div><div class="edg-sayi">Dönem İçi Bakiye</div></div>'
+        + satirlar;
+    }).join('');
+
+    return '<div class="edg-resmi">'
+      + '<div class="edg-yev-ust"><b>Kurum Unvanı: ' + esc(info.unvan) + '</b><span class="edg-yev-tip">KEBİR DEFTERİ</span></div>'
+      + '<div class="edg-yev-vergi">Vergi No: ' + esc(info.vkn) + '</div>'
+      + '<div class="edg-yev-aciklama">' + esc(info.comment) + '</div>'
+      + govde
+      + '</div>';
   }
 
   function icerikGorunum(info) {
@@ -532,11 +639,7 @@
   var girisEl, layoutEl, listeEl, detayEl, pdfBtn, pdfDurum, dosyaSec;
 
   function renderDetay(d) {
-    detayEl.innerHTML = '<div id="edgPdfIcerik">'
-      + '<div class="edg-letterhead"><img src="programlar/e-defter-goruntuleyici-logo.svg" alt="" width="40" height="40">'
-      + '<div><strong>SMMM Adem Yılmaz</strong><span>smmmyilmaz.com · E-Defter Görüntüleyici</span></div></div>'
-      + ozetKart(d.info) + icerikGorunum(d.info)
-      + '</div>';
+    detayEl.innerHTML = '<div id="edgPdfIcerik">' + ozetKart(d.info) + icerikGorunum(d.info) + '</div>';
     pdfBtn.disabled = false;
     pdfBtn.onclick = function () { pdfIndir(d); };
   }
