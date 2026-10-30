@@ -10,7 +10,9 @@ const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 
 const coz = (t) => String(t == null ? "" : t).replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(+d)).replace(/&nbsp;/g, " ");
 const nitelik = (a, ad) => { const m = new RegExp("\\b" + ad + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", "i").exec(a); return m ? coz(m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3]) : ""; };
-const sade = (h) => String(h || "").replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+const ADLI = { Uuml: "Ü", uuml: "ü", Ccedil: "Ç", ccedil: "ç", Ouml: "Ö", ouml: "ö", Iuml: "Ï", iuml: "ï", Auml: "Ä", auml: "ä", acirc: "â", Acirc: "Â", icirc: "î", ucirc: "û" };
+const adliCoz = (t) => String(t).replace(/&([A-Za-z]+);/g, (m, a) => (ADLI[a] != null ? ADLI[a] : m)).replace(/&#(\d+);/g, (m, d) => String.fromCharCode(Number(d)));
+const sade = (h) => adliCoz(String(h || "").replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")).replace(/\s+/g, " ").trim();
 function hataMetni(html) {
   /* 1) bilinen hata kapları (Struts actionError/errorMessage, kırmızı yazı, alert) */
   const aday = [];
@@ -235,7 +237,31 @@ class Sgk {
       satirlar.push({ h: h.map((x) => x.slice(0, 40)), eylem: eylem.map(jeton) }); if (satirlar.length >= 60) break;
     }
     const th = html.search(/<th\b/i), tabloHam = th >= 0 ? jeton(hamMaskeli(html.slice(Math.max(0, th - 200)).replace(/<style[\s\S]*?<\/style>/gi, ""), 4500)) : "";
-    return { yonlendirme: (this.yon || []).map(jeton), satirlar, tabloHam, adres: adimlar.join(" -> "), baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || ""), metin: sade(icerik).slice(0, 1800), hata: hataMetni(html), formlar: formCoz(icerik).map((f) => ({ eylem: jeton(f.eylem), yontem: f.yontem, gizli: Object.keys(f.gizli), secimler: f.secimler })), alanlar: formlar(icerik), tablolar: tablolar(icerik), baglantilar: baglantilar(icerik).slice(0, 25).map((x) => ({ tur: x.tur, metin: x.metin, href: jeton(x.href) })), ham: jeton(hamMaskeli(icerik.replace(/<style[\s\S]*?<\/style>/gi, ""), 4500)) };
+    const uyari = sade((/id\s*=\s*["']genelUyariCenterTag["'][^>]*>([\s\S]*?)<\/center>/i.exec(html) || [])[1] || "");
+    const ciftler = [...icerik.matchAll(/<tr\b[^>]*>\s*<th\b[^>]*>([\s\S]*?)<\/th>\s*<td\b[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi)].map((m) => ({ k: sade(m[1]).slice(0, 60), v: sade(m[2]).slice(0, 120) })).filter((x) => x.k).slice(0, 20);
+    const thead = /<thead\b[\s\S]*?<\/thead>/i.exec(icerik), tabloIc = /<table\b[^>]*class\s*=\s*["']gradienttabled["'][\s\S]*?<\/table>/i.exec(icerik);
+    const borc = thead && tabloIc ? { basliklar: [...thead[0].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((m) => sade(m[1])), satirlar: [...tabloIc[0].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map((t) => [...t[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((c) => sade(c[1]))).filter((c) => c.length >= 10) } : null;
+    const yeriM = /Sicil No\s*:\s*([\d ]+?)\s+Ünvan\s*:\s*(.+?)\s+Adresi/.exec(sade(icerik)), isyeri = yeriM ? { sicil: yeriM[1].trim(), unvan: yeriM[2].trim() } : null;
+    this.sonSayfa = { url: r.url, html, formlar: [] };
+    for (const f of html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)) {
+      const eylem = nitelik(f[1], "action"); if (!eylem || /3_4_sent_2|DetayGetir|13_1_sent/.test(eylem)) continue;
+      const dugme = [...f[2].matchAll(/<(?:input\b[^>]*type\s*=\s*["']submit["'][^>]*|button\b[^>]*)>/gi)].map((m) => sade(nitelik(m[0], "value")) || "").filter(Boolean)[0]; if (!dugme) continue;
+      const gizli = {}; for (const i of f[2].matchAll(/<input\b([^>]*)>/gi)) { const n = nitelik(i[1], "name"); if (n && (nitelik(i[1], "type") || "text").toLowerCase() === "hidden") gizli[n] = coz(nitelik(i[1], "value")); }
+      this.sonSayfa.formlar.push({ eylem, gizli, etiket: dugme });
+    }
+    const metinSade = sade(icerik).replace(/^.*?Eski Prim Oran\s*:\s*[\d.,]*\s*/, "").slice(0, 1200);
+    return { uyari, ciftler, borc, isyeri, dugmeler: this.sonSayfa.formlar.map((f, i) => ({ i, etiket: f.etiket })), yonlendirme: (this.yon || []).map(jeton), satirlar, tabloHam, adres: adimlar.join(" -> "), baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || ""), metin: metinSade, hata: "", formlar: formCoz(icerik).map((f) => ({ eylem: jeton(f.eylem), yontem: f.yontem, gizli: Object.keys(f.gizli), secimler: f.secimler })), alanlar: formlar(icerik), tablolar: tablolar(icerik), baglantilar: baglantilar(icerik).slice(0, 25).map((x) => ({ tur: x.tur, metin: x.metin, href: jeton(x.href) })), ham: jeton(hamMaskeli(icerik.replace(/<style[\s\S]*?<\/style>/gi, ""), 4500)) };
+  }
+  /* son açılan İşveren sayfasındaki bir düğmeyi (ör. "Pdf Döküm Al") sayfanın kendi formu gibi gönderir */
+  async formGonder(i) {
+    if (!this.girdi) throw this.oturumHata();
+    const sf = this.sonSayfa && this.sonSayfa.formlar[i]; if (!sf) throw new Error("Düğme bulunamadı; sayfayı yeniden açın.");
+    const alan = Object.assign({}, sf.gizli); if ("jsp" in alan && !alan.jsp) alan.jsp = this.sonSayfa.html;
+    this.ref = this.sonSayfa.url; let r; try { r = await this.git("POST", new URL(sf.eylem, this.sonSayfa.url).href, alan); } finally { this.ref = null; }
+    const tur = (r.tur || "").toLowerCase().split(";")[0], pdf = /pdf/.test(tur) || r.veri.slice(0, 4).toString() === "%PDF";
+    if (pdf) return { veri: r.veri, tur: "application/pdf", satir: true, ad: "sgk-belge.pdf" };
+    const h = r.veri.toString("utf8"), m = sade((/id\s*=\s*["']genelUyariCenterTag["'][^>]*>([\s\S]*?)<\/center>/i.exec(h) || [])[1] || "") || hataMetni(h);
+    throw new Error("SGK belge yerine bir sayfa döndürdü" + (m ? ": " + m : " (" + tur + ")") + ".");
   }
   async islemKaynagi(html, sayfaUrl, ad) {
     const satir = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]).join("\n");
@@ -303,7 +329,8 @@ class SahteSgk {
   async giris(dk) { if (!this.cid) throw new Error("Önce güvenlik kodu resmini isteyin."); this.cid = false; if (String(dk || "").trim() !== "SGK123") { const e = new Error("SGK girişi başarısız: Güvenlik kodu hatalı."); e.giris = true; throw e; } this.girdi = true; }
   async tani(derin) { if (!this.girdi) { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; throw e; } return { baslik: "T.C. Sosyal Güvenlik Kurumu", adres: "https://" + (SISTEMLER[this.sistem] || SISTEMLER.isveren).sunucu + (SISTEMLER[this.sistem] || SISTEMLER.isveren).kok, zincir: [], baslatici: [], baglantilar: [{ tur: "a", metin: "DÖNEM BORÇ GÖRÜNTÜLEME", href: "/IsverenSistemi/ornek/donemBorc.action" }, { tur: "a", metin: "İHALELERE KATILMAK İÇİN", href: "/IsverenSistemi/ornek/ihale.action" }, { tur: "a", metin: "ÇIKIŞ", href: "/IsverenSistemi/cikis.action" }], cerceveler: [], sayfalar: derin ? [{ metin: "Onaylanmış Belgeler", adres: "/EBildirgeV2/ornek/onayli.action", formlar: [{ eylem: "/EBildirgeV2/ornek/liste.action", yontem: "post", alanlar: ["bas_donem:select[2026/09|2026/08]", "bit_donem:select[2026/09|2026/08]", "düğme:Bilgileri Getir"] }], tablolar: [["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Toplam Çalışan Sayısı"]], baglantilar: [] }] : undefined }; }
   async cikis() { this.girdi = false; }
-  async isverenSayfa(ad) { if (!this.girdi) throw this.oturumHata2(); return { adres: "/IsverenSistemi/internetLink" + ad + ".action", baslik: "Örnek sayfa " + ad, metin: "Örnek içerik", hata: "", formlar: [{ eylem: "/IsverenSistemi/x.action", yontem: "post", gizli: ["token"], secimler: { donem: [{ deger: "1", etiket: "2026/09" }] } }], alanlar: [{ eylem: "/x", yontem: "post", alanlar: ["donem:select[1]"] }], tablolar: [["Dönem", "Borç"]], ham: "<form>…</form>" }; }
+  async formGonder(i) { if (!this.girdi) throw this.oturumHata2(); return this.bildirgeBelge(0, 0, 0); }
+  async isverenSayfa(ad) { if (!this.girdi) throw this.oturumHata2(); return { uyari: ad === "IAKU" ? "HATA E-Borcu Yoktur Aktivasyonu Bulunmamaktadır." : "", ciftler: [{ k: "TC Kimlik No", v: "11111111110" }], borc: ad === "DonemBorcGoruntuleme" ? { basliklar: ["Dönem", "Prim", "GZ", "TOPLAM"], satirlar: [["2026/08", "100,00", "5,00", "105,00"], ["TOPLAM", "100,00", "5,00", "105,00"]] } : null, isyeri: { sicil: "2 4931", unvan: "ÖRNEK FİRMA" }, dugmeler: [{ i: 0, etiket: "Pdf Döküm Al" }], adres: "/IsverenSistemi/internetLink" + ad + ".action", baslik: "Örnek sayfa " + ad, metin: "Örnek içerik", hata: "", formlar: [{ eylem: "/IsverenSistemi/x.action", yontem: "post", gizli: ["token"], secimler: { donem: [{ deger: "1", etiket: "2026/09" }] } }], alanlar: [{ eylem: "/x", yontem: "post", alanlar: ["donem:select[1]"] }], tablolar: [["Dönem", "Borç"]], ham: "<form>…</form>" }; }
   async bildirgeDonemler() { if (!this.girdi) throw this.oturumHata2(); return { donemler: [{ deger: "1", etiket: "2026/09" }, { deger: "2", etiket: "2026/08" }, { deger: "3", etiket: "2026/07" }] }; }
   async bildirgeListe(b, e) { if (!this.girdi) throw this.oturumHata2(); const s = [{ n: 0, hucreler: ["2026/09", "2026/09", "01", "ASIL", "05510", "1", "4", "4.404,00 TL", "", "", ""].map((m, k) => ({ k, metin: m, belgeler: k >= 8 ? [{ j: 0, baslik: "Görüntüle", var: true }, { j: 1, baslik: "İndir", var: true }] : [] })) }]; return { basliklar: ["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Belge Mahiyeti", "Kanun No", "Toplam Çalışan Sayısı", "Toplam Gün Sayısı", "Toplam Pek Tutar", "Tahakkuk", "Hizmet", "S.Hizmet"], satirlar: s, hamMetin: "", onclickOrnek: [] }; }
   async bildirgeBelge(n, k, j) { if (!this.girdi) throw this.oturumHata2(); const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 16 Tf 20 60 Td (ORNEK SGK BELGESI) Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF"; return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "sgk-belge.pdf" }; }
