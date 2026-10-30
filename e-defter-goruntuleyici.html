@@ -289,6 +289,12 @@
     'kebir': 'Kebir Defteri',
     'bilinmeyen': 'Tanınmayan Dosya'
   };
+  function belgeEtiketi(info) {
+    var gibOnayli = !!(info.imza && info.imza.gibOnay);
+    if (info.kind === 'yevmiye-berati') return gibOnayli ? 'Yevmiye GİB Beratı' : 'Yevmiye Beratı';
+    if (info.kind === 'kebir-berati') return gibOnayli ? 'Kebir GİB Beratı' : 'Kebir Beratı';
+    return TUR_ETIKET[info.kind] || info.kind;
+  }
   var TUR_DOSYA_ADI = {
     'yevmiye-berati': 'yevmiye-berati',
     'kebir-berati': 'kebir-berati',
@@ -484,7 +490,7 @@
 
   function ozetKart(info) {
     return '<div class="edg-ozet">'
-      + '<span class="edg-badge">' + esc(TUR_ETIKET[info.kind] || info.kind) + '</span>'
+      + '<span class="edg-badge">' + esc(belgeEtiketi(info)) + '</span>'
       + '<div class="edg-ozet-grid">'
       + satir('Mükellef', esc(info.unvan) + ' <span class="edg-mut">(VKN: ' + esc(info.vkn) + ')</span>')
       + satir('Dönem', td(info.periodStart) + ' – ' + td(info.periodEnd))
@@ -531,7 +537,7 @@
     }
 
     return '<div class="edg-cerceve"><div class="edg-cerceve-ic edg-resmi">'
-      + '<div class="edg-resmi-logo-blok"><img src="programlar/e-defter-goruntuleyici-logo.svg" alt="" width="76" height="76">'
+      + '<div class="edg-resmi-logo-blok"><img src="programlar/e-defter-gib-logo.jpg" alt="T.C. Hazine ve Maliye Bakanlığı Gelir İdaresi Başkanlığı" width="76" height="76">'
       + '<div class="edg-resmi-baslik">' + (info.kind === 'defter-raporu' ? 'DEFTER RAPORU' : 'E-DEFTER BERATI') + '</div></div>'
       + '<div class="edg-resmi-2col">'
       + '<div><div class="edg-cizgi-baslik"><span>MÜKELLEF BİLGİLERİ</span></div>'
@@ -639,7 +645,7 @@
   var girisEl, layoutEl, listeEl, detayEl, pdfBtn, pdfDurum, dosyaSec;
 
   function renderDetay(d) {
-    detayEl.innerHTML = '<div id="edgPdfIcerik">' + ozetKart(d.info) + icerikGorunum(d.info) + '</div>';
+    detayEl.innerHTML = ozetKart(d.info) + '<div id="edgPdfIcerik">' + icerikGorunum(d.info) + '</div>';
     pdfBtn.disabled = false;
     pdfBtn.onclick = function () { pdfIndir(d); };
   }
@@ -700,7 +706,7 @@
       listeEl.appendChild(satirEl);
       dosyaIsle(file).then(function (d) {
         satirEl.className = 'edg-dosya';
-        satirEl.innerHTML = '<span class="edg-badge-mini">' + esc(TUR_ETIKET[d.info.kind] || '?') + '</span>' + esc(d.ad);
+        satirEl.innerHTML = '<span class="edg-badge-mini">' + esc(belgeEtiketi(d.info)) + '</span>' + esc(d.ad);
         satirEl.addEventListener('click', function () {
           Array.prototype.forEach.call(listeEl.querySelectorAll('.edg-dosya'), function (x) { x.classList.remove('edg-aktif'); });
           satirEl.classList.add('edg-aktif');
