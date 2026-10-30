@@ -508,7 +508,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     <div id="vdSgk" style="display:grid;gap:10px">
       <div class="vdsek" id="sgkSis" role="group" aria-label="SGK sistemi"><button class="chip" type="button" data-sis="isveren" aria-pressed="true"><span>Borç sorgulama</span><small>E-Borcu Yoktur belgesi</small></button><button class="chip" type="button" data-sis="ebildirge" aria-pressed="false"><span>Hizmet · Tahakkuk</span><small>PDF dökümleri</small></button></div>
       <p class="not" id="vdSgkAciklama" style="margin:0"></p>
-      <div class="kayit" id="sgkTesvik" style="border-left:4px solid var(--accent)"><b>Potansiyel teşvik sorgulama</b><p class="not" style="margin:4px 0 0">Personel işe almadan önce, adayın TC kimlik numarasıyla teşvik durumuna bakın. <b>Çalışma devam ediyor.</b></p></div>
+      <div class="kayit" id="sgkTesvik" style="border-left:4px solid var(--accent)"><b>Potansiyel teşvik sorgulama</b><p class="not" style="margin:4px 0 0">Personel işe almadan önce, adayın T.C. kimlik numarasıyla teşvik durumuna bakın. Bağlandıktan sonra “Teşvik sorgula” düğmesi açılır.</p></div>
       <p class="not" id="vdSgkNot" style="margin:0">Bağlanmak için mükellefin SGK bilgileri Ayarlar’da kayıtlı olmalı; her bağlanışta resimdeki güvenlik kodunu kendiniz, resimdeki gibi (harfler büyük) yazarsınız.</p>
       <p class="not" id="vdSgkEksik" hidden style="margin:0;color:var(--danger)">Bu mükellefin SGK bilgileri eksik: Ayarlar → mükellef → “SGK İşveren Sistemi bilgileri”.</p>
       <div id="vdSgkBaglan" style="display:grid;gap:8px">
@@ -522,7 +522,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         <div id="isvBorcsuz" hidden style="display:none;gap:6px;grid-template-columns:1fr">
           <button class="chip" type="button" data-isv="IAIIBYEB" data-eb="1">İhalelere katılmak için</button><button class="chip" type="button" data-isv="IAIOTGBYEB" data-eb="1">İhale dışı · Türkiye geneli</button><button class="chip" type="button" data-isv="IAIOTIBYEB" data-eb="1">İhale dışı · Tek işyeri</button><button class="chip" type="button" data-isv="IAKBYEB" data-eb="1">KOSGEB’e verilmek üzere</button><button class="chip" type="button" data-isv="IATBYEB" data-eb="1">TÜBİTAK’a verilmek üzere</button><button class="chip" type="button" data-isv="IAHBYEB" data-eb="1">Hazine ve Maliye Bakanlığı’na</button><button class="chip" type="button" data-isv="IASBYEB" data-eb="1">Sanayi ve Teknoloji Bakanlığı’na</button><button class="chip" type="button" data-isv="IAKGFBYEB" data-eb="1">Kredi Garanti Fonu’na</button><button class="chip" type="button" data-isv="IAKU" data-eb="1">Belge kontrol</button>
         </div>
-        <button class="k" type="button" id="isvTesvikGel" data-isv="TesvikPotansiyel" hidden style="justify-self:start">Potansiyel teşvik sayfasını oku (geliştirme)</button>
+        <div class="kayit" id="isvTesvik" style="display:grid;gap:8px"><b>Potansiyel teşvik sorgulama</b><p class="not" style="margin:0">Personel işe almadan önce, adayın T.C. kimlik numarasıyla hangi teşviklerden yararlanılabileceğine bakın. <b>Yeni:</b> ilk sorgularda sonucu SGK ekranıyla karşılaştırın.</p><button class="btn ikincil" type="button" id="tesvikAc">Teşvik sorgula</button><div id="tesvikForm" hidden style="display:grid;gap:8px"></div><div class="durum" id="tesvikDurum" role="status"></div><div id="tesvikSonuc" style="display:grid;gap:8px"></div></div>
         <div id="isvSonuc" style="display:grid;gap:8px"></div>
       </div>
       <div id="vdSgkBildirge" hidden style="display:grid;gap:8px">
@@ -2333,7 +2333,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("vdSgkAciklama").textContent = SGKAC[sis];
     $("vdSgkBaglan").style.display = b ? "none" : "grid"; $("vdSgkBagli").style.display = b ? "flex" : "none";
     $("vdSgkEksik").hidden = !eksik; $("vdSgkKodIste").disabled = eksik; if (b) $("vdSgkKodKutu").style.display = "none";
-    $("sgkTesvik").hidden = sis !== "isveren"; $("isvTesvikGel").hidden = ROL !== "ofis"; $("vdSgkIsv").hidden = !(sis === "isveren" && b); if (!(sis === "isveren" && b)) $("isvSonuc").innerHTML = "";
+    $("sgkTesvik").hidden = sis !== "isveren" || b; $("vdSgkIsv").hidden = !(sis === "isveren" && b); if (!(sis === "isveren" && b)) $("isvSonuc").innerHTML = "";
     var bilGoster = sis === "ebildirge" && b; $("vdSgkBildirge").hidden = !bilGoster; if (bilGoster && !VD.bilYuklendi) bilDonemleriYukle(); if (!b && sis === "ebildirge") { VD.bilYuklendi = false; $("bilSonuc").innerHTML = ""; }
     $("vdSgkBagli").querySelector("span").textContent = "✓ SGK’ya bağlı";
   }
@@ -2393,6 +2393,40 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if ((r.dugmeler || []).length) h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' + r.dugmeler.map(function(d){ return '<a class="btn ikincil" style="text-decoration:none;min-height:40px;padding:6px 14px" target="_blank" rel="noopener" href="/api/sgk/form?mid=' + encodeURIComponent(VD.mid) + '&i=' + d.i + '">' + esc(d.etiket) + '</a>'; }).join("") + '</div>';
     return h + '</div><details class="alt2"><summary>Teknik ayrıntı (sayfa beklediğiniz gibi değilse bunu gönderin)</summary><div class="icerik"><pre id="isvHam" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;margin:0;max-height:260px;overflow:auto">' + esc("Adres: " + r.adres + "\nFormlar: " + JSON.stringify(r.formlar || []) + "\nAlanlar: " + JSON.stringify(r.alanlar || []) + "\nTablolar: " + JSON.stringify(r.tablolar || []) + "\nBağlantılar: " + JSON.stringify(r.baglantilar || []) + "\nYönlendirme: " + JSON.stringify(r.yonlendirme || []) + "\nSatırlar: " + JSON.stringify(r.satirlar || []) + "\n\nTablo ham:\n" + (r.tabloHam || "") + (r.betikOzet ? "\n\nBetik özeti:\n" + r.betikOzet : "") + "\n\n" + (r.ham || "")) + '</pre><button class="k" type="button" id="isvKopya">Kopyala</button></div></details>';
   }
+  /* ---- potansiyel teşvik sorgulama (sayfanın kendi formu okunur ve aynı forma gönderilir) ---- */
+  var TESVIK = [];
+  function tesvikAlanHtml(a){
+    var et = esc(a.etiket || a.ad), o = "";
+    if (a.tur === "select") o = '<select data-tf="' + esc(a.ad) + '">' + a.secenekler.map(function(x){ return '<option value="' + esc(x.deger) + '">' + esc(x.etiket) + '</option>'; }).join("") + '</select>';
+    else if (a.tur === "radio" || a.tur === "checkbox") o = '<div style="display:grid;gap:6px">' + a.secenekler.map(function(x, i){ return '<label class="onay" style="align-items:flex-start"><input type="' + a.tur + '" name="tf_' + esc(a.ad) + '" data-tf="' + esc(a.ad) + '" value="' + esc(x.deger) + '"' + (i === 0 && a.tur === "radio" ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>' + esc(x.etiket) + '</span></label>'; }).join("") + '</div>';
+    else o = '<input type="text" data-tf="' + esc(a.ad) + '" value="' + esc(a.deger || "") + '" autocomplete="off"' + (a.ad === "tcKimlikNo" ? ' inputmode="numeric" maxlength="11"' : /kazanc/i.test(a.ad) ? ' inputmode="decimal"' : /tarih/i.test(a.ad) ? ' placeholder="gg/aa/yyyy"' : "") + '>';
+    return '<div data-tfw="' + esc(a.ad) + '"><label>' + et + '</label>' + o + '</div>';
+  }
+  function tesvikSonucHtml(r){
+    var h = r.uyari ? '<div class="durum ' + (/hata|uygun değil|bulunamad|geçersiz/i.test(r.uyari) ? "hata" : "ok") + '" style="display:block">' + esc(r.uyari) + '</div>' : "";
+    (r.tablolar || []).forEach(function(t){ t.satirlar.forEach(function(s2){ var bas = s2.find(function(x){ return x; }) || "Sonuç"; h += '<div class="kayit"><b>' + esc(bas) + '</b><div class="not" style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:4px 0 0;font-size:.82rem">' + s2.map(function(v, i){ return v && v !== bas ? '<span>' + esc(t.basliklar[i] || "") + '</span><span style="color:var(--fg);overflow-wrap:anywhere">' + esc(v) + '</span>' : ""; }).join("") + '</div></div>'; }); });
+    if (!(r.tablolar || []).length && !r.uyari) h += '<p class="not" style="margin:0">Sonuç tablosu bulunamadı.</p>';
+    return h + '<details class="alt2"><summary>SGK’nın yanıtı (metin)</summary><div class="icerik"><p class="not" style="margin:0;overflow-wrap:anywhere">' + esc(r.metin || "—") + '</p></div></details>';
+  }
+  $("vdSgkIsv").addEventListener("change", function(e){ if (e.target.getAttribute("data-tf") !== "egitimDurumu") return; var w = this.querySelector('[data-tfw="meslekKod"]'); if (w) w.hidden = /^[012]$/.test(e.target.value); });
+  $("vdSgkIsv").addEventListener("click", function(e){
+    if (e.target.id === "tesvikAc") {
+      var b = e.target, d = $("tesvikDurum"); b.disabled = true; d.className = "durum"; d.textContent = "Teşvik formu açılıyor…"; $("tesvikSonuc").innerHTML = "";
+      api("/api/sgk/tesvik", "POST", { mukellefId: VD.mid, sistem: "isveren", islem: "form" }).then(function(r){
+        TESVIK = r.alanlar; $("tesvikForm").hidden = false; d.textContent = "";
+        $("tesvikForm").innerHTML = r.alanlar.map(tesvikAlanHtml).join("") + '<button class="btn" type="button" id="tesvikGonder">Sorgula</button>' + (r.aciklama ? '<details class="alt2"><summary>SGK açıklamaları</summary><div class="icerik"><p class="not" style="margin:0;overflow-wrap:anywhere">' + esc(r.aciklama) + '</p></div></details>' : "");
+        var eg = $("tesvikForm").querySelector('[data-tf="egitimDurumu"]'); if (eg) eg.dispatchEvent(new Event("change", { bubbles: true }));
+      }, vdSgkHata).then(function(){ b.disabled = false; });
+      return;
+    }
+    if (e.target.id === "tesvikGonder") {
+      var g = e.target, dd = $("tesvikDurum"), alan = {}; $("tesvikForm").querySelectorAll("[data-tf]").forEach(function(x){ var ad = x.getAttribute("data-tf"); if ((x.type === "radio" || x.type === "checkbox") && !x.checked) return; alan[ad] = x.value; });
+      if (alan.tcKimlikNo && !/^\d{11}$/.test(alan.tcKimlikNo)) { dd.className = "durum hata"; dd.textContent = "T.C. kimlik numarası 11 haneli olmalı."; return; }
+      g.disabled = true; dd.className = "durum"; dd.textContent = "Sorgulanıyor…";
+      api("/api/sgk/tesvik", "POST", { mukellefId: VD.mid, sistem: "isveren", islem: "sorgu", alan: alan }).then(function(r){ dd.textContent = ""; $("tesvikSonuc").innerHTML = tesvikSonucHtml(r); }, vdSgkHata).then(function(){ g.disabled = false; });
+      return;
+    }
+  });
   $("vdSgkIsv").addEventListener("click", function(e){
     if (e.target.id === "isvKopya") { var t = $("isvHam").textContent; try { navigator.clipboard.writeText(t); e.target.textContent = "Kopyalandı"; } catch (x) { var rg = document.createRange(); rg.selectNodeContents($("isvHam")); var sl = getSelection(); sl.removeAllRanges(); sl.addRange(rg); } return; }
     if (e.target.id === "isvBorcsuzAc") { var ac = $("isvBorcsuz").hidden; $("isvBorcsuz").hidden = !ac; $("isvBorcsuz").style.display = ac ? "grid" : "none"; e.target.setAttribute("aria-expanded", ac ? "true" : "false"); return; }

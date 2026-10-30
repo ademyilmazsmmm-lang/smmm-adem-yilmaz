@@ -264,6 +264,69 @@ class Sgk {
     const metinSade = sade(icerik).replace(/^.*?Eski Prim Oran\s*:\s*[\d.,]*\s*/, "").slice(0, 1200);
     return { uyari, sonuc, ciftler, borc, borcToplam, isyeri, dugmeler: this.sonSayfa.formlar.map((f, i) => ({ i, etiket: f.etiket, onclick: hamMaskeli(f.onclick, 160) })), yonlendirme: (this.yon || []).map(jeton), satirlar, tabloHam, adres: adimlar.join(" -> "), baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || ""), metin: metinSade, hata: "", formlar: formCoz(icerik).map((f) => ({ eylem: jeton(f.eylem), yontem: f.yontem, gizli: Object.keys(f.gizli), secimler: f.secimler })), alanlar: formlar(icerik), tablolar: tablolar(icerik), baglantilar: baglantilar(icerik).slice(0, 25).map((x) => ({ tur: x.tur, metin: x.metin, href: jeton(x.href) })), ham: jeton(hamMaskeli(icerik.replace(/<style[\s\S]*?<\/style>/gi, ""), 4500)) };
   }
+  /* menü sayfasını (iframe kademeleriyle) getirir: { r, html, icerik } */
+  async isverenGetir(ad) {
+    this.yon = []; this.ref = null;
+    let r = await this.git("GET", this.s.kok + "/internetLink" + ad + ".action"), html = r.veri.toString("utf8");
+    if (/kullaniciIlkKontrollerGiris/.test(html)) throw this.oturumHata();
+    for (let n = 0; n < 2; n++) {
+      const i = html.search(/id\s*=\s*["']contentContainer["']/i), kap = i >= 0 ? html.slice(i) : html;
+      const f = /<iframe\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i.exec(kap); if (!f) break;
+      const u = new URL(coz(f[1]), r.url); if (!/(^|\.)sgk\.gov\.tr$/i.test(u.hostname)) break;
+      this.ref = r.url; try { r = await this.git("GET", u.href); } finally { this.ref = null; } html = r.veri.toString("utf8");
+      if (/kullaniciIlkKontrollerGiris/.test(html)) throw this.oturumHata();
+    }
+    const i2 = html.search(/id\s*=\s*["']contentContainer["']/i);
+    return { r, html, icerik: i2 >= 0 ? html.slice(i2) : html };
+  }
+  /* ---- Potansiyel teşvik sorgulama: sayfanın "sorgula" formu okunur (alan adları, seçenekler), kullanıcı doldurur, aynı forma gönderilir ---- */
+  async tesvikFormu() {
+    if (!this.girdi) throw this.oturumHata();
+    const { r, html } = await this.isverenGetir("TesvikPotansiyel"), temiz = html.replace(/<script[\s\S]*?<\/script>/gi, "");
+    for (const f of temiz.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)) {
+      const eylem = nitelik(f[1], "action"); if (!/sorgula/i.test(eylem)) continue;
+      const alanlar = [], gizli = {}, gor = new Map();
+      for (const tr of f[2].matchAll(/<tr\b[^>]*>((?:(?!<tr\b)[\s\S])*?)<\/tr>/gi)) {
+        const satir = tr[1], th0 = /<th\b[^>]*>([\s\S]*?)<\/th>/i.exec(satir), etiket = th0 ? sade(th0[1]).slice(0, 170) : sade(satir.replace(/<select[\s\S]*?<\/select>/gi, " ").replace(/<input\b[^>]*>/gi, " ").replace(/<button[\s\S]*?<\/button>/gi, " ")).slice(0, 170);
+        const girdiler = [...satir.matchAll(/<input\b([^>]*)>/gi)];
+        girdiler.forEach((m, i) => {
+          const ad = nitelik(m[1], "name"), tur = (nitelik(m[1], "type") || "text").toLowerCase(); if (!ad) return;
+          if (tur === "hidden") { gizli[ad] = coz(nitelik(m[1], "value")); return; }
+          if (tur === "submit" || tur === "button" || tur === "reset" || tur === "image") return;
+          const bit = m.index + m[0].length, son = i + 1 < girdiler.length ? girdiler[i + 1].index : satir.length, yan = sade(satir.slice(bit, Math.min(son, bit + 400)).replace(/<select[\s\S]*?<\/select>/gi, " "));
+          if (tur === "radio" || tur === "checkbox") { let a = gor.get(ad); if (!a) { a = { ad, tur, etiket, secenekler: [] }; gor.set(ad, a); alanlar.push(a); } a.secenekler.push({ deger: coz(nitelik(m[1], "value")), etiket: yan.slice(0, 200) || coz(nitelik(m[1], "value")) }); return; }
+          if (!gor.has(ad)) { const a = { ad, tur: "text", etiket, deger: coz(nitelik(m[1], "value")) }; gor.set(ad, a); alanlar.push(a); }
+        });
+        for (const sl of satir.matchAll(/<select\b([^>]*)>([\s\S]*?)<\/select>/gi)) {
+          const ad = nitelik(sl[1], "name"); if (!ad || gor.has(ad)) continue;
+          const a = { ad, tur: "select", etiket, secenekler: [...sl[2].matchAll(/<option\b([^>]*)>([\s\S]*?)<\/option>/gi)].map((x) => ({ deger: coz(nitelik(x[1], "value")), etiket: sade(x[2]) })) };
+          gor.set(ad, a); alanlar.push(a);
+        }
+      }
+      this.sonForm = { eylem, gizli, url: r.url, izinli: new Set(alanlar.map((a) => a.ad)), alanlar };
+      const ai = sade(temiz.slice(Math.max(0, temiz.search(/AÇIKLAMALAR/))));
+      return { alanlar, aciklama: /AÇIKLAMALAR/.test(temiz) ? ai.slice(0, 2600) : "" };
+    }
+    throw new Error("Teşvik sorgu formu sayfada bulunamadı.");
+  }
+  async tesvikSorgula(deger) {
+    if (!this.girdi) throw this.oturumHata();
+    const f = this.sonForm; if (!f) throw new Error("Önce teşvik formunu açın.");
+    const g = Object.assign({}, f.gizli);
+    for (const a of f.alanlar) { const v = deger && deger[a.ad]; if (v !== undefined && v !== null && String(v) !== "" && f.izinli.has(a.ad)) g[a.ad] = String(v).slice(0, 80); }
+    this.ref = f.url; let r; try { r = await this.git("POST", new URL(f.eylem, f.url).href, g); } finally { this.ref = null; }
+    const html = r.veri.toString("utf8"); if (/kullaniciIlkKontrollerGiris/.test(html)) throw this.oturumHata();
+    const temiz = html.replace(/<script[\s\S]*?<\/script>/gi, ""), tablolar = []; let akt = null;
+    for (const tr of temiz.matchAll(/<tr\b[^>]*>((?:(?!<tr\b)[\s\S])*?)<\/tr>/gi)) {
+      if (/<(input|select|textarea)\b/i.test(tr[1])) continue;
+      const ths = [...tr[1].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((m) => sade(m[1])), tds = [...tr[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => sade(m[1]));
+      if (ths.length >= 2 && !tds.length) { akt = { basliklar: ths, satirlar: [] }; tablolar.push(akt); continue; }
+      if (akt && tds.length >= 2 && akt.satirlar.length < 60 && tds.some((x) => x)) akt.satirlar.push(tds);
+    }
+    const i = temiz.search(/id\s*=\s*["']contentContainer["']/i), metin = sade(i >= 0 ? temiz.slice(i) : temiz).replace(/^.*?Eski Prim Oran\s*:\s*[\d.,]*\s*/, "");
+    const uyari = sade((/id\s*=\s*["']genelUyariCenterTag["'][^>]*>([\s\S]*?)<\/center>/i.exec(temiz) || [])[1] || "") || hataMetni(html);
+    return { tablolar: tablolar.filter((t) => t.satirlar.length), uyari, metin: metin.slice(0, 2200) };
+  }
   /* son açılan İşveren sayfasındaki bir düğmeyi (ör. "Pdf Döküm Al") sayfanın kendi formu gibi gönderir */
   async formGonder(i) {
     if (!this.girdi) throw this.oturumHata();
@@ -342,6 +405,8 @@ class SahteSgk {
   async tani(derin) { if (!this.girdi) { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; throw e; } return { baslik: "T.C. Sosyal Güvenlik Kurumu", adres: "https://" + (SISTEMLER[this.sistem] || SISTEMLER.isveren).sunucu + (SISTEMLER[this.sistem] || SISTEMLER.isveren).kok, zincir: [], baslatici: [], baglantilar: [{ tur: "a", metin: "DÖNEM BORÇ GÖRÜNTÜLEME", href: "/IsverenSistemi/ornek/donemBorc.action" }, { tur: "a", metin: "İHALELERE KATILMAK İÇİN", href: "/IsverenSistemi/ornek/ihale.action" }, { tur: "a", metin: "ÇIKIŞ", href: "/IsverenSistemi/cikis.action" }], cerceveler: [], sayfalar: derin ? [{ metin: "Onaylanmış Belgeler", adres: "/EBildirgeV2/ornek/onayli.action", formlar: [{ eylem: "/EBildirgeV2/ornek/liste.action", yontem: "post", alanlar: ["bas_donem:select[2026/09|2026/08]", "bit_donem:select[2026/09|2026/08]", "düğme:Bilgileri Getir"] }], tablolar: [["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Toplam Çalışan Sayısı"]], baglantilar: [] }] : undefined }; }
   async cikis() { this.girdi = false; }
   async formGonder(i) { if (!this.girdi) throw this.oturumHata2(); return this.bildirgeBelge(0, 0, 0); }
+  async tesvikFormu() { if (!this.girdi) throw this.oturumHata2(); this.mf = true; return { alanlar: [{ ad: "tcKimlikNo", tur: "text", etiket: "T.C.Kimlik Numarası", deger: "" }, { ad: "kazanc", tur: "text", etiket: "Sigortalının Kazanç Bilgisi", deger: "" }, { ad: "egitimDurumu", tur: "select", etiket: "Eğitim Durumu", secenekler: [{ deger: "0", etiket: "SEÇİNİZ" }, { deger: "5", etiket: "Ortaöğretim" }, { deger: "7", etiket: "Üniversite" }] }, { ad: "meslekKod", tur: "text", etiket: "Meslek Kodu", deger: "" }, { ad: "sigortaliBasvuruTarihi", tur: "text", etiket: "Başvuru tarihi", deger: "" }, { ad: "sigortaliDurum", tur: "radio", etiket: "Sigortalının durumu", secenekler: [{ deger: "1", etiket: "Hiçbiri" }, { deger: "2", etiket: "İşsizlik ödeneği alıyor" }] }], aciklama: "Örnek açıklama." }; }
+  async tesvikSorgula(d) { if (!this.mf) throw new Error("Önce teşvik formunu açın."); if (!d || !d.tcKimlikNo) return { tablolar: [], uyari: "T.C. Kimlik No boş.", metin: "" }; return { tablolar: [{ basliklar: ["Kanun No", "Teşvik süresi", "Aylık tutar"], satirlar: [["06111", "12 ay", "2.500,00"], ["05510", "5 puan", "1.100,00"]] }], uyari: "", metin: "Örnek sonuç" }; }
   async isverenSayfa(ad) { if (!this.girdi) throw this.oturumHata2(); return { uyari: ad === "IAKU" ? "HATA E-Borcu Yoktur Aktivasyonu Bulunmamaktadır." : "", ciftler: /^IA/.test(ad) ? [{ k: "TC Kimlik No", v: "11111111110" }] : [], borcToplam: ad === "DonemBorcGoruntuleme" ? 14065.45 : null, borc: ad === "DonemBorcGoruntuleme" ? { basliklar: ["Dönem", "Prim", "GZ", "Toplam BORÇ", "Toplam GZ", "TOPLAM"], satirlar: [["2026/08", "11.808,23", "2.257,22", "11.808,23", "2.257,22", "14.065,45"], ["TOPLAM", "11.808,23", "2.257,22", "11.808,23", "2.257,22", "14.065,45"]] } : null, isyeri: { sicil: "2 1234 01 01 1234567 034 12-34 000 000", unvan: "ÖRNEK NAKLİYAT LTD. ŞTİ." }, dugmeler: [{ i: 0, etiket: "Pdf Döküm Al" }], adres: "/IsverenSistemi/internetLink" + ad + ".action", baslik: "Örnek sayfa " + ad, metin: "Örnek içerik", hata: "", formlar: [{ eylem: "/IsverenSistemi/x.action", yontem: "post", gizli: ["token"], secimler: { donem: [{ deger: "1", etiket: "2026/09" }] } }], alanlar: [{ eylem: "/x", yontem: "post", alanlar: ["donem:select[1]"] }], tablolar: [["Dönem", "Borç"]], ham: "<form>…</form>" }; }
   async bildirgeDonemler() { if (!this.girdi) throw this.oturumHata2(); return { donemler: [{ deger: "1", etiket: "2026/09" }, { deger: "2", etiket: "2026/08" }, { deger: "3", etiket: "2026/07" }] }; }
   async bildirgeListe(b, e) { if (!this.girdi) throw this.oturumHata2(); const s = [{ n: 0, hucreler: ["2026/09", "2026/09", "01", "ASIL", "05510", "1", "4", "4.404,00 TL", "", "", ""].map((m, k) => ({ k, metin: m, belgeler: k >= 8 ? [{ j: 0, baslik: "Görüntüle", var: true }, { j: 1, baslik: "İndir", var: true }] : [] })) }]; return { basliklar: ["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Belge Mahiyeti", "Kanun No", "Toplam Çalışan Sayısı", "Toplam Gün Sayısı", "Toplam Pek Tutar", "Tahakkuk", "Hizmet", "S.Hizmet"], satirlar: s, hamMetin: "", onclickOrnek: [] }; }

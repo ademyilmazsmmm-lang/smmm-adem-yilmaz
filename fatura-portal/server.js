@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-134";
+const SURUM = "2026-10-31-135";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -540,6 +540,16 @@ async function api(req, res, yol) {
       const x = sgkler.get(an); if (!x || !x.girdi) { const e = new Error("Önce SGK'ya bağlanın (güvenlik kodu)."); e.girisGerek = true; throw e; }
       sgkZamanla(an);
       if (ne === "tani") return cevap(res, 200, await x.tani(g.derin === true));
+      if (sis === "isveren" && ne === "tesvik") {
+        if (g.islem === "form") { sgkKontrol(an, "tf"); return cevap(res, 200, await x.tesvikFormu()); }
+        if (g.islem === "sorgu") {
+          sgkKontrol(an, "ts");
+          const d = g.alan && typeof g.alan === "object" ? g.alan : {}, tc = String(d.tcKimlikNo || "").replace(/\D/g, "");
+          if (tc && !/^\d{11}$/.test(tc)) return cevap(res, 400, { hata: "T.C. kimlik numarası 11 haneli olmalı." });
+          const t = await x.tesvikSorgula(d); gunluk(o, mid, "SGK potansiyel teşvik sorgusu", ""); return cevap(res, 200, t);
+        }
+        return cevap(res, 400, { hata: "Geçersiz işlem." });
+      }
       if (sis === "isveren" && ne === "sayfa") { const ad = String(g.ad || ""); if (!ISVEREN_SAYFALAR.has(ad)) return cevap(res, 400, { hata: "Bu sayfa desteklenmiyor." }); const t = await x.isverenSayfa(ad); gunluk(o, mid, "SGK İşveren sayfası görüntülendi", ad);
         if (ad === "DonemBorcGoruntuleme" && t.borcToplam != null) { (m.son = m.son || {}).sgkBorc = { toplam: t.borcToplam, zaman: new Date().toISOString() }; depo.kaydet(mid); }
         return cevap(res, 200, t); }
