@@ -76,6 +76,11 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6}
 .vdsek .chip{min-height:46px;padding:8px 10px;font-size:.95rem;font-weight:650;border:1.5px solid var(--line2);background:var(--field);color:var(--fg);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:normal;text-align:center;line-height:1.2}
 .vdsek .chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);box-shadow:0 2px 8px rgba(0,0,0,.18)}
 .vdsek .chip:last-child:nth-child(odd){grid-column:1/-1}
+#vdSgk,#vdSgkBaglan,#vdSgkIsv,#vdSgkBildirge{grid-template-columns:minmax(0,1fr)}
+#vdSgk>*{min-width:0}
+#vdSgkKodKutu{flex-wrap:wrap}
+#vdSgkKodResim{max-width:100%;height:auto!important;max-height:56px}
+#vdSgkKodKutu input{flex:1 1 6em;min-width:0}
 #sgkSis .chip{flex-direction:column;gap:2px;line-height:1.2;text-align:center;min-height:54px;font-size:.92rem}
 #sgkSis .chip small{font-size:.74rem;font-weight:500;opacity:.85}
 @media (min-width:640px){.vdsek{grid-template-columns:repeat(5,1fr)}.vdsek .chip:last-child:nth-child(odd){grid-column:auto}}
