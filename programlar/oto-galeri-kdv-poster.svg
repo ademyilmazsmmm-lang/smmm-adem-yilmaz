@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="ogkBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#081222"/>
+      <stop offset="1" stop-color="#1a3052"/>
+    </linearGradient>
+    <linearGradient id="ogkGold2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#b8943f"/>
+      <stop offset="1" stop-color="#f0dfa8"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#ogkBg)"/>
+  <g opacity="0.08">
+    <circle cx="1060" cy="110" r="220" fill="#d4af5a"/>
+    <circle cx="140" cy="560" r="170" fill="#d4af5a"/>
+  </g>
+
+  <!-- vehicle badge -->
+  <g transform="translate(150,180)">
+    <circle cx="0" cy="0" r="92" fill="#081222"/>
+    <circle cx="0" cy="0" r="92" fill="none" stroke="url(#ogkGold2)" stroke-width="4"/>
+    <g transform="translate(0,-4)">
+      <path d="M -50,16 L -42,-10 C -39,-18 -33,-23 -23,-23 L 23,-23 C 33,-23 39,-18 42,-10 L 50,16 L 50,32 C 50,36.5 46,40 41,40 L 36,40 C 31,40 28,36.5 28,32 L 28,27 L -28,27 L -28,32 C -28,36.5 -31,40 -36,40 L -41,40 C -46,40 -50,36.5 -50,32 Z"
+            fill="#ffffff" stroke="#d4af5a" stroke-width="2.4"/>
+      <circle cx="-31" cy="31" r="10" fill="#1a3052" stroke="#d4af5a" stroke-width="2"/>
+      <circle cx="31" cy="31" r="10" fill="#1a3052" stroke="#d4af5a" stroke-width="2"/>
+      <path d="M -37,-8 L -28,-23 L 28,-23 L 37,-8 Z" fill="#9fb3cf" opacity="0.55"/>
+    </g>
+    <g transform="translate(66,-56)">
+      <circle cx="0" cy="0" r="26" fill="#d4af5a"/>
+      <text x="0" y="8" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="800" fill="#081222">%</text>
+    </g>
+  </g>
+
+  <text x="300" y="195" font-family="Georgia, 'Times New Roman', serif" font-size="52" font-weight="700" fill="#ffffff">2. El Araç KDV Hesaplama</text>
+  <rect x="302" y="222" width="90" height="4" rx="2" fill="url(#ogkGold2)"/>
+  <text x="300" y="268" font-family="Arial, 'Segoe UI', sans-serif" font-size="24" fill="#d7deea">Oto galericiler için özel matrah ve tam bedel hesaplama</text>
+
+  <g font-family="Arial, 'Segoe UI', sans-serif" font-size="21" fill="#f0dfa8">
+    <g transform="translate(300,340)">
+      <circle cx="0" cy="0" r="6" fill="#d4af5a"/>
+      <text x="18" y="6">Özel matrah ve tam bedel esasını birlikte hesaplar</text>
+    </g>
+    <g transform="translate(300,384)">
+      <circle cx="0" cy="0" r="6" fill="#d4af5a"/>
+      <text x="18" y="6">Araç cinsine göre KDV oranını otomatik uygular</text>
+    </g>
+    <g transform="translate(300,428)">
+      <circle cx="0" cy="0" r="6" fill="#d4af5a"/>
+      <text x="18" y="6">Hesaplama sonucunu fatura görünümünde hazırlar</text>
+    </g>
+  </g>
+
+  <text x="300" y="560" font-family="Arial, sans-serif" font-size="17" fill="#8a97ab">Tarayıcınızda çalışır, kurulum gerektirmez.</text>
+</svg>
