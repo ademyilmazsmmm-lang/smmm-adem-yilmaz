@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-127";
+const SURUM = "2026-10-31-128";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -94,7 +94,7 @@ const BELGE_TIPLERI = [["pdf", "application/pdf", (b) => b.slice(0, 4).toString(
   ["doc", "application/msword", (b) => b.slice(0, 4).toString("hex") === "d0cf11e0"], ["xls", "application/vnd.ms-excel", (b) => b.slice(0, 4).toString("hex") === "d0cf11e0"]];
 const TALEP_TURLERI = ["Vergi levhası lazım", "Belge / yazı lazım", "Çalışan giriş-çıkış", "Fatura ile ilgili", "Beyanname sorusu", "Diğer"];
 const OFIS_EPOSTA = String(process.env.OFIS_EPOSTA || "").trim();
-const ISVEREN_SAYFALAR = new Set(["DonemBorcGoruntuleme", "CariDonemBorc", "Mufredat", "IAIIBYEB", "IAIOTGBYEB", "IAIOTIBYEB", "IAKBYEB", "IATBYEB", "IAHBYEB", "IASBYEB", "IAKGFBYEB", "IAKU"]);
+const ISVEREN_SAYFALAR = new Set(["DonemBorcGoruntuleme", "CariDonemBorc", "Mufredat", "IAIIBYEB", "IAIOTGBYEB", "IAIOTIBYEB", "IAKBYEB", "IATBYEB", "IAHBYEB", "IASBYEB", "IAKGFBYEB", "IAKU", "TesvikPotansiyel"]);
 function temizMukellef(o, id) {
   const v = depo.mukellef(o, id).veri;
   return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, earsiv: v.earsiv !== false, sgk: { kullanici: (v.sgk && v.sgk.kullanici) || "", isyeriKod: (v.sgk && v.sgk.isyeriKod) || "", sistemVar: !!(v.sgk && v.sgk.sistemSifre), isyeriVar: !!(v.sgk && v.sgk.isyeriSifre) }, profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: o.rol === "mukellef" && !(v.kabul && v.kabul.surum === KABUL_SURUM), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir

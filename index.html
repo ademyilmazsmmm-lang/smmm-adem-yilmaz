@@ -900,6 +900,31 @@
 
 
 
+
+    /* ── Mükellef Portalı tanıtım bandı ── */
+    @media (min-width: 1180px) { .nav a { white-space: nowrap; } .nav a:not(.nav-cta) { padding-left: 10px; padding-right: 10px; } }
+    @media (min-width: 961px) and (max-width: 1179px) { .nav a.nav-portal { display: none; } }
+    .nav a.nav-portal { border: 1px solid rgba(212, 175, 90, 0.7); color: var(--gold-light); padding: 7px 14px; border-radius: 99px; font-weight: 600; margin-left: 4px; }
+    .nav a.nav-portal::after { display: none; }
+    .nav a.nav-portal:hover { background: rgba(212, 175, 90, 0.14); color: var(--gold-light); }
+    .portal-band { background: radial-gradient(1000px 520px at 85% 15%, #26446f 0%, var(--navy-mid) 45%, var(--navy) 100%); color: #fff; padding: 84px 0; position: relative; overflow: hidden; }
+    .portal-grid { display: grid; grid-template-columns: 1.02fr 1fr; gap: 48px; align-items: center; }
+    .portal-etiketler { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+    .portal-etiket { background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); color: var(--navy); font-weight: 800; font-size: 0.82rem; letter-spacing: 0.06em; padding: 7px 16px; border-radius: 99px; }
+    .portal-etiket.ic { background: transparent; color: var(--gold-light); border: 1.5px solid var(--gold); }
+    .portal-band h2 { font-size: clamp(2.1rem, 4.4vw, 3.1rem); line-height: 1.08; margin: 0 0 14px; letter-spacing: -0.02em; color: #fff; }
+    .portal-band h2 span { color: var(--gold-light); }
+    .portal-lead { font-size: 1.12rem; color: #d7e0ee; margin: 0 0 22px; max-width: 520px; line-height: 1.55; }
+    .portal-liste { list-style: none; margin: 0 0 26px; padding: 0; display: grid; gap: 12px; }
+    .portal-liste li { display: grid; grid-template-columns: 26px 1fr; gap: 12px; align-items: start; color: #eef2f8; font-size: 0.98rem; line-height: 1.45; }
+    .portal-liste li::before { content: "✓"; color: var(--gold); font-weight: 800; font-size: 1.05rem; line-height: 1.3; }
+    .portal-liste b { color: #fff; }
+    .portal-eylem { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+    .portal-not { font-size: 0.86rem; color: #aebbd0; margin: 0; max-width: 520px; line-height: 1.5; }
+    .portal-not a { color: var(--gold-light); text-decoration: underline; }
+    .portal-gorsel { display: block; width: 100%; height: auto; border-radius: 18px; box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(212, 175, 90, 0.35); }
+    @media (max-width: 900px) { .portal-band { padding: 60px 0; } .portal-grid { grid-template-columns: 1fr; gap: 32px; } .portal-gorsel-kutu { order: -1; } }
+
     /* ── SAĞ SIDEBAR (İhracat + Takvim + Duyuru) ── */
 
     .sidebar-stack { display: flex; flex-direction: column; gap: 24px; position: sticky; top: 100px; }
@@ -1808,6 +1833,8 @@
 
         <a href="#sss">S.S.S.</a>
 
+        <a href="https://portal.smmmyilmaz.com/" class="nav-portal" rel="noopener">Mükellef Girişi</a>
+
         <a href="#iletisim" class="nav-cta">İletişim</a>
 
       </nav>
@@ -2009,6 +2036,62 @@
     </div>
 
   </div>
+
+
+
+  <section class="portal-band" id="mukellef-portali" aria-labelledby="portal-baslik">
+
+    <div class="container portal-grid">
+
+      <div>
+
+        <div class="portal-etiketler"><span class="portal-etiket">ÜCRETSİZ</span><span class="portal-etiket ic">SADECE MÜKELLEFLERİMİZE ÖZEL</span></div>
+
+        <h2 id="portal-baslik">Mükellef <span>Portalı</span></h2>
+
+        <p class="portal-lead">Fatura, vergi dairesi ve SGK işlemleriniz <strong>tek ekranda</strong>. Telefonunuzdan, kurulum yapmadan, ofisimize uğramadan.</p>
+
+        <ul class="portal-liste">
+
+          <li><span><b>e-Arşiv fatura:</b> hazırlayın, SMS onayıyla kesin, PDF’yi WhatsApp veya e-postayla gönderin; tahsilatı takip edin.</span></li>
+
+          <li><span><b>Vergi dairesi:</b> borç durumu, tebligatlar, “borcu yoktur” yazısı, e-Vergi levhası ve tahakkuk fişleri.</span></li>
+
+          <li><span><b>SGK:</b> borç sorgulama, E-Borcu Yoktur belgesi, hizmet ve tahakkuk dökümleri.</span></li>
+
+          <li><span><b>Aylık KDV durumu:</b> önceki ve cari ay için tahmini KDV raporu.</span></li>
+
+          <li><span><b>Belgelerim ve takvim:</b> imza sirküleri, gazete, faaliyet belgesi elinizin altında; yaklaşan vergi ve SGK tarihleri hatırlatılır.</span></li>
+
+          <li><span><b>Ofise tek dokunuşla talep:</b> “vergi levhası lazım” gibi isteklerinizi yazın, yapılınca portalda görün.</span></li>
+
+        </ul>
+
+        <div class="portal-eylem">
+
+          <a href="https://portal.smmmyilmaz.com/" class="btn btn-primary btn-gold" rel="noopener">Portala giriş yap
+
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+
+          </a>
+
+          <a href="programlar.html" class="btn btn-outline">Tüm özellikler</a>
+
+        </div>
+
+        <p class="portal-not">Bilgileriniz şifreli saklanır; vergi dairesi ve SGK girişlerinde güvenlik kodunu siz girersiniz. Giriş bilgileri mükelleflerimize özeldir; hesabınız için <a href="#iletisim">bizimle iletişime geçin</a>.</p>
+
+      </div>
+
+      <div class="portal-gorsel-kutu">
+
+        <a href="https://portal.smmmyilmaz.com/" rel="noopener" aria-label="Mükellef Portalı’na giriş"><img class="portal-gorsel" src="programlar/mukellef-portali-tanitim.jpg" alt="Mükellef Portalı telefon ekranları: vergi borç durumu, e-Vergi levhası ve SGK borç sorgulama" width="1200" height="630" loading="lazy"></a>
+
+      </div>
+
+    </div>
+
+  </section>
 
 
 

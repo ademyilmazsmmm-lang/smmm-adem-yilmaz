@@ -510,6 +510,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         <div id="isvBorcsuz" hidden style="display:none;gap:6px;grid-template-columns:1fr">
           <button class="chip" type="button" data-isv="IAIIBYEB" data-eb="1">İhalelere katılmak için</button><button class="chip" type="button" data-isv="IAIOTGBYEB" data-eb="1">İhale dışı · Türkiye geneli</button><button class="chip" type="button" data-isv="IAIOTIBYEB" data-eb="1">İhale dışı · Tek işyeri</button><button class="chip" type="button" data-isv="IAKBYEB" data-eb="1">KOSGEB’e verilmek üzere</button><button class="chip" type="button" data-isv="IATBYEB" data-eb="1">TÜBİTAK’a verilmek üzere</button><button class="chip" type="button" data-isv="IAHBYEB" data-eb="1">Hazine ve Maliye Bakanlığı’na</button><button class="chip" type="button" data-isv="IASBYEB" data-eb="1">Sanayi ve Teknoloji Bakanlığı’na</button><button class="chip" type="button" data-isv="IAKGFBYEB" data-eb="1">Kredi Garanti Fonu’na</button><button class="chip" type="button" data-isv="IAKU" data-eb="1">Belge kontrol</button>
         </div>
+        <div class="kayit"><b>Potansiyel teşvik sorgulama</b><p class="not" style="margin:4px 0 0">Personel işe almadan önce, adayın TC kimlik numarasıyla teşvik durumuna bakın. <b>Çalışma devam ediyor.</b></p><button class="btn ikincil" type="button" id="isvTesvikGel" data-isv="TesvikPotansiyel" hidden style="margin-top:8px">Sayfayı oku (geliştirme için)</button></div>
         <div id="isvSonuc" style="display:grid;gap:8px"></div>
       </div>
       <div id="vdSgkBildirge" hidden style="display:grid;gap:8px">
@@ -2244,7 +2245,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("vdSgkAciklama").textContent = SGKAC[sis];
     $("vdSgkBaglan").style.display = b ? "none" : "grid"; $("vdSgkBagli").style.display = b ? "flex" : "none";
     $("vdSgkEksik").hidden = !eksik; $("vdSgkKodIste").disabled = eksik; if (b) $("vdSgkKodKutu").style.display = "none";
-    $("vdSgkIsv").hidden = !(sis === "isveren" && b); if (!(sis === "isveren" && b)) $("isvSonuc").innerHTML = "";
+    $("isvTesvikGel").hidden = ROL !== "ofis"; $("vdSgkIsv").hidden = !(sis === "isveren" && b); if (!(sis === "isveren" && b)) $("isvSonuc").innerHTML = "";
     var bilGoster = sis === "ebildirge" && b; $("vdSgkBildirge").hidden = !bilGoster; if (bilGoster && !VD.bilYuklendi) bilDonemleriYukle(); if (!b && sis === "ebildirge") { VD.bilYuklendi = false; $("bilSonuc").innerHTML = ""; }
     $("vdSgkBagli").querySelector("span").textContent = "✓ SGK’ya bağlı";
   }
