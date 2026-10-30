@@ -332,7 +332,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       <div><label for="yAdres">Adres (faturaya yazılır)</label><input id="yAdres" autocomplete="off" placeholder="Mahalle, cadde, no, ilçe/il"></div>
       <div><label for="yVd">Vergi dairesi</label><input id="yVd" autocomplete="off"></div>
       <div><label for="yEposta">E-posta (faturayı göndermek için, isteğe bağlı)</label><input id="yEposta" type="email" inputmode="email" autocapitalize="off" autocomplete="off" placeholder="musteri@ornek.com"></div>
-      <label id="yEpostaSatir" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" id="yEpostaGonder" checked style="margin-top:3px;flex:none"><span>Onaylanınca faturayı bu adrese PDF olarak e-postayla gönder</span></label>
+      <label id="yEpostaSatir" class="onay" style="align-items:flex-start;font-weight:500"><input type="checkbox" id="yEpostaGonder" checked style="margin-top:3px;flex:none"><span>Onaylanınca faturayı bu adrese PDF olarak e-postayla gönder</span></label>
       <p class="not" id="yEpostaNot" hidden style="margin:0"></p>
       <button class="btn ikincil" type="button" id="aliciKaydet">Alıcıyı kaydet / güncelle</button>
     </div>
@@ -1754,7 +1754,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     return '<details class="grup" data-ak="g:yd"' + ac("g:yd") + '><summary>Yedek</summary><div class="icerik">' +
       '<a href="/api/yedek" download id="yedekIndir" class="btn ikincil" style="text-decoration:none;text-align:center">Tam yedeği indir (tüm mükellefler)</a>' +
       (MAILHAZIR ? '<div style="display:grid;gap:8px"><label for="yedekAdres" style="margin:0">Yedeği e-postayla gönder</label><input id="yedekAdres" type="email" inputmode="email" autocapitalize="off" autocomplete="off" placeholder="adres@ornek.com" value="' + esc(yedekAdresAl()) + '"><button class="btn ikincil" type="button" id="yedekMail">Yedeği e-postayla gönder</button>' +
-        '<label style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" id="yedekOtoMail" style="margin-top:3px;flex:none"' + (yedekOtoAl() ? " checked" : "") + '><span>“Tam yedeği indir”e basınca bu adrese e-postayla da gönder</span></label><div class="durum" id="yedekMailDurum" role="status"></div></div>' : '<p class="not">Yedeği e-postayla göndermek için sunucuda e-posta gönderimi kurulu olmalı.</p>') +
+        '<label class="onay" style="align-items:flex-start;font-weight:500"><input type="checkbox" id="yedekOtoMail" style="margin-top:3px;flex:none"' + (yedekOtoAl() ? " checked" : "") + '><span>“Tam yedeği indir”e basınca bu adrese e-postayla da gönder</span></label><div class="durum" id="yedekMailDurum" role="status"></div></div>' : '<p class="not">Yedeği e-postayla göndermek için sunucuda e-posta gönderimi kurulu olmalı.</p>') +
       '<p class="not" id="yedekDurum"></p><p class="not" id="yansiDurum"></p>' +
       '<p class="not">Yedek dosyası şifrelidir (ofis şifrenizle açılır); yeni bir sunucuya taşımak için de kullanılır. Bu cihazda da otomatik şifreli bir kopya tutulur. Kalıcı disk (ücretli sunucu) varsa kayıtlar zaten silinmez; yine de ara sıra yedek indirin.</p></div></details>';
   }
