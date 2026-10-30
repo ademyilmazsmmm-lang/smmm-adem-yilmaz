@@ -76,6 +76,8 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6}
 .vdsek .chip{min-height:46px;padding:8px 10px;font-size:.95rem;font-weight:650;border:1.5px solid var(--line2);background:var(--field);color:var(--fg);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:normal;text-align:center;line-height:1.2}
 .vdsek .chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);box-shadow:0 2px 8px rgba(0,0,0,.18)}
 .vdsek .chip:last-child:nth-child(odd){grid-column:1/-1}
+#sgkSis .chip{flex-direction:column;gap:2px;line-height:1.2;text-align:center;min-height:54px;font-size:.92rem}
+#sgkSis .chip small{font-size:.74rem;font-weight:500;opacity:.85}
 @media (min-width:640px){.vdsek{grid-template-columns:repeat(5,1fr)}.vdsek .chip:last-child:nth-child(odd){grid-column:auto}}
 
 /* yapı */
@@ -458,7 +460,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <div class="card" id="sgkKart">
     <div class="kartbas"><h2>SGK</h2><small id="sgkMuk"></small></div>
     <div id="vdSgk" style="display:grid;gap:10px">
-      <div class="vdsek" id="sgkSis" role="group" aria-label="SGK sistemi"><button class="chip" type="button" data-sis="isveren" aria-pressed="true">Borç sorgulama / E-Borcu Yoktur</button><button class="chip" type="button" data-sis="ebildirge" aria-pressed="false">Hizmet ve tahakkuk dökümü</button></div>
+      <div class="vdsek" id="sgkSis" role="group" aria-label="SGK sistemi"><button class="chip" type="button" data-sis="isveren" aria-pressed="true"><span>Borç sorgulama</span><small>E-Borcu Yoktur belgesi</small></button><button class="chip" type="button" data-sis="ebildirge" aria-pressed="false"><span>Hizmet · Tahakkuk</span><small>PDF dökümleri</small></button></div>
       <p class="not" id="vdSgkAciklama" style="margin:0"></p>
       <p class="not" id="vdSgkNot" style="margin:0">Bağlanmak için mükellefin SGK bilgileri Ayarlar’da kayıtlı olmalı; her bağlanışta resimdeki güvenlik kodunu kendiniz, resimdeki gibi (harfler büyük) yazarsınız.</p>
       <p class="not" id="vdSgkEksik" hidden style="margin:0;color:var(--danger)">Bu mükellefin SGK bilgileri eksik: Ayarlar → mükellef → “SGK İşveren Sistemi bilgileri”.</p>
@@ -468,7 +470,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       </div>
       <div id="vdSgkBagli" style="display:none;justify-content:space-between;align-items:center;gap:8px"><span class="not" style="margin:0">✓ SGK’ya bağlı</span><button class="k" type="button" id="vdSgkKapat">Kapat</button></div>
       <div id="vdSgkIsv" hidden style="display:grid;gap:8px">
-        <div class="satir"><button class="btn" type="button" data-isv="DonemBorcGoruntuleme">Dönem borç görüntüleme</button><button class="btn ikincil" type="button" data-isv="CariDonemBorc">Cari dönem borç</button></div>
+        <div class="satir"><button class="btn" type="button" data-isv="DonemBorcGoruntuleme">Dönem borcu</button><button class="btn ikincil" type="button" data-isv="CariDonemBorc">Cari borç</button></div>
         <button class="btn ikincil" type="button" id="isvBorcsuzAc" aria-expanded="false">E-Borcu Yoktur belgesi</button>
         <div id="isvBorcsuz" hidden style="display:none;gap:6px;grid-template-columns:1fr">
           <button class="chip" type="button" data-isv="IAIIBYEB" data-eb="1">İhalelere katılmak için</button><button class="chip" type="button" data-isv="IAIOTGBYEB" data-eb="1">İhale dışı · Türkiye geneli</button><button class="chip" type="button" data-isv="IAIOTIBYEB" data-eb="1">İhale dışı · Tek işyeri</button><button class="chip" type="button" data-isv="IAKBYEB" data-eb="1">KOSGEB’e verilmek üzere</button><button class="chip" type="button" data-isv="IATBYEB" data-eb="1">TÜBİTAK’a verilmek üzere</button><button class="chip" type="button" data-isv="IAHBYEB" data-eb="1">Hazine ve Maliye Bakanlığı’na</button><button class="chip" type="button" data-isv="IASBYEB" data-eb="1">Sanayi ve Teknoloji Bakanlığı’na</button><button class="chip" type="button" data-isv="IAKGFBYEB" data-eb="1">Kredi Garanti Fonu’na</button><button class="chip" type="button" data-isv="IAKU" data-eb="1">Belge kontrol</button>
