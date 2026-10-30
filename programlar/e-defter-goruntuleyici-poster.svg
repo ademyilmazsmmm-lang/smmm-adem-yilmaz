@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="edgBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#081222"/>
+      <stop offset="1" stop-color="#1a3052"/>
+    </linearGradient>
+    <linearGradient id="edgGold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#b8943f"/>
+      <stop offset="1" stop-color="#f0dfa8"/>
+    </linearGradient>
+    <path id="edgArc" d="M 60,170 A 92,92 0 1,1 244,170" />
+  </defs>
+  <rect width="1200" height="630" fill="url(#edgBg)"/>
+  <g opacity="0.08">
+    <circle cx="1040" cy="120" r="220" fill="#d4af5a"/>
+    <circle cx="150" cy="560" r="180" fill="#d4af5a"/>
+  </g>
+
+  <!-- seal badge -->
+  <g transform="translate(152,152)">
+    <circle cx="0" cy="0" r="92" fill="#081222"/>
+    <circle cx="0" cy="0" r="92" fill="none" stroke="url(#edgGold)" stroke-width="4"/>
+    <circle cx="0" cy="0" r="78" fill="none" stroke="#d4af5a" stroke-width="1.4" stroke-dasharray="3 5" opacity="0.55"/>
+    <text font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#d4af5a" letter-spacing="3.5">
+      <textPath href="#edgArc" startOffset="6">E - D E F T E R</textPath>
+    </text>
+    <g transform="translate(0,16)">
+      <rect x="-27" y="-40" width="45" height="62" rx="5" fill="#1a3052" stroke="#d4af5a" stroke-width="2" transform="rotate(-7)"/>
+      <rect x="-19" y="-34" width="45" height="62" rx="5" fill="#ffffff" stroke="#d4af5a" stroke-width="2"/>
+      <line x1="-11" y1="-18" x2="18" y2="-18" stroke="#8a97ab" stroke-width="2.3"/>
+      <line x1="-11" y1="-8" x2="18" y2="-8" stroke="#8a97ab" stroke-width="2.3"/>
+      <line x1="-11" y1="2" x2="11" y2="2" stroke="#8a97ab" stroke-width="2.3"/>
+      <circle cx="21" cy="17" r="17" fill="#d4af5a"/>
+      <path d="M 13,17 L 19,23 L 29,8" stroke="#081222" stroke-width="3.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <text x="300" y="195" font-family="Georgia, 'Times New Roman', serif" font-size="58" font-weight="700" fill="#ffffff">E-Defter Görüntüleyici</text>
+  <rect x="302" y="222" width="90" height="4" rx="2" fill="url(#edgGold)"/>
+  <text x="300" y="268" font-family="Arial, 'Segoe UI', sans-serif" font-size="24" fill="#d7deea">Yevmiye, kebir ve berat dosyalarınızı tarayıcıda görüntüleyin</text>
+
+  <g font-family="Arial, 'Segoe UI', sans-serif" font-size="21" fill="#f0dfa8">
+    <g transform="translate(300,340)">
+      <circle cx="0" cy="0" r="6" fill="#d4af5a"/>
+      <text x="18" y="6">XML yevmiye / kebir dosyasını görüntüle</text>
+    </g>
+    <g transform="translate(300,384)">
+      <circle cx="0" cy="0" r="6" fill="#d4af5a"/>
+      <text x="18" y="6">Berat içeriğini ve GİB onayını incele</text>
+    </g>
+    <g transform="translate(300,428)">
+      <circle cx="0" cy="0" r="6" fill="#d4af5a"/>
+      <text x="18" y="6">Görünümü PDF olarak indir</text>
+    </g>
+    <g transform="translate(300,472)">
+      <circle cx="0" cy="0" r="6" fill="#d4af5a"/>
+      <text x="18" y="6">Hangi dönem / hangi defterin verildiğini kontrol et</text>
+    </g>
+  </g>
+
+  <text x="300" y="560" font-family="Arial, sans-serif" font-size="17" fill="#8a97ab">Dosyalar tarayıcınızda işlenir; sunucuya yüklenmez.</text>
+</svg>

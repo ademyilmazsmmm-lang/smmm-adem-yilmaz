@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>E-Defter Görüntüleyici — Yevmiye, Kebir ve Berat Görüntüleme | SMMM Adem Yılmaz</title>
+  <meta name="description" content="E-Defter Görüntüleyici: Yevmiye defteri, kebir defteri ve beratlarınızı (XML) tarayıcınızda görüntüleyin, hangi dönemin/defterin verildiğini kontrol edin, görünümü PDF olarak indirin. Dosyalar sunucuya yüklenmez.">
+  <meta name="keywords" content="e-defter görüntüleyici, yevmiye defteri görüntüleme, kebir defteri görüntüleme, berat görüntüleme, e-defter xml, e-defter pdf">
+  <meta name="author" content="Adem Yılmaz">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://smmmyilmaz.com/e-defter-goruntuleyici.html">
+  <meta property="og:title" content="E-Defter Görüntüleyici — SMMM Adem Yılmaz">
+  <meta property="og:description" content="Yevmiye, kebir ve berat XML dosyalarınızı tarayıcıda görüntüleyin; PDF olarak indirin.">
+  <meta property="og:url" content="https://smmmyilmaz.com/e-defter-goruntuleyici.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://smmmyilmaz.com/programlar/e-defter-goruntuleyici-poster.svg">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Ana Sayfa", "item": "https://smmmyilmaz.com/" },
+      { "@type": "ListItem", "position": 2, "name": "Programlar", "item": "https://smmmyilmaz.com/programlar.html" },
+      { "@type": "ListItem", "position": 3, "name": "E-Defter Görüntüleyici", "item": "https://smmmyilmaz.com/e-defter-goruntuleyici.html" }
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "E-Defter Görüntüleyici",
+    "description": "Yevmiye defteri, kebir defteri ve beratların (XML) tarayıcıda görüntülenmesi, hangi dönem/defterin verildiğinin kontrolü ve PDF olarak indirilmesi için araç.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web tarayıcısı",
+    "url": "https://smmmyilmaz.com/e-defter-goruntuleyici.html",
+    "author": { "@type": "Person", "name": "Adem Yılmaz", "jobTitle": "Serbest Muhasebeci Mali Müşavir" },
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "TRY" }
+  }
+  </script>
+  <style>
+    :root {
+      --navy: #081222;
+      --navy-light: #0f1e35;
+      --navy-mid: #1a3052;
+      --gold: #d4af5a;
+      --gold-light: #f0dfa8;
+      --gold-dark: #b8943f;
+      --bg: #f4f6fb;
+      --ink: #243447;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; }
+    a { color: var(--navy-mid); }
+    header { background: var(--navy); position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+    .top-bar { max-width: 1100px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .brand { color: #fff; text-decoration: none; display: flex; flex-direction: column; line-height: 1.2; }
+    .brand strong { font-family: Georgia, "Times New Roman", serif; font-size: 1.1rem; }
+    .brand span { color: var(--gold); font-size: .78rem; letter-spacing: .04em; }
+    nav a { color: #d7deea; text-decoration: none; margin-left: 18px; font-size: .92rem; }
+    nav a:hover, nav a.aktif { color: var(--gold); }
+    main { max-width: 1100px; margin: 28px auto 48px; padding: 0 20px; }
+    h1 { font-family: Georgia, "Times New Roman", serif; font-size: 2.1rem; color: var(--navy); margin: 0 0 .3rem; }
+    .gold-rule { width: 64px; height: 3px; background: linear-gradient(90deg, var(--gold-dark), var(--gold-light)); border-radius: 2px; margin: 10px 0 18px; }
+    h2 { font-size: 1.35rem; color: var(--navy-mid); margin: 2rem 0 .6rem; }
+    h3 { font-size: 1.05rem; color: var(--navy-mid); margin: 1.4rem 0 .5rem; }
+    .lead { color: #455a64; max-width: 780px; }
+    .yol { font-size: .85rem; color: #6b7c8f; margin: 0 0 6px; }
+    .yol a { color: var(--navy-mid); text-decoration: none; }
+    .yol a:hover { text-decoration: underline; }
+    .uyari { background: #fff8e1; border-left: 4px solid #ffb300; padding: 10px 14px; border-radius: 8px; font-size: .9rem; margin: 14px 0 0; }
+    .kucuk { font-size: .84rem; color: #5f7083; }
+    footer { background: var(--navy); color: #aeb9c9; text-align: center; padding: 22px 16px; font-size: .88rem; }
+    footer a { color: var(--gold); text-decoration: none; }
+
+    /* E-Defter Görüntüleyici uygulama arayüzü */
+    .edg-giris { border: 2px dashed #c7cfdd; border-radius: 16px; padding: 36px 20px; text-align: center; cursor: pointer; background: #fff; transition: border-color .2s, background .2s; margin-top: 18px; }
+    .edg-giris.edg-surukle { border-color: var(--gold); background: #fffaf0; }
+    .edg-giris strong { color: var(--navy-mid); }
+    .edg-giris p { margin: 6px 0 0; color: #6b7c8f; font-size: .9rem; }
+    .edg-layout { display: grid; grid-template-columns: 260px 1fr; gap: 22px; margin-top: 20px; align-items: start; }
+    @media (max-width: 860px) { .edg-layout { grid-template-columns: 1fr; } }
+    .edg-dosya-listesi { display: flex; flex-direction: column; gap: 8px; }
+    .edg-dosya { background: #fff; border: 1px solid #e3e8f2; border-radius: 10px; padding: 10px 12px; font-size: .88rem; cursor: pointer; word-break: break-all; }
+    .edg-dosya:hover { border-color: var(--gold); }
+    .edg-dosya.edg-aktif { border-color: var(--gold-dark); background: #fffaf0; }
+    .edg-dosya-hata { color: #b23a3a; border-color: #e3b3b3; background: #fff5f5; cursor: default; }
+    .edg-dosya-yukleniyor { color: #6b7c8f; cursor: default; }
+    .edg-badge-mini { display: inline-block; background: var(--navy); color: var(--gold-light); font-size: .72rem; padding: 2px 8px; border-radius: 999px; margin-right: 4px; }
+    .edg-panel { background: #fff; border-radius: 16px; box-shadow: 0 6px 24px rgba(8,18,34,.10); padding: 24px 26px; min-height: 160px; }
+    .edg-bos { color: #6b7c8f; text-align: center; padding: 40px 10px; }
+    .edg-araclar { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; flex-wrap: wrap; }
+    .edg-pdf-btn { background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); color: var(--navy); font-weight: 700; border: none; padding: 10px 20px; border-radius: 999px; cursor: pointer; font-size: .92rem; }
+    .edg-pdf-btn:disabled { opacity: .5; cursor: default; }
+    .edg-pdf-durum { font-size: .85rem; color: #6b7c8f; }
+    .edg-letterhead { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid var(--gold); padding-bottom: 12px; margin-bottom: 18px; }
+    .edg-letterhead strong { display: block; color: var(--navy); font-family: Georgia, serif; }
+    .edg-letterhead span { display: block; font-size: .78rem; color: #6b7c8f; }
+    .edg-badge { display: inline-block; background: var(--navy); color: var(--gold-light); font-size: .78rem; font-weight: 700; padding: 4px 12px; border-radius: 999px; margin-bottom: 14px; }
+    .edg-ozet { background: #f8f9fc; border: 1px solid #e3e8f2; border-radius: 12px; padding: 16px 18px; margin-bottom: 20px; }
+    .edg-ozet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 20px; }
+    .edg-ozet-satir strong { display: block; font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: #8a97ab; }
+    .edg-ozet-satir span { font-size: .95rem; color: var(--ink); }
+    .edg-mut { color: #6b7c8f; font-weight: 400; font-size: .85em; }
+    .edg-kutu { background: #f8f9fc; border: 1px solid #e3e8f2; border-radius: 10px; padding: 14px 16px; margin: 6px 0 18px; }
+    .edg-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; font-size: .9rem; }
+    @media (max-width: 600px) { .edg-grid2 { grid-template-columns: 1fr; } }
+    .edg-tablo { width: 100%; border-collapse: collapse; font-size: .88rem; margin: 8px 0 18px; }
+    .edg-tablo th { text-align: left; background: var(--navy); color: #fff; padding: 8px 10px; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
+    .edg-tablo td { padding: 7px 10px; border-bottom: 1px solid #e9ecf3; }
+    .edg-tablo tfoot td { font-weight: 700; border-top: 2px solid var(--navy); border-bottom: none; }
+    .edg-sayi { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .edg-tablo-kucuk { font-size: .82rem; }
+    .edg-fis { border: 1px solid #e3e8f2; border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+    .edg-fis summary { cursor: pointer; padding: 10px 14px; background: #f8f9fc; font-size: .9rem; list-style: none; }
+    .edg-fis summary::-webkit-details-marker { display: none; }
+    .edg-fis summary::before { content: '▸ '; color: var(--gold-dark); }
+    .edg-fis[open] summary::before { content: '▾ '; }
+    .edg-fisno { font-weight: 700; color: var(--navy-mid); }
+    .edg-fis .edg-tablo { margin: 0; overflow-x: auto; display: block; }
+  </style>
+  <style>
+  :root{
+    --white:#ffffff; --gray-600:#5a6478; --radius-lg:22px;
+    --shadow-lg:0 24px 70px rgba(8,18,34,.14); --shadow-md:0 12px 40px rgba(8,18,34,.10);
+    --shadow-gold:0 8px 32px rgba(212,175,90,.22); --transition:0.35s cubic-bezier(0.4,0,0.2,1);
+  }
+  .site-contact-section{padding:64px 0;background:#fff;}
+  .site-contact-section .container{max-width:1200px;margin:0 auto;padding:0 24px;}
+  .site-contact-section .section-head{margin-bottom:40px;text-align:center;}
+  .site-contact-section .section-head h2{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:clamp(2rem,3.8vw,2.5rem);color:var(--navy);margin:0 0 10px;}
+  .site-contact-section .section-head .subtitle{color:var(--gray-600);font-size:1.02rem;max-width:560px;margin:0 auto;}
+  .site-contact-section .gold-rule{width:52px;height:3px;background:linear-gradient(90deg,var(--gold-dark),var(--gold-light));margin:14px auto 0;border-radius:3px;}
+  .site-contact-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:32px;}
+  @media(max-width:800px){.site-contact-grid{grid-template-columns:1fr;}}
+  .site-contact-card{background:linear-gradient(145deg,var(--navy) 0%,var(--navy-mid) 100%);border-radius:var(--radius-lg);padding:44px;box-shadow:var(--shadow-lg);color:var(--white);border:1px solid rgba(212,175,90,.15);position:relative;overflow:hidden;}
+  .site-contact-card h3{font-family:'DM Sans',sans-serif;font-size:1.4rem;margin:0 0 30px;padding-bottom:10px;border-bottom:2px solid var(--gold);display:inline-block;}
+  .site-contact-row{display:flex;gap:16px;margin-bottom:24px;align-items:center;}
+  .site-contact-row .ico{flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--gold);border:1px solid rgba(201,168,76,.3);border-radius:12px;font-size:1.2rem;background:rgba(201,168,76,.05);}
+  .site-contact-text{display:flex;flex-direction:column;}
+  .site-contact-text strong{color:var(--gold-light);font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+  .site-contact-text span,.site-contact-text a{font-size:1.05rem;color:var(--white);font-weight:500;text-decoration:none;transition:color .2s;}
+  .site-contact-text a:hover{color:var(--gold);}
+  .site-linkedin-row{display:inline-flex;align-items:center;gap:10px;margin-top:8px;font-weight:600;font-size:.95rem;color:rgba(255,255,255,.9);text-decoration:none;transition:color .2s;}
+  .site-linkedin-row:hover{color:var(--gold);}
+  .site-linkedin-row img{width:22px;height:22px;}
+  .site-map-box{position:relative;border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-md);border:2px solid rgba(212,175,90,.2);}
+  .site-map-box iframe{width:100%;height:400px;border:0;display:block;filter:grayscale(20%) contrast(1.05);transition:filter .4s;}
+  .site-map-box:hover iframe{filter:grayscale(0%);}
+  .site-map-go-btn{position:absolute;bottom:16px;right:16px;display:inline-flex;align-items:center;gap:8px;padding:12px 22px;background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--navy);font-size:.84rem;font-weight:700;border-radius:999px;box-shadow:var(--shadow-gold);transition:var(--transition);text-decoration:none;}
+  .site-map-go-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(212,175,90,.4);}
+  .site-whatsapp-fab{position:fixed;right:28px;bottom:28px;width:58px;height:58px;border-radius:50%;background:#25d366;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 28px rgba(37,211,102,.45);z-index:999;transition:var(--transition);}
+  .site-whatsapp-fab::before{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid rgba(37,211,102,.4);animation:sitePulseRing 2s ease-out infinite;}
+  .site-whatsapp-fab:hover{transform:scale(1.08);box-shadow:0 12px 36px rgba(37,211,102,.5);}
+  .site-whatsapp-fab svg{width:28px;height:28px;fill:currentColor;position:relative;z-index:1;}
+  @keyframes sitePulseRing{0%{transform:scale(1);opacity:.6;}100%{transform:scale(1.5);opacity:0;}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="top-bar">
+      <a class="brand" href="index.html">
+        <strong>SMMM Adem Yılmaz</strong>
+        <span>Serbest Muhasebeci Mali Müşavir</span>
+      </a>
+      <nav>
+        <a href="index.html">Ana Sayfa</a>
+        <a href="index.html#hizmetler">Hizmetlerimiz</a>
+        <a href="programlar.html" class="aktif">Programlar</a>
+        <a href="index.html#iletisim">İletişim</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <p class="yol"><a href="programlar.html">← Programlar</a></p>
+    <h1>E-Defter Görüntüleyici</h1>
+    <div class="gold-rule"></div>
+    <p class="lead">Yevmiye defteri, kebir defteri ve beratlarınızın (XML) içeriğini tarayıcınızda görüntüleyin; hangi dönemin ve hangi defterin verildiğini kontrol edin; görünümü PDF olarak indirin.</p>
+    <p class="uyari">Yüklediğiniz dosyalar <strong>sadece kendi tarayıcınızda</strong> işlenir; hiçbir sunucuya gönderilmez veya kaydedilmez. Sayfayı kapattığınızda tüm veriler silinir.</p>
+
+    <div class="edg-giris" id="edgGiris" tabindex="0" role="button" aria-label="XML dosyası yüklemek için tıklayın veya sürükleyip bırakın">
+      <strong>XML dosyasını buraya sürükleyin veya tıklayıp seçin</strong>
+      <p>Yevmiye Beratı · Kebir Beratı · Yevmiye Defteri (tam) · Kebir Defteri (tam) · Defter Raporu (Mizan) — birden fazla dosya seçebilirsiniz.</p>
+    </div>
+    <input type="file" id="edgDosyaSec" accept=".xml" multiple hidden>
+
+    <div class="edg-layout" id="edgLayout" hidden>
+      <div>
+        <h3 style="margin-top:0">Yüklenen Dosyalar</h3>
+        <div class="edg-dosya-listesi" id="edgDosyaListesi"></div>
+      </div>
+      <div class="edg-panel">
+        <div class="edg-araclar">
+          <button type="button" class="edg-pdf-btn" id="edgPdfBtn" disabled>PDF olarak indir</button>
+          <span class="edg-pdf-durum" id="edgPdfDurum"></span>
+        </div>
+        <div id="edgDetay"></div>
+      </div>
+    </div>
+
+    <p class="kucuk" style="margin-top:22px">Bu araç, GİB e-Defter uygulamalarının (Luca ve benzerleri) ürettiği standart XBRL-GL tabanlı e-Defter/berat XML yapısını okur. Dosya formatı değişirse bazı alanlar görüntülenemeyebilir; resmî beyan ve ibraz işlemlerinde GİB Portal/e-Defter uygulamanızdaki orijinal dosyaları esas alınız. Hesaplanan "Dönem İçi Bakiye" değeri, yüklenen dosyadaki hareketlerden bu araç tarafından hesaplanır ve açılış bakiyesini içermez.</p>
+  </main>
+
+  <footer>
+    <a href="index.html">smmmyilmaz.com</a> · <a href="tel:905536194134">0553 619 41 34</a> · <a href="mailto:adem@smmmyilmaz.com">adem@smmmyilmaz.com</a>
+  </footer>
+<section class="site-contact-section" id="site-iletisim">
+  <div class="container">
+    <div class="section-head">
+      <h2>İletişim</h2>
+      <p class="subtitle">Randevu ve danışmanlık için bize ulaşın.</p>
+      <div class="gold-rule"></div>
+    </div>
+    <div class="site-contact-grid">
+      <div class="site-contact-card">
+        <h3>İletişim Bilgileri</h3>
+        <div class="site-contact-row">
+          <div class="ico">📞</div>
+          <div class="site-contact-text">
+            <strong>Telefon:</strong>
+            <a href="tel:905536194134">0553 619 41 34</a>
+          </div>
+        </div>
+        <div class="site-contact-row">
+          <div class="ico">✉️</div>
+          <div class="site-contact-text">
+            <strong>E-posta:</strong>
+            <a href="mailto:adem@smmmyilmaz.com">adem@smmmyilmaz.com</a>
+          </div>
+        </div>
+        <div class="site-contact-row">
+          <div class="ico">📍</div>
+          <div class="site-contact-text">
+            <strong>Adres:</strong>
+            <span>Ümraniye / İstanbul</span>
+          </div>
+        </div>
+        <a class="site-linkedin-row" href="https://www.linkedin.com/in/ademyilmazz" target="_blank" rel="noopener">
+          <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" alt="LinkedIn"> Adem Yılmaz ile Bağlanın
+        </a>
+      </div>
+      <div class="site-map-box">
+        <iframe src="https://maps.google.com/maps?q=41.023735,29.093180&z=16&output=embed" loading="lazy"></iframe>
+        <a class="site-map-go-btn" href="https://maps.app.goo.gl/7JbYMK2JuFgPtxPL8" target="_blank" rel="noopener">Konuma Git</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<a class="site-whatsapp-fab" href="https://wa.me/905536194134" target="_blank" rel="noopener" aria-label="WhatsApp ile iletişim">
+  <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+</a>
+
+<script>
+(function(){
+  "use strict";
+
+  var TUR_ETIKET = {
+    'yevmiye-berati': 'Yevmiye Beratı',
+    'kebir-berati': 'Kebir Beratı',
+    'defter-raporu': 'Defter Raporu (Mizan)',
+    'yevmiye': 'Yevmiye Defteri',
+    'kebir': 'Kebir Defteri',
+    'bilinmeyen': 'Tanınmayan Dosya'
+  };
+  var TUR_DOSYA_ADI = {
+    'yevmiye-berati': 'yevmiye-berati',
+    'kebir-berati': 'kebir-berati',
+    'defter-raporu': 'defter-raporu',
+    'yevmiye': 'yevmiye-defteri',
+    'kebir': 'kebir-defteri',
+    'bilinmeyen': 'e-defter'
+  };
+
+  function qt(el, tag) {
+    if (!el) return '';
+    var n = el.getElementsByTagName(tag);
+    return n.length ? (n[0].textContent || '').trim() : '';
+  }
+  function qa(el, tag) {
+    return el ? Array.prototype.slice.call(el.getElementsByTagName(tag)) : [];
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+  function tl(n) {
+    return (n || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function td(d) {
+    if (!d) return '-';
+    var p = String(d).split('-');
+    return p.length === 3 ? (p[2] + '.' + p[1] + '.' + p[0]) : d;
+  }
+
+  function dokumanBilgisi(doc) {
+    var accEntries = doc.getElementsByTagName('gl-cor:accountingEntries')[0];
+    if (!accEntries) throw new Error('Bu dosya bir e-Defter/berat XML yapısına uymuyor.');
+    var docInfo = accEntries.getElementsByTagName('gl-cor:documentInfo')[0];
+    var entInfo = accEntries.getElementsByTagName('gl-cor:entityInformation')[0];
+    var entriesType = qt(docInfo, 'gl-cor:entriesType');
+    var rootLocal = doc.documentElement.tagName.split(':').pop();
+
+    var kind;
+    if (rootLocal === 'berat') kind = entriesType === 'ledger' ? 'kebir-berati' : 'yevmiye-berati';
+    else if (rootLocal === 'defterraporu') kind = 'defter-raporu';
+    else if (rootLocal === 'defter') kind = entriesType === 'ledger' ? 'kebir' : 'yevmiye';
+    else kind = 'bilinmeyen';
+
+    var context = doc.getElementsByTagName('xbrli:context')[0];
+    var vkn = context ? qt(context, 'xbrli:identifier') : '';
+
+    return {
+      kind: kind,
+      entriesType: entriesType,
+      vkn: vkn,
+      uniqueID: qt(docInfo, 'gl-cor:uniqueID'),
+      creationDate: qt(docInfo, 'gl-cor:creationDate'),
+      comment: qt(docInfo, 'gl-cor:entriesComment'),
+      periodStart: qt(docInfo, 'gl-cor:periodCoveredStart'),
+      periodEnd: qt(docInfo, 'gl-cor:periodCoveredEnd'),
+      sourceApp: qt(docInfo, 'gl-bus:sourceApplication'),
+      unvan: qt(entInfo, 'gl-bus:organizationIdentifier'),
+      adres: [qt(entInfo, 'gl-bus:organizationBuildingNumber'), qt(entInfo, 'gl-bus:organizationAddressStreet'), qt(entInfo, 'gl-bus:organizationAddressStreet2')].filter(function (s) { return s && s !== '.' && s !== '-'; }).join(' '),
+      il: qt(entInfo, 'gl-bus:organizationAddressCity'),
+      posta: qt(entInfo, 'gl-bus:organizationAddressZipOrPostalCode'),
+      tel: qt(entInfo, 'gl-bus:phoneNumber'),
+      eposta: qt(entInfo, 'gl-bus:entityEmailAddress'),
+      nace: qt(entInfo, 'gl-bus:businessDescription'),
+      muhasebeciAd: qt(entInfo, 'gl-bus:accountantName'),
+      muhasebeciSozlesme: qt(entInfo, 'gl-bus:accountantEngagementTypeDescription'),
+      muhasebeciTel: qt(entInfo, 'gl-bus:accountantContactPhoneNumber'),
+      muhasebeciEposta: qt(entInfo, 'gl-bus:accountantContactEmailAddress'),
+      accEntries: accEntries
+    };
+  }
+
+  function hesapOku(ed) {
+    var acc = ed.getElementsByTagName('gl-cor:account')[0];
+    var sub = acc ? acc.getElementsByTagName('gl-cor:accountSub')[0] : null;
+    return {
+      kod: qt(acc, 'gl-cor:accountMainID'),
+      ad: qt(acc, 'gl-cor:accountMainDescription'),
+      altKod: sub ? qt(sub, 'gl-cor:accountSubID') : '',
+      altAd: sub ? qt(sub, 'gl-cor:accountSubDescription') : ''
+    };
+  }
+
+  function paraBerat(info) {
+    var detaylar = qa(info.accEntries, 'gl-cor:entryDetail');
+    var hesaplar = [], idx = {};
+    detaylar.forEach(function (ed) {
+      var h = hesapOku(ed);
+      var tutar = parseFloat(qt(ed, 'gl-cor:amount')) || 0;
+      var dc = qt(ed, 'gl-cor:debitCreditCode');
+      if (!(h.kod in idx)) { idx[h.kod] = hesaplar.length; hesaplar.push({ kod: h.kod, ad: h.ad, borc: 0, alacak: 0 }); }
+      var row = hesaplar[idx[h.kod]];
+      if (dc === 'D') row.borc += tutar; else if (dc === 'C') row.alacak += tutar;
+    });
+    info.hesaplar = hesaplar;
+
+    var subjects = qa(info.accEntries.ownerDocument.documentElement, 'ds:X509SubjectName').map(function (n) { return n.textContent.trim(); });
+    var times = qa(info.accEntries.ownerDocument.documentElement, 'xades:SigningTime').map(function (n) { return n.textContent.trim(); });
+    info.imza = {
+      muhasebeciImza: subjects[0] || '', muhasebeciImzaTarihi: times[0] || '',
+      gibOnay: subjects[1] || '', gibOnayTarihi: times[1] || ''
+    };
+  }
+
+  function paraYevmiye(info) {
+    var headers = qa(info.accEntries, 'gl-cor:entryHeader');
+    info.fisler = headers.map(function (h) {
+      var satirlar = qa(h, 'gl-cor:entryDetail').map(function (ed) {
+        var acc = hesapOku(ed);
+        return {
+          kod: acc.kod, ad: acc.ad, altKod: acc.altKod, altAd: acc.altAd,
+          tutar: parseFloat(qt(ed, 'gl-cor:amount')) || 0,
+          dc: qt(ed, 'gl-cor:debitCreditCode'),
+          belgeNo: qt(ed, 'gl-cor:documentNumber'),
+          belgeTarihi: qt(ed, 'gl-cor:documentDate'),
+          belgeTuru: qt(ed, 'gl-cor:documentTypeDescription') || qt(ed, 'gl-cor:documentType'),
+          aciklama: qt(ed, 'gl-cor:detailComment')
+        };
+      });
+      return {
+        fisNo: qt(h, 'gl-cor:entryNumber'),
+        tarih: qt(h, 'gl-cor:enteredDate'),
+        giren: qt(h, 'gl-cor:enteredBy'),
+        aciklama: qt(h, 'gl-cor:entryComment'),
+        toplamBorc: parseFloat(qt(h, 'gl-bus:totalDebit')) || 0,
+        toplamAlacak: parseFloat(qt(h, 'gl-bus:totalCredit')) || 0,
+        satirlar: satirlar
+      };
+    });
+  }
+
+  function paraKebir(info) {
+    var headers = qa(info.accEntries, 'gl-cor:entryHeader');
+    info.hesapGruplari = headers.map(function (h) {
+      var detaylarRaw = qa(h, 'gl-cor:entryDetail');
+      var bakiye = 0;
+      var satirlar = detaylarRaw.map(function (ed) {
+        var tutar = parseFloat(qt(ed, 'gl-cor:amount')) || 0;
+        var dc = qt(ed, 'gl-cor:debitCreditCode');
+        bakiye += (dc === 'D' ? tutar : -tutar);
+        return {
+          tutar: tutar, dc: dc,
+          tarih: qt(ed, 'gl-cor:postingDate'),
+          belgeNo: qt(ed, 'gl-cor:documentNumber'),
+          belgeTuru: qt(ed, 'gl-cor:documentTypeDescription') || qt(ed, 'gl-cor:documentType'),
+          aciklama: qt(ed, 'gl-cor:detailComment'),
+          bakiye: bakiye
+        };
+      });
+      var ilkHesap = detaylarRaw.length ? hesapOku(detaylarRaw[0]) : { kod: '?', ad: '' };
+      return {
+        kod: ilkHesap.kod, ad: ilkHesap.ad,
+        toplamBorc: parseFloat(qt(h, 'gl-bus:totalDebit')) || 0,
+        toplamAlacak: parseFloat(qt(h, 'gl-bus:totalCredit')) || 0,
+        satirlar: satirlar
+      };
+    });
+  }
+
+  function kayitSayisi(info) {
+    if (info.hesaplar) return info.hesaplar.length;
+    if (info.fisler) return info.fisler.length;
+    if (info.hesapGruplari) return info.hesapGruplari.length;
+    return 0;
+  }
+
+  function satir(etiket, deger) {
+    return '<div class="edg-ozet-satir"><strong>' + etiket + '</strong><span>' + deger + '</span></div>';
+  }
+  function bilgi(etiket, deger) {
+    return '<div><strong>' + etiket + ':</strong> ' + esc(deger || '-') + '</div>';
+  }
+
+  function ozetKart(info) {
+    return '<div class="edg-ozet">'
+      + '<span class="edg-badge">' + esc(TUR_ETIKET[info.kind] || info.kind) + '</span>'
+      + '<div class="edg-ozet-grid">'
+      + satir('Mükellef', esc(info.unvan) + ' <span class="edg-mut">(VKN: ' + esc(info.vkn) + ')</span>')
+      + satir('Dönem', td(info.periodStart) + ' – ' + td(info.periodEnd))
+      + satir('Meslek Mensubu', esc(info.muhasebeciAd))
+      + satir('Oluşturma Tarihi', td(info.creationDate))
+      + satir('Belge No', esc(info.uniqueID))
+      + satir('Kayıt Sayısı', String(kayitSayisi(info)))
+      + '</div></div>';
+  }
+
+  function beratGorunum(info) {
+    var satirlarHtml = info.hesaplar.map(function (h) {
+      return '<tr><td>' + esc(h.kod) + '</td><td>' + esc(h.ad) + '</td><td class="edg-sayi">' + (h.borc ? tl(h.borc) : '-') + '</td><td class="edg-sayi">' + (h.alacak ? tl(h.alacak) : '-') + '</td></tr>';
+    }).join('');
+    var toplamBorc = info.hesaplar.reduce(function (a, h) { return a + h.borc; }, 0);
+    var toplamAlacak = info.hesaplar.reduce(function (a, h) { return a + h.alacak; }, 0);
+    var imzaHtml = '';
+    if (info.imza && (info.imza.muhasebeciImza || info.imza.gibOnay)) {
+      imzaHtml = '<h3>İmza / Onay Bilgileri</h3><div class="edg-kutu">'
+        + (info.imza.muhasebeciImza ? '<p><strong>Meslek Mensubu İmzası:</strong> ' + esc(info.imza.muhasebeciImza) + (info.imza.muhasebeciImzaTarihi ? ' · ' + esc(info.imza.muhasebeciImzaTarihi) : '') + '</p>' : '')
+        + (info.imza.gibOnay ? '<p><strong>GİB Onayı:</strong> ' + esc(info.imza.gibOnay) + (info.imza.gibOnayTarihi ? ' · ' + esc(info.imza.gibOnayTarihi) : '') + '</p>' : '')
+        + '</div>';
+    }
+    return '<h3>Mükellef Bilgileri</h3><div class="edg-kutu edg-grid2">'
+      + bilgi('Unvan', info.unvan) + bilgi('VKN', info.vkn) + bilgi('Adres', (info.adres + ' ' + info.il + ' ' + info.posta).trim())
+      + bilgi('Telefon', info.tel) + bilgi('E-posta', info.eposta) + bilgi('NACE Kodu', info.nace)
+      + '</div>'
+      + '<h3>Meslek Mensubu Bilgileri</h3><div class="edg-kutu edg-grid2">'
+      + bilgi('Ad Soyad', info.muhasebeciAd) + bilgi('Sözleşme', info.muhasebeciSozlesme)
+      + bilgi('Telefon', info.muhasebeciTel) + bilgi('E-posta', info.muhasebeciEposta)
+      + '</div>'
+      + '<h3>Vergi Detayı</h3>'
+      + '<table class="edg-tablo"><thead><tr><th>Hesap Kodu</th><th>Hesap Adı</th><th>Borç</th><th>Alacak</th></tr></thead><tbody>'
+      + satirlarHtml
+      + '</tbody><tfoot><tr><td colspan="2">Toplam</td><td class="edg-sayi">' + tl(toplamBorc) + '</td><td class="edg-sayi">' + tl(toplamAlacak) + '</td></tr></tfoot></table>'
+      + imzaHtml;
+  }
+
+  function yevmiyeGorunum(info) {
+    return '<h3>Yevmiye Kayıtları (' + info.fisler.length + ' fiş)</h3>'
+      + info.fisler.map(function (f) {
+        var satirlar = f.satirlar.map(function (s) {
+          return '<tr><td>' + esc(s.kod) + (s.altKod ? ' / ' + esc(s.altKod) : '') + '</td><td>' + esc(s.altAd || s.ad) + '</td>'
+            + '<td>' + esc(s.belgeNo) + '</td><td>' + td(s.belgeTarihi) + '</td><td>' + esc(s.aciklama) + '</td>'
+            + '<td class="edg-sayi">' + (s.dc === 'D' ? tl(s.tutar) : '-') + '</td><td class="edg-sayi">' + (s.dc === 'C' ? tl(s.tutar) : '-') + '</td></tr>';
+        }).join('');
+        return '<details class="edg-fis"><summary><span class="edg-fisno">Fiş ' + esc(f.fisNo) + '</span> · ' + td(f.tarih) + ' · ' + esc(f.aciklama) + ' <span class="edg-mut">(' + tl(f.toplamBorc) + ' ₺)</span></summary>'
+          + '<table class="edg-tablo edg-tablo-kucuk"><thead><tr><th>Hesap</th><th>Alt Hesap / Cari</th><th>Belge No</th><th>Belge Tarihi</th><th>Açıklama</th><th>Borç</th><th>Alacak</th></tr></thead><tbody>' + satirlar + '</tbody></table>'
+          + '</details>';
+      }).join('');
+  }
+
+  function kebirGorunum(info) {
+    return '<h3>Kebir Hesapları (' + info.hesapGruplari.length + ' hesap)</h3>'
+      + info.hesapGruplari.map(function (g) {
+        var satirlar = g.satirlar.map(function (s) {
+          return '<tr><td>' + td(s.tarih) + '</td><td>' + esc(s.belgeTuru) + '</td><td>' + esc(s.belgeNo) + '</td><td>' + esc(s.aciklama) + '</td>'
+            + '<td class="edg-sayi">' + (s.dc === 'D' ? tl(s.tutar) : '-') + '</td><td class="edg-sayi">' + (s.dc === 'C' ? tl(s.tutar) : '-') + '</td>'
+            + '<td class="edg-sayi">' + tl(s.bakiye) + '</td></tr>';
+        }).join('');
+        return '<details class="edg-fis"><summary><span class="edg-fisno">' + esc(g.kod) + ' — ' + esc(g.ad) + '</span> <span class="edg-mut">(Borç ' + tl(g.toplamBorc) + ' ₺ · Alacak ' + tl(g.toplamAlacak) + ' ₺)</span></summary>'
+          + '<table class="edg-tablo edg-tablo-kucuk"><thead><tr><th>Tarih</th><th>Belge Türü</th><th>Belge No</th><th>Açıklama</th><th>Borç</th><th>Alacak</th><th>Dönem İçi Bakiye</th></tr></thead><tbody>' + satirlar + '</tbody></table>'
+          + '</details>';
+      }).join('');
+  }
+
+  function icerikGorunum(info) {
+    if (info.hesaplar) return beratGorunum(info);
+    if (info.fisler) return yevmiyeGorunum(info);
+    if (info.hesapGruplari) return kebirGorunum(info);
+    return '<p>Bu dosya türü için görüntüleme henüz desteklenmiyor.</p>';
+  }
+
+  function dosyaIsle(file) {
+    return file.text().then(function (txt) {
+      var doc = new DOMParser().parseFromString(txt, 'application/xml');
+      if (doc.getElementsByTagName('parsererror').length) {
+        throw new Error('XML okunamadı; dosya bozuk veya desteklenmeyen bir formatta olabilir.');
+      }
+      var info = dokumanBilgisi(doc);
+      if (info.kind === 'yevmiye-berati' || info.kind === 'kebir-berati' || info.kind === 'defter-raporu') paraBerat(info);
+      else if (info.kind === 'yevmiye') paraYevmiye(info);
+      else if (info.kind === 'kebir') paraKebir(info);
+      return { ad: file.name, info: info };
+    });
+  }
+
+  var dosyalar = [];
+  var girisEl, layoutEl, listeEl, detayEl, pdfBtn, pdfDurum, dosyaSec;
+
+  function renderDetay(d) {
+    detayEl.innerHTML = '<div id="edgPdfIcerik">'
+      + '<div class="edg-letterhead"><img src="programlar/e-defter-goruntuleyici-logo.svg" alt="" width="40" height="40">'
+      + '<div><strong>SMMM Adem Yılmaz</strong><span>smmmyilmaz.com · E-Defter Görüntüleyici</span></div></div>'
+      + ozetKart(d.info) + icerikGorunum(d.info)
+      + '</div>';
+    pdfBtn.disabled = false;
+    pdfBtn.onclick = function () { pdfIndir(d); };
+  }
+
+  var libsYuklendi = false;
+  function kitaplikYukle() {
+    if (libsYuklendi) return Promise.resolve();
+    return new Promise(function (res, rej) {
+      var s1 = document.createElement('script');
+      s1.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      s1.onload = function () {
+        var s2 = document.createElement('script');
+        s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s2.onload = function () { libsYuklendi = true; res(); };
+        s2.onerror = function () { rej(new Error('PDF bileşeni yüklenemedi (internet bağlantınızı kontrol edin).')); };
+        document.head.appendChild(s2);
+      };
+      s1.onerror = function () { rej(new Error('PDF bileşeni yüklenemedi (internet bağlantınızı kontrol edin).')); };
+      document.head.appendChild(s1);
+    });
+  }
+
+  function pdfIndir(d) {
+    pdfBtn.disabled = true;
+    pdfDurum.textContent = 'PDF hazırlanıyor…';
+    kitaplikYukle().then(function () {
+      return window.html2canvas(document.getElementById('edgPdfIcerik'), { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    }).then(function (canvas) {
+      var jsPDFCtor = window.jspdf.jsPDF;
+      var pdf = new jsPDFCtor('p', 'pt', 'a4');
+      var pageW = pdf.internal.pageSize.getWidth(), pageH = pdf.internal.pageSize.getHeight();
+      var imgW = pageW, imgH = canvas.height * imgW / canvas.width;
+      var imgData = canvas.toDataURL('image/jpeg', 0.92);
+      var heightLeft = imgH, position = 0;
+      pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH);
+      heightLeft -= pageH;
+      while (heightLeft > 0) {
+        position = heightLeft - imgH;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH);
+        heightLeft -= pageH;
+      }
+      var ad = (TUR_DOSYA_ADI[d.info.kind] || 'e-defter') + (d.info.periodStart ? '-' + d.info.periodStart : '') + '.pdf';
+      pdf.save(ad);
+      pdfDurum.textContent = '';
+    }).catch(function (err) {
+      pdfDurum.textContent = err.message || 'PDF oluşturulamadı.';
+    }).then(function () { pdfBtn.disabled = false; });
+  }
+
+  function dosyaEkle(files) {
+    Array.prototype.slice.call(files).forEach(function (file) {
+      if (!/\.xml$/i.test(file.name)) return;
+      layoutEl.hidden = false;
+      var satirEl = document.createElement('div');
+      satirEl.className = 'edg-dosya edg-dosya-yukleniyor';
+      satirEl.textContent = file.name + ' — okunuyor…';
+      listeEl.appendChild(satirEl);
+      dosyaIsle(file).then(function (d) {
+        satirEl.className = 'edg-dosya';
+        satirEl.innerHTML = '<span class="edg-badge-mini">' + esc(TUR_ETIKET[d.info.kind] || '?') + '</span>' + esc(d.ad);
+        satirEl.addEventListener('click', function () {
+          Array.prototype.forEach.call(listeEl.querySelectorAll('.edg-dosya'), function (x) { x.classList.remove('edg-aktif'); });
+          satirEl.classList.add('edg-aktif');
+          renderDetay(d);
+        });
+        dosyalar.push(d);
+        if (dosyalar.length === 1) satirEl.click();
+      }).catch(function (err) {
+        satirEl.className = 'edg-dosya edg-dosya-hata';
+        satirEl.textContent = file.name + ' — ' + (err && err.message ? err.message : 'okunamadı');
+      });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    girisEl = document.getElementById('edgGiris');
+    layoutEl = document.getElementById('edgLayout');
+    listeEl = document.getElementById('edgDosyaListesi');
+    detayEl = document.getElementById('edgDetay');
+    pdfBtn = document.getElementById('edgPdfBtn');
+    pdfDurum = document.getElementById('edgPdfDurum');
+    dosyaSec = document.getElementById('edgDosyaSec');
+
+    dosyaSec.addEventListener('change', function (e) { dosyaEkle(e.target.files); e.target.value = ''; });
+    girisEl.addEventListener('click', function () { dosyaSec.click(); });
+    girisEl.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dosyaSec.click(); } });
+    ['dragover', 'dragenter'].forEach(function (ev) {
+      girisEl.addEventListener(ev, function (e) { e.preventDefault(); girisEl.classList.add('edg-surukle'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      girisEl.addEventListener(ev, function (e) { e.preventDefault(); girisEl.classList.remove('edg-surukle'); });
+    });
+    girisEl.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files) dosyaEkle(e.dataTransfer.files); });
+  });
+})();
+</script>
+</body>
+</html>
