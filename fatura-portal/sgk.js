@@ -231,7 +231,8 @@ class Sgk {
     }
     const i2 = html.search(/id\s*=\s*["']contentContainer["']/i), icerik = i2 >= 0 ? html.slice(i2) : html;
     const satirlar = [];
-    for (const tr of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const TR = /<tr\b[^>]*>((?:(?!<tr\b)[\s\S])*?)<\/tr>/gi;
+    for (const tr of html.matchAll(TR)) {
       const h = [...tr[1].matchAll(/<(td|th)\b[^>]*>([\s\S]*?)<\/\1>/gi)].map((c) => sade(c[2]).trim()); if (h.length < 8 || h.every((x) => !x)) continue;
       const eylem = [...tr[1].matchAll(/(?:onclick|href)\s*=\s*["']([^"']{3,160})["']/gi)].map((m) => coz(m[1])).filter((x) => !/^#$/.test(x)).slice(0, 4);
       satirlar.push({ h: h.map((x) => x.slice(0, 40)), eylem: eylem.map(jeton) }); if (satirlar.length >= 60) break;
@@ -239,24 +240,32 @@ class Sgk {
     const th = html.search(/<th\b/i), tabloHam = th >= 0 ? jeton(hamMaskeli(html.slice(Math.max(0, th - 200)).replace(/<style[\s\S]*?<\/style>/gi, ""), 4500)) : "";
     const uyari = sade((/id\s*=\s*["']genelUyariCenterTag["'][^>]*>([\s\S]*?)<\/center>/i.exec(html) || [])[1] || "");
     const ciftler = [...icerik.matchAll(/<tr\b[^>]*>\s*<th\b[^>]*>([\s\S]*?)<\/th>\s*<td\b[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi)].map((m) => ({ k: sade(m[1]).slice(0, 60), v: sade(m[2]).slice(0, 120) })).filter((x) => x.k).slice(0, 20);
-    const thead = /<thead\b[\s\S]*?<\/thead>/i.exec(icerik), tabloIc = /<table\b[^>]*class\s*=\s*["']gradienttabled["'][\s\S]*?<\/table>/i.exec(icerik);
-    const borc = thead && tabloIc ? { basliklar: [...thead[0].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((m) => sade(m[1])), satirlar: [...tabloIc[0].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map((t) => [...t[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((c) => sade(c[1]))).filter((c) => c.length >= 10) } : null;
+    let borc = null;
+    { let bas = null; const sat = [];
+      for (const tr of icerik.matchAll(TR)) {
+        const ths = [...tr[1].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((m) => sade(m[1])), tds = [...tr[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => sade(m[1]));
+        if (ths.length >= 8 && !bas) { bas = ths; continue; }
+        if (bas && !ths.length && tds.length >= 8 && tds.length <= bas.length + 1) sat.push(tds);
+      }
+      if (bas && sat.length) borc = { basliklar: bas, satirlar: sat.slice(0, 60) }; }
+    const sonuc = sade((/SORGULAMA SONUCU[\s\S]*?<td\b[^>]*>([\s\S]*?)<\/td>/i.exec(icerik) || [])[1] || "");
     const yeriM = /Sicil No\s*:\s*([\d ]+?)\s+Ünvan\s*:\s*(.+?)\s+Adresi/.exec(sade(icerik)), isyeri = yeriM ? { sicil: yeriM[1].trim(), unvan: yeriM[2].trim() } : null;
     this.sonSayfa = { url: r.url, html, formlar: [] };
     for (const f of html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)) {
       const eylem = nitelik(f[1], "action"); if (!eylem || /3_4_sent_2|DetayGetir|13_1_sent/.test(eylem)) continue;
-      const dugme = [...f[2].matchAll(/<(?:input\b[^>]*type\s*=\s*["']submit["'][^>]*|button\b[^>]*)>/gi)].map((m) => sade(nitelik(m[0], "value")) || "").filter(Boolean)[0]; if (!dugme) continue;
+      const dugmeler = [...f[2].matchAll(/<input\b[^>]*type\s*=\s*["']submit["'][^>]*>|<button\b[^>]*>/gi)].map((m) => ({ ad: nitelik(m[0], "name"), deger: sade(nitelik(m[0], "value")), onclick: sade(nitelik(m[0], "onclick")).slice(0, 160) })).filter((d) => d.deger || d.ad);
+      if (!dugmeler.length) continue;
       const gizli = {}; for (const i of f[2].matchAll(/<input\b([^>]*)>/gi)) { const n = nitelik(i[1], "name"); if (n && (nitelik(i[1], "type") || "text").toLowerCase() === "hidden") gizli[n] = coz(nitelik(i[1], "value")); }
-      this.sonSayfa.formlar.push({ eylem, gizli, etiket: dugme });
+      for (const d of dugmeler) this.sonSayfa.formlar.push({ eylem, gizli, ad: d.ad, deger: d.deger, etiket: d.deger || d.ad, onclick: d.onclick });
     }
     const metinSade = sade(icerik).replace(/^.*?Eski Prim Oran\s*:\s*[\d.,]*\s*/, "").slice(0, 1200);
-    return { uyari, ciftler, borc, isyeri, dugmeler: this.sonSayfa.formlar.map((f, i) => ({ i, etiket: f.etiket })), yonlendirme: (this.yon || []).map(jeton), satirlar, tabloHam, adres: adimlar.join(" -> "), baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || ""), metin: metinSade, hata: "", formlar: formCoz(icerik).map((f) => ({ eylem: jeton(f.eylem), yontem: f.yontem, gizli: Object.keys(f.gizli), secimler: f.secimler })), alanlar: formlar(icerik), tablolar: tablolar(icerik), baglantilar: baglantilar(icerik).slice(0, 25).map((x) => ({ tur: x.tur, metin: x.metin, href: jeton(x.href) })), ham: jeton(hamMaskeli(icerik.replace(/<style[\s\S]*?<\/style>/gi, ""), 4500)) };
+    return { uyari, sonuc, ciftler, borc, isyeri, dugmeler: this.sonSayfa.formlar.map((f, i) => ({ i, etiket: f.etiket, onclick: hamMaskeli(f.onclick, 160) })), yonlendirme: (this.yon || []).map(jeton), satirlar, tabloHam, adres: adimlar.join(" -> "), baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || ""), metin: metinSade, hata: "", formlar: formCoz(icerik).map((f) => ({ eylem: jeton(f.eylem), yontem: f.yontem, gizli: Object.keys(f.gizli), secimler: f.secimler })), alanlar: formlar(icerik), tablolar: tablolar(icerik), baglantilar: baglantilar(icerik).slice(0, 25).map((x) => ({ tur: x.tur, metin: x.metin, href: jeton(x.href) })), ham: jeton(hamMaskeli(icerik.replace(/<style[\s\S]*?<\/style>/gi, ""), 4500)) };
   }
   /* son açılan İşveren sayfasındaki bir düğmeyi (ör. "Pdf Döküm Al") sayfanın kendi formu gibi gönderir */
   async formGonder(i) {
     if (!this.girdi) throw this.oturumHata();
     const sf = this.sonSayfa && this.sonSayfa.formlar[i]; if (!sf) throw new Error("Düğme bulunamadı; sayfayı yeniden açın.");
-    const alan = Object.assign({}, sf.gizli); if ("jsp" in alan && !alan.jsp) alan.jsp = this.sonSayfa.html;
+    const alan = Object.assign({}, sf.gizli); if (sf.ad) alan[sf.ad] = sf.deger; if ("jsp" in alan && !alan.jsp) alan.jsp = this.sonSayfa.html;
     this.ref = this.sonSayfa.url; let r; try { r = await this.git("POST", new URL(sf.eylem, this.sonSayfa.url).href, alan); } finally { this.ref = null; }
     const tur = (r.tur || "").toLowerCase().split(";")[0], pdf = /pdf/.test(tur) || r.veri.slice(0, 4).toString() === "%PDF";
     if (pdf) return { veri: r.veri, tur: "application/pdf", satir: true, ad: "sgk-belge.pdf" };
