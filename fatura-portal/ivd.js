@@ -222,6 +222,81 @@ class Ivd {
     const hepsi = [].concat(...sonuc).sort((a, b) => String(b.duzenlenmeTarihi || "").localeCompare(String(a.duzenlenmeTarihi || "")));
     return { kayitlar: hepsi.slice(0, 500), sekil: ilkSekil, uyari, aralik: yaz(bs) + " – " + yaz(bt) };
   }
+  /* ---- Tahakkuk Bilgilerim: vergi dairesi + ay aralığı; her fiş için tahakkuk PDF'i ----
+   * Portalın tarih biçimi kod okumasından kesin anlaşılamadığı için kabul edilen ilk biçim kullanılır ve hatırlanır. bas/bit "YYYY-AA" */
+  async tahakkukListe(bas, bit) {
+    const ay = (t) => /^\d{4}-(0[1-9]|1[0-2])$/.test(t || "");
+    if (!ay(bas) || !ay(bit)) throw new Error("Başlangıç ve bitiş ayını seçin.");
+    if (bas > bit) throw new Error("Bitiş ayı başlangıçtan önce olamaz.");
+    const vy = await this.istek("POST", GW + "/api/sicil-bilgileri/tahakkuka-gore-vergi-daireleri-list", {}, true);
+    const vdler = ((vy && ((vy.data && vy.data.vdArr) || vy.vdArr)) || []).map((d) => ({ kod: d.vdKodu, ad: d.vdAdi })).filter((d) => d.kod);
+    if (!vdler.length) throw new Error("Tahakkuk kaydı olan vergi dairesi bulunamadı.");
+    const [by, bm] = bas.split("-"), [ey, em] = bit.split("-");
+    const bicimler = [[by + bm + "01", ey + em + "01"], [by + bm, ey + em], [bm + "." + by, em + "." + ey], [by + "-" + bm + "-01", ey + "-" + em + "-01"], ["01." + bm + "." + by, "01." + em + "." + ey]];
+    const sirala = this.tahakkukBicim != null ? [bicimler[this.tahakkukBicim]].concat(bicimler.filter((_, i) => i !== this.tahakkukBicim)) : bicimler;
+    let son = null, sonHata = null, hepsi = null;
+    for (const b of sirala) {
+      const topla = [], yanitlar = [];
+      try {
+        for (const vd of vdler) {
+          const y = await this.istek("POST", GW + "/api/tahakkuklarim/tahakkuk-sorgula", this.tablo({ vdKodu: vd.kod, baslangicTarihi: b[0], bitisTarihi: b[1] }, 200, { alan: "kabulTarihi", yon: "DESC" }), true);
+          yanitlar.push(y); const dizi = y && (Array.isArray(y.tahakkukList) ? y.tahakkukList : y.data && Array.isArray(y.data.tahakkukList) ? y.data.tahakkukList : null);
+          if (!dizi) throw new Error("Tahakkuk listesi alınamadı (" + (this.mesajMetni(y) || "beklenmeyen yanıt") + ").");
+          for (const d of dizi) topla.push(d);
+        }
+        hepsi = topla; son = yanitlar[yanitlar.length - 1]; this.tahakkukBicim = bicimler.indexOf(b); break;
+      } catch (e) { if (e.oturum) throw e; if (e.bos) { hepsi = []; son = null; this.tahakkukBicim = bicimler.indexOf(b); break; } sonHata = e; }
+    }
+    if (hepsi === null) throw sonHata || new Error("Tahakkuk sorgusu kabul edilmedi.");
+    this.tahakkuklar = hepsi;
+    const kayit = hepsi.map((d, n) => ({ n, vdAdi: d.vdAdi || "", vergiKodu: d.vergiKodu || "", vergiDonem: d.vergiDonem || "", kabulTarihi: d.kabulTarihi || "", fisNo: d.fisNo || "" }));
+    return { kayitlar: kayit, sekil: sekil(son) };
+  }
+  async tahakkukIndir(n) {
+    const d = (this.tahakkuklar || [])[n]; if (!d) throw new Error("Tahakkuk bulunamadı; listeyi yenileyin.");
+    const y = await this.istek("POST", GW + "/api/tahakkuklarim/tahakkuk-goruntule", { data: { secureId: d.secureId, orgoid: d.orgOid, thkFisNo: d.fisNo } }, true);
+    return this.dosyaCek(y, "tahakkuk-" + String(d.fisNo || n + 1), "pdf");
+  }
+  /* ---- Araçlarım (Araç Bilgilerim): mevcut ya da geçmiş araçlar ---- */
+  async aracListe(gecmis) {
+    const y = await this.istek("POST", GW + "/api/aracBilgilerim/list", this.tablo({ sorgulamaTuru: gecmis ? "2" : "1" }, 100, { alan: "tescilTarihi", yon: "DESC" }), true);
+    const dizi = (y && (Array.isArray(y.data) ? y.data : y.data && Array.isArray(y.data.data) ? y.data.data : [])) || [];
+    const uyari = ((y && y.messages) || []).filter((m) => m && m.text).map((m) => m.text).join(" ");
+    const al = ["plaka", "ozelPlaka", "tescilTarihi", "marka", "model", "tip", "cinsAd", "motorGucu", "silindirHacmi", "koltukSayisi", "tescilDurumu"];
+    return { araclar: dizi.slice(0, 100).map((a) => { const r = {}; for (const k of al) if (a && a[k] !== undefined && a[k] !== null && a[k] !== "") r[k] = String(a[k]); return r; }), uyari, sekil: sekil(y) };
+  }
+  /* ---- POS İşlem Bilgilerim: banka ve ödeme kuruluşu POS tahsilatları (KDV dahil), ay bazında ---- */
+  async posListe(yil, ay) {
+    if (!/^\d{4}$/.test(String(yil)) || !/^(0?[1-9]|1[0-2])$/.test(String(ay))) throw new Error("Yıl ve ay seçin.");
+    const govde = this.tablo({ yil: String(yil), ay: String(ay).padStart(2, "0") }, 200, { alan: "tutar", yon: "DESC" });
+    const getir = async (yol) => {
+      try { const y = await this.istek("POST", GW + "/mali-bilgiler/pos-islem/" + yol, govde, true); const d = (y && (Array.isArray(y.dataList) ? y.dataList : y.data && Array.isArray(y.data.dataList) ? y.data.dataList : [])) || []; return { satir: d.map((x) => ({ vkn: x.vkn || "", unvan: x.unvan || "", uyeIsyeriNo: x.uyeIsyeriNo || "", tutar: sayiya(x.tutar) })), y }; }
+      catch (e) { if (e.oturum) throw e; if (e.bos) return { satir: [], y: null }; throw e; }
+    };
+    const [b, o] = await Promise.all([getir("banka-bilgileri"), getir("odeme-kurulus-bilgileri")]);
+    const top = (l) => yuvarla(l.reduce((t, x) => t + x.tutar, 0));
+    return { yil: Number(yil), ay: String(ay).padStart(2, "0"), banka: b.satir, odeme: o.satir, bankaToplam: top(b.satir), odemeToplam: top(o.satir), toplam: yuvarla(top(b.satir) + top(o.satir)), sekil: sekil(b.y || o.y) };
+  }
+  /* ---- Onay SMS telefonu (profil → telefon güncelle): mevcut numara, yeni numaraya kod, kodla güncelleme ---- */
+  async telefonBilgi() {
+    const y = await this.istek("GET", GW + "/api/sms/get-iletisim-bilgileri", undefined, true);
+    const t = String((y && (y.telefon || (y.data && y.data.telefon))) || "").replace(/\D/g, "");
+    return { telefon: t, sekil: sekil(y) };
+  }
+  async telefonKodIste(kimlik, tel) {
+    if (!/^\d{10,11}$/.test(String(kimlik))) throw new Error("Mükellefin VKN/TCKN bilgisi eksik.");
+    if (!/^05\d{9}$/.test(String(tel))) throw new Error("Cep telefonunu 05XX XXX XX XX biçiminde yazın.");
+    const y = await this.istek("GET", GW + "/api/sms/send-sms-with-no?tcknVkn=" + kimlik + "&telNo=" + tel + "&islemTuru=7", undefined, true);
+    return { tamam: true, mesaj: this.mesajMetni(y) || "Onay kodu yeni numaraya gönderildi.", sekil: sekil(y) };
+  }
+  async telefonGuncelle(tel, kod) {
+    if (!/^05\d{9}$/.test(String(tel))) throw new Error("Cep telefonunu 05XX XXX XX XX biçiminde yazın.");
+    if (!/^\d{6}$/.test(String(kod || ""))) throw new Error("6 haneli SMS kodunu yazın.");
+    const y = await this.istek("POST", GW + "/auth/login/user/change-phone-number", { smsKod: String(kod), telNo: String(tel) }, true);
+    const m = ((y && y.messages) || []).filter((x) => x && x.text);
+    if (m.some((x) => x.type === "ERROR")) throw new Error(m.filter((x) => x.type === "ERROR").map((x) => x.text).join(" ").slice(0, 200));
+    return { tamam: true, mesaj: m.map((x) => x.text).join(" ") || "Telefon numarası güncellendi.", sekil: sekil(y) };
+  }
 }
 
 /* deneme kipi: gerçek GİB'e gitmez. Doğrulama kodu her zaman "7K3PQ2". */
@@ -275,7 +350,15 @@ class SahteIvd {
     const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 18 Tf 20 60 Td (ORNEK VERGI LEVHASI " + (dil === "en" ? "EN" : "TR") + ") Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF";
     return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "e-vergi-levhasi.pdf" };
   }
-  async gelen() { const d = [{ unvan: "ÖRNEK TEDARİKÇİ A.Ş.", faturaNo: "ABC2026000000012", duzenlenmeTarihi: "12.10.2026", toplamTutar: 11800, odenecekTutar: 11800, paraBirimi: "TRY" }]; return { kayitlar: kayitlar(d), sekil: sekil(d) }; }
+  async gelen() { const d = [{ unvan: "ÖRNEK TEDARİKÇİ A.Ş.", faturaNo: "ABC2026000000012", duzenlenmeTarihi: "12.10.2026", toplamTutar: 11800, odenecekTutar: 11800, vergilerTutari: 1800, paraBirimi: "TRY" }]; return { kayitlar: kayitlar(d), sekil: sekil(d) }; }
+  ornekPdf(metin) { return { veri: Buffer.from("%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 16 Tf 20 60 Td (" + metin + ") Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF"), tur: "application/pdf", satir: true, ad: String(metin).toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".pdf" }; }
+  async tahakkukListe(bas, bit) { if (!bas || !bit) throw new Error("Başlangıç ve bitiş ayını seçin."); this.tahakkuklar = [{ vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0015 - KDV", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:12:00", fisNo: "2026102601KDV0001" }, { vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0003 - MUHTASAR", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:05:00", fisNo: "2026102601MUH0002" }]; return { kayitlar: this.tahakkuklar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
+  async tahakkukIndir(n) { if (!(this.tahakkuklar || [])[n]) throw new Error("Tahakkuk bulunamadı; listeyi yenileyin."); return this.ornekPdf("ORNEK TAHAKKUK " + (n + 1)); }
+  async aracListe(gecmis) { return { araclar: gecmis ? [{ plaka: "34 ABC 123", marka: "FORD", model: "2012", tip: "TRANSIT", cinsAd: "KAMYONET", tescilDurumu: "Satıldı" }] : [{ plaka: "34 XYZ 789", ozelPlaka: "-", tescilTarihi: "2021-03-04", marka: "RENAULT", model: "2020", tip: "CLIO", cinsAd: "OTOMOBİL", motorGucu: "66", silindirHacmi: "999", koltukSayisi: "5", tescilDurumu: "Tescilli" }], uyari: "", sekil: {} }; }
+  async posListe(yil, ay) { if (!yil || !ay) throw new Error("Yıl ve ay seçin."); return { yil: Number(yil), ay: String(ay).padStart(2, "0"), banka: [{ vkn: "1234567890", unvan: "ÖRNEK BANKA A.Ş.", uyeIsyeriNo: "000123", tutar: 85200.5 }], odeme: [{ vkn: "9876543210", unvan: "ÖRNEK ÖDEME KURULUŞU", uyeIsyeriNo: "77", tutar: 12000 }], bankaToplam: 85200.5, odemeToplam: 12000, toplam: 97200.5, sekil: {} }; }
+  async telefonBilgi() { return { telefon: this.tel || "05320000000", sekil: {} }; }
+  async telefonKodIste(kimlik, tel) { if (!/^05\d{9}$/.test(String(tel))) throw new Error("Cep telefonunu 05XX XXX XX XX biçiminde yazın."); this.bekleyenTel = tel; return { tamam: true, mesaj: "Onay kodu yeni numaraya gönderildi.", sekil: {} }; }
+  async telefonGuncelle(tel, kod) { if (String(kod) !== "123456" || this.bekleyenTel !== tel) throw new Error("Dijital Vergi Dairesi hatası: SMS kodu hatalı."); this.tel = tel; return { tamam: true, mesaj: "Telefon numarası güncellendi.", sekil: {} }; }
 }
 
 module.exports = { istemci: (k, s) => (MOCK ? new SahteIvd(k) : new Ivd(k, s)), sekil, kayitlar };

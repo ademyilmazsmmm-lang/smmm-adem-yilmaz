@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-125";
+const SURUM = "2026-10-31-126";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -350,16 +350,16 @@ async function api(req, res, yol) {
       return res.end(d.veri);
     } catch (e) { if (e && e.oturum) { clearTimeout(sgkZaman.get(an)); sgkler.delete(an); } return duz(500, "Belge alınamadı: " + e.message); }
   }
-  if ((yol === "/api/vd/belge" || yol === "/api/vd/yazi" || yol === "/api/vd/levha") && req.method === "GET") {
+  if ((yol === "/api/vd/belge" || yol === "/api/vd/yazi" || yol === "/api/vd/levha" || yol === "/api/vd/tahakkuk") && req.method === "GET") {
     const q = new URL(req.url, "http://x").searchParams, mid = o.rol === "mukellef" ? o.mid : q.get("mid") || "";
     const duz = (kod, metin) => { res.writeHead(kod, Object.assign({ "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }, GUV)); res.end(metin); };
     if (!depo.yetkili(o, mid)) return duz(403, "Bu mükellef için yetkiniz yok.");
     const x = ivdler.get(mid); if (!x || !x.girildi) return duz(409, "Önce Dijital Vergi Dairesi'ne bağlanın (Vergi D. sekmesi).");
     try {
       ivdKontrol({ id: mid }, "b"); ivdZamanla(mid);
-      const n = Number(q.get("n")), yazi = yol === "/api/vd/yazi", levha = yol === "/api/vd/levha";
-      const d = levha ? await x.levhaIndir(n, q.get("dil"), (depo.mukellef(o, mid).veri.vkn || "").replace(/\D/g, "")) : yazi ? await x.yaziIndir(n) : await x.belgeIndir(n);
-      gunluk(o, mid, levha ? "e-Vergi levhası açıldı" : yazi ? "Borç durum yazısı açıldı" : "Tebligat belgesi açıldı", d.ad);
+      const n = Number(q.get("n")), yazi = yol === "/api/vd/yazi", levha = yol === "/api/vd/levha", thk = yol === "/api/vd/tahakkuk";
+      const d = levha ? await x.levhaIndir(n, q.get("dil"), (depo.mukellef(o, mid).veri.vkn || "").replace(/\D/g, "")) : yazi ? await x.yaziIndir(n) : thk ? await x.tahakkukIndir(n) : await x.belgeIndir(n);
+      gunluk(o, mid, levha ? "e-Vergi levhası açıldı" : yazi ? "Borç durum yazısı açıldı" : thk ? "Tahakkuk fişi açıldı" : "Tebligat belgesi açıldı", d.ad);
       res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": (d.satir ? "inline" : "attachment") + "; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:" }));
       return res.end(d.veri);
     } catch (e) { if (e && e.oturum) await ivdBirak(mid); return duz(500, "Belge alınamadı: " + e.message); }
@@ -603,6 +603,18 @@ async function api(req, res, yol) {
       }
       if (ne === "levha") { const yil = Number(g.yil), buYil = Number(gib.trBugunStr().slice(0, 4)); if (!(yil >= buYil - 3 && yil <= buYil)) return cevap(res, 400, { hata: "Yıl seçin." }); return cevap(res, 200, await vdSorgu(m, (x) => x.levhaListe(yil))); }
       if (ne === "yazilar") return cevap(res, 200, await vdSorgu(m, (x) => x.yaziListe()));
+      if (ne === "tahakkuk") return cevap(res, 200, await vdSorgu(m, (x) => x.tahakkukListe(String(g.tbas || ""), String(g.tbit || ""))));
+      if (ne === "arac") return cevap(res, 200, await vdSorgu(m, (x) => x.aracListe(g.gecmis === true)));
+      if (ne === "pos") return cevap(res, 200, await vdSorgu(m, (x) => x.posListe(String(g.yil || ""), String(g.ay || ""))));
+      if (ne === "telefon") {
+        /* Dijital VD profilindeki onay (SMS) telefonu: mevcut numara / yeni numaraya kod / kodla güncelleme. Açık onay ister; numara günlüğe yazılmaz. */
+        const tel = String(g.tel || "").replace(/\D/g, "").replace(/^(5\d{9})$/, "0$1"), kimlik = String(m.vkn || "").replace(/\D/g, "");
+        if (g.islem === "bilgi") return cevap(res, 200, await vdSorgu(m, (x) => x.telefonBilgi()));
+        if (g.onay !== true) return cevap(res, 400, { hata: "İşlem için onay gerekli." });
+        if (g.islem === "kod") { ivdKontrol(m, "t"); return cevap(res, 200, await vdSorgu(m, (x) => x.telefonKodIste(kimlik, tel))); }
+        if (g.islem === "guncelle") { ivdKontrol(m, "t"); const r = await vdSorgu(m, (x) => x.telefonGuncelle(tel, String(g.kod || "").replace(/\D/g, ""))); gunluk(o, mid, "Dijital VD onay telefonu güncellendi", ""); return cevap(res, 200, r); }
+        return cevap(res, 400, { hata: "Geçersiz işlem." });
+      }
       if (ne === "yazi-iste") {
         /* resmî talep: yalnız açık onayla, mükellef başına günde en çok 3 talep */
         if (g.onay !== true) return cevap(res, 400, { hata: "Talep için onay gerekli." });
