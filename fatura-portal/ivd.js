@@ -328,7 +328,7 @@ class Ivd {
         try {
           const g = await this.gibGit(new URL(b, taban).href), js = g.metin.slice(0, 900000), ad = b.replace(/\?.*$/, "");
           const uc = [...new Set([...js.matchAll(/["'`]([\w./-]*(?:\.jsp|\.do|\.action|\/rest\/|\/api\/|dispatch|\/service)[\w./?=&%-]*)["'`]/g)].map((m) => m[1]).filter((x) => x.length > 4 && x.length < 120))].slice(0, 40);
-          const bag = [...js.matchAll(sayfa ? new RegExp(String(sayfa).replace(/_[A-Z]+$/, "").slice(0, 28), "g") : /Z\s*Rapor|ZRAPOR|zrapor|ÖKC|OKC/gi)].slice(0, 3).map((m) => js.slice(Math.max(0, m.index - 150), m.index + 350).replace(/\s+/g, " "));
+          const bag = [...js.matchAll(sayfa ? new RegExp(String(sayfa).replace(/_[A-Z]+$/, "").slice(0, 28), "g") : /Aylık\s*Satış|Satış\s*Rapor|YNOKC|YN_OKC|OKCBildirim|DonemSorgula|Dönem\s*Sorgula|Z\s*Rapor|ZRAPOR/gi)].slice(0, 5).map((m) => js.slice(Math.max(0, m.index - 150), m.index + 350).replace(/\s+/g, " "));
           const ajax = [...js.matchAll(/(?:\$\.ajax|\$\.post|XMLHttpRequest|fetch)\s*\(?[^;]{0,160}/g)].slice(0, 4).map((m) => m[0].replace(/\s+/g, " "));
           parca.push("# " + ad + " (" + g.metin.length + " bayt)\nuçlar: " + (uc.join(" | ") || "-") + (ajax.length ? "\najax: " + ajax.join(" || ") : "") + (bag.length ? "\nsayfa adı geçen yer: " + bag.join(" ... ") : ""));
         } catch (e) { parca.push("# " + b + " okunamadı: " + e.message); }
