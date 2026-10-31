@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-178";
+const SURUM = "2026-10-31-180";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -658,7 +658,8 @@ async function api(req, res, yol) {
   }
   if (yol === "/api/son" && req.method === "POST") { /* Ana ekran özeti: istemcinin saydığı tebligat sayıları (yalnız sayılar saklanır) */
     const t = g.tebligat && typeof g.tebligat === "object" ? g.tebligat : {}, n = (v) => Math.max(0, Math.min(9999, parseInt(v, 10) || 0));
-    (m.son = m.son || {}).tebligat = { onemli: n(t.onemli), okunmadi: n(t.okunmadi), trafik: n(t.trafik), toplam: n(t.toplam), zaman: new Date().toISOString() }; depo.kaydet(mid);
+    if (g.tebligat) (m.son = m.son || {}).tebligat = { onemli: n(t.onemli), okunmadi: n(t.okunmadi), trafik: n(t.trafik), toplam: n(t.toplam), zaman: new Date().toISOString() }; depo.kaydet(mid);
+    if (g.kdv && typeof g.kdv === "object" && (g.kdv.donem === "onceki" || g.kdv.donem === "cari")) { const k = g.kdv, kr = (v) => (v == null || !Number.isFinite(Number(v)) ? null : Math.max(-1e13, Math.min(1e13, Math.round(Number(v))))); (m.son = m.son || {}).kdv = m.son.kdv || {}; m.son.kdv[k.donem] = { ad: String(k.ad || "").slice(0, 40), bitti: !!k.bitti, gelir: kr(k.gelir), gider: kr(k.gider), gelirAdet: kr(k.gelirAdet), giderAdet: kr(k.giderAdet), zaman: new Date().toISOString() }; depo.kaydet(mid); }
     return cevap(res, 200, { tamam: true });
   }
   if (yol.startsWith("/api/vd/")) {
