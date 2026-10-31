@@ -473,7 +473,9 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     <div id="vdBagli" style="display:none;justify-content:space-between;align-items:center;gap:8px"><span class="not" style="margin:0">✓ Dijital Vergi Dairesi’ne bağlı</span><button class="k" type="button" id="vdKapat">Kapat</button></div>
     <p class="not" id="vdNot"></p>
     <div id="vdHesap" hidden style="display:grid;gap:8px"><div class="kayit" id="hoKart" style="display:grid;gap:8px"><b>Hesap özeti (Defter-Beyan)</b><p class="not" style="margin:0">Seçtiğiniz yılın gelir, gider ve kâr/zarar özeti. Hesaplamayı Defter-Beyan yapar; bu ekran yalnız okur, bir şey kaydetmez. Dijital Vergi Dairesi bağlantısı gerekir. Not: Defter-Beyan’a bağlanmak, o sırada açık olan kendi Defter-Beyan oturumunuzu kapatabilir.</p>
-  <div class="satir"><div><label for="hoYil">Yıl</label><select id="hoYil"></select></div><div><label for="hoMali">Hesaplama</label><select id="hoMali"><option value="1">Mali (vergiye esas)</option><option value="0">Ticari</option></select></div></div>
+  <div class="vdsek" id="hoHizli" role="group" aria-label="Hızlı dönem"><button class="chip" type="button" data-ho="bu">Bu yıl</button><button class="chip" type="button" data-ho="gecen">Geçen yıl</button><button class="chip" type="button" data-ho="ocak">Ocak’tan bugüne</button></div>
+        <div class="satir"><div><label for="hoBas">Başlangıç</label><input id="hoBas" type="date"></div><div><label for="hoBit">Bitiş</label><input id="hoBit" type="date"></div></div>
+        <div class="satir"><div><label for="hoMali">Hesaplama</label><select id="hoMali"><option value="1">Mali (vergiye esas)</option><option value="0">Ticari</option></select></div></div>
   <button class="btn ikincil" type="button" id="hoGetir">Hesap özetini getir</button><div class="durum" id="hoDurum" role="status"></div><div id="hoSonuc" style="display:grid;gap:8px"></div></div>
 </div>
     <div id="vdKdv" hidden style="display:grid;gap:8px">
@@ -2293,7 +2295,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function vdHoHtml(s){
     var kutu = function(ad, t, renk){ return '<div style="flex:1 1 130px;border-left:5px solid ' + renk + ';background:color-mix(in srgb,' + renk + ' 12%,transparent);border-radius:10px;padding:8px 12px"><div class="not" style="margin:0">' + ad + '</div><div style="font-size:1.2rem;font-weight:700">' + tl(t) + '</div></div>'; };
     var sat = function(ad, t){ return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:.88rem;margin-top:4px"><span>' + esc(ad) + '</span><b style="white-space:nowrap">' + tl(t) + '</b></div>'; };
-    return '<div class="kayit"><b>' + esc(s.yil + " yılı hesap özeti") + '</b> <small class="not">' + (s.mali ? "Mali" : "Ticari") + (s.unvan ? " · " + esc(s.unvan) : "") + '</small>'
+    return '<div class="kayit"><b>' + esc((s.bas && s.bit ? String(s.bas).split("-").reverse().join(".") + " – " + String(s.bit).split("-").reverse().join(".") : s.yil + " yılı") + " hesap özeti") + '</b> <small class="not">' + (s.mali ? "Mali" : "Ticari") + (s.unvan ? " · " + esc(s.unvan) : "") + '</small>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' + kutu("Toplam gelir", s.toplamGelir, "#2f7d6b") + kutu("Toplam gider", s.toplamGider, "#c0392b") + kutu(s.kar < 0 ? "Zarar" : "Kâr", s.kar, s.kar < 0 ? "#c0392b" : "#34495e") + '</div>'
       + '<div style="margin-top:10px"><b style="font-size:.85rem">Gelirler</b>' + sat("Gelir — hasılat", s.gelirHasilat) + sat("Gelir — diğer", s.gelirDiger) + '</div>'
       + '<div style="margin-top:10px"><b style="font-size:.85rem">Giderler</b>' + sat("Gider — diğer", s.giderDiger) + sat("Amortisman giderleri", s.amortisman) + '</div></div>';
@@ -2336,12 +2338,15 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if ($("vdTBit").value) return; var d = new Date(), a = function(x){ return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0"); };
     $("vdTBit").value = a(d); d.setMonth(d.getMonth() - 11); $("vdTBas").value = a(d);
   }
-  function vdHoAlan(){ if ($("hoYil").options.length) return; var y = new Date().getFullYear(); $("hoYil").innerHTML = [y, y - 1, y - 2, y - 3].map(function(v){ return "<option>" + v + "</option>"; }).join(""); }
+  function hoTarih(y, a, g){ return y + "-" + p2(a) + "-" + p2(g); }
+  function hoAyarla(tur){ var d = new Date(), y = d.getFullYear(); if (tur === "gecen") { $("hoBas").value = hoTarih(y - 1, 1, 1); $("hoBit").value = hoTarih(y - 1, 12, 31); } else if (tur === "ocak") { $("hoBas").value = hoTarih(y, 1, 1); $("hoBit").value = hoTarih(y, d.getMonth() + 1, d.getDate()); } else { $("hoBas").value = hoTarih(y, 1, 1); $("hoBit").value = hoTarih(y, 12, 31); } }
+  function vdHoAlan(){ if (!$("hoBas").value) hoAyarla("bu"); }
+  $("hoHizli").addEventListener("click", function(e){ var b = e.target.closest("[data-ho]"); if (b) hoAyarla(b.getAttribute("data-ho")); });
   $("hoGetir").addEventListener("click", function(){
     var b = this, d = $("hoDurum"); if (!VD.mid) return;
     if (!VD.bagli) { d.className = "durum hata"; d.textContent = "Önce Dijital Vergi Dairesi’ne bağlanın (yukarıdaki doğrulama kodu)."; return; }
     b.disabled = true; d.className = "durum"; d.textContent = "Defter-Beyan’dan alınıyor…"; $("hoSonuc").innerHTML = "";
-    api("/api/vd/hesapozeti", "POST", { mukellefId: VD.mid, yil: $("hoYil").value, mali: $("hoMali").value }).then(function(r){ d.textContent = ""; $("hoSonuc").innerHTML = vdHoHtml(r); sonucaGit("hoSonuc"); }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
+    api("/api/vd/hesapozeti", "POST", { mukellefId: VD.mid, bas: $("hoBas").value, bit: $("hoBit").value, mali: $("hoMali").value }).then(function(r){ d.textContent = ""; $("hoSonuc").innerHTML = vdHoHtml(r); sonucaGit("hoSonuc"); }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
   });
   function vdPosAlan(){
     if ($("vdPosYil").options.length) return; var d = new Date(), y = d.getFullYear(), oncekiAy = d.getMonth() === 0 ? 12 : d.getMonth(), yil = d.getMonth() === 0 ? y - 1 : y;
