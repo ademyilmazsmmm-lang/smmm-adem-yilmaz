@@ -127,6 +127,21 @@ function islemTipleri(html) {
 const ISLEM = /islem\(\s*['"]([A-Z]+)['"]\s*,\s*['"]([^'"]+)['"]\s*\)/;
 const ISLEM_AD = { T: "tahakkuk", H: "hizmet", SH: "s-hizmet" };
 
+/* metin: contentContainer içindeki düz yazı */
+function tesvikKartlari(metin) {
+  const t = String(metin || "").replace(/^id\s*=\s*"contentContainer"[^>]*>\s*/i, "").replace(/\s+/g, " ").trim(), kartlar = [];
+  const parcalar = t.split(/(?<!\/\s*)(?=\b\d{4}\s*(?:\/\s*\d{4}\s*)?(?:\/\s*)?(?:SAYILI|[A-ZÇĞİÖŞÜ]{4,}))/);
+  for (const c of parcalar) {
+    const i = c.search(/Sorgulama Tarihi\s*\d{2}\.\d{2}\.\d{4}/); if (i < 1) continue;
+    const baslik = c.slice(0, i).trim().replace(/\s*\([^)]{25,}\)?.*$/, ""), gov = c.slice(i).replace(/^Sorgulama Tarihi\s*\d{2}\.\d{2}\.\d{4}\s*/, "");
+    const al = (re) => { const m = re.exec(gov); return m ? m[1].trim() : ""; };
+    const mesaj = al(/Mesaj(?:lar)?\s+(.+)$/), durum = al(/Durum\s+(.+?)(?=\s+Mesaj|$)/);
+    const yok = /Yararlanamazs[ıi]n[ıi]z|yararlanamaz/i.test(durum + " " + mesaj.slice(0, 80)), var_ = !yok && (/Yararlanabilirsiniz/i.test(durum + " " + mesaj.slice(0, 80)) || /Teşvik (Süresi|Tutarı)/i.test(gov));
+    kartlar.push({ kanun: baslik.slice(0, 120), yararlanir: yok ? false : var_ ? true : null, sure: al(/Teşvik Süresi\s+(\d+\s*Ay)/i), tutar: al(/Teşvik Tutarı\s+([\d.,]+\s*TL)/i), sonra: al(/Teşvik Sonrası\s+([\d.,]+\s*TL)/i), donem: al(/Başlangıç-Bitiş Dönemi\s+(\d{4}\/\d{2}\s*-\s*\d{4}\/\d{2})/i), sebep: yok ? (mesaj || durum).slice(0, 220) : "" });
+  }
+  return kartlar;
+}
+
 class Sgk {
   constructor(k, sistem) { this.k = k || {}; this.s = SISTEMLER[sistem] || SISTEMLER.isveren; this.taban = "https://" + this.s.sunucu; this.cerez = new Map(); /* alan adı -> çerezler */ this.girdi = false; this.ana = ""; }
   cerezTopla(r, host) { let j = this.cerez.get(host); if (!j) { j = new Map(); this.cerez.set(host, j); } for (const sc of (typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [])) { const kv = sc.split(";")[0].trim(), i = kv.indexOf("="); if (i > 0) j.set(kv.slice(0, i), kv.slice(i + 1)); } }
@@ -333,7 +348,7 @@ class Sgk {
     let metin = sade(i >= 0 ? sonuc.slice(i) : sonuc).replace(/Özel İşyeri Sicil No[\s\S]*?Eski Prim Oran\s*:\s*[\d.,]*\s*/i, "").replace(/POTANSİYEL TEŞVİK SORGULAMA\s*/i, "");
     let uyari = sade((/id\s*=\s*["']genelUyariCenterTag["'][^>]*>([\s\S]*?)<\/center>/i.exec(temiz) || [])[1] || "") || hataMetni(html);
     if (kunye.test(uyari)) uyari = ""; /* işyeri künyesi uyarı değildir */
-    return { tablolar: tablolar.filter((t) => t.satirlar.length), uyari, metin: metin.slice(0, 3500) };
+    return { tablolar: tablolar.filter((t) => t.satirlar.length), kartlar: tesvikKartlari(metin), uyari, metin: metin.replace(/^id\s*=\s*"contentContainer"[^>]*>\s*/i, "").slice(0, 3500) };
   }
   /* son açılan İşveren sayfasındaki bir düğmeyi (ör. "Pdf Döküm Al") sayfanın kendi formu gibi gönderir */
   async formGonder(i) {
@@ -414,7 +429,7 @@ class SahteSgk {
   async cikis() { this.girdi = false; }
   async formGonder(i) { if (!this.girdi) throw this.oturumHata2(); return this.bildirgeBelge(0, 0, 0); }
   async tesvikFormu() { if (!this.girdi) throw this.oturumHata2(); this.mf = true; return { alanlar: [{ ad: "tcKimlikNo", tur: "text", etiket: "T.C.Kimlik Numarası", deger: "" }, { ad: "kazanc", tur: "text", etiket: "Sigortalının Kazanç Bilgisi", deger: "" }], aciklama: "Örnek açıklama." }; }
-  async tesvikSorgula(d) { if (!this.mf) throw new Error("Önce teşvik formunu açın."); if (!d || !d.tcKimlikNo) return { tablolar: [], uyari: "T.C. Kimlik No boş.", metin: "" }; return { tablolar: [{ basliklar: ["Kanun No", "Teşvik süresi", "Aylık tutar"], satirlar: [["06111", "12 ay", "2.500,00"], ["05510", "5 puan", "1.100,00"]] }], uyari: "", metin: "Örnek sonuç" }; }
+  async tesvikSorgula(d) { if (!this.mf) throw new Error("Önce teşvik formunu açın."); if (!d || !d.tcKimlikNo) return { tablolar: [], uyari: "T.C. Kimlik No boş.", metin: "" }; const metin = "2828 /SAYILI KANUN EK 1.MADDE Sorgulama Tarihi 31.10.2026 Durum Teşvikten Yararlanamazsınız Mesaj Kişinin kaydı bulunamamıştır. 6111 /4447 SAYILI KANUN GEÇİCİ 10.MADDE Sorgulama Tarihi 31.10.2026 Teşvik Süresi 24 Ay Başlangıç-Bitiş Dönemi 2026/10-2028/09 Kazanç 33.030,00 TL Teşvik Tutarı 7.184,03 TL Teşvik Sonrası 5.615,10 TL Mesajlar Örnek. 5510 SAYILI KANUN 81.MADDE 1.FIKRA (ı) BENDİ Sorgulama Tarihi 31.10.2026 Mesaj Teşvikten Yararlanabilirsiniz Teşvik Tutarı 660,60 TL Teşvik Sonrası 12.138,53 TL"; return { tablolar: [], kartlar: tesvikKartlari(metin), uyari: "", metin }; }
   async isverenSayfa(ad) { if (!this.girdi) throw this.oturumHata2(); return { uyari: ad === "IAKU" ? "HATA E-Borcu Yoktur Aktivasyonu Bulunmamaktadır." : "", ciftler: /^IA/.test(ad) ? [{ k: "TC Kimlik No", v: "11111111110" }] : [], borcToplam: ad === "DonemBorcGoruntuleme" ? 14065.45 : null, borc: ad === "DonemBorcGoruntuleme" ? { basliklar: ["Dönem", "Prim", "GZ", "Toplam BORÇ", "Toplam GZ", "TOPLAM"], satirlar: [["2026/08", "11.808,23", "2.257,22", "11.808,23", "2.257,22", "14.065,45"], ["TOPLAM", "11.808,23", "2.257,22", "11.808,23", "2.257,22", "14.065,45"]] } : null, isyeri: { sicil: "2 1234 01 01 1234567 034 12-34 000 000", unvan: "ÖRNEK NAKLİYAT LTD. ŞTİ." }, dugmeler: [{ i: 0, etiket: "Pdf Döküm Al" }], adres: "/IsverenSistemi/internetLink" + ad + ".action", baslik: "Örnek sayfa " + ad, metin: "Örnek içerik", hata: "", formlar: [{ eylem: "/IsverenSistemi/x.action", yontem: "post", gizli: ["token"], secimler: { donem: [{ deger: "1", etiket: "2026/09" }] } }], alanlar: [{ eylem: "/x", yontem: "post", alanlar: ["donem:select[1]"] }], tablolar: [["Dönem", "Borç"]], ham: "<form>…</form>" }; }
   async bildirgeDonemler() { if (!this.girdi) throw this.oturumHata2(); return { donemler: [{ deger: "1", etiket: "2026/09" }, { deger: "2", etiket: "2026/08" }, { deger: "3", etiket: "2026/07" }] }; }
   async bildirgeListe(b, e) { if (!this.girdi) throw this.oturumHata2(); const s = [{ n: 0, hucreler: ["2026/09", "2026/09", "01", "ASIL", "05510", "1", "4", "4.404,00 TL", "", "", ""].map((m, k) => ({ k, metin: m, belgeler: k >= 8 ? [{ j: 0, baslik: "Görüntüle", var: true }, { j: 1, baslik: "İndir", var: true }] : [] })) }]; return { basliklar: ["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Belge Mahiyeti", "Kanun No", "Toplam Çalışan Sayısı", "Toplam Gün Sayısı", "Toplam Pek Tutar", "Tahakkuk", "Hizmet", "S.Hizmet"], satirlar: s, hamMetin: "", onclickOrnek: [] }; }
@@ -422,4 +437,4 @@ class SahteSgk {
   oturumHata2() { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; return e; }
 }
 
-module.exports = { sade, formlar, tablolar, hamMaskeli, formCoz, tabloSatirlari, istemci: (k, sistem) => (MOCK ? new SahteSgk(k, sistem) : new Sgk(k, sistem)), baglantilar, hataMetni, devamAdresleri, basliyorMu, anaSayfaMi };
+module.exports = { tesvikKartlari, sade, formlar, tablolar, hamMaskeli, formCoz, tabloSatirlari, istemci: (k, sistem) => (MOCK ? new SahteSgk(k, sistem) : new Sgk(k, sistem)), baglantilar, hataMetni, devamAdresleri, basliyorMu, anaSayfaMi };

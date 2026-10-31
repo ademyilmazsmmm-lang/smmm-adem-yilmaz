@@ -2453,7 +2453,18 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     return '<div data-tfw="' + esc(a.ad) + '"><label>' + et + '</label>' + o + '</div>';
   }
   /* Sonuç: işyeri bilgisi / açıklama yok; her kanun için yalnız "yararlanır: süre · ortalama tutar" ya da "yararlanmıyor: sebep" */
+  function tesvikKartHtml(r){
+    var sirali = r.kartlar.slice().sort(function(a, b){ return (b.yararlanir === true) - (a.yararlanir === true); });
+    return sirali.map(function(k){
+      var ad = esc(String(k.kanun || "").replace(/\s*\/\s*SAYILI/i, " SAYILI")), g;
+      if (k.yararlanir === true) g = '<div style="color:var(--accent);font-weight:600;margin-top:2px">✓ Yararlanır' + (k.sure ? ' — ' + esc(k.sure.toLowerCase()) : '') + (k.tutar ? ' · aylık ' + esc(k.tutar) : '') + '</div>' + (k.sonra || k.donem ? '<div class="not" style="margin:2px 0 0">' + (k.sonra ? 'Teşvik sonrası ödenecek ' + esc(k.sonra) : '') + (k.sonra && k.donem ? ' · ' : '') + (k.donem ? esc(k.donem.replace(/\s*-\s*/, " – ")) : '') + '</div>' : '');
+      else if (k.yararlanir === false) g = '<div style="color:var(--danger);margin-top:2px">✗ Yararlanamaz</div>' + (k.sebep ? '<div class="not" style="margin:2px 0 0;overflow-wrap:anywhere">' + esc(k.sebep) + '</div>' : '');
+      else g = '<div class="not" style="margin:2px 0 0">Durum anlaşılamadı</div>';
+      return '<div class="kayit"><b>' + ad + '</b>' + g + '</div>';
+    }).join("");
+  }
   function tesvikSonucHtml(r){
+    if (r.kartlar && r.kartlar.length) return tesvikKartHtml(r) + '<details class="alt2"><summary>SGK’nın yanıtı (ham metin)</summary><div class="icerik"><p class="not" style="margin:0;overflow-wrap:anywhere">' + esc(r.metin || "—") + '</p></div></details>';
     var h = r.uyari ? '<div class="durum ' + (/hata|uygun değil|bulunamad|geçersiz/i.test(r.uyari) ? "hata" : "ok") + '" style="display:block">' + esc(r.uyari) + '</div>' : "";
     var ac2 = function(bs, re){ for (var q = 0; q < bs.length; q++) if (re.test(bs[q])) return q; return -1; };
     (r.tablolar || []).forEach(function(t){
