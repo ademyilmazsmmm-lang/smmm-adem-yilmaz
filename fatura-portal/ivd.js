@@ -298,7 +298,7 @@ class Ivd {
     let k = {}; try { k = al(await this.istek("GET", GW + "/sicil-bilgileri/kisisel-bilgiler", undefined, true)); } catch (e) { if (e.oturum) throw e; uyari.push("Kimlik bilgileri: " + String(e.message).slice(0, 120)); }
     let tel = ""; try { tel = m(al(await this.istek("GET", GW + "/sicil-bilgileri/get-iletisim-bilgileri", undefined, true)).talepOnayGsmNo); } catch (e) { if (e.oturum) throw e; }
     let ly = {}; try { ly = await this.denemeli("POST", "/sube-bilgileri/mukellef-sube-listesi", [this.tablo({}, 50, { alan: "isyeriNitelikText", yon: "ASC" }), this.tablo({}, 50), { meta: { pagination: { pageNo: 1, pageSize: 50 }, filters: [] } }, { data: {} }, {}]); }
-    catch (e) { if (e.oturum) throw e; if (!Object.keys(k).length) throw e; uyari.push("İş yeri / şube listesi alınamadı: " + String(e.message).slice(0, 160)); }
+    catch (e) { if (e.oturum) throw e; uyari.push("İş yeri / şube listesi: " + String(e.message).slice(0, 160)); }
     const dizi = (ly && (Array.isArray(ly.subeBilgiDTO) ? ly.subeBilgiDTO : ly.data && Array.isArray(ly.data.subeBilgiDTO) ? ly.data.subeBilgiDTO : [])) || [], liste = dizi.slice(0, 8), subeler = [];
     const vkn = m(k.vkn) || m((ly && ly.vkn) || "");
     for (const sb of liste) {
@@ -319,6 +319,13 @@ class Ivd {
         sube.vergiler = vl.slice(0, 40).map((v) => ({ ad: m(v.vergiAdi), donem: m(v.donem), bas: m(v.baslamaTarihi), bit: m(v.bitisTarihi), terk: m(v.terkNedeni) }));
       } catch (e) { if (e.oturum) throw e; hata("vergi türleri", e); }
       subeler.push(sube);
+    }
+    /* şube listesi / adres alınamadıysa (ör. kayıtlı adres yok) adres istemeyen uçlardan merkez bilgisi ve faaliyet (NACE) kodları okunur */
+    if (!subeler.length) {
+      const yedek = { ad: "MERKEZ", no: "", tur: "Merkez", nitelik: "Merkez", vd: "", durum: "", adresler: [], faaliyet: [], vergiler: [], hata: "" };
+      try { const my = al(await this.istek("GET", GW + "/sube-bilgileri/merkez-bilgisi-getir", undefined, true)); yedek.vd = m(my.vergiDairesi || my.vdUzunAdi || my.vdAdi); yedek.durum = m(my.birimFaal || my.durum); yedek.ad = m(my.subeAdi) || "MERKEZ"; yedek.no = m(my.subeNumarasi || my.subeNo); } catch (e) { if (e.oturum) throw e; yedek.hata += "merkez: " + String(e.message).slice(0, 120); }
+      try { const fy = await this.istek("GET", GW + "/faaliyet-bilgileri/merkez-faaliyet-bilgisi", undefined, true), fl = (fy && (Array.isArray(fy.faaliyetKodlari) ? fy.faaliyetKodlari : fy.data && Array.isArray(fy.data.faaliyetKodlari) ? fy.data.faaliyetKodlari : [])) || []; yedek.faaliyet = fl.slice(0, 30).map((f) => ({ kod: m(f.faaliyetKod), ad: m(f.faaliyetAd), bas: m(f.basTar || f.baslamaTarihi), bit: m(f.bitTar || f.bitisTarihi) })); } catch (e) { if (e.oturum) throw e; yedek.hata += (yedek.hata ? " · " : "") + "faaliyet: " + String(e.message).slice(0, 120); }
+      if (yedek.faaliyet.length || yedek.vd) subeler.push(yedek); else if (!Object.keys(k).length) throw new Error(uyari.join(" · ") || "Sicil bilgisi alınamadı.");
     }
     return { kisi: { unvan: m(k.adSoyadUnvan), vkn: m(k.vkn), tckn: m(k.tckn), tur: m(k.sirketTuru), mukellefTuru: m(k.mukellefTuru), dogum: m(k.dogumTarihi), ikametgah: m(k.ikametgahAdres), isYeri: m(k.isYeriAdres), ticaretSicil: m(k.ticaretSicilNo), tel }, subeler, toplamSube: dizi.length, uyari: uyari.join(" · "), sekil: sekil({ kisi: k, liste: ly }) };
   }
