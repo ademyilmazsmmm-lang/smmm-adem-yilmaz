@@ -2250,6 +2250,19 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function vdTarih(t){ var m = /^(\d{2})[./-](\d{2})[./-](\d{4})/.exec(t || "") || null; if (m) return +(m[3] + m[2] + m[1]); m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t || ""); return m ? +(m[1] + m[2] + m[3]) : 0; }
   function vdSatir(e, d){ return d ? '<div style="display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:6px;font-size:.88rem;margin-top:4px"><span class="not" style="margin:0">' + esc(e) + '</span><span style="overflow-wrap:anywhere">' + esc(d) + '</span></div>' : ""; }
   function vdDefterAlan(){ return ROL === "ofis" ? '<details class="alt2"><summary>Geliştirme aracı</summary><div class="icerik"><button class="k" type="button" id="vdDefterOku">Defter-Beyan portalını oku (geliştirme)</button></div></details>' + (VD.sonuc.defterDev ? isvHtml(VD.sonuc.defterDev, "Defter-Beyan keşfi") : "") : ""; }
+  function vdHacizHtml(s){
+    var tur = s.tur === "arac" ? "araçlarınıza" : "banka hesaplarınıza";
+    if (!s.satirlar.length) return '<div class="kayit" style="border-left:4px solid #2f7d6b"><b>Haciz bildirisi yok</b><p class="not" style="margin:4px 0 0">Adınıza düzenlenmiş ' + tur + ' uygulanan e-haciz bildirisi bulunmamaktadır.</p></div>';
+    var alanlar = function(o){ return Object.keys(o || {}).filter(function(k){ return !TEKNIK.test(k) && o[k] !== ""; }).map(function(k){ return '<div style="display:grid;grid-template-columns:8em minmax(0,1fr);gap:6px;font-size:.84rem;margin-top:3px"><span class="not" style="margin:0">' + esc(insanAd(k)) + '</span><span style="overflow-wrap:anywhere">' + esc(o[k]) + '</span></div>'; }).join(""); };
+    return '<p class="not" style="margin:0;color:var(--danger)"><b>' + s.toplam + ' haciz bildirisi bulundu</b></p>' + s.satirlar.map(function(r){
+      var yok = r.borcDurum === "BORCYOK", ad = s.vdAdlari && s.vdAdlari[r.vdkod];
+      return '<div class="kayit" style="border-left:4px solid ' + (yok ? "#d68910" : "#c0392b") + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>' + esc(ad || ("Vergi dairesi " + r.vdkod)) + '</b><b style="white-space:nowrap">' + (r.tutar ? tl(r.tutar) : "") + '</b></div>'
+        + '<div class="not" style="margin:2px 0 0">Haciz bildiri no ' + esc(r.no || "—") + ' · ' + (yok ? "Borç kalmamış — haciz kaldırma talep edilebilir" : r.borcDurum === "BORCVAR" ? "Borç devam ediyor" : esc(r.borcDurum || "")) + '</div>'
+        + (r.ust && r.ust.length ? '<details class="alt2" style="margin-top:6px"><summary>Vergi / dönem (' + r.ust.length + ')</summary><div class="icerik">' + r.ust.map(function(x){ return '<div style="border-top:1px solid var(--line);padding-top:4px">' + alanlar(x) + '</div>'; }).join("") + '</div></details>' : "")
+        + (r.alt && r.alt.length ? '<details class="alt2" style="margin-top:6px"><summary>Haciz bilgisi (' + r.alt.length + ')</summary><div class="icerik">' + r.alt.map(function(x){ return '<div style="border-top:1px solid var(--line);padding-top:4px">' + alanlar(x) + '</div>'; }).join("") + '</div></details>' : "")
+        + (r.detayHata ? '<p class="not" style="margin:4px 0 0">Ayrıntı alınamadı: ' + esc(r.detayHata) + '</p>' : "") + '</div>';
+    }).join("");
+  }
   function vdSicilHtml(s){
     var k = s.kisi || {}, h = (s.uyari ? '<p class="not" style="margin:0 0 8px;color:var(--danger)">' + esc(s.uyari) + '</p>' : '') + '<div class="kayit"><b>' + esc(k.unvan || "Mükellef") + '</b>' + vdSatir("VKN / TCKN", k.vkn || k.tckn) + vdSatir("Mükellef türü", [k.tur, k.mukellefTuru].filter(Boolean).join(" · ")) + vdSatir("İş yeri adresi", k.isYeri) + vdSatir("İkametgâh", k.ikametgah) + vdSatir("Ticaret sicil", k.ticaretSicil) + '</div>';
     (s.subeler || []).forEach(function(b){
@@ -2393,7 +2406,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function vdCiz(){
     var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
     if (VD.sek === "zrapor") { liste.innerHTML = (s && s.bildirimler ? '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdZHtml(s) : '<p class="not">Yıl ve ayı seçip “Sorgula”ya basın.</p>') + (ROL === "ofis" && VD.bagli ? '<details class="alt2"><summary>Geliştirme aracı</summary><div class="icerik"><button class="k" type="button" id="vdZOku">İnternet VD sayfasını oku (geliştirme)</button></div></details>' : "") + (VD.sonuc.zraporDev ? isvHtml(VD.sonuc.zraporDev, "İnternet Vergi Dairesi · Z raporu") : ""); tani.hidden = true; return; }
-    if (VD.sek === "haciz") { liste.innerHTML = s ? '<p class="not" style="margin:0">' + esc(s.zaman) + '</p>' + isvHtml(s, (VD.hacizTur === "arac" ? "Araçlar" : "Banka hesapları") + " · haciz sorgusu") : ""; tani.hidden = true; return; }
+    if (VD.sek === "haciz") { liste.innerHTML = s && s.satirlar && s.tur ? '<p class="not" style="margin:0">' + esc(s.zaman) + '</p>' + vdHacizHtml(s) : s ? '<p class="not" style="margin:0">' + esc(s.zaman) + '</p>' + isvHtml(s, (VD.hacizTur === "arac" ? "Araçlar" : "Banka hesapları") + " · haciz sorgusu") : ""; tani.hidden = true; return; }
     if (VD.sek === "telefon" || VD.sek === "kdv") { liste.innerHTML = ""; tani.hidden = true; return; }
     if (!s && VD.sek === "sicil") { liste.innerHTML = vdDefterAlan(); tani.hidden = true; return; }
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }

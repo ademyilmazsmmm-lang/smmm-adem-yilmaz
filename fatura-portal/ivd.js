@@ -346,6 +346,34 @@ class Ivd {
     }
     return { betikOzet: "[Defter-Beyan keşif]\n" + cikti.join("\n"), uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: "Defter-Beyan keşfi", baslik: "", metin: "", formlar: [], alanlar: [], tablolar: [], baglantilar: [], yonlendirme: [], satirlar: [], tabloHam: "", ham: "" };
   }
+  /* ---- E-Haciz: banka hesaplarına / araçlara uygulanan elektronik hacizler (İVD "ehacizSorgulamaService") ---- */
+  async hacizListe(tur) {
+    const secim = tur === "arac" ? "2" : tur === "banka" ? "1" : ""; if (!secim) throw new Error("Haciz türü seçin.");
+    const sayfa = secim === "2" ? "P_INTVRG_INTVD_EHACIZ_ARAC_SRG" : "P_INTVRG_INTVD_EHACIZ_BANKA_SRG";
+    let gr; try { gr = await this.sideGiris("ivd"); } catch (e) { if (e.oturum) throw e; throw new Error("İnteraktif Vergi Dairesi bağlantısı kurulamadı: " + String(e.message).slice(0, 120)); }
+    const hedef = gr.y.redirectUrl, u = new URL(hedef), token = u.searchParams.get("token") || "";
+    await this.gibGit(hedef);
+    const hataMetni = (j) => ((j && j.messages) || []).map((x) => x && x.text).filter(Boolean).join(" ").slice(0, 200);
+    const cagir = async (cmd, jp, sf) => {
+      const r = await this.gibGit(u.origin + "/tvd_server/dispatch", "cmd=" + cmd + "&callid=" + Date.now().toString(36) + "-1&pageName=" + encodeURIComponent(sf || sayfa) + "&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify(jp)), hedef);
+      let j; try { j = JSON.parse(r.metin); } catch (e) { throw new Error("İnteraktif Vergi Dairesi beklenmeyen bir yanıt verdi."); }
+      if (j && j.error && String(j.error) !== "0") throw new Error(hataMetni(j) || "İnteraktif Vergi Dairesi hatası.");
+      return j;
+    };
+    const dizi = (j) => (Array.isArray(j) ? j : j && Array.isArray(j.data) ? j.data : j && j.data && typeof j.data === "object" && Array.isArray(j.data.array1) ? j.data.array1 : null);
+    await cagir("userSessionService_getUserSessionInfo", { token, rfDataInfo: [] });
+    const j = await cagir("ehacizSorgulamaService_EhacizSorgulamaSonuc", { secim }), liste = dizi(j);
+    if (!liste) throw new Error("Haciz listesi beklenmeyen biçimde geldi" + (j === null ? " (boş yanıt)" : "") + ".");
+    const m = (v) => (v === undefined || v === null ? "" : String(v)), sade = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) if (v !== null && typeof v !== "object" && String(v) !== "") r[k] = String(v); return r; };
+    const satirlar = [], vdAd = {};
+    for (const r of liste.slice(0, 20)) {
+      const kay = sade(r), vdkod = m(r.vdkod), hbno = m(r.hbno || r.hacizBildiriNo), ozet = { vdkod, no: hbno, tutar: Number(String(r.htutar || r.hacizBildTutar || "0").replace(/\./g, "").replace(",", ".")) || 0, borcDurum: m(r.borcDurum), alanlar: kay, ust: [], alt: [] };
+      if (vdkod && !(vdkod in vdAd)) { vdAd[vdkod] = ""; try { const v = await cagir("ehacizSorgulamaService_vdBilgileriGetir", { vdkod }); const d = (v && v.data && !Array.isArray(v.data) ? v.data : v) || {}; vdAd[vdkod] = m(d.vdadi); } catch (e) { if (e.oturum) throw e; } }
+      if (satirlar.length < 6 && vdkod && hbno) { try { const dj = await cagir("ehacizSorgulamaService_EhacizSorgulamaSonucDetay", { vdkod, hbno, secim }), d = (dj && dj.data && !Array.isArray(dj.data) ? dj.data : dj) || {}; ozet.ust = (Array.isArray(d.array1) ? d.array1 : []).slice(0, 20).map(sade); ozet.alt = (Array.isArray(d.array2) ? d.array2 : []).slice(0, 20).map(sade); } catch (e) { if (e.oturum) throw e; ozet.detayHata = String(e.message).slice(0, 100); } }
+      satirlar.push(ozet);
+    }
+    return { tur, satirlar, vdAdlari: vdAd, toplam: liste.length };
+  }
   /* ---- Z raporu: yeni nesil ÖKC aylık satış raporu bildirimleri (İnternet VD "ÖKC Bildirim Görüntüleme") ---- */
   async zRapor(yil, ay, vknIpucu) {
     yil = String(yil || ""); ay = String(ay || "").padStart(2, "0");
@@ -420,7 +448,7 @@ class Ivd {
   /* SIDE sunucusuna (intvrg_server/dispatch ya da tvd_server/dispatch) menü tanımlarını sordurur: Z raporu / haciz gibi sayfaların gerçek adlarını ve komutlarını bulmak için (yalnız okuma) */
   /* Z raporu (yeni nesil ÖKC) Dijital VD'de ayrı bir girişle açılır (/tdvd/yeniNesilOkc-login); diğerleri intvrg / interaktif */
   async sideGiris(sistem) {
-    const yollar = sistem === "okc" ? ["/auth/tdvd/yeniNesilOkc-login", "/auth/tdvd/intvrg-login"] : sistem === "intvrg" ? ["/auth/tdvd/intvrg-login"] : ["/auth/tdvd/interaktif-login"]; let son = null;
+    const yollar = sistem === "ivd" ? ["/auth/tdvd/interaktif-login"] : sistem === "okc" ? ["/auth/tdvd/yeniNesilOkc-login", "/auth/tdvd/intvrg-login"] : sistem === "intvrg" ? ["/auth/tdvd/intvrg-login"] : ["/auth/tdvd/interaktif-login"]; let son = null;
     for (const yol of yollar) { try { const y = await this.istek("GET", GW + yol, undefined, true); if (y && y.redirectUrl) return { y, yol }; son = new Error("bağlantı adresi alınamadı" + (this.mesajMetni(y) ? ": " + this.mesajMetni(y) : "")); } catch (e) { if (e.oturum) throw e; son = e; } }
     throw son || new Error("bağlantı adresi alınamadı");
   }
@@ -620,6 +648,7 @@ class SahteIvd {
   async tahakkukListe(bas, bit) { if (!bas || !bit) throw new Error("Başlangıç ve bitiş ayını seçin."); this.tahakkuklar = [{ vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0015 - KDV", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:12:00", fisNo: "2026102601KDV0001" }, { vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0003 - MUHTASAR", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:05:00", fisNo: "2026102601MUH0002" }]; return { kayitlar: this.tahakkuklar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
   async tahakkukIndir(n) { if (!(this.tahakkuklar || [])[n]) throw new Error("Tahakkuk bulunamadı; listeyi yenileyin."); return this.ornekPdf("ORNEK TAHAKKUK " + (n + 1)); }
   async defterKesif() { return { betikOzet: "[Defter-Beyan keşif]\n/auth/tdvd/edefter-login → https://portal.defterbeyan.gov.tr/ · HTTP 200", uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: "Defter-Beyan keşfi", baslik: "", metin: "", formlar: [], alanlar: [], tablolar: [], baglantilar: [], yonlendirme: [], satirlar: [], tabloHam: "", ham: "" }; }
+  async hacizListe(tur) { if (tur !== "banka" && tur !== "arac") throw new Error("Haciz türü seçin."); return { tur, satirlar: tur === "banka" ? [{ vdkod: "034123", no: "2026/12345", tutar: 12500.5, borcDurum: "BORCVAR", alanlar: { vdkod: "034123", hbno: "2026/12345", htutar: "12500,50", borcDurum: "BORCVAR" }, ust: [{ vergiTuru: "KDV", donem: "2026/08", tutar: "9000,00" }], alt: [{ bankaadi: "ÖRNEK BANKA", bloketutar: "12500,50", kaldirmatarihi: "" }] }] : [], vdAdlari: { "034123": "ÜMRANİYE VERGİ DAİRESİ" }, toplam: tur === "banka" ? 1 : 0 }; }
   async zRapor(yil, ay) { if (!yil || !ay) throw new Error("Yıl ve ay seçin."); const z = (a, t, n) => ({ ad: a, tutar: t, adet: n }); return { yil: Number(yil), ay: String(ay).padStart(2, "0"), bildirimler: [{ yontem: "Özel Entegratör", tarih: "05/10/2026 - 07:31", raporNo: "260900", kdvSatis: [0, 1, 8, 10, 18].map((o) => ({ oran: o, tutar: 0 })).concat([{ oran: 20, tutar: 56830 }]), toplamSatis: 56830, kdvToplam: 9471.67, belge: [z("ÖKC fişleri", 56830, 0), z("Faturalar", 0, 0)], odeme: [z("Nakit", 5288, 0), z("Banka / kredi kartı", 51542, 0), z("Yemek kartı / çeki", 0, 0)], bilgi: [z("Fatura bilgi fişi", 0, 0)] }] }; }
   async sicilBilgi() { return { kisi: { unvan: "ÖRNEK MÜKELLEF", vkn: "1111111111", tckn: "", tur: "GERCEK", mukellefTuru: "Gelir Vergisi", dogum: "01/01/1980", ikametgah: "ATATÜRK MAH. ÖRNEK SK. NO:3 ÜMRANİYE/İSTANBUL", isYeri: "ÖRNEK SANAYİ SİTESİ A BLOK NO:5 ÜMRANİYE/İSTANBUL", ticaretSicil: "", tel: "05320000000" }, subeler: [{ ad: "MERKEZ", no: "0", tur: "Merkez", nitelik: "İş yeri", vd: "ÜMRANİYE VERGİ DAİRESİ", durum: "Faal", adresler: [{ tip: "İş yeri adresi", adres: "ÖRNEK SANAYİ SİTESİ A BLOK NO:5 ÜMRANİYE/İSTANBUL" }], faaliyet: [{ kod: "49.41.01", ad: "Şehirlerarası eşya taşımacılığı", bas: "01/02/2015", bit: "" }], vergiler: [{ ad: "0015 - KDV", donem: "Aylık", bas: "01/02/2015", bit: "", terk: "" }, { ad: "0003 - Gelir Vergisi (Ticari)", donem: "Yıllık", bas: "01/02/2015", bit: "31/12/2019", terk: "İşi bırakma" }], hata: "" }], toplamSube: 1, sekil: {} }; }
   async yoklamaListe() { this.yoklamalar = [{ yoklamaTuru: "Yoklama", baslama: "2026-09-14", tarih: "2026-09-14", vd: "ÖRNEK VERGİ DAİRESİ", kod: "YKL2026000123", secureId: "x" }]; return { kayitlar: this.yoklamalar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
