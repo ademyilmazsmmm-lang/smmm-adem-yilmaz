@@ -2564,7 +2564,15 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   $("kdvSeg").addEventListener("click", function(e){ var b = e.target.closest("[data-kd]"); if (!b || KR.calisiyor) return; KR.donem = b.getAttribute("data-kd"); kdvEtiket(); $("kdvSonuc").innerHTML = ""; $("kdvDurum").textContent = ""; $("kdvDurum").className = "durum"; });
   function kdvDurumYaz(t, tip){ var d = $("kdvDurum"); d.className = "durum" + (tip ? " " + tip : ""); d.textContent = t; }
-  function tutarKurus(x){ var n = Number(String(x == null ? "" : x).replace(/\./g, "").replace(",", ".")); return Number.isFinite(n) ? n : 0; }
+  /* GİB tutarı: "6.090,91" (Türkçe biçim), "6090,91", "6090.91" ya da sayı olabilir; nokta yalnız 3 haneli gruplarsa binlik ayracı sayılır */
+  function tutarKurus(x){
+    if (typeof x === "number") return Number.isFinite(x) ? x : 0;
+    var t = String(x == null ? "" : x).trim().replace(/[^\d.,\-]/g, ""), n;
+    if (t.indexOf(",") >= 0) n = Number(t.replace(/\./g, "").replace(",", "."));
+    else if (/^-?\d{1,3}(\.\d{3})+$/.test(t)) n = Number(t.replace(/\./g, ""));
+    else n = Number(t);
+    return Number.isFinite(n) ? n : 0;
+  }
   function kdvSatis(m, dn, ilerle){
     return api("/api/liste", "POST", { mukellefId: m.id, bas: dn.bas, bit: dn.bit }).then(function(r){
       var gor = {}, bel = (r.belgeler || []).filter(function(b){ if (!b.ettn || gor[b.ettn] || !/^Onayland/i.test(b.durum || "")) return false; gor[b.ettn] = 1; return true; });
