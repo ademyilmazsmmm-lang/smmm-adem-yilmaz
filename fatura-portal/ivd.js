@@ -332,48 +332,35 @@ class Ivd {
   }
   /* Defter-Beyan portalı (portal.defterbeyan.gov.tr) Dijital VD'den otomatik girişle açılır; giriş uçları ve sicil sayfasının servis adresleri keşfedilir (yalnız okuma) */
   async defterKesif() {
-    const maske = (t) => String(t || "").replace(/(token|jeton|sid|session[a-z]*|ticket|code)=[^&"'\s;<>]+/gi, "$1=<jeton>").replace(/\b[0-9a-f]{32,}\b/gi, "<jeton>"), cikti = [];
-    for (const yol of ["/auth/tdvd/edefter-login", "/auth/tdvd/yeni-ebyn-login", "/auth/tdvd/hbs-login"]) {
-      try {
-        const y = await this.istek("GET", GW + yol, undefined, true), hedef = y && (y.redirectUrl || y.url || (y.data && (y.data.redirectUrl || y.data.url)));
-        if (!hedef) { cikti.push(yol + " → yönlendirme adresi yok: " + maske(JSON.stringify(y)).slice(0, 200)); continue; }
-        const u0 = new URL(hedef); let r; try { r = await this.gibGit(hedef); } catch (e) { cikti.push(yol + " → " + u0.origin + u0.pathname + " açılamadı: " + String(e.message).slice(0, 120)); continue; }
-        const html = r.metin, betikler = [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]).slice(0, 12), baslik = (/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || "";
-        const apiler = new Set(); let incelenen = 0;
-        for (const b of betikler.filter((x) => !/jquery|polyfill|runtime/i.test(x)).slice(0, 5)) { try { const g = await this.gibGit(new URL(b, r.url).href), js = g.metin.slice(0, 1500000); incelenen++; for (const m of js.matchAll(/["'`]((?:\/?api)?\/[\w./-]*(?:sicil|mukellef|isyeri|faaliyet|adres)[\w./-]*)["'`]/gi)) if (apiler.size < 40) apiler.add(m[1]); } catch (e) { /* atla */ } }
-        cikti.push(yol + " → " + maske(u0.origin + u0.pathname) + " · HTTP " + r.durum + " · yönlendirme: " + (maske((r.yon || []).join(" ; ")) || "-") + " · başlık: " + baslik.replace(/\s+/g, " ").trim().slice(0, 80) + "\n   betikler: " + betikler.map((x) => maske(x)).join(" | ") + "\n   sicil/mükellef/adres geçen adresler (" + incelenen + " betik): " + ([...apiler].join(" | ") || "-") + "\n   metin: " + maske(html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/gi, " ").replace(/\s+/g, " ")).slice(0, 300));
-      } catch (e) { if (e.oturum) throw e; cikti.push(yol + " → " + String(e.message).slice(0, 140)); }
-    }
-    return { betikOzet: "[Defter-Beyan keşif]\n" + cikti.join("\n"), uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: "Defter-Beyan keşfi", baslik: "", metin: "", formlar: [], alanlar: [], tablolar: [], baglantilar: [], yonlendirme: [], satirlar: [], tabloHam: "", ham: "" };
+    const maske = (t) => String(t || "").replace(/eyJ[\w-]{10,}(\.[\w-]+)*/g, "<jwt>").replace(/(token|jeton|sid|session[a-z]*|ticket|code|state)=[^&"'\s;<>]+/gi, "$1=<jeton>").replace(/\b[0-9a-f]{32,}\b/gi, "<jeton>"), cikti = [];
+    const adSadece = (adr) => { try { const x = new URL(adr); return x.origin + x.pathname + (x.search ? " ?" + [...x.searchParams.keys()].join("&") : ""); } catch (e) { return maske(adr).slice(0, 120); } };
+    const yol = "/auth/login/dbs/dbs-login";
+    try {
+      const y = await this.istek("GET", GW + yol, undefined, true), hedef = y && (y.redirectUrl || y.url || (y.data && (y.data.redirectUrl || y.data.url)));
+      if (!hedef) return { ...this.defterBos(), betikOzet: "[Defter-Beyan keşif]\n" + yol + " → yönlendirme adresi yok: " + maske(JSON.stringify(y)).slice(0, 200) };
+      cikti.push("giriş: " + yol + " → " + adSadece(hedef));
+      let r; try { r = await this.gibGit(hedef); } catch (e) { cikti.push("açılamadı: " + String(e.message).slice(0, 160)); return { ...this.defterBos(), betikOzet: "[Defter-Beyan keşif]\n" + cikti.join("\n") }; }
+      const html = r.metin, betikler = [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]), baslik = (/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || "";
+      cikti.push("sayfa: " + adSadece(r.url) + " · HTTP " + r.durum + " · yönlendirme: " + (maske((r.yon || []).join(" ; ")) || "-") + " · başlık: " + baslik.replace(/\s+/g, " ").trim().slice(0, 80) + " · " + html.length + " bayt");
+      cikti.push("betikler: " + betikler.slice(0, 14).map((x) => maske(x)).join(" | "));
+      const rs = new Set(), host = new Set(), bag = []; let incelenen = 0;
+      const kaynaklar = [html].concat([]);
+      for (const b of betikler.filter((x) => !/jquery|polyfill|google|analytics/i.test(x)).slice(0, 8)) {
+        try { const g = await this.gibGit(new URL(b, r.url).href); kaynaklar.push(g.metin.slice(0, 2500000)); incelenen++; } catch (e) { /* atla */ }
+      }
+      for (const js of kaynaklar) {
+        for (const m of js.matchAll(/["'`](\/rs\/[\w./-]{3,80})["'`]/g)) if (rs.size < 80) rs.add(m[1]);
+        for (const m of js.matchAll(/["'`](https?:\/\/[\w.-]*defterbeyan\.gov\.tr[\w./:-]{0,60})["'`]/gi)) if (host.size < 12) host.add(m[1]);
+        for (const m of js.matchAll(/(?:dbs|login|giris|ticket|sso|oauth)[\w-]{0,30}/gi)) if (bag.length < 6 && /token|ticket|code|login/i.test(js.slice(m.index, m.index + 200))) bag.push(maske(js.slice(Math.max(0, m.index - 120), m.index + 260).replace(/\s+/g, " ")));
+      }
+      cikti.push("sunucu adresleri: " + ([...host].join(" | ") || "-"));
+      cikti.push("/rs/ servisleri (" + incelenen + " betik): " + ([...rs].join(" | ") || "-"));
+      if (bag.length) cikti.push("giriş/jeton geçen yerler:\n   " + bag.join("\n   ---\n   "));
+      cikti.push("metin: " + maske(html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/gi, " ").replace(/\s+/g, " ")).slice(0, 300));
+    } catch (e) { if (e.oturum) throw e; cikti.push(yol + " → " + String(e.message).slice(0, 160)); }
+    return { ...this.defterBos(), betikOzet: "[Defter-Beyan keşif]\n" + cikti.join("\n") };
   }
-  /* ---- E-Haciz: banka hesaplarına / araçlara uygulanan elektronik hacizler (İVD "ehacizSorgulamaService") ---- */
-  async hacizListe(tur) {
-    const secim = tur === "arac" ? "2" : tur === "banka" ? "1" : ""; if (!secim) throw new Error("Haciz türü seçin.");
-    const sayfa = secim === "2" ? "P_INTVRG_INTVD_EHACIZ_ARAC_SRG" : "P_INTVRG_INTVD_EHACIZ_BANKA_SRG";
-    let gr; try { gr = await this.sideGiris("ivd"); } catch (e) { if (e.oturum) throw e; throw new Error("İnteraktif Vergi Dairesi bağlantısı kurulamadı: " + String(e.message).slice(0, 120)); }
-    const hedef = gr.y.redirectUrl, u = new URL(hedef), token = u.searchParams.get("token") || "";
-    await this.gibGit(hedef);
-    const hataMetni = (j) => ((j && j.messages) || []).map((x) => x && x.text).filter(Boolean).join(" ").slice(0, 200);
-    const cagir = async (cmd, jp, sf) => {
-      const r = await this.gibGit(u.origin + "/tvd_server/dispatch", "cmd=" + cmd + "&callid=" + Date.now().toString(36) + "-1&pageName=" + encodeURIComponent(sf || sayfa) + "&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify(jp)), hedef);
-      let j; try { j = JSON.parse(r.metin); } catch (e) { throw new Error("İnteraktif Vergi Dairesi beklenmeyen bir yanıt verdi."); }
-      if (j && j.error && String(j.error) !== "0") throw new Error(hataMetni(j) || "İnteraktif Vergi Dairesi hatası.");
-      return j;
-    };
-    const dizi = (j) => (Array.isArray(j) ? j : j && Array.isArray(j.data) ? j.data : j && j.data && typeof j.data === "object" && Array.isArray(j.data.array1) ? j.data.array1 : null);
-    await cagir("userSessionService_getUserSessionInfo", { token, rfDataInfo: [] });
-    const j = await cagir("ehacizSorgulamaService_EhacizSorgulamaSonuc", { secim }), liste = dizi(j);
-    if (!liste) throw new Error("Haciz listesi beklenmeyen biçimde geldi" + (j === null ? " (boş yanıt)" : "") + ".");
-    const m = (v) => (v === undefined || v === null ? "" : String(v)), sade = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) if (v !== null && typeof v !== "object" && String(v) !== "") r[k] = String(v); return r; };
-    const satirlar = [], vdAd = {};
-    for (const r of liste.slice(0, 20)) {
-      const kay = sade(r), vdkod = m(r.vdkod), hbno = m(r.hbno || r.hacizBildiriNo), ozet = { vdkod, no: hbno, tutar: Number(String(r.htutar || r.hacizBildTutar || "0").replace(/\./g, "").replace(",", ".")) || 0, borcDurum: m(r.borcDurum), alanlar: kay, ust: [], alt: [] };
-      if (vdkod && !(vdkod in vdAd)) { vdAd[vdkod] = ""; try { const v = await cagir("ehacizSorgulamaService_vdBilgileriGetir", { vdkod }); const d = (v && v.data && !Array.isArray(v.data) ? v.data : v) || {}; vdAd[vdkod] = m(d.vdadi); } catch (e) { if (e.oturum) throw e; } }
-      if (satirlar.length < 6 && vdkod && hbno) { try { const dj = await cagir("ehacizSorgulamaService_EhacizSorgulamaSonucDetay", { vdkod, hbno, secim }), d = (dj && dj.data && !Array.isArray(dj.data) ? dj.data : dj) || {}; ozet.ust = (Array.isArray(d.array1) ? d.array1 : []).slice(0, 20).map(sade); ozet.alt = (Array.isArray(d.array2) ? d.array2 : []).slice(0, 20).map(sade); } catch (e) { if (e.oturum) throw e; ozet.detayHata = String(e.message).slice(0, 100); } }
-      satirlar.push(ozet);
-    }
-    return { tur, satirlar, vdAdlari: vdAd, toplam: liste.length };
-  }
+  defterBos() { return { uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: "Defter-Beyan keşfi", baslik: "", metin: "", formlar: [], alanlar: [], tablolar: [], baglantilar: [], yonlendirme: [], satirlar: [], tabloHam: "", ham: "" }; }
   /* ---- Z raporu: yeni nesil ÖKC aylık satış raporu bildirimleri (İnternet VD "ÖKC Bildirim Görüntüleme") ---- */
   async zRapor(yil, ay, vknIpucu) {
     yil = String(yil || ""); ay = String(ay || "").padStart(2, "0");
