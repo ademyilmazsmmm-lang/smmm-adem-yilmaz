@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-197";
+const SURUM = "2026-10-31-198";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -221,7 +221,7 @@ const bekleyen = new Map(); // taslak kimliği -> geçmiş kaydı taslağı (ona
 const TIPLER = ["SATIS", "TEVKIFAT", "IADE", "ISTISNA", "OZELMATRAH"];
 /* Özel matrah nedenleri (GİB e-Arşiv portalı): KDV, mal bedeli üzerinden değil girilen özel matrah tutarı üzerinden hesaplanır */
 const OZEL_AD = { 801: "Milli Piyango, Spor Toto vb. oyunlar", 802: "At yarışları ve müşterek bahis/talih oyunları", 803: "Profesyonel sanatçı gösterileri, konser, spor müsabakaları", 804: "Gümrük depoları ve müzayede mahallerinde satış", 805: "Altın mamul / ziynet eşyası ve sikke altın teslimi", 806: "Tütün mamulleri", 807: "Muzır neşriyat (gazete, dergi, periyodik yayın)", 808: "Gümüş mamul / ziynet eşyası ve sikke gümüş teslimi", 809: "Belediye şehiriçi yolcu taşıma bileti/kart bayi satışı", 810: "Ön ödemeli elektronik haberleşme hizmetleri", 811: "TŞOF plakası ve sürücü kursu evrakı teslimi", 812: "KDV uygulanmadan alınan ikinci el motorlu kara taşıtı / taşınmaz teslimi" };
-const ISTISNA_AD = { 301: "Mal ihracatı", 302: "Hizmet ihracatı", 303: "Dış ticaret/ihracat kapsamı teslimler", 304: "Yolcu beraberi eşya", 308: "Transit ve gümrük antrepo taşımacılığı", 311: "Uluslararası taşımacılık", 201: "Diplomatik istisna", 230: "Külçe altın, külçe gümüş ve kıymetli taşların teslimi (17/4-g)", 351: "İstisna olmayan diğer", 350: "Diğer" };
+const ISTISNA_AD = { 301: "Mal ihracatı", 302: "Hizmet ihracatı", 303: "Dış ticaret/ihracat kapsamı teslimler", 304: "Yolcu beraberi eşya", 308: "Transit ve gümrük antrepo taşımacılığı", 311: "Uluslararası taşımacılık", 201: "Diplomatik istisna", 350: "Diğer" };
 const PARALAR = ["TRY", "USD", "EUR", "GBP"];
 /* İstemciden gelen fatura modelini temizler/doğrular. tam=false ise (yalnız hesap önizlemesi) alıcı/tarih zorunlu değildir. */
 function modelTemiz(g, tam) {
@@ -260,7 +260,6 @@ function modelTemiz(g, tam) {
       if (!(q.ozelTutar > 0)) throw new Error((i + 1) + ". satırda özel matrah tutarını (KDV’nin hesaplanacağı tutar) yazın.");
       if (q.ozelTutar > q.miktar * q.fiyat + 0.005) throw new Error((i + 1) + ". satırda özel matrah tutarı, mal bedelinden (miktar × birim fiyat) büyük olamaz.");
     }
-    if (tip === "SATIS" && tam && q.kdv === 0) throw new Error((i + 1) + ". satırda KDV %0 yazılamaz: KDV’siz satışlar “İstisna” fatura tipiyle ve istisna sebebiyle kesilir.");
     if (tip === "ISTISNA") { q.kdv = 0; if (tam && !ISTISNA_AD[q.istisna]) throw new Error((i + 1) + ". satırda KDV istisna sebebini seçin."); }
     if (tam && !q.ad) throw new Error((i + 1) + ". satırda mal/hizmet adı boş.");
     if (tip === "TEVKIFAT" && tam && (!(q.tev > 0) || !q.kod)) throw new Error((i + 1) + ". satırda tevkifat oranı ve kodu gerekli (tevkifatsız kesmek için fatura tipini “Satış” yapın).");

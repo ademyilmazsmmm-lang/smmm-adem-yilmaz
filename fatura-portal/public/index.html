@@ -861,7 +861,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   var ISTISNALAR = [
     ["301", "Mal ihracatı"], ["302", "Hizmet ihracatı"], ["303", "Dış ticaret/ihracat kapsamı teslimler"], ["304", "Yolcu beraberi eşya"],
     ["308", "Transit ve gümrük antrepo taşımacılığı"], ["311", "Uluslararası taşımacılık"], ["201", "Diplomatik istisna"],
-    ["230", "Külçe altın, külçe gümüş ve kıymetli taşların teslimi (17/4-g)"], ["351", "İstisna olmayan diğer (KDV’siz ama istisna dışı)"], ["350", "Diğer"]
+    ["350", "Diğer"]
   ];
   function kodSecHtml(k){
     var bil = TEVKODLAR.some(function(x){ return x[0] === String(k.kod); }), diger = k.kodDiger || (!bil && !!k.kod);
@@ -939,7 +939,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     g.kalemler.forEach(function(k, i){
       var n = (i + 1) + ". satır: ", e = [];
       if (!k.ad) e.push("ad"); if (!(k.miktar > 0)) e.push("miktar"); if (!(k.fiyat > 0)) e.push("birim fiyat"); if (!(k.kdv >= 0)) e.push("KDV");
-      if (g.tip === "SATIS" && k.kdv === 0) e.push("KDV %0 olamaz; KDV’siz satışta fatura tipi “İstisna” seçilir");
       if (g.tip === "ISTISNA" && !k.istisna) e.push("istisna sebebi");
       if (g.tip === "OZELMATRAH") { if (!k.ozelNeden) e.push("özel matrah nedeni"); if (!(k.ozelTutar > 0)) e.push("özel matrah tutarı"); else if (k.ozelTutar > k.miktar * k.fiyat + 0.005) e.push("özel matrah tutarı mal bedelinden büyük olamaz"); }
       if (tev && !(k.tev > 0)) e.push("tevkifat oranı"); if (tev && !k.kod) e.push("tevkifat kodu");
@@ -1231,11 +1230,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var f = e.target.getAttribute("data-kf"), d = e.target.closest("[data-k]"); if (!f || !d) return;
     var k = F.kalemler[+d.getAttribute("data-k")];
     if (f === "preset") { var h = HZ().filter(function(x){ return x.id === e.target.value; })[0]; if (h) { hazirUygula(k, h); formDoldur(); } else k.preset = ""; cizKalemler(); onizle(); }
-    else if (f === "kdv") {
-      k.kdv = e.target.value;
-      if (F.tip === "SATIS" && String(k.kdv).trim() !== "" && sayi(k.kdv) === 0) { $("tip").value = "ISTISNA"; $("tip").dispatchEvent(new Event("change")); durum("KDV %0 yazdığınız için fatura tipi İstisna yapıldı (tüm satırlar KDV’siz olur). Her satırda istisna sebebini seçin; örn. külçe gümüş için 230, istisna olmayan KDV’siz satış için 351.", "ok"); }
-      else onizle();
-    }
     else if (f === "birim" || f === "tev" || f === "istisna" || f === "ozelNeden") { k[f] = e.target.value; onizle(); }
     else if (f === "kodsec") {
       var v = e.target.value, h = TEVKODLAR.filter(function(x){ return x[0] === v; })[0];
