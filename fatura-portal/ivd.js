@@ -436,7 +436,19 @@ class Ivd {
       bf.push(modAd + "." + sf + " → " + sonuc);
     }
     const kod = [];
-    return "[SIDE keşif] giriş: " + gr.yol + "\n" + (bulunan.length ? "Menüde bulunan sayfalar (kod | ad | sayfa):\n" + [...new Set(bulunan)].join("\n") + "\n\n" : "") + (tumu.length ? "Menü kayıtları (kod | ad | sayfa):\n" + [...new Set(tumu)].join("\n") + "\n\n" : "") + "Denemeler:\n" + gunluk.slice(0, 16).join("\n") + (bf.length ? "\nSayfa tanımı:\n" + bf.join("\n") : "") + "\n\n";
+    /* 3. aşama: sayfanın konsolundan öğrenilen servis adları uygulama adresinden doğrudan denenir (yalnız okuma; kişisel sayılar maskelenir) */
+    const servisler = [];
+    if (intvrg) {
+      const maskeK = (t) => maske(String(t || "").replace(/\s+/g, " ")).replace(/\b\d{10,11}\b/g, "<no>");
+      for (const [cmd, jp] of [["menuService_getMenuJSON", {}], ["intVrgMenuService_anaMenuYukle", {}], ["OKCIslemleriService_goruntule", {}]]) {
+        try {
+          const r = await this.gibGit(u.origin + uygA, "cmd=" + cmd + "&callid=" + Date.now().toString(36) + "&" + jetonAdi + "=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify(jp)), hedef), t = maskeK(r.metin);
+          const okc = [...t.matchAll(/OKC|ÖKC/gi)].slice(0, 4).map((m) => t.slice(Math.max(0, m.index - 150), m.index + 300));
+          servisler.push(cmd + " jp=" + JSON.stringify(jp) + " → HTTP " + r.durum + " " + r.metin.length + " bayt\n   " + t.slice(0, 700) + (okc.length ? "\n   ÖKC geçen yerler:\n   " + okc.join("\n   ---\n   ") : ""));
+        } catch (e) { servisler.push(cmd + " → " + String(e.message).slice(0, 100)); }
+      }
+    }
+    return "[SIDE keşif] giriş: " + gr.yol + "\n" + (bulunan.length ? "Menüde bulunan sayfalar (kod | ad | sayfa):\n" + [...new Set(bulunan)].join("\n") + "\n\n" : "") + (tumu.length ? "Menü kayıtları (kod | ad | sayfa):\n" + [...new Set(tumu)].join("\n") + "\n\n" : "") + "Denemeler:\n" + gunluk.slice(0, 16).join("\n") + (bf.length ? "\nSayfa tanımı:\n" + bf.join("\n") : "") + (servisler.length ? "\nServis denemeleri:\n" + servisler.join("\n") : "") + "\n\n";
   }
   async interaktifSayfa(sayfa, derin, sistem) {
     const intvrg = sistem === "intvrg" || sistem === "okc"; /* İnternet Vergi Dairesi (intvrg.gib.gov.tr): ÖKC / Z raporu bu sistemdedir */
