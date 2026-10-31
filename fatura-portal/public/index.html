@@ -2452,18 +2452,34 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     else o = '<input type="text" data-tf="' + esc(a.ad) + '" value="' + esc(a.deger || "") + '" autocomplete="off"' + (a.ad === "tcKimlikNo" ? ' inputmode="numeric" maxlength="11"' : /kazanc/i.test(a.ad) ? ' inputmode="decimal"' : /tarih/i.test(a.ad) ? ' placeholder="gg/aa/yyyy"' : "") + '>';
     return '<div data-tfw="' + esc(a.ad) + '"><label>' + et + '</label>' + o + '</div>';
   }
+  /* Sonuç: işyeri bilgisi / açıklama yok; her kanun için yalnız "yararlanır: süre · ortalama tutar" ya da "yararlanmıyor: sebep" */
   function tesvikSonucHtml(r){
     var h = r.uyari ? '<div class="durum ' + (/hata|uygun değil|bulunamad|geçersiz/i.test(r.uyari) ? "hata" : "ok") + '" style="display:block">' + esc(r.uyari) + '</div>' : "";
-    (r.tablolar || []).forEach(function(t){ t.satirlar.forEach(function(s2){ var bas = s2.find(function(x){ return x; }) || "Sonuç"; h += '<div class="kayit"><b>' + esc(bas) + '</b><div class="not" style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:4px 0 0;font-size:.82rem">' + s2.map(function(v, i){ return v && v !== bas ? '<span>' + esc(t.basliklar[i] || "") + '</span><span style="color:var(--fg);overflow-wrap:anywhere">' + esc(v) + '</span>' : ""; }).join("") + '</div></div>'; }); });
-    if (!(r.tablolar || []).length && !r.uyari) h += '<p class="not" style="margin:0">Sonuç tablosu bulunamadı.</p>';
-    return h + '<details class="alt2"><summary>SGK’nın yanıtı (metin)</summary><div class="icerik"><p class="not" style="margin:0;overflow-wrap:anywhere">' + esc(r.metin || "—") + '</p></div></details>';
+    var ac2 = function(bs, re){ for (var q = 0; q < bs.length; q++) if (re.test(bs[q])) return q; return -1; };
+    (r.tablolar || []).forEach(function(t){
+      var bs = t.basliklar || [], iSebep = ac2(bs, /neden|sebep|açıklama|aciklama|uyarı|durum/i), iSure = ac2(bs, /süre|sure|ay\b|ay sayısı/i), iTutar = ac2(bs, /ortalama|tutar|miktar|prim/i);
+      t.satirlar.forEach(function(s2){
+        var bas = s2.find(function(x){ return x; }) || "Sonuç", sebep = iSebep >= 0 ? s2[iSebep] : "", sure = iSure >= 0 ? s2[iSure] : "", tutar = iTutar >= 0 ? s2[iTutar] : "";
+        var yok = (sebep && /yararlan(a|ıl)ma|yararlanamaz|uygun değil|şartları|olmadığı|bulunmad|kapsam dışı|hayır/i.test(sebep)) || (!sure && !tutar && sebep);
+        var govde;
+        if (yok) govde = '<div style="color:var(--danger);margin-top:2px">Yararlanmıyor — ' + esc(sebep) + '</div>';
+        else if (sure || tutar) govde = '<div style="color:var(--accent);margin-top:2px">Yararlanır' + (sure ? ' — ' + esc(sure) + (/^\d+$/.test(sure) ? ' ay' : '') : '') + (tutar ? ' · ortalama ' + esc(tutar) : '') + '</div>' + (sebep ? '<div class="not" style="margin:2px 0 0">' + esc(sebep) + '</div>' : "");
+        else govde = '<div class="not" style="margin:4px 0 0;overflow-wrap:anywhere">' + s2.filter(function(v, q){ return v && v !== bas; }).map(esc).join(" · ") + '</div>';
+        h += '<div class="kayit"><b>' + esc(bas) + '</b>' + govde + '</div>';
+      });
+    });
+    if (!(r.tablolar || []).length && !r.uyari) {
+      var cumle = String(r.metin || "").split(/(?<=[.!?])\s+/).filter(function(c){ return /yararlan|teşvik|kanun/i.test(c) && c.length < 260; }).slice(0, 6);
+      h += cumle.length ? cumle.map(function(c){ return '<div class="kayit"><span class="not" style="margin:0;overflow-wrap:anywhere">' + esc(c) + '</span></div>'; }).join("") : '<p class="not" style="margin:0">Sonuç bulunamadı.</p>';
+    }
+    return h + '<details class="alt2"><summary>SGK’nın yanıtı (ham metin)</summary><div class="icerik"><p class="not" style="margin:0;overflow-wrap:anywhere">' + esc(r.metin || "—") + '</p></div></details>';
   }
   $("vdSgkIsv").addEventListener("click", function(e){
     if (e.target.id === "tesvikAc") {
       var b = e.target, d = $("tesvikDurum"); b.disabled = true; d.className = "durum"; d.textContent = "Teşvik formu açılıyor…"; $("tesvikSonuc").innerHTML = "";
       api("/api/sgk/tesvik", "POST", { mukellefId: VD.mid, sistem: "isveren", islem: "form" }).then(function(r){
         TESVIK = r.alanlar; $("tesvikForm").hidden = false; d.textContent = "";
-        $("tesvikForm").innerHTML = r.alanlar.map(tesvikAlanHtml).join("") + '<button class="btn" type="button" id="tesvikGonder">Sorgula</button>' + (r.aciklama ? '<details class="alt2"><summary>SGK açıklamaları</summary><div class="icerik"><p class="not" style="margin:0;overflow-wrap:anywhere">' + esc(r.aciklama) + '</p></div></details>' : "");
+        $("tesvikForm").innerHTML = r.alanlar.map(tesvikAlanHtml).join("") + '<button class="btn" type="button" id="tesvikGonder">Sorgula</button>';
       }, vdSgkHata).then(function(){ b.disabled = false; });
       return;
     }
