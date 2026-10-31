@@ -427,7 +427,7 @@ class Ivd {
     if (r.durum === 401 || r.durum === 403) { this.dbs = null; o = await this.dbsGiris(); r = await this.dbsCagri("hesapozeti/index", govde, o.jeton, o.cerez); }
     if (r.jeton) this.dbs = { jeton: r.jeton, cerez: r.cerez || o.cerez, zaman: Date.now() };
     const j = r.json || {}, c = j.resultContainer;
-    if (!c) { const msg = [j.statusMessage, j.message, (j.errors || []).map && (j.errors || []).map((x) => x && (x.message || x.defaultMessage || JSON.stringify(x))).join("; ")].filter(Boolean).join(" · "); throw new Error("Hesap özeti alınamadı (HTTP " + r.durum + ")" + (msg ? ": " + String(msg).slice(0, 200) : "") + "."); }
+    if (!c) { const msg = [j.errorCode, j.errorMessage, j.statusMessage, j.message, (j.errors || []).map && (j.errors || []).map((x) => x && (x.message || x.defaultMessage || JSON.stringify(x))).join("; ")].filter(Boolean).join(" · "); throw new Error("Hesap özeti alınamadı (HTTP " + r.durum + ")" + (msg ? ": " + String(msg).slice(0, 200) : "") + "."); }
     const n = (v) => Number(v) || 0, gelirHasilat = n(c.gelirHasilat), gelirDiger = n(c.gelirDiger), giderDiger = n(c.giderDiger), amortisman = n(c.amortismanGiderleri);
     return { yil, mali: govde.attributes.isMali, unvan: String(c.unvan || ""), gelirHasilat, gelirDiger, giderDiger, amortisman, toplamGelir: gelirHasilat + gelirDiger, toplamGider: giderDiger + amortisman, kar: n(c.kar), sekil: sekil(c) };
   }
