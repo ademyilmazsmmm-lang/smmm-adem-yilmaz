@@ -1833,7 +1833,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function mukellefBolumler(m, ofis){
     var ea = m.earsiv !== false;
-    return (ofis ? '<label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-ea="' + m.id + '"' + (ea ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>e-Arşiv fatura kullanıyor <small class="not">(kapalıysa yalnız Vergi Dairesi bölümü açılır)</small></span></label>' : "") + profilHtml(m) + (ea ? markaHtml(m, true) + hizmetHtml(m) + aliciHtml(m) + iceHtml(m) : "") + gibBagHtml(m) + sgkAyarHtml(m) + smsAyarHtml(m) + (ofis && !PERSONEL ? hesapHtml(m) + etkinlikHtml(m) : "") +
+    return (ofis ? '<label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-ea="' + m.id + '"' + (ea ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>e-Arşiv fatura kullanıyor <small class="not">(kapalıysa yalnız Vergi Dairesi bölümü açılır)</small></span></label><label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-db="' + m.id + '"' + (m.defterBeyan ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>Defter-Beyan kullanıyor <small class="not">(şahıs, 2. sınıf; Vergi D. bölümünde “Hesap özeti” açılır)</small></span></label>' : "") + profilHtml(m) + (ea ? markaHtml(m, true) + hizmetHtml(m) + aliciHtml(m) + iceHtml(m) : "") + gibBagHtml(m) + sgkAyarHtml(m) + smsAyarHtml(m) + (ofis && !PERSONEL ? hesapHtml(m) + etkinlikHtml(m) : "") +
       '<div class="durum" data-md role="status"></div>' + (ofis && !PERSONEL ? '<button class="btn tehlike" type="button" data-sil-m="' + m.id + '">Mükellefi sil</button>' : "");
   }
   function mukellefAyarHtml(m){
@@ -2025,6 +2025,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (e.target.open && /^ku?:/.test(k) && !MARKA[k.replace(/^ku?:/, "")]) markaYukle(k.replace(/^ku?:/, "")).then(function(){ if (ayarAcik[k]) cizAyar(); }); // yalnız ilk açılışta; yeniden çizim toggle’ı tekrar tetikler
   }, true);
   $("ayarIc").addEventListener("change", function(e){
+    if (e.target.getAttribute && e.target.getAttribute("data-db") != null) {
+      var dm = mBul(e.target.getAttribute("data-db")); if (!dm) return; dm.defterBeyan = e.target.checked; var dd = $("ayarDurum");
+      kaydetV().then(function(){ hepsi(); var d2 = $("ayarDurum"); if (d2) { d2.className = "durum ok"; d2.textContent = dm.defterBeyan ? "Defter-Beyan açıldı; Vergi D. bölümünde Hesap özeti görünür." : "Defter-Beyan kapatıldı."; } }, function(er){ dm.defterBeyan = !dm.defterBeyan; ayarHata(dd, er); });
+      return;
+    }
     if (e.target.getAttribute && e.target.getAttribute("data-ea") != null) {
       var em = mBul(e.target.getAttribute("data-ea")); if (!em) return; em.earsiv = e.target.checked; var de = $("ayarDurum");
       kaydetV().then(function(){ hepsi(); var d2 = $("ayarDurum"); if (d2) { d2.className = "durum ok"; d2.textContent = em.earsiv ? "e-Arşiv açıldı." : "e-Arşiv kapatıldı; bu mükellef yalnız Vergi Dairesi bölümünü kullanır."; } }, function(er){ em.earsiv = !em.earsiv; ayarHata(de, er); });
@@ -2492,6 +2497,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (b) $("vdKodKutu").style.display = "none";
   }
   function vdSekmeCiz(){
+    var dbm = mBul(VD.mid), dbVar = !!(dbm && dbm.defterBeyan); var dbc = $("vdSeg").querySelector('[data-vd="hesapozeti"]'); if (dbc) dbc.hidden = !dbVar; if (VD.sek === "hesapozeti" && !dbVar) VD.sek = "borc";
     $("vdSeg").querySelectorAll("[data-vd]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-vd") === VD.sek ? "true" : "false"); });
     $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen"; $("vdYazi").hidden = VD.sek !== "yazi" || !VD.bagli; if (VD.sek === "yazi" && VD.bagli) vdYaziAlan(); $("vdYil").hidden = VD.sek !== "levha" || !VD.bagli; if (VD.sek === "levha") vdYilCiz();
     $("vdTahakkuk").hidden = VD.sek !== "tahakkuk" || !VD.bagli; $("vdArac").hidden = VD.sek !== "arac" || !VD.bagli; $("vdPos").hidden = (VD.sek !== "pos" && VD.sek !== "zrapor") || !VD.bagli; $("vdTel").hidden = VD.sek !== "telefon" || !VD.bagli; $("vdKdv").hidden = VD.sek !== "kdv"; $("vdHesap").hidden = VD.sek !== "hesapozeti"; $("vdHaciz").hidden = VD.sek !== "haciz" || !VD.bagli; $("vdHacizDerin").hidden = ROL !== "ofis"; if (VD.sek === "kdv") kdvEtiket(); if (VD.sek === "hesapozeti") vdHoAlan(); if (VD.sek === "tahakkuk") vdTahakkukAlan(); if (VD.sek === "pos" || VD.sek === "zrapor") vdPosAlan(); if (VD.sek === "telefon" && VD.bagli) vdTelAc(); $("vdTani").hidden = true; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();

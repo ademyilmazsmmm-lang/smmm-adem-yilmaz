@@ -417,7 +417,7 @@ class Ivd {
         deneme.push((typeof b.govde === "string" ? "ham bilet" : Object.keys(b.govde).join(",")) + (b.jeton ? "+başlık" : "") + " → HTTP " + r.durum + " " + String(r.json ? JSON.stringify(r.json) : r.ham).replace(/eyJ[\w.-]+/g, "<jwt>").slice(0, 120));
       } catch (e) { deneme.push(String(e.message).slice(0, 100)); }
     }
-    throw new Error("Defter-Beyan girişi kabul edilmedi (" + deneme.length + " biçim denendi; hepsi: " + (deneme[0] || "").replace(/^.*?→\s*/, "") + ")");
+    throw new Error("Defter-Beyan girişi kabul edilmedi — bu mükellef Defter-Beyan kullanmıyor olabilir (hesap özeti yalnız şahıs 2. sınıf defter beyan mükellefleri içindir) (" + deneme.length + " biçim denendi; hepsi: " + (deneme[0] || "").replace(/^.*?→\s*/, "") + ")");
   }
   async hesapOzeti(yil, mali) {
     yil = Number(yil); if (!(yil >= 2018 && yil <= 2100)) throw new Error("Yıl seçin.");

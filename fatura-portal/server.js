@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-180";
+const SURUM = "2026-10-31-181";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -97,7 +97,7 @@ const OFIS_EPOSTA = String(process.env.OFIS_EPOSTA || "").trim();
 const ISVEREN_SAYFALAR = new Set(["DonemBorcGoruntuleme", "CariDonemBorc", "Mufredat", "IAIIBYEB", "IAIOTGBYEB", "IAIOTIBYEB", "IAKBYEB", "IATBYEB", "IAHBYEB", "IASBYEB", "IAKGFBYEB", "IAKU", "TesvikPotansiyel"]);
 function temizMukellef(o, id) {
   const v = depo.mukellef(o, id).veri;
-  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, earsiv: v.earsiv !== false, sgk: { ad: (v.sgk && v.sgk.ad) || "", kullanici: (v.sgk && v.sgk.kullanici) || "", isyeriKod: (v.sgk && v.sgk.isyeriKod) || "", sistemVar: !!(v.sgk && v.sgk.sistemSifre), isyeriVar: !!(v.sgk && v.sgk.isyeriSifre) }, sgkEk: (v.sgkEk || []).map((x) => ({ id: x.id, ad: x.ad || "", kullanici: x.kullanici || "", isyeriKod: x.isyeriKod || "", sistemVar: !!x.sistemSifre, isyeriVar: !!x.isyeriSifre })), profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: o.rol === "mukellef" && !(v.kabul && v.kabul.surum === KABUL_SURUM), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
+  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, earsiv: v.earsiv !== false, defterBeyan: v.defterBeyan === true, sgk: { ad: (v.sgk && v.sgk.ad) || "", kullanici: (v.sgk && v.sgk.kullanici) || "", isyeriKod: (v.sgk && v.sgk.isyeriKod) || "", sistemVar: !!(v.sgk && v.sgk.sistemSifre), isyeriVar: !!(v.sgk && v.sgk.isyeriSifre) }, sgkEk: (v.sgkEk || []).map((x) => ({ id: x.id, ad: x.ad || "", kullanici: x.kullanici || "", isyeriKod: x.isyeriKod || "", sistemVar: !!x.sistemSifre, isyeriVar: !!x.isyeriSifre })), profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: o.rol === "mukellef" && !(v.kabul && v.kabul.surum === KABUL_SURUM), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
     hesapKullanici: o.rol === "ofis" ? depo.hesapKullanicisi(id) : undefined, sonGiris: v.sonGiris || null };
 }
 const temiz = (o) => ({ rol: o.rol, kullanici: o.kullanici, mukellefler: depo.mukellefIdleri(o).map((id) => temizMukellef(o, id)) });
@@ -120,6 +120,7 @@ function birlestir(o, g) {
       }
       if (JSON.stringify(yeni) !== JSON.stringify(v.sgkEk || [])) { v.sgkEk = yeni; sgkBirak(id); }
     }
+    if (o.rol !== "mukellef" && typeof m.defterBeyan === "boolean") v.defterBeyan = m.defterBeyan; // Defter-Beyan (şahıs 2. sınıf) kullanan mükellefte Hesap özeti açılır
     if (o.rol !== "mukellef" && typeof m.earsiv === "boolean") v.earsiv = m.earsiv; // e-Arşiv kullanmayan mükellef yalnız Vergi Dairesi bölümünü kullanır
     v.aliciler = aliciTemiz(m.aliciler); v.hizmetler = hizmetTemiz(m.hizmetler); if (m.marka) v.marka = markaTemiz(m.marka); if (m.profil) v.profil = profilTemiz(m.profil);
     depo.kaydet(id);
