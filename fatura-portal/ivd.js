@@ -381,12 +381,14 @@ class Ivd {
     /* sayfa önce userSessionService_getUserSessionInfo ile oturumu başlatır; menü/BF tanımları side-dispatch, iş servisleri server/dispatch adresindedir */
     const uyg = intvrg ? "/intvrg_server/dispatch" : "/tvd_server/dispatch"; 
     /* adresler ve komut adları sayfanın kendi ayarlarından okunur (SideModuleMap / SideDefaults); bulunamazsa bilinen değerler */
-    const ayar = String(html || ""), prod = (/prod\s*:\s*\{([\s\S]*?)\}\s*,?\s*\}\s*;/.exec(ayar) || [])[1] || "", yerel = /(\w+)\s*:\s*\{\s*side\s*:\s*"([^"]*)"\s*,\s*app\s*:\s*"([^"]*)"[^}]*isLocalModule\s*:\s*true/.exec(prod);
+    let ayar = String(html || ""); const kok0 = u.origin + new URL(hedef).pathname.replace(/[^/]*$/, "");
+    if (!/SideModuleMap/.test(ayar)) { for (const ad of ["js/cs/wt-script-1.jsp", "js/cs/wt-script-2.jsp"]) { try { const r = await this.gibGit(kok0 + ad + "?isAuthorized=true&lang=tr", undefined, hedef); ayar += "\n" + r.metin; } catch (e) { /* yok */ } } }
+    const prod = (/prod\s*:\s*\{([\s\S]*?)\}\s*,?\s*\}\s*;/.exec(ayar) || [])[1] || "", yerel = /(\w+)\s*:\s*\{\s*side\s*:\s*"([^"]*)"\s*,\s*app\s*:\s*"([^"]*)"[^}]*isLocalModule\s*:\s*true/.exec(prod);
     const mutlak = (yol, taban) => { try { return new URL(String(yol).trim(), taban).pathname; } catch (e) { return ""; } };
     const sayfaYolu = new URL(hedef).pathname, uygA = (yerel && mutlak(yerel[3], u.origin + sayfaYolu)) || uyg, sideA = (yerel && mutlak(yerel[2], u.origin + sayfaYolu)) || (intvrg ? "/intvrg_side/side-dispatch" : "/tvd_side/side-dispatch");
     const oturumKomut = (/\['sn-getUserSessionInfo'\]\s*=\s*'([^']+)'/.exec(ayar) || [])[1] || "userSessionService_getUserSessionInfo", jetonAdi = (/\['param-token-key'\]\s*=\s*'([^']+)'/.exec(ayar) || [])[1] || "token";
-    const yollar = [sideA, uygA];
-    gunluk.push("adresler: side=" + sideA + " app=" + uygA + " oturum=" + oturumKomut + " jeton=" + jetonAdi + (yerel ? " (sayfa ayarından)" : " (varsayılan)"));
+    const yollar = [sideA, uygA]; const modller = [...prod.matchAll(/(\w+)\s*:\s*\{\s*side\s*:\s*"([^"]*)"\s*,\s*app\s*:\s*"([^"]*)"/g)].map((x) => x[1] + "(" + x[2].trim() + "," + x[3].trim() + ")").join(" ");
+    gunluk.push("adresler: side=" + sideA + " app=" + uygA + " oturum=" + oturumKomut + " jeton=" + jetonAdi + (yerel ? " (sayfa ayarından)" : " (varsayılan)") + (modller ? " modüller: " + modller : ""));
     let oturumOzet = "", userid = "";
     try {
       const r0 = await this.gibGit(u.origin + uygA, "cmd=" + oturumKomut + "&callid=" + Date.now().toString(36) + "&" + jetonAdi + "=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify({ token, rfDataInfo: [] })), hedef);
@@ -410,12 +412,13 @@ class Ivd {
     /* 2. aşama: menü yetkisiz ise sayfa tanımını (BF) doğrudan iste; tanım içindeki servis (komut) adları ve gövde biçimi görünür */
     const sayfalar = (intvrg ? [] : ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG", "P_INTVRG_INTVD_EHACIZ_ARAC_SRG"]).concat(bulunan.map((x) => x.split(" | ")[2]).filter(Boolean).slice(0, 2), tumu.map((x) => x.split(" | ")[2]).filter(Boolean).slice(0, 1)), bf = [];
     for (const sf of sayfalar) {
-      for (const yol of yollar) for (const jp of [{ userid, bfnames: [sf], loadedList: [], params: {}, resourceBundleLang: "tr" }]) {
-        const govde = "cmd=SIDE.GET_EAGER_BF_DEFS&callid=" + Date.now().toString(36) + "&" + jetonAdi + "=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify(jp));
+      const modAd = (yerel && yerel[1]) || "iv", adlar0 = [sf, modAd + "." + sf];
+      for (const yol of yollar.slice(0, 1)) for (const bn of adlar0) for (const ek of ["", "&pageName=" + encodeURIComponent(sf) + "&module=" + encodeURIComponent(modAd)]) { const jp = { userid, bfnames: [bn], loadedList: [], params: {}, resourceBundleLang: "tr" };
+        const govde = "cmd=SIDE.GET_EAGER_BF_DEFS&callid=" + Date.now().toString(36) + "&" + jetonAdi + "=" + encodeURIComponent(token) + ek + "&jp=" + encodeURIComponent(JSON.stringify(jp));
         try {
           const r = await this.gibGit(u.origin + yol, govde, hedef), t = maske(r.metin.replace(/\s+/g, " "));
           const adlar = [...new Set([...t.matchAll(/"(?:sn|serviceName|service|cmd|svc|serviceNames?)"\s*:\s*"([^"]{3,80})"/g)].map((m) => m[1]))].slice(0, 30);
-          bf.push(sf + " @" + yol + " → HTTP " + r.durum + " " + r.metin.length + " bayt · " + t.slice(0, 600) + (adlar.length ? "\n   servis adları: " + adlar.join(" | ") : ""));
+          bf.push(bn + (ek ? " +pageName" : "") + " @" + yol + " → HTTP " + r.durum + " " + r.metin.length + " bayt · " + t.slice(0, 600) + (adlar.length ? "\n   servis adları: " + adlar.join(" | ") : ""));
           if (r.metin.length > 400 && !/yetkiniz yok/.test(r.metin)) break;
         } catch (e) { bf.push(sf + " → " + String(e.message).slice(0, 100)); }
       }
@@ -454,7 +457,7 @@ class Ivd {
           const bag = [...js.matchAll(sayfa ? new RegExp(String(sayfa).replace(/_[A-Z]+$/, "").slice(0, 28), "g") : /Aylık\s*Satış|Satış\s*Rapor|YNOKC|YN_OKC|OKCBildirim|DonemSorgula|Dönem\s*Sorgula|Z\s*Rapor|ZRAPOR/gi)].slice(0, 5).map((m) => js.slice(Math.max(0, m.index - 150), m.index + 350).replace(/\s+/g, " "));
           const ajax = [...js.matchAll(/(?:\$\.ajax|\$\.post|XMLHttpRequest|fetch)\s*\(?[^;]{0,160}/g)].slice(0, 4).map((m) => m[0].replace(/\s+/g, " "));
           const bagla = (kalip, n, boy) => [...js.matchAll(kalip)].slice(0, n).map((m) => js.slice(Math.max(0, m.index - 120), m.index + boy).replace(/\s+/g, " "));
-          const yan = /side-common|side-bc|lib_tv|side-user/.test(ad) ? [["çağrı", bagla(/this\.call=function\(cmd,callParams,config\)/g, 1, 3200)], ["initSide", bagla(/function\s+initSide|initSide\s*=/g, 2, 1500)], ["sayfa-adları", [...new Set([...js.matchAll(/P_INTVRG[A-Z0-9_]{4,60}/g)].map((m) => m[0]))].slice(0, 60)], ["cmd", [...new Set([...js.matchAll(/["']?cmd["']?\s*[:=]\s*["']([^"']{3,70})["']/g)].map((m) => m[1]))].slice(0, 50)]] : [];
+          const yan = /side-common|side-bc|lib_tv|side-user/.test(ad) ? [["çağrı", bagla(/this\.call=function\(cmd,callParams,config\)/g, 1, 3200)], ["initSide", bagla(/function\s+initSide|initSide\s*=/g, 2, 1500)], ["sayfa-adları", [...new Set([...js.matchAll(/P_INTVRG[A-Z0-9_]{4,60}/g)].map((m) => m[0]))].slice(0, 60)], ["cmd", [...new Set([...js.matchAll(/["']?cmd["']?\s*[:=]\s*["']([^"']{3,70})["']/g)].map((m) => m[1]))].slice(0, 50)], ["haciz", bagla(/EHACIZ|e-?haciz/gi, 3, 500)]] : /wt-script-1/.test(ad) ? [["içerik", [js.replace(/\s+/g, " ").slice(0, 3800)]]] : [];
           parca.push("# " + ad + " (" + g.metin.length + " bayt)" + yan.filter((x) => x[1].length).map((x) => "\n[" + x[0] + "] " + x[1].join(" ... ")).join("") + "\nuçlar: " + (uc.join(" | ") || "-") + (ajax.length ? "\najax: " + ajax.join(" || ") : "") + (bag.length ? "\nsayfa adı geçen yer: " + bag.join(" ... ") : ""));
         } catch (e) { parca.push("# " + b + " okunamadı: " + e.message); }
       }
