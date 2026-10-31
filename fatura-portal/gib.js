@@ -365,6 +365,11 @@ class Gib {
     for (const v of varyantlar) {
       govde = yapici(v);
       y = await this.dispatch("EARSIV_PORTAL_FATURA_OLUSTUR", "RG_BASITFATURA", govde);
+      /* GİB, kullanıcı bilgisini hiç güncellememiş hesaplarda taslağı oluşturmaz ve yalnız bir uyarı metni döndürür */
+      if (typeof y.data === "string" && /kullan[ıi]c[ıi] bilgilerini.{0,40}g[üu]ncellememi[şs]/i.test(y.data)) {
+        const kim = (/VKN\/TCKN:\s*(\d{10,11})/i.exec(y.data) || [])[1];
+        throw new Error("GİB e-Arşiv Portalı bu kullanıcı için fatura oluşturmayı reddetti (taslak OLUŞMADI): kullanıcı bilgileri hiç güncellenmemiş" + (kim ? " (VKN/TCKN " + kim + ")" : "") + ". e-Arşiv Portalı’na (earsivportal.efatura.gov.tr) bu kullanıcı koduyla bir kez girip “Kullanıcı Bilgileri”ni (e-posta, telefon, adres vb.) kaydedin; sonra buradan yeniden deneyin.");
+      }
       if (!(typeof y.data === "string" && /sorun|hata|ge[cç]ersiz|zorunlu|yanl[ıi]ş|ettn|eksik|uymuyor/i.test(y.data))) { redler.length = 0; break; }
       redler.push("varyant " + v + ": " + y.data);
     }
