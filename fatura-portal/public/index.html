@@ -1752,7 +1752,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       '<p class="not" style="margin:0">VKN/TCKN: <b>' + esc(m.vkn || "—") + '</b> (“GİB bağlantısı” bölümünden; değişmesi gerekiyorsa ofise bildirin)</p>' +
       alan("vd", "Vergi dairesi") + alan("adres", "Adres", 'autocomplete="street-address"') + alan("tel", "Telefon", 'type="tel" inputmode="tel" autocomplete="tel"') + alan("eposta", "E-posta", 'type="email" inputmode="email" autocapitalize="off" autocomplete="email"') + alan("web", "Web sitesi (isteğe bağlı)", 'inputmode="url" autocapitalize="off"') +
       '<p class="not" style="margin:0">Bu bilgiler programdaki fatura kopyasında satıcı bilgisi olarak görünür. GİB’deki resmî faturanın satıcı bilgisi GİB kaydınızdan gelir, buradan değişmez.</p>' +
-      '<div class="durum" data-md role="status"></div><button class="btn" type="button" data-profil-kaydet>Profil bilgilerini kaydet</button></div></details>';
+      '<div class="durum" data-md role="status"></div><button class="btn" type="button" data-profil-kaydet>Profil bilgilerini kaydet</button><button class="k" type="button" data-profil-sicil>Sicilden güncelle (üzerine yazar)</button><p class="not" style="margin:0">Profil açılınca, Dijital Vergi Dairesi’ne bağlıysanız boş alanlar sicilden otomatik doldurulur.</p></div></details>';
   }
   function hesapHtml(m){
     return '<details class="alt2" data-ak="c:' + m.id + '"' + ac("c:" + m.id) + '><summary>Giriş hesabı <small>' + (m.hesapKullanici ? esc(m.hesapKullanici) + (m.sonGiris ? " · son giriş " + new Date(m.sonGiris).toLocaleString("tr-TR") : " · henüz girmedi") : "yok") + '</small></summary><div class="icerik">' +
@@ -2022,8 +2022,23 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function hizmetOzet(x){ return (x.istisna ? "İstisna " + esc(x.istisna) + " · " : "") + "KDV %" + esc(String(x.kdv).replace(".", ",")) + (x.tev > 0 ? " · tevkifat " + esc(x.tev) + "/10" + (x.kod ? " (" + esc(x.kod) + ")" : "") : " · tevkifatsız"); }
   /* aç/kapa durumunu hatırla (toggle olayı kabarcıklanmaz, yakalama aşamasında dinlenir) */
+  /* Profil: sicil bilgisinden (Dijital VD) doldurma. Otomatik (açılınca): yalnız boş alanlar; düğme: hepsinin üzerine yazar */
+  var PROF_SICIL = {};
+  function profilSicilDoldur(id, ustune, otomatik){
+    var m = mBul(id); if (!m) return; var dur = function(t, tip){ mDurum(id, t, tip || ""); };
+    if (!(VD.bagli && VD.mid === id)) { if (!otomatik) dur("Önce Dijital Vergi Dairesi’ne bağlanın (Vergi D. sekmesi ya da Ana ekrandaki Güncelle kartı).", "hata"); return; }
+    dur("Sicil bilgisi alınıyor…");
+    api("/api/vd/sicil", "POST", { mukellefId: id }).then(function(r){
+      var k = r.kisi || {}, b = (r.subeler || [])[0] || {}, yeni = { vd: b.vd, adres: (b.adresler && b.adresler[0] && b.adresler[0].adres) || b.adresMetni || k.isYeri, tel: k.tel, eposta: k.eposta }, ad = { vd: "vergi dairesi", adres: "adres", tel: "telefon", eposta: "e-posta" }, p = m.profil = m.profil || {}, degisen = [];
+      Object.keys(yeni).forEach(function(a){ var v = String(yeni[a] || "").trim(); if (!v || (p[a] && !ustune) || p[a] === v) return; p[a] = v; degisen.push(ad[a]); });
+      if (ustune && k.unvan && m.ad !== k.unvan) { m.ad = k.unvan; degisen.push("ünvan"); }
+      if (!degisen.length) { dur("Profil sicil bilgisiyle zaten uyumlu.", "ok"); return; }
+      return kaydetV().then(function(){ hepsi(); mDurum(id, "Sicilden güncellendi: " + degisen.join(", ") + ". Kontrol edin.", "ok"); });
+    }, function(er){ if (oturumDustu(er)) return; if (er.girisGerek) { VD.bagli = false; } dur(er.message, "hata"); });
+  }
   $("ayarIc").addEventListener("toggle", function(e){
     var k = e.target.getAttribute && e.target.getAttribute("data-ak"); if (!k) return; ayarAcik[k] = e.target.open;
+    if (e.target.open && /^pf:/.test(k)) { var pid0 = k.slice(3); if (!PROF_SICIL[pid0] && VD.bagli && VD.mid === pid0) { PROF_SICIL[pid0] = true; profilSicilDoldur(pid0, false, true); } }
     if (e.target.open && e.target.parentElement) [].slice.call(e.target.parentElement.children).forEach(function(c){ if (c !== e.target && c.tagName === "DETAILS" && c.open) { c.open = false; var ck = c.getAttribute("data-ak"); if (ck) ayarAcik[ck] = false; } }); /* aynı düzeyde yalnız biri açık */
     if (e.target.open && /^ku?:/.test(k) && !MARKA[k.replace(/^ku?:/, "")]) markaYukle(k.replace(/^ku?:/, "")).then(function(){ if (ayarAcik[k]) cizAyar(); }); // yalnız ilk açılışta; yeniden çizim toggle’ı tekrar tetikler
   }, true);
@@ -2122,6 +2137,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       api("/api/sifre", "POST", { eski: eski, yeni: yeni }).then(function(){ $("sEski").value = $("sYeni").value = $("sYeni2").value = ""; d2.className = "durum ok"; d2.textContent = "Şifreniz değiştirildi."; }, function(er){ ayarHata(d2, er); });
       return;
     }
+    if (t.hasAttribute("data-profil-sicil")) { var sid = mEl && mEl.getAttribute("data-mid"); if (!confirm("Profildeki ünvan, vergi dairesi, adres, telefon ve e-posta sicil bilgisiyle değiştirilsin mi?")) return; profilSicilDoldur(sid, true, false); return; }
     if (t.hasAttribute("data-profil-kaydet")) {
       var pid = mEl && mEl.getAttribute("data-mid"), pr = (mm && mm.profil) || {};
       if (pr.eposta && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pr.eposta.trim())) { mDurum(pid, "E-posta adresi geçerli görünmüyor.", "hata"); return; }
