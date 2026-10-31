@@ -2335,7 +2335,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
     if (VD.sek === "tahakkuk") { liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + ' tahakkuk · ' + esc(s.zaman) + "</p>" + vdThkHtml(s); $("vdTaniMetin").textContent = JSON.stringify({ sekil: s.sekil, denenenBicimler: s.deneme }, null, 1); tani.hidden = false; return; }
     if (VD.sek === "yoklama") { liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + ' yoklama · ' + esc(s.zaman) + '</p>' + vdYokHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
-    if (VD.sek === "arac") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + (s.uyari ? " · " + esc(s.uyari) : "") + "</p>" + vdAracHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
+    if (VD.sek === "arac") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + (s.uyari ? " · " + esc(s.uyari) : "") + "</p>" + vdAracHtml(s); tani.hidden = true; return; }
     if (VD.sek === "pos") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdPosHtml(s); tani.hidden = true; return; }
     if (VD.sek === "levha") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdLevhaHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "yazi") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdYaziHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
