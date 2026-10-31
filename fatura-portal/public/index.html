@@ -2170,7 +2170,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   var TEBTRAFIK = /TRAFIK/;
   function tebTur(r){ return tebFold((r.belgeTuruAciklama || "") + " " + (r.belgeTuru || "")); }
   function tebKod(r){ var m = /^\d{8}(\d{2})/.exec(String(r.belgeNo || "")); return m ? m[1] : ""; }
-  function tebTrafik(r){ return TEBTRAFIK.test(tebTur(r)); } /* trafik idari para cezaları ayrı sekmede */
+  function tebTrafik(r){
+    var t = tebTur(r), k = tebFold([r.kurumAciklama, r.altKurum, r.gonderenKurum, r.kurum].filter(Boolean).join(" "));
+    return TEBTRAFIK.test(t) || /IDARI PARA CEZA/.test(t) || (/EMNIYET|JANDARMA|TRAFIK|KARAYOLLARI/.test(k) && /CEZA/.test(t));
+  } /* trafik idari para cezaları ayrı sekmede */
   function tebOnemli(r){
     if (tebTrafik(r)) return false;
     var kod = tebKod(r); if (kod === "77" || kod === "13") return true; if (kod === "66") return false;
