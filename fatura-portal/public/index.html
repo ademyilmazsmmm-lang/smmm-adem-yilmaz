@@ -2227,7 +2227,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function vdTarih(t){ var m = /^(\d{2})[./-](\d{2})[./-](\d{4})/.exec(t || "") || null; if (m) return +(m[3] + m[2] + m[1]); m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t || ""); return m ? +(m[1] + m[2] + m[3]) : 0; }
   function vdSatir(e, d){ return d ? '<div style="display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:6px;font-size:.88rem;margin-top:4px"><span class="not" style="margin:0">' + esc(e) + '</span><span style="overflow-wrap:anywhere">' + esc(d) + '</span></div>' : ""; }
   function vdSicilHtml(s){
-    var k = s.kisi || {}, h = '<div class="kayit"><b>' + esc(k.unvan || "Mükellef") + '</b>' + vdSatir("VKN / TCKN", k.vkn || k.tckn) + vdSatir("Mükellef türü", [k.tur, k.mukellefTuru].filter(Boolean).join(" · ")) + vdSatir("İş yeri adresi", k.isYeri) + vdSatir("İkametgâh", k.ikametgah) + vdSatir("Ticaret sicil", k.ticaretSicil) + '</div>';
+    var k = s.kisi || {}, h = (s.uyari ? '<p class="not" style="margin:0 0 8px;color:var(--danger)">' + esc(s.uyari) + '</p>' : '') + '<div class="kayit"><b>' + esc(k.unvan || "Mükellef") + '</b>' + vdSatir("VKN / TCKN", k.vkn || k.tckn) + vdSatir("Mükellef türü", [k.tur, k.mukellefTuru].filter(Boolean).join(" · ")) + vdSatir("İş yeri adresi", k.isYeri) + vdSatir("İkametgâh", k.ikametgah) + vdSatir("Ticaret sicil", k.ticaretSicil) + '</div>';
     (s.subeler || []).forEach(function(b){
       var acilis = 0, acilisT = "", kapT = "", acik = false;
       (b.vergiler || []).forEach(function(v){ var bt = vdTarih(v.bas); if (bt && (!acilis || bt < acilis)) { acilis = bt; acilisT = v.bas; } if (!v.bit) acik = true; });

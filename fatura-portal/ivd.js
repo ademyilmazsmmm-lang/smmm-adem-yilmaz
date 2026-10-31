@@ -284,29 +284,42 @@ class Ivd {
     return this.dosyaCek(y, "yoklama-" + String(d.kod || n + 1), "pdf");
   }
   /* ---- Sicil Bilgilerim: kimlik/ünvan, merkez ve şubeler (adres, faaliyet/NACE kodları, mükellefiyet açılış-kapanış) ---- */
+  /* GİB liste servisleri "istek formatı hatalı" derse sıradaki gövde biçimi denenir (hangisinin işlediği hatırlanmaz; her çağrıda sırayla) */
+  async denemeli(yontem, url, govdeler) {
+    let son = null; const log = [];
+    for (let i = 0; i < govdeler.length; i++) {
+      try { return await this.istek(yontem, GW + url, govdeler[i], true); }
+      catch (e) { if (e.oturum) throw e; son = e; log.push(i + ": " + String(e.message).slice(0, 70)); if (!/format|hatal/i.test(e.message || "")) break; }
+    }
+    son.message += (log.length > 1 ? " [denenen biçimler: " + log.join(" | ") + "]" : ""); throw son;
+  }
   async sicilBilgi() {
-    const al = (y) => (y && y.data && typeof y.data === "object" && !Array.isArray(y.data) ? y.data : y) || {}, m = (v) => (v === undefined || v === null ? "" : String(v));
-    const k = al(await this.istek("GET", GW + "/sicil-bilgileri/kisisel-bilgiler", undefined, true));
+    const al = (y) => (y && y.data && typeof y.data === "object" && !Array.isArray(y.data) ? y.data : y) || {}, m = (v) => (v === undefined || v === null ? "" : String(v)), uyari = [];
+    let k = {}; try { k = al(await this.istek("GET", GW + "/sicil-bilgileri/kisisel-bilgiler", undefined, true)); } catch (e) { if (e.oturum) throw e; uyari.push("Kimlik bilgileri: " + String(e.message).slice(0, 120)); }
     let tel = ""; try { tel = m(al(await this.istek("GET", GW + "/sicil-bilgileri/get-iletisim-bilgileri", undefined, true)).talepOnayGsmNo); } catch (e) { if (e.oturum) throw e; }
-    const ly = await this.istek("POST", GW + "/sube-bilgileri/mukellef-sube-listesi", this.tablo({}, 50, { alan: "isyeriNitelikText", yon: "ASC" }), true);
+    const ly = await this.denemeli("POST", "/sube-bilgileri/mukellef-sube-listesi", [this.tablo({}, 50, { alan: "isyeriNitelikText", yon: "ASC" }), this.tablo({}, 50), { meta: { pagination: { pageNo: 1, pageSize: 50 }, filters: [] } }, { data: {} }, {}]);
     const dizi = (ly && (Array.isArray(ly.subeBilgiDTO) ? ly.subeBilgiDTO : ly.data && Array.isArray(ly.data.subeBilgiDTO) ? ly.data.subeBilgiDTO : [])) || [], liste = dizi.slice(0, 8), subeler = [];
+    const vkn = m(k.vkn) || m((ly && ly.vkn) || "");
     for (const sb of liste) {
       const sube = { ad: m(sb.subeAdi), no: m(sb.subeNumarasi), tur: m(sb.isYeriTuruText), nitelik: m(sb.isyeriNitelikText), vd: m(sb.vdUzunAdi), durum: m(sb.birimFaal), adresler: [], faaliyet: [], vergiler: [], hata: "" };
+      const hata = (ad, e) => { sube.hata += (sube.hata ? " · " : "") + ad + ": " + String(e.message).slice(0, 160); };
       try {
-        const dy = al(await this.istek("POST", GW + "/sube-bilgileri/get-sube-bilgisi", { data: { vergiNo: m(k.vkn), subeNo: sb.subeNumarasi, mukellefiyet: 1, adresBilgi: 1, secureId: sb.secureId } }, true));
+        const veri = { vergiNo: vkn, subeNo: sb.subeNumarasi, mukellefiyet: 1, adresBilgi: 1, secureId: sb.secureId };
+        const dy = al(await this.denemeli("POST", "/sube-bilgileri/get-sube-bilgisi", [{ data: veri }, veri]));
         sube.adresler = (Array.isArray(dy.isyeriAdresList) ? dy.isyeriAdresList : []).map((a) => ({ tip: m(a.adresTipText), adres: m(a.adresAciklama) })).filter((a) => a.adres);
-      } catch (e) { if (e.oturum) throw e; sube.hata = String(e.message).slice(0, 100); }
+        if (!sube.vd) sube.vd = m(dy.vergiDairesi || dy.vdUzunAdi);
+      } catch (e) { if (e.oturum) throw e; hata("adres", e); }
       try {
-        const fy = await this.istek("POST", GW + "/faaliyet-bilgileri/get-faaliyet-bilgileri", this.tablo({ subeOid: sb.oid }, 100, { alan: "faaliyetKod", yon: "ASC" }), true), fl = (fy && (Array.isArray(fy.dataList) ? fy.dataList : fy.data && Array.isArray(fy.data.dataList) ? fy.data.dataList : [])) || [];
-        sube.faaliyet = fl.slice(0, 30).map((f) => ({ kod: m(f.faaliyetKod), ad: m(f.faaliyetAd), bas: m(f.basTar), bit: m(f.bitTar) }));
-      } catch (e) { if (e.oturum) throw e; sube.hata = sube.hata || String(e.message).slice(0, 100); }
+        const fy = await this.denemeli("POST", "/faaliyet-bilgileri/get-faaliyet-bilgileri", [this.tablo({ subeOid: sb.oid }, 100, { alan: "faaliyetKod", yon: "ASC" }), this.tablo({ subeOid: sb.oid }, 100), { data: { subeOid: sb.oid } }]), fl = (fy && (Array.isArray(fy.dataList) ? fy.dataList : fy.data && Array.isArray(fy.data.dataList) ? fy.data.dataList : [])) || [];
+        sube.faaliyet = fl.slice(0, 30).map((f) => ({ kod: m(f.faaliyetKod), ad: m(f.faaliyetAd), bas: m(f.basTar || f.baslamaTarihi), bit: m(f.bitTar || f.bitisTarihi) }));
+      } catch (e) { if (e.oturum) throw e; hata("faaliyet", e); }
       try {
-        const vy = await this.istek("POST", GW + "/sube-bilgileri/get-vergi-turleri", this.tablo({ subeNo: sb.subeNumarasi, secureId: sb.secureId }, 100, { alan: "vergiAdi", yon: "ASC" }), true), vl = (vy && (Array.isArray(vy.dataList) ? vy.dataList : vy.data && Array.isArray(vy.data.dataList) ? vy.data.dataList : [])) || [];
+        const vy = await this.denemeli("POST", "/sube-bilgileri/get-vergi-turleri", [this.tablo({ subeNo: sb.subeNumarasi, secureId: sb.secureId }, 100, { alan: "vergiAdi", yon: "ASC" }), this.tablo({ subeNo: sb.subeNumarasi, secureId: sb.secureId }, 100), { data: { subeNo: sb.subeNumarasi, secureId: sb.secureId } }]), vl = (vy && (Array.isArray(vy.dataList) ? vy.dataList : vy.data && Array.isArray(vy.data.dataList) ? vy.data.dataList : [])) || [];
         sube.vergiler = vl.slice(0, 40).map((v) => ({ ad: m(v.vergiAdi), donem: m(v.donem), bas: m(v.baslamaTarihi), bit: m(v.bitisTarihi), terk: m(v.terkNedeni) }));
-      } catch (e) { if (e.oturum) throw e; sube.hata = sube.hata || String(e.message).slice(0, 100); }
+      } catch (e) { if (e.oturum) throw e; hata("vergi türleri", e); }
       subeler.push(sube);
     }
-    return { kisi: { unvan: m(k.adSoyadUnvan), vkn: m(k.vkn), tckn: m(k.tckn), tur: m(k.sirketTuru), mukellefTuru: m(k.mukellefTuru), dogum: m(k.dogumTarihi), ikametgah: m(k.ikametgahAdres), isYeri: m(k.isYeriAdres), ticaretSicil: m(k.ticaretSicilNo), tel }, subeler, toplamSube: dizi.length, sekil: sekil(k) };
+    return { kisi: { unvan: m(k.adSoyadUnvan), vkn: m(k.vkn), tckn: m(k.tckn), tur: m(k.sirketTuru), mukellefTuru: m(k.mukellefTuru), dogum: m(k.dogumTarihi), ikametgah: m(k.ikametgahAdres), isYeri: m(k.isYeriAdres), ticaretSicil: m(k.ticaretSicilNo), tel }, subeler, toplamSube: dizi.length, uyari: uyari.join(" · "), sekil: sekil({ kisi: k, liste: ly }) };
   }
   /* ---- Araçlarım (Araç Bilgilerim): mevcut ya da geçmiş araçlar ---- */
   async aracListe(gecmis) {
