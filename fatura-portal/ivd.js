@@ -337,18 +337,19 @@ class Ivd {
     } catch (e) { oturumOzet = String(e.message).slice(0, 120); }
     gunluk.push("oturum başlatma → " + oturumOzet + (userid ? " (userid var)" : " (userid yok)"));
     const kalip = ara || /ÖKC|OKC|Z\s*Rapor|Satış|Haciz|Yoklama/i, bulunan = [];
+    const tumu = [], tumTara = (d, derin) => { if (!d || derin > 7 || tumu.length > 120) return; if (Array.isArray(d)) { d.forEach((x) => tumTara(x, derin + 1)); return; } if (typeof d !== "object") return; const m = [d.text, d.title].find((x) => typeof x === "string"); if (m || d.page) tumu.push((d.id || d.defId || "").toString().slice(0, 14) + " | " + String(m || "").slice(0, 60) + " | " + (d.page || "") + (Array.isArray(d.children) && d.children.length ? " | alt:" + d.children.length : "")); Object.values(d).forEach((x) => tumTara(x, derin + 1)); };
     const tara = (d, derin) => { if (!d || derin > 6 || bulunan.length > 60) return; if (Array.isArray(d)) { d.forEach((x) => tara(x, derin + 1)); return; } if (typeof d !== "object") return; const m = [d.text, d.title, d.label, d.name].find((x) => typeof x === "string"); if ((d.page || d.pageName) && m && kalip.test(m + " " + (d.page || d.pageName))) bulunan.push((d.defId || d.id || "") + " | " + m + " | " + (d.page || d.pageName)); Object.values(d).forEach((x) => tara(x, derin + 1)); };
-    dis: for (const yol of yollar) for (const cmd of ["SIDE.GET_ALL_MENU_DEFINITIONS3", "SIDE.GET_ALL_MENU_DEFINITIONS2"]) for (const rn of ["", "menuDefRoot"]) {
-      const govde = "cmd=" + cmd + "&callid=" + Date.now().toString(36) + "&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify({ csapUserId: "", rn, isTest: false, lang: "tr" }));
+    dis: for (const yol of yollar) for (const cmd of ["SIDE.GET_ALL_MENU_DEFINITIONS3", "SIDE.GET_ALL_MENU_DEFINITIONS2"]) for (const rn of ["", "menuDefRoot", "tdvd"]) {
+      const govde = "cmd=" + cmd + "&callid=" + Date.now().toString(36) + "&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify({ csapUserId: userid, rn, isTest: false, lang: "tr" }));
       try {
         const r = await this.gibGit(u.origin + yol, govde, hedef.replace(/token=[^&]*/, "token=" + token)), ozet = maske(r.metin.replace(/\s+/g, " ")).slice(0, 260);
         let j = null; try { j = JSON.parse(r.metin); } catch (e) { /* JSON değil */ }
-        if (j) { tara(j, 0); gunluk.push(yol + " " + cmd + " rn=" + (rn || "-") + " → HTTP " + r.durum + " JSON " + r.metin.length + " bayt" + (bulunan.length ? "" : " · " + ozet)); if (bulunan.length) break dis; } else gunluk.push(yol + " " + cmd + " rn=" + (rn || "-") + " → HTTP " + r.durum + " " + ozet);
+        if (j) { tara(j, 0); if (!tumu.length) tumTara(j, 0); gunluk.push(yol + " " + cmd + " rn=" + (rn || "-") + " → HTTP " + r.durum + " JSON " + r.metin.length + " bayt" + (bulunan.length ? "" : " · " + ozet.slice(0, 60))); if (bulunan.length) break dis; } else gunluk.push(yol + " " + cmd + " rn=" + (rn || "-") + " → HTTP " + r.durum + " " + ozet);
       } catch (e) { gunluk.push(yol + " " + cmd + " → " + String(e.message).slice(0, 100)); }
       if (bulunan.length) break dis;
     }
     /* 2. aşama: menü yetkisiz ise sayfa tanımını (BF) doğrudan iste; tanım içindeki servis (komut) adları ve gövde biçimi görünür */
-    const sayfalar = intvrg ? ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG"] : ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG"], bf = [];
+    const sayfalar = ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG"].concat(bulunan.map((x) => x.split(" | ")[2]).filter(Boolean).slice(0, 2), tumu.map((x) => x.split(" | ")[2]).filter(Boolean).slice(0, 1)), bf = [];
     for (const sf of sayfalar) {
       for (const yol of yollar) for (const jp of [{ userid, bfnames: [sf], loadedList: [], params: {}, resourceBundleLang: "tr" }]) {
         const govde = "cmd=SIDE.GET_EAGER_BF_DEFS&callid=" + Date.now().toString(36) + "&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify(jp));
@@ -360,7 +361,7 @@ class Ivd {
         } catch (e) { bf.push(sf + " → " + String(e.message).slice(0, 100)); }
       }
     }
-    return "[SIDE keşif]\n" + (bulunan.length ? "Menüde bulunan sayfalar (kod | ad | sayfa):\n" + [...new Set(bulunan)].join("\n") + "\n\n" : "") + "Denemeler:\n" + gunluk.slice(0, 14).join("\n") + (bf.length ? "\nSayfa tanımı:\n" + bf.join("\n") : "") + "\n\n";
+    return "[SIDE keşif]\n" + (bulunan.length ? "Menüde bulunan sayfalar (kod | ad | sayfa):\n" + [...new Set(bulunan)].join("\n") + "\n\n" : "") + (tumu.length ? "Menü kayıtları (kod | ad | sayfa):\n" + [...new Set(tumu)].join("\n") + "\n\n" : "") + "Denemeler:\n" + gunluk.slice(0, 16).join("\n") + (bf.length ? "\nSayfa tanımı:\n" + bf.join("\n") : "") + "\n\n";
   }
   async interaktifSayfa(sayfa, derin, sistem) {
     const intvrg = sistem === "intvrg"; /* İnternet Vergi Dairesi (intvrg.gib.gov.tr): ÖKC / Z raporu bu sistemdedir */
