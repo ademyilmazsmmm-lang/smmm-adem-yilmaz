@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-137";
+const SURUM = "2026-10-31-138";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -39,7 +39,7 @@ function hataSay(ip) {
   if (d.n >= 5) { d.bitis = Date.now() + Math.min(3600e3, 30e3 * Math.pow(2, d.n - 5)); } // 5. hatadan sonra artan bekleme (en çok 1 saat)
   denemeler.set(ip, d);
 }
-const sifreMin = GUVENLI ? 12 : 8;
+const sifreMin = 4; /* kısa şifre kabul edilir (ofis tercihi); giriş denemesi sınırı ve kasa şifrelemesi aynen sürer */
 
 /* Hazır hizmet listesi: etiket açılır listede görünür, ad faturaya yazılır. İstisna/tevkifat bilgisi seçilince fatura tipini de belirler. */
 const HAZIR_HIZMET = [
@@ -63,7 +63,7 @@ if (process.env.GITHUB_DEPO && process.env.GITHUB_TOKEN) {
   yansi.baslat(() => fs.existsSync(depo.sf) || fs.existsSync(depo.eski), () => depo.yukleSistem());
   for (const sinyal of ["SIGTERM", "SIGINT"]) process.on(sinyal, () => { yansi.kapat(20000).then(() => process.exit(0), () => process.exit(0)); });
 }
-const mSifreMin = GUVENLI ? 10 : 8; // mükellef hesaplarının en kısa şifresi
+const mSifreMin = 4; // mükellef hesaplarının en kısa şifresi
 /* Eski cihaz yedeği (v1 tek kasa) biçimi: eskiden alınmış yedekler geri yüklenip çok kullanıcılı yapıya taşınabilsin */
 const kasaBicimi = (k) => k && k.v === 1 && k.iter === ITER && ["tuz", "iv", "tag", "veri"].every((a) => typeof k[a] === "string" && k[a].length < 8e6 && /^[A-Za-z0-9+/=]+$/.test(k[a]));
 

@@ -305,7 +305,9 @@ class Sgk {
       }
       this.sonForm = { eylem, gizli, url: r.url, izinli: new Set(alanlar.map((a) => a.ad)), alanlar };
       const ai = sade(temiz.slice(Math.max(0, temiz.search(/AÇIKLAMALAR/))));
-      return { alanlar, aciklama: /AÇIKLAMALAR/.test(temiz) ? ai.slice(0, 2600) : "" };
+      /* ekranda yalnız T.C. no ve kazanç sorulur: eğitim durumu her zaman "Eğitim Belgesi Yoktur", 17256 sayılı kanun alanları gösterilmez */
+      const gizle = (a) => ["egitimDurumu", "meslekKod", "sigortaliBasvuruTarihi", "sigortaliDurum"].includes(a.ad) || /17256|Hizmet(ler)?i? Bildir/i.test(a.etiket || "");
+      return { alanlar: alanlar.filter((a) => !gizle(a)), aciklama: /AÇIKLAMALAR/.test(temiz) ? ai.slice(0, 2600) : "" };
     }
     throw new Error("Teşvik sorgu formu sayfada bulunamadı.");
   }
@@ -314,6 +316,8 @@ class Sgk {
     const f = this.sonForm; if (!f) throw new Error("Önce teşvik formunu açın.");
     const g = Object.assign({}, f.gizli);
     for (const a of f.alanlar) { const v = deger && deger[a.ad]; if (v !== undefined && v !== null && String(v) !== "" && f.izinli.has(a.ad)) g[a.ad] = String(v).slice(0, 80); }
+    const eg = f.alanlar.find((a) => a.ad === "egitimDurumu");
+    if (eg) { const yok = (eg.secenekler || []).find((x) => /belgesi\s*yoktur/i.test(x.etiket)); g.egitimDurumu = yok ? yok.deger : "1"; }
     this.ref = f.url; let r; try { r = await this.git("POST", new URL(f.eylem, f.url).href, g); } finally { this.ref = null; }
     const html = r.veri.toString("utf8"); if (/kullaniciIlkKontrollerGiris/.test(html)) throw this.oturumHata();
     const temiz = html.replace(/<script[\s\S]*?<\/script>/gi, ""), tablolar = []; let akt = null;
@@ -405,7 +409,7 @@ class SahteSgk {
   async tani(derin) { if (!this.girdi) { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; throw e; } return { baslik: "T.C. Sosyal Güvenlik Kurumu", adres: "https://" + (SISTEMLER[this.sistem] || SISTEMLER.isveren).sunucu + (SISTEMLER[this.sistem] || SISTEMLER.isveren).kok, zincir: [], baslatici: [], baglantilar: [{ tur: "a", metin: "DÖNEM BORÇ GÖRÜNTÜLEME", href: "/IsverenSistemi/ornek/donemBorc.action" }, { tur: "a", metin: "İHALELERE KATILMAK İÇİN", href: "/IsverenSistemi/ornek/ihale.action" }, { tur: "a", metin: "ÇIKIŞ", href: "/IsverenSistemi/cikis.action" }], cerceveler: [], sayfalar: derin ? [{ metin: "Onaylanmış Belgeler", adres: "/EBildirgeV2/ornek/onayli.action", formlar: [{ eylem: "/EBildirgeV2/ornek/liste.action", yontem: "post", alanlar: ["bas_donem:select[2026/09|2026/08]", "bit_donem:select[2026/09|2026/08]", "düğme:Bilgileri Getir"] }], tablolar: [["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Toplam Çalışan Sayısı"]], baglantilar: [] }] : undefined }; }
   async cikis() { this.girdi = false; }
   async formGonder(i) { if (!this.girdi) throw this.oturumHata2(); return this.bildirgeBelge(0, 0, 0); }
-  async tesvikFormu() { if (!this.girdi) throw this.oturumHata2(); this.mf = true; return { alanlar: [{ ad: "tcKimlikNo", tur: "text", etiket: "T.C.Kimlik Numarası", deger: "" }, { ad: "kazanc", tur: "text", etiket: "Sigortalının Kazanç Bilgisi", deger: "" }, { ad: "egitimDurumu", tur: "select", etiket: "Eğitim Durumu", secenekler: [{ deger: "0", etiket: "SEÇİNİZ" }, { deger: "5", etiket: "Ortaöğretim" }, { deger: "7", etiket: "Üniversite" }] }, { ad: "meslekKod", tur: "text", etiket: "Meslek Kodu", deger: "" }, { ad: "sigortaliBasvuruTarihi", tur: "text", etiket: "Başvuru tarihi", deger: "" }, { ad: "sigortaliDurum", tur: "radio", etiket: "Sigortalının durumu", secenekler: [{ deger: "1", etiket: "Hiçbiri" }, { deger: "2", etiket: "İşsizlik ödeneği alıyor" }] }], aciklama: "Örnek açıklama." }; }
+  async tesvikFormu() { if (!this.girdi) throw this.oturumHata2(); this.mf = true; return { alanlar: [{ ad: "tcKimlikNo", tur: "text", etiket: "T.C.Kimlik Numarası", deger: "" }, { ad: "kazanc", tur: "text", etiket: "Sigortalının Kazanç Bilgisi", deger: "" }], aciklama: "Örnek açıklama." }; }
   async tesvikSorgula(d) { if (!this.mf) throw new Error("Önce teşvik formunu açın."); if (!d || !d.tcKimlikNo) return { tablolar: [], uyari: "T.C. Kimlik No boş.", metin: "" }; return { tablolar: [{ basliklar: ["Kanun No", "Teşvik süresi", "Aylık tutar"], satirlar: [["06111", "12 ay", "2.500,00"], ["05510", "5 puan", "1.100,00"]] }], uyari: "", metin: "Örnek sonuç" }; }
   async isverenSayfa(ad) { if (!this.girdi) throw this.oturumHata2(); return { uyari: ad === "IAKU" ? "HATA E-Borcu Yoktur Aktivasyonu Bulunmamaktadır." : "", ciftler: /^IA/.test(ad) ? [{ k: "TC Kimlik No", v: "11111111110" }] : [], borcToplam: ad === "DonemBorcGoruntuleme" ? 14065.45 : null, borc: ad === "DonemBorcGoruntuleme" ? { basliklar: ["Dönem", "Prim", "GZ", "Toplam BORÇ", "Toplam GZ", "TOPLAM"], satirlar: [["2026/08", "11.808,23", "2.257,22", "11.808,23", "2.257,22", "14.065,45"], ["TOPLAM", "11.808,23", "2.257,22", "11.808,23", "2.257,22", "14.065,45"]] } : null, isyeri: { sicil: "2 1234 01 01 1234567 034 12-34 000 000", unvan: "ÖRNEK NAKLİYAT LTD. ŞTİ." }, dugmeler: [{ i: 0, etiket: "Pdf Döküm Al" }], adres: "/IsverenSistemi/internetLink" + ad + ".action", baslik: "Örnek sayfa " + ad, metin: "Örnek içerik", hata: "", formlar: [{ eylem: "/IsverenSistemi/x.action", yontem: "post", gizli: ["token"], secimler: { donem: [{ deger: "1", etiket: "2026/09" }] } }], alanlar: [{ eylem: "/x", yontem: "post", alanlar: ["donem:select[1]"] }], tablolar: [["Dönem", "Borç"]], ham: "<form>…</form>" }; }
   async bildirgeDonemler() { if (!this.girdi) throw this.oturumHata2(); return { donemler: [{ deger: "1", etiket: "2026/09" }, { deger: "2", etiket: "2026/08" }, { deger: "3", etiket: "2026/07" }] }; }

@@ -2,7 +2,7 @@
 
 Program internete açılacağı için GİB şifreleriniz yalnızca **şifreli** dosyada durur ve her oturumda
 uygulama şifrenizle açılır. Sunucu yeniden başlarsa yeniden giriş yapmanız gerekir (bu bilerek böyledir).
-Uygulama şifresi sunucu kipinde **en az 12 karakter** olmalıdır; 4–5 kelimelik bir cümle iyi olur.
+Uygulama şifresi en az 4 karakter olmalıdır; internete açık sunucuda daha uzun bir şifre (ör. 4–5 kelimelik bir cümle) önerilir.
 
 İki yol var. İkisinde de adres `https://fatura.smmmyilmaz.com` gibi bir alt alan adı olur.
 
@@ -27,7 +27,7 @@ Uygulama şifresi sunucu kipinde **en az 12 karakter** olmalıdır; 4–5 kelime
 3. Kurulum bitince Render'ın verdiği `https://fatura-portali.onrender.com` benzeri adres açılır.
 4. İsterseniz kendi alan adınızı bağlayın: Render'da servis → **Settings → Custom Domains → Add** (`fatura.smmmyilmaz.com`),
    alan adı sağlayıcınızda Render'ın gösterdiği **CNAME** kaydını ekleyin. HTTPS kendiliğinden gelir.
-5. İlk açılışta uygulama şifresini (en az 12 karakter) belirleyip mükellefleri ekleyin.
+5. İlk açılışta uygulama şifresini (en az 4 karakter) belirleyip mükellefleri ekleyin.
 
 ## Yol C — Render ÜCRETSİZ + GitHub yansısı + cron-job.org  (0 $)
 Ücretsiz Render'ın diski geçici olduğu için kayıtlar GitHub'daki **özel** bir depoda şifreli saklanır; sunucu açılırken oradan geri yükler.

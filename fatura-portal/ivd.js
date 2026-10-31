@@ -265,7 +265,15 @@ class Ivd {
   }
   /* ---- e-Yoklama tutanakları (vergi dairesi yoklama fişi): liste + PDF ---- */
   async yoklamaListe() {
-    const y = await this.istek("POST", GW + "/api/yoklamalar/get-yoklama-list", this.tablo({}, 100, { alan: "vdKoduText", yon: "ASC" }), true);
+    /* Portalın liste bileşeni gövdeyi kendisi kurar; "istek formatı hatalı" gelirse sıradaki biçim denenir, çalışan hatırlanır */
+    const govdeler = [() => this.tablo({}, 100, { alan: "vdKoduText", yon: "ASC" }), () => this.tablo({}, 100), () => ({ meta: { pagination: { pageNo: 1, pageSize: 100 }, filters: [] } }), () => this.tablo({}, 100, { alan: "tarih", yon: "DESC" }), () => ({ data: {} }), () => ({})];
+    const sira = govdeler.map((_, i) => i); if (this.yoklamaBicim != null) sira.sort((x, z) => (x === this.yoklamaBicim ? -1 : z === this.yoklamaBicim ? 1 : 0));
+    let y = null, sonHata = null; const deneme = [];
+    for (const i of sira) {
+      try { y = await this.istek("POST", GW + "/api/yoklamalar/get-yoklama-list", govdeler[i](), true); this.yoklamaBicim = i; sonHata = null; break; }
+      catch (e) { if (e.oturum) throw e; deneme.push(i + ": " + String(e.message).slice(0, 60)); sonHata = e; if (!/format|hatal/i.test(e.message || "")) break; }
+    }
+    if (sonHata) { sonHata.message += " [denenen biçimler: " + deneme.join(" | ") + "]"; throw sonHata; }
     const dizi = (y && (Array.isArray(y.yoklamaList) ? y.yoklamaList : y.data && Array.isArray(y.data.yoklamaList) ? y.data.yoklamaList : [])) || [];
     this.yoklamalar = dizi.slice(0, 100).map((d) => ({ yoklamaTuru: d.yoklamaTuruText || "", baslama: d.baslamaTarihi || "", tarih: d.tarih || "", vd: d.vdKoduText || "", kod: d.ykodu || "", secureId: d.secureId || "" }));
     return { kayitlar: this.yoklamalar.map((d, n) => ({ n, yoklamaTuru: d.yoklamaTuru, baslama: d.baslama, tarih: d.tarih, vd: d.vd, kod: d.kod })), sekil: sekil(y) };

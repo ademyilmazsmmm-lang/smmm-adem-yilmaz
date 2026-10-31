@@ -2336,7 +2336,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (VD.sek === "tahakkuk") { liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + ' tahakkuk · ' + esc(s.zaman) + "</p>" + vdThkHtml(s); $("vdTaniMetin").textContent = JSON.stringify({ sekil: s.sekil, denenenBicimler: s.deneme }, null, 1); tani.hidden = false; return; }
     if (VD.sek === "yoklama") { liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + ' yoklama · ' + esc(s.zaman) + '</p>' + vdYokHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "arac") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + (s.uyari ? " · " + esc(s.uyari) : "") + "</p>" + vdAracHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
-    if (VD.sek === "pos") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdPosHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
+    if (VD.sek === "pos") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdPosHtml(s); tani.hidden = true; return; }
     if (VD.sek === "levha") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdLevhaHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "yazi") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdYaziHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "tebligat") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdTebHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
@@ -2458,14 +2458,12 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (!(r.tablolar || []).length && !r.uyari) h += '<p class="not" style="margin:0">Sonuç tablosu bulunamadı.</p>';
     return h + '<details class="alt2"><summary>SGK’nın yanıtı (metin)</summary><div class="icerik"><p class="not" style="margin:0;overflow-wrap:anywhere">' + esc(r.metin || "—") + '</p></div></details>';
   }
-  $("vdSgkIsv").addEventListener("change", function(e){ if (e.target.getAttribute("data-tf") !== "egitimDurumu") return; var w = this.querySelector('[data-tfw="meslekKod"]'); if (w) w.hidden = /^[012]$/.test(e.target.value); });
   $("vdSgkIsv").addEventListener("click", function(e){
     if (e.target.id === "tesvikAc") {
       var b = e.target, d = $("tesvikDurum"); b.disabled = true; d.className = "durum"; d.textContent = "Teşvik formu açılıyor…"; $("tesvikSonuc").innerHTML = "";
       api("/api/sgk/tesvik", "POST", { mukellefId: VD.mid, sistem: "isveren", islem: "form" }).then(function(r){
         TESVIK = r.alanlar; $("tesvikForm").hidden = false; d.textContent = "";
         $("tesvikForm").innerHTML = r.alanlar.map(tesvikAlanHtml).join("") + '<button class="btn" type="button" id="tesvikGonder">Sorgula</button>' + (r.aciklama ? '<details class="alt2"><summary>SGK açıklamaları</summary><div class="icerik"><p class="not" style="margin:0;overflow-wrap:anywhere">' + esc(r.aciklama) + '</p></div></details>' : "");
-        var eg = $("tesvikForm").querySelector('[data-tf="egitimDurumu"]'); if (eg) eg.dispatchEvent(new Event("change", { bubbles: true }));
       }, vdSgkHata).then(function(){ b.disabled = false; });
       return;
     }
