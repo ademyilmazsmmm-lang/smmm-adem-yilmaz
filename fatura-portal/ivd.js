@@ -447,7 +447,12 @@ class Ivd {
     let betikOzet = "";
     if (derin) {
       const satir = [...html.matchAll(/<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1].replace(/\s+/g, " ").trim()).filter((x) => x.length > 20).slice(0, 4);
-      if (satir.length) betikOzet += "[sayfadaki betikler]\n" + satir.map((x) => x.slice(0, 2500)).join("\n---\n") + "\n\n";
+      if (satir.length) betikOzet += "[sayfadaki betikler]\n" + satir.map((x) => x.slice(0, 1200)).join("\n---\n") + "\n\n";
+      /* gömülü betiklerin tamamından: kayıtlı sayfa (BF) adları, servis (komut) adları ve ÖKC / Z raporu / haciz geçen yerler */
+      const tumBetik = [...html.matchAll(/<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]).join("\n"), tek = (re, n) => [...new Set([...tumBetik.matchAll(re)].map((m) => m[1]))].slice(0, n);
+      const bfAd = tek(/BFEngine\.register\(\s*["']([^"']+)["']/g, 90), servis = tek(/CSCaller\.call\(\s*["']([^"']{3,100})["']/g, 90).concat(tek(/["'](?:sn|serviceName)["']\s*[:=]\s*["']([^"']{3,100})["']/g, 60)), sfAd = tek(/\b(P_[A-Z0-9_]{6,70})\b/g, 90);
+      const okcBag = [...tumBetik.matchAll(/OKC|ÖKC|ZRAPOR|Z_RAPOR|EHACIZ/gi)].slice(0, 6).map((m) => tumBetik.slice(Math.max(0, m.index - 200), m.index + 400).replace(/\s+/g, " "));
+      betikOzet += "[gömülü betik özeti: " + tumBetik.length + " bayt]\nsayfa/BF adları: " + (bfAd.join(" | ") || "-") + "\nservisler: " + (servis.join(" | ") || "-") + "\nP_ adları: " + (sfAd.join(" | ") || "-") + (okcBag.length ? "\nÖKC/haciz geçen yerler:\n" + okcBag.join("\n---\n") : "") + "\n\n";
       try { betikOzet += await this.sideKesif(sistem, undefined, html); } catch (e) { betikOzet += "[SIDE keşif] hata: " + String(e.message).slice(0, 160) + "\n\n"; } /* sayfa tek sayfalık uygulama (initSide): arka plan adreslerini bulmak için betiklerden uç/adres kalıpları ve sayfa adının geçtiği yerler çıkarılır (yalnız okuma) */
       const taban = new URL(r.url), parca = [];
       for (const b of [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]).filter((b) => !/jquery/i.test(b)).slice(0, 8)) {
