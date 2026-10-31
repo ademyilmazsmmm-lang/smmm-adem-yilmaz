@@ -397,7 +397,7 @@ class Ivd {
   async dbsCagri(yol, govde, jeton, cerez) {
     const baslik = { accept: "*/*", "content-type": "application/json; charset=UTF-8", origin: "https://portal.defterbeyan.gov.tr", referer: "https://portal.defterbeyan.gov.tr/", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36", "accept-language": "tr-TR,tr;q=0.9" };
     if (jeton) baslik.token = jeton; if (cerez) baslik.cookie = cerez;
-    let r; try { r = await fetch("https://backend-p.defterbeyan.gov.tr/rs/" + yol, { method: "POST", headers: baslik, body: JSON.stringify(govde || {}), signal: AbortSignal.timeout(25000) }); }
+    let r; try { r = await fetch("https://backend-p.defterbeyan.gov.tr/rs/" + yol, { method: "POST", headers: baslik, body: typeof govde === "string" ? govde : JSON.stringify(govde || {}), signal: AbortSignal.timeout(25000) }); }
     catch (e) { throw new Error(e && (e.name === "TimeoutError" || e.name === "AbortError") ? "Defter-Beyan 25 saniyede yanıt vermedi." : "Defter-Beyan'a ulaşılamadı: " + e.message); }
     const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (e) { /* JSON değil */ }
     const sc = typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [], yeniCerez = sc.map((x) => x.split(";")[0]).filter((x) => /^JSESSIONID=/.test(x))[0] || cerez || "";
@@ -407,14 +407,14 @@ class Ivd {
     if (this.dbs && Date.now() - this.dbs.zaman < 8 * 60e3) return this.dbs;
     const y = await this.istek("GET", GW + "/auth/login/dbs/dbs-login", undefined, true), hedef = y && y.redirectUrl; if (!hedef) throw new Error("Defter-Beyan giriş adresi alınamadı" + (this.mesajMetni(y) ? ": " + this.mesajMetni(y) : "") + ".");
     const t = new URL(hedef).searchParams.get("t") || ""; if (!t) throw new Error("Defter-Beyan giriş bileti alınamadı.");
-    const deneme = [], biciler = [{ govde: { token: t } }, { govde: { t } }, { govde: { ticket: t } }, { govde: {}, jeton: t }, { govde: { loginToken: t } }, { govde: { dbsToken: t } }, { govde: { tokenId: t } }, { govde: { code: t } }, { govde: { kod: t } }, { govde: { bilet: t } }, { govde: { jwt: t } }, { govde: { token: t }, jeton: t }];
+    const deneme = [], biciler = [{ govde: t }, { govde: { token: t } }, { govde: { t } }, { govde: { ticket: t } }, { govde: {}, jeton: t }, { govde: { loginToken: t } }, { govde: { dbsToken: t } }, { govde: { tokenId: t } }, { govde: { code: t } }, { govde: { kod: t } }, { govde: { bilet: t } }, { govde: { jwt: t } }, { govde: { token: t }, jeton: t }];
     for (const b of biciler) {
       try {
         const r = await this.dbsCagri("external/auth/loginWithToken", b.govde, b.jeton || "", "");
         /* başarı: yanıtta jeton başlığı VEYA {status:200, resultContainer:"Geçiş yapıldı."}; jeton yoksa oturum çerezi ile devam edilir */
         const gecis = r.durum === 200 && r.json && Number(r.json.status) === 200 && /ge[çc]i[şs]\s*yap[ıi]ld[ıi]/i.test(String(r.json.resultContainer || ""));
         if (r.jeton || gecis) { this.dbs = { jeton: r.jeton || "", cerez: r.cerez, zaman: Date.now() }; return this.dbs; }
-        deneme.push(Object.keys(b.govde).join(",") + (b.jeton ? "+başlık" : "") + " → HTTP " + r.durum + " " + String(r.json ? JSON.stringify(r.json) : r.ham).replace(/eyJ[\w.-]+/g, "<jwt>").slice(0, 120));
+        deneme.push((typeof b.govde === "string" ? "ham bilet" : Object.keys(b.govde).join(",")) + (b.jeton ? "+başlık" : "") + " → HTTP " + r.durum + " " + String(r.json ? JSON.stringify(r.json) : r.ham).replace(/eyJ[\w.-]+/g, "<jwt>").slice(0, 120));
       } catch (e) { deneme.push(String(e.message).slice(0, 100)); }
     }
     throw new Error("Defter-Beyan girişi kabul edilmedi (" + deneme.length + " biçim denendi; hepsi: " + (deneme[0] || "").replace(/^.*?→\s*/, "") + ")");
