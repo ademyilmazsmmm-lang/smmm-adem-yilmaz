@@ -351,7 +351,7 @@ class Ivd {
       for (const js of kaynaklar) {
         for (const m of js.matchAll(/["'`](\/?rs\/[\w./-]{3,80})["'`]/g)) if (rs.size < 100) rs.add(m[1]); for (const m of js.matchAll(/["'`]([\w./-]{0,40}\/(?:login|auth|giris|oturum|ticket|sso|token|dbs)[\w./-]{0,40})["'`]/gi)) if (rs.size < 100 && /\//.test(m[1])) rs.add(m[1]);
         for (const m of js.matchAll(/["'`](https?:\/\/[\w.-]*defterbeyan\.gov\.tr[\w./:-]{0,60})["'`]/gi)) if (host.size < 12) host.add(m[1]);
-        for (const m of js.matchAll(/loginWithToken|external\/auth|hesapozeti\/index/g)) if (bag.length < 8) bag.push(maske(js.slice(Math.max(0, m.index - 500), m.index + 800).replace(/\s+/g, " ")));
+        for (const m of js.matchAll(/LOGIN_WITH_TOKEN(?!:)|loginWithToken\b(?!")|HESAP_OZETI_INDEX/g)) if (bag.length < 6) bag.push(maske(js.slice(Math.max(0, m.index - 700), m.index + 900).replace(/\s+/g, " ")));
       }
       cikti.push("sunucu adresleri: " + ([...host].join(" | ") || "-"));
       cikti.push("/rs/ servisleri (" + incelenen + " betik): " + ([...rs].join(" | ") || "-"));
