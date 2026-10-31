@@ -2154,7 +2154,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     return h + '</div></div>';
   }
   /* ---- tebligat: önemli / diğer, kısa kartlar ---- */
-  var TEBSOZ = { ODEME: "Ödeme", EMRI: "Emri", IHTARNAME: "İhtarname", IHBARNAME: "İhbarname", ISTEME: "İsteme", YAZISI: "Yazısı", INCELEME: "İnceleme", UZLASMA: "Uzlaşma", TAKDIR: "Takdir", KOMISYONU: "Komisyonu", DAVETI: "Daveti", BILDIRIMI: "Bildirimi", BILGI: "Bilgi", BELGE: "Belge", VERGI: "Vergi", CEZA: "Ceza", TAHAKKUK: "Tahakkuk", DAIRESI: "Dairesi", MUDURLUGU: "Müdürlüğü", BASKANLIGI: "Başkanlığı", HACIZ: "Haciz", VARAKASI: "Varakası", YOKLAMA: "Yoklama", FISI: "Fişi", MUKELLEFIYET: "Mükellefiyet", BORC: "Borç", TARHIYAT: "Tarhiyat", ITIRAZ: "İtiraz", KARARI: "Kararı", HESAP: "Hesap", ODENMEYEN: "Ödenmeyen", TEBLIGAT: "Tebligat", TEBLIG: "Tebliğ", MAL: "Mal", BEYAN: "Beyan", EKSIK: "Eksik" };
+  var TEBSOZ = { VDK: "VDK", "KEYS-YAZI": "KEYS-Yazı", ODEME: "Ödeme", EMRI: "Emri", IHTARNAME: "İhtarname", IHBARNAME: "İhbarname", ISTEME: "İsteme", YAZISI: "Yazısı", INCELEME: "İnceleme", UZLASMA: "Uzlaşma", TAKDIR: "Takdir", KOMISYONU: "Komisyonu", DAVETI: "Daveti", BILDIRIMI: "Bildirimi", BILGI: "Bilgi", BELGE: "Belge", VERGI: "Vergi", CEZA: "Ceza", TAHAKKUK: "Tahakkuk", DAIRESI: "Dairesi", MUDURLUGU: "Müdürlüğü", BASKANLIGI: "Başkanlığı", HACIZ: "Haciz", VARAKASI: "Varakası", YOKLAMA: "Yoklama", FISI: "Fişi", MUKELLEFIYET: "Mükellefiyet", BORC: "Borç", TARHIYAT: "Tarhiyat", ITIRAZ: "İtiraz", KARARI: "Kararı", HESAP: "Hesap", ODENMEYEN: "Ödenmeyen", TEBLIGAT: "Tebligat", TEBLIG: "Tebliğ", MAL: "Mal", BEYAN: "Beyan", EKSIK: "Eksik" };
   function tebAd(t){
     return String(t || "").trim().split(/\s+/).map(function(w){
       if (/[a-zçğıöşü]/.test(w) && /[ÇĞİÖŞÜçğıöşü]/.test(w) === false && w !== w.toUpperCase()) return w;
@@ -2163,8 +2163,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }).join(" ");
   }
   function tebFold(t){ return String(t || "").toLocaleUpperCase("tr-TR").replace(/İ/g, "I").replace(/Ö/g, "O").replace(/Ü/g, "U").replace(/Ş/g, "S").replace(/Ç/g, "C").replace(/Ğ/g, "G"); }
-  var TEBONEMLI = /ODEME EMRI|IHTAR|HACIZ|IHBARNAME|CEZA|INCELEME|ISTEME|UZLASMA|TAKDIR|TARHIYAT|YOKLAMA|BORC|ITIRAZ/;
-  function tebOnemli(r){ return TEBONEMLI.test(tebFold((r.belgeTuruAciklama || "") + " " + (r.belgeTuru || ""))); }
+  var TEBONEMLI = /ODEME EMRI|IHTAR|HACIZ|IHBARNAME|CEZA|INCELEME|ISTEME|UZLASMA|TAKDIR|TARHIYAT|YOKLAMA|BORC|ITIRAZ|VDK|KEYS/;
+  var TEBTRAFIK = /TRAFIK/;
+  function tebTur(r){ return tebFold((r.belgeTuruAciklama || "") + " " + (r.belgeTuru || "")); }
+  function tebTrafik(r){ return TEBTRAFIK.test(tebTur(r)); } /* trafik idari para cezaları ayrı süzgeçte */
+  function tebOnemli(r){ return !tebTrafik(r) && TEBONEMLI.test(tebTur(r)); }
   function tebOkunmadi(r){ return !r.mukellefOkumaZamani; }
   function tarihAl(t){
     var m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(String(t || "")) ; if (m) return new Date(+m[1], m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
@@ -2174,21 +2177,21 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function tarihYaz(t, saat){ var d = tarihAl(t); if (!d) return ""; var g = String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear(); return saat ? g + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") : g; }
   function gunFark(t){ var d = tarihAl(t); if (!d) return null; var bugun = new Date(); bugun.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0); return Math.round((d - bugun) / 864e5); }
   function tebKart(r){
-    var onem = tebOnemli(r), oku = tebOkunmadi(r), tz = r.tebligZamani || r.gonderimZamani || r.kayitZamani, g = gunFark(tz);
+    var onem = tebOnemli(r), trf = tebTrafik(r), oku = tebOkunmadi(r), tz = r.tebligZamani || r.gonderimZamani || r.kayitZamani, g = gunFark(tz);
     var rozet = oku ? '<span style="background:#2563c9;color:#fff;border-radius:99px;padding:1px 9px;font-size:.72rem;font-weight:600;white-space:nowrap">Okunmadı</span>' : '<span style="background:color-mix(in srgb,currentColor 12%,transparent);border-radius:99px;padding:1px 9px;font-size:.72rem;white-space:nowrap">Okundu</span>';
     var alt = "Tebliğ: " + tarihYaz(tz) + (g !== null && g < 0 ? " (" + (-g) + " gün önce)" : "") + (r.kurumAciklama ? " · " + tebAd(r.kurumAciklama) : "");
     var kucuk = [r.belgeNo ? "Belge no " + r.belgeNo : "", r.mukellefOkumaZamani ? "Okundu: " + tarihYaz(r.mukellefOkumaZamani, 1) : (r.gerceklesenOtomatikOkunmaZamani ? "Otomatik okundu: " + tarihYaz(r.gerceklesenOtomatikOkunmaZamani, 1) : "")].filter(Boolean).join(" · ");
-    return '<div class="kayit"' + (onem ? ' style="border-left:4px solid #c0392b"' : "") + '><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="min-width:0"><b style="display:block">' + (oku ? '<span style="color:#2563c9">● </span>' : "") + esc(tebAd(r.belgeTuruAciklama || "Tebligat")) + '</b><span class="not" style="margin:0;font-size:.8rem;display:block">' + esc(alt) + '</span></div>' + rozet + '</div>'
+    return '<div class="kayit"' + (onem ? ' style="border-left:4px solid #c0392b"' : trf ? ' style="border-left:4px solid #d68910"' : "") + '><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="min-width:0"><b style="display:block">' + (oku ? '<span style="color:#2563c9">● </span>' : "") + (trf ? '<span style="color:#d68910">🚗 </span>' : "") + esc(tebAd(r.belgeTuruAciklama || "Tebligat")) + '</b><span class="not" style="margin:0;font-size:.8rem;display:block">' + esc(alt) + '</span></div>' + rozet + '</div>'
       + (kucuk ? '<div class="not" style="margin:0;font-size:.74rem;overflow-wrap:anywhere">' + esc(kucuk) + '</div>' : "")
       + '<div><button class="btn ikincil" type="button" data-teb="' + VD.tebListe.indexOf(r) + '" style="width:100%">Görüntüle</button><div data-tebbelge style="display:grid;gap:6px;margin-top:8px"></div></div></div>';
   }
   function vdTebHtml(s){
     var k = s.kayitlar.slice().sort(function(a, b){ var x = tarihAl(a.tebligZamani || a.gonderimZamani || a.kayitZamani), y = tarihAl(b.tebligZamani || b.gonderimZamani || b.kayitZamani); return (y ? y.getTime() : 0) - (x ? x.getTime() : 0); });
     VD.tebListe = k;
-    var f = VD.tebF || "hepsi", okunmaz = k.filter(tebOkunmadi), onemli = k.filter(tebOnemli);
-    var goster = f === "okunmadi" ? okunmaz : f === "onemli" ? onemli : k;
+    var f = VD.tebF || "hepsi", okunmaz = k.filter(tebOkunmadi), onemli = k.filter(tebOnemli), trafik = k.filter(tebTrafik);
+    var goster = f === "okunmadi" ? okunmaz : f === "onemli" ? onemli : f === "trafik" ? trafik : k;
     var cip = function(ad, n, a){ return '<button class="chip" type="button" data-tebf="' + a + '" aria-pressed="' + (f === a ? "true" : "false") + '">' + ad + " " + n + '</button>'; };
-    var h = '<div style="display:flex;gap:6px;flex-wrap:wrap">' + cip("Tümü", s.toplam || k.length, "hepsi") + cip("Okunmadı", okunmaz.length, "okunmadi") + cip("Önemli", onemli.length, "onemli") + '</div>';
+    var h = '<div style="display:flex;gap:6px;flex-wrap:wrap">' + cip("Tümü", s.toplam || k.length, "hepsi") + cip("Okunmadı", okunmaz.length, "okunmadi") + cip("Önemli", onemli.length, "onemli") + cip("Trafik cezası", trafik.length, "trafik") + '</div>';
     h += goster.length ? goster.map(tebKart).join("") : '<p class="not">Bu süzgeçte tebligat yok.</p>';
     if (s.toplam && s.toplam > k.length) h += '<p class="not">İlk ' + k.length + ' tebligat gösteriliyor (toplam ' + s.toplam + ').</p>';
     return h;
@@ -2387,7 +2390,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function vdRozet(){
     var n = 0, b = VD.sonuc.borc, m = VD.sonuc.tebligat;
     if (b) n += b.ozetKart ? b.ozetKart.gecmis.adet : b.kayitlar.length;
-    if (m) n += m.kayitlar.filter(function(r){ return tebOnemli(r) && tebOkunmadi(r); }).length;
+    if (m) n += m.kayitlar.filter(function(r){ return (tebOnemli(r) || tebTrafik(r)) && tebOkunmadi(r); }).length;
     $("vdRozet").hidden = !n; $("vdRozet").textContent = n > 99 ? "99+" : n;
   }
   function vdBagDurum(){
