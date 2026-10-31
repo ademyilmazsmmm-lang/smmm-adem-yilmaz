@@ -283,6 +283,31 @@ class Ivd {
     const y = await this.istek("POST", GW + "/api/yoklamalar/get-yoklama-pdf", { data: { yoklamaKodu: d.kod, secureId: d.secureId } }, true);
     return this.dosyaCek(y, "yoklama-" + String(d.kod || n + 1), "pdf");
   }
+  /* ---- Sicil Bilgilerim: kimlik/ünvan, merkez ve şubeler (adres, faaliyet/NACE kodları, mükellefiyet açılış-kapanış) ---- */
+  async sicilBilgi() {
+    const al = (y) => (y && y.data && typeof y.data === "object" && !Array.isArray(y.data) ? y.data : y) || {}, m = (v) => (v === undefined || v === null ? "" : String(v));
+    const k = al(await this.istek("GET", GW + "/sicil-bilgileri/kisisel-bilgiler", undefined, true));
+    let tel = ""; try { tel = m(al(await this.istek("GET", GW + "/sicil-bilgileri/get-iletisim-bilgileri", undefined, true)).talepOnayGsmNo); } catch (e) { if (e.oturum) throw e; }
+    const ly = await this.istek("POST", GW + "/sube-bilgileri/mukellef-sube-listesi", this.tablo({}, 50, { alan: "isyeriNitelikText", yon: "ASC" }), true);
+    const dizi = (ly && (Array.isArray(ly.subeBilgiDTO) ? ly.subeBilgiDTO : ly.data && Array.isArray(ly.data.subeBilgiDTO) ? ly.data.subeBilgiDTO : [])) || [], liste = dizi.slice(0, 8), subeler = [];
+    for (const sb of liste) {
+      const sube = { ad: m(sb.subeAdi), no: m(sb.subeNumarasi), tur: m(sb.isYeriTuruText), nitelik: m(sb.isyeriNitelikText), vd: m(sb.vdUzunAdi), durum: m(sb.birimFaal), adresler: [], faaliyet: [], vergiler: [], hata: "" };
+      try {
+        const dy = al(await this.istek("POST", GW + "/sube-bilgileri/get-sube-bilgisi", { data: { vergiNo: m(k.vkn), subeNo: sb.subeNumarasi, mukellefiyet: 1, adresBilgi: 1, secureId: sb.secureId } }, true));
+        sube.adresler = (Array.isArray(dy.isyeriAdresList) ? dy.isyeriAdresList : []).map((a) => ({ tip: m(a.adresTipText), adres: m(a.adresAciklama) })).filter((a) => a.adres);
+      } catch (e) { if (e.oturum) throw e; sube.hata = String(e.message).slice(0, 100); }
+      try {
+        const fy = await this.istek("POST", GW + "/faaliyet-bilgileri/get-faaliyet-bilgileri", this.tablo({ subeOid: sb.oid }, 100, { alan: "faaliyetKod", yon: "ASC" }), true), fl = (fy && (Array.isArray(fy.dataList) ? fy.dataList : fy.data && Array.isArray(fy.data.dataList) ? fy.data.dataList : [])) || [];
+        sube.faaliyet = fl.slice(0, 30).map((f) => ({ kod: m(f.faaliyetKod), ad: m(f.faaliyetAd), bas: m(f.basTar), bit: m(f.bitTar) }));
+      } catch (e) { if (e.oturum) throw e; sube.hata = sube.hata || String(e.message).slice(0, 100); }
+      try {
+        const vy = await this.istek("POST", GW + "/sube-bilgileri/get-vergi-turleri", this.tablo({ subeNo: sb.subeNumarasi, secureId: sb.secureId }, 100, { alan: "vergiAdi", yon: "ASC" }), true), vl = (vy && (Array.isArray(vy.dataList) ? vy.dataList : vy.data && Array.isArray(vy.data.dataList) ? vy.data.dataList : [])) || [];
+        sube.vergiler = vl.slice(0, 40).map((v) => ({ ad: m(v.vergiAdi), donem: m(v.donem), bas: m(v.baslamaTarihi), bit: m(v.bitisTarihi), terk: m(v.terkNedeni) }));
+      } catch (e) { if (e.oturum) throw e; sube.hata = sube.hata || String(e.message).slice(0, 100); }
+      subeler.push(sube);
+    }
+    return { kisi: { unvan: m(k.adSoyadUnvan), vkn: m(k.vkn), tckn: m(k.tckn), tur: m(k.sirketTuru), mukellefTuru: m(k.mukellefTuru), dogum: m(k.dogumTarihi), ikametgah: m(k.ikametgahAdres), isYeri: m(k.isYeriAdres), ticaretSicil: m(k.ticaretSicilNo), tel }, subeler, toplamSube: dizi.length, sekil: sekil(k) };
+  }
   /* ---- Araçlarım (Araç Bilgilerim): mevcut ya da geçmiş araçlar ---- */
   async aracListe(gecmis) {
     const y = await this.istek("POST", GW + "/api/aracBilgilerim/list", this.tablo({ sorgulamaTuru: gecmis ? "2" : "1" }, 100, { alan: "tescilTarihi", yon: "DESC" }), true);
@@ -473,6 +498,7 @@ class SahteIvd {
   ornekPdf(metin) { return { veri: Buffer.from("%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 16 Tf 20 60 Td (" + metin + ") Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF"), tur: "application/pdf", satir: true, ad: String(metin).toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".pdf" }; }
   async tahakkukListe(bas, bit) { if (!bas || !bit) throw new Error("Başlangıç ve bitiş ayını seçin."); this.tahakkuklar = [{ vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0015 - KDV", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:12:00", fisNo: "2026102601KDV0001" }, { vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0003 - MUHTASAR", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:05:00", fisNo: "2026102601MUH0002" }]; return { kayitlar: this.tahakkuklar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
   async tahakkukIndir(n) { if (!(this.tahakkuklar || [])[n]) throw new Error("Tahakkuk bulunamadı; listeyi yenileyin."); return this.ornekPdf("ORNEK TAHAKKUK " + (n + 1)); }
+  async sicilBilgi() { return { kisi: { unvan: "ÖRNEK MÜKELLEF", vkn: "1111111111", tckn: "", tur: "GERCEK", mukellefTuru: "Gelir Vergisi", dogum: "01/01/1980", ikametgah: "ATATÜRK MAH. ÖRNEK SK. NO:3 ÜMRANİYE/İSTANBUL", isYeri: "ÖRNEK SANAYİ SİTESİ A BLOK NO:5 ÜMRANİYE/İSTANBUL", ticaretSicil: "", tel: "05320000000" }, subeler: [{ ad: "MERKEZ", no: "0", tur: "Merkez", nitelik: "İş yeri", vd: "ÜMRANİYE VERGİ DAİRESİ", durum: "Faal", adresler: [{ tip: "İş yeri adresi", adres: "ÖRNEK SANAYİ SİTESİ A BLOK NO:5 ÜMRANİYE/İSTANBUL" }], faaliyet: [{ kod: "49.41.01", ad: "Şehirlerarası eşya taşımacılığı", bas: "01/02/2015", bit: "" }], vergiler: [{ ad: "0015 - KDV", donem: "Aylık", bas: "01/02/2015", bit: "", terk: "" }, { ad: "0003 - Gelir Vergisi (Ticari)", donem: "Yıllık", bas: "01/02/2015", bit: "31/12/2019", terk: "İşi bırakma" }], hata: "" }], toplamSube: 1, sekil: {} }; }
   async yoklamaListe() { this.yoklamalar = [{ yoklamaTuru: "Yoklama", baslama: "2026-09-14", tarih: "2026-09-14", vd: "ÖRNEK VERGİ DAİRESİ", kod: "YKL2026000123", secureId: "x" }]; return { kayitlar: this.yoklamalar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
   async yoklamaIndir(n) { if (!(this.yoklamalar || [])[n]) throw new Error("Yoklama bulunamadı; listeyi yenileyin."); return this.ornekPdf("ORNEK YOKLAMA FISI"); }
   async aracListe(gecmis) { return { araclar: gecmis ? [{ plaka: "34 ABC 123", marka: "FORD", model: "2012", tip: "TRANSIT", cinsAd: "KAMYONET", tescilDurumu: "Satıldı" }] : [{ plaka: "34 XYZ 789", ozelPlaka: "-", tescilTarihi: "2021-03-04", marka: "RENAULT", model: "2020", tip: "CLIO", cinsAd: "OTOMOBİL", motorGucu: "66", silindirHacmi: "999", koltukSayisi: "5", tescilDurumu: "Tescilli" }], uyari: "", sekil: {} }; }
