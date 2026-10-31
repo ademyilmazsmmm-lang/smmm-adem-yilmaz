@@ -779,7 +779,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   /* Hizmet listesi ve marka (logo/imza) seçili mükellefe aittir */
   function HZ(){ var m = mk(); return (m && m.hizmetler) || []; }
   function bugunStr(){ var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
-  var BIRIMLER = [["C62","Adet"],["KGM","Kg"],["TNE","Ton"],["LTR","Litre"],["MTR","Metre"],["MTK","m²"],["MTQ","m³"],["DAY","Gün"],["MON","Ay"],["HUR","Saat"],["PA","Paket"],["BX","Kutu"]];
+  var BIRIMLER = [["C62","Adet"],["GRM","gr"],["KGM","Kg"],["TNE","Ton"],["LTR","Litre"],["MTR","Metre"],["MTK","m²"],["MTQ","m³"],["DAY","Gün"],["MON","Ay"],["HUR","Saat"],["PA","Paket"],["BX","Kutu"]];
   var PARASEM = { TRY: "₺", USD: "$", EUR: "€", GBP: "£" };
   function birimAd(k){ var b = BIRIMLER.filter(function(x){ return x[0] === k; })[0]; return b ? b[1] : k; }
   /* Yeni satır: miktar 1, birim Adet, KDV %20 otomatik gelir (hazır hizmet seçilirse onun KDV/tevkifat değerleri); hepsi değiştirilebilir */
