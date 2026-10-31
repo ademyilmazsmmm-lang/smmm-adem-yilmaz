@@ -360,15 +360,22 @@ class Ivd {
     throw new Error("İnteraktif Vergi Dairesi çok fazla yönlendirme yaptı.");
   }
   /* SIDE sunucusuna (intvrg_server/dispatch ya da tvd_server/dispatch) menü tanımlarını sordurur: Z raporu / haciz gibi sayfaların gerçek adlarını ve komutlarını bulmak için (yalnız okuma) */
-  async sideKesif(sistem, ara) {
+  async sideKesif(sistem, ara, html) {
     const intvrg = sistem === "intvrg", maske = (t) => String(t || "").replace(/(token|jeton|sid|session[a-z]*)=[^&"'\s;<>]+/gi, "$1=<jeton>").replace(/\b[0-9a-f]{32,}\b/gi, "<jeton>"), gunluk = [];
     const y = await this.istek("GET", GW + (intvrg ? "/auth/tdvd/intvrg-login" : "/auth/tdvd/interaktif-login"), undefined, true), hedef = y && y.redirectUrl; if (!hedef) return "SIDE keşif: bağlantı adresi alınamadı.";
     const u = new URL(hedef), token = u.searchParams.get("token") || ""; await this.gibGit(hedef);
     /* sayfa önce userSessionService_getUserSessionInfo ile oturumu başlatır; menü/BF tanımları side-dispatch, iş servisleri server/dispatch adresindedir */
-    const uyg = intvrg ? "/intvrg_server/dispatch" : "/tvd_server/dispatch", yollar = intvrg ? ["/intvrg_side/side-dispatch", uyg] : ["/tvd_side/side-dispatch", uyg];
+    const uyg = intvrg ? "/intvrg_server/dispatch" : "/tvd_server/dispatch"; 
+    /* adresler ve komut adları sayfanın kendi ayarlarından okunur (SideModuleMap / SideDefaults); bulunamazsa bilinen değerler */
+    const ayar = String(html || ""), prod = (/prod\s*:\s*\{([\s\S]*?)\}\s*,?\s*\}\s*;/.exec(ayar) || [])[1] || "", yerel = /(\w+)\s*:\s*\{\s*side\s*:\s*"([^"]*)"\s*,\s*app\s*:\s*"([^"]*)"[^}]*isLocalModule\s*:\s*true/.exec(prod);
+    const mutlak = (yol, taban) => { try { return new URL(String(yol).trim(), taban).pathname; } catch (e) { return ""; } };
+    const sayfaYolu = new URL(hedef).pathname, uygA = (yerel && mutlak(yerel[3], u.origin + sayfaYolu)) || uyg, sideA = (yerel && mutlak(yerel[2], u.origin + sayfaYolu)) || (intvrg ? "/intvrg_side/side-dispatch" : "/tvd_side/side-dispatch");
+    const oturumKomut = (/\['sn-getUserSessionInfo'\]\s*=\s*'([^']+)'/.exec(ayar) || [])[1] || "userSessionService_getUserSessionInfo", jetonAdi = (/\['param-token-key'\]\s*=\s*'([^']+)'/.exec(ayar) || [])[1] || "token";
+    const yollar = [sideA, uygA];
+    gunluk.push("adresler: side=" + sideA + " app=" + uygA + " oturum=" + oturumKomut + " jeton=" + jetonAdi + (yerel ? " (sayfa ayarından)" : " (varsayılan)"));
     let oturumOzet = "", userid = "";
     try {
-      const r0 = await this.gibGit(u.origin + uyg, "cmd=userSessionService_getUserSessionInfo&callid=" + Date.now().toString(36) + "&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify({ token, rfDataInfo: [] })), hedef);
+      const r0 = await this.gibGit(u.origin + uygA, "cmd=" + oturumKomut + "&callid=" + Date.now().toString(36) + "&" + jetonAdi + "=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify({ token, rfDataInfo: [] })), hedef);
       let j0 = null; try { j0 = JSON.parse(r0.metin); } catch (e) { /* JSON değil */ }
       if (j0 && typeof j0 === "object") { const d0 = j0.data && typeof j0.data === "object" ? j0.data : j0; userid = String(d0.userid || d0.userId || d0.csapUserId || d0.kullaniciKodu || ""); oturumOzet = "HTTP " + r0.durum + " alanlar: " + Object.keys(d0).slice(0, 25).join(",") + (j0.error ? " · hata: " + maske(JSON.stringify(j0.messages || "")).slice(0, 120) : ""); }
       else oturumOzet = "HTTP " + r0.durum + " " + maske(r0.metin.replace(/\s+/g, " ")).slice(0, 160);
@@ -378,7 +385,7 @@ class Ivd {
     const tumu = [], tumTara = (d, derin) => { if (!d || derin > 7 || tumu.length > 120) return; if (Array.isArray(d)) { d.forEach((x) => tumTara(x, derin + 1)); return; } if (typeof d !== "object") return; const m = [d.text, d.title].find((x) => typeof x === "string"); if (m || d.page) tumu.push((d.id || d.defId || "").toString().slice(0, 14) + " | " + String(m || "").slice(0, 60) + " | " + (d.page || "") + (Array.isArray(d.children) && d.children.length ? " | alt:" + d.children.length : "")); Object.values(d).forEach((x) => tumTara(x, derin + 1)); };
     const tara = (d, derin) => { if (!d || derin > 6 || bulunan.length > 60) return; if (Array.isArray(d)) { d.forEach((x) => tara(x, derin + 1)); return; } if (typeof d !== "object") return; const m = [d.text, d.title, d.label, d.name].find((x) => typeof x === "string"); if ((d.page || d.pageName) && m && kalip.test(m + " " + (d.page || d.pageName))) bulunan.push((d.defId || d.id || "") + " | " + m + " | " + (d.page || d.pageName)); Object.values(d).forEach((x) => tara(x, derin + 1)); };
     dis: for (const yol of yollar) for (const cmd of ["SIDE.GET_ALL_MENU_DEFINITIONS3", "SIDE.GET_ALL_MENU_DEFINITIONS2"]) for (const rn of ["", "menuDefRoot", "tdvd"]) {
-      const govde = "cmd=" + cmd + "&callid=" + Date.now().toString(36) + "&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify({ csapUserId: userid, rn, isTest: false, lang: "tr" }));
+      const govde = "cmd=" + cmd + "&callid=" + Date.now().toString(36) + "&" + jetonAdi + "=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify({ csapUserId: userid, rn, isTest: false, lang: "tr" }));
       try {
         const r = await this.gibGit(u.origin + yol, govde, hedef.replace(/token=[^&]*/, "token=" + token)), ozet = maske(r.metin.replace(/\s+/g, " ")).slice(0, 260);
         let j = null; try { j = JSON.parse(r.metin); } catch (e) { /* JSON değil */ }
@@ -390,7 +397,7 @@ class Ivd {
     const sayfalar = ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG"].concat(bulunan.map((x) => x.split(" | ")[2]).filter(Boolean).slice(0, 2), tumu.map((x) => x.split(" | ")[2]).filter(Boolean).slice(0, 1)), bf = [];
     for (const sf of sayfalar) {
       for (const yol of yollar) for (const jp of [{ userid, bfnames: [sf], loadedList: [], params: {}, resourceBundleLang: "tr" }]) {
-        const govde = "cmd=SIDE.GET_EAGER_BF_DEFS&callid=" + Date.now().toString(36) + "&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify(jp));
+        const govde = "cmd=SIDE.GET_EAGER_BF_DEFS&callid=" + Date.now().toString(36) + "&" + jetonAdi + "=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify(jp));
         try {
           const r = await this.gibGit(u.origin + yol, govde, hedef), t = maske(r.metin.replace(/\s+/g, " "));
           const adlar = [...new Set([...t.matchAll(/"(?:sn|serviceName|service|cmd|svc|serviceNames?)"\s*:\s*"([^"]{3,80})"/g)].map((m) => m[1]))].slice(0, 30);
@@ -414,7 +421,7 @@ class Ivd {
     if (derin) {
       const satir = [...html.matchAll(/<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1].replace(/\s+/g, " ").trim()).filter((x) => x.length > 20).slice(0, 4);
       if (satir.length) betikOzet += "[sayfadaki betikler]\n" + satir.map((x) => x.slice(0, 2500)).join("\n---\n") + "\n\n";
-      try { betikOzet += await this.sideKesif(sistem); } catch (e) { betikOzet += "[SIDE keşif] hata: " + String(e.message).slice(0, 160) + "\n\n"; } /* sayfa tek sayfalık uygulama (initSide): arka plan adreslerini bulmak için betiklerden uç/adres kalıpları ve sayfa adının geçtiği yerler çıkarılır (yalnız okuma) */
+      try { betikOzet += await this.sideKesif(sistem, undefined, html); } catch (e) { betikOzet += "[SIDE keşif] hata: " + String(e.message).slice(0, 160) + "\n\n"; } /* sayfa tek sayfalık uygulama (initSide): arka plan adreslerini bulmak için betiklerden uç/adres kalıpları ve sayfa adının geçtiği yerler çıkarılır (yalnız okuma) */
       const taban = new URL(r.url), parca = [];
       for (const b of [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]).filter((b) => !/jquery/i.test(b)).slice(0, 8)) {
         try {
