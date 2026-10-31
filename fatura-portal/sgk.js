@@ -327,9 +327,13 @@ class Sgk {
       if (ths.length >= 2 && !tds.length) { akt = { basliklar: ths, satirlar: [] }; tablolar.push(akt); continue; }
       if (akt && tds.length >= 2 && akt.satirlar.length < 60 && tds.some((x) => x)) akt.satirlar.push(tds);
     }
-    const i = temiz.search(/id\s*=\s*["']contentContainer["']/i), metin = sade(i >= 0 ? temiz.slice(i) : temiz).replace(/^.*?Eski Prim Oran\s*:\s*[\d.,]*\s*/, "");
-    const uyari = sade((/id\s*=\s*["']genelUyariCenterTag["'][^>]*>([\s\S]*?)<\/center>/i.exec(temiz) || [])[1] || "") || hataMetni(html);
-    return { tablolar: tablolar.filter((t) => t.satirlar.length), uyari, metin: metin.slice(0, 2200) };
+    /* sorgu formunu (etiketler, seçenek yazıları) ve işyeri künyesini çıkar; geriye yalnız sonuç yazısı kalsın */
+    const sonuc = temiz.replace(/<tr\b(?:(?!<tr\b)[\s\S])*?<\/tr>/gi, (m) => (/<(input|select|textarea)\b/i.test(m) ? " " : m)).replace(/<select\b[\s\S]*?<\/select>/gi, " ");
+    const i = sonuc.search(/id\s*=\s*["']contentContainer["']/i), kunye = /Özel İşyeri Sicil No|İşyeri Sicil No|SGM kod/i;
+    let metin = sade(i >= 0 ? sonuc.slice(i) : sonuc).replace(/Özel İşyeri Sicil No[\s\S]*?Eski Prim Oran\s*:\s*[\d.,]*\s*/i, "").replace(/POTANSİYEL TEŞVİK SORGULAMA\s*/i, "");
+    let uyari = sade((/id\s*=\s*["']genelUyariCenterTag["'][^>]*>([\s\S]*?)<\/center>/i.exec(temiz) || [])[1] || "") || hataMetni(html);
+    if (kunye.test(uyari)) uyari = ""; /* işyeri künyesi uyarı değildir */
+    return { tablolar: tablolar.filter((t) => t.satirlar.length), uyari, metin: metin.slice(0, 3500) };
   }
   /* son açılan İşveren sayfasındaki bir düğmeyi (ör. "Pdf Döküm Al") sayfanın kendi formu gibi gönderir */
   async formGonder(i) {

@@ -2469,8 +2469,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       });
     });
     if (!(r.tablolar || []).length && !r.uyari) {
-      var cumle = String(r.metin || "").split(/(?<=[.!?])\s+/).filter(function(c){ return /yararlan|teşvik|kanun/i.test(c) && c.length < 260; }).slice(0, 6);
-      h += cumle.length ? cumle.map(function(c){ return '<div class="kayit"><span class="not" style="margin:0;overflow-wrap:anywhere">' + esc(c) + '</span></div>'; }).join("") : '<p class="not" style="margin:0">Sonuç bulunamadı.</p>';
+      h += r.metin ? '<div class="kayit"><span class="not" style="margin:0;overflow-wrap:anywhere;color:var(--fg)">' + esc(String(r.metin).slice(0, 1500)) + '</span></div>' : '<p class="not" style="margin:0">Sonuç bulunamadı.</p>';
     }
     return h + '<details class="alt2"><summary>SGK’nın yanıtı (ham metin)</summary><div class="icerik"><p class="not" style="margin:0;overflow-wrap:anywhere">' + esc(r.metin || "—") + '</p></div></details>';
   }
