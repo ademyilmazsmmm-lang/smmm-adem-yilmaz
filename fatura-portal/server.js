@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-146";
+const SURUM = "2026-10-31-147";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -97,7 +97,7 @@ const OFIS_EPOSTA = String(process.env.OFIS_EPOSTA || "").trim();
 const ISVEREN_SAYFALAR = new Set(["DonemBorcGoruntuleme", "CariDonemBorc", "Mufredat", "IAIIBYEB", "IAIOTGBYEB", "IAIOTIBYEB", "IAKBYEB", "IATBYEB", "IAHBYEB", "IASBYEB", "IAKGFBYEB", "IAKU", "TesvikPotansiyel"]);
 function temizMukellef(o, id) {
   const v = depo.mukellef(o, id).veri;
-  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, earsiv: v.earsiv !== false, sgk: { kullanici: (v.sgk && v.sgk.kullanici) || "", isyeriKod: (v.sgk && v.sgk.isyeriKod) || "", sistemVar: !!(v.sgk && v.sgk.sistemSifre), isyeriVar: !!(v.sgk && v.sgk.isyeriSifre) }, profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: o.rol === "mukellef" && !(v.kabul && v.kabul.surum === KABUL_SURUM), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
+  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, earsiv: v.earsiv !== false, sgk: { ad: (v.sgk && v.sgk.ad) || "", kullanici: (v.sgk && v.sgk.kullanici) || "", isyeriKod: (v.sgk && v.sgk.isyeriKod) || "", sistemVar: !!(v.sgk && v.sgk.sistemSifre), isyeriVar: !!(v.sgk && v.sgk.isyeriSifre) }, sgkEk: (v.sgkEk || []).map((x) => ({ id: x.id, ad: x.ad || "", kullanici: x.kullanici || "", isyeriKod: x.isyeriKod || "", sistemVar: !!x.sistemSifre, isyeriVar: !!x.isyeriSifre })), profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: o.rol === "mukellef" && !(v.kabul && v.kabul.surum === KABUL_SURUM), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
     hesapKullanici: o.rol === "ofis" ? depo.hesapKullanicisi(id) : undefined, sonGiris: v.sonGiris || null };
 }
 const temiz = (o) => ({ rol: o.rol, kullanici: o.kullanici, mukellefler: depo.mukellefIdleri(o).map((id) => temizMukellef(o, id)) });
@@ -109,8 +109,16 @@ function birlestir(o, g) {
     v.ad = String(m.ad || "").slice(0, 150); v.vkn = String(m.vkn || "").slice(0, 11); v.kullanici = String(m.kullanici || "").slice(0, 60);
     if (m.gibSifre) v.gibSifre = String(m.gibSifre);
     if (m.sgk && typeof m.sgk === "object") { // SGK İşveren Sistemi bilgileri (şifreler yalnız yazıldıysa değişir)
-      const e0 = v.sgk || {}, y0 = { kullanici: String(m.sgk.kullanici == null ? e0.kullanici || "" : m.sgk.kullanici).replace(/\D/g, "").slice(0, 11), isyeriKod: String(m.sgk.isyeriKod == null ? e0.isyeriKod || "" : m.sgk.isyeriKod).replace(/\D/g, "").slice(0, 4), sistemSifre: m.sgk.sistemSifre ? String(m.sgk.sistemSifre).slice(0, 20) : e0.sistemSifre || "", isyeriSifre: m.sgk.isyeriSifre ? String(m.sgk.isyeriSifre).slice(0, 20) : e0.isyeriSifre || "" };
+      const e0 = v.sgk || {}, y0 = { ad: String(m.sgk.ad == null ? e0.ad || "" : m.sgk.ad).slice(0, 40), kullanici: String(m.sgk.kullanici == null ? e0.kullanici || "" : m.sgk.kullanici).replace(/\D/g, "").slice(0, 11), isyeriKod: String(m.sgk.isyeriKod == null ? e0.isyeriKod || "" : m.sgk.isyeriKod).replace(/\D/g, "").slice(0, 4), sistemSifre: m.sgk.sistemSifre ? String(m.sgk.sistemSifre).slice(0, 20) : e0.sistemSifre || "", isyeriSifre: m.sgk.isyeriSifre ? String(m.sgk.isyeriSifre).slice(0, 20) : e0.isyeriSifre || "" };
       if (JSON.stringify(y0) !== JSON.stringify(e0)) { v.sgk = y0; sgkBirak(id); }
+    }
+    if (Array.isArray(m.sgkEk)) { // aynı mükellefin ek SGK işyeri dosyaları (ofis, imalathane vb.); en çok 3; şifreler yalnız yazıldıysa değişir
+      const eski = new Map((v.sgkEk || []).map((x) => [x.id, x])), yeni = [];
+      for (const x of m.sgkEk.slice(0, 3)) {
+        if (!x || typeof x !== "object") continue; const e1 = eski.get(String(x.id)) || {};
+        yeni.push({ id: e1.id || crypto.randomBytes(4).toString("hex"), ad: String(x.ad == null ? e1.ad || "" : x.ad).slice(0, 40), kullanici: String(x.kullanici == null ? e1.kullanici || "" : x.kullanici).replace(/\D/g, "").slice(0, 11), isyeriKod: String(x.isyeriKod == null ? e1.isyeriKod || "" : x.isyeriKod).replace(/\D/g, "").slice(0, 4), sistemSifre: x.sistemSifre ? String(x.sistemSifre).slice(0, 20) : e1.sistemSifre || "", isyeriSifre: x.isyeriSifre ? String(x.isyeriSifre).slice(0, 20) : e1.isyeriSifre || "" });
+      }
+      if (JSON.stringify(yeni) !== JSON.stringify(v.sgkEk || [])) { v.sgkEk = yeni; sgkBirak(id); }
     }
     if (o.rol !== "mukellef" && typeof m.earsiv === "boolean") v.earsiv = m.earsiv; // e-Arşiv kullanmayan mükellef yalnız Vergi Dairesi bölümünü kullanır
     v.aliciler = aliciTemiz(m.aliciler); v.hizmetler = hizmetTemiz(m.hizmetler); if (m.marka) v.marka = markaTemiz(m.marka); if (m.profil) v.profil = profilTemiz(m.profil);
@@ -197,7 +205,11 @@ async function vdSorgu(m, calistir) {
 }
 /* SGK İşveren Sistemi oturumları: her bağlanışta kullanıcı güvenlik kodunu yazar; boşta 5 dk sonra kapanır. Yalnız art arda hızlı isteklere 3 sn sınır vardır (kilitleme yok). */
 const sgkler = new Map(), sgkZaman = new Map(), sgkSon = new Map();
-async function sgkBirak(id) { for (const a of [id + ":isveren", id + ":ebildirge"]) { clearTimeout(sgkZaman.get(a)); sgkZaman.delete(a); const x = sgkler.get(a); sgkler.delete(a); if (x) await x.cikis().catch(() => {}); } }
+/* bir mükellefin birden çok SGK işyeri dosyası olabilir: ix 0 = ana kayıt (v.sgk), 1..3 = v.sgkEk[ix-1] */
+const sgkIx = (x) => { const n = Number(x); return n >= 1 && n <= 3 ? Math.floor(n) : 0; };
+const sgkKayit = (m, ix) => (ix ? (m.sgkEk || [])[ix - 1] : m.sgk) || {};
+const sgkAnahtar = (id, sis, ix) => id + ":" + sis + (ix ? ":" + ix : "");
+async function sgkBirak(id) { for (const a of [...sgkler.keys()].filter((k) => k.startsWith(id + ":isveren") || k.startsWith(id + ":ebildirge"))) { clearTimeout(sgkZaman.get(a)); sgkZaman.delete(a); const x = sgkler.get(a); sgkler.delete(a); if (x) await x.cikis().catch(() => {}); } }
 function sgkZamanla(a) { clearTimeout(sgkZaman.get(a)); sgkZaman.set(a, setTimeout(async () => { sgkZaman.delete(a); const x = sgkler.get(a); sgkler.delete(a); if (x) await x.cikis().catch(() => {}); }, 5 * 60e3).unref()); }
 function sgkKontrol(id, tur) {
   const an = id + ":" + tur, son = sgkSon.get(an) || 0; if (Date.now() - son < 3e3) throw new Error("Çok sık istek: birkaç saniye bekleyin."); sgkSon.set(an, Date.now());
@@ -342,7 +354,7 @@ async function api(req, res, yol) {
   if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz(o));
   if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req, 8e6); if (!Array.isArray(g.mukellefler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(o, g); return cevap(res, 200, temiz(o)); }
   if (yol === "/api/sgk/form" && req.method === "GET") {
-    const q = new URL(req.url, "http://x").searchParams, mid = o.rol === "mukellef" ? o.mid : q.get("mid") || "", an = mid + ":isveren";
+    const q = new URL(req.url, "http://x").searchParams, mid = o.rol === "mukellef" ? o.mid : q.get("mid") || "", an = sgkAnahtar(mid, "isveren", sgkIx(q.get("ix")));
     const duz = (kod, metin) => { res.writeHead(kod, Object.assign({ "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }, GUV)); res.end(metin); };
     if (!depo.yetkili(o, mid)) return duz(403, "Bu mükellef için yetkiniz yok.");
     const x = sgkler.get(an); if (!x || !x.girdi) return duz(409, "SGK İşveren Sistemi bağlantısı kapalı; güvenlik koduyla yeniden bağlanın.");
@@ -358,7 +370,7 @@ async function api(req, res, yol) {
     const q = new URL(req.url, "http://x").searchParams, mid = o.rol === "mukellef" ? o.mid : q.get("mid") || "";
     const duz = (kod, metin) => { res.writeHead(kod, Object.assign({ "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }, GUV)); res.end(metin); };
     if (!depo.yetkili(o, mid)) return duz(403, "Bu mükellef için yetkiniz yok.");
-    const an = mid + ":ebildirge", x = sgkler.get(an); if (!x || !x.girdi) return duz(409, "Önce SGK e-Bildirge'ye bağlanın (SGK sekmesi).");
+    const an = sgkAnahtar(mid, "ebildirge", sgkIx(q.get("ix"))), x = sgkler.get(an); if (!x || !x.girdi) return duz(409, "Önce SGK e-Bildirge'ye bağlanın (SGK sekmesi).");
     try {
       sgkKontrol(an, "b"); sgkZamanla(an);
       const d = await x.bildirgeBelge(Number(q.get("n")), Number(q.get("k")), Number(q.get("j")));
@@ -559,7 +571,7 @@ async function api(req, res, yol) {
   }
   if (m.earsiv === false && !yol.startsWith("/api/vd/") && !yol.startsWith("/api/sgk/") && yol !== "/api/tahsilat" && yol !== "/api/mail") return cevap(res, 400, { hata: "Bu mükellef için e-Arşiv fatura kapalı; yalnız Vergi Dairesi bölümü kullanılabilir." });
   if (yol.startsWith("/api/sgk/")) {
-    const ne = yol.slice(9), k = m.sgk || {}, sis = g.sistem === "ebildirge" ? "ebildirge" : "isveren", an = m.id + ":" + sis;
+    const ne = yol.slice(9), ix = sgkIx(g.ix), k = sgkKayit(m, ix), sis = g.sistem === "ebildirge" ? "ebildirge" : "isveren", an = sgkAnahtar(m.id, sis, ix);
     const birak = async () => { clearTimeout(sgkZaman.get(an)); sgkZaman.delete(an); const x0 = sgkler.get(an); sgkler.delete(an); if (x0) await x0.cikis().catch(() => {}); };
     try {
       if (ne === "captcha" || ne === "giris") if (!k.kullanici || !k.isyeriKod || !k.sistemSifre || !k.isyeriSifre) return cevap(res, 400, { hata: "Önce Ayarlar'da bu mükellefin SGK İşveren Sistemi bilgilerini (kullanıcı adı, işyeri kodu, sistem şifresi, işyeri şifresi) girin." });
@@ -584,7 +596,7 @@ async function api(req, res, yol) {
         return cevap(res, 400, { hata: "Geçersiz işlem." });
       }
       if (sis === "isveren" && ne === "sayfa") { const ad = String(g.ad || ""); if (!ISVEREN_SAYFALAR.has(ad)) return cevap(res, 400, { hata: "Bu sayfa desteklenmiyor." }); const t = await x.isverenSayfa(ad); gunluk(o, mid, "SGK İşveren sayfası görüntülendi", ad);
-        if (ad === "DonemBorcGoruntuleme" && t.borcToplam != null) { (m.son = m.son || {}).sgkBorc = { toplam: t.borcToplam, zaman: new Date().toISOString() }; depo.kaydet(mid); }
+        if (ad === "DonemBorcGoruntuleme" && t.borcToplam != null) { m.son = m.son || {}; (m.son.sgkBorcIx = m.son.sgkBorcIx || {})[ix] = t.borcToplam; m.son.sgkBorc = { toplam: Object.values(m.son.sgkBorcIx).reduce((a, b) => a + b, 0), zaman: new Date().toISOString() }; depo.kaydet(mid); }
         return cevap(res, 200, t); }
       if (sis === "ebildirge" && ne === "bildirge-donemler") return cevap(res, 200, await x.bildirgeDonemler());
       if (sis === "ebildirge" && ne === "bildirge-liste") { const t = await x.bildirgeListe(String(g.bas || ""), String(g.bit || "")); gunluk(o, mid, "SGK onaylı bildirge listesi görüntülendi", ""); return cevap(res, 200, t); }
