@@ -378,7 +378,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         </select></div>
     </div>
     <div class="alt" id="iadeAlan" hidden>
-      <p class="not"><b>İade faturasında iade edilen faturanın numarası ve tarihi zorunludur.</b> İade faturası, <b>aldığınız</b> bir faturadaki malı iade ederken karşı tarafa kesilir; asıl faturanın numarasını ve tarihini girin. Kendi kestiğiniz faturayı geri almak için Geçmiş’ten <b>İptal</b> kullanın.</p>
+      <p class="not"><b>İade faturasında iade edilen faturanın numarası ve tarihi zorunludur.</b> İade faturası, <b>aldığınız</b> bir faturadaki malı iade ederken karşı tarafa kesilir; asıl faturanın numarasını ve tarihini girin. Geçmiş ve “GİB’deki belgeler” listelerindeki <b>İade kes</b> düğmesi, seçilen faturanın numarasını ve tarihini kendisi doldurur (Geçmiş’ten gelirse alıcı ve satırlar da gelir). Hatalı kestiğiniz faturayı geri almak için <b>İptal</b> kullanın.</p>
       <div class="satir"><div><label for="iadeNo">İade edilen fatura no *</label><input id="iadeNo" autocomplete="off" placeholder="GIB2026000000023"></div><div><label for="iadeTarih">Düzenlenme tarihi *</label><input id="iadeTarih" type="date"></div></div>
     </div>
     <div class="satir">
@@ -1509,7 +1509,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("gecmisListe").innerHTML = liste.length ? liste.slice(0, gSayfa).map(function(x){
       var k = x.k, i = x.i, t = (k.tarih || "").split("-").reverse().join("/");
       return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " " + (PARASEM[k.para] || "₺"), esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad),
-        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-ge="' + i + '">E-posta</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (x.iptal ? ' <small class="iptalyazi" style="font-size:.68rem">TALEP GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>', x.iptal, tahBlok(k, i));
+        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-ge="' + i + '">E-posta</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (!x.iptal && k.tip !== "IADE" && k.belgeNo ? ' <button class="k" type="button" data-gi="' + i + '">İade kes</button>' : "") + (x.iptal ? ' <small class="iptalyazi" style="font-size:.68rem">TALEP GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>', x.iptal, tahBlok(k, i));
     }).join("") : '<p class="not">' + (gecmis.length ? "Filtreye uyan fatura yok." : "Bu programdan kesilen fatura henüz yok.") + '</p>';
     $("gDaha").hidden = liste.length <= gSayfa; $("gDaha").textContent = "Daha fazla göster (" + Math.max(0, liste.length - gSayfa) + " fatura daha)";
   }
@@ -1573,6 +1573,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }
     if (gs != null) { var kg = gecmis[+gs]; return paylas(kg.mukellefId || mSec, kg.id, "Onaylandı", kg.belgeNo, "gDurum"); }
     if (ip != null) { var kp = gecmis[+ip]; mSec = kp.mukellefId || mSec; return belgeIslemi("iptal", kp.id, kp.tarih, (kp.belgeNo || "Fatura") + " — " + kp.aliciUnvan); }
+    var gi = e.target.getAttribute("data-gi"); if (gi != null) return tekrarla(gecmis[+gi], true);
     if (t != null) return tekrarla(gecmis[+t]);
     var i = e.target.getAttribute("data-gk"); if (i == null) return;
     var k = gecmis[+i]; resmiGoster(k.mukellefId, k.id, k);
@@ -1608,7 +1609,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       d.textContent = r.belgeler.length + " belge bulundu.";
       $("gibListe").innerHTML = r.belgeler.map(function(b, i){
         var yerel = gecmis.some(function(k){ return k.id === b.ettn; });
-        return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" && b.talep === "" ? ' <button class="k" type="button" data-gps="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '">Paylaş</button>' + (MAILHAZIR ? ' <button class="k" type="button" data-gpe="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '" data-gpa="' + esc(b.alici) + '" data-gpt="' + esc(b.tarih) + '">E-posta</button>' : "") + ' <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button>' : "") + '</span>' : "", b.talep !== "");
+        return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" && b.talep === "" ? ' <button class="k" type="button" data-gps="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '">Paylaş</button>' + (MAILHAZIR ? ' <button class="k" type="button" data-gpe="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '" data-gpa="' + esc(b.alici) + '" data-gpt="' + esc(b.tarih) + '">E-posta</button>' : "") + ' <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button> <button class="k" type="button" data-gi2="' + esc(b.ettn) + '" data-gin="' + esc(b.belgeNo) + '" data-git="' + esc(b.tarih) + '">İade kes</button>' : "") + '</span>' : "", b.talep !== "");
       }).join(""); sonucaGit("gibListe");
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
   });
@@ -1636,6 +1637,15 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       return epostaGonder(yk.mukellefId || mSec, pe, e.target.getAttribute("data-gpn"), "gDurum", adr, { alici: e.target.getAttribute("data-gpa"), belgeNo: e.target.getAttribute("data-gpn"), tarih: e.target.getAttribute("data-gpt") });
     }
     if (ip) return belgeIslemi("iptal", ip, e.target.getAttribute("data-gt2"), "Seçilen fatura");
+    var gi2 = e.target.getAttribute("data-gi2");
+    if (gi2) {
+      var yk2 = gecmis.filter(function(k){ return k.id === gi2; })[0]; if (yk2) return tekrarla(yk2, true);
+      /* programdan kesilmemiş fatura: yalnız iade edilen fatura no ve tarihi doldurulur, alıcı ve satırlar elle girilir */
+      var tt = String(e.target.getAttribute("data-git") || "").split(/[-\/.]/), iso = tt.length === 3 ? (tt[0].length === 4 ? tt.join("-") : tt[2] + "-" + tt[1] + "-" + tt[0]) : "";
+      F.tip = "IADE"; formDoldur(); $("iadeNo").value = e.target.getAttribute("data-gin") || ""; $("iadeTarih").value = iso; $("tarih").value = bugunStr(); onizle();
+      ["aliciKart", "bilgiKart", "malKart"].forEach(function(i){ $(i).open = true; }); sekme("yeni"); $("aliciKart").scrollIntoView({ behavior: "smooth" });
+      durum("İade faturası için " + (e.target.getAttribute("data-gin") || "fatura") + " numarası ve tarihi dolduruldu. Alıcıyı ve iade edilen satırları girip taslak kaydedin.", "ok"); return;
+    }
     var id = e.target.getAttribute("data-ge"); if (!id) return;
     var yerel = gecmis.filter(function(k){ return k.id === id; })[0];
     resmiGoster(yerel ? yerel.mukellefId : mSec, id, yerel || null);
@@ -2012,13 +2022,40 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       '<p class="not" id="yedekDurum"></p><p class="not" id="yansiDurum"></p>' +
       '<p class="not">Yedek dosyası şifrelidir (ofis şifrenizle açılır); yeni bir sunucuya taşımak için de kullanılır. Bu cihazda da otomatik şifreli bir kopya tutulur. Kalıcı disk (ücretli sunucu) varsa kayıtlar zaten silinmez; yine de ara sıra yedek indirin.</p></div></details>';
   }
+  var MAYARA = "";
+  function mSirali(){ return V.mukellefler.slice().sort(function(a, b){ return String(a.ad || "").localeCompare(String(b.ad || ""), "tr"); }); }
+  /* Mükerrer kayıtlar: aynı GİB kullanıcı kodu ya da aynı VKN/TCKN taşıyanlar (zincirleme) bir grup sayılır */
+  function mukerrerGruplar(){
+    var ms = V.mukellefler, ata = ms.map(function(_, i){ return i; });
+    function bul(i){ while (ata[i] !== i) { ata[i] = ata[ata[i]]; i = ata[i]; } return i; }
+    var gor = {};
+    ms.forEach(function(m, i){ [["k", String(m.kullanici || "").toLowerCase().trim()], ["v", String(m.vkn || "").replace(/\D/g, "")]].forEach(function(a){ if (!a[1]) return; var k = a[0] + a[1]; if (gor[k] != null) ata[bul(i)] = bul(gor[k]); else gor[k] = i; }); });
+    var g = {}; ms.forEach(function(m, i){ (g[bul(i)] = g[bul(i)] || []).push(m); });
+    return Object.keys(g).map(function(k){ return g[k]; }).filter(function(x){ return x.length > 1; }).map(function(x){ return x.sort(function(a, b){ return String(a.ad || "").localeCompare(String(b.ad || ""), "tr"); }); });
+  }
+  function mukerrerHtml(){
+    var gr = mukerrerGruplar(); if (!gr.length) return "";
+    return '<details class="grup" data-ak="g:bir"' + ac("g:bir") + '><summary>Mükerrer kayıtlar <small>' + gr.length + ' grup</small></summary><div class="icerik">' +
+      '<p class="not" style="margin:0">Aynı GİB kullanıcı koduna ya da aynı VKN/TCKN’ye sahip kayıtlar. Tutmak istediğiniz kaydın yanındaki düğmeye basın: diğerlerinin alıcı, hizmet, fatura geçmişi, talep ve belgeleri onda toplanır, diğerleri silinir.</p>' +
+      gr.map(function(x){ return '<div class="kayit" style="padding:8px 10px;display:grid;gap:6px">' + x.map(function(m){ return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="flex:1 1 180px"><b>' + esc(m.ad || "(adsız)") + '</b><br><small class="not">VKN ' + esc(m.vkn || "—") + ' · kullanıcı ' + esc(m.kullanici || "—") + (m.hesapKullanici ? ' · giriş hesabı var' : "") + '</small></span><button class="k" type="button" data-bir-ana="' + m.id + '" data-bir-grup="' + x.map(function(y){ return y.id; }).join(",") + '">Bunu tut, diğerlerini birleştir</button></div>'; }).join("") + '</div>'; }).join("") + '<div class="durum" id="birDurum" role="status"></div></div></details>';
+  }
+  function mAyarListe(){
+    var q = trk(MAYARA).trim();
+    return mSirali().map(function(m){ var h = mukellefAyarHtml(m); return q && trk([m.ad, m.vkn, m.kullanici].join(" ")).indexOf(q) < 0 ? h.replace(/^<details /, "<details hidden ") : h; }).join("");
+  }
+  function mAraHtml(){ return '<div><input id="mAyAra" type="search" placeholder="Mükellef ara (unvan, VKN, kullanıcı kodu)" value="' + esc(MAYARA) + '" aria-label="Mükellef ara" autocomplete="off"><p class="not" id="mAyAraSay" style="margin:4px 0 0"></p></div>'; }
+  function mAyAraUygula(){
+    var q = trk(MAYARA).trim(), n = 0;
+    V.mukellefler.forEach(function(m){ var el = document.querySelector('#ayarIc details.kayit[data-mid="' + m.id + '"]'); if (!el) return; var g = !q || trk([m.ad, m.vkn, m.kullanici].join(" ")).indexOf(q) > -1; el.hidden = !g; if (g) n++; });
+    var s = $("mAyAraSay"); if (s) s.textContent = q ? n + " mükellef bulundu." : "";
+  }
   function cizAyar(){
     var ofis = ROL === "ofis", h = hesabimHtml();
-    if (ofis && PERSONEL) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + V.mukellefler.map(mukellefAyarHtml).join("") + '</div></details>';
-    else if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + topluHtml() + V.mukellefler.map(mukellefAyarHtml).join("") + '</div></details>' + personelHtml() + yedekHtml();
+    if (ofis && PERSONEL) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mAraHtml() + mAyarListe() + '</div></details>';
+    else if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + topluHtml() + mukerrerHtml() + mAraHtml() + mAyarListe() + '</div></details>' + personelHtml() + yedekHtml();
     else h += V.mukellefler.map(mukellefAyarHtml).join("");
     h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
-    $("ayarIc").innerHTML = h; sifreleriHazirla($("ayarIc")); yedekYazi(); yansiYazi(); if (ROL === "ofis" && !PERSONEL) personelYukle();
+    $("ayarIc").innerHTML = h; mAyAraUygula(); sifreleriHazirla($("ayarIc")); yedekYazi(); yansiYazi(); if (ROL === "ofis" && !PERSONEL) personelYukle();
   }
   $("ayarIc").addEventListener("click", function(e){ var b = e.target.closest("[data-smsgit]"); if (!b) return; mSec = b.getAttribute("data-smsgit"); VD.sek = "telefon"; sekme("vd"); window.scrollTo(0, 0); });
   /* ---------- marka: logo, imza (seçili mükellefe ait) ---------- */
@@ -2099,6 +2136,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (e.target.open && e.target.parentElement) [].slice.call(e.target.parentElement.children).forEach(function(c){ if (c !== e.target && c.tagName === "DETAILS" && c.open) { c.open = false; var ck = c.getAttribute("data-ak"); if (ck) ayarAcik[ck] = false; } }); /* aynı düzeyde yalnız biri açık */
     if (e.target.open && /^ku?:/.test(k) && !MARKA[k.replace(/^ku?:/, "")]) markaYukle(k.replace(/^ku?:/, "")).then(function(){ if (ayarAcik[k]) cizAyar(); }); // yalnız ilk açılışta; yeniden çizim toggle’ı tekrar tetikler
   }, true);
+  $("ayarIc").addEventListener("input", function(e){ if (e.target.id === "mAyAra") { MAYARA = e.target.value; mAyAraUygula(); } });
   $("ayarIc").addEventListener("change", function(e){
     if (e.target.getAttribute && e.target.getAttribute("data-db") != null) {
       var dm = mBul(e.target.getAttribute("data-db")); if (!dm) return; dm.defterBeyan = e.target.checked; var dd = $("ayarDurum");
@@ -2162,6 +2200,17 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       var yaz = prompt("DİKKAT: " + ad + " mükellefinin tüm kayıtları (alıcılar, geçmiş, giriş hesabı) kalıcı olarak silinir.\n\nOnaylamak için mükellef unvanını aynen yazın:");
       if (yaz === null) return; if (yaz.trim() !== ad.trim()) { mDurum(id, "Unvan eşleşmedi; silinmedi.", "hata"); return; }
       api("/api/mukellef/sil", "POST", { mid: id }).then(function(r){ V = r.veri; if (mSec === id) mSec = V.mukellefler[0] ? V.mukellefler[0].id : null; F.alici = ""; hepsi(); gecmisYukle(); }, function(er){ ayarHata($("ayarDurum"), er); });
+      return;
+    }
+    if ((id = t.getAttribute("data-bir-ana"))) {
+      var grp = String(t.getAttribute("data-bir-grup") || "").split(",").filter(function(x){ return x && x !== id; }), sec = mBul(id), dig = grp.map(mBul).filter(Boolean), bd = $("birDurum");
+      if (!sec || !dig.length) return;
+      if (!confirm("Tutulacak kayıt:\n• " + (sec.ad || "(adsız)") + " (" + (sec.vkn || "—") + ")\n\nBirleştirilip SİLİNECEK kayıt(lar):\n" + dig.map(function(m){ return "• " + (m.ad || "(adsız)") + " (" + (m.vkn || "—") + ")"; }).join("\n") + "\n\nDiğerlerinin alıcı, hizmet, fatura geçmişi, talep ve belgeleri tutulan kayda eklenir. Bu işlem geri alınamaz. Devam edilsin mi?")) return;
+      if (bd) { bd.className = "durum"; bd.textContent = "Birleştiriliyor…"; }
+      api("/api/mukellef/birlestir", "POST", { ana: id, digerler: grp }).then(function(r){
+        V = r.veri; if (!mBul(mSec)) mSec = id; F.alici = ""; var rp = r.rapor || {}; hepsi(); gecmisYukle();
+        var d2 = $("birDurum") || $("ayarDurum"); if (d2) { d2.className = "durum ok"; d2.textContent = "Birleştirildi: " + rp.gecmis + " fatura kaydı, " + rp.alici + " alıcı, " + rp.hizmet + " hizmet, " + rp.talep + " talep, " + rp.belge + " belge eklendi." + (rp.belgeAtlanan ? " " + rp.belgeAtlanan + " belge sınır nedeniyle taşınamadı." : "") + (rp.hesapKaybi ? " Silinen kaydın mükellef giriş hesabı kaldırıldı; gerekirse tutulan kayda yeni giriş hesabı tanımlayın." : ""); }
+      }, function(er){ if (!oturumDustu(er)) ayarHata(bd || $("ayarDurum"), er); });
       return;
     }
     if ((id = t.getAttribute("data-hesap-kaydet"))) {

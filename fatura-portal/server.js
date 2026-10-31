@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-190";
+const SURUM = "2026-10-31-191";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -463,6 +463,43 @@ async function api(req, res, yol) {
     return cevap(res, 200, { kullanici: ad });
   }
   if (yol === "/api/hesap/kaldir" && req.method === "POST") { ofisGerek(o); const g = await oku(req); depo.hesapKaldir(o, String(g.mid || "")); for (const [c, x] of oturumlar) if (x.rol === "mukellef" && x.mid === g.mid) oturumKapat(c); gunluk(o, String(g.mid), "Giriş hesabı kaldırıldı"); return cevap(res, 200, { ok: true }); }
+  /* Mükerrer mükellef kayıtlarını birleştirir: "ana" kalır; diğerlerinin alıcı, hizmet, fatura geçmişi, talep, belge ve eksik bilgileri ana kayda eklenir, sonra diğerleri silinir. */
+  if (yol === "/api/mukellef/birlestir" && req.method === "POST") {
+    ofisGerek(o); const g = await oku(req), ana = String(g.ana || ""), digerler = [...new Set((Array.isArray(g.digerler) ? g.digerler : []).map(String))].filter((id) => id !== ana);
+    if (!depo.yetkili(o, ana) || !digerler.length || digerler.length > 20 || digerler.some((id) => !depo.yetkili(o, id))) return cevap(res, 400, { hata: "Birleştirilecek mükellef seçimi geçersiz." });
+    const A = depo.mukellef(o, ana).veri, rapor = { gecmis: 0, alici: 0, hizmet: 0, belge: 0, belgeAtlanan: 0, talep: 0, hesapKaybi: 0 };
+    const benzersiz = (liste, ek, anahtar) => { const var_ = new Set(liste.map(anahtar).filter(Boolean)), idler = new Set(liste.map((x) => x.id)); let n = 0; for (const x of ek || []) { const k = anahtar(x); if (k && var_.has(k)) continue; if (!k && idler.has(x.id)) continue; if (k) var_.add(k); if (idler.has(x.id)) x.id = crypto.randomBytes(5).toString("hex"); idler.add(x.id); liste.push(x); n++; } return n; };
+    for (const id of digerler) {
+      const D = depo.mukellef(o, id).veri;
+      for (const k of ["ad", "vkn", "kullanici", "gibSifre"]) if (!A[k] && D[k]) A[k] = D[k];
+      if (!A.sgk && D.sgk) A.sgk = D.sgk;
+      if (D.defterBeyan === true) A.defterBeyan = true;
+      if (D.profil) A.profil = Object.assign({}, D.profil, Object.fromEntries(Object.entries(A.profil || {}).filter(([, x]) => x)));
+      if (D.marka) A.marka = Object.assign({}, D.marka, Object.fromEntries(Object.entries(A.marka || {}).filter(([, x]) => x)));
+      if (D.sonGiris && (!A.sonGiris || D.sonGiris > A.sonGiris)) A.sonGiris = D.sonGiris;
+      if (D.kabul && !A.kabul) A.kabul = D.kabul;
+      A.son = Object.assign({}, D.son || {}, A.son || {});
+      rapor.alici += benzersiz((A.aliciler = A.aliciler || []), JSON.parse(JSON.stringify(D.aliciler || [])), (x) => String(x.vkn || "").trim());
+      rapor.hizmet += benzersiz((A.hizmetler = A.hizmetler || []), JSON.parse(JSON.stringify(D.hizmetler || [])), (x) => String(x.ad || "").trim().toLocaleLowerCase("tr-TR"));
+      const gec = JSON.parse(JSON.stringify(D.gecmis || [])); for (const k of gec) { k.mukellefId = ana; k.mukellef = { ad: A.ad, vkn: A.vkn }; }
+      rapor.gecmis += benzersiz((A.gecmis = A.gecmis || []), gec, (x) => "g" + x.id); A.gecmis.sort((x, y) => String(x.zaman || "").localeCompare(String(y.zaman || ""))); while (A.gecmis.length > 2000) A.gecmis.shift();
+      rapor.talep += benzersiz((A.talepler = A.talepler || []), JSON.parse(JSON.stringify(D.talepler || [])), (x) => "t" + x.id); while (A.talepler.length > 200) A.talepler.shift();
+      A.gunluk = (A.gunluk || []).concat(D.gunluk || []).sort((x, y) => String(x.zaman).localeCompare(String(y.zaman))).slice(-300);
+      for (const b of depo.belgeler(o, id).slice()) { try { depo.belgeEkle(o, ana, { tur: b.tur, ad: b.ad, tip: b.tip, boyut: b.boyut, veri: b.veri }); rapor.belge++; } catch (e) { rapor.belgeAtlanan++; } }
+      if (depo.hesapKullanicisi(id) && !depo.hesapKullanicisi(ana)) rapor.hesapKaybi++;
+    }
+    depo.kaydet(ana);
+    for (const p of depo.sistem.personel || []) if (p.atamalar.some((x) => digerler.includes(x)) && !p.atamalar.includes(ana)) depo.personelAta(o, p.id, p.atamalar.concat(ana));
+    for (const [, k] of bekleyen) if (digerler.includes(k.mukellefId)) { k.mukellefId = ana; k.mukellef = { ad: A.ad, vkn: A.vkn }; }
+    for (const id of digerler) {
+      await gibBirak(id); await ivdBirak(id); await sgkBirak(id);
+      for (const [c, x] of oturumlar) if (x.rol === "mukellef" && x.mid === id) oturumlar.delete(c);
+      depo.mukellefSil(o, id);
+    }
+    depo.temizle(oturumlar.values()); gibBirak(ana);
+    gunluk(o, ana, "Mükerrer mükellef kayıtları birleştirildi", digerler.length + " kayıt");
+    return cevap(res, 200, { veri: temiz(o), rapor });
+  }
   if (yol === "/api/mukellef/sil" && req.method === "POST") {
     ofisGerek(o); const g = await oku(req), mid = String(g.mid || "");
     await gibBirak(mid); for (const [c, x] of oturumlar) if (x.rol === "mukellef" && x.mid === mid) oturumlar.delete(c);
