@@ -31,7 +31,8 @@
   --shadow:0 1px 2px rgba(0,0,0,.3);color-scheme:dark}
 :root[data-tema="acik"]{color-scheme:light}
 *{box-sizing:border-box}[hidden]{display:none!important}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+input,select,textarea,button,summary,label{touch-action:manipulation}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 h1{font-size:1.25rem;margin:0;letter-spacing:-.01em}
 h2{font-size:1rem;margin:0;font-weight:650;letter-spacing:-.005em}
@@ -2529,7 +2530,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (!/^05\d{9}$/.test(tel)) { d.className = "durum hata"; d.textContent = "Cep telefonunu 05XX XXX XX XX biçiminde yazın."; return; }
     if (!confirm("Dijital Vergi Dairesi'ndeki onay telefonu değiştirilecek. Yeni numara: " + telGizle(tel) + "\n\nBu numaraya SMS kodu gönderilsin mi?")) return;
     btn.disabled = true; d.className = "durum"; d.textContent = "Kod gönderiliyor…";
-    api("/api/vd/telefon", "POST", { mukellefId: VD.mid, islem: "kod", tel: tel, onay: true }).then(function(r){ d.className = "durum ok"; d.textContent = r.mesaj || "Kod gönderildi."; $("vdTelKodKutu").hidden = false; $("vdTelKodGir").focus(); }, function(er){ vdHata(er, d); }).then(function(){ btn.disabled = false; });
+    api("/api/vd/telefon", "POST", { mukellefId: VD.mid, islem: "kod", tel: tel, onay: true }).then(function(r){ d.className = "durum ok"; d.textContent = r.mesaj || "Kod gönderildi."; $("vdTelKodKutu").hidden = false; odakla($("vdTelKodGir")); }, function(er){ vdHata(er, d); }).then(function(){ btn.disabled = false; });
   });
   $("vdTelGuncelle").addEventListener("click", function(){
     var btn = this, d = $("vdDurum"), tel = $("vdTelYeni").value.replace(/\D/g, ""); if (/^5\d{9}$/.test(tel)) tel = "0" + tel; var kod = $("vdTelKodGir").value.replace(/\D/g, "");
@@ -2717,7 +2718,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   });
   $("vdSgkKodIste").addEventListener("click", function(){
     var b = this, d = $("vdSgkDurum"); if (!VD.mid) return; b.disabled = true; d.className = "durum"; d.textContent = "Güvenlik kodu isteniyor…";
-    api("/api/sgk/captcha", "POST", { mukellefId: VD.mid, sistem: VD.sgkSis }).then(function(r){ $("vdSgkKodResim").src = r.resim; $("vdSgkKod").value = ""; $("vdSgkKodKutu").style.display = "flex"; d.textContent = ""; b.textContent = "Kodu yenile"; setTimeout(function(){ $("vdSgkKod").focus(); }, 50); }, vdSgkHata).then(function(){ b.disabled = false; });
+    api("/api/sgk/captcha", "POST", { mukellefId: VD.mid, sistem: VD.sgkSis }).then(function(r){ $("vdSgkKodResim").src = r.resim; $("vdSgkKod").value = ""; $("vdSgkKodKutu").style.display = "flex"; d.textContent = ""; b.textContent = "Kodu yenile"; setTimeout(function(){ odakla($("vdSgkKod")); }, 50); }, vdSgkHata).then(function(){ b.disabled = false; });
   });
   function vdSgkGiris(){
     var b = $("vdSgkGiris"), d = $("vdSgkDurum"), dk = $("vdSgkKod").value.trim(), sis = VD.sgkSis; if (!VD.mid) return;
@@ -2885,7 +2886,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("vdKodIste").addEventListener("click", function(){
     var b = this, d = $("vdDurum"); if (!VD.mid) return; b.disabled = true; d.className = "durum"; d.textContent = "Doğrulama kodu isteniyor…";
     api("/api/vd/captcha", "POST", { mukellefId: VD.mid }).then(function(r){
-      $("vdKodResim").src = r.resim; $("vdKod").value = ""; $("vdKodKutu").style.display = "flex"; d.textContent = ""; b.textContent = "Kodu yenile"; setTimeout(function(){ $("vdKod").focus(); }, 50);
+      $("vdKodResim").src = r.resim; $("vdKod").value = ""; $("vdKodKutu").style.display = "flex"; d.textContent = ""; b.textContent = "Kodu yenile"; setTimeout(function(){ odakla($("vdKod")); }, 50);
     }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
   });
   function vdGiris(){
@@ -3024,7 +3025,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     Promise.all(isler.map(function(p){ return p.then(function(){ return null; }, function(er){ return er; }); })).then(function(hatalar){
       b.disabled = false; var er = hatalar.filter(Boolean)[0]; if (er) { if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = er.message; return; }
       if (!GUNC.vd && !GUNC.sgk) { guncYukle(m); return; }
-      $("gVdKutu").style.display = GUNC.vd ? "grid" : "none"; $("gSgkKutu").style.display = GUNC.sgk ? "grid" : "none"; $("gKodlar").style.display = "grid"; $("gGuncelle").hidden = false; b.hidden = true; d.textContent = ""; setTimeout(function(){ (GUNC.vd ? $("gVdKod") : $("gSgkKod")).focus(); }, 50);
+      $("gVdKutu").style.display = GUNC.vd ? "grid" : "none"; $("gSgkKutu").style.display = GUNC.sgk ? "grid" : "none"; $("gKodlar").style.display = "grid"; $("gGuncelle").hidden = false; b.hidden = true; d.textContent = ""; setTimeout(function(){ odakla(GUNC.vd ? $("gVdKod") : $("gSgkKod")); }, 50);
     });
   });
   function guncYukle(m){
