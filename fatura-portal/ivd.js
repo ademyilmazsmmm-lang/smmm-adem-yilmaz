@@ -323,10 +323,19 @@ class Ivd {
   }
   /* SIDE sunucusuna (intvrg_server/dispatch ya da tvd_server/dispatch) menü tanımlarını sordurur: Z raporu / haciz gibi sayfaların gerçek adlarını ve komutlarını bulmak için (yalnız okuma) */
   async sideKesif(sistem, ara) {
-    const intvrg = sistem === "intvrg", maske = (t) => String(t || "").replace(/(token|jeton|sid|session[a-z]*)=[^&"'\s;<>]+/gi, "$1=<jeton>"), gunluk = [];
+    const intvrg = sistem === "intvrg", maske = (t) => String(t || "").replace(/(token|jeton|sid|session[a-z]*)=[^&"'\s;<>]+/gi, "$1=<jeton>").replace(/\b[0-9a-f]{32,}\b/gi, "<jeton>"), gunluk = [];
     const y = await this.istek("GET", GW + (intvrg ? "/auth/tdvd/intvrg-login" : "/auth/tdvd/interaktif-login"), undefined, true), hedef = y && y.redirectUrl; if (!hedef) return "SIDE keşif: bağlantı adresi alınamadı.";
     const u = new URL(hedef), token = u.searchParams.get("token") || ""; await this.gibGit(hedef);
-    const yollar = intvrg ? ["/intvrg_server/dispatch", "/intvrg_side/dispatch"] : ["/tvd_server/dispatch", "/tvd_side/dispatch"];
+    /* sayfa önce userSessionService_getUserSessionInfo ile oturumu başlatır; menü/BF tanımları side-dispatch, iş servisleri server/dispatch adresindedir */
+    const uyg = intvrg ? "/intvrg_server/dispatch" : "/tvd_server/dispatch", yollar = intvrg ? ["/intvrg_side/side-dispatch", uyg] : ["/tvd_side/side-dispatch", uyg];
+    let oturumOzet = "", userid = "";
+    try {
+      const r0 = await this.gibGit(u.origin + uyg, "cmd=userSessionService_getUserSessionInfo&callid=" + Date.now().toString(36) + "&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify({ token, rfDataInfo: [] })), hedef);
+      let j0 = null; try { j0 = JSON.parse(r0.metin); } catch (e) { /* JSON değil */ }
+      if (j0 && typeof j0 === "object") { const d0 = j0.data && typeof j0.data === "object" ? j0.data : j0; userid = String(d0.userid || d0.userId || d0.csapUserId || d0.kullaniciKodu || ""); oturumOzet = "HTTP " + r0.durum + " alanlar: " + Object.keys(d0).slice(0, 25).join(",") + (j0.error ? " · hata: " + maske(JSON.stringify(j0.messages || "")).slice(0, 120) : ""); }
+      else oturumOzet = "HTTP " + r0.durum + " " + maske(r0.metin.replace(/\s+/g, " ")).slice(0, 160);
+    } catch (e) { oturumOzet = String(e.message).slice(0, 120); }
+    gunluk.push("oturum başlatma → " + oturumOzet + (userid ? " (userid var)" : " (userid yok)"));
     const kalip = ara || /ÖKC|OKC|Z\s*Rapor|Satış|Haciz|Yoklama/i, bulunan = [];
     const tara = (d, derin) => { if (!d || derin > 6 || bulunan.length > 60) return; if (Array.isArray(d)) { d.forEach((x) => tara(x, derin + 1)); return; } if (typeof d !== "object") return; const m = [d.text, d.title, d.label, d.name].find((x) => typeof x === "string"); if ((d.page || d.pageName) && m && kalip.test(m + " " + (d.page || d.pageName))) bulunan.push((d.defId || d.id || "") + " | " + m + " | " + (d.page || d.pageName)); Object.values(d).forEach((x) => tara(x, derin + 1)); };
     dis: for (const yol of yollar) for (const cmd of ["SIDE.GET_ALL_MENU_DEFINITIONS3", "SIDE.GET_ALL_MENU_DEFINITIONS2"]) for (const rn of ["", "menuDefRoot"]) {
@@ -341,18 +350,17 @@ class Ivd {
     /* 2. aşama: menü yetkisiz ise sayfa tanımını (BF) doğrudan iste; tanım içindeki servis (komut) adları ve gövde biçimi görünür */
     const sayfalar = intvrg ? ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG"] : ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG"], bf = [];
     for (const sf of sayfalar) {
-      const yol = yollar[0];
-      for (const jp of [{ userid: "", bfnames: [sf], loadedList: [], params: {}, resourceBundleLang: "tr" }, { bfnames: [sf], resourceBundleLang: "tr" }]) {
+      for (const yol of yollar) for (const jp of [{ userid, bfnames: [sf], loadedList: [], params: {}, resourceBundleLang: "tr" }]) {
         const govde = "cmd=SIDE.GET_EAGER_BF_DEFS&callid=" + Date.now().toString(36) + "&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify(jp));
         try {
           const r = await this.gibGit(u.origin + yol, govde, hedef), t = maske(r.metin.replace(/\s+/g, " "));
           const adlar = [...new Set([...t.matchAll(/"(?:sn|serviceName|service|cmd|svc|serviceNames?)"\s*:\s*"([^"]{3,80})"/g)].map((m) => m[1]))].slice(0, 30);
-          bf.push(sf + " (jp:" + Object.keys(jp).join(",") + ") → HTTP " + r.durum + " " + r.metin.length + " bayt · " + t.slice(0, 600) + (adlar.length ? "\n   servis adları: " + adlar.join(" | ") : ""));
-          if (r.metin.length > 400) break;
+          bf.push(sf + " @" + yol + " → HTTP " + r.durum + " " + r.metin.length + " bayt · " + t.slice(0, 600) + (adlar.length ? "\n   servis adları: " + adlar.join(" | ") : ""));
+          if (r.metin.length > 400 && !/yetkiniz yok/.test(r.metin)) break;
         } catch (e) { bf.push(sf + " → " + String(e.message).slice(0, 100)); }
       }
     }
-    return "[SIDE keşif]\n" + (bulunan.length ? "Menüde bulunan sayfalar (kod | ad | sayfa):\n" + [...new Set(bulunan)].join("\n") + "\n\n" : "") + "Denemeler:\n" + gunluk.slice(0, 12).join("\n") + (bf.length ? "\nSayfa tanımı:\n" + bf.join("\n") : "") + "\n\n";
+    return "[SIDE keşif]\n" + (bulunan.length ? "Menüde bulunan sayfalar (kod | ad | sayfa):\n" + [...new Set(bulunan)].join("\n") + "\n\n" : "") + "Denemeler:\n" + gunluk.slice(0, 14).join("\n") + (bf.length ? "\nSayfa tanımı:\n" + bf.join("\n") : "") + "\n\n";
   }
   async interaktifSayfa(sayfa, derin, sistem) {
     const intvrg = sistem === "intvrg"; /* İnternet Vergi Dairesi (intvrg.gib.gov.tr): ÖKC / Z raporu bu sistemdedir */
@@ -360,7 +368,7 @@ class Ivd {
     const y = await this.istek("GET", GW + (intvrg ? "/auth/tdvd/intvrg-login" : "/auth/tdvd/interaktif-login"), undefined, true);
     const hedef = y && y.redirectUrl; if (!hedef) throw new Error("İnteraktif Vergi Dairesi bağlantı adresi alınamadı" + (this.mesajMetni(y) ? ": " + this.mesajMetni(y) : "") + ".");
     const r = await this.gibGit(sayfa ? hedef + (hedef.includes("?") ? "&" : "?") + "page=" + sayfa : hedef);
-    const maske = (t) => String(t || "").replace(/(token|jeton|sid|session[a-z]*)=[^&"'\s;<>]+/gi, "$1=<jeton>");
+    const maske = (t) => String(t || "").replace(/(token|jeton|sid|session[a-z]*)=[^&"'\s;<>]+/gi, "$1=<jeton>").replace(/\b[0-9a-f]{32,}\b/gi, "<jeton>");
     const { sade, formlar, tablolar, hamMaskeli, formCoz } = sgkYardim, html = r.metin, ham = html.replace(/<style[\s\S]*?<\/style>/gi, "");
     const betikler = [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => maske(m[1])).slice(0, 12), cerceveler = [...html.matchAll(/<i?frame\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => maske(m[1])).slice(0, 6);
     let betikOzet = "";
