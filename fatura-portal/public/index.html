@@ -286,6 +286,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   @page{size:A4;margin:0}
 }
 .kdvg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.kdvk{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:4px;background:var(--surface)}.kdvk>div{display:flex;justify-content:space-between;gap:8px;font-size:.84rem}.kdvk>div span{color:var(--muted)}.kdvk small{font-size:.74rem;color:var(--muted)}.anatarih>summary::-webkit-details-marker{display:none}
+#vdListe,#kdvSonuc,#hoSonuc,#isvSonuc,#tesvikSonuc,#bilSonuc,#gibListe{scroll-margin-top:170px}
 </style>
 </head>
 <body>
@@ -1606,7 +1607,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       $("gibListe").innerHTML = r.belgeler.map(function(b, i){
         var yerel = gecmis.some(function(k){ return k.id === b.ettn; });
         return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" && b.talep === "" ? ' <button class="k" type="button" data-gps="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '">Paylaş</button>' + (MAILHAZIR ? ' <button class="k" type="button" data-gpe="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '" data-gpa="' + esc(b.alici) + '" data-gpt="' + esc(b.tarih) + '">E-posta</button>' : "") + ' <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button>' : "") + '</span>' : "", b.talep !== "");
-      }).join("");
+      }).join(""); sonucaGit("gibListe");
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
   });
   /* Taslak silme / onaylı fatura iptali. Neden zorunludur; iki aşamalı onay. GİB'in kabulü kayıtla doğrulanır. */
@@ -2340,7 +2341,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var b = this, d = $("hoDurum"); if (!VD.mid) return;
     if (!VD.bagli) { d.className = "durum hata"; d.textContent = "Önce Dijital Vergi Dairesi’ne bağlanın (yukarıdaki doğrulama kodu)."; return; }
     b.disabled = true; d.className = "durum"; d.textContent = "Defter-Beyan’dan alınıyor…"; $("hoSonuc").innerHTML = "";
-    api("/api/vd/hesapozeti", "POST", { mukellefId: VD.mid, yil: $("hoYil").value, mali: $("hoMali").value }).then(function(r){ d.textContent = ""; $("hoSonuc").innerHTML = vdHoHtml(r); }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
+    api("/api/vd/hesapozeti", "POST", { mukellefId: VD.mid, yil: $("hoYil").value, mali: $("hoMali").value }).then(function(r){ d.textContent = ""; $("hoSonuc").innerHTML = vdHoHtml(r); sonucaGit("hoSonuc"); }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
   });
   function vdPosAlan(){
     if ($("vdPosYil").options.length) return; var d = new Date(), y = d.getFullYear(), oncekiAy = d.getMonth() === 0 ? 12 : d.getMonth(), yil = d.getMonth() === 0 ? y - 1 : y;
@@ -2355,7 +2356,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function hacizSorgu(b, tur, derin){
     var d = $("vdDurum"); if (!VD.mid || !VD.bagli) return; b.disabled = true; d.className = "durum"; d.textContent = "İnteraktif Vergi Dairesi’ne bağlanılıyor…"; VD.hacizTur = tur;
-    api("/api/vd/haciz", "POST", { mukellefId: VD.mid, tur: tur, derin: !!derin }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.haciz = r; d.textContent = ""; if (VD.sek === "haciz") vdCiz(); }, function(er){ VD.sonuc.haciz = null; if (VD.sek === "haciz") vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });
+    api("/api/vd/haciz", "POST", { mukellefId: VD.mid, tur: tur, derin: !!derin }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.haciz = r; d.textContent = ""; if (VD.sek === "haciz") { vdCiz(); sonucaGit("vdListe"); } }, function(er){ VD.sonuc.haciz = null; if (VD.sek === "haciz") vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });
   }
   $("vdHacizBanka").addEventListener("click", function(){ hacizSorgu(this, "banka", false); });
   $("vdHacizArac").addEventListener("click", function(){ hacizSorgu(this, "arac", false); });
@@ -2444,7 +2445,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (s) h += '<div class="kayit"><b>Kesilen faturalar (satış)</b><div class="not" style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:4px 0 0;font-size:.84rem"><span>Fatura sayısı</span><span style="color:var(--fg)">' + s.adet + (s.iade ? " (" + s.iade + " iade)" : "") + '</span><span>KDV hariç tutar</span><span style="color:var(--fg)">' + k2(s.matrah) + '</span><span>Hesaplanan KDV</span><span style="color:var(--fg)">' + k2(s.kdv) + '</span>' + (s.tev ? '<span>Tevkifatla alıcıya kalan KDV</span><span style="color:var(--fg)">' + k2(s.tev) + '</span>' : "") + '</div>' + (s.hata ? '<div class="not" style="margin:4px 0 0;color:var(--danger)">' + s.hata + ' fatura okunamadı, hesaba katılmadı.</div>' : "") + '</div>';
     if (a) h += '<div class="kayit"><b>Gelen e-Arşiv faturalar (alış)</b><div class="not" style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:4px 0 0;font-size:.84rem"><span>Fatura sayısı</span><span style="color:var(--fg)">' + a.adet + '</span><span>Toplam tutar</span><span style="color:var(--fg)">' + k2(a.toplam) + '</span><span>İndirilecek KDV (vergiler toplamı)</span><span style="color:var(--fg)">' + k2(a.kdv) + '</span></div>' + (a.yabanci ? '<div class="not" style="margin:4px 0 0">' + a.yabanci + ' fatura döviz cinsinden; tutarları TL olarak alınmıştır.</div>' : "") + (a.uyari ? '<div class="not" style="margin:4px 0 0">' + esc(a.uyari) + '</div>' : "") + '</div>';
     h += '<div class="not" style="margin:0;font-size:.8rem;display:flex;flex-direction:column;gap:3px"><span><b>Not:</b> Bu bir <b>tahmini</b> rapordur; yalnız GİB’e düşen kesilen e-Arşiv faturalar ve adınıza düzenlenen gelen e-Arşiv faturalar sayılır.</span><span>• Gelen faturalar sisteme <b>geç düşebilir ya da hiç düşmeyebilir</b> (e-Fatura, kâğıt fatura, fiş vb.).</span><span>• <b>Z raporu</b> (yazar kasa) satışları ve KDV’si dahil değildir; varsa ayrıca eklenmelidir.</span><span>• Önceki aydan devreden KDV ve iade/indirim düzeltmeleri hesaba katılmadı. Kesin tutar için KDV beyannamesi esastır.</span></div>';
-    $("kdvSonuc").innerHTML = h;
+    $("kdvSonuc").innerHTML = h; sonucaGit("kdvSonuc");
   }
   $("kdvHazirla").addEventListener("click", function(){
     var m = mk(); if (!m || KR.calisiyor) return; var dk = KR.donem, dn = kdvDonemler()[KR.donem], btn = this, sonuc = { ad: dn.ad, bitti: dn.bitti, satis: null, alis: null, satisNot: "" };
@@ -2510,6 +2511,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (!$("vdBit").value) { var dt = new Date(); $("vdBit").value = bugunStr(); dt.setDate(dt.getDate() - 30); $("vdBas").value = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0"); }
     vdSekmeCiz();
   }
+  /* sorgu bitince sonuç ekranın üst kısmında değilse oraya kaydır (telefonda Sorgula düğmesi üstte, sonuç aşağıda kalıyor) */
+  function sonucaGit(id){ setTimeout(function(){ var e = $(id); if (!e || e.hidden || !e.offsetParent || !e.textContent.trim()) return; var r = e.getBoundingClientRect(); if (r.top > 60 && r.top < innerHeight * 0.55) return; e.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); }
   function vdHata(er, d){ if (oturumDustu(er)) return; if (er.girisGerek) { VD.bagli = false; vdBagDurum(); } d.className = "durum hata"; d.textContent = er.message; }
   /* SGK sekmesi: seçili mükellef için SGK İşveren Sistemi ve e-Bildirge (ikisi ayrı oturum, ayrı güvenlik kodu) */
   var SGKAC = { isveren: "SGK borcunu sorgulayın, E-Borcu Yoktur belgesini alın.", ebildirge: "Onaylı bildirgelerin tahakkuk ve hizmet dökümlerini (PDF) alın." };
@@ -2557,7 +2560,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("bilSonuc").addEventListener("click", function(e){ if (e.target.id !== "bilHamKopya") return; var t = $("bilHam").textContent; try { navigator.clipboard.writeText(t); e.target.textContent = "Kopyalandı"; } catch (x) { var r = document.createRange(); r.selectNodeContents($("bilHam")); var sl = getSelection(); sl.removeAllRanges(); sl.addRange(r); } });
   $("bilGetir").addEventListener("click", function(){
     var b = this, d = $("vdSgkDurum"); b.disabled = true; d.className = "durum"; d.textContent = "SGK’dan bildirgeler getiriliyor…";
-    api("/api/sgk/bildirge-liste", "POST", { mukellefId: VD.mid, sistem: "ebildirge", bas: $("bilBas").value, bit: $("bilBit").value }).then(function(r){ $("bilSonuc").innerHTML = bilHtml(r); d.textContent = ""; }, vdSgkHata).then(function(){ b.disabled = false; });
+    api("/api/sgk/bildirge-liste", "POST", { mukellefId: VD.mid, sistem: "ebildirge", bas: $("bilBas").value, bit: $("bilBit").value }).then(function(r){ $("bilSonuc").innerHTML = bilHtml(r); d.textContent = ""; sonucaGit("bilSonuc"); }, vdSgkHata).then(function(){ b.disabled = false; });
   });
   $("vdSgkKodIste").addEventListener("click", function(){
     var b = this, d = $("vdSgkDurum"); if (!VD.mid) return; b.disabled = true; d.className = "durum"; d.textContent = "Güvenlik kodu isteniyor…";
@@ -2643,7 +2646,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       var g = e.target, dd = $("tesvikDurum"), alan = {}; $("tesvikForm").querySelectorAll("[data-tf]").forEach(function(x){ var ad = x.getAttribute("data-tf"); if ((x.type === "radio" || x.type === "checkbox") && !x.checked) return; alan[ad] = x.value; });
       if (alan.tcKimlikNo && !/^\d{11}$/.test(alan.tcKimlikNo)) { dd.className = "durum hata"; dd.textContent = "T.C. kimlik numarası 11 haneli olmalı."; return; }
       g.disabled = true; dd.className = "durum"; dd.textContent = "Sorgulanıyor…";
-      api("/api/sgk/tesvik", "POST", { mukellefId: VD.mid, sistem: "isveren", islem: "sorgu", alan: alan }).then(function(r){ dd.textContent = ""; $("tesvikSonuc").innerHTML = tesvikSonucHtml(r); }, vdSgkHata).then(function(){ g.disabled = false; });
+      api("/api/sgk/tesvik", "POST", { mukellefId: VD.mid, sistem: "isveren", islem: "sorgu", alan: alan }).then(function(r){ dd.textContent = ""; $("tesvikSonuc").innerHTML = tesvikSonucHtml(r); sonucaGit("tesvikSonuc"); }, vdSgkHata).then(function(){ g.disabled = false; });
       return;
     }
   });
@@ -2652,7 +2655,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (e.target.id === "isvBorcsuzAc") { var ac = $("isvBorcsuz").hidden; $("isvBorcsuz").hidden = !ac; $("isvBorcsuz").style.display = ac ? "grid" : "none"; e.target.setAttribute("aria-expanded", ac ? "true" : "false"); return; }
     var b = e.target.closest("[data-isv]"); if (!b) return;
     var ad = b.getAttribute("data-isv"), d = $("vdSgkDurum"); b.disabled = true; d.className = "durum"; d.textContent = "SGK sayfası açılıyor…";
-    var etk = b.textContent, eb = b.hasAttribute("data-eb"); api("/api/sgk/sayfa", "POST", { mukellefId: VD.mid, sistem: "isveren", ad: ad }).then(function(r){ $("isvSonuc").innerHTML = isvHtml(r, (eb ? "E-Borcu Yoktur · " : "") + etk); d.textContent = ""; }, vdSgkHata).then(function(){ b.disabled = false; });
+    var etk = b.textContent, eb = b.hasAttribute("data-eb"); api("/api/sgk/sayfa", "POST", { mukellefId: VD.mid, sistem: "isveren", ad: ad }).then(function(r){ $("isvSonuc").innerHTML = isvHtml(r, (eb ? "E-Borcu Yoktur · " : "") + etk); d.textContent = ""; sonucaGit("isvSonuc"); }, vdSgkHata).then(function(){ b.disabled = false; });
   });
   /* e-Vergi levhası */
   function vdYilCiz(){
@@ -2704,7 +2707,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var govde = { mukellefId: VD.mid, bas: $("vdBas").value, bit: $("vdBit").value, yil: VD.yil };
     if (sek === "tahakkuk") { govde.tbas = $("vdTBas").value; govde.tbit = $("vdTBit").value; } else if (sek === "arac") govde.gecmis = !!VD.aracGecmis; else if (sek === "pos" || sek === "zrapor") { govde.yil = $("vdPosYil").value; govde.ay = $("vdPosAy").value; }
     api("/api/vd/" + (sek === "yazi" ? "yazilar" : sek === "trafik" ? "tebligat" : sek), "POST", govde).then(function(r){
-      r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc[sek] = r; d.textContent = ""; if (sek === "tebligat" || sek === "trafik") tebOzetGonder(VD.mid, r); vdRozet(); if (VD.sek === sek) vdCiz();
+      r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc[sek] = r; d.textContent = ""; if (sek === "tebligat" || sek === "trafik") tebOzetGonder(VD.mid, r); vdRozet(); if (VD.sek === sek) { vdCiz(); sonucaGit("vdListe"); }
     }, function(er){ VD.sonuc[sek] = null; if (VD.sek === sek) vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });
   }
   $("vdSeg").addEventListener("click", function(e){ var b = e.target.closest("[data-vd]"); if (!b) return; VD.sek = b.getAttribute("data-vd"); vdSekmeCiz(); if (VD.bagli && !VD.sonuc[VD.sek]) vdSorgula(); });
