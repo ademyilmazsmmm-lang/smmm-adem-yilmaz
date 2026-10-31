@@ -338,7 +338,21 @@ class Ivd {
       } catch (e) { gunluk.push(yol + " " + cmd + " → " + String(e.message).slice(0, 100)); }
       if (bulunan.length) break dis;
     }
-    return "[SIDE keşif]\n" + (bulunan.length ? "Menüde bulunan sayfalar (kod | ad | sayfa):\n" + [...new Set(bulunan)].join("\n") + "\n\n" : "") + "Denemeler:\n" + gunluk.slice(0, 12).join("\n") + "\n\n";
+    /* 2. aşama: menü yetkisiz ise sayfa tanımını (BF) doğrudan iste; tanım içindeki servis (komut) adları ve gövde biçimi görünür */
+    const sayfalar = intvrg ? ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG"] : ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG"], bf = [];
+    for (const sf of sayfalar) {
+      const yol = yollar[0];
+      for (const jp of [{ userid: "", bfnames: [sf], loadedList: [], params: {}, resourceBundleLang: "tr" }, { bfnames: [sf], resourceBundleLang: "tr" }]) {
+        const govde = "cmd=SIDE.GET_EAGER_BF_DEFS&callid=" + Date.now().toString(36) + "&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify(jp));
+        try {
+          const r = await this.gibGit(u.origin + yol, govde, hedef), t = maske(r.metin.replace(/\s+/g, " "));
+          const adlar = [...new Set([...t.matchAll(/"(?:sn|serviceName|service|cmd|svc|serviceNames?)"\s*:\s*"([^"]{3,80})"/g)].map((m) => m[1]))].slice(0, 30);
+          bf.push(sf + " (jp:" + Object.keys(jp).join(",") + ") → HTTP " + r.durum + " " + r.metin.length + " bayt · " + t.slice(0, 600) + (adlar.length ? "\n   servis adları: " + adlar.join(" | ") : ""));
+          if (r.metin.length > 400) break;
+        } catch (e) { bf.push(sf + " → " + String(e.message).slice(0, 100)); }
+      }
+    }
+    return "[SIDE keşif]\n" + (bulunan.length ? "Menüde bulunan sayfalar (kod | ad | sayfa):\n" + [...new Set(bulunan)].join("\n") + "\n\n" : "") + "Denemeler:\n" + gunluk.slice(0, 12).join("\n") + (bf.length ? "\nSayfa tanımı:\n" + bf.join("\n") : "") + "\n\n";
   }
   async interaktifSayfa(sayfa, derin, sistem) {
     const intvrg = sistem === "intvrg"; /* İnternet Vergi Dairesi (intvrg.gib.gov.tr): ÖKC / Z raporu bu sistemdedir */
@@ -351,7 +365,9 @@ class Ivd {
     const betikler = [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => maske(m[1])).slice(0, 12), cerceveler = [...html.matchAll(/<i?frame\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => maske(m[1])).slice(0, 6);
     let betikOzet = "";
     if (derin) {
-      try { betikOzet = await this.sideKesif(sistem); } catch (e) { betikOzet = "[SIDE keşif] hata: " + String(e.message).slice(0, 160) + "\n\n"; } /* sayfa tek sayfalık uygulama (initSide): arka plan adreslerini bulmak için betiklerden uç/adres kalıpları ve sayfa adının geçtiği yerler çıkarılır (yalnız okuma) */
+      const satir = [...html.matchAll(/<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1].replace(/\s+/g, " ").trim()).filter((x) => x.length > 20).slice(0, 4);
+      if (satir.length) betikOzet += "[sayfadaki betikler]\n" + satir.map((x) => x.slice(0, 2500)).join("\n---\n") + "\n\n";
+      try { betikOzet += await this.sideKesif(sistem); } catch (e) { betikOzet += "[SIDE keşif] hata: " + String(e.message).slice(0, 160) + "\n\n"; } /* sayfa tek sayfalık uygulama (initSide): arka plan adreslerini bulmak için betiklerden uç/adres kalıpları ve sayfa adının geçtiği yerler çıkarılır (yalnız okuma) */
       const taban = new URL(r.url), parca = [];
       for (const b of [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]).filter((b) => !/jquery/i.test(b)).slice(0, 8)) {
         try {
