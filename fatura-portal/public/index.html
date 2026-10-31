@@ -2265,17 +2265,23 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function vdSicilHtml(s){
     var k = s.kisi || {}, h = (s.uyari ? '<p class="not" style="margin:0 0 8px;color:var(--danger)">' + esc(s.uyari) + '</p>' : '') + '<div class="kayit"><b>' + esc(k.unvan || "Mükellef") + '</b>' + vdSatir("VKN / TCKN", k.vkn || k.tckn) + vdSatir("Mükellef türü", [k.tur, k.mukellefTuru].filter(Boolean).join(" · ")) + vdSatir("İş yeri adresi", k.isYeri) + vdSatir("İkametgâh", k.ikametgah) + vdSatir("Ticaret sicil", k.ticaretSicil) + '</div>';
-    (s.subeler || []).forEach(function(b){
-      var acilis = 0, acilisT = "", kapT = "", acik = false;
-      (b.vergiler || []).forEach(function(v){ var bt = vdTarih(v.bas); if (bt && (!acilis || bt < acilis)) { acilis = bt; acilisT = v.bas; } if (!v.bit) acik = true; });
-      if (!acik && (b.vergiler || []).length) { var son = 0; b.vergiler.forEach(function(v){ var t = vdTarih(v.bit); if (t > son) { son = t; kapT = v.bit; } }); }
+    var gizli = 0;
+    (s.subeler || []).forEach(function(b0){
+      /* yalnız faal olanlar: kapanış (bitiş) tarihi girilmiş vergi türü, faaliyet ve iş yerleri gösterilmez */
+      var b = Object.assign({}, b0), tumVergi = b0.vergiler || [], tumFaal = b0.faaliyet || [];
+      b.vergiler = tumVergi.filter(function(v){ return !v.bit; }); b.faaliyet = tumFaal.filter(function(f){ return !f.bit; });
+      gizli += (tumVergi.length - b.vergiler.length) + (tumFaal.length - b.faaliyet.length);
+      if (tumVergi.length && !b.vergiler.length) { gizli++; return; } /* iş yerinin bütün vergi türleri kapanmış */
+      var acilis = 0, acilisT = "";
+      b.vergiler.forEach(function(v){ var bt = vdTarih(v.bas); if (bt && (!acilis || bt < acilis)) { acilis = bt; acilisT = v.bas; } });
       h += '<div class="kayit"><b>' + esc([b.nitelik || b.tur || "İş yeri", b.ad].filter(Boolean).join(" · ")) + '</b> <small class="not">' + esc(b.durum || "") + '</small>' +
-        vdSatir("Vergi dairesi", b.vd) + vdSatir("Açılış", acilisT) + vdSatir("Kapanış", kapT || (acilisT ? "Faal (kapanış yok)" : "")) +
+        vdSatir("Vergi dairesi", b.vd) + vdSatir("Açılış", acilisT) + vdSatir("Durum", "Faal (kapanış yok)") +
         (b.adresler || []).map(function(a){ return vdSatir(a.tip || "Adres", a.adres); }).join("") +
-        ((b.faaliyet || []).length ? '<div style="margin-top:8px"><b style="font-size:.85rem">Faaliyet (NACE) kodları</b>' + b.faaliyet.map(function(f){ return '<div style="font-size:.86rem;margin-top:3px;overflow-wrap:anywhere"><b>' + esc(f.kod) + '</b> — ' + esc(f.ad) + (f.bas ? ' <span class="not" style="margin:0">(' + esc(f.bas) + (f.bit ? " – " + esc(f.bit) : "") + ')</span>' : '') + '</div>'; }).join("") + '</div>' : '') +
-        ((b.vergiler || []).length ? '<details class="alt2" style="margin-top:8px"><summary>Vergi türleri (' + b.vergiler.length + ')</summary><div class="icerik">' + b.vergiler.map(function(v){ return '<div style="font-size:.84rem;margin-top:4px;overflow-wrap:anywhere"><b>' + esc(v.ad) + '</b>' + (v.donem ? ' · ' + esc(v.donem) : '') + '<br><span class="not" style="margin:0">' + esc(v.bas || "—") + ' → ' + esc(v.bit || "devam ediyor") + (v.terk ? ' · ' + esc(v.terk) : '') + '</span></div>'; }).join("") + '</div></details>' : '') +
+        ((b.faaliyet || []).length ? '<div style="margin-top:8px"><b style="font-size:.85rem">Faaliyet (NACE) kodları</b>' + b.faaliyet.map(function(f){ return '<div style="font-size:.86rem;margin-top:3px;overflow-wrap:anywhere"><b>' + esc(f.kod) + '</b> — ' + esc(f.ad) + (f.bas ? ' <span class="not" style="margin:0">(' + esc(f.bas) + ')</span>' : '') + '</div>'; }).join("") + '</div>' : '') +
+        ((b.vergiler || []).length ? '<details class="alt2" style="margin-top:8px"><summary>Vergi türleri (' + b.vergiler.length + ')</summary><div class="icerik">' + b.vergiler.map(function(v){ return '<div style="font-size:.84rem;margin-top:4px;overflow-wrap:anywhere"><b>' + esc(v.ad) + '</b>' + (v.donem ? ' · ' + esc(v.donem) : '') + '<br><span class="not" style="margin:0">' + esc(v.bas || "—") + ' → devam ediyor' + '</span></div>'; }).join("") + '</div></details>' : '') +
         (b.hata ? '<p class="not" style="margin:6px 0 0;color:var(--danger)">Bazı ayrıntılar alınamadı: ' + esc(b.hata) + '</p>' : '') + '</div>';
     });
+    if (gizli) h += '<p class="not" style="margin:8px 0 0">Kapanış tarihi girilmiş ' + gizli + ' kayıt gizlendi.</p>';
     if (s.toplamSube > (s.subeler || []).length) h += '<p class="not">İlk ' + s.subeler.length + ' iş yeri gösterildi (toplam ' + s.toplamSube + ').</p>';
     return h;
   }
