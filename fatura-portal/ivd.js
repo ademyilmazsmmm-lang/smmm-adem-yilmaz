@@ -67,10 +67,11 @@ function borcDuzenle(ozet, liste) {
 class Ivd {
   constructor(kullanici, sifre) { this.k = kullanici; this.s = sifre; this.token = null; this.cid = null; }
   get girildi() { return !!this.token; }
-  async istek(yontem, url, govde, bearer) {
+  async istek(yontem, url, govde, bearer, ek) {
     const baslik = { accept: "application/json, text/plain, */*", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36", origin: "https://dijital.gib.gov.tr", referer: "https://dijital.gib.gov.tr/portal/" };
     if (govde !== undefined) baslik["content-type"] = "application/json";
     if (bearer && this.token) baslik.authorization = "Bearer " + this.token;
+    if (ek) Object.assign(baslik, ek);
     let r;
     try { r = await fetch(url, { method: yontem, headers: baslik, body: govde !== undefined ? JSON.stringify(govde) : undefined, signal: AbortSignal.timeout(25000) }); }
     catch (e) { throw new Error(e && (e.name === "TimeoutError" || e.name === "AbortError") ? "Dijital Vergi Dairesi 25 saniyede yanıt vermedi (zaman aşımı)." : "Dijital Vergi Dairesi'ne ulaşılamadı: " + e.message); }
@@ -295,7 +296,7 @@ class Ivd {
   }
   async sicilBilgi() {
     const al = (y) => (y && y.data && typeof y.data === "object" && !Array.isArray(y.data) ? y.data : y) || {}, m = (v) => (v === undefined || v === null ? "" : String(v)), uyari = [];
-    let k = {}; try { k = al(await this.istek("GET", GW + "/api/sicil-bilgileri/kisisel-bilgiler", undefined, true)); } catch (e) { if (e.oturum) throw e; uyari.push("Kimlik bilgileri: " + String(e.message).slice(0, 120)); }
+    let k = {}; try { k = al(await this.istek("GET", GW + "/api/sicil-bilgileri/kisisel-bilgiler", undefined, true, { "page-name": "sicil-bilgilerim", "ui-client": "fe" })); } catch (e) { if (e.oturum) throw e; uyari.push("Kimlik bilgileri: " + String(e.message).slice(0, 120)); }
     let tel = ""; try { tel = m(al(await this.istek("GET", GW + "/api/sicil-bilgileri/get-iletisim-bilgileri", undefined, true)).talepOnayGsmNo); } catch (e) { if (e.oturum) throw e; }
     let ly = {}; try { ly = await this.denemeli("POST", "/api/sube-bilgileri/mukellef-sube-listesi", [this.tablo({}, 50, { alan: "isyeriNitelikText", yon: "ASC" }), this.tablo({}, 50), { meta: { pagination: { pageNo: 1, pageSize: 50 }, filters: [] } }, { data: {} }, {}]); }
     catch (e) { if (e.oturum) throw e; uyari.push("İş yeri / şube listesi: " + String(e.message).slice(0, 160)); }
