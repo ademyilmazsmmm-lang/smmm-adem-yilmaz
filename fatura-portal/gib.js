@@ -294,6 +294,17 @@ class Gib {
     if (y.error === "1") throw new Error("GİB hatası: " + (y.messages && y.messages[0] && y.messages[0].text || JSON.stringify(y).slice(0, 200)));
     return y;
   }
+  /* e-Arşiv Portalı "Kullanıcı Bilgileri" (RG_KULLANICI): GETIR boş jp ile; KAYDET tüm alanları jp içinde ister. Başarıda data = "Bilgileriniz başarıyla güncellendi." */
+  async kullaniciGetir() {
+    const y = await this.dispatch("EARSIV_PORTAL_KULLANICI_BILGILERI_GETIR", "RG_KULLANICI", {});
+    if (!y.data || typeof y.data !== "object") throw new Error("GİB kullanıcı bilgisi beklenmeyen biçimde geldi.");
+    const r = {}; for (const k of KULLANICI_ALANLARI) r[k] = y.data[k] === undefined || y.data[k] === null ? "" : String(y.data[k]); return r;
+  }
+  async kullaniciKaydet(alanlar) {
+    const jp = {}; for (const k of KULLANICI_ALANLARI) jp[k] = alanlar[k] === undefined || alanlar[k] === null ? "" : temizMetin(alanlar[k], 150);
+    const y = await this.dispatch("EARSIV_PORTAL_KULLANICI_BILGILERI_KAYDET", "RG_KULLANICI", jp);
+    return { mesaj: typeof y.data === "string" ? y.data : JSON.stringify(y.data).slice(0, 200) };
+  }
   /* Belge listesi: portalın birden çok listeleme komutu var; hepsini deneyip birleştiririz.
    * Hangisinin kaç kayıt döndürdüğü this.tani içinde tutulur (hata mesajında gösterilir). */
   async liste() {
@@ -368,7 +379,7 @@ class Gib {
       /* GİB, kullanıcı bilgisini hiç güncellememiş hesaplarda taslağı oluşturmaz ve yalnız bir uyarı metni döndürür */
       if (typeof y.data === "string" && /kullan[ıi]c[ıi] bilgilerini.{0,40}g[üu]ncellememi[şs]/i.test(y.data)) {
         const kim = (/VKN\/TCKN:\s*(\d{10,11})/i.exec(y.data) || [])[1];
-        throw new Error("GİB e-Arşiv Portalı bu kullanıcı için fatura oluşturmayı reddetti (taslak OLUŞMADI): kullanıcı bilgileri hiç güncellenmemiş" + (kim ? " (VKN/TCKN " + kim + ")" : "") + ". e-Arşiv Portalı’na (earsivportal.efatura.gov.tr) bu kullanıcı koduyla bir kez girip “Kullanıcı Bilgileri”ni (e-posta, telefon, adres vb.) kaydedin; sonra buradan yeniden deneyin.");
+        throw new Error("GİB e-Arşiv Portalı bu kullanıcı için fatura oluşturmayı reddetti (taslak OLUŞMADI): kullanıcı bilgileri hiç güncellenmemiş" + (kim ? " (VKN/TCKN " + kim + ")" : "") + ". Ayarlar → mükellef → “GİB e-Arşiv kullanıcı bilgileri” bölümünden bilgileri sicilden doldurup GİB’e kaydedebilir (ya da e-Arşiv Portalı’nda “Kullanıcı Bilgileri”ni elle kaydedebilir), sonra yeniden deneyebilirsiniz.");
       }
       if (!(typeof y.data === "string" && /sorun|hata|ge[cç]ersiz|zorunlu|yanl[ıi]ş|ettn|eksik|uymuyor/i.test(y.data))) { redler.length = 0; break; }
       redler.push("varyant " + v + ": " + y.data);
@@ -521,9 +532,12 @@ Gib.prototype.faturaHtml = async function (id, onay) {
 };
 
 /* ---------- sahte GİB (deneme) ---------- */
+const KULLANICI_ALANLARI = ["vknTckn", "unvan", "ad", "soyad", "sicilNo", "mersisNo", "vergiDairesi", "cadde", "apartmanAdi", "apartmanNo", "kapiNo", "kasaba", "ilce", "il", "postaKodu", "ulke", "telNo", "faksNo", "ePostaAdresi", "webSitesiAdresi", "isMerkezi"];
 class SahteGib {
   constructor(kullanici) { this.k = kullanici; SahteGib.t = SahteGib.t || new Map(); }
   async cikis() {}
+  async kullaniciGetir() { const k = SahteGib.kullanici = SahteGib.kullanici || { vknTckn: "39896029826", ad: "ZEYNEP", soyad: "DUMLUPINAR", ulke: "Türkiye" }; const r = {}; for (const a of KULLANICI_ALANLARI) r[a] = k[a] || ""; return r; }
+  async kullaniciKaydet(a) { if (!a.vknTckn) throw new Error("GİB hatası: VKN/TCKN boş"); SahteGib.kullanici = Object.assign({}, a); return { mesaj: "Bilgileriniz başarıyla güncellendi." }; }
   async taslak(g) { const govde = typeof g === "function" ? g(0) : g; const uuid = crypto.randomUUID(); govde.faturaUuid = uuid; SahteGib.n = (SahteGib.n || 0) + 1; govde._no = "SAHTE" + String(SahteGib.n).padStart(6, "0"); SahteGib.t.set(uuid, govde); return { uuid, satir: { belgeNumarasi: govde._no }, mesaj: "SAHTE: taslak oluşturuldu (" + govde.faturaTipi + ", ödenecek " + govde.odenecekTutar + ")" }; }
   async smsGonder() { return { oid: "SAHTE-OID" }; }
   async sil(uuid) { if (!SahteGib.t.has(uuid)) throw new Error("Taslak bulunamadı."); SahteGib.t.delete(uuid); return { mesaj: "SAHTE: taslak silindi.", durum: "Silinmiş" }; }

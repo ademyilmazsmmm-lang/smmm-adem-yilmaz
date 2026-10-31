@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-186";
+const SURUM = "2026-10-31-188";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -645,6 +645,16 @@ async function api(req, res, yol) {
     if (!gibKaydi) { (k.epostalar = k.epostalar || []).push({ zaman: new Date().toISOString(), to: to.join(", ") }); if (k.epostalar.length > 20) k.epostalar.shift(); depo.kaydet(mid); }
     gunluk(o, mid, "Fatura e-postayla gönderildi", (k.belgeNo || g.uuid) + " → " + to.join(", "));
     return cevap(res, 200, { tamam: true, to, kopya });
+  }
+  if (yol === "/api/earsiv/kullanici" && req.method === "POST") { /* GİB e-Arşiv kullanıcı bilgileri: okuma ve (istemcide önizleme + onaydan sonra) kaydetme */
+    ofisGerek(o);
+    if (g.islem === "getir") return cevap(res, 200, { alanlar: await istemci(m).kullaniciGetir() });
+    if (g.islem === "kaydet") {
+      const a = g.alanlar && typeof g.alanlar === "object" ? g.alanlar : {}; if (!/^\d{10,11}$/.test(String(a.vknTckn || ""))) return cevap(res, 400, { hata: "VKN/TCKN eksik; önce GİB’den okuyun." });
+      if (!String(a.unvan || "").trim() && !(String(a.ad || "").trim() && String(a.soyad || "").trim())) return cevap(res, 400, { hata: "Ünvan ya da ad ve soyad yazın." });
+      const r = await istemci(m).kullaniciKaydet(a); gunluk(o, mid, "GİB e-Arşiv kullanıcı bilgileri güncellendi", ""); gibKisalt(m.id, 45e3); return cevap(res, 200, r);
+    }
+    return cevap(res, 400, { hata: "Geçersiz işlem." });
   }
   if (yol === "/api/sil" || yol === "/api/iptal") {
     const sil = yol === "/api/sil", neden = gib.temizMetin(g.neden, 200);

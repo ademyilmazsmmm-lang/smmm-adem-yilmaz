@@ -1766,6 +1766,32 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function etkinlikHtml(m){
     return '<details class="alt2" data-ak="e:' + m.id + '"' + ac("e:" + m.id) + '><summary>Son işlemler</summary><div class="icerik"><button class="k" type="button" data-etkinlik="' + m.id + '">Göster</button><div data-et></div></div></details>';
   }
+  /* ---- GİB e-Arşiv Portalı "Kullanıcı Bilgileri": GİB'den oku, sicilden boşları doldur, önizle, onayla ve kaydet ---- */
+  var GK = {}, GK_ET = [["unvan", "Ünvan (tüzel kişi için)"], ["ad", "Ad (gerçek kişi için)"], ["soyad", "Soyad (gerçek kişi için)"], ["vergiDairesi", "Vergi dairesi"], ["cadde", "Cadde / sokak"], ["kapiNo", "Kapı no"], ["kasaba", "Mahalle"], ["ilce", "İlçe"], ["il", "İl"], ["postaKodu", "Posta kodu"], ["telNo", "Telefon (başında 0 olmadan)"], ["ePostaAdresi", "E-posta"]];
+  function gibKullaniciHtml(m){
+    if (ROL !== "ofis" || m.earsiv === false) return "";
+    var g = GK[m.id], f = g && g.veri ? GK_ET.map(function(a){ return '<div><label>' + a[1] + '</label><input data-gkf="' + a[0] + '" value="' + esc(g.veri[a[0]] || "") + '"' + (g.dolu && g.dolu[a[0]] ? ' style="border-color:var(--accent)"' : "") + '></div>'; }).join("") : "";
+    return '<details class="alt2" data-ak="gk:' + m.id + '"' + ac("gk:" + m.id) + '><summary>GİB e-Arşiv kullanıcı bilgileri</summary><div class="icerik">' +
+      '<p class="not" style="margin:0">GİB e-Arşiv Portalı, “Kullanıcı Bilgileri” hiç kaydedilmemiş hesaplarda fatura oluşturmayı reddeder. Buradan GİB’deki kaydı okuyabilir, boş alanları sicilden (Dijital Vergi Dairesi) doldurup kontrol ederek GİB’e kaydedebilirsiniz.</p>' +
+      '<button class="btn ikincil" type="button" data-gk-oku="' + m.id + '">GİB’den oku</button>' + (g && g.veri ? '<p class="not" style="margin:0">VKN/TCKN: <b>' + esc(g.veri.vknTckn || "") + '</b>' + (g.sicilNot ? ' · ' + esc(g.sicilNot) : "") + '</p><div style="display:grid;gap:8px">' + f + '</div><button class="k" type="button" data-gk-sicil="' + m.id + '">Boş alanları sicilden doldur</button><button class="btn" type="button" data-gk-kaydet="' + m.id + '">GİB’e kaydet</button><p class="not" style="margin:0">Yeşil çerçeveli alanlar sicilden dolduruldu; adres metni parçalara bölündüğü için kontrol edin.</p>' : '') +
+      '<div class="durum" data-gkd role="status"></div></div></details>';
+  }
+  function gkDurum(id, t, tip){ var e = document.querySelector('[data-mid="' + id + '"] [data-gkd]'); if (e) { e.className = "durum " + (tip || ""); e.textContent = t; } }
+  function trBas(t){ t = String(t || "").trim().toLocaleLowerCase("tr-TR"); return t.charAt(0).toLocaleUpperCase("tr-TR") + t.slice(1); }
+  /* sicildeki tek satırlık adresi GİB'in alanlarına böl (en iyi çaba; kullanıcı kontrol eder) */
+  function adresParcala(a){
+    var t = String(a || "").replace(/\s+/g, " ").trim(), r = { cadde: "", kapiNo: "", kasaba: "", ilce: "", il: "" }, x;
+    if ((x = /([^\s\/]+)\/([^\s\/]+)\s*$/.exec(t))) { r.ilce = trBas(x[1]); r.il = trBas(x[2]); t = t.slice(0, x.index).trim(); }
+    if ((x = /(Kap[ıi]\s*No\s*:?\s*\S+(?:\s+Daire\s*(?:No)?\s*:?\s*\S+)?)/i.exec(t))) { r.kapiNo = x[1].replace(/Kap[ıi]\s*No\s*:?\s*/i, "").replace(/\s+Daire\s*(?:No)?\s*:?\s*/i, "/"); t = (t.slice(0, x.index) + " " + t.slice(x.index + x[0].length)).trim(); }
+    if ((x = /((?:\S+\s){1,3}?(?:MAHALLES[İI]|MAH\.|MAH)(?=\s|$))/i.exec(t))) { r.kasaba = trBas(x[1]); t = (t.slice(0, x.index) + " " + t.slice(x.index + x[0].length)).trim(); }
+    r.cadde = trBas(t.replace(/^[\s,.-]+|[\s,.-]+$/g, "")); return r;
+  }
+  function gkSicileCevir(sicil, mevcut){
+    var k = sicil.kisi || {}, b = (sicil.subeler || [])[0] || {}, adres = (b.adresler && b.adresler[0] && b.adresler[0].adres) || b.adresMetni || k.isYeri || "", p = adresParcala(adres), tuzel = /TUZEL|TÜZEL/i.test(k.tur || ""), isim = String(k.unvan || "").trim(), parca = isim.split(/\s+/);
+    var y = { vergiDairesi: b.vd || "", cadde: p.cadde, kapiNo: p.kapiNo, kasaba: p.kasaba, ilce: p.ilce, il: p.il, telNo: String(k.tel || "").replace(/\D/g, "").replace(/^0/, ""), ePostaAdresi: k.eposta || "" };
+    if (tuzel) y.unvan = isim; else if (parca.length > 1) { y.soyad = parca[parca.length - 1]; y.ad = parca.slice(0, -1).join(" "); } else y.ad = isim;
+    return y;
+  }
   function gibBagHtml(m){
     return '<details class="alt2" data-ak="gb:' + m.id + '"' + ac("gb:" + m.id) + '><summary>GİB bağlantısı <small>' + esc(m.kullanici || "kayıtlı değil") + '</small></summary><div class="icerik">' +
       '<div><label>VKN / TCKN</label><input data-f="vkn" inputmode="numeric" value="' + esc(m.vkn) + '"></div>' +
@@ -1836,7 +1862,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function mukellefBolumler(m, ofis){
     var ea = m.earsiv !== false;
-    return (ofis ? '<label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-ea="' + m.id + '"' + (ea ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>e-Arşiv fatura kullanıyor <small class="not">(kapalıysa yalnız Vergi Dairesi bölümü açılır)</small></span></label><label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-db="' + m.id + '"' + (m.defterBeyan ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>Defter-Beyan kullanıyor <small class="not">(şahıs, 2. sınıf; Vergi D. bölümünde “Hesap özeti” açılır)</small></span></label>' : "") + profilHtml(m) + (ea ? markaHtml(m, true) + hizmetHtml(m) + aliciHtml(m) + iceHtml(m) : "") + gibBagHtml(m) + sgkAyarHtml(m) + smsAyarHtml(m) + (ofis && !PERSONEL ? hesapHtml(m) + etkinlikHtml(m) : "") +
+    return (ofis ? '<label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-ea="' + m.id + '"' + (ea ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>e-Arşiv fatura kullanıyor <small class="not">(kapalıysa yalnız Vergi Dairesi bölümü açılır)</small></span></label><label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-db="' + m.id + '"' + (m.defterBeyan ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>Defter-Beyan kullanıyor <small class="not">(şahıs, 2. sınıf; Vergi D. bölümünde “Hesap özeti” açılır)</small></span></label>' : "") + profilHtml(m) + (ea ? markaHtml(m, true) + hizmetHtml(m) + aliciHtml(m) + iceHtml(m) : "") + gibBagHtml(m) + gibKullaniciHtml(m) + sgkAyarHtml(m) + smsAyarHtml(m) + (ofis && !PERSONEL ? hesapHtml(m) + etkinlikHtml(m) : "") +
       '<div class="durum" data-md role="status"></div>' + (ofis && !PERSONEL ? '<button class="btn tehlike" type="button" data-sil-m="' + m.id + '">Mükellefi sil</button>' : "");
   }
   function mukellefAyarHtml(m){
@@ -2072,6 +2098,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (sf) { var se = e.target.closest("[data-mid]"), sm = se && mBul(se.getAttribute("data-mid")); if (sm) (sm.sgk = sm.sgk || {})[sf] = e.target.value; return; }
     var se2 = e.target.getAttribute("data-se");
     if (se2) { var sk = e.target.closest("[data-sekk]"), sme = e.target.closest("[data-mid]"), smm = sme && mBul(sme.getAttribute("data-mid")); if (sk && smm && smm.sgkEk) { var sx = smm.sgkEk[+sk.getAttribute("data-sekk")]; if (sx) sx[se2] = e.target.value; } return; }
+    var gkf = e.target.getAttribute("data-gkf");
+    if (gkf) { var ge = e.target.closest("[data-mid]"), gid2 = ge && ge.getAttribute("data-mid"); if (gid2 && GK[gid2] && GK[gid2].veri) { GK[gid2].veri[gkf] = e.target.value; if (GK[gid2].dolu) delete GK[gid2].dolu[gkf]; } return; }
     var pf = e.target.getAttribute("data-p");
     if (pf) { var pe = e.target.closest("[data-mid]"), pm = pe && mBul(pe.getAttribute("data-mid")); if (pm) (pm.profil = pm.profil || {})[pf] = e.target.value; return; }
     var f = e.target.getAttribute("data-f"); if (!f) return;
@@ -2135,6 +2163,29 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       var d2 = $("sDurum"), eski = $("sEski").value, yeni = $("sYeni").value;
       if (yeni !== $("sYeni2").value) { d2.className = "durum hata"; d2.textContent = "Yeni şifreler aynı değil."; return; }
       api("/api/sifre", "POST", { eski: eski, yeni: yeni }).then(function(){ $("sEski").value = $("sYeni").value = $("sYeni2").value = ""; d2.className = "durum ok"; d2.textContent = "Şifreniz değiştirildi."; }, function(er){ ayarHata(d2, er); });
+      return;
+    }
+    if (t.hasAttribute("data-gk-oku")) {
+      var gid = t.getAttribute("data-gk-oku"); gkDurum(gid, "GİB’den okunuyor…", ""); t.disabled = true;
+      api("/api/earsiv/kullanici", "POST", { mukellefId: gid, islem: "getir" }).then(function(r){ GK[gid] = { veri: r.alanlar, dolu: {}, sicilNot: "" }; ayarAcik["gk:" + gid] = true; cizAyar(); gkDurum(gid, "GİB’deki kayıt okundu. Eksikleri sicilden doldurabilirsiniz.", "ok"); }, function(er){ t.disabled = false; if (oturumDustu(er)) return; gkDurum(gid, er.message, "hata"); });
+      return;
+    }
+    if (t.hasAttribute("data-gk-sicil")) {
+      var sid2 = t.getAttribute("data-gk-sicil"), gg = GK[sid2]; if (!gg) return;
+      if (!(VD.bagli && VD.mid === sid2)) { gkDurum(sid2, "Önce Dijital Vergi Dairesi’ne bağlanın (Vergi D. sekmesi ya da Ana ekrandaki Güncelle kartı).", "hata"); return; }
+      gkDurum(sid2, "Sicil bilgisi alınıyor…", ""); t.disabled = true;
+      api("/api/vd/sicil", "POST", { mukellefId: sid2 }).then(function(r){
+        var y = gkSicileCevir(r, gg.veri), dolu = {}, ad = 0; Object.keys(y).forEach(function(a){ var v = String(y[a] || "").trim(); if (!v || String(gg.veri[a] || "").trim()) return; gg.veri[a] = v; dolu[a] = true; ad++; });
+        gg.dolu = dolu; gg.sicilNot = ad ? ad + " alan sicilden dolduruldu" : "Doldurulacak boş alan yok"; cizAyar(); gkDurum(sid2, ad ? "Boş alanlar sicilden dolduruldu. Kontrol edip GİB’e kaydedin." : "Boş alan kalmamış.", "ok");
+      }, function(er){ t.disabled = false; if (oturumDustu(er)) return; if (er.girisGerek) VD.bagli = false; gkDurum(sid2, er.message, "hata"); });
+      return;
+    }
+    if (t.hasAttribute("data-gk-kaydet")) {
+      var kid = t.getAttribute("data-gk-kaydet"), gk = GK[kid]; if (!gk) return; var v0 = gk.veri;
+      if (!String(v0.unvan || "").trim() && !(String(v0.ad || "").trim() && String(v0.soyad || "").trim())) { gkDurum(kid, "Ünvan ya da ad ve soyad yazın.", "hata"); return; }
+      if (!confirm("GİB e-Arşiv Portalı’ndaki kullanıcı bilgileri bu değerlerle KAYDEDİLECEK:\n\n" + GK_ET.map(function(a){ return a[1] + ": " + (v0[a[0]] || "—"); }).join("\n") + "\n\nOnaylıyor musunuz?")) return;
+      gkDurum(kid, "GİB’e kaydediliyor…", ""); t.disabled = true;
+      api("/api/earsiv/kullanici", "POST", { mukellefId: kid, islem: "kaydet", alanlar: v0 }).then(function(r){ t.disabled = false; gk.dolu = {}; gk.sicilNot = ""; cizAyar(); gkDurum(kid, "GİB: " + r.mesaj, "ok"); }, function(er){ t.disabled = false; if (oturumDustu(er)) return; gkDurum(kid, er.message, "hata"); });
       return;
     }
     if (t.hasAttribute("data-profil-sicil")) { var sid = mEl && mEl.getAttribute("data-mid"); if (!confirm("Profildeki ünvan, vergi dairesi, adres, telefon ve e-posta sicil bilgisiyle değiştirilsin mi?")) return; profilSicilDoldur(sid, true, false); return; }
