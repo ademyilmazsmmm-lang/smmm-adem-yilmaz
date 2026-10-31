@@ -325,7 +325,7 @@ class Ivd {
       const yedek = { ad: "MERKEZ", no: "", tur: "Merkez", nitelik: "Merkez", vd: "", durum: "", adresler: [], faaliyet: [], vergiler: [], hata: "" };
       try { const my = al(await this.istek("GET", GW + "/sube-bilgileri/merkez-bilgisi-getir", undefined, true)); yedek.vd = m(my.vergiDairesi || my.vdUzunAdi || my.vdAdi); yedek.durum = m(my.birimFaal || my.durum); yedek.ad = m(my.subeAdi) || "MERKEZ"; yedek.no = m(my.subeNumarasi || my.subeNo); } catch (e) { if (e.oturum) throw e; yedek.hata += "merkez: " + String(e.message).slice(0, 120); }
       try { const fy = await this.istek("GET", GW + "/faaliyet-bilgileri/merkez-faaliyet-bilgisi", undefined, true), fl = (fy && (Array.isArray(fy.faaliyetKodlari) ? fy.faaliyetKodlari : fy.data && Array.isArray(fy.data.faaliyetKodlari) ? fy.data.faaliyetKodlari : [])) || []; yedek.faaliyet = fl.slice(0, 30).map((f) => ({ kod: m(f.faaliyetKod), ad: m(f.faaliyetAd), bas: m(f.basTar || f.baslamaTarihi), bit: m(f.bitTar || f.bitisTarihi) })); } catch (e) { if (e.oturum) throw e; yedek.hata += (yedek.hata ? " · " : "") + "faaliyet: " + String(e.message).slice(0, 120); }
-      if (yedek.faaliyet.length || yedek.vd) subeler.push(yedek); else if (!Object.keys(k).length) throw new Error(uyari.join(" · ") || "Sicil bilgisi alınamadı.");
+      if (yedek.faaliyet.length || yedek.vd) subeler.push(yedek); else if (!Object.keys(k).length) { const tum = uyari.concat(yedek.hata ? ["yedek okuma: " + yedek.hata] : []).join(" · "); throw new Error((tum || "Sicil bilgisi alınamadı.") + (/Adres bulunamad/i.test(tum) ? " — GİB bu mükellefin sicilinde kayıtlı adres bulamıyor; Dijital VD’deki Sicil Bilgilerim ekranı da aynı hatayı verir olabilir. Başka bir mükellefle deneyin." : "")); }
     }
     return { kisi: { unvan: m(k.adSoyadUnvan), vkn: m(k.vkn), tckn: m(k.tckn), tur: m(k.sirketTuru), mukellefTuru: m(k.mukellefTuru), dogum: m(k.dogumTarihi), ikametgah: m(k.ikametgahAdres), isYeri: m(k.isYeriAdres), ticaretSicil: m(k.ticaretSicilNo), tel }, subeler, toplamSube: dizi.length, uyari: uyari.join(" · "), sekil: sekil({ kisi: k, liste: ly }) };
   }
@@ -383,7 +383,8 @@ class Ivd {
     /* adresler ve komut adları sayfanın kendi ayarlarından okunur (SideModuleMap / SideDefaults); bulunamazsa bilinen değerler */
     let ayar = String(html || ""); const kok0 = u.origin + new URL(hedef).pathname.replace(/[^/]*$/, "");
     if (!/SideModuleMap/.test(ayar)) { for (const ad of ["js/cs/wt-script-1.jsp", "js/cs/wt-script-2.jsp"]) { try { const r = await this.gibGit(kok0 + ad + "?isAuthorized=true&lang=tr", undefined, hedef); ayar += "\n" + r.metin; } catch (e) { /* yok */ } } }
-    const prod = (/prod\s*:\s*\{([\s\S]*?)\}\s*,?\s*\}\s*;/.exec(ayar) || [])[1] || "", yerel = /(\w+)\s*:\s*\{\s*side\s*:\s*"([^"]*)"\s*,\s*app\s*:\s*"([^"]*)"[^}]*isLocalModule\s*:\s*true/.exec(prod);
+    const prod = (/prod\s*:\s*\{([\s\S]*?)\}\s*,?\s*\}\s*;/.exec(ayar) || [])[1] || "", yerel0 = /(\w+)\s*:\s*\{\s*side\s*:\s*"([^"]*)"\s*,\s*app\s*:\s*"([^"]*)"[^}]*isLocalModule\s*:\s*true/.exec(prod);
+    const yerel = yerel0 || (() => { const x = /"(\w+)"\s*:\s*\{\s*"app"\s*:\s*"([^"]*)"\s*,\s*"side"\s*:\s*"([^"]*)"[^}]*"isLocalModule"\s*:\s*true/.exec(ayar); return x ? [null, x[1], x[3], x[2]] : null; })();
     const mutlak = (yol, taban) => { try { return new URL(String(yol).trim(), taban).pathname; } catch (e) { return ""; } };
     const sayfaYolu = new URL(hedef).pathname, uygA = (yerel && mutlak(yerel[3], u.origin + sayfaYolu)) || uyg, sideA = (yerel && mutlak(yerel[2], u.origin + sayfaYolu)) || (intvrg ? "/intvrg_side/side-dispatch" : "/tvd_side/side-dispatch");
     const oturumKomut = (/\['sn-getUserSessionInfo'\]\s*=\s*'([^']+)'/.exec(ayar) || [])[1] || "userSessionService_getUserSessionInfo", jetonAdi = (/\['param-token-key'\]\s*=\s*'([^']+)'/.exec(ayar) || [])[1] || "token";
@@ -409,31 +410,29 @@ class Ivd {
       } catch (e) { gunluk.push(yol + " " + cmd + " → " + String(e.message).slice(0, 100)); }
       if (bulunan.length) break dis;
     }
-    /* 2. aşama: menü yetkisiz ise sayfa tanımını (BF) doğrudan iste; tanım içindeki servis (komut) adları ve gövde biçimi görünür */
-    const sayfalar = (intvrg ? [] : ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG", "P_INTVRG_INTVD_EHACIZ_ARAC_SRG"]).concat(bulunan.map((x) => x.split(" | ")[2]).filter(Boolean).slice(0, 2), tumu.map((x) => x.split(" | ")[2]).filter(Boolean).slice(0, 1)), bf = [];
-    for (const sf of sayfalar) {
-      const modAd = (yerel && yerel[1]) || "iv", adlar0 = [sf, modAd + "." + sf];
-      for (const yol of yollar.slice(0, 1)) for (const bn of adlar0) for (const ek of ["", "&pageName=" + encodeURIComponent(sf) + "&module=" + encodeURIComponent(modAd)]) { const jp = { userid, bfnames: [bn], loadedList: [], params: {}, resourceBundleLang: "tr" };
-        const govde = "cmd=SIDE.GET_EAGER_BF_DEFS&callid=" + Date.now().toString(36) + "&" + jetonAdi + "=" + encodeURIComponent(token) + ek + "&jp=" + encodeURIComponent(JSON.stringify(jp));
+    /* 2. aşama: sayfa tanımı (BF) "<modül>.<sayfa>" adıyla side-dispatch'ten istenir; tanımın içindeki servis (komut) adları sorgunun nasıl yapıldığını gösterir */
+    const modAd = (yerel && yerel[1]) || "iv", haciz = intvrg ? [] : ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG", "P_INTVRG_INTVD_EHACIZ_ARAC_SRG"], bf = [];
+    const menuSf = [...new Set(tumu.map((x) => x.split(" | ")[2]).filter((x) => x && /^P_/.test(x) && !/YABANCI/.test(x)))].slice(0, 14), okcSf = [...new Set(bulunan.map((x) => x.split(" | ")[2]).filter(Boolean))].slice(0, 4);
+    const bfCoz = (metin) => { let j = null; try { j = JSON.parse(metin); } catch (e) { /* düz metin */ } const sc = String((j && j.data && j.data.bfscript) || metin || ""); if (j && j.error) return { hata: maske(JSON.stringify(j.messages || j.error)).slice(0, 200), sc: "" }; return { sc }; };
+    for (const sf of haciz.concat(okcSf, menuSf)) {
+      const ayrinti = haciz.includes(sf) || okcSf.includes(sf); let sonuc = "";
+      for (const ek of ["", "&module=" + encodeURIComponent(modAd) + "&pageName=" + encodeURIComponent(sf)]) {
         try {
-          const r = await this.gibGit(u.origin + yol, govde, hedef), t = maske(r.metin.replace(/\s+/g, " "));
-          const adlar = [...new Set([...t.matchAll(/"(?:sn|serviceName|service|cmd|svc|serviceNames?)"\s*:\s*"([^"]{3,80})"/g)].map((m) => m[1]))].slice(0, 30);
-          bf.push(bn + (ek ? " +pageName" : "") + " @" + yol + " → HTTP " + r.durum + " " + r.metin.length + " bayt · " + t.slice(0, 600) + (adlar.length ? "\n   servis adları: " + adlar.join(" | ") : ""));
-          if (r.metin.length > 400 && !/yetkiniz yok/.test(r.metin)) break;
-        } catch (e) { bf.push(sf + " → " + String(e.message).slice(0, 100)); }
+          const jp = { userid, bfnames: [modAd + "." + sf], loadedList: [], params: {}, resourceBundleLang: "tr" };
+          const r = await this.gibGit(u.origin + yollar[0], "cmd=SIDE.GET_EAGER_BF_DEFS&callid=" + Date.now().toString(36) + "&" + jetonAdi + "=" + encodeURIComponent(token) + ek + "&jp=" + encodeURIComponent(JSON.stringify(jp)), hedef), c = bfCoz(r.metin);
+          if (c.hata) { sonuc = "hata: " + c.hata; continue; }
+          if (!c.sc) { sonuc = "boş (" + r.metin.length + " bayt)"; continue; }
+          const tek = (re, n) => [...new Set([...c.sc.matchAll(re)].map((m) => m[1]))].slice(0, n);
+          const srv = tek(/CSCaller\.call\(\s*["']([^"']{3,100})["']/g, 12).concat(tek(/["'](?:sn|serviceName)["']\s*[:=]\s*["']([^"']{3,100})["']/g, 8)), sf2 = tek(/\b(P_[A-Z0-9_]{6,70})\b/g, 12), hid = tek(/\b(H[0-9a-f]{12})\b/g, 8), okc = tek(/([^"']{0,40}(?:OKC|ÖKC|ZRAPOR)[^"']{0,40})/gi, 6);
+          sonuc = c.sc.length + " bayt · servis: " + (srv.join(", ") || "-") + " · sayfa: " + (sf2.join(", ") || "-") + (hid.length ? " · menü: " + hid.join(", ") : "") + (okc.length ? " · ÖKC: " + okc.join(" | ") : "");
+          if (ayrinti) { const o = [...c.sc.matchAll(/CSCaller\.call\(/g)].slice(0, 3).map((m) => maske(c.sc.slice(Math.max(0, m.index - 150), m.index + 650).replace(/\s+/g, " "))); if (o.length) sonuc += "\n      örnek çağrılar:\n      " + o.join("\n      ---\n      "); }
+          break;
+        } catch (e) { sonuc = String(e.message).slice(0, 100); }
       }
+      bf.push(modAd + "." + sf + " → " + sonuc);
     }
-    /* sayfa tanımı JS olarak openbf.jsp'den gelir; içindeki servis (komut) adları sorgunun nasıl yapıldığını gösterir */
-    const kok = u.origin + new URL(hedef).pathname.replace(/[^/]*$/, ""), kod = [], hepsiSf = [...new Set(sayfalar.concat(bulunan.map((x) => x.split(" | ")[2]).filter(Boolean)).concat(tumu.map((x) => x.split(" | ")[2]).filter((x) => x && /OKC|EHACIZ|ZRAPOR/i.test(x))))].slice(0, 6);
-    for (const sf of hepsiSf) {
-      try {
-        const r = await this.gibGit(kok + "openbf.jsp?bfname=" + encodeURIComponent(sf) + "&" + jetonAdi + "=" + encodeURIComponent(token), undefined, hedef), t = String(r.metin || "");
-        const cagri = [...new Set([...t.matchAll(/CSCaller\.call\(\s*["']([^"']{3,100})["']/g)].map((x) => x[1]).concat([...t.matchAll(/["'](?:sn|serviceName|cmd)["']\s*:\s*["']([^"']{3,100})["']/g)].map((x) => x[1])))].slice(0, 25);
-        const i0 = t.search(/CSCaller\.call\(/), ornek = i0 >= 0 ? maske(t.slice(Math.max(0, i0 - 200), i0 + 900).replace(/\s+/g, " ")) : maske(t.slice(0, 300).replace(/\s+/g, " "));
-        kod.push(sf + " → HTTP " + r.durum + " " + t.length + " bayt" + (cagri.length ? "\n   servisler: " + cagri.join(" | ") : "") + "\n   örnek: " + ornek);
-      } catch (e) { kod.push(sf + " → " + String(e.message).slice(0, 100)); }
-    }
-    return "[SIDE keşif] giriş: " + gr.yol + "\n" + (kod.length ? "Sayfa kodu (openbf):\n" + kod.join("\n") + "\n\n" : "") + (bulunan.length ? "Menüde bulunan sayfalar (kod | ad | sayfa):\n" + [...new Set(bulunan)].join("\n") + "\n\n" : "") + (tumu.length ? "Menü kayıtları (kod | ad | sayfa):\n" + [...new Set(tumu)].join("\n") + "\n\n" : "") + "Denemeler:\n" + gunluk.slice(0, 16).join("\n") + (bf.length ? "\nSayfa tanımı:\n" + bf.join("\n") : "") + "\n\n";
+    const kod = [];
+    return "[SIDE keşif] giriş: " + gr.yol + "\n" + (bulunan.length ? "Menüde bulunan sayfalar (kod | ad | sayfa):\n" + [...new Set(bulunan)].join("\n") + "\n\n" : "") + (tumu.length ? "Menü kayıtları (kod | ad | sayfa):\n" + [...new Set(tumu)].join("\n") + "\n\n" : "") + "Denemeler:\n" + gunluk.slice(0, 16).join("\n") + (bf.length ? "\nSayfa tanımı:\n" + bf.join("\n") : "") + "\n\n";
   }
   async interaktifSayfa(sayfa, derin, sistem) {
     const intvrg = sistem === "intvrg" || sistem === "okc"; /* İnternet Vergi Dairesi (intvrg.gib.gov.tr): ÖKC / Z raporu bu sistemdedir */
