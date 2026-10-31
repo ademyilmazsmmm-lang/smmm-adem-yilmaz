@@ -411,7 +411,9 @@ class Ivd {
     for (const b of biciler) {
       try {
         const r = await this.dbsCagri("external/auth/loginWithToken", b.govde, b.jeton || "", "");
-        if (r.jeton) { this.dbs = { jeton: r.jeton, cerez: r.cerez, zaman: Date.now() }; return this.dbs; }
+        /* başarı: yanıtta jeton başlığı VEYA {status:200, resultContainer:"Geçiş yapıldı."}; jeton yoksa oturum çerezi ile devam edilir */
+        const gecis = r.durum === 200 && r.json && Number(r.json.status) === 200 && /ge[çc]i[şs]\s*yap[ıi]ld[ıi]/i.test(String(r.json.resultContainer || ""));
+        if (r.jeton || gecis) { this.dbs = { jeton: r.jeton || "", cerez: r.cerez, zaman: Date.now() }; return this.dbs; }
         deneme.push(Object.keys(b.govde).join(",") + (b.jeton ? "+başlık" : "") + " → HTTP " + r.durum + " " + String(r.json ? JSON.stringify(r.json) : r.ham).replace(/eyJ[\w.-]+/g, "<jwt>").slice(0, 120));
       } catch (e) { deneme.push(String(e.message).slice(0, 100)); }
     }
