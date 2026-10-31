@@ -542,6 +542,17 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   </section>
 
   <section data-sayfa="ana" class="liste" hidden>
+    <div class="card" id="anaGunc" hidden style="gap:10px;border-left:4px solid var(--accent)">
+      <div class="abas" style="margin:0"><b id="gBaslik">Bilgileri güncelle</b><small id="gSon"></small></div>
+      <p class="not" style="margin:0" id="gAciklama">Vergi borcu, tebligat ve SGK borcunu tek seferde yenilemek için doğrulama kodlarını yazın.</p>
+      <button class="btn ikincil" type="button" id="gKodAl">Doğrulama kodlarını getir</button>
+      <div id="gKodlar" style="display:none;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+        <div id="gVdKutu" style="display:grid;gap:6px"><b style="font-size:.85rem">Dijital Vergi Dairesi</b><img id="gVdResim" alt="Vergi dairesi doğrulama kodu" style="max-width:100%;height:50px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px"><input id="gVdKod" autocomplete="off" inputmode="text" placeholder="Resimdeki kod"></div>
+        <div id="gSgkKutu" style="display:grid;gap:6px"><b style="font-size:.85rem">SGK</b><img id="gSgkResim" alt="SGK güvenlik kodu" style="max-width:100%;height:50px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px"><input id="gSgkKod" autocomplete="off" inputmode="text" placeholder="Resimdeki kod"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="gGuncelle" hidden>Güncelle</button><button class="k" type="button" id="gSimdiDegil">Şimdi değil</button></div>
+      <div class="durum" id="gDurum" role="status"></div>
+    </div>
     <div id="anaIc" style="display:flex;flex-direction:column;gap:14px"></div>
   </section>
   <section data-sayfa="belge" class="liste" hidden>
@@ -2676,7 +2687,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var govde = { mukellefId: VD.mid, bas: $("vdBas").value, bit: $("vdBit").value, yil: VD.yil };
     if (sek === "tahakkuk") { govde.tbas = $("vdTBas").value; govde.tbit = $("vdTBit").value; } else if (sek === "arac") govde.gecmis = !!VD.aracGecmis; else if (sek === "pos" || sek === "zrapor") { govde.yil = $("vdPosYil").value; govde.ay = $("vdPosAy").value; }
     api("/api/vd/" + (sek === "yazi" ? "yazilar" : sek === "trafik" ? "tebligat" : sek), "POST", govde).then(function(r){
-      r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc[sek] = r; d.textContent = ""; vdRozet(); if (VD.sek === sek) vdCiz();
+      r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc[sek] = r; d.textContent = ""; if (sek === "tebligat" || sek === "trafik") tebOzetGonder(VD.mid, r); vdRozet(); if (VD.sek === sek) vdCiz();
     }, function(er){ VD.sonuc[sek] = null; if (VD.sek === sek) vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });
   }
   $("vdSeg").addEventListener("click", function(e){ var b = e.target.closest("[data-vd]"); if (!b) return; VD.sek = b.getAttribute("data-vd"); vdSekmeCiz(); if (VD.bagli && !VD.sonuc[VD.sek]) vdSorgula(); });
@@ -2796,6 +2807,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       kutu("belge", "belge", "Belgelerim", r.belge == null ? "—" : String(r.belge), "İmza sirküleri, gazete…", "") +
       kutu("talep", "talep", ofis ? "Bekleyen talepler" : "Taleplerim", ofis ? (r.bekleyenToplam == null ? "—" : String(r.bekleyenToplam)) : (r.acikTalep == null ? "—" : r.acikTalep + " açık"), ofis ? "Tüm mükellefler" : "Ofise sorularınız", ofis && r.bekleyenToplam > 0 ? "dik" : "") +
       '</div><p class="not" style="margin:8px 2px 0;font-size:.78rem">Vergi dairesi ve SGK tutarları, o bölümde sorgulayınca güncellenir (güvenlik kodu gerekir).</p></div>';
+    var tb = son.tebligat;
+    if (tb) h += '<button type="button" data-git="vd" class="kayit" style="text-align:left;display:grid;gap:2px;border:1px solid var(--line)"><span style="font-size:.78rem;color:var(--muted)">Tebligat · ' + anaZaman(tb.zaman) + ' sorgusu</span><span><b style="color:' + (tb.onemli ? "var(--danger)" : "inherit") + '">' + tb.onemli + ' önemli</b> · ' + tb.okunmadi + ' okunmamış · ' + tb.trafik + ' trafik cezası · toplam ' + tb.toplam + '</span></button>';
     if (m && m.earsiv !== false) h += '<button class="btn anafatura" type="button" data-git="yeni">' + IKON.fatura.replace("<svg ", '<svg width="20" height="20" ') + 'Yeni fatura kes</button>';
     if (KIRA) h += kiraHtml(KIRA);
     h += '<div><div class="abas"><b>' + IKON.takvim + 'Yaklaşan tarihler</b><small>Vergi ve SGK</small></div><div class="tkl">' +
@@ -2803,7 +2816,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       '</div><p class="not" style="margin:8px 2px 0;font-size:.78rem">Hafta sonu ve resmî tatiller sonraki iş gününe kayar.</p></div>';
     h += '<div class="card" style="gap:6px"><div class="abas" style="margin:0"><b>' + IKON.saat + 'Muhasebe ücreti ve tahsilat takibi</b><small>Yakında</small></div><p class="not" style="margin:0">Muhasebe ücretinizin ve ödemelerinizin takibi buradan yapılacak. <b>Çalışma devam ediyor.</b></p>' +
       (ofis ? '<a class="btn ikincil" style="text-decoration:none;margin-top:6px" href="https://smmmyilmaz.pythonanywhere.com/giris" target="_blank" rel="noopener">Takip programını aç</a>' : "") + '</div>';
-    $("anaIc").innerHTML = h;
+    $("anaIc").innerHTML = h; guncGoster(son);
   }
   function anaAc(){
     if (Date.now() - KIRA_ZAMAN > 30 * 60e3) { KIRA_ZAMAN = Date.now(); api("/api/kira-orani").then(function(r){ if (r.oran) { KIRA = r.oran; if (aktifSekme === "ana") anaCiz(OZET || {}); } }, function(){}); }
@@ -2812,6 +2825,61 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     api("/api/ozet" + (m ? "?mid=" + encodeURIComponent(m.id) : "")).then(function(r){ r.mid = m && m.id; OZET = r; if (aktifSekme === "ana") anaCiz(r); talepRozet(r.bekleyenToplam); }, function(er){ oturumDustu(er); });
   }
   function talepRozet(n){ var e = $("bRozet"); if (!e) return; e.hidden = !(ROL === "ofis" && n > 0); e.textContent = n > 0 ? n : ""; }
+  /* ---- Ana ekran: tek kartla Dijital VD + SGK kodu; borç, tebligat ve SGK borcu birlikte yenilenir ---- */
+  var GUNC = { gizle: {}, mid: null, vd: false, sgk: false, calisiyor: false };
+  function tebSayim(l){ l = l || []; return { onemli: l.filter(tebOnemli).length, okunmadi: l.filter(tebOkunmadi).length, trafik: l.filter(tebTrafik).length, toplam: l.length }; }
+  function tebOzetGonder(mid, r){ try { api("/api/son", "POST", { mukellefId: mid, tebligat: tebSayim(r && r.kayitlar) }).then(function(){ if (OZET && OZET.mid === mid) { OZET.son = OZET.son || {}; OZET.son.tebligat = Object.assign(tebSayim(r.kayitlar), { zaman: new Date().toISOString() }); if (aktifSekme === "ana") anaCiz(OZET); } }, function(){}); } catch (e) { /* özet isteğe bağlı */ } }
+  function guncGerek(son, m){
+    var k = (m && m.sgk) || {}, sgkVar = !!(k.kullanici && k.isyeriKod && k.sistemVar && k.isyeriVar), sinir = Date.now() - 24 * 3600e3, eski = function(x){ var t = x && x.zaman ? new Date(x.zaman).getTime() : 0; return !t || t < sinir; };
+    return eski(son.vdBorc) || eski(son.tebligat) || (sgkVar && eski(son.sgkBorc));
+  }
+  function guncGoster(son){
+    var el = $("anaGunc"), m = mk(); if (!m || GUNC.gizle[m.id] || GUNC.calisiyor && GUNC.mid === m.id) { if (!(GUNC.calisiyor && m && GUNC.mid === m.id)) el.hidden = true; return; }
+    if (!guncGerek(son || {}, m)) { el.hidden = true; return; }
+    el.hidden = false;
+    if (GUNC.mid !== m.id) { GUNC.mid = m.id; GUNC.vd = GUNC.sgk = false; $("gKodlar").style.display = "none"; $("gGuncelle").hidden = true; $("gKodAl").hidden = false; $("gDurum").textContent = ""; $("gVdKod").value = ""; $("gSgkKod").value = ""; }
+    var son0 = [son.vdBorc, son.tebligat, son.sgkBorc].filter(Boolean).map(function(x){ return new Date(x.zaman).getTime(); }).filter(Boolean); $("gSon").textContent = son0.length ? "Son: " + anaZaman(new Date(Math.min.apply(null, son0)).toISOString()) : "Hiç sorgulanmadı";
+  }
+  $("gKodAl").addEventListener("click", function(){
+    var b = this, d = $("gDurum"), m = mk(); if (!m) return; vdAc(); var k = m.sgk || {}, sgkVar = !!(k.kullanici && k.isyeriKod && k.sistemVar && k.isyeriVar);
+    b.disabled = true; d.className = "durum"; d.textContent = "Doğrulama kodları isteniyor…"; GUNC.vd = !VD.bagli; GUNC.sgk = sgkVar && !VD.sgkB["isveren|0"]; VD.sgkIx = 0;
+    var isler = [];
+    if (GUNC.vd) isler.push(api("/api/vd/captcha", "POST", { mukellefId: m.id }).then(function(r){ $("gVdResim").src = r.resim; $("gVdKod").value = ""; }));
+    if (GUNC.sgk) isler.push(api("/api/sgk/captcha", "POST", { mukellefId: m.id, sistem: "isveren", ix: 0 }).then(function(r){ $("gSgkResim").src = r.resim; $("gSgkKod").value = ""; }));
+    Promise.all(isler.map(function(p){ return p.then(function(){ return null; }, function(er){ return er; }); })).then(function(hatalar){
+      b.disabled = false; var er = hatalar.filter(Boolean)[0]; if (er) { if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = er.message; return; }
+      if (!GUNC.vd && !GUNC.sgk) { guncYukle(m); return; }
+      $("gVdKutu").style.display = GUNC.vd ? "grid" : "none"; $("gSgkKutu").style.display = GUNC.sgk ? "grid" : "none"; $("gKodlar").style.display = "grid"; $("gGuncelle").hidden = false; b.hidden = true; d.textContent = ""; setTimeout(function(){ (GUNC.vd ? $("gVdKod") : $("gSgkKod")).focus(); }, 50);
+    });
+  });
+  function guncYukle(m){
+    var d = $("gDurum"), sonuc = [], hata = [];
+    var ad = function(x, y){ sonuc.push(x); return y; };
+    d.className = "durum"; d.textContent = "Bilgiler alınıyor…";
+    var vdIs = !VD.bagli ? Promise.resolve() : api("/api/vd/borc", "POST", { mukellefId: m.id }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.borc = r; sonuc.push("vergi borcu"); }, function(er){ hata.push("Vergi borcu: " + er.message); })
+      .then(function(){ return api("/api/vd/tebligat", "POST", { mukellefId: m.id }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.tebligat = r; tebOzetGonder(m.id, r); sonuc.push("tebligat"); }, function(er){ hata.push("Tebligat: " + er.message); }); });
+    var sgkIs = !VD.sgkB["isveren|0"] ? Promise.resolve() : api("/api/sgk/sayfa", "POST", { mukellefId: m.id, sistem: "isveren", ix: 0, ad: "DonemBorcGoruntuleme" }).then(function(){ sonuc.push("SGK borcu"); }, function(er){ hata.push("SGK borcu: " + er.message); });
+    return Promise.all([vdIs, sgkIs]).then(function(){
+      GUNC.calisiyor = false; $("gGuncelle").disabled = false;
+      if (hata.length) { d.className = "durum hata"; d.textContent = (sonuc.length ? "Yenilenen: " + sonuc.join(", ") + ". " : "") + hata.join(" · "); } else { d.className = "durum ok"; d.textContent = "Güncellendi: " + sonuc.join(", ") + ". Oturumlar 5 dakika açık kalır."; setTimeout(function(){ if (GUNC.mid === m.id && !GUNC.calisiyor) $("anaGunc").hidden = true; }, 2500); }
+      anaAc();
+    });
+  }
+  $("gGuncelle").addEventListener("click", function(){
+    var b = this, d = $("gDurum"), m = mk(); if (!m || GUNC.calisiyor) return;
+    var vk = $("gVdKod").value.trim(), sk = $("gSgkKod").value.trim();
+    if ((GUNC.vd && vk.length < 4) || (GUNC.sgk && sk.length < 4)) { d.className = "durum hata"; d.textContent = "Resimlerdeki kodları yazın."; return; }
+    GUNC.calisiyor = true; b.disabled = true; d.className = "durum"; d.textContent = "Bağlanılıyor… (10–30 sn sürebilir)"; var hatalar = [];
+    var vdG = GUNC.vd ? api("/api/vd/giris", "POST", { mukellefId: m.id, dk: vk }).then(function(){ VD.bagli = true; }, function(er){ hatalar.push("Vergi dairesi: " + er.message); }) : Promise.resolve();
+    var sgG = GUNC.sgk ? api("/api/sgk/giris", "POST", { mukellefId: m.id, sistem: "isveren", ix: 0, dk: sk }).then(function(){ VD.sgkB["isveren|0"] = true; }, function(er){ hatalar.push("SGK: " + er.message); }) : Promise.resolve();
+    Promise.all([vdG, sgG]).then(function(){
+      if (hatalar.length && !VD.bagli && !VD.sgkB["isveren|0"]) { GUNC.calisiyor = false; b.disabled = false; d.className = "durum hata"; d.textContent = hatalar.join(" · ") + " — yeni kodları getirin."; $("gKodlar").style.display = "none"; b.hidden = true; $("gKodAl").hidden = false; $("gKodAl").textContent = "Yeni doğrulama kodlarını getir"; return; }
+      if (hatalar.length) { d.className = "durum hata"; d.textContent = hatalar.join(" · "); }
+      return guncYukle(m);
+    });
+  });
+  $("gSimdiDegil").addEventListener("click", function(){ var m = mk(); if (m) GUNC.gizle[m.id] = true; $("anaGunc").hidden = true; });
+  ["gVdKod", "gSgkKod"].forEach(function(id){ $(id).addEventListener("keydown", function(e){ if (e.key === "Enter") { e.preventDefault(); $("gGuncelle").click(); } }); });
   $("anaIc").addEventListener("click", function(e){
     var b = e.target.closest("[data-git]"); if (!b) return; var g = b.getAttribute("data-git");
     if (g === "talep") { BS = "talepler"; sekme("belge"); } else sekme(g);
