@@ -297,7 +297,8 @@ class Ivd {
     const al = (y) => (y && y.data && typeof y.data === "object" && !Array.isArray(y.data) ? y.data : y) || {}, m = (v) => (v === undefined || v === null ? "" : String(v)), uyari = [];
     let k = {}; try { k = al(await this.istek("GET", GW + "/sicil-bilgileri/kisisel-bilgiler", undefined, true)); } catch (e) { if (e.oturum) throw e; uyari.push("Kimlik bilgileri: " + String(e.message).slice(0, 120)); }
     let tel = ""; try { tel = m(al(await this.istek("GET", GW + "/sicil-bilgileri/get-iletisim-bilgileri", undefined, true)).talepOnayGsmNo); } catch (e) { if (e.oturum) throw e; }
-    const ly = await this.denemeli("POST", "/sube-bilgileri/mukellef-sube-listesi", [this.tablo({}, 50, { alan: "isyeriNitelikText", yon: "ASC" }), this.tablo({}, 50), { meta: { pagination: { pageNo: 1, pageSize: 50 }, filters: [] } }, { data: {} }, {}]);
+    let ly = {}; try { ly = await this.denemeli("POST", "/sube-bilgileri/mukellef-sube-listesi", [this.tablo({}, 50, { alan: "isyeriNitelikText", yon: "ASC" }), this.tablo({}, 50), { meta: { pagination: { pageNo: 1, pageSize: 50 }, filters: [] } }, { data: {} }, {}]); }
+    catch (e) { if (e.oturum) throw e; if (!Object.keys(k).length) throw e; uyari.push("İş yeri / şube listesi alınamadı: " + String(e.message).slice(0, 160)); }
     const dizi = (ly && (Array.isArray(ly.subeBilgiDTO) ? ly.subeBilgiDTO : ly.data && Array.isArray(ly.data.subeBilgiDTO) ? ly.data.subeBilgiDTO : [])) || [], liste = dizi.slice(0, 8), subeler = [];
     const vkn = m(k.vkn) || m((ly && ly.vkn) || "");
     for (const sb of liste) {
@@ -360,9 +361,15 @@ class Ivd {
     throw new Error("İnteraktif Vergi Dairesi çok fazla yönlendirme yaptı.");
   }
   /* SIDE sunucusuna (intvrg_server/dispatch ya da tvd_server/dispatch) menü tanımlarını sordurur: Z raporu / haciz gibi sayfaların gerçek adlarını ve komutlarını bulmak için (yalnız okuma) */
+  /* Z raporu (yeni nesil ÖKC) Dijital VD'de ayrı bir girişle açılır (/tdvd/yeniNesilOkc-login); diğerleri intvrg / interaktif */
+  async sideGiris(sistem) {
+    const yollar = sistem === "okc" ? ["/auth/tdvd/yeniNesilOkc-login", "/auth/tdvd/intvrg-login"] : sistem === "intvrg" ? ["/auth/tdvd/intvrg-login"] : ["/auth/tdvd/interaktif-login"]; let son = null;
+    for (const yol of yollar) { try { const y = await this.istek("GET", GW + yol, undefined, true); if (y && y.redirectUrl) return { y, yol }; son = new Error("bağlantı adresi alınamadı" + (this.mesajMetni(y) ? ": " + this.mesajMetni(y) : "")); } catch (e) { if (e.oturum) throw e; son = e; } }
+    throw son || new Error("bağlantı adresi alınamadı");
+  }
   async sideKesif(sistem, ara, html) {
-    const intvrg = sistem === "intvrg", maske = (t) => String(t || "").replace(/(token|jeton|sid|session[a-z]*)=[^&"'\s;<>]+/gi, "$1=<jeton>").replace(/\b[0-9a-f]{32,}\b/gi, "<jeton>"), gunluk = [];
-    const y = await this.istek("GET", GW + (intvrg ? "/auth/tdvd/intvrg-login" : "/auth/tdvd/interaktif-login"), undefined, true), hedef = y && y.redirectUrl; if (!hedef) return "SIDE keşif: bağlantı adresi alınamadı.";
+    const intvrg = sistem === "intvrg" || sistem === "okc", maske = (t) => String(t || "").replace(/(token|jeton|sid|session[a-z]*)=[^&"'\s;<>]+/gi, "$1=<jeton>").replace(/\b[0-9a-f]{32,}\b/gi, "<jeton>"), gunluk = [];
+    let gr; try { gr = await this.sideGiris(sistem); } catch (e) { if (e.oturum) throw e; return "SIDE keşif: " + String(e.message).slice(0, 120) + ".\n\n"; } const y = gr.y, hedef = y.redirectUrl;
     const u = new URL(hedef), token = u.searchParams.get("token") || ""; await this.gibGit(hedef);
     /* sayfa önce userSessionService_getUserSessionInfo ile oturumu başlatır; menü/BF tanımları side-dispatch, iş servisleri server/dispatch adresindedir */
     const uyg = intvrg ? "/intvrg_server/dispatch" : "/tvd_server/dispatch"; 
@@ -394,7 +401,7 @@ class Ivd {
       if (bulunan.length) break dis;
     }
     /* 2. aşama: menü yetkisiz ise sayfa tanımını (BF) doğrudan iste; tanım içindeki servis (komut) adları ve gövde biçimi görünür */
-    const sayfalar = ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG"].concat(bulunan.map((x) => x.split(" | ")[2]).filter(Boolean).slice(0, 2), tumu.map((x) => x.split(" | ")[2]).filter(Boolean).slice(0, 1)), bf = [];
+    const sayfalar = (intvrg ? [] : ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG", "P_INTVRG_INTVD_EHACIZ_ARAC_SRG"]).concat(bulunan.map((x) => x.split(" | ")[2]).filter(Boolean).slice(0, 2), tumu.map((x) => x.split(" | ")[2]).filter(Boolean).slice(0, 1)), bf = [];
     for (const sf of sayfalar) {
       for (const yol of yollar) for (const jp of [{ userid, bfnames: [sf], loadedList: [], params: {}, resourceBundleLang: "tr" }]) {
         const govde = "cmd=SIDE.GET_EAGER_BF_DEFS&callid=" + Date.now().toString(36) + "&" + jetonAdi + "=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify(jp));
@@ -406,13 +413,23 @@ class Ivd {
         } catch (e) { bf.push(sf + " → " + String(e.message).slice(0, 100)); }
       }
     }
-    return "[SIDE keşif]\n" + (bulunan.length ? "Menüde bulunan sayfalar (kod | ad | sayfa):\n" + [...new Set(bulunan)].join("\n") + "\n\n" : "") + (tumu.length ? "Menü kayıtları (kod | ad | sayfa):\n" + [...new Set(tumu)].join("\n") + "\n\n" : "") + "Denemeler:\n" + gunluk.slice(0, 16).join("\n") + (bf.length ? "\nSayfa tanımı:\n" + bf.join("\n") : "") + "\n\n";
+    /* sayfa tanımı JS olarak openbf.jsp'den gelir; içindeki servis (komut) adları sorgunun nasıl yapıldığını gösterir */
+    const kok = u.origin + new URL(hedef).pathname.replace(/[^/]*$/, ""), kod = [], hepsiSf = [...new Set(sayfalar.concat(bulunan.map((x) => x.split(" | ")[2]).filter(Boolean)).concat(tumu.map((x) => x.split(" | ")[2]).filter((x) => x && /OKC|EHACIZ|ZRAPOR/i.test(x))))].slice(0, 6);
+    for (const sf of hepsiSf) {
+      try {
+        const r = await this.gibGit(kok + "openbf.jsp?bfname=" + encodeURIComponent(sf) + "&" + jetonAdi + "=" + encodeURIComponent(token), undefined, hedef), t = String(r.metin || "");
+        const cagri = [...new Set([...t.matchAll(/CSCaller\.call\(\s*["']([^"']{3,100})["']/g)].map((x) => x[1]).concat([...t.matchAll(/["'](?:sn|serviceName|cmd)["']\s*:\s*["']([^"']{3,100})["']/g)].map((x) => x[1])))].slice(0, 25);
+        const i0 = t.search(/CSCaller\.call\(/), ornek = i0 >= 0 ? maske(t.slice(Math.max(0, i0 - 200), i0 + 900).replace(/\s+/g, " ")) : maske(t.slice(0, 300).replace(/\s+/g, " "));
+        kod.push(sf + " → HTTP " + r.durum + " " + t.length + " bayt" + (cagri.length ? "\n   servisler: " + cagri.join(" | ") : "") + "\n   örnek: " + ornek);
+      } catch (e) { kod.push(sf + " → " + String(e.message).slice(0, 100)); }
+    }
+    return "[SIDE keşif] giriş: " + gr.yol + "\n" + (kod.length ? "Sayfa kodu (openbf):\n" + kod.join("\n") + "\n\n" : "") + (bulunan.length ? "Menüde bulunan sayfalar (kod | ad | sayfa):\n" + [...new Set(bulunan)].join("\n") + "\n\n" : "") + (tumu.length ? "Menü kayıtları (kod | ad | sayfa):\n" + [...new Set(tumu)].join("\n") + "\n\n" : "") + "Denemeler:\n" + gunluk.slice(0, 16).join("\n") + (bf.length ? "\nSayfa tanımı:\n" + bf.join("\n") : "") + "\n\n";
   }
   async interaktifSayfa(sayfa, derin, sistem) {
-    const intvrg = sistem === "intvrg"; /* İnternet Vergi Dairesi (intvrg.gib.gov.tr): ÖKC / Z raporu bu sistemdedir */
+    const intvrg = sistem === "intvrg" || sistem === "okc"; /* İnternet Vergi Dairesi (intvrg.gib.gov.tr): ÖKC / Z raporu bu sistemdedir */
     if (!(intvrg && !sayfa) && !/^[A-Z0-9_]{5,80}$/.test(String(sayfa))) throw new Error("Geçersiz sayfa.");
-    const y = await this.istek("GET", GW + (intvrg ? "/auth/tdvd/intvrg-login" : "/auth/tdvd/interaktif-login"), undefined, true);
-    const hedef = y && y.redirectUrl; if (!hedef) throw new Error("İnteraktif Vergi Dairesi bağlantı adresi alınamadı" + (this.mesajMetni(y) ? ": " + this.mesajMetni(y) : "") + ".");
+    let gr; try { gr = await this.sideGiris(sistem); } catch (e) { if (e.oturum) throw e; throw new Error("İnteraktif Vergi Dairesi " + e.message + "."); }
+    const y = gr.y, hedef = y.redirectUrl;
     const r = await this.gibGit(sayfa ? hedef + (hedef.includes("?") ? "&" : "?") + "page=" + sayfa : hedef);
     const maske = (t) => String(t || "").replace(/(token|jeton|sid|session[a-z]*)=[^&"'\s;<>]+/gi, "$1=<jeton>").replace(/\b[0-9a-f]{32,}\b/gi, "<jeton>");
     const { sade, formlar, tablolar, hamMaskeli, formCoz } = sgkYardim, html = r.metin, ham = html.replace(/<style[\s\S]*?<\/style>/gi, "");
@@ -489,8 +506,9 @@ class SahteIvd {
   async tebligat() {
     const d = [
       { belgeTuruAciklama: "ODEME EMRI", belgeNo: "2026091366OEY0001088", tarafId: "T1", tarafSecureId: "S1", tebligId: "B1", tebligSecureId: "C1", altKurum: "ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "18/09/2026 16:44:48", tebligZamani: "2026-09-18T16:44:48", gerceklesenOtomatikOkunmaZamani: "2026-09-23T16:46:00" },
-      { belgeTuruAciklama: "BILGI ISTEME YAZISI", belgeNo: "2026101566BIY0000077", tarafId: "T1", tarafSecureId: "S1", tebligId: "B1", tebligSecureId: "C1", altKurum: "ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "15/10/2026 10:00:00", tebligZamani: "2026-10-15T10:00:00" },
+      { belgeTuruAciklama: "BILGI ISTEME YAZISI", belgeNo: "2026101577BIY0000077", tarafId: "T1", tarafSecureId: "S1", tebligId: "B1", tebligSecureId: "C1", altKurum: "ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "15/10/2026 10:00:00", tebligZamani: "2026-10-15T10:00:00" },
       { belgeTuruAciklama: "TAHAKKUK BILDIRIMI", belgeNo: "2026082866TBY0000012", tarafId: "T1", tarafSecureId: "S1", tebligId: "B1", tebligSecureId: "C1", altKurum: "ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "28/08/2026 09:00:00", tebligZamani: "2026-08-28T09:00:00", mukellefOkumaZamani: "2026-08-29T08:00:00" },
+      { belgeTuruAciklama: "IHBARNAME", belgeNo: "2026071213AZL0000000", tarafId: "T1", tarafSecureId: "S1", tebligId: "B1", tebligSecureId: "C1", altKurum: "ÜMRANİYE VERGİ DAİRESİ", kurumAciklama: "VERGİ DAİRESİ", gonderimZamani: "12/07/2026 10:00:00", tebligZamani: "2026-07-12T10:00:00" },
       { belgeTuruAciklama: "VDK Belgesi", belgeNo: "29.09.2026/E.21692", tarafId: "T1", tarafSecureId: "S1", tebligId: "B1", tebligSecureId: "C1", altKurum: "İSTANBUL SEKTÖREL-1", kurumAciklama: "VERGİ DENETİM KURULU", gonderimZamani: "29/09/2026 14:00:00", tebligZamani: "2026-09-29T14:00:00" },
       { belgeTuruAciklama: "KEYS-YAZI", belgeNo: "2026081977OER1115704", tarafId: "T1", tarafSecureId: "S1", tebligId: "B1", tebligSecureId: "C1", altKurum: "ÜMRANİYE VERGİ DAİRESİ", kurumAciklama: "GELİR İDARESİ BAŞKANLIĞI", gonderimZamani: "19/08/2026 15:40:00", tebligZamani: "2026-08-19T15:40:00", mukellefOkumaZamani: "2026-08-19T16:00:00" },
       { belgeTuruAciklama: "Trafik İdari Para Cezası Karar Tutanağı", belgeNo: "TA-01510510", tarafId: "T1", tarafSecureId: "S1", tebligId: "B1", tebligSecureId: "C1", altKurum: "Jandarma Genel Komutanlığı", kurumAciklama: "JANDARMA GENEL KOMUTANLIĞI", gonderimZamani: "08/04/2026 09:36:00", tebligZamani: "2026-04-08T09:36:00" }

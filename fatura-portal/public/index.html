@@ -462,7 +462,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   <section data-sayfa="vd" class="liste" hidden>
   <div class="card" id="vdKart">
     <div class="kartbas"><h2>Vergi Dairesi</h2><small id="vdMuk"></small></div>
-    <div class="vdsek" id="vdSeg" role="group" aria-label="Vergi Dairesi bölümü"><button class="chip" type="button" data-vd="borc" aria-pressed="true">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false">Tebligat</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false">Gelen fatura</button><button class="chip" type="button" data-vd="yazi" aria-pressed="false">Borcu yoktur</button><button class="chip" type="button" data-vd="levha" aria-pressed="false">e-Vergi levhası</button><button class="chip" type="button" data-vd="tahakkuk" aria-pressed="false">Tahakkuk</button><button class="chip" type="button" data-vd="yoklama" aria-pressed="false">Yoklama fişi</button><button class="chip" type="button" data-vd="sicil" aria-pressed="false">Sicil bilgisi</button><button class="chip" type="button" data-vd="arac" aria-pressed="false">Araçlarım</button><button class="chip" type="button" data-vd="pos" aria-pressed="false">POS</button><button class="chip" type="button" data-vd="haciz" aria-pressed="false">Haciz</button><button class="chip" type="button" data-vd="zrapor" aria-pressed="false">Z raporu</button><button class="chip" type="button" data-vd="kdv" aria-pressed="false">KDV raporu</button><button class="chip" type="button" data-vd="telefon" aria-pressed="false">SMS telefonu</button></div>
+    <div class="vdsek" id="vdSeg" role="group" aria-label="Vergi Dairesi bölümü"><button class="chip" type="button" data-vd="borc" aria-pressed="true">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false">Tebligat</button><button class="chip" type="button" data-vd="trafik" aria-pressed="false">Trafik cezası</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false">Gelen fatura</button><button class="chip" type="button" data-vd="yazi" aria-pressed="false">Borcu yoktur</button><button class="chip" type="button" data-vd="levha" aria-pressed="false">e-Vergi levhası</button><button class="chip" type="button" data-vd="tahakkuk" aria-pressed="false">Tahakkuk</button><button class="chip" type="button" data-vd="yoklama" aria-pressed="false">Yoklama fişi</button><button class="chip" type="button" data-vd="sicil" aria-pressed="false">Sicil bilgisi</button><button class="chip" type="button" data-vd="arac" aria-pressed="false">Araçlarım</button><button class="chip" type="button" data-vd="pos" aria-pressed="false">POS</button><button class="chip" type="button" data-vd="haciz" aria-pressed="false">Haciz</button><button class="chip" type="button" data-vd="zrapor" aria-pressed="false">Z raporu</button><button class="chip" type="button" data-vd="kdv" aria-pressed="false">KDV raporu</button><button class="chip" type="button" data-vd="telefon" aria-pressed="false">SMS telefonu</button></div>
     <div id="vdBaglan" style="display:grid;gap:8px">
       <p class="not" style="margin:0">Dijital Vergi Dairesi’ne bağlanmak için resimdeki <b>doğrulama kodunu</b> resimde göründüğü gibi (büyük/küçük harf aynen) yazın. Kullanıcı kodu ve şifre Ayarlar’daki GİB bilgisinden alınır.</p>
       <button class="btn ikincil" type="button" id="vdKodIste">Doğrulama kodu al</button>
@@ -2120,7 +2120,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   var VD = { sek: "borc", sonuc: {}, mid: null, bagli: false, tebListe: [], sgkB: {}, sgkSis: "isveren", sgkIx: 0 };
   var VDNOT = {
     borc: "Dijital Vergi Dairesi’ndeki borç durumu (Ödeme ve Borç İşlemleri ekranı).",
-    tebligat: "E-Tebligat ekranındaki tebligatlar. Önemli ve okunmamış olanlar sekme rozetinde sayılır.",
+    tebligat: "E-Tebligat ekranındaki tebligatlar. Önemli (inceleme 77, ihbarname 13, VDK, haciz…) ve okunmamış olanlar sekme rozetinde sayılır; ödeme emirleri (66) önemsiz sayılır.",
+    trafik: "Trafik idari para cezası tebligatları (e-Tebligat ekranından süzülür).",
     levha: "Daha önce oluşturulmuş e-Vergi levhalarınız (yıla göre). Türkçe ya da İngilizce PDF olarak açabilirsiniz.",
     yazi: "Vergi dairesinden “borç durum yazısı” (borcu yoktur yazısı) talep edilir; son 90 gündeki talepleriniz aşağıda listelenir.",
     tahakkuk: "Tahakkuk Bilgilerim: seçtiğiniz aylardaki tahakkuk fişleri (son 10 yıl). Her fiş için PDF açabilirsiniz.",
@@ -2163,11 +2164,19 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }).join(" ");
   }
   function tebFold(t){ return String(t || "").toLocaleUpperCase("tr-TR").replace(/İ/g, "I").replace(/Ö/g, "O").replace(/Ü/g, "U").replace(/Ş/g, "S").replace(/Ç/g, "C").replace(/Ğ/g, "G"); }
-  var TEBONEMLI = /ODEME EMRI|IHTAR|HACIZ|IHBARNAME|CEZA|INCELEME|ISTEME|UZLASMA|TAKDIR|TARHIYAT|YOKLAMA|BORC|ITIRAZ|VDK|KEYS/;
+  /* Belge numarası "YYYYAAGG" + 2 haneli kod ile başlar: 77 = inceleme (sahte fatura uyarısı) → önemli; 13 = ihbarname (ceza, hata/eksik) → önemli; 66 = ödeme emri → önemsiz */
+  var TEBKOD = { "77": "İnceleme · sahte fatura uyarısı", "13": "İhbarname · ceza / eksik-hata", "66": "Ödeme emri" };
+  var TEBONEMLI = /IHTAR|HACIZ|IHBARNAME|CEZA|INCELEME|ISTEME|UZLASMA|TAKDIR|TARHIYAT|YOKLAMA|ITIRAZ|VDK|KEYS/;
   var TEBTRAFIK = /TRAFIK/;
   function tebTur(r){ return tebFold((r.belgeTuruAciklama || "") + " " + (r.belgeTuru || "")); }
-  function tebTrafik(r){ return TEBTRAFIK.test(tebTur(r)); } /* trafik idari para cezaları ayrı süzgeçte */
-  function tebOnemli(r){ return !tebTrafik(r) && TEBONEMLI.test(tebTur(r)); }
+  function tebKod(r){ var m = /^\d{8}(\d{2})/.exec(String(r.belgeNo || "")); return m ? m[1] : ""; }
+  function tebTrafik(r){ return TEBTRAFIK.test(tebTur(r)); } /* trafik idari para cezaları ayrı sekmede */
+  function tebOnemli(r){
+    if (tebTrafik(r)) return false;
+    var kod = tebKod(r); if (kod === "77" || kod === "13") return true; if (kod === "66") return false;
+    if (/ODEME EMRI/.test(tebTur(r))) return false;
+    return TEBONEMLI.test(tebTur(r));
+  }
   function tebOkunmadi(r){ return !r.mukellefOkumaZamani; }
   function tarihAl(t){
     var m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(String(t || "")) ; if (m) return new Date(+m[1], m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
@@ -2180,19 +2189,19 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var onem = tebOnemli(r), trf = tebTrafik(r), oku = tebOkunmadi(r), tz = r.tebligZamani || r.gonderimZamani || r.kayitZamani, g = gunFark(tz);
     var rozet = oku ? '<span style="background:#2563c9;color:#fff;border-radius:99px;padding:1px 9px;font-size:.72rem;font-weight:600;white-space:nowrap">Okunmadı</span>' : '<span style="background:color-mix(in srgb,currentColor 12%,transparent);border-radius:99px;padding:1px 9px;font-size:.72rem;white-space:nowrap">Okundu</span>';
     var alt = "Tebliğ: " + tarihYaz(tz) + (g !== null && g < 0 ? " (" + (-g) + " gün önce)" : "") + (r.kurumAciklama ? " · " + tebAd(r.kurumAciklama) : "");
-    var kucuk = [r.belgeNo ? "Belge no " + r.belgeNo : "", r.mukellefOkumaZamani ? "Okundu: " + tarihYaz(r.mukellefOkumaZamani, 1) : (r.gerceklesenOtomatikOkunmaZamani ? "Otomatik okundu: " + tarihYaz(r.gerceklesenOtomatikOkunmaZamani, 1) : "")].filter(Boolean).join(" · ");
+    var kucuk = [TEBKOD[tebKod(r)] ? "Kod " + tebKod(r) + " — " + TEBKOD[tebKod(r)] : "", r.belgeNo ? "Belge no " + r.belgeNo : "", r.mukellefOkumaZamani ? "Okundu: " + tarihYaz(r.mukellefOkumaZamani, 1) : (r.gerceklesenOtomatikOkunmaZamani ? "Otomatik okundu: " + tarihYaz(r.gerceklesenOtomatikOkunmaZamani, 1) : "")].filter(Boolean).join(" · ");
     return '<div class="kayit"' + (onem ? ' style="border-left:4px solid #c0392b"' : trf ? ' style="border-left:4px solid #d68910"' : "") + '><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="min-width:0"><b style="display:block">' + (oku ? '<span style="color:#2563c9">● </span>' : "") + (trf ? '<span style="color:#d68910">🚗 </span>' : "") + esc(tebAd(r.belgeTuruAciklama || "Tebligat")) + '</b><span class="not" style="margin:0;font-size:.8rem;display:block">' + esc(alt) + '</span></div>' + rozet + '</div>'
       + (kucuk ? '<div class="not" style="margin:0;font-size:.74rem;overflow-wrap:anywhere">' + esc(kucuk) + '</div>' : "")
       + '<div><button class="btn ikincil" type="button" data-teb="' + VD.tebListe.indexOf(r) + '" style="width:100%">Görüntüle</button><div data-tebbelge style="display:grid;gap:6px;margin-top:8px"></div></div></div>';
   }
-  function vdTebHtml(s){
+  function vdTebHtml(s, sabit){
     var k = s.kayitlar.slice().sort(function(a, b){ var x = tarihAl(a.tebligZamani || a.gonderimZamani || a.kayitZamani), y = tarihAl(b.tebligZamani || b.gonderimZamani || b.kayitZamani); return (y ? y.getTime() : 0) - (x ? x.getTime() : 0); });
     VD.tebListe = k;
-    var f = VD.tebF || "hepsi", okunmaz = k.filter(tebOkunmadi), onemli = k.filter(tebOnemli), trafik = k.filter(tebTrafik);
+    var f = sabit || VD.tebF || "hepsi", okunmaz = k.filter(tebOkunmadi), onemli = k.filter(tebOnemli), trafik = k.filter(tebTrafik);
     var goster = f === "okunmadi" ? okunmaz : f === "onemli" ? onemli : f === "trafik" ? trafik : k;
     var cip = function(ad, n, a){ return '<button class="chip" type="button" data-tebf="' + a + '" aria-pressed="' + (f === a ? "true" : "false") + '">' + ad + " " + n + '</button>'; };
-    var h = '<div style="display:flex;gap:6px;flex-wrap:wrap">' + cip("Tümü", s.toplam || k.length, "hepsi") + cip("Okunmadı", okunmaz.length, "okunmadi") + cip("Önemli", onemli.length, "onemli") + cip("Trafik cezası", trafik.length, "trafik") + '</div>';
-    h += goster.length ? goster.map(tebKart).join("") : '<p class="not">Bu süzgeçte tebligat yok.</p>';
+    var h = sabit ? '<p class="not" style="margin:0">' + trafik.length + ' trafik cezası tebligatı</p>' : '<div style="display:flex;gap:6px;flex-wrap:wrap">' + cip("Tümü", s.toplam || k.length, "hepsi") + cip("Okunmadı", okunmaz.length, "okunmadi") + cip("Önemli", onemli.length, "onemli") + '</div>';
+    h += goster.length ? goster.map(tebKart).join("") : '<p class="not">' + (sabit ? "Trafik cezası tebligatı yok." : "Bu süzgeçte tebligat yok.") + '</p>';
     if (s.toplam && s.toplam > k.length) h += '<p class="not">İlk ' + k.length + ' tebligat gösteriliyor (toplam ' + s.toplam + ').</p>';
     return h;
   }
@@ -2378,6 +2387,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (VD.sek === "pos") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdPosHtml(s); tani.hidden = true; return; }
     if (VD.sek === "levha") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdLevhaHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "yazi") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdYaziHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
+    if (VD.sek === "trafik") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdTebHtml(s, "trafik"); tani.hidden = true; return; }
     if (VD.sek === "tebligat") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdTebHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     var h = s.kayitlar.length ? "" : '<p class="not">Kayıt bulunamadı.</p>';
     if (s.ozetKart) { h += vdBorcKart(s.ozetKart) + s.kayitlar.map(borcKalem).join(""); liste.innerHTML = h; $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
@@ -2605,7 +2615,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     b.disabled = true; d.className = "durum"; d.textContent = "Sorgulanıyor…";
     var govde = { mukellefId: VD.mid, bas: $("vdBas").value, bit: $("vdBit").value, yil: VD.yil };
     if (sek === "tahakkuk") { govde.tbas = $("vdTBas").value; govde.tbit = $("vdTBit").value; } else if (sek === "arac") govde.gecmis = !!VD.aracGecmis; else if (sek === "pos") { govde.yil = $("vdPosYil").value; govde.ay = $("vdPosAy").value; }
-    api("/api/vd/" + (sek === "yazi" ? "yazilar" : sek), "POST", govde).then(function(r){
+    api("/api/vd/" + (sek === "yazi" ? "yazilar" : sek === "trafik" ? "tebligat" : sek), "POST", govde).then(function(r){
       r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc[sek] = r; d.textContent = ""; vdRozet(); if (VD.sek === sek) vdCiz();
     }, function(er){ VD.sonuc[sek] = null; if (VD.sek === sek) vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });
   }
