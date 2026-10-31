@@ -361,6 +361,34 @@ class Ivd {
     return { ...this.defterBos(), betikOzet: "[Defter-Beyan keşif]\n" + cikti.join("\n") };
   }
   defterBos() { return { uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: "Defter-Beyan keşfi", baslik: "", metin: "", formlar: [], alanlar: [], tablolar: [], baglantilar: [], yonlendirme: [], satirlar: [], tabloHam: "", ham: "" }; }
+  /* ---- E-Haciz: banka hesaplarına / araçlara uygulanan elektronik hacizler (İVD "ehacizSorgulamaService") ---- */
+  async hacizListe(tur) {
+    const secim = tur === "arac" ? "2" : tur === "banka" ? "1" : ""; if (!secim) throw new Error("Haciz türü seçin.");
+    const sayfa = secim === "2" ? "P_INTVRG_INTVD_EHACIZ_ARAC_SRG" : "P_INTVRG_INTVD_EHACIZ_BANKA_SRG";
+    let gr; try { gr = await this.sideGiris("ivd"); } catch (e) { if (e.oturum) throw e; throw new Error("İnteraktif Vergi Dairesi bağlantısı kurulamadı: " + String(e.message).slice(0, 120)); }
+    const hedef = gr.y.redirectUrl, u = new URL(hedef), token = u.searchParams.get("token") || "";
+    await this.gibGit(hedef);
+    const hataMetni = (j) => ((j && j.messages) || []).map((x) => x && x.text).filter(Boolean).join(" ").slice(0, 200);
+    const cagir = async (cmd, jp, sf) => {
+      const r = await this.gibGit(u.origin + "/tvd_server/dispatch", "cmd=" + cmd + "&callid=" + Date.now().toString(36) + "-1&pageName=" + encodeURIComponent(sf || sayfa) + "&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify(jp)), hedef);
+      let j; try { j = JSON.parse(r.metin); } catch (e) { throw new Error("İnteraktif Vergi Dairesi beklenmeyen bir yanıt verdi."); }
+      if (j && j.error && String(j.error) !== "0") throw new Error(hataMetni(j) || "İnteraktif Vergi Dairesi hatası.");
+      return j;
+    };
+    const dizi = (j) => (Array.isArray(j) ? j : j && Array.isArray(j.data) ? j.data : j && j.data && typeof j.data === "object" && Array.isArray(j.data.array1) ? j.data.array1 : null);
+    await cagir("userSessionService_getUserSessionInfo", { token, rfDataInfo: [] });
+    const j = await cagir("ehacizSorgulamaService_EhacizSorgulamaSonuc", { secim }), liste = dizi(j);
+    if (!liste) throw new Error("Haciz listesi beklenmeyen biçimde geldi" + (j === null ? " (boş yanıt)" : " — yanıt: " + String(JSON.stringify(j)).replace(/\s+/g, " ").slice(0, 200)) + ".");
+    const m = (v) => (v === undefined || v === null ? "" : String(v)), sade = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) if (v !== null && typeof v !== "object" && String(v) !== "") r[k] = String(v); return r; };
+    const satirlar = [], vdAd = {};
+    for (const r of liste.slice(0, 20)) {
+      const kay = sade(r), vdkod = m(r.vdkod), hbno = m(r.hbno || r.hacizBildiriNo), ozet = { vdkod, no: hbno, tutar: Number(String(r.htutar || r.hacizBildTutar || "0").replace(/\./g, "").replace(",", ".")) || 0, borcDurum: m(r.borcDurum), alanlar: kay, ust: [], alt: [] };
+      if (vdkod && !(vdkod in vdAd)) { vdAd[vdkod] = ""; try { const v = await cagir("ehacizSorgulamaService_vdBilgileriGetir", { vdkod }); const d = (v && v.data && !Array.isArray(v.data) ? v.data : v) || {}; vdAd[vdkod] = m(d.vdadi); } catch (e) { if (e.oturum) throw e; } }
+      if (satirlar.length < 6 && vdkod && hbno) { try { const dj = await cagir("ehacizSorgulamaService_EhacizSorgulamaSonucDetay", { vdkod, hbno, secim }), d = (dj && dj.data && !Array.isArray(dj.data) ? dj.data : dj) || {}; ozet.ust = (Array.isArray(d.array1) ? d.array1 : []).slice(0, 20).map(sade); ozet.alt = (Array.isArray(d.array2) ? d.array2 : []).slice(0, 20).map(sade); } catch (e) { if (e.oturum) throw e; ozet.detayHata = String(e.message).slice(0, 100); } }
+      satirlar.push(ozet);
+    }
+    return { tur, satirlar, vdAdlari: vdAd, toplam: liste.length };
+  }
   /* ---- Z raporu: yeni nesil ÖKC aylık satış raporu bildirimleri (İnternet VD "ÖKC Bildirim Görüntüleme") ---- */
   async zRapor(yil, ay, vknIpucu) {
     yil = String(yil || ""); ay = String(ay || "").padStart(2, "0");
@@ -542,7 +570,7 @@ class Ivd {
           const bag = [...js.matchAll(sayfa ? new RegExp(String(sayfa).replace(/_[A-Z]+$/, "").slice(0, 28), "g") : /Aylık\s*Satış|Satış\s*Rapor|YNOKC|YN_OKC|OKCBildirim|DonemSorgula|Dönem\s*Sorgula|Z\s*Rapor|ZRAPOR/gi)].slice(0, 5).map((m) => js.slice(Math.max(0, m.index - 150), m.index + 350).replace(/\s+/g, " "));
           const ajax = [...js.matchAll(/(?:\$\.ajax|\$\.post|XMLHttpRequest|fetch)\s*\(?[^;]{0,160}/g)].slice(0, 4).map((m) => m[0].replace(/\s+/g, " "));
           const bagla = (kalip, n, boy) => [...js.matchAll(kalip)].slice(0, n).map((m) => js.slice(Math.max(0, m.index - 120), m.index + boy).replace(/\s+/g, " "));
-          const yan = /side-common|side-bc|lib_tv|side-user/.test(ad) ? [["çağrı", bagla(/this\.call=function\(cmd,callParams,config\)/g, 1, 3200)], ["initSide", bagla(/function\s+initSide|initSide\s*=/g, 2, 1500)], ["sayfa-adları", [...new Set([...js.matchAll(/P_INTVRG[A-Z0-9_]{4,60}/g)].map((m) => m[0]))].slice(0, 60)], ["cmd", [...new Set([...js.matchAll(/["']?cmd["']?\s*[:=]\s*["']([^"']{3,70})["']/g)].map((m) => m[1]))].slice(0, 50)], ["haciz", bagla(/EHACIZ|e-?haciz/gi, 3, 500)]] : /wt-script-1/.test(ad) ? [["içerik", [js.replace(/\s+/g, " ").slice(0, 3800)]]] : [];
+          const yan = /side-common|side-bc|lib_tv|side-user/.test(ad) ? [["çağrı", bagla(/this\.call=function\(cmd,callParams,config\)/g, 1, 3200)], ["initSide", bagla(/function\s+initSide|initSide\s*=/g, 2, 1500)], ["sayfa-adları", [...new Set([...js.matchAll(/P_INTVRG[A-Z0-9_]{4,60}/g)].map((m) => m[0]))].slice(0, 60)], ["cmd", [...new Set([...js.matchAll(/["']?cmd["']?\s*[:=]\s*["']([^"']{3,70})["']/g)].map((m) => m[1]))].slice(0, 50)], ["haciz", bagla(/EHACIZ|e-?haciz/gi, 3, 500)], ["GIBIntra", bagla(/GIBIntraServiceCall\s*[:=]\s*function|libTvdGIBIntraUtil\s*=\s*\{/g, 3, 1800)]] : /wt-script-1/.test(ad) ? [["içerik", [js.replace(/\s+/g, " ").slice(0, 3800)]]] : [];
           parca.push("# " + ad + " (" + g.metin.length + " bayt)" + yan.filter((x) => x[1].length).map((x) => "\n[" + x[0] + "] " + x[1].join(" ... ")).join("") + "\nuçlar: " + (uc.join(" | ") || "-") + (ajax.length ? "\najax: " + ajax.join(" || ") : "") + (bag.length ? "\nsayfa adı geçen yer: " + bag.join(" ... ") : ""));
         } catch (e) { parca.push("# " + b + " okunamadı: " + e.message); }
       }
