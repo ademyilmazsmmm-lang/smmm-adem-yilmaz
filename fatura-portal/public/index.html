@@ -286,7 +286,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   @page{size:A4;margin:0}
 }
 .kdvg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.kdvk{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:4px;background:var(--surface)}.kdvk>div{display:flex;justify-content:space-between;gap:8px;font-size:.84rem}.kdvk>div span{color:var(--muted)}.kdvk small{font-size:.74rem;color:var(--muted)}.anatarih>summary::-webkit-details-marker{display:none}
-#vdListe,#kdvSonuc,#hoSonuc,#isvSonuc,#tesvikSonuc,#bilSonuc,#gibListe{scroll-margin-top:170px}
+#vdListe,#kdvSonuc,#hoSonuc,#isvSonuc,#tesvikSonuc,#bilSonuc,#gibListe,#anaIc,#anaGunc{scroll-margin-top:170px}
 </style>
 </head>
 <body>
@@ -2884,7 +2884,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     return Promise.all([vdIs, sgkIs]).then(function(){
       GUNC.calisiyor = false; $("gGuncelle").disabled = false;
       if (hata.length) { d.className = "durum hata"; d.textContent = (sonuc.length ? "Yenilenen: " + sonuc.join(", ") + ". " : "") + hata.join(" · "); } else { d.className = "durum ok"; d.textContent = "Güncellendi: " + sonuc.join(", ") + ". Oturumlar 5 dakika açık kalır."; setTimeout(function(){ if (GUNC.mid === m.id && !GUNC.calisiyor) $("anaGunc").hidden = true; }, 2500); }
-      anaAc();
+      anaAc(); if (hata.length) sonucaGit("anaGunc"); else setTimeout(function(){ sonucaGit("anaIc"); }, 800);
     });
   }
   $("gGuncelle").addEventListener("click", function(){
