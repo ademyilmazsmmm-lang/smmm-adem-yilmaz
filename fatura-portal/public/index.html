@@ -700,11 +700,28 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }, function(){});
   }
   var YEDEKSIZ = /^\/api\/(hesapla|sorgu|gorunum|liste|cikis|giris|kurulum|geriyukle|durum|kasa|gecmis|veri|belge|belge-sil)$/;
+  /* Yalnız okuma (sorgu) isteklerinde: bağlantı kopar ya da sunucu geç uyanırsa program kendisi 2 kez yeniden dener; olmazsa "tekrar sorgulayın" der.
+   * Yazma işlemleri (taslak, onay, SMS, giriş vb.) kendiliğinden tekrarlanmaz: çift kayıt oluşmasın. */
+  var TEKRARLI = /^\/api\/(liste|sorgu|hesapla|son|gecmis|vd\/(borc|tebligat|yazilar|haciz|zrapor|yoklama|hesapozeti|sicil|tahakkuk|arac|pos|gelen)|sgk\/(tesvik|sayfa|bildirge-donemler|bildirge-liste))(\?|$)/;
+  function bekle(ms){ return new Promise(function(ok){ setTimeout(ok, ms); }); }
   function api(yol, yontem, govde){
     if (govde && yol.indexOf("/api/sgk/") === 0 && govde.ix === undefined && typeof VD !== "undefined" && VD.sgkIx) govde.ix = VD.sgkIx; /* mükellefin seçili SGK işyeri dosyası */
-    return fetch(yol, { method: yontem || "GET", headers: { "content-type": "application/json" }, body: govde ? JSON.stringify(govde) : undefined })
-      .catch(function(){ throw new Error("Sunucuya ulaşılamadı. Birkaç saniye bekleyip tekrar deneyin (ücretsiz sunucu uyuyor olabilir)."); })
-      .then(function(r){ return r.json().then(function(j){ if (!r.ok) { var e = new Error(j.hata || "Hata"); e.kod = r.status; if (j.girisGerek) e.girisGerek = true; throw e; } if ((yontem && yontem !== "GET" && !YEDEKSIZ.test(yol)) || (yol === "/api/veri" && yontem === "PUT")) yedekSoon(); return j; }); });
+    var tekrarli = !yontem || yontem === "GET" || TEKRARLI.test(yol), deneme = 0;
+    function agHata(){ var e = new Error(tekrarli ? "Yanıt alınamadı (bağlantı yavaş ya da kesildi). Lütfen tekrar sorgulayın." : "Bağlantı kurulamadı. Lütfen birkaç saniye bekleyip tekrar deneyin."); e.ag = true; return e; }
+    function dene(){
+      return fetch(yol, { method: yontem || "GET", headers: { "content-type": "application/json" }, body: govde ? JSON.stringify(govde) : undefined })
+        .then(function(r){ return r.text().then(function(t){ var j = null; try { j = JSON.parse(t); } catch (x) {} return { r: r, j: j }; }); })
+        .catch(function(){ throw agHata(); })
+        .then(function(x){
+          var r = x.r, j = x.j;
+          if (j === null) throw agHata(); /* sunucu uyanıyor / ağ geçidi hatası (JSON olmayan yanıt) */
+          if (!r.ok) { var e = new Error(j.hata || "Hata"); e.kod = r.status; if (j.girisGerek) e.girisGerek = true; throw e; }
+          if ((yontem && yontem !== "GET" && !YEDEKSIZ.test(yol)) || (yol === "/api/veri" && yontem === "PUT")) yedekSoon();
+          return j;
+        })
+        .catch(function(e){ if (e && e.ag && tekrarli && deneme < 2) { deneme++; return bekle(deneme === 1 ? 4000 : 8000).then(dene); } throw e; });
+    }
+    return dene();
   }
 
   /* ---------- giriş ---------- */
@@ -762,7 +779,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function basla(){
     api("/api/veri").then(function(v){
       V = v; rolAta(v.rol); KULLANICI = v.kullanici; $("giris").hidden = true; $("uyg").hidden = false; yedekle();
-      mSec = V.mukellefler.length ? V.mukellefler[0].id : null; F.alici = ""; F.kalemler = [ilkKalem()]; F.tip = "SATIS";
+      mSec = V.mukellefler.length ? V.mukellefler[0].id : null; F.alici = ""; F.kalemler = [ilkKalem()]; F.tip = tipKalemden(F.kalemler[0]);
       $("kimlik").textContent = ROL === "ofis" ? (PERSONEL ? "Çalışan · " : "Ofis · ") + KULLANICI : (V.mukellefler[0] ? V.mukellefler[0].ad : KULLANICI);
       /* ayarlar bölümleri kapalı açılır (düzenli görünsün) */
       hepsi(); gecmisYukle(); markaYukle(mSec); postaDurumu();
@@ -961,12 +978,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function sifirla(){ son = { uuid: null, oid: null, hesap: null, imzali: false }; }
   function formuTemizle(){
-    F.alici = ""; F.dahil = false; F.para = "TRY"; F.kur = ""; F.kalemler = [ilkKalem()]; F.tip = F.kalemler[0].tev !== "0" ? "TEVKIFAT" : "SATIS";
+    F.alici = ""; F.dahil = false; F.para = "TRY"; F.kur = ""; F.kalemler = [ilkKalem()]; F.tip = tipKalemden(F.kalemler[0]); if (F.tip === "OZELMATRAH") F.dahil = false;
     $("mesaj").value = ""; $("ekNot").value = ""; $("notIrs").checked = true; $("tarih").value = bugunStr(); $("sorguDurum").textContent = ""; $("iadeNo").value = ""; $("iadeTarih").value = "";
     cizAlici(); cizKalemler(); formDoldur(); $("ozet").innerHTML = ""; $("ozetHata").textContent = ""; $("notOnizleme").textContent = ""; sonHesap = null; kontrolBtn();
   }
 
   /* ---------- mesajdan doldurma ---------- */
+  /* Hazır hizmetteki kodlara göre fatura tipi: özel matrah nedeni varsa Özel matrah, istisna kodu varsa İstisna, tevkifat varsa Tevkifat, yoksa Satış */
+  function tipKalemden(k){ return k && k.ozelNeden ? "OZELMATRAH" : k && k.istisna ? "ISTISNA" : k && k.tev && k.tev !== "0" ? "TEVKIFAT" : "SATIS"; }
   function hazirUygula(k, h){
     k.preset = h.id; k.ad = h.ad; k.kdv = String(h.kdv); k.tev = String(h.tev); k.kod = h.kod || ""; k.istisna = h.istisna || ""; k.ozelNeden = h.ozel || ""; k.kodDiger = false;
     /* Tek satırlı faturada hazır hizmet, fatura tipini de belirler (iade tipi korunur) */
@@ -986,7 +1005,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (sec) k0.fiyat = sec.n.toLocaleString("tr-TR", { useGrouping: false, maximumFractionDigits: 2 });
     if (/dahil/.test(kt)) F.dahil = true; else if (/hariç|haric|\+\s*kdv|kdv\s*ayrı/.test(kt)) F.dahil = false;
     HZ().forEach(function(x){ (x.anah || "").split(",").forEach(function(w){ w = trk(w).trim(); if (w && kt.indexOf(w) > -1) hazirUygula(k0, x); }); });
-    if (/tevkifats[ıi]z/.test(kt)) F.tip = "SATIS";
+    if (/tevkifats[ıi]z/.test(kt) && F.tip === "TEVKIFAT") F.tip = "SATIS";
     var bul = null;
     if (m) m.aliciler.forEach(function(a){
       var p = trk(a.ad).split(/\s+/).filter(function(w){ return w.length > 2; });
@@ -1218,7 +1237,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("kur").addEventListener("input", function(){ F.kur = this.value; onizle(); });
   $("kalemEkle").addEventListener("click", function(){
     var y = yeniKalem(null), son1 = F.kalemler[F.kalemler.length - 1];
-    if (son1) { y.tev = son1.tev; y.kod = son1.kod; y.kdv = son1.kdv; }
+    if (son1) { y.tev = son1.tev; y.kod = son1.kod; y.kdv = son1.kdv; if (F.tip === "OZELMATRAH") y.ozelNeden = son1.ozelNeden; }
     F.kalemler.push(y); cizKalemler(); onizle();
     var d = $("kalemler").lastElementChild; if (d) { d.scrollIntoView({ behavior: "smooth", block: "center" }); var i = d.querySelector('[data-kf="ad"]'); if (i) odakla(i); }
   });
