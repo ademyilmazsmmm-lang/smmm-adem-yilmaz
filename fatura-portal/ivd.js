@@ -407,7 +407,7 @@ class Ivd {
     if (this.dbs && Date.now() - this.dbs.zaman < 8 * 60e3) return this.dbs;
     const y = await this.istek("GET", GW + "/auth/login/dbs/dbs-login", undefined, true), hedef = y && y.redirectUrl; if (!hedef) throw new Error("Defter-Beyan giriş adresi alınamadı" + (this.mesajMetni(y) ? ": " + this.mesajMetni(y) : "") + ".");
     const t = new URL(hedef).searchParams.get("t") || ""; if (!t) throw new Error("Defter-Beyan giriş bileti alınamadı.");
-    const deneme = [], biciler = [{ govde: { token: t } }, { govde: { t } }, { govde: { ticket: t } }, { govde: {}, jeton: t }];
+    const deneme = [], biciler = [{ govde: { token: t } }, { govde: { t } }, { govde: { ticket: t } }, { govde: {}, jeton: t }, { govde: { loginToken: t } }, { govde: { dbsToken: t } }, { govde: { tokenId: t } }, { govde: { code: t } }, { govde: { kod: t } }, { govde: { bilet: t } }, { govde: { jwt: t } }, { govde: { token: t }, jeton: t }];
     for (const b of biciler) {
       try {
         const r = await this.dbsCagri("external/auth/loginWithToken", b.govde, b.jeton || "", "");
@@ -417,7 +417,7 @@ class Ivd {
         deneme.push(Object.keys(b.govde).join(",") + (b.jeton ? "+başlık" : "") + " → HTTP " + r.durum + " " + String(r.json ? JSON.stringify(r.json) : r.ham).replace(/eyJ[\w.-]+/g, "<jwt>").slice(0, 120));
       } catch (e) { deneme.push(String(e.message).slice(0, 100)); }
     }
-    throw new Error("Defter-Beyan girişi kabul edilmedi [" + deneme.join(" | ") + "]");
+    throw new Error("Defter-Beyan girişi kabul edilmedi (" + deneme.length + " biçim denendi; hepsi: " + (deneme[0] || "").replace(/^.*?→\s*/, "") + ")");
   }
   async hesapOzeti(yil, mali) {
     yil = Number(yil); if (!(yil >= 2018 && yil <= 2100)) throw new Error("Yıl seçin.");
