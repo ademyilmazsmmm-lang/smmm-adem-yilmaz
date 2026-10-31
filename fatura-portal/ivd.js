@@ -432,7 +432,12 @@ class Ivd {
     const j = r.json || {}, c = j.resultContainer;
     if (!c) { const msg = [j.errorCode, j.errorMessage, j.statusMessage, j.message, (j.errors || []).map && (j.errors || []).map((x) => x && (x.message || x.defaultMessage || JSON.stringify(x))).join("; ")].filter(Boolean).join(" · "); throw new Error("Hesap özeti alınamadı (HTTP " + r.durum + ")" + (msg ? ": " + String(msg).slice(0, 200) : "") + "."); }
     const n = (v) => Number(v) || 0, gelirHasilat = n(c.gelirHasilat), gelirDiger = n(c.gelirDiger), giderDiger = n(c.giderDiger), amortisman = n(c.amortismanGiderleri);
-    return { yil, bas, bit, mali: govde.attributes.isMali, unvan: String(c.unvan || ""), gelirHasilat, gelirDiger, giderDiger, amortisman, toplamGelir: gelirHasilat + gelirDiger, toplamGider: giderDiger + amortisman, kar: n(c.kar), sekil: sekil(c) };
+    /* Bilinmeyen tutar alanları: cevapta başka kalemler varsa (kâr/zarar bunlarla hesaplanmış olabilir) ekranda gösterilir */
+    const bilinen = new Set(["unvan", "gelirHasilat", "gelirDiger", "giderDiger", "amortismanGiderleri", "kar", "id", "yil", "donem"]), ek = [];
+    const topla = (o, on, d) => { for (const k of Object.keys(o || {}).slice(0, 60)) { const v = o[k], ad = on ? on + "." + k : k; if (!d && bilinen.has(k)) continue; if (v && typeof v === "object" && !Array.isArray(v)) { if (d < 2) topla(v, ad, d + 1); } else if ((typeof v === "number" || (typeof v === "string" && /^-?\d+([.,]\d+)?$/.test(v.trim()))) && Number(String(v).replace(",", ".")) !== 0 && !/(^|\.)(id|yil|ay|donem|tip|versiyon|sira)$/i.test(ad)) ek.push({ ad, tutar: Number(String(v).replace(",", ".")) }); } };
+    topla(c, "", 0);
+    const toplamGelir = gelirHasilat + gelirDiger, toplamGider = giderDiger + amortisman, kar = n(c.kar);
+    return { yil, bas, bit, mali: govde.attributes.isMali, unvan: String(c.unvan || ""), gelirHasilat, gelirDiger, giderDiger, amortisman, toplamGelir, toplamGider, kar, ek: ek.slice(0, 40), uyusmuyor: Math.abs(toplamGelir - toplamGider - kar) > 0.5, sekil: sekil(c) };
   }
   /* ---- Z raporu: yeni nesil ÖKC aylık satış raporu bildirimleri (İnternet VD "ÖKC Bildirim Görüntüleme") ---- */
   async zRapor(yil, ay, vknIpucu) {
