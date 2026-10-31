@@ -379,11 +379,15 @@ class Ivd {
     await cagir("userSessionService_getUserSessionInfo", { token, rfDataInfo: [] });
     const j = await cagir("ehacizSorgulamaService_EhacizSorgulamaSonuc", { secim }), liste = dizi(j);
     if (!liste) throw new Error("Haciz listesi beklenmeyen biçimde geldi" + (j === null ? " (boş yanıt)" : " — yanıt: " + String(JSON.stringify(j)).replace(/\s+/g, " ").slice(0, 200)) + ".");
-    const m = (v) => (v === undefined || v === null ? "" : String(v)), sade = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) if (v !== null && typeof v !== "object" && String(v) !== "") r[k] = String(v); return r; };
+    const m = (v) => (v === undefined || v === null ? "" : String(v));
+    /* GİB tutarları kuruş cinsinden tam sayı gönderir (19288714 = 192.887,14); sayfa da getDecimalFormatted ile 100'e böler. Ondalıklı/biçimli gelenler olduğu gibi okunur */
+    const tutarCoz = (v) => { const t = m(v).trim(); if (/^-?\d+$/.test(t)) return Number(t) / 100; return Number(t.replace(/\./g, "").replace(",", ".")) || 0; };
+    const trTL = (n) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const sade = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) if (v !== null && typeof v !== "object" && String(v) !== "") r[k] = /tutar/i.test(k) && /^-?\d+$/.test(String(v).trim()) ? trTL(Number(String(v).trim()) / 100) : String(v); return r; };
     const satirlar = [], vdAd = {};
     for (const r of liste.slice(0, 20)) {
-      const kay = sade(r), vdkod = m(r.vdkod), hbno = m(r.hbno || r.hacizBildiriNo), ozet = { vdkod, no: hbno, tutar: Number(String(r.htutar || r.hacizBildTutar || "0").replace(/\./g, "").replace(",", ".")) || 0, borcDurum: m(r.borcDurum), alanlar: kay, ust: [], alt: [] };
-      if (vdkod && !(vdkod in vdAd)) { vdAd[vdkod] = ""; try { const v = await cagir("ehacizSorgulamaService_vdBilgileriGetir", { vdkod }); const d = (v && v.data && !Array.isArray(v.data) ? v.data : v) || {}; vdAd[vdkod] = m(d.vdadi); } catch (e) { if (e.oturum) throw e; } }
+      const kay = sade(r), vdkod = m(r.vdkod), hbno = m(r.hbno || r.hacizBildiriNo), ozet = { vdkod, no: hbno, tutar: tutarCoz(r.htutar || r.hacizBildTutar || "0"), borcDurum: m(r.borcDurum), alanlar: kay, ust: [], alt: [] };
+      if (vdkod && !(vdkod in vdAd)) { vdAd[vdkod] = ""; try { const v = await cagir("ehacizSorgulamaService_vdBilgileriGetir", { vdkod }); const d = (v && v.data && !Array.isArray(v.data) ? v.data : v) || {}; vdAd[vdkod] = m(d.vdadi || d.vdAdi || d.vdAd || d.vdadiuzun); } catch (e) { if (e.oturum) throw e; } }
       if (satirlar.length < 6 && vdkod && hbno) { try { const dj = await cagir("ehacizSorgulamaService_EhacizSorgulamaSonucDetay", { vdkod, hbno, secim }), d = (dj && dj.data && !Array.isArray(dj.data) ? dj.data : dj) || {}; ozet.ust = (Array.isArray(d.array1) ? d.array1 : []).slice(0, 20).map(sade); ozet.alt = (Array.isArray(d.array2) ? d.array2 : []).slice(0, 20).map(sade); } catch (e) { if (e.oturum) throw e; ozet.detayHata = String(e.message).slice(0, 100); } }
       satirlar.push(ozet);
     }
