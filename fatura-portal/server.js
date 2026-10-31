@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-192";
+const SURUM = "2026-10-31-193";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -219,7 +219,7 @@ const yaziSayac = new Map(); // mükellef -> son 24 saatteki borç durum yazıs�
 const postaSayac = new Map(); // kullanıcı -> son gönderim zamanları (saatlik sınır)
 const bekleyen = new Map(); // taslak kimliği -> geçmiş kaydı taslağı (onaylanınca kalıcı olur)
 const TIPLER = ["SATIS", "TEVKIFAT", "IADE", "ISTISNA"]; // Özel Matrah: portal isteği alınınca eklenecek
-const ISTISNA_AD = { 301: "Mal ihracatı", 302: "Hizmet ihracatı", 303: "Dış ticaret/ihracat kapsamı teslimler", 304: "Yolcu beraberi eşya", 308: "Transit ve gümrük antrepo taşımacılığı", 311: "Uluslararası taşımacılık", 201: "Diplomatik istisna", 350: "Diğer" };
+const ISTISNA_AD = { 301: "Mal ihracatı", 302: "Hizmet ihracatı", 303: "Dış ticaret/ihracat kapsamı teslimler", 304: "Yolcu beraberi eşya", 308: "Transit ve gümrük antrepo taşımacılığı", 311: "Uluslararası taşımacılık", 201: "Diplomatik istisna", 230: "Külçe altın, külçe gümüş ve kıymetli taşların teslimi (17/4-g)", 351: "İstisna olmayan diğer", 350: "Diğer" };
 const PARALAR = ["TRY", "USD", "EUR", "GBP"];
 /* İstemciden gelen fatura modelini temizler/doğrular. tam=false ise (yalnız hesap önizlemesi) alıcı/tarih zorunlu değildir. */
 function modelTemiz(g, tam) {
@@ -252,6 +252,7 @@ function modelTemiz(g, tam) {
   const kalemler = g.kalemler.map((k, i) => {
     const q = { ad: T(k.ad, 150), aciklama: T(k.aciklama, 150), miktar: Number(k.miktar), birim: /^[A-Z0-9]{2,4}$/.test(String(k.birim)) ? String(k.birim) : "C62",
       fiyat: Number(k.fiyat), kdv: Number(k.kdv), tev: tip === "TEVKIFAT" ? Math.min(9, Math.max(0, parseInt(k.tev, 10) || 0)) : 0, kod: T(k.kod, 10), istisna: tip === "ISTISNA" ? String(k.istisna || "") : "" };
+    if (tip === "SATIS" && tam && q.kdv === 0) throw new Error((i + 1) + ". satırda KDV %0 yazılamaz: KDV’siz satışlar “İstisna” fatura tipiyle ve istisna sebebiyle kesilir.");
     if (tip === "ISTISNA") { q.kdv = 0; if (tam && !ISTISNA_AD[q.istisna]) throw new Error((i + 1) + ". satırda KDV istisna sebebini seçin."); }
     if (tam && !q.ad) throw new Error((i + 1) + ". satırda mal/hizmet adı boş.");
     if (tip === "TEVKIFAT" && tam && (!(q.tev > 0) || !q.kod)) throw new Error((i + 1) + ". satırda tevkifat oranı ve kodu gerekli (tevkifatsız kesmek için fatura tipini “Satış” yapın).");
