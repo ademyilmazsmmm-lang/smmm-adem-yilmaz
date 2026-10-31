@@ -12,16 +12,18 @@ const BASE = process.env.GIB_TEST === "1" ? "https://earsivportaltest.efatura.go
  * m: { tip: "SATIS"|"TEVKIFAT", kdvDahil, kalemler: [{ miktar, fiyat, kdv, tev }] }
  * Her satır ayrı hesaplanır (portalda da KDV satır bazında yuvarlanır), toplamlar satırların toplamıdır. */
 function hesaplaFatura(m) {
-  const tev = m.tip === "TEVKIFAT";
+  const tev = m.tip === "TEVKIFAT", ozm = m.tip === "OZELMATRAH";
   const satirlar = (m.kalemler || []).map((k) => {
     const miktar = Number(k.miktar), fiyat = Number(k.fiyat), oran = Number(k.kdv), t = tev ? Number(k.tev) || 0 : 0;
     if (!(miktar > 0) || !(fiyat >= 0) || !(oran >= 0) || t < 0 || t > 10) throw new Error("Miktar, birim fiyat, KDV oranı veya tevkifat geçersiz.");
     const brut = Math.round(miktar * fiyat * 100);
-    let matrah, kdv;
-    if (m.kdvDahil) { matrah = Math.round(brut / (1 + oran / 100)); kdv = brut - matrah; }
+    let matrah, kdv, ozel = 0;
+    if (ozm) { /* Özel matrah: mal bedeli olduğu gibi yazılır; KDV yalnız girilen özel matrah tutarı üzerinden hesaplanır */
+      matrah = brut; ozel = Math.round((Number(k.ozelTutar) || 0) * 100); kdv = Math.round(ozel * oran / 100);
+    } else if (m.kdvDahil) { matrah = Math.round(brut / (1 + oran / 100)); kdv = brut - matrah; }
     else { matrah = brut; kdv = Math.round(matrah * oran / 100); }
     const tevKdv = Math.round(kdv * t / 10);
-    return { matrah, kdv, tev: t, tevKdv, toplam: matrah + kdv, oran, miktar };
+    return { matrah, kdv, tev: t, tevKdv, toplam: matrah + kdv, oran, miktar, ozel };
   });
   if (!satirlar.length) throw new Error("En az bir mal/hizmet satırı gerekli.");
   const top = satirlar.reduce((a, x) => ({ matrah: a.matrah + x.matrah, kdv: a.kdv + x.kdv, tevKdv: a.tevKdv + x.tevKdv, toplam: a.toplam + x.toplam }), { matrah: 0, kdv: 0, tevKdv: 0, toplam: 0 });
@@ -114,7 +116,7 @@ function faturaGovdesi(m, uuid, varyant) {
   const a = m.alici, sahis = /^\d{11}$/.test(a.vkn);
   const parca = a.unvan.trim().split(/\s+/);
   const soyad = sahis && parca.length > 1 ? parca.pop() : "";
-  const tev = m.tip === "TEVKIFAT", iade = m.tip === "IADE" && m.iade, ist = m.tip === "ISTISNA";
+  const tev = m.tip === "TEVKIFAT", iade = m.tip === "IADE" && m.iade, ist = m.tip === "ISTISNA", ozm = m.tip === "OZELMATRAH";
   const dmy = (y) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(y || ""); return q ? `${q[3]}/${q[2]}/${q[1]}` : ""; };
   const x = m._h;
   const kalemler = m.kalemler.map((k, i) => {
@@ -123,15 +125,16 @@ function faturaGovdesi(m, uuid, varyant) {
     const satir = {
       malHizmet: temizMetin(k.ad + (k.aciklama ? " - " + k.aciklama : ""), 250), miktar: Number(k.miktar), birim: k.birim || "C62", birimFiyat: bf, fiyat: bf,
       iskontoOrani: 0, iskontoTutari: "0", iskontoNedeni: "", malHizmetTutari: nf(s.matrah),
-      kdvOrani: String(Number(k.kdv)), vergiOrani: 0, kdvTutari: nf(s.kdv), vergininKdvTutari: "0", ozelMatrahTutari: "0"
+      kdvOrani: String(Number(k.kdv)), vergiOrani: 0, kdvTutari: nf(s.kdv), vergininKdvTutari: "0", ozelMatrahTutari: ozm ? nf(s.ozel) : "0"
     };
+    if (ozm) satir.ozelMatrahNedeni = String(k.ozelNeden || ""); // portal alan adı doğrulanmadı (açık kaynak istemcilerden)
     if (ist) satir.istisnaKodu = String(k.istisna || ""); // portal alan adı doğrulanmadı
     if (tev) Object.assign(satir, { hesaplananotvtevkifatakatkisi: "0", tevkifatKodu: String(k.kod || ""), V9015Orani: Number(k.tev) * 10, V9015Tutari: nf(s.tevKdv) });
     return satir;
   });
   const govde = {
     faturaUuid: varyant === 1 ? uuid : "", belgeNumarasi: "", faturaTarihi: tarih, saat, paraBirimi: m.para || "TRY", dovzTLkur: (m.para || "TRY") === "TRY" ? "0" : String(Number(m.kur)),
-    faturaTipi: tev ? "TEVKIFAT" : iade ? "IADE" : ist ? "ISTISNA" : "SATIS", hangiTip: "5000/30000",
+    faturaTipi: tev ? "TEVKIFAT" : iade ? "IADE" : ist ? "ISTISNA" : ozm ? "OZELMATRAH" : "SATIS", hangiTip: "5000/30000",
     vknTckn: a.vkn, aliciUnvan: sahis ? "" : a.unvan.trim(), aliciAdi: sahis ? parca.join(" ") : "", aliciSoyadi: sahis ? soyad : "",
     binaAdi: "", binaNo: "", kapiNo: "", kasabaKoy: "", vergiDairesi: temizMetin(a.vd, 100), ulke: "Türkiye", bulvarcaddesokak: temizMetin(a.adres, 250),
     irsaliyeNumarasi: "", irsaliyeTarihi: "", mahalleSemtIlce: "", sehir: " ", postaKodu: "", tel: "", fax: "", eposta: "", websitesi: "",
@@ -565,7 +568,7 @@ class SahteGib {
     const g = (SahteGib.t && SahteGib.t.get(uuid)) || (SahteGib.o && SahteGib.o.get(uuid)) || (SahteGib.i && SahteGib.i.get(uuid));
     if (!g) throw new Error("Fatura bulunamadı.");
     return { kaynak: "xml", alici: { unvan: g.aliciUnvan || (g.aliciAdi + " " + g.aliciSoyadi).trim(), vkn: g.vknTckn, vd: g.vergiDairesi || "", adres: g.bulvarcaddesokak || "" },
-      kalemler: g.malHizmetTable.map((k) => ({ ad: k.malHizmet, miktar: k.miktar, birim: k.birim, fiyat: Number(k.birimFiyat), kdv: Number(k.kdvOrani), tev: k.V9015Orani ? Math.round(k.V9015Orani / 10) : 0, kod: k.tevkifatKodu || "", istisna: k.istisnaKodu || "" })) };
+      kalemler: g.malHizmetTable.map((k) => ({ ad: k.malHizmet, miktar: k.miktar, birim: k.birim, fiyat: Number(k.birimFiyat), kdv: Number(k.kdvOrani), tev: k.V9015Orani ? Math.round(k.V9015Orani / 10) : 0, kod: k.tevkifatKodu || "", istisna: k.istisnaKodu || "", ozelNeden: k.ozelMatrahNedeni || "", ozelTutar: Number(k.ozelMatrahTutari) || 0 })) };
   }
   async faturaHtml(uuid) {
     const g = (SahteGib.t && SahteGib.t.get(uuid)) || (SahteGib.o && SahteGib.o.get(uuid));
