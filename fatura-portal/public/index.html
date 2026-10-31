@@ -1773,8 +1773,24 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var g = GK[m.id], f = g && g.veri ? GK_ET.map(function(a){ return '<div><label>' + a[1] + '</label><input data-gkf="' + a[0] + '" value="' + esc(g.veri[a[0]] || "") + '"' + (g.dolu && g.dolu[a[0]] ? ' style="border-color:var(--accent)"' : "") + '></div>'; }).join("") : "";
     return '<details class="alt2" data-ak="gk:' + m.id + '"' + ac("gk:" + m.id) + '><summary>GİB e-Arşiv kullanıcı bilgileri</summary><div class="icerik">' +
       '<p class="not" style="margin:0">GİB e-Arşiv Portalı, “Kullanıcı Bilgileri” hiç kaydedilmemiş hesaplarda fatura oluşturmayı reddeder. Buradan GİB’deki kaydı okuyabilir, boş alanları sicilden (Dijital Vergi Dairesi) doldurup kontrol ederek GİB’e kaydedebilirsiniz.</p>' +
-      '<button class="btn ikincil" type="button" data-gk-oku="' + m.id + '">GİB’den oku</button>' + (g && g.veri ? '<p class="not" style="margin:0">VKN/TCKN: <b>' + esc(g.veri.vknTckn || "") + '</b>' + (g.sicilNot ? ' · ' + esc(g.sicilNot) : "") + '</p><div style="display:grid;gap:8px">' + f + '</div><button class="k" type="button" data-gk-sicil="' + m.id + '">Boş alanları sicilden doldur</button><button class="btn" type="button" data-gk-kaydet="' + m.id + '">GİB’e kaydet</button><p class="not" style="margin:0">Yeşil çerçeveli alanlar sicilden dolduruldu; adres metni parçalara bölündüğü için kontrol edin.</p>' : '') +
+      '<button class="btn ikincil" type="button" data-gk-oku="' + m.id + '">GİB’den oku</button>' + (g && g.veri ? '<p class="not" style="margin:0">VKN/TCKN: <b>' + esc(g.veri.vknTckn || "") + '</b>' + (g.sicilNot ? ' · ' + esc(g.sicilNot) : "") + '</p><div style="display:grid;gap:8px">' + f + '</div>' + (gkEksik(g.veri).length ? '<p class="not" style="margin:0;color:var(--danger)">Eksik zorunlu alan: ' + esc(gkEksik(g.veri).join(", ")) + '</p>' : '<p class="not" style="margin:0;color:var(--accent)">Zorunlu alanlar dolu.</p>') + '<button class="k" type="button" data-gk-sicil="' + m.id + '">Boş alanları sicilden doldur</button><button class="btn" type="button" data-gk-kaydet="' + m.id + '">GİB’e kaydet</button><p class="not" style="margin:0">Yeşil çerçeveli alanlar otomatik dolduruldu; adres metni parçalara bölündüğü için kontrol edin.</p>' : '') +
       '<div class="durum" data-gkd role="status"></div></div></details>';
+  }
+  var GK_ZORUNLU = [["vergiDairesi", "vergi dairesi"], ["cadde", "cadde"], ["ilce", "ilçe"], ["il", "il"], ["telNo", "telefon"]];
+  function gkEksik(v){
+    var e = []; if (!String(v.unvan || "").trim() && !(String(v.ad || "").trim() && String(v.soyad || "").trim())) e.push("ünvan ya da ad ve soyad");
+    GK_ZORUNLU.forEach(function(a){ if (!String(v[a[0]] || "").trim()) e.push(a[1]); }); return e;
+  }
+  function tuzelMi(ad){ return /(A\.?\s?Ş\.?|LTD|L[İI]M[İI]TED|ANON[İI]M|KOLL|ŞT[İI]|STI|KOOPERAT[İI]F|DERNE[ĞG][İI]|VAKF|ŞİRKET)/i.test(String(ad || "")); }
+  /* Profil işleminden sonra: GİB'deki mevcut kaydı oku, boş alanları profilden (ünvan, vergi dairesi, adres, telefon, e-posta) doldur. GİB'e YAZMAZ; kaydetmek için onay gerekir. */
+  function gkProfildenDoldur(id){
+    var m = mBul(id); if (!m || ROL !== "ofis" || m.earsiv === false) return Promise.resolve(null);
+    return api("/api/earsiv/kullanici", "POST", { mukellefId: id, islem: "getir" }).then(function(r){
+      var p = m.profil || {}, ad = String(m.ad || "").trim(), a = adresParcala(p.adres || ""), parca = ad.split(/\s+/), y = { vergiDairesi: p.vd || "", cadde: a.cadde, kapiNo: a.kapiNo, kasaba: a.kasaba, ilce: a.ilce, il: a.il, telNo: String(p.tel || "").replace(/\D/g, "").replace(/^0/, ""), ePostaAdresi: p.eposta || "" };
+      if (tuzelMi(ad)) y.unvan = ad; else if (parca.length > 1) { y.soyad = parca[parca.length - 1]; y.ad = parca.slice(0, -1).join(" "); } else y.ad = ad;
+      var dolu = {}, n = 0; Object.keys(y).forEach(function(k){ var v = String(y[k] || "").trim(); if (!v || String(r.alanlar[k] || "").trim()) return; r.alanlar[k] = v; dolu[k] = true; n++; });
+      GK[id] = { veri: r.alanlar, dolu: dolu, sicilNot: n ? n + " alan profilden dolduruldu" : "" }; return n;
+    });
   }
   function gkDurum(id, t, tip){ var e = document.querySelector('[data-mid="' + id + '"] [data-gkd]'); if (e) { e.className = "durum " + (tip || ""); e.textContent = t; } }
   function trBas(t){ t = String(t || "").trim().toLocaleLowerCase("tr-TR"); return t.charAt(0).toLocaleUpperCase("tr-TR") + t.slice(1); }
@@ -2059,7 +2075,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       Object.keys(yeni).forEach(function(a){ var v = String(yeni[a] || "").trim(); if (!v || (p[a] && !ustune) || p[a] === v) return; p[a] = v; degisen.push(ad[a]); });
       if (ustune && k.unvan && m.ad !== k.unvan) { m.ad = k.unvan; degisen.push("ünvan"); }
       if (!degisen.length) { dur("Profil sicil bilgisiyle zaten uyumlu.", "ok"); return; }
-      return kaydetV().then(function(){ hepsi(); mDurum(id, "Sicilden güncellendi: " + degisen.join(", ") + ". Kontrol edin.", "ok"); });
+      return kaydetV().then(function(){ hepsi(); mDurum(id, "Sicilden güncellendi: " + degisen.join(", ") + ". Kontrol edin.", "ok"); gkProfildenDoldur(id).then(function(n){ if (n === null) return; hepsi(); mDurum(id, "Sicilden güncellendi: " + degisen.join(", ") + ". GİB e-Arşiv kullanıcı bilgileri formu da hazırlandı" + (n ? " (" + n + " alan)" : "") + ".", "ok"); }, function(){}); });
     }, function(er){ if (oturumDustu(er)) return; if (er.girisGerek) { VD.bagli = false; } dur(er.message, "hata"); });
   }
   $("ayarIc").addEventListener("toggle", function(e){
@@ -2183,7 +2199,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (t.hasAttribute("data-gk-kaydet")) {
       var kid = t.getAttribute("data-gk-kaydet"), gk = GK[kid]; if (!gk) return; var v0 = gk.veri;
       if (!String(v0.unvan || "").trim() && !(String(v0.ad || "").trim() && String(v0.soyad || "").trim())) { gkDurum(kid, "Ünvan ya da ad ve soyad yazın.", "hata"); return; }
-      if (!confirm("GİB e-Arşiv Portalı’ndaki kullanıcı bilgileri bu değerlerle KAYDEDİLECEK:\n\n" + GK_ET.map(function(a){ return a[1] + ": " + (v0[a[0]] || "—"); }).join("\n") + "\n\nOnaylıyor musunuz?")) return;
+      if (!confirm("GİB e-Arşiv Portalı’ndaki kullanıcı bilgileri bu değerlerle KAYDEDİLECEK:\n\n" + GK_ET.map(function(a){ return a[1] + ": " + (v0[a[0]] || "—"); }).join("\n") + (gkEksik(v0).length ? "\n\nUYARI: eksik alan var (" + gkEksik(v0).join(", ") + "); GİB reddedebilir." : "") + "\n\nOnaylıyor musunuz?")) return;
       gkDurum(kid, "GİB’e kaydediliyor…", ""); t.disabled = true;
       api("/api/earsiv/kullanici", "POST", { mukellefId: kid, islem: "kaydet", alanlar: v0 }).then(function(r){ t.disabled = false; gk.dolu = {}; gk.sicilNot = ""; cizAyar(); gkDurum(kid, "GİB: " + r.mesaj, "ok"); }, function(er){ t.disabled = false; if (oturumDustu(er)) return; gkDurum(kid, er.message, "hata"); });
       return;
@@ -2192,7 +2208,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (t.hasAttribute("data-profil-kaydet")) {
       var pid = mEl && mEl.getAttribute("data-mid"), pr = (mm && mm.profil) || {};
       if (pr.eposta && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pr.eposta.trim())) { mDurum(pid, "E-posta adresi geçerli görünmüyor.", "hata"); return; }
-      mDurum(pid, "Kaydediliyor…", ""); kaydetV().then(function(){ hepsi(); mDurum(pid, "Profil kaydedildi.", "ok"); }, function(er){ mDurum(pid, er.message, "hata"); }); return;
+      mDurum(pid, "Kaydediliyor…", ""); kaydetV().then(function(){ hepsi(); mDurum(pid, "Profil kaydedildi.", "ok"); gkProfildenDoldur(pid).then(function(n){ if (n === null) return; hepsi(); mDurum(pid, "Profil kaydedildi. GİB e-Arşiv kullanıcı bilgileri formu hazırlandı" + (n ? " (" + n + " alan profilden dolduruldu)" : "") + "; Ayarlar → GİB e-Arşiv kullanıcı bilgileri bölümünden kontrol edip GİB’e kaydedin.", "ok"); }, function(){ /* GİB’e bağlanılamadı; form hazırlanmadı */ }); }, function(er){ mDurum(pid, er.message, "hata"); }); return;
     }
     if (t.hasAttribute("data-logo-kaydet")) { var lid = mEl && mEl.getAttribute("data-mid"); mDurum(lid, "Kaydediliyor…", ""); kaydetV().then(function(){ hepsi(); mDurum(lid, "Kaydedildi.", "ok"); }, function(er){ mDurum(lid, er.message, "hata"); }); return; }
     if (t.id === "ayarKaydet") { kaydetV().then(function(){ hepsi(); var d = $("ayarDurum"); d.className = "durum ok"; d.textContent = "Kaydedildi."; }, function(er){ ayarHata($("ayarDurum"), er); }); return; }
