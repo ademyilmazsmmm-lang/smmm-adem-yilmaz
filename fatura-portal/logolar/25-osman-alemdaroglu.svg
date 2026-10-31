@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 732 150" width="732" height="150" font-family="Segoe UI,Helvetica,Arial,sans-serif">
+  <circle cx="75" cy="75" r="68" fill="#0f2a4a"/><circle cx="75" cy="75" r="62" fill="none" stroke="#c8962e" stroke-width="2"/>
+  <g transform="translate(26 38) scale(.98)"><circle cx="50" cy="48" r="17" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><polygon points="37,8 63,8 72,19 50,34 28,19" fill="#c8962e" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/><path d="M28 19h44M44 8l-5 11 11 15M56 8l5 11-11 15" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></g>
+  <text x="168" y="74" font-size="40" font-weight="700" fill="#0f2a4a" letter-spacing="2.5">OSMAN ALEMDAROĞLU</text>
+  <rect x="170" y="86" width="56" height="3" fill="#c8962e"/>
+  <text x="170" y="114" font-size="14" font-weight="600" fill="#4a5a6e" letter-spacing="3.5">GÜMÜŞ · ÇELİK TAKI SATIŞI</text>
+</svg>
