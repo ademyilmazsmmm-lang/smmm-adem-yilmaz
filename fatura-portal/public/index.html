@@ -1393,12 +1393,12 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     return markaYukle(mid).then(function(){ return api("/api/gorunum", "POST", { mukellefId: mid, uuid: uuid, onay: onay }); }).then(function(r){ return pdfUret(r.html, mid, ilerle); }).then(function(buf){ var f = new File([buf], ad2, { type: "application/pdf" }); PDFOnbellek[ak] = f; return f; });
   }
   function dosyaB64(f){ return new Promise(function(ok, no){ var r = new FileReader(); r.onload = function(){ ok(String(r.result).split(",")[1] || ""); }; r.onerror = function(){ no(new Error("PDF okunamadı")); }; r.readAsDataURL(f); }); }
-  function epostaGonder(mid, uuid, ad, durumId, adres){
+  function epostaGonder(mid, uuid, ad, durumId, adres, ozet){
     var d = $(durumId), t0 = Date.now(), asama = "PDF hazırlanıyor";
     function goster(){ d.className = "durum"; d.textContent = "E-posta için " + asama + "… (" + Math.round((Date.now() - t0) / 1000) + " sn)"; }
     goster(); var sayac = setInterval(goster, 1000);
     return pdfDosyaAl(mid, uuid, "Onaylandı", ad, function(m){ asama = m; goster(); })
-      .then(dosyaB64).then(function(b64){ asama = "gönderiliyor"; goster(); return api("/api/mail", "POST", { mukellefId: mid, uuid: uuid, to: [adres], pdf: b64 }); })
+      .then(dosyaB64).then(function(b64){ asama = "gönderiliyor"; goster(); return api("/api/mail", "POST", { mukellefId: mid, uuid: uuid, to: [adres], pdf: b64, ozet: ozet }); })
       .then(function(r){ clearInterval(sayac); d.className = "durum ok"; d.textContent = "E-posta gönderildi: " + r.to.join(", ") + (r.kopya && r.kopya.length ? " (kopya: " + r.kopya.join(", ") + ")" : "") + "."; gecmisYukle(); },
         function(er){ clearInterval(sayac); if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = "E-posta gönderilemedi: " + (er.message || er) + " Geçmiş sekmesindeki “E-posta” düğmesiyle yeniden deneyebilirsiniz."; });
   }
@@ -1587,7 +1587,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       d.textContent = r.belgeler.length + " belge bulundu.";
       $("gibListe").innerHTML = r.belgeler.map(function(b, i){
         var yerel = gecmis.some(function(k){ return k.id === b.ettn; });
-        return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" && b.talep === "" ? ' <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button>' : "") + '</span>' : "", b.talep !== "");
+        return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" && b.talep === "" ? ' <button class="k" type="button" data-gps="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '">Paylaş</button>' + (MAILHAZIR ? ' <button class="k" type="button" data-gpe="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '" data-gpa="' + esc(b.alici) + '" data-gpt="' + esc(b.tarih) + '">E-posta</button>' : "") + ' <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button>' : "") + '</span>' : "", b.talep !== "");
       }).join("");
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
   });
@@ -1606,7 +1606,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
   }
   $("gibListe").addEventListener("click", function(e){
-    var ip = e.target.getAttribute("data-gp2");
+    var ps = e.target.getAttribute("data-gps"), pe = e.target.getAttribute("data-gpe"), ip = e.target.getAttribute("data-gp2");
+    if (ps) return paylas(mSec, ps, "Onaylandı", e.target.getAttribute("data-gpn"), "gDurum");
+    if (pe) {
+      var yk = gecmis.filter(function(k){ return k.id === pe; })[0] || {}, son = yk.epostalar && yk.epostalar.length ? yk.epostalar[yk.epostalar.length - 1].to : "";
+      var adr = prompt("Faturayı hangi e-posta adresine gönderelim?", yk.aliciEposta || son || ""); if (!adr) return; adr = adr.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adr)) { var dg = $("gDurum"); dg.className = "durum hata"; dg.textContent = "E-posta adresi geçerli görünmüyor."; return; }
+      return epostaGonder(yk.mukellefId || mSec, pe, e.target.getAttribute("data-gpn"), "gDurum", adr, { alici: e.target.getAttribute("data-gpa"), belgeNo: e.target.getAttribute("data-gpn"), tarih: e.target.getAttribute("data-gpt") });
+    }
     if (ip) return belgeIslemi("iptal", ip, e.target.getAttribute("data-gt2"), "Seçilen fatura");
     var id = e.target.getAttribute("data-ge"); if (!id) return;
     var yerel = gecmis.filter(function(k){ return k.id === id; })[0];

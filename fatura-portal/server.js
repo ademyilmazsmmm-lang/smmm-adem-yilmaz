@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-136";
+const SURUM = "2026-10-31-137";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -617,7 +617,8 @@ async function api(req, res, yol) {
   if (yol === "/api/mail") {
     if (!posta.hazir()) return cevap(res, 400, { hata: "E-posta gönderimi bu sunucuda henüz kurulmadı (sunucu ayarlarında MAIL_ANAHTAR ve MAIL_GONDEREN gerekir)." });
     const sinir = (postaSayac.get(o.kullanici) || []).filter((t) => Date.now() - t < 3600e3); if (sinir.length >= 40) return cevap(res, 429, { hata: "Saatlik e-posta sınırına ulaşıldı (40). Biraz sonra tekrar deneyin." });
-    const k = (m.gecmis || []).filter((x) => x.id === g.uuid)[0]; if (!k) return cevap(res, 404, { hata: "Fatura bu programın geçmişinde bulunamadı; e-posta gönderilemedi." });
+    let k = (m.gecmis || []).filter((x) => x.id === g.uuid)[0], gibKaydi = false;
+    if (!k) { const oz = g.ozet && typeof g.ozet === "object" ? g.ozet : null; if (!oz) return cevap(res, 404, { hata: "Fatura bu programın geçmişinde bulunamadı; e-posta gönderilemedi." }); k = { aliciUnvan: gib.temizMetin(oz.alici, 120), belgeNo: gib.temizMetin(oz.belgeNo, 40), tarih: String(oz.tarih || "").replace(/^(\d{2})[-\/.](\d{2})[-\/.](\d{4})/, "$3-$2-$1").slice(0, 10) }; gibKaydi = true; }
     const to = (Array.isArray(g.to) ? g.to : [g.to]).map((x) => String(x || "").trim()).filter(Boolean).slice(0, 3);
     if (!to.length || !to.every((x) => posta.EPOSTA.test(x) && x.length <= 120)) return cevap(res, 400, { hata: "Geçerli bir e-posta adresi yazın." });
     const b64 = String(g.pdf || ""); if (!/^[A-Za-z0-9+/=]{100,}$/.test(b64) || b64.length > 5.5e6) return cevap(res, 400, { hata: "PDF eki geçersiz ya da çok büyük." });
@@ -628,7 +629,7 @@ async function api(req, res, yol) {
     const kopya = pr.eposta && posta.EPOSTA.test(pr.eposta) && !to.includes(pr.eposta) ? [pr.eposta] : [];
     await posta.gonder({ gonderenAd: m.ad, to, cc: kopya, yanit: pr.eposta || "", konu: "Fatura" + (k.belgeNo ? " " + k.belgeNo : "") + " — " + m.ad, metin, ek: { ad: "fatura-" + String(k.belgeNo || "belge").replace(/[^\w.-]+/g, "_") + ".pdf", veri } }, DIR);
     sinir.push(Date.now()); postaSayac.set(o.kullanici, sinir);
-    (k.epostalar = k.epostalar || []).push({ zaman: new Date().toISOString(), to: to.join(", ") }); if (k.epostalar.length > 20) k.epostalar.shift(); depo.kaydet(mid);
+    if (!gibKaydi) { (k.epostalar = k.epostalar || []).push({ zaman: new Date().toISOString(), to: to.join(", ") }); if (k.epostalar.length > 20) k.epostalar.shift(); depo.kaydet(mid); }
     gunluk(o, mid, "Fatura e-postayla gönderildi", (k.belgeNo || g.uuid) + " → " + to.join(", "));
     return cevap(res, 200, { tamam: true, to, kopya });
   }
