@@ -2249,6 +2249,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function vdTarih(t){ var m = /^(\d{2})[./-](\d{2})[./-](\d{4})/.exec(t || "") || null; if (m) return +(m[3] + m[2] + m[1]); m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t || ""); return m ? +(m[1] + m[2] + m[3]) : 0; }
   function vdSatir(e, d){ return d ? '<div style="display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:6px;font-size:.88rem;margin-top:4px"><span class="not" style="margin:0">' + esc(e) + '</span><span style="overflow-wrap:anywhere">' + esc(d) + '</span></div>' : ""; }
+  function vdDefterAlan(){ return ROL === "ofis" ? '<details class="alt2"><summary>Geliştirme aracı</summary><div class="icerik"><button class="k" type="button" id="vdDefterOku">Defter-Beyan portalını oku (geliştirme)</button></div></details>' + (VD.sonuc.defterDev ? isvHtml(VD.sonuc.defterDev, "Defter-Beyan keşfi") : "") : ""; }
   function vdSicilHtml(s){
     var k = s.kisi || {}, h = (s.uyari ? '<p class="not" style="margin:0 0 8px;color:var(--danger)">' + esc(s.uyari) + '</p>' : '') + '<div class="kayit"><b>' + esc(k.unvan || "Mükellef") + '</b>' + vdSatir("VKN / TCKN", k.vkn || k.tckn) + vdSatir("Mükellef türü", [k.tur, k.mukellefTuru].filter(Boolean).join(" · ")) + vdSatir("İş yeri adresi", k.isYeri) + vdSatir("İkametgâh", k.ikametgah) + vdSatir("Ticaret sicil", k.ticaretSicil) + '</div>';
     (s.subeler || []).forEach(function(b){
@@ -2298,6 +2299,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("vdHacizBanka").addEventListener("click", function(){ hacizSorgu(this, "banka", false); });
   $("vdHacizArac").addEventListener("click", function(){ hacizSorgu(this, "arac", false); });
   $("vdHacizDerin").addEventListener("click", function(){ hacizSorgu(this, VD.hacizTur || "banka", true); });
+  $("vdListe").addEventListener("click", function(e){
+    if (e.target.id !== "vdDefterOku") return; var b = e.target, d = $("vdDurum"); b.disabled = true; d.className = "durum"; d.textContent = "Defter-Beyan portalı okunuyor…";
+    api("/api/vd/defter", "POST", { mukellefId: VD.mid }).then(function(r){ VD.sonuc.defterDev = r; d.textContent = ""; if (VD.sek === "sicil") vdCiz(); }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
+  });
   $("vdListe").addEventListener("click", function(e){
     if (e.target.id !== "vdZOku") return; var b = e.target, d = $("vdDurum"); b.disabled = true; d.className = "durum"; d.textContent = "İnternet Vergi Dairesi okunuyor…";
     api("/api/vd/zrapor", "POST", { mukellefId: VD.mid, derin: true }).then(function(r){ VD.sonuc.zraporDev = r; d.textContent = ""; if (VD.sek === "zrapor") vdCiz(); }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
@@ -2390,10 +2395,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (VD.sek === "zrapor") { liste.innerHTML = (s && s.bildirimler ? '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdZHtml(s) : '<p class="not">Yıl ve ayı seçip “Sorgula”ya basın.</p>') + (ROL === "ofis" && VD.bagli ? '<details class="alt2"><summary>Geliştirme aracı</summary><div class="icerik"><button class="k" type="button" id="vdZOku">İnternet VD sayfasını oku (geliştirme)</button></div></details>' : "") + (VD.sonuc.zraporDev ? isvHtml(VD.sonuc.zraporDev, "İnternet Vergi Dairesi · Z raporu") : ""); tani.hidden = true; return; }
     if (VD.sek === "haciz") { liste.innerHTML = s ? '<p class="not" style="margin:0">' + esc(s.zaman) + '</p>' + isvHtml(s, (VD.hacizTur === "arac" ? "Araçlar" : "Banka hesapları") + " · haciz sorgusu") : ""; tani.hidden = true; return; }
     if (VD.sek === "telefon" || VD.sek === "kdv") { liste.innerHTML = ""; tani.hidden = true; return; }
+    if (!s && VD.sek === "sicil") { liste.innerHTML = vdDefterAlan(); tani.hidden = true; return; }
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
     if (VD.sek === "tahakkuk") { liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + ' tahakkuk · ' + esc(s.zaman) + "</p>" + vdThkHtml(s); $("vdTaniMetin").textContent = JSON.stringify({ sekil: s.sekil, denenenBicimler: s.deneme }, null, 1); tani.hidden = false; return; }
     if (VD.sek === "yoklama") { liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + ' yoklama · ' + esc(s.zaman) + '</p>' + vdYokHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
-    if (VD.sek === "sicil") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdSicilHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
+    if (VD.sek === "sicil") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdSicilHtml(s) + vdDefterAlan(); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }
     if (VD.sek === "arac") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + (s.uyari ? " · " + esc(s.uyari) : "") + "</p>" + vdAracHtml(s); tani.hidden = true; return; }
     if (VD.sek === "pos") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdPosHtml(s); tani.hidden = true; return; }
     if (VD.sek === "levha") { liste.innerHTML = '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdLevhaHtml(s); $("vdTaniMetin").textContent = JSON.stringify(s.sekil, null, 1); tani.hidden = false; return; }

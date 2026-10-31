@@ -330,6 +330,22 @@ class Ivd {
     }
     return { kisi: { unvan: m(k.adSoyadUnvan), vkn: m(k.vkn), tckn: m(k.tckn), tur: m(k.sirketTuru), mukellefTuru: m(k.mukellefTuru), dogum: m(k.dogumTarihi), ikametgah: m(k.ikametgahAdres), isYeri: m(k.isYeriAdres), ticaretSicil: m(k.ticaretSicilNo), tel }, subeler, toplamSube: dizi.length, uyari: uyari.join(" · "), sekil: sekil({ kisi: k, liste: ly }) };
   }
+  /* Defter-Beyan portalı (portal.defterbeyan.gov.tr) Dijital VD'den otomatik girişle açılır; giriş uçları ve sicil sayfasının servis adresleri keşfedilir (yalnız okuma) */
+  async defterKesif() {
+    const maske = (t) => String(t || "").replace(/(token|jeton|sid|session[a-z]*|ticket|code)=[^&"'\s;<>]+/gi, "$1=<jeton>").replace(/\b[0-9a-f]{32,}\b/gi, "<jeton>"), cikti = [];
+    for (const yol of ["/auth/tdvd/edefter-login", "/auth/tdvd/yeni-ebyn-login", "/auth/tdvd/hbs-login"]) {
+      try {
+        const y = await this.istek("GET", GW + yol, undefined, true), hedef = y && (y.redirectUrl || y.url || (y.data && (y.data.redirectUrl || y.data.url)));
+        if (!hedef) { cikti.push(yol + " → yönlendirme adresi yok: " + maske(JSON.stringify(y)).slice(0, 200)); continue; }
+        const u0 = new URL(hedef); let r; try { r = await this.gibGit(hedef); } catch (e) { cikti.push(yol + " → " + u0.origin + u0.pathname + " açılamadı: " + String(e.message).slice(0, 120)); continue; }
+        const html = r.metin, betikler = [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]).slice(0, 12), baslik = (/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || "";
+        const apiler = new Set(); let incelenen = 0;
+        for (const b of betikler.filter((x) => !/jquery|polyfill|runtime/i.test(x)).slice(0, 5)) { try { const g = await this.gibGit(new URL(b, r.url).href), js = g.metin.slice(0, 1500000); incelenen++; for (const m of js.matchAll(/["'`]((?:\/?api)?\/[\w./-]*(?:sicil|mukellef|isyeri|faaliyet|adres)[\w./-]*)["'`]/gi)) if (apiler.size < 40) apiler.add(m[1]); } catch (e) { /* atla */ } }
+        cikti.push(yol + " → " + maske(u0.origin + u0.pathname) + " · HTTP " + r.durum + " · yönlendirme: " + (maske((r.yon || []).join(" ; ")) || "-") + " · başlık: " + baslik.replace(/\s+/g, " ").trim().slice(0, 80) + "\n   betikler: " + betikler.map((x) => maske(x)).join(" | ") + "\n   sicil/mükellef/adres geçen adresler (" + incelenen + " betik): " + ([...apiler].join(" | ") || "-") + "\n   metin: " + maske(html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/gi, " ").replace(/\s+/g, " ")).slice(0, 300));
+      } catch (e) { if (e.oturum) throw e; cikti.push(yol + " → " + String(e.message).slice(0, 140)); }
+    }
+    return { betikOzet: "[Defter-Beyan keşif]\n" + cikti.join("\n"), uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: "Defter-Beyan keşfi", baslik: "", metin: "", formlar: [], alanlar: [], tablolar: [], baglantilar: [], yonlendirme: [], satirlar: [], tabloHam: "", ham: "" };
+  }
   /* ---- Z raporu: yeni nesil ÖKC aylık satış raporu bildirimleri (İnternet VD "ÖKC Bildirim Görüntüleme") ---- */
   async zRapor(yil, ay, vknIpucu) {
     yil = String(yil || ""); ay = String(ay || "").padStart(2, "0");
@@ -390,7 +406,7 @@ class Ivd {
     let url = url0;
     for (let n = 0; n < 6; n++) {
       let u; try { u = new URL(url); } catch (e) { throw new Error("İnteraktif Vergi Dairesi adresi geçersiz."); }
-      if (u.protocol !== "https:" || !/(^|\.)gib\.gov\.tr$/i.test(u.hostname)) throw new Error("İnteraktif Vergi Dairesi beklenmeyen bir adrese yönlendirdi (" + String(u.hostname).slice(0, 60) + "); durduruldu.");
+      if (u.protocol !== "https:" || !/(^|\.)(gib|defterbeyan)\.gov\.tr$/i.test(u.hostname)) throw new Error("İnteraktif Vergi Dairesi beklenmeyen bir adrese yönlendirdi (" + String(u.hostname).slice(0, 60) + "); durduruldu.");
       const h = { "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36", accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8", "accept-language": "tr-TR,tr;q=0.9", referer: ref || "https://dijital.gib.gov.tr/" };
       if (govde != null && n === 0) { h["content-type"] = "application/x-www-form-urlencoded; charset=UTF-8"; h["x-requested-with"] = "XMLHttpRequest"; h.origin = u.origin; }
       const c = jar.get(u.hostname); if (c && c.size) h.cookie = [...c].map(([a, d]) => a + "=" + d).join("; ");
@@ -603,6 +619,7 @@ class SahteIvd {
   ornekPdf(metin) { return { veri: Buffer.from("%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 16 Tf 20 60 Td (" + metin + ") Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF"), tur: "application/pdf", satir: true, ad: String(metin).toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".pdf" }; }
   async tahakkukListe(bas, bit) { if (!bas || !bit) throw new Error("Başlangıç ve bitiş ayını seçin."); this.tahakkuklar = [{ vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0015 - KDV", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:12:00", fisNo: "2026102601KDV0001" }, { vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0003 - MUHTASAR", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:05:00", fisNo: "2026102601MUH0002" }]; return { kayitlar: this.tahakkuklar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
   async tahakkukIndir(n) { if (!(this.tahakkuklar || [])[n]) throw new Error("Tahakkuk bulunamadı; listeyi yenileyin."); return this.ornekPdf("ORNEK TAHAKKUK " + (n + 1)); }
+  async defterKesif() { return { betikOzet: "[Defter-Beyan keşif]\n/auth/tdvd/edefter-login → https://portal.defterbeyan.gov.tr/ · HTTP 200", uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: "Defter-Beyan keşfi", baslik: "", metin: "", formlar: [], alanlar: [], tablolar: [], baglantilar: [], yonlendirme: [], satirlar: [], tabloHam: "", ham: "" }; }
   async zRapor(yil, ay) { if (!yil || !ay) throw new Error("Yıl ve ay seçin."); const z = (a, t, n) => ({ ad: a, tutar: t, adet: n }); return { yil: Number(yil), ay: String(ay).padStart(2, "0"), bildirimler: [{ yontem: "Özel Entegratör", tarih: "05/10/2026 - 07:31", raporNo: "260900", kdvSatis: [0, 1, 8, 10, 18].map((o) => ({ oran: o, tutar: 0 })).concat([{ oran: 20, tutar: 56830 }]), toplamSatis: 56830, kdvToplam: 9471.67, belge: [z("ÖKC fişleri", 56830, 0), z("Faturalar", 0, 0)], odeme: [z("Nakit", 5288, 0), z("Banka / kredi kartı", 51542, 0), z("Yemek kartı / çeki", 0, 0)], bilgi: [z("Fatura bilgi fişi", 0, 0)] }] }; }
   async sicilBilgi() { return { kisi: { unvan: "ÖRNEK MÜKELLEF", vkn: "1111111111", tckn: "", tur: "GERCEK", mukellefTuru: "Gelir Vergisi", dogum: "01/01/1980", ikametgah: "ATATÜRK MAH. ÖRNEK SK. NO:3 ÜMRANİYE/İSTANBUL", isYeri: "ÖRNEK SANAYİ SİTESİ A BLOK NO:5 ÜMRANİYE/İSTANBUL", ticaretSicil: "", tel: "05320000000" }, subeler: [{ ad: "MERKEZ", no: "0", tur: "Merkez", nitelik: "İş yeri", vd: "ÜMRANİYE VERGİ DAİRESİ", durum: "Faal", adresler: [{ tip: "İş yeri adresi", adres: "ÖRNEK SANAYİ SİTESİ A BLOK NO:5 ÜMRANİYE/İSTANBUL" }], faaliyet: [{ kod: "49.41.01", ad: "Şehirlerarası eşya taşımacılığı", bas: "01/02/2015", bit: "" }], vergiler: [{ ad: "0015 - KDV", donem: "Aylık", bas: "01/02/2015", bit: "", terk: "" }, { ad: "0003 - Gelir Vergisi (Ticari)", donem: "Yıllık", bas: "01/02/2015", bit: "31/12/2019", terk: "İşi bırakma" }], hata: "" }], toplamSube: 1, sekil: {} }; }
   async yoklamaListe() { this.yoklamalar = [{ yoklamaTuru: "Yoklama", baslama: "2026-09-14", tarih: "2026-09-14", vd: "ÖRNEK VERGİ DAİRESİ", kod: "YKL2026000123", secureId: "x" }]; return { kayitlar: this.yoklamalar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
