@@ -295,9 +295,9 @@ class Ivd {
   }
   async sicilBilgi() {
     const al = (y) => (y && y.data && typeof y.data === "object" && !Array.isArray(y.data) ? y.data : y) || {}, m = (v) => (v === undefined || v === null ? "" : String(v)), uyari = [];
-    let k = {}; try { k = al(await this.istek("GET", GW + "/sicil-bilgileri/kisisel-bilgiler", undefined, true)); } catch (e) { if (e.oturum) throw e; uyari.push("Kimlik bilgileri: " + String(e.message).slice(0, 120)); }
-    let tel = ""; try { tel = m(al(await this.istek("GET", GW + "/sicil-bilgileri/get-iletisim-bilgileri", undefined, true)).talepOnayGsmNo); } catch (e) { if (e.oturum) throw e; }
-    let ly = {}; try { ly = await this.denemeli("POST", "/sube-bilgileri/mukellef-sube-listesi", [this.tablo({}, 50, { alan: "isyeriNitelikText", yon: "ASC" }), this.tablo({}, 50), { meta: { pagination: { pageNo: 1, pageSize: 50 }, filters: [] } }, { data: {} }, {}]); }
+    let k = {}; try { k = al(await this.istek("GET", GW + "/api/sicil-bilgileri/kisisel-bilgiler", undefined, true)); } catch (e) { if (e.oturum) throw e; uyari.push("Kimlik bilgileri: " + String(e.message).slice(0, 120)); }
+    let tel = ""; try { tel = m(al(await this.istek("GET", GW + "/api/sicil-bilgileri/get-iletisim-bilgileri", undefined, true)).talepOnayGsmNo); } catch (e) { if (e.oturum) throw e; }
+    let ly = {}; try { ly = await this.denemeli("POST", "/api/sube-bilgileri/mukellef-sube-listesi", [this.tablo({}, 50, { alan: "isyeriNitelikText", yon: "ASC" }), this.tablo({}, 50), { meta: { pagination: { pageNo: 1, pageSize: 50 }, filters: [] } }, { data: {} }, {}]); }
     catch (e) { if (e.oturum) throw e; uyari.push("İş yeri / şube listesi: " + String(e.message).slice(0, 160)); }
     const dizi = (ly && (Array.isArray(ly.subeBilgiDTO) ? ly.subeBilgiDTO : ly.data && Array.isArray(ly.data.subeBilgiDTO) ? ly.data.subeBilgiDTO : [])) || [], liste = dizi.slice(0, 8), subeler = [];
     const vkn = m(k.vkn) || m((ly && ly.vkn) || "");
@@ -306,16 +306,16 @@ class Ivd {
       const hata = (ad, e) => { sube.hata += (sube.hata ? " · " : "") + ad + ": " + String(e.message).slice(0, 160); };
       try {
         const veri = { vergiNo: vkn, subeNo: sb.subeNumarasi, mukellefiyet: 1, adresBilgi: 1, secureId: sb.secureId };
-        const dy = al(await this.denemeli("POST", "/sube-bilgileri/get-sube-bilgisi", [{ data: veri }, veri]));
+        const dy = al(await this.denemeli("POST", "/api/sube-bilgileri/get-sube-bilgisi", [{ data: veri }, veri]));
         sube.adresler = (Array.isArray(dy.isyeriAdresList) ? dy.isyeriAdresList : []).map((a) => ({ tip: m(a.adresTipText), adres: m(a.adresAciklama) })).filter((a) => a.adres);
         if (!sube.vd) sube.vd = m(dy.vergiDairesi || dy.vdUzunAdi);
       } catch (e) { if (e.oturum) throw e; hata("adres", e); }
       try {
-        const fy = await this.denemeli("POST", "/faaliyet-bilgileri/get-faaliyet-bilgileri", [this.tablo({ subeOid: sb.oid }, 100, { alan: "faaliyetKod", yon: "ASC" }), this.tablo({ subeOid: sb.oid }, 100), { data: { subeOid: sb.oid } }]), fl = (fy && (Array.isArray(fy.dataList) ? fy.dataList : fy.data && Array.isArray(fy.data.dataList) ? fy.data.dataList : [])) || [];
+        const fy = await this.denemeli("POST", "/api/faaliyet-bilgileri/get-faaliyet-bilgileri", [this.tablo({ subeOid: sb.oid }, 100, { alan: "faaliyetKod", yon: "ASC" }), this.tablo({ subeOid: sb.oid }, 100), { data: { subeOid: sb.oid } }]), fl = (fy && (Array.isArray(fy.dataList) ? fy.dataList : fy.data && Array.isArray(fy.data.dataList) ? fy.data.dataList : [])) || [];
         sube.faaliyet = fl.slice(0, 30).map((f) => ({ kod: m(f.faaliyetKod), ad: m(f.faaliyetAd), bas: m(f.basTar || f.baslamaTarihi), bit: m(f.bitTar || f.bitisTarihi) }));
       } catch (e) { if (e.oturum) throw e; hata("faaliyet", e); }
       try {
-        const vy = await this.denemeli("POST", "/sube-bilgileri/get-vergi-turleri", [this.tablo({ subeNo: sb.subeNumarasi, secureId: sb.secureId }, 100, { alan: "vergiAdi", yon: "ASC" }), this.tablo({ subeNo: sb.subeNumarasi, secureId: sb.secureId }, 100), { data: { subeNo: sb.subeNumarasi, secureId: sb.secureId } }]), vl = (vy && (Array.isArray(vy.dataList) ? vy.dataList : vy.data && Array.isArray(vy.data.dataList) ? vy.data.dataList : [])) || [];
+        const vy = await this.denemeli("POST", "/api/sube-bilgileri/get-vergi-turleri", [this.tablo({ subeNo: sb.subeNumarasi, secureId: sb.secureId }, 100, { alan: "vergiAdi", yon: "ASC" }), this.tablo({ subeNo: sb.subeNumarasi, secureId: sb.secureId }, 100), { data: { subeNo: sb.subeNumarasi, secureId: sb.secureId } }]), vl = (vy && (Array.isArray(vy.dataList) ? vy.dataList : vy.data && Array.isArray(vy.data.dataList) ? vy.data.dataList : [])) || [];
         sube.vergiler = vl.slice(0, 40).map((v) => ({ ad: m(v.vergiAdi), donem: m(v.donem), bas: m(v.baslamaTarihi), bit: m(v.bitisTarihi), terk: m(v.terkNedeni) }));
       } catch (e) { if (e.oturum) throw e; hata("vergi türleri", e); }
       subeler.push(sube);
@@ -323,8 +323,8 @@ class Ivd {
     /* şube listesi / adres alınamadıysa (ör. kayıtlı adres yok) adres istemeyen uçlardan merkez bilgisi ve faaliyet (NACE) kodları okunur */
     if (!subeler.length) {
       const yedek = { ad: "MERKEZ", no: "", tur: "Merkez", nitelik: "Merkez", vd: "", durum: "", adresler: [], faaliyet: [], vergiler: [], hata: "" };
-      try { const my = al(await this.istek("GET", GW + "/sube-bilgileri/merkez-bilgisi-getir", undefined, true)); yedek.vd = m(my.vergiDairesi || my.vdUzunAdi || my.vdAdi); yedek.durum = m(my.birimFaal || my.durum); yedek.ad = m(my.subeAdi) || "MERKEZ"; yedek.no = m(my.subeNumarasi || my.subeNo); } catch (e) { if (e.oturum) throw e; yedek.hata += "merkez: " + String(e.message).slice(0, 120); }
-      try { const fy = await this.istek("GET", GW + "/faaliyet-bilgileri/merkez-faaliyet-bilgisi", undefined, true), fl = (fy && (Array.isArray(fy.faaliyetKodlari) ? fy.faaliyetKodlari : fy.data && Array.isArray(fy.data.faaliyetKodlari) ? fy.data.faaliyetKodlari : [])) || []; yedek.faaliyet = fl.slice(0, 30).map((f) => ({ kod: m(f.faaliyetKod), ad: m(f.faaliyetAd), bas: m(f.basTar || f.baslamaTarihi), bit: m(f.bitTar || f.bitisTarihi) })); } catch (e) { if (e.oturum) throw e; yedek.hata += (yedek.hata ? " · " : "") + "faaliyet: " + String(e.message).slice(0, 120); }
+      try { const my = al(await this.istek("GET", GW + "/api/sube-bilgileri/merkez-bilgisi-getir", undefined, true)); yedek.vd = m(my.vergiDairesi || my.vdUzunAdi || my.vdAdi); yedek.durum = m(my.birimFaal || my.durum); yedek.ad = m(my.subeAdi) || "MERKEZ"; yedek.no = m(my.subeNumarasi || my.subeNo); } catch (e) { if (e.oturum) throw e; yedek.hata += "merkez: " + String(e.message).slice(0, 120); }
+      try { const fy = await this.istek("GET", GW + "/api/faaliyet-bilgileri/merkez-faaliyet-bilgisi", undefined, true), fl = (fy && (Array.isArray(fy.faaliyetKodlari) ? fy.faaliyetKodlari : fy.data && Array.isArray(fy.data.faaliyetKodlari) ? fy.data.faaliyetKodlari : [])) || []; yedek.faaliyet = fl.slice(0, 30).map((f) => ({ kod: m(f.faaliyetKod), ad: m(f.faaliyetAd), bas: m(f.basTar || f.baslamaTarihi), bit: m(f.bitTar || f.bitisTarihi) })); } catch (e) { if (e.oturum) throw e; yedek.hata += (yedek.hata ? " · " : "") + "faaliyet: " + String(e.message).slice(0, 120); }
       if (yedek.faaliyet.length || yedek.vd) subeler.push(yedek); else if (!Object.keys(k).length) { const tum = uyari.concat(yedek.hata ? ["yedek okuma: " + yedek.hata] : []).join(" · "); throw new Error((tum || "Sicil bilgisi alınamadı.") + (/Adres bulunamad/i.test(tum) ? " — GİB bu mükellefin sicilinde kayıtlı adres bulamıyor; Dijital VD’deki Sicil Bilgilerim ekranı da aynı hatayı verir olabilir. Başka bir mükellefle deneyin." : "")); }
     }
     return { kisi: { unvan: m(k.adSoyadUnvan), vkn: m(k.vkn), tckn: m(k.tckn), tur: m(k.sirketTuru), mukellefTuru: m(k.mukellefTuru), dogum: m(k.dogumTarihi), ikametgah: m(k.ikametgahAdres), isYeri: m(k.isYeriAdres), ticaretSicil: m(k.ticaretSicilNo), tel }, subeler, toplamSube: dizi.length, uyari: uyari.join(" · "), sekil: sekil({ kisi: k, liste: ly }) };
@@ -414,8 +414,9 @@ class Ivd {
     const modAd = (yerel && yerel[1]) || "iv", haciz = intvrg ? [] : ["P_INTVRG_INTVD_EHACIZ_BANKA_SRG", "P_INTVRG_INTVD_EHACIZ_ARAC_SRG"], bf = [];
     const menuSf = [...new Set(tumu.map((x) => x.split(" | ")[2]).filter((x) => x && /^P_/.test(x) && !/YABANCI/.test(x)))].slice(0, 14), okcSf = [...new Set(bulunan.map((x) => x.split(" | ")[2]).filter(Boolean))].slice(0, 4);
     const bfCoz = (metin) => { let j = null; try { j = JSON.parse(metin); } catch (e) { /* düz metin */ } const sc = String((j && j.data && j.data.bfscript) || metin || ""); if (j && j.error) return { hata: maske(JSON.stringify(j.messages || j.error)).slice(0, 200), sc: "" }; return { sc }; };
-    for (const sf of haciz.concat(okcSf, menuSf)) {
-      const ayrinti = haciz.includes(sf) || okcSf.includes(sf); let sonuc = "";
+    const tamYaz = intvrg ? ["E_INTVRG_INNER_MENU", "P_INTVRG_MAIN_SORGULAMALAR"] : [];
+    for (const sf of haciz.concat(okcSf, tamYaz, menuSf.filter((x) => !tamYaz.includes(x)))) {
+      const ayrinti = haciz.includes(sf) || okcSf.includes(sf), tam = tamYaz.includes(sf); let sonuc = "";
       for (const ek of ["", "&module=" + encodeURIComponent(modAd) + "&pageName=" + encodeURIComponent(sf)]) {
         try {
           const jp = { userid, bfnames: [modAd + "." + sf], loadedList: [], params: {}, resourceBundleLang: "tr" };
@@ -425,6 +426,9 @@ class Ivd {
           const tek = (re, n) => [...new Set([...c.sc.matchAll(re)].map((m) => m[1]))].slice(0, n);
           const srv = tek(/CSCaller\.call\(\s*["']([^"']{3,100})["']/g, 12).concat(tek(/["'](?:sn|serviceName)["']\s*[:=]\s*["']([^"']{3,100})["']/g, 8)), sf2 = tek(/\b(P_[A-Z0-9_]{6,70})\b/g, 12), hid = tek(/\b(H[0-9a-f]{12})\b/g, 8), okc = tek(/([^"']{0,40}(?:OKC|ÖKC|ZRAPOR)[^"']{0,40})/gi, 6);
           sonuc = c.sc.length + " bayt · servis: " + (srv.join(", ") || "-") + " · sayfa: " + (sf2.join(", ") || "-") + (hid.length ? " · menü: " + hid.join(", ") : "") + (okc.length ? " · ÖKC: " + okc.join(" | ") : "");
+          const adlar2 = tek(/["']([a-z][A-Za-z0-9]{2,40}_[a-zA-Z][A-Za-z0-9]{2,60})["']/g, 30); if (adlar2.length) sonuc += " · tırnaklı adlar: " + adlar2.join(", ");
+          if (tam) sonuc += "\n      TAM METİN: " + maske(c.sc.replace(/\s+/g, " ")).slice(0, 5200);
+          if (ayrinti) { const k0 = c.sc.indexOf("BFEngine.register(\"" + sf + "\""), onc = c.sc.slice(Math.max(0, (k0 < 0 ? c.sc.length : k0) - 3200), k0 < 0 ? c.sc.length : k0 + 40); sonuc += "\n      SAYFA KODU (kayıt öncesi): " + maske(onc.replace(/\s+/g, " ")); }
           if (ayrinti) { const o = [...c.sc.matchAll(/CSCaller\.call\(/g)].slice(0, 3).map((m) => maske(c.sc.slice(Math.max(0, m.index - 150), m.index + 650).replace(/\s+/g, " "))); if (o.length) sonuc += "\n      örnek çağrılar:\n      " + o.join("\n      ---\n      "); }
           break;
         } catch (e) { sonuc = String(e.message).slice(0, 100); }
