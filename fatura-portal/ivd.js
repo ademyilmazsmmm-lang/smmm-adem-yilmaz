@@ -393,6 +393,42 @@ class Ivd {
     }
     return { tur, satirlar, vdAdlari: vdAd, toplam: liste.length };
   }
+  /* ---- Defter-Beyan: hesap özeti (gelir / gider / kâr). Dijital VD'den bilet ile girilir, ardından backend-p.defterbeyan.gov.tr/rs servisleri çağrılır ---- */
+  async dbsCagri(yol, govde, jeton, cerez) {
+    const baslik = { accept: "*/*", "content-type": "application/json; charset=UTF-8", origin: "https://portal.defterbeyan.gov.tr", referer: "https://portal.defterbeyan.gov.tr/", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36", "accept-language": "tr-TR,tr;q=0.9" };
+    if (jeton) baslik.token = jeton; if (cerez) baslik.cookie = cerez;
+    let r; try { r = await fetch("https://backend-p.defterbeyan.gov.tr/rs/" + yol, { method: "POST", headers: baslik, body: JSON.stringify(govde || {}), signal: AbortSignal.timeout(25000) }); }
+    catch (e) { throw new Error(e && (e.name === "TimeoutError" || e.name === "AbortError") ? "Defter-Beyan 25 saniyede yanıt vermedi." : "Defter-Beyan'a ulaşılamadı: " + e.message); }
+    const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (e) { /* JSON değil */ }
+    const sc = typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [], yeniCerez = sc.map((x) => x.split(";")[0]).filter((x) => /^JSESSIONID=/.test(x))[0] || cerez || "";
+    return { durum: r.status, json: j, ham: t.slice(0, 300), jeton: r.headers.get("token") || (j && (j.token || (j.resultContainer && j.resultContainer.token))) || "", cerez: yeniCerez };
+  }
+  async dbsGiris() {
+    if (this.dbs && Date.now() - this.dbs.zaman < 8 * 60e3) return this.dbs;
+    const y = await this.istek("GET", GW + "/auth/login/dbs/dbs-login", undefined, true), hedef = y && y.redirectUrl; if (!hedef) throw new Error("Defter-Beyan giriş adresi alınamadı" + (this.mesajMetni(y) ? ": " + this.mesajMetni(y) : "") + ".");
+    const t = new URL(hedef).searchParams.get("t") || ""; if (!t) throw new Error("Defter-Beyan giriş bileti alınamadı.");
+    const deneme = [], biciler = [{ govde: { token: t } }, { govde: { t } }, { govde: { ticket: t } }, { govde: {}, jeton: t }];
+    for (const b of biciler) {
+      try {
+        const r = await this.dbsCagri("external/auth/loginWithToken", b.govde, b.jeton || "", "");
+        if (r.jeton) { this.dbs = { jeton: r.jeton, cerez: r.cerez, zaman: Date.now() }; return this.dbs; }
+        deneme.push(Object.keys(b.govde).join(",") + (b.jeton ? "+başlık" : "") + " → HTTP " + r.durum + " " + String(r.json ? JSON.stringify(r.json) : r.ham).replace(/eyJ[\w.-]+/g, "<jwt>").slice(0, 120));
+      } catch (e) { deneme.push(String(e.message).slice(0, 100)); }
+    }
+    throw new Error("Defter-Beyan girişi kabul edilmedi [" + deneme.join(" | ") + "]");
+  }
+  async hesapOzeti(yil, mali) {
+    yil = Number(yil); if (!(yil >= 2018 && yil <= 2100)) throw new Error("Yıl seçin.");
+    let o = await this.dbsGiris();
+    const govde = { attributes: { isMali: mali !== false && mali !== "0" && mali !== 0, baslangicTarihi: yil + "-01-01 00:00:00", bitisTarihi: yil + "-12-31 23:59:59", tip: "s" }, pagingContext: { page: 1, orderBy: "id", orderType: "ASC" } };
+    let r = await this.dbsCagri("hesapozeti/index", govde, o.jeton, o.cerez);
+    if (r.durum === 401 || r.durum === 403) { this.dbs = null; o = await this.dbsGiris(); r = await this.dbsCagri("hesapozeti/index", govde, o.jeton, o.cerez); }
+    if (r.jeton) this.dbs = { jeton: r.jeton, cerez: r.cerez || o.cerez, zaman: Date.now() };
+    const j = r.json || {}, c = j.resultContainer;
+    if (!c) { const msg = [j.statusMessage, j.message, (j.errors || []).map && (j.errors || []).map((x) => x && (x.message || x.defaultMessage || JSON.stringify(x))).join("; ")].filter(Boolean).join(" · "); throw new Error("Hesap özeti alınamadı (HTTP " + r.durum + ")" + (msg ? ": " + String(msg).slice(0, 200) : "") + "."); }
+    const n = (v) => Number(v) || 0, gelirHasilat = n(c.gelirHasilat), gelirDiger = n(c.gelirDiger), giderDiger = n(c.giderDiger), amortisman = n(c.amortismanGiderleri);
+    return { yil, mali: govde.attributes.isMali, unvan: String(c.unvan || ""), gelirHasilat, gelirDiger, giderDiger, amortisman, toplamGelir: gelirHasilat + gelirDiger, toplamGider: giderDiger + amortisman, kar: n(c.kar), sekil: sekil(c) };
+  }
   /* ---- Z raporu: yeni nesil ÖKC aylık satış raporu bildirimleri (İnternet VD "ÖKC Bildirim Görüntüleme") ---- */
   async zRapor(yil, ay, vknIpucu) {
     yil = String(yil || ""); ay = String(ay || "").padStart(2, "0");
@@ -669,6 +705,7 @@ class SahteIvd {
   async tahakkukIndir(n) { if (!(this.tahakkuklar || [])[n]) throw new Error("Tahakkuk bulunamadı; listeyi yenileyin."); return this.ornekPdf("ORNEK TAHAKKUK " + (n + 1)); }
   async defterKesif() { return { betikOzet: "[Defter-Beyan keşif]\n/auth/tdvd/edefter-login → https://portal.defterbeyan.gov.tr/ · HTTP 200", uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: "Defter-Beyan keşfi", baslik: "", metin: "", formlar: [], alanlar: [], tablolar: [], baglantilar: [], yonlendirme: [], satirlar: [], tabloHam: "", ham: "" }; }
   async hacizListe(tur) { if (tur !== "banka" && tur !== "arac") throw new Error("Haciz türü seçin."); return { tur, satirlar: tur === "banka" ? [{ vdkod: "034123", no: "2026/12345", tutar: 12500.5, borcDurum: "BORCVAR", alanlar: { vdkod: "034123", hbno: "2026/12345", htutar: "12500,50", borcDurum: "BORCVAR" }, ust: [{ vergiTuru: "KDV", donem: "2026/08", tutar: "9000,00" }], alt: [{ bankaadi: "ÖRNEK BANKA", bloketutar: "12500,50", kaldirmatarihi: "" }] }] : [], vdAdlari: { "034123": "ÜMRANİYE VERGİ DAİRESİ" }, toplam: tur === "banka" ? 1 : 0 }; }
+  async hesapOzeti(yil, mali) { if (!yil) throw new Error("Yıl seçin."); return { yil: Number(yil), mali: mali !== false, unvan: "ÖRNEK MÜKELLEF", gelirHasilat: 2865865, gelirDiger: 19267.9, giderDiger: 1769305.94, amortisman: 0, toplamGelir: 2885132.9, toplamGider: 1769305.94, kar: 1115826.96, sekil: {} }; }
   async zRapor(yil, ay) { if (!yil || !ay) throw new Error("Yıl ve ay seçin."); const z = (a, t, n) => ({ ad: a, tutar: t, adet: n }); return { yil: Number(yil), ay: String(ay).padStart(2, "0"), bildirimler: [{ yontem: "Özel Entegratör", tarih: "05/10/2026 - 07:31", raporNo: "260900", kdvSatis: [0, 1, 8, 10, 18].map((o) => ({ oran: o, tutar: 0 })).concat([{ oran: 20, tutar: 56830 }]), toplamSatis: 56830, kdvToplam: 9471.67, belge: [z("ÖKC fişleri", 56830, 0), z("Faturalar", 0, 0)], odeme: [z("Nakit", 5288, 0), z("Banka / kredi kartı", 51542, 0), z("Yemek kartı / çeki", 0, 0)], bilgi: [z("Fatura bilgi fişi", 0, 0)] }] }; }
   async sicilBilgi() { return { kisi: { unvan: "ÖRNEK MÜKELLEF", vkn: "1111111111", tckn: "", tur: "GERCEK", mukellefTuru: "Gelir Vergisi", dogum: "01/01/1980", ikametgah: "ATATÜRK MAH. ÖRNEK SK. NO:3 ÜMRANİYE/İSTANBUL", isYeri: "ÖRNEK SANAYİ SİTESİ A BLOK NO:5 ÜMRANİYE/İSTANBUL", ticaretSicil: "", tel: "05320000000" }, subeler: [{ ad: "MERKEZ", no: "0", tur: "Merkez", nitelik: "İş yeri", vd: "ÜMRANİYE VERGİ DAİRESİ", durum: "Faal", adresMetni: "ÖRNEK SANAYİ SİTESİ A BLOK NO:5", isBas: "20150201", bitisTuru: "", adresler: [{ tip: "İş yeri adresi", adres: "ÖRNEK SANAYİ SİTESİ A BLOK NO:5 ÜMRANİYE/İSTANBUL" }], faaliyet: [{ kod: "49.41.01", ad: "Şehirlerarası eşya taşımacılığı", bas: "01/02/2015", bit: "" }], vergiler: [{ ad: "0015 - KDV", donem: "Aylık", bas: "01/02/2015", bit: "", terk: "" }, { ad: "0003 - Gelir Vergisi (Ticari)", donem: "Yıllık", bas: "01/02/2015", bit: "31/12/2019", terk: "İşi bırakma" }], hata: "" }], toplamSube: 1, sekil: {} }; }
   async yoklamaListe() { this.yoklamalar = [{ yoklamaTuru: "Yoklama", baslama: "2026-09-14", tarih: "2026-09-14", vd: "ÖRNEK VERGİ DAİRESİ", kod: "YKL2026000123", secureId: "x" }]; return { kayitlar: this.yoklamalar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
