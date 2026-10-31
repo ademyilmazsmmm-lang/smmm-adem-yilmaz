@@ -2250,7 +2250,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         + bolum("Ödeme türlerine göre", b.odeme, true) + bolum("Belge türlerine göre", b.belge, true) + bolum("Bilgi fişleri", b.bilgi, true) + '</div>';
     }).join("");
   }
-  function vdTarih(t){ var m = /^(\d{2})[./-](\d{2})[./-](\d{4})/.exec(t || "") || null; if (m) return +(m[3] + m[2] + m[1]); m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t || ""); return m ? +(m[1] + m[2] + m[3]) : 0; }
+  function vdTarihGoster(t){ var m = /^(\d{4})(\d{2})(\d{2})$/.exec(String(t || "")); return m ? m[3] + "." + m[2] + "." + m[1] : String(t || ""); }
+  function vdTarih(t){ var m0 = /^(\d{4})(\d{2})(\d{2})$/.exec(String(t || "")); if (m0) return +(m0[1] + m0[2] + m0[3]); var m = /^(\d{2})[./-](\d{2})[./-](\d{4})/.exec(t || "") || null; if (m) return +(m[3] + m[2] + m[1]); m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t || ""); return m ? +(m[1] + m[2] + m[3]) : 0; }
   function vdSatir(e, d){ return d ? '<div style="display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:6px;font-size:.88rem;margin-top:4px"><span class="not" style="margin:0">' + esc(e) + '</span><span style="overflow-wrap:anywhere">' + esc(d) + '</span></div>' : ""; }
   function vdDefterAlan(){ return ROL === "ofis" ? '<details class="alt2"><summary>Geliştirme aracı</summary><div class="icerik"><button class="k" type="button" id="vdDefterOku">Defter-Beyan portalını oku (geliştirme)</button></div></details>' + (VD.sonuc.defterDev ? isvHtml(VD.sonuc.defterDev, "Defter-Beyan keşfi") : "") : ""; }
   function vdHacizHtml(s){
@@ -2271,6 +2272,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var gizli = 0;
     (s.subeler || []).forEach(function(b0){
       /* yalnız faal olanlar: kapanış (bitiş) tarihi girilmiş vergi türü, faaliyet ve iş yerleri gösterilmez */
+      if (b0.bitisTuru) { gizli++; return; } /* kapanış işlemi görmüş iş yeri */
       var b = Object.assign({}, b0), tumVergi = b0.vergiler || [], tumFaal = b0.faaliyet || [];
       b.vergiler = tumVergi.filter(function(v){ return !v.bit; }); b.faaliyet = tumFaal.filter(function(f){ return !f.bit; });
       gizli += (tumVergi.length - b.vergiler.length) + (tumFaal.length - b.faaliyet.length);
@@ -2278,8 +2280,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       var acilis = 0, acilisT = "";
       b.vergiler.forEach(function(v){ var bt = vdTarih(v.bas); if (bt && (!acilis || bt < acilis)) { acilis = bt; acilisT = v.bas; } });
       h += '<div class="kayit"><b>' + esc([b.nitelik || b.tur || "İş yeri", b.ad].filter(Boolean).join(" · ")) + '</b> <small class="not">' + esc(b.durum || "") + '</small>' +
-        vdSatir("Vergi dairesi", b.vd) + vdSatir("Açılış", acilisT) + vdSatir("Durum", "Faal (kapanış yok)") +
-        (b.adresler || []).map(function(a){ return vdSatir(a.tip || "Adres", a.adres); }).join("") +
+        vdSatir("Vergi dairesi", b.vd) + vdSatir("Açılış", vdTarihGoster(b.isBas) || acilisT) + vdSatir("Durum", "Faal (kapanış yok)") +
+        ((b.adresler || []).length ? b.adresler.map(function(a){ return vdSatir(a.tip || "Adres", a.adres); }).join("") : vdSatir("İş yeri adresi", b.adresMetni)) +
         ((b.faaliyet || []).length ? '<div style="margin-top:8px"><b style="font-size:.85rem">Faaliyet (NACE) kodları</b>' + b.faaliyet.map(function(f){ return '<div style="font-size:.86rem;margin-top:3px;overflow-wrap:anywhere"><b>' + esc(f.kod) + '</b> — ' + esc(f.ad) + (f.bas ? ' <span class="not" style="margin:0">(' + esc(f.bas) + ')</span>' : '') + '</div>'; }).join("") + '</div>' : '') +
         ((b.vergiler || []).length ? '<details class="alt2" style="margin-top:8px"><summary>Vergi türleri (' + b.vergiler.length + ')</summary><div class="icerik">' + b.vergiler.map(function(v){ return '<div style="font-size:.84rem;margin-top:4px;overflow-wrap:anywhere"><b>' + esc(v.ad) + '</b>' + (v.donem ? ' · ' + esc(v.donem) : '') + '<br><span class="not" style="margin:0">' + esc(v.bas || "—") + ' → devam ediyor' + '</span></div>'; }).join("") + '</div></details>' : '') +
         (b.hata ? '<p class="not" style="margin:6px 0 0;color:var(--danger)">Bazı ayrıntılar alınamadı: ' + esc(b.hata) + '</p>' : '') + '</div>';
