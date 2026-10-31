@@ -305,20 +305,40 @@ class Ivd {
   }
   /* ---- İnteraktif Vergi Dairesi (ivd.gib.gov.tr) sayfaları: Dijital VD'den tek kullanımlık jetonla geçilir (portalın "İnteraktif VD" düğmesi).
    * Haciz sorguları bu sistemdedir (örn. page=P_INTVRG_INTVD_EHACIZ_BANKA_SRG). Yalnız okuma; adres/jeton günlüğe ya da arayüze yazılmaz. */
-  async gibGit(url0) {
+  async gibGit(url0, govde, ref) {
     const jar = (this.ivdCerez = this.ivdCerez || new Map()), yon = [];
     let url = url0;
     for (let n = 0; n < 6; n++) {
       let u; try { u = new URL(url); } catch (e) { throw new Error("İnteraktif Vergi Dairesi adresi geçersiz."); }
       if (u.protocol !== "https:" || !/(^|\.)gib\.gov\.tr$/i.test(u.hostname)) throw new Error("İnteraktif Vergi Dairesi beklenmeyen bir adrese yönlendirdi (" + String(u.hostname).slice(0, 60) + "); durduruldu.");
-      const h = { "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36", accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8", "accept-language": "tr-TR,tr;q=0.9", referer: "https://dijital.gib.gov.tr/" };
+      const h = { "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36", accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8", "accept-language": "tr-TR,tr;q=0.9", referer: ref || "https://dijital.gib.gov.tr/" };
+      if (govde != null && n === 0) { h["content-type"] = "application/x-www-form-urlencoded; charset=UTF-8"; h["x-requested-with"] = "XMLHttpRequest"; h.origin = u.origin; }
       const c = jar.get(u.hostname); if (c && c.size) h.cookie = [...c].map(([a, d]) => a + "=" + d).join("; ");
-      let r; try { r = await fetch(u, { headers: h, redirect: "manual", signal: AbortSignal.timeout(25000) }); } catch (e) { throw new Error(e && (e.name === "TimeoutError" || e.name === "AbortError") ? "İnteraktif Vergi Dairesi 25 saniyede yanıt vermedi." : "İnteraktif Vergi Dairesi'ne ulaşılamadı: " + e.message); }
+      let r; try { r = await fetch(u, { method: govde != null && n === 0 ? "POST" : "GET", body: govde != null && n === 0 ? govde : undefined, headers: h, redirect: "manual", signal: AbortSignal.timeout(25000) }); } catch (e) { throw new Error(e && (e.name === "TimeoutError" || e.name === "AbortError") ? "İnteraktif Vergi Dairesi 25 saniyede yanıt vermedi." : "İnteraktif Vergi Dairesi'ne ulaşılamadı: " + e.message); }
       for (const sc of (typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [])) { const kv = sc.split(";")[0].trim(), i = kv.indexOf("="); if (i > 0) { let m = jar.get(u.hostname); if (!m) jar.set(u.hostname, (m = new Map())); m.set(kv.slice(0, i), kv.slice(i + 1)); } }
       if ([301, 302, 303, 307, 308].includes(r.status)) { yon.push(r.status + " " + u.pathname + " -> " + (r.headers.get("location") || "").replace(/token=[^&\s]+/gi, "token=<jeton>")); url = new URL(r.headers.get("location") || "/", u).href; continue; }
       return { url: u.href, durum: r.status, tur: r.headers.get("content-type") || "", metin: Buffer.from(await r.arrayBuffer()).toString("utf8"), yon };
     }
     throw new Error("İnteraktif Vergi Dairesi çok fazla yönlendirme yaptı.");
+  }
+  /* SIDE sunucusuna (intvrg_server/dispatch ya da tvd_server/dispatch) menü tanımlarını sordurur: Z raporu / haciz gibi sayfaların gerçek adlarını ve komutlarını bulmak için (yalnız okuma) */
+  async sideKesif(sistem, ara) {
+    const intvrg = sistem === "intvrg", maske = (t) => String(t || "").replace(/(token|jeton|sid|session[a-z]*)=[^&"'\s;<>]+/gi, "$1=<jeton>"), gunluk = [];
+    const y = await this.istek("GET", GW + (intvrg ? "/auth/tdvd/intvrg-login" : "/auth/tdvd/interaktif-login"), undefined, true), hedef = y && y.redirectUrl; if (!hedef) return "SIDE keşif: bağlantı adresi alınamadı.";
+    const u = new URL(hedef), token = u.searchParams.get("token") || ""; await this.gibGit(hedef);
+    const yollar = intvrg ? ["/intvrg_server/dispatch", "/intvrg_side/dispatch"] : ["/tvd_server/dispatch", "/tvd_side/dispatch"];
+    const kalip = ara || /ÖKC|OKC|Z\s*Rapor|Satış|Haciz|Yoklama/i, bulunan = [];
+    const tara = (d, derin) => { if (!d || derin > 6 || bulunan.length > 60) return; if (Array.isArray(d)) { d.forEach((x) => tara(x, derin + 1)); return; } if (typeof d !== "object") return; const m = [d.text, d.title, d.label, d.name].find((x) => typeof x === "string"); if ((d.page || d.pageName) && m && kalip.test(m + " " + (d.page || d.pageName))) bulunan.push((d.defId || d.id || "") + " | " + m + " | " + (d.page || d.pageName)); Object.values(d).forEach((x) => tara(x, derin + 1)); };
+    dis: for (const yol of yollar) for (const cmd of ["SIDE.GET_ALL_MENU_DEFINITIONS3", "SIDE.GET_ALL_MENU_DEFINITIONS2"]) for (const rn of ["", "menuDefRoot"]) {
+      const govde = "cmd=" + cmd + "&callid=" + Date.now().toString(36) + "&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify({ csapUserId: "", rn, isTest: false, lang: "tr" }));
+      try {
+        const r = await this.gibGit(u.origin + yol, govde, hedef.replace(/token=[^&]*/, "token=" + token)), ozet = maske(r.metin.replace(/\s+/g, " ")).slice(0, 260);
+        let j = null; try { j = JSON.parse(r.metin); } catch (e) { /* JSON değil */ }
+        if (j) { tara(j, 0); gunluk.push(yol + " " + cmd + " rn=" + (rn || "-") + " → HTTP " + r.durum + " JSON " + r.metin.length + " bayt" + (bulunan.length ? "" : " · " + ozet)); if (bulunan.length) break dis; } else gunluk.push(yol + " " + cmd + " rn=" + (rn || "-") + " → HTTP " + r.durum + " " + ozet);
+      } catch (e) { gunluk.push(yol + " " + cmd + " → " + String(e.message).slice(0, 100)); }
+      if (bulunan.length) break dis;
+    }
+    return "[SIDE keşif]\n" + (bulunan.length ? "Menüde bulunan sayfalar (kod | ad | sayfa):\n" + [...new Set(bulunan)].join("\n") + "\n\n" : "") + "Denemeler:\n" + gunluk.slice(0, 12).join("\n") + "\n\n";
   }
   async interaktifSayfa(sayfa, derin, sistem) {
     const intvrg = sistem === "intvrg"; /* İnternet Vergi Dairesi (intvrg.gib.gov.tr): ÖKC / Z raporu bu sistemdedir */
@@ -330,7 +350,8 @@ class Ivd {
     const { sade, formlar, tablolar, hamMaskeli, formCoz } = sgkYardim, html = r.metin, ham = html.replace(/<style[\s\S]*?<\/style>/gi, "");
     const betikler = [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => maske(m[1])).slice(0, 12), cerceveler = [...html.matchAll(/<i?frame\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => maske(m[1])).slice(0, 6);
     let betikOzet = "";
-    if (derin) { /* sayfa tek sayfalık uygulama (initSide): arka plan adreslerini bulmak için betiklerden uç/adres kalıpları ve sayfa adının geçtiği yerler çıkarılır (yalnız okuma) */
+    if (derin) {
+      try { betikOzet = await this.sideKesif(sistem); } catch (e) { betikOzet = "[SIDE keşif] hata: " + String(e.message).slice(0, 160) + "\n\n"; } /* sayfa tek sayfalık uygulama (initSide): arka plan adreslerini bulmak için betiklerden uç/adres kalıpları ve sayfa adının geçtiği yerler çıkarılır (yalnız okuma) */
       const taban = new URL(r.url), parca = [];
       for (const b of [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]).filter((b) => !/jquery/i.test(b)).slice(0, 8)) {
         try {
@@ -339,11 +360,11 @@ class Ivd {
           const bag = [...js.matchAll(sayfa ? new RegExp(String(sayfa).replace(/_[A-Z]+$/, "").slice(0, 28), "g") : /Aylık\s*Satış|Satış\s*Rapor|YNOKC|YN_OKC|OKCBildirim|DonemSorgula|Dönem\s*Sorgula|Z\s*Rapor|ZRAPOR/gi)].slice(0, 5).map((m) => js.slice(Math.max(0, m.index - 150), m.index + 350).replace(/\s+/g, " "));
           const ajax = [...js.matchAll(/(?:\$\.ajax|\$\.post|XMLHttpRequest|fetch)\s*\(?[^;]{0,160}/g)].slice(0, 4).map((m) => m[0].replace(/\s+/g, " "));
           const bagla = (kalip, n, boy) => [...js.matchAll(kalip)].slice(0, n).map((m) => js.slice(Math.max(0, m.index - 120), m.index + boy).replace(/\s+/g, " "));
-          const yan = /side-common|side-bc|lib_tv|side-user/.test(ad) ? [["dispatch", bagla(/DISPATCH_SIDE(?!["']?\s*=)|DISPATCH_APP(?!["']?\s*=)|getSideUrl\s*[=:(]/g, 4, 800)], ["initSide", bagla(/initSide/g, 4, 900)], ["parametre", bagla(/URLSearchParams|location\.search|getUrlParam|getQueryString|[?&]page=|["']page["']\s*[,\]:=)]/g, 6, 380)], ["istek-gövdesi", bagla(/paramStr\s*=|serviceUrl\s*\+|sendRequest\s*[=:(]|callDispatch/g, 4, 600)], ["sayfa-adları", [...new Set([...js.matchAll(/P_INTVRG[A-Z0-9_]{4,60}/g)].map((m) => m[0]))].slice(0, 60)], ["cmd", [...new Set([...js.matchAll(/["']?cmd["']?\s*[:=]\s*["']([^"']{3,70})["']/g)].map((m) => m[1]))].slice(0, 50)], ["sayfa-menü", bagla(/getPage|loadPage|pageName|menuItems|getMenu/g, 4, 500)]] : [];
+          const yan = /side-common|side-bc|lib_tv|side-user/.test(ad) ? [["çağrı", bagla(/this\.call=function\(cmd,callParams,config\)/g, 1, 3200)], ["initSide", bagla(/function\s+initSide|initSide\s*=/g, 2, 1500)], ["sayfa-adları", [...new Set([...js.matchAll(/P_INTVRG[A-Z0-9_]{4,60}/g)].map((m) => m[0]))].slice(0, 60)], ["cmd", [...new Set([...js.matchAll(/["']?cmd["']?\s*[:=]\s*["']([^"']{3,70})["']/g)].map((m) => m[1]))].slice(0, 50)]] : [];
           parca.push("# " + ad + " (" + g.metin.length + " bayt)" + yan.filter((x) => x[1].length).map((x) => "\n[" + x[0] + "] " + x[1].join(" ... ")).join("") + "\nuçlar: " + (uc.join(" | ") || "-") + (ajax.length ? "\najax: " + ajax.join(" || ") : "") + (bag.length ? "\nsayfa adı geçen yer: " + bag.join(" ... ") : ""));
         } catch (e) { parca.push("# " + b + " okunamadı: " + e.message); }
       }
-      betikOzet = maske(parca.join("\n\n")).slice(0, 36000);
+      betikOzet = maske(betikOzet + parca.join("\n\n")).slice(0, 36000);
     }
     return { betikOzet, uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: maske(r.url.replace(/^https:\/\/[^/]+/, "")) + " (HTTP " + r.durum + ")", baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || ""), metin: sade(html).slice(0, 1500),
       formlar: formCoz(html).map((f) => ({ eylem: maske(f.eylem), yontem: f.yontem, gizli: Object.keys(f.gizli), secimler: f.secimler })), alanlar: formlar(html), tablolar: tablolar(html),
