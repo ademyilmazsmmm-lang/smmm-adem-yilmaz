@@ -2130,7 +2130,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     arac: "Üzerinize kayıtlı motorlu taşıtlar (Araç Bilgilerim). Geçmiş araçlar satılmış, hurdaya ayrılmış ya da trafikten çekilmiş olanlardır.",
     pos: "POS İşlem Bilgilerim: bankalar ve ödeme kuruluşları üzerinden kredi kartıyla tahsil edilen KDV dahil tutarlar (ay ay).",
     haciz: "Banka hesaplarınıza ve araçlarınıza haciz konulup konulmadığı.",
-    zrapor: "Aylık Z raporu / satış raporu (yeni nesil ÖKC).",
+    zrapor: "Yeni nesil ÖKC aylık satış raporu bildirimi: seçtiğiniz ayda bildirilen satışlar, KDV, belge ve ödeme türleri (İnternet VD · ÖKC Bildirim Görüntüleme).",
     telefon: "Fatura onayında gelen SMS kodunun gideceği telefonu kendi numaranız yapın.",
     kdv: "Seçtiğiniz ayın tahmini KDV durumu: kestiğiniz faturalardaki KDV ile gelen faturalardan indirilecek KDV.",
     gelen: "Adınıza düzenlenmiş e-Arşiv faturalar (e-Arşiv Faturalarım ekranı). Portal en çok son 2–3 ayı ve 7’şer günlük dilimleri gösterir; uygulama dilimleri birleştirir."
@@ -2236,6 +2236,17 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       return '<div class="kayit" style="display:flex;gap:10px;justify-content:space-between;align-items:center"><div style="min-width:0"><b>' + esc(tebAd(d.yoklamaTuru || "Yoklama")) + '</b><div class="not" style="margin:0;font-size:.8rem;overflow-wrap:anywhere">' + esc([d.tarih && d.tarih !== "----------" ? tarihYaz(d.tarih) : "", d.vd && d.vd !== "----------" ? tebAd(d.vd) : "", d.kod && d.kod !== "----------" ? "kod " + d.kod : ""].filter(Boolean).join(" · ")) + '</div></div><a class="btn" style="min-height:42px;padding:6px 16px;text-decoration:none;flex:none" target="_blank" rel="noopener" href="/api/vd/yoklama?mid=' + encodeURIComponent(VD.mid) + '&n=' + d.n + '">PDF</a></div>';
     }).join("");
   }
+  function vdZHtml(s){
+    if (!s.bildirimler.length) return '<p class="not">Bu dönem için ÖKC aylık satış raporu bildirimi bulunamadı (ay henüz bildirilmemiş olabilir).</p>';
+    var sat = function(ad, t, n){ return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:.88rem;margin-top:4px"><span style="min-width:0;overflow-wrap:anywhere">' + esc(ad) + (n ? ' <span class="not" style="margin:0">(' + n + ' adet)</span>' : '') + '</span><b style="white-space:nowrap">' + tl(t) + '</b></div>'; };
+    var bolum = function(baslik, satirlar, adetli){ var dolu = satirlar.filter(function(x){ return x.tutar || x.adet; }); return '<div style="margin-top:10px"><b style="font-size:.85rem">' + esc(baslik) + '</b>' + (dolu.length ? dolu.map(function(x){ return sat(x.ad, x.tutar, adetli ? x.adet : 0); }).join("") : '<div class="not" style="margin:3px 0 0">Kayıt yok</div>') + '</div>'; };
+    return s.bildirimler.map(function(b){
+      return '<div class="kayit"><b>' + esc(AYLAR_UZUN[Number(s.ay) - 1] + " " + s.yil) + ' · Rapor no ' + esc(b.raporNo || "—") + '</b><div class="not" style="margin:2px 0 0">' + esc([b.yontem, b.tarih].filter(Boolean).join(" · ")) + '</div>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><div style="flex:1 1 130px;border-left:5px solid #2f7d6b;background:color-mix(in srgb,#2f7d6b 12%,transparent);border-radius:10px;padding:8px 12px"><div class="not" style="margin:0">Toplam satış (KDV dahil)</div><div style="font-size:1.2rem;font-weight:700">' + tl(b.toplamSatis) + '</div></div><div style="flex:1 1 130px;border-left:5px solid #34495e;background:color-mix(in srgb,#34495e 12%,transparent);border-radius:10px;padding:8px 12px"><div class="not" style="margin:0">Toplam KDV</div><div style="font-size:1.2rem;font-weight:700">' + tl(b.kdvToplam) + '</div></div></div>'
+        + bolum("KDV oranlarına göre satışlar", b.kdvSatis.map(function(x){ return { ad: "% " + x.oran + " KDV’li satışlar", tutar: x.tutar }; }))
+        + bolum("Ödeme türlerine göre", b.odeme, true) + bolum("Belge türlerine göre", b.belge, true) + bolum("Bilgi fişleri", b.bilgi, true) + '</div>';
+    }).join("");
+  }
   function vdTarih(t){ var m = /^(\d{2})[./-](\d{2})[./-](\d{4})/.exec(t || "") || null; if (m) return +(m[3] + m[2] + m[1]); m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t || ""); return m ? +(m[1] + m[2] + m[3]) : 0; }
   function vdSatir(e, d){ return d ? '<div style="display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:6px;font-size:.88rem;margin-top:4px"><span class="not" style="margin:0">' + esc(e) + '</span><span style="overflow-wrap:anywhere">' + esc(d) + '</span></div>' : ""; }
   function vdSicilHtml(s){
@@ -2289,7 +2300,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("vdHacizDerin").addEventListener("click", function(){ hacizSorgu(this, VD.hacizTur || "banka", true); });
   $("vdListe").addEventListener("click", function(e){
     if (e.target.id !== "vdZOku") return; var b = e.target, d = $("vdDurum"); b.disabled = true; d.className = "durum"; d.textContent = "İnternet Vergi Dairesi okunuyor…";
-    api("/api/vd/zrapor", "POST", { mukellefId: VD.mid, derin: true }).then(function(r){ VD.sonuc.zrapor = r; d.textContent = ""; if (VD.sek === "zrapor") vdCiz(); }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
+    api("/api/vd/zrapor", "POST", { mukellefId: VD.mid, derin: true }).then(function(r){ VD.sonuc.zraporDev = r; d.textContent = ""; if (VD.sek === "zrapor") vdCiz(); }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
   });
   $("vdListe").addEventListener("click", function(e){ if (e.target.id !== "isvKopya") return; var t = $("isvHam").textContent; try { navigator.clipboard.writeText(t); e.target.textContent = "Kopyalandı"; } catch (x) { var rg = document.createRange(); rg.selectNodeContents($("isvHam")); var sl = getSelection(); sl.removeAllRanges(); sl.addRange(rg); } });
   $("vdArac").addEventListener("click", function(e){ var b = e.target.closest("[data-arac]"); if (!b) return; VD.aracGecmis = b.getAttribute("data-arac") === "1"; $("vdArac").querySelectorAll("[data-arac]").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); vdSorgula(); });
@@ -2376,7 +2387,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("kdvDur").addEventListener("click", function(){ KR.dur = true; });
   function vdCiz(){
     var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
-    if (VD.sek === "zrapor") { liste.innerHTML = '<div class="kayit"><b>Aylık Z raporu / satış raporu</b><p class="not" style="margin:4px 0 0">Aylık Z raporu ve satış raporu burada görünecek. <b>Çalışma devam ediyor.</b></p>' + (ROL === "ofis" && VD.bagli ? '<button class="k" type="button" id="vdZOku" style="margin-top:8px">İnternet VD sayfasını oku (geliştirme)</button>' : "") + '</div>' + (s ? isvHtml(s, "İnternet Vergi Dairesi · Z raporu") : ""); tani.hidden = true; return; }
+    if (VD.sek === "zrapor") { liste.innerHTML = (s && s.bildirimler ? '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdZHtml(s) : '<p class="not">Yıl ve ayı seçip “Sorgula”ya basın.</p>') + (ROL === "ofis" && VD.bagli ? '<details class="alt2"><summary>Geliştirme aracı</summary><div class="icerik"><button class="k" type="button" id="vdZOku">İnternet VD sayfasını oku (geliştirme)</button></div></details>' : "") + (VD.sonuc.zraporDev ? isvHtml(VD.sonuc.zraporDev, "İnternet Vergi Dairesi · Z raporu") : ""); tani.hidden = true; return; }
     if (VD.sek === "haciz") { liste.innerHTML = s ? '<p class="not" style="margin:0">' + esc(s.zaman) + '</p>' + isvHtml(s, (VD.hacizTur === "arac" ? "Araçlar" : "Banka hesapları") + " · haciz sorgusu") : ""; tani.hidden = true; return; }
     if (VD.sek === "telefon" || VD.sek === "kdv") { liste.innerHTML = ""; tani.hidden = true; return; }
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
@@ -2405,14 +2416,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function vdBagDurum(){
     var b = VD.bagli;
-    var pl = VD.sek === "zrapor" && ROL !== "ofis", ozel = pl || VD.sek === "telefon" || VD.sek === "kdv" || VD.sek === "haciz" || VD.sek === "zrapor"; /* haciz / Z raporu: henüz yapılmadı (bağlantı gerekmez); telefon: kendi düğmeleri var */
+    var pl = false, ozel = VD.sek === "telefon" || VD.sek === "kdv" || VD.sek === "haciz"; /* haciz / Z raporu: henüz yapılmadı (bağlantı gerekmez); telefon: kendi düğmeleri var */
     $("vdBaglan").style.display = (b || pl) ? "none" : "grid"; $("vdBagli").style.display = b && !pl ? "flex" : "none"; $("vdSorgula").hidden = !b || ozel;
     if (b) $("vdKodKutu").style.display = "none";
   }
   function vdSekmeCiz(){
     $("vdSeg").querySelectorAll("[data-vd]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-vd") === VD.sek ? "true" : "false"); });
     $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen"; $("vdYazi").hidden = VD.sek !== "yazi" || !VD.bagli; if (VD.sek === "yazi" && VD.bagli) vdYaziAlan(); $("vdYil").hidden = VD.sek !== "levha" || !VD.bagli; if (VD.sek === "levha") vdYilCiz();
-    $("vdTahakkuk").hidden = VD.sek !== "tahakkuk" || !VD.bagli; $("vdArac").hidden = VD.sek !== "arac" || !VD.bagli; $("vdPos").hidden = VD.sek !== "pos" || !VD.bagli; $("vdTel").hidden = VD.sek !== "telefon" || !VD.bagli; $("vdKdv").hidden = VD.sek !== "kdv"; $("vdHaciz").hidden = VD.sek !== "haciz" || !VD.bagli; $("vdHacizDerin").hidden = ROL !== "ofis"; if (VD.sek === "kdv") kdvEtiket(); if (VD.sek === "tahakkuk") vdTahakkukAlan(); if (VD.sek === "pos") vdPosAlan(); if (VD.sek === "telefon" && VD.bagli) vdTelAc(); $("vdTani").hidden = true; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
+    $("vdTahakkuk").hidden = VD.sek !== "tahakkuk" || !VD.bagli; $("vdArac").hidden = VD.sek !== "arac" || !VD.bagli; $("vdPos").hidden = (VD.sek !== "pos" && VD.sek !== "zrapor") || !VD.bagli; $("vdTel").hidden = VD.sek !== "telefon" || !VD.bagli; $("vdKdv").hidden = VD.sek !== "kdv"; $("vdHaciz").hidden = VD.sek !== "haciz" || !VD.bagli; $("vdHacizDerin").hidden = ROL !== "ofis"; if (VD.sek === "kdv") kdvEtiket(); if (VD.sek === "tahakkuk") vdTahakkukAlan(); if (VD.sek === "pos" || VD.sek === "zrapor") vdPosAlan(); if (VD.sek === "telefon" && VD.bagli) vdTelAc(); $("vdTani").hidden = true; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
   }
   function vdAc(){
     var l = V && V.mukellefler || [], ofis = ROL === "ofis";
@@ -2611,10 +2622,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
   });
   function vdSorgula(){
-    var b = $("vdSorgula"), sek = VD.sek, d = $("vdDurum"); if (!VD.mid || !VD.bagli || sek === "haciz" || sek === "zrapor" || sek === "telefon" || sek === "kdv") return;
+    var b = $("vdSorgula"), sek = VD.sek, d = $("vdDurum"); if (!VD.mid || !VD.bagli || sek === "haciz" || sek === "telefon" || sek === "kdv") return;
     b.disabled = true; d.className = "durum"; d.textContent = "Sorgulanıyor…";
     var govde = { mukellefId: VD.mid, bas: $("vdBas").value, bit: $("vdBit").value, yil: VD.yil };
-    if (sek === "tahakkuk") { govde.tbas = $("vdTBas").value; govde.tbit = $("vdTBit").value; } else if (sek === "arac") govde.gecmis = !!VD.aracGecmis; else if (sek === "pos") { govde.yil = $("vdPosYil").value; govde.ay = $("vdPosAy").value; }
+    if (sek === "tahakkuk") { govde.tbas = $("vdTBas").value; govde.tbit = $("vdTBit").value; } else if (sek === "arac") govde.gecmis = !!VD.aracGecmis; else if (sek === "pos" || sek === "zrapor") { govde.yil = $("vdPosYil").value; govde.ay = $("vdPosAy").value; }
     api("/api/vd/" + (sek === "yazi" ? "yazilar" : sek === "trafik" ? "tebligat" : sek), "POST", govde).then(function(r){
       r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc[sek] = r; d.textContent = ""; vdRozet(); if (VD.sek === sek) vdCiz();
     }, function(er){ VD.sonuc[sek] = null; if (VD.sek === sek) vdCiz(); vdHata(er, d); }).then(function(){ b.disabled = false; });

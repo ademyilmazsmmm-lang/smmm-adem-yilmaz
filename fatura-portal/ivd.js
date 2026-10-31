@@ -329,6 +329,39 @@ class Ivd {
     }
     return { kisi: { unvan: m(k.adSoyadUnvan), vkn: m(k.vkn), tckn: m(k.tckn), tur: m(k.sirketTuru), mukellefTuru: m(k.mukellefTuru), dogum: m(k.dogumTarihi), ikametgah: m(k.ikametgahAdres), isYeri: m(k.isYeriAdres), ticaretSicil: m(k.ticaretSicilNo), tel }, subeler, toplamSube: dizi.length, uyari: uyari.join(" · "), sekil: sekil({ kisi: k, liste: ly }) };
   }
+  /* ---- Z raporu: yeni nesil ÖKC aylık satış raporu bildirimleri (İnternet VD "ÖKC Bildirim Görüntüleme") ---- */
+  async zRapor(yil, ay, vknIpucu) {
+    yil = String(yil || ""); ay = String(ay || "").padStart(2, "0");
+    if (!/^20\d{2}$/.test(yil) || !/^(0[1-9]|1[0-2])$/.test(ay)) throw new Error("Yıl ve ay seçin.");
+    let gr; try { gr = await this.sideGiris("okc"); } catch (e) { if (e.oturum) throw e; throw new Error("Z raporu için İnternet Vergi Dairesi bağlantısı kurulamadı: " + String(e.message).slice(0, 120)); }
+    const hedef = gr.y.redirectUrl, u = new URL(hedef), token = u.searchParams.get("token") || "", m = (v) => (v === undefined || v === null ? "" : String(v)), sayi = (v) => Number(String(v || "0").replace(",", ".")) || 0, adet = (v) => parseInt(v, 10) || 0;
+    await this.gibGit(hedef);
+    const hataMetni = (j) => ((j && j.messages) || []).map((x) => x && x.text).filter(Boolean).join(" ").slice(0, 200);
+    const cagir = async (cmd, jp) => {
+      const r = await this.gibGit(u.origin + "/intvrg_server/dispatch", "cmd=" + cmd + "&callid=" + Date.now().toString(36) + "-1&token=" + encodeURIComponent(token) + "&jp=" + encodeURIComponent(JSON.stringify(jp)), hedef);
+      let j; try { j = JSON.parse(r.metin); } catch (e) { throw new Error("İnternet Vergi Dairesi beklenmeyen bir yanıt verdi."); }
+      if (j && j.error && String(j.error) !== "0") throw new Error(hataMetni(j) || "İnternet Vergi Dairesi hatası.");
+      return j;
+    };
+    const oz = await cagir("userSessionService_getUserSessionInfo", { token, rfDataInfo: [] }), od = (oz && oz.data && typeof oz.data === "object" ? oz.data : oz) || {};
+    const adaylar = [...new Set([m(vknIpucu), m(od.KTCKN), m(od.GMSITCKIMLIKNO), m(od.GMSIVERGINO)].map((x) => x.replace(/\D/g, "")).filter((x) => /^\d{10,11}$/.test(x)))];
+    if (!adaylar.length) throw new Error("Mükellefin T.C. / vergi kimlik numarası bulunamadı.");
+    let veri = null, sonHata = null;
+    for (const vkn of adaylar) {
+      try { const j = await cagir("OKCIslemleriService_goruntule", { vkn, donemAy: ay, donemYil: yil, goruntuleTip: "1", okcTip: "2" }); const d = j && j.data; if (d && Array.isArray(d.donemOKCBildirimleri)) { veri = d.donemOKCBildirimleri; if (veri.length) break; } }
+      catch (e) { sonHata = e; }
+    }
+    if (!veri) throw sonHata || new Error("Z raporu bilgisi alınamadı.");
+    const satir = (d, a, t, n) => ({ ad: a, tutar: sayi(d[t]), adet: n ? adet(d[n]) : null });
+    const bildirimler = veri.map((b) => {
+      const d = b.detayBilgi || {}, oran = [0, 1, 8, 10, 18, 20].map((o) => ({ oran: o, tutar: sayi(d["satisKdv" + o]) }));
+      return { yontem: m(b.bildirimYontem), tarih: m(b.bildirimTarih), raporNo: m(d.aylikSatisRaporNo), kdvSatis: oran, toplamSatis: oran.reduce((t, x) => t + x.tutar, 0), kdvToplam: sayi(d.kdvToplam),
+        belge: [satir(d, "ÖKC fişleri", "okcfistutartutar", "okcfistutaradet"), satir(d, "Faturalar", "faturatutartutar", "faturatutaradet"), satir(d, "Serbest meslek makbuzu", "smmtutartutar", "smmtutaradet"), satir(d, "Müstahsil makbuzu", "muhtasiltutartutar", "muhtasiltutaradet"), satir(d, "Giriş / yolcu bileti", "gybilettutartutar", "gybilettutaradet"), satir(d, "Gider pusulası", "gpusulatutartutar", "gpusulatutaradet")],
+        odeme: [satir(d, "Nakit", "nakitodemetutar", "nakitodemeadet"), satir(d, "Banka / kredi kartı", "bkkartodemetutar", "bkkartodemeadet"), satir(d, "Yemek kartı / çeki", "yemekkcodemetutar", "yemekkcodemeadet"), satir(d, "Diğer ödeme", "digerodemetutar", "digerodemeadet")],
+        bilgi: [satir(d, "Fatura bilgi fişi", "faturabfistutar", "faturabfisadet"), satir(d, "Yemek kartı / çeki bilgi fişi", "yemekkcbfistutar", "yemekkcbfisadet"), satir(d, "Avans", "avansbfistutar", "avansbfisadet"), satir(d, "Fatura tahsilatı", "faturatahsilatbfistutar", "faturatahsilatbfisadet"), satir(d, "Otopark girişi", "otoparkbfistutar", "otoparkbfisadet"), satir(d, "Cari hesap tahsilatı", "carihesapbfistutar", "carihesapbfisadet"), satir(d, "Diğer bilgi fişi", "digerbfistutar", "digerbfisadet")] };
+    });
+    return { yil: Number(yil), ay, bildirimler };
+  }
   /* ---- Araçlarım (Araç Bilgilerim): mevcut ya da geçmiş araçlar ---- */
   async aracListe(gecmis) {
     const y = await this.istek("POST", GW + "/api/aracBilgilerim/list", this.tablo({ sorgulamaTuru: gecmis ? "2" : "1" }, 100, { alan: "tescilTarihi", yon: "DESC" }), true);
@@ -569,6 +602,7 @@ class SahteIvd {
   ornekPdf(metin) { return { veri: Buffer.from("%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 16 Tf 20 60 Td (" + metin + ") Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF"), tur: "application/pdf", satir: true, ad: String(metin).toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".pdf" }; }
   async tahakkukListe(bas, bit) { if (!bas || !bit) throw new Error("Başlangıç ve bitiş ayını seçin."); this.tahakkuklar = [{ vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0015 - KDV", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:12:00", fisNo: "2026102601KDV0001" }, { vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0003 - MUHTASAR", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:05:00", fisNo: "2026102601MUH0002" }]; return { kayitlar: this.tahakkuklar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
   async tahakkukIndir(n) { if (!(this.tahakkuklar || [])[n]) throw new Error("Tahakkuk bulunamadı; listeyi yenileyin."); return this.ornekPdf("ORNEK TAHAKKUK " + (n + 1)); }
+  async zRapor(yil, ay) { if (!yil || !ay) throw new Error("Yıl ve ay seçin."); const z = (a, t, n) => ({ ad: a, tutar: t, adet: n }); return { yil: Number(yil), ay: String(ay).padStart(2, "0"), bildirimler: [{ yontem: "Özel Entegratör", tarih: "05/10/2026 - 07:31", raporNo: "260900", kdvSatis: [0, 1, 8, 10, 18].map((o) => ({ oran: o, tutar: 0 })).concat([{ oran: 20, tutar: 56830 }]), toplamSatis: 56830, kdvToplam: 9471.67, belge: [z("ÖKC fişleri", 56830, 0), z("Faturalar", 0, 0)], odeme: [z("Nakit", 5288, 0), z("Banka / kredi kartı", 51542, 0), z("Yemek kartı / çeki", 0, 0)], bilgi: [z("Fatura bilgi fişi", 0, 0)] }] }; }
   async sicilBilgi() { return { kisi: { unvan: "ÖRNEK MÜKELLEF", vkn: "1111111111", tckn: "", tur: "GERCEK", mukellefTuru: "Gelir Vergisi", dogum: "01/01/1980", ikametgah: "ATATÜRK MAH. ÖRNEK SK. NO:3 ÜMRANİYE/İSTANBUL", isYeri: "ÖRNEK SANAYİ SİTESİ A BLOK NO:5 ÜMRANİYE/İSTANBUL", ticaretSicil: "", tel: "05320000000" }, subeler: [{ ad: "MERKEZ", no: "0", tur: "Merkez", nitelik: "İş yeri", vd: "ÜMRANİYE VERGİ DAİRESİ", durum: "Faal", adresler: [{ tip: "İş yeri adresi", adres: "ÖRNEK SANAYİ SİTESİ A BLOK NO:5 ÜMRANİYE/İSTANBUL" }], faaliyet: [{ kod: "49.41.01", ad: "Şehirlerarası eşya taşımacılığı", bas: "01/02/2015", bit: "" }], vergiler: [{ ad: "0015 - KDV", donem: "Aylık", bas: "01/02/2015", bit: "", terk: "" }, { ad: "0003 - Gelir Vergisi (Ticari)", donem: "Yıllık", bas: "01/02/2015", bit: "31/12/2019", terk: "İşi bırakma" }], hata: "" }], toplamSube: 1, sekil: {} }; }
   async yoklamaListe() { this.yoklamalar = [{ yoklamaTuru: "Yoklama", baslama: "2026-09-14", tarih: "2026-09-14", vd: "ÖRNEK VERGİ DAİRESİ", kod: "YKL2026000123", secureId: "x" }]; return { kayitlar: this.yoklamalar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
   async yoklamaIndir(n) { if (!(this.yoklamalar || [])[n]) throw new Error("Yoklama bulunamadı; listeyi yenileyin."); return this.ornekPdf("ORNEK YOKLAMA FISI"); }

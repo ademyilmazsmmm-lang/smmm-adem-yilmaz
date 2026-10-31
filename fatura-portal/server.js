@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-10-31-159";
+const SURUM = "2026-10-31-160";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -685,7 +685,7 @@ async function api(req, res, yol) {
       if (ne === "levha") { const yil = Number(g.yil), buYil = Number(gib.trBugunStr().slice(0, 4)); if (!(yil >= buYil - 3 && yil <= buYil)) return cevap(res, 400, { hata: "Yıl seçin." }); return cevap(res, 200, await vdSorgu(m, (x) => x.levhaListe(yil))); }
       if (ne === "yazilar") return cevap(res, 200, await vdSorgu(m, (x) => x.yaziListe()));
       if (ne === "haciz") { const HACIZ = { banka: "P_INTVRG_INTVD_EHACIZ_BANKA_SRG", arac: "P_INTVRG_INTVD_EHACIZ_ARAC_SRG" }; const sayfa = HACIZ[String(g.tur || "")]; if (!sayfa) return cevap(res, 400, { hata: "Bu sorgu henüz desteklenmiyor." }); const r = await vdSorgu(m, (x) => x.interaktifSayfa(sayfa, o.rol === "ofis" && g.derin === true)); gunluk(o, mid, "İnteraktif VD haciz sayfası görüntülendi", String(g.tur)); return cevap(res, 200, r); }
-      if (ne === "zrapor") { if (o.rol === "mukellef") return cevap(res, 400, { hata: "Z raporu için çalışma devam ediyor." }); const r = await vdSorgu(m, (x) => x.interaktifSayfa("", g.derin === true, "okc")); gunluk(o, mid, "İnternet VD sayfası görüntülendi", "Z raporu"); return cevap(res, 200, r); }
+      if (ne === "zrapor") { if (g.derin === true) { if (o.rol !== "ofis") return cevap(res, 400, { hata: "Bu geliştirme aracı yalnız ofis hesabına açıktır." }); const r0 = await vdSorgu(m, (x) => x.interaktifSayfa("", true, "okc")); gunluk(o, mid, "İnternet VD sayfası görüntülendi", "Z raporu"); return cevap(res, 200, r0); } const r = await vdSorgu(m, (x) => x.zRapor(g.yil, g.ay, String(m.vkn || ""))); return cevap(res, 200, r); }
       if (ne === "yoklama") return cevap(res, 200, await vdSorgu(m, (x) => x.yoklamaListe()));
       if (ne === "sicil") return cevap(res, 200, await vdSorgu(m, (x) => x.sicilBilgi()));
       if (ne === "tahakkuk") return cevap(res, 200, await vdSorgu(m, (x) => x.tahakkukListe(String(g.tbas || ""), String(g.tbit || ""))));
