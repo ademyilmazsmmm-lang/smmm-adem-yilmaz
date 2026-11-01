@@ -1418,12 +1418,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
           zt = setTimeout(function(){ bit(rej, new Error("3/3 aşamasında (PDF çizimi) zaman aşımı")); }, sure);
           setTimeout(function(){
             var d; try { d = fr.contentDocument.documentElement; } catch (er) { return bit(rej, er); }
-            /* hız: 1,5x ölçek (A4 için yeterli), dış adresli resimler (GİB sunucusu) atlanır: çizime zaten katılamazlar, yalnız bekletirler */
+            /* netlik: ölçek sayfa yüksekliğine göre 3x'e kadar (≈300 dpi) yükseltilir; piksel bütçesi telefonların bellek sınırı için kısıtlıdır (iPhone 8 milyon, diğerleri 16 milyon piksel).
+               Dış adresli resimler (GİB sunucusu) atlanır: çizime zaten katılamazlar, yalnız bekletirler */
+            var yuk = Math.max(600, d.scrollHeight || 1123), OL = Math.max(1.5, Math.min(3, Math.sqrt((IOS ? 8e6 : 16e6) / (820 * yuk))));
             var T0 = performance.now(), tl = function(a){ try { console.debug("pdf " + a + ": " + Math.round(performance.now() - T0) + " ms"); } catch (e) {} };
-            window.html2canvas(d, { scale: 1.5, backgroundColor: "#ffffff", logging: false, windowWidth: 820, scrollX: 0, scrollY: 0, imageTimeout: 3000,
+            window.html2canvas(d, { scale: OL, backgroundColor: "#ffffff", logging: false, windowWidth: 820, scrollX: 0, scrollY: 0, imageTimeout: 3000,
               ignoreElements: function(el){ return el.tagName === "IMG" && !/^data:/i.test(el.getAttribute("src") || ""); } }).then(function(c){
               tl("html2canvas bitti"); var W = c.width, ctx = c.getContext("2d"), son = c.height, y0, dd, x;
-              for (y0 = c.height - 1; y0 > 0; y0 -= 3) { dd = ctx.getImageData(0, y0, W, 1).data; for (x = 0; x < dd.length; x += 16) if (dd[x] < 245 || dd[x + 1] < 245 || dd[x + 2] < 245) break; if (x < dd.length) { son = Math.min(c.height, y0 + 30); break; } }
+              for (y0 = c.height - 1; y0 > 0; y0 -= 3) { dd = ctx.getImageData(0, y0, W, 1).data; for (x = 0; x < dd.length; x += 16) if (dd[x] < 245 || dd[x + 1] < 245 || dd[x + 2] < 245) break; if (x < dd.length) { son = Math.min(c.height, y0 + Math.round(20 * OL)); break; } }
               tl("bos alan taramasi bitti");
               /* A4, 28 pt kenar boşluğu; fatura tek sayfaya sığdırılır (1,6 sayfaya kadar küçültülür), çok uzunsa sayfalara bölünür. Her sayfada içerik ince çizgili çerçeveyle çevrilir. */
               var A4w = 595.28, A4h = 841.89, M = 28, P = 6, iw = A4w - 2 * M - 2 * P, ih = A4h - 2 * M - 2 * P, sh = Math.round(W * ih / iw), sf = [], k;
@@ -1431,7 +1433,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
               for (k = 0; k < adet; k++) {
                 var y1 = tek ? 0 : k * sh, hh = tek ? son : Math.min(sh, son - y1), t = document.createElement("canvas"); t.width = W; t.height = hh;
                 var tc = t.getContext("2d"); tc.fillStyle = "#fff"; tc.fillRect(0, 0, W, hh); tc.drawImage(c, 0, y1, W, hh, 0, 0, W, hh);
-                var bin = atob(t.toDataURL("image/jpeg", 0.92).split(",")[1]), u = new Uint8Array(bin.length);
+                var bin = atob(t.toDataURL("image/jpeg", 0.95).split(",")[1]), u = new Uint8Array(bin.length);
                 for (x = 0; x < bin.length; x++) u[x] = bin.charCodeAt(x);
                 sf.push({ b: u, w: W, h: hh });
               }
