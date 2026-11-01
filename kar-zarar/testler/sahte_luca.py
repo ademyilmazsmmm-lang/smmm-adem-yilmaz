@@ -200,6 +200,7 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>ALFA ISLE
      seciliFirma = firma.value;
      if (yeni) donem.selectedIndex = (seciliFirma === ESKI) ? 1 : 0;
      document.title = seciliFirma + ' [ ' + donem.value.slice(-4) + ' ]';
+     fetch('/api/firma-sec?firma=' + encodeURIComponent(seciliFirma));  // gercek Luca: secili firma sunucu oturumunda
      document.getElementById('sekmeler').innerHTML = '';  // firma degisince sekmeler kapanir
    });
  };

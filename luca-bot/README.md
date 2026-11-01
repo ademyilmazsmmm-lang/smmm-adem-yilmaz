@@ -186,6 +186,37 @@ Pencerenin üstündeki **Kâr / Zarar** sekmesi, repodaki ayrı `kar-zarar/` pro
 - Firma listesi her sorguda çekilmez: ilk sorguda Luca'dan okunup kaydedilir, sonra kayıttan yüklenir; "Firma listesini Luca'dan yeniden çek" kutusu işaretlenirse yenilenir.
 - Fatura İndirme ve Kâr / Zarar aynı anda çalışmaz (ikisi de Luca'ya girer).
 
+### Defter Beyan sekmesi (2. sınıf: işletme / serbest meslek defteri)
+
+**Defter Beyan** sekmesi, Luca'daki 2. sınıf firmaların (Müşteri Listesi'nde *İşletme Defteri* / *Serbest Meslek
+Defteri*) gelir ve giderlerini elle yaptığınız gibi Defter Beyan'a gönderir ve kontrol eder. Altta `kar-zarar/defter_beyan.py`
+çalışır; Luca'nın kendi *Defter Beyan Sistemi* sayfası kullanılır (API Key/Secret Luca'da kayıtlıdır, program yazmaz).
+
+Her firma için **Gelirler** ve **Giderler** sekmesinde, seçtiğiniz *evrak tarihi* aralığında (varsayılan 01/01 – geçen ayın sonu):
+
+- **Yalnız kontrol** (varsayılan): *Gönderilmemişler* sayılır, **hiçbir şey gönderilmez**.
+- **Gönder**: gönderilmemişlerin hepsi seçilir → **İşlemler > Cari Bilgi Sorgula** → **Kaydet** → **Defter Beyan Sistemine Gönder**.
+  Pencerede *Tamam* denir, **Yenile**'ye basılıp liste yeniden okunur; gönderilenler listeden düşer, **hata verenler kalır**.
+  Her çalıştırmada açık onay sorulur (gönderme geri alınamayabilir; Luca'da *Defter Beyan Sisteminden Sil* vardır).
+
+Sonuç tablosu: *Gelir kalan / Gider kalan / Sabit kıymet / Durum / Not*.
+
+| Durum | Anlamı |
+|---|---|
+| Gönderilmeyen yok | Hepsi gönderildi |
+| Yalnız sabit kıymet (es geçilir) | Kalanların hepsi sabit kıymet — normalde gönderilmez, bakmanız gerekmez |
+| GÖNDERİLMEYEN VAR | Sabit kıymet **dışında** gönderilemeyen kayıt var |
+| Hata | Firma işlenemedi (sayfa açılmadı, API bilgisi boş…) |
+
+Hata nedenleri Luca'nın gönderim penceresinden okunur (örn. *Tutarı 0.00 olan satır girilemez*, *Bu belge türü için zorunlu
+alan. Alan adı: Vergi Dairesi*, *Sabit kıymet adı boş olamaz*) ve *Not* sütununda özetlenir. **Ayrıntı** (ya da çift tıklama)
+firmanın gönderilmeyen kayıtlarını listeler; sabit kıymetler işaretlidir. **Excel olarak indir** *Özet* ve *Gönderilmeyenler*
+sayfalarını yazar (sabit kıymetler sarı). **Seçilenleri Yeniden Çalıştır** yalnız seçili firmalara uygulanır.
+
+Fatura İndirme, Kâr / Zarar ve Defter Beyan aynı anda çalışmaz. **Gerçek Luca'da henüz denenmemiştir**: önce tek bir firmayla
+*Yalnız kontrol*, sonra *Gönder* deneyin; sorun olursa `kar-zarar/cikti/<tarih>/tani/` klasöründeki dosyalar gerekir
+(komut satırı: `python defter_beyan.py --tarih 01/01/2026-30/09/2026 --firma "ALFA" --tani`).
+
 İptal/itiraz edilen faturalar tutarlara dahil edilmez. Python'da pencere kütüphanesi (tkinter)
 yoksa `.bat` bunu söyler; python.org'dan kurarken "tcl/tk and IDLE" işaretli olmalı (varsayılan).
 
@@ -404,6 +435,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | `rapor.py`, `rapor_excel.py` | **Raporlama**: `rapor.json` / `rapor.csv` / `rapor.xlsx` |
 | `tablo_gorunumu.py` | Arayüzün ortak tablo bileşeni: arama, sütun filtresi, başlığa tıklayınca sıralama |
 | `kar_zarar_sekmesi.py`, `lucabot/kar_zarar_ozet.py` | Arayüzün Kâr / Zarar sekmesi; sonuç + indirilen faturalar ("faturalar dahil") hesabı |
+| `defter_beyan_sekmesi.py` | Arayüzün Defter Beyan sekmesi (2. sınıf gönderme/kontrol); `kar-zarar/defter_beyan.py` çalışır |
 | `gostergeler.py` | Arayüzün alt kutuları (tevkifat KDV, SMM, interaktif farkı, KDV ödemesi); arayüzün kendisi `luca_arayuz.py` |
 | `firma_tablosu.py` | `firmalar.xlsx` şablonu, arayüzdeki Firma / Ekran Seçimi tablosunun okunup yazılması, Luca listesiyle karşılaştırma/birleştirme |
 | `luca_beyanname.py` | Luca'nın GİB Beyanname Takip ekranından KDV1 PDF'lerini toplu indirme |

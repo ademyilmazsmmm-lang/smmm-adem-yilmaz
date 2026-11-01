@@ -94,6 +94,22 @@ ayarlar.json'daki tarihler yalnızca otomatik/gece (`--bitince-kapat`) çalışm
 
 Diğer seçenekler: `--tarayici chrome|edge|chromium`, `--profil-yerel`, `--chrome-gunlugu`, `--bitince-kapat`.
 
+## Defter Beyan gönderme / kontrol (`defter_beyan.py`)
+
+2. sınıf (işletme / serbest meslek defteri) firmaların Luca gelir-giderlerini Defter Beyan'a göndermek ve kontrol etmek içindir
+(arayüzde **Defter Beyan** sekmesi). Luca'nın *İşletme Defteri > Defter Beyan Sistemi* sayfası kullanılır.
+
+```
+python defter_beyan.py --tarih 01/01/2026-30/09/2026                                     # yalnız kontrol, hiçbir şey gönderilmez
+python defter_beyan.py --tarih 01/01/2026-30/09/2026 --islem gonder --firma-tam "ALFA"   # seç → Cari Bilgi Sorgula → Kaydet → Gönder → Yenile
+```
+
+Sonuç `cikti/defter-beyan.json`: firma başına gelir/gider için gönderilmemiş/gönderilmiş sayısı, gönderim sonrası kalan kayıtlar,
+satır hataları (`hatalar`, `hata_ozeti`) ve **sabit kıymet** sayısı. Durum: `tamam` / `yalnız sabit kıymet` /
+`gönderilmemiş var` / `hata`. Mantık `karzarar/db_sonuc.py`, sayfa otomasyonu `karzarar/defterbeyan_luca.py`.
+Gönderme penceresinin metni şöyle okunur: `N. satır için.` satırının altındaki her ek satır o satırın hatasıdır;
+sondaki `gönderim tamamlandı. (N)` hatasız giden kayıt sayısıdır.
+
 ## Testler
 
 Sahte Luca + sahte Defter Beyan ile (hepsi bu klasörde):
@@ -102,6 +118,7 @@ Sahte Luca + sahte Defter Beyan ile (hepsi bu klasörde):
 python -m unittest discover -s testler -p "test_birim.py"
 xvfb-run -a python -m unittest testler.test_portal      (Linux; ekran gerekir)
 xvfb-run -a python testler/uctan_uca.py                 (bastan sona)
+LUCA_TEST_CHROMIUM=... xvfb-run -a python testler/test_defter_beyan.py   (Defter Beyan: mantik + sahte Luca sayfasi)
 ```
 
 ## Henüz gerçek portalda denenmemiş / bilinmeyenler

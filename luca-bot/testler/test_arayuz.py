@@ -96,6 +96,43 @@ SAHTE_KAR_ZARAR = textwrap.dedent('''
 ''')
 
 
+SAHTE_DEFTER_BEYAN = textwrap.dedent('''
+    import json, sys
+    from pathlib import Path
+    print("ARGS " + " ".join(sys.argv[1:]), flush=True)
+    islem = sys.argv[sys.argv.index("--islem") + 1]
+    kayit = {"zaman": "x", "islem": islem}
+    firmalar = [
+        dict(kayit, firma="ALFA", donem="01/01/2026-30/09/2026", durum="tamam", hata="",
+             gelir={"gonderilmemis": 2, "gonderim": {"sonuc": "basarili", "gonderilen": 2, "kalan": 0}},
+             gider={"gonderilmemis": 1, "gonderim": {"sonuc": "basarili", "gonderilen": 1, "kalan": 0}}),
+        dict(kayit, firma="BETA", donem="01/01/2026-30/09/2026", durum="yalnız sabit kıymet", hata="",
+             gelir={"gonderilmemis": 0},
+             gider={"gonderilmemis": 3, "gonderim": {"sonuc": "kismi", "gonderilen": 2, "kalan": 1, "kalan_sabit": 1,
+                    "hatalar": [{"satir": 3, "mesaj": "Sabit kıymet adı boş olamaz. - 0"}],
+                    "hata_ozeti": {"Sabit kıymet adı boş olamaz.": 1},
+                    "kalan_kayitlar": [{"evrak_no": "G3", "tarih": "03/02/2026", "kategori": "Sabit Kıymet",
+                                        "belge_turu": "Amortisman", "aciklama": "Bilgisayar", "tutar": 25000.0,
+                                        "sabit_kiymet": True}]}}),
+        dict(kayit, firma="GAMA", donem="01/01/2026-30/09/2026", durum="gönderilmemiş var", hata="",
+             gelir={"gonderilmemis": 1, "gonderim": {"sonuc": "kismi", "gonderilen": 0, "kalan": 1, "kalan_sabit": 0,
+                    "hata_ozeti": {"Tutarı 0.00 olan satır girilemez.": 1},
+                    "kalan_kayitlar": [{"evrak_no": "L1", "tarih": "05/03/2026", "kategori": "Satışlar",
+                                        "belge_turu": "Fatura", "aciklama": "x", "tutar": 0.0, "sabit_kiymet": False}]}},
+             gider={"gonderilmemis": 0}),
+        dict(kayit, firma="DELTA", donem="01/01/2026-30/09/2026", durum="hata", hata="Gelirler: Liste okunamadı",
+             gelir={}, gider={}),
+    ]
+    cikti = Path(__file__).resolve().parent / "cikti"
+    cikti.mkdir(exist_ok=True)
+    for i, f in enumerate(firmalar, 1):
+        print(f"[{i}/{len(firmalar)}] {f['firma']}  (Defter Beyan {islem})", flush=True)
+        (cikti / "defter-beyan.json").write_text(json.dumps({
+            "donem": "01/01/2026-30/09/2026", "firmalar": firmalar[:i]}), encoding="utf-8")
+    print("[OK] 4 firma", flush=True)
+''')
+
+
 class ArayuzZemini(unittest.TestCase):
     """Ortak kurulum (sahte ayarlar, rapor.json, sahte bot); kendi testi yok."""
 
@@ -1210,6 +1247,120 @@ class KurulumSihirbaziTestleri(ArayuzZemini):
         ilk = self.app.sihirbaz
         self.app.sihirbazi_ac()
         self.assertIs(self.app.sihirbaz, ilk)
+
+
+@unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")
+class DefterBeyanSekmesiTestleri(ArayuzZemini):
+    """Defter Beyan sekmesi: kar-zarar/defter_beyan.py yerine sahte program calisir."""
+
+    def setUp(self):
+        import kar_zarar_sekmesi
+        self.kz_klasor = Path(tempfile.mkdtemp(prefix="db-test-"))
+        (self.kz_klasor / "kar_zarar.py").write_text("print('x')", encoding="utf-8")
+        (self.kz_klasor / "defter_beyan.py").write_text(SAHTE_DEFTER_BEYAN, encoding="utf-8")
+        self._eski = kar_zarar_sekmesi.ADAYLAR
+        kar_zarar_sekmesi.ADAYLAR = (self.kz_klasor,)
+        super().setUp()
+        self.db = self.app.db
+
+    def tearDown(self):
+        import kar_zarar_sekmesi
+        if self.db.surec:
+            self.db.surec.kill()
+            self.db.surec.wait()
+            self.db.surec.stdout.close()
+        kar_zarar_sekmesi.ADAYLAR = self._eski
+        super().tearDown()
+
+    def _soru(self, cevap):
+        import defter_beyan_sekmesi
+        self.sorular = []
+        eski = defter_beyan_sekmesi.messagebox.askyesno
+        defter_beyan_sekmesi.messagebox.askyesno = lambda *a, **k: self.sorular.append(a) or cevap
+        self.addCleanup(setattr, defter_beyan_sekmesi.messagebox, "askyesno", eski)
+
+    def test_sekme_ve_varsayilan_donem(self):
+        self.app.sekme_sec("db")
+        self.kok.update()
+        self.assertTrue(self.db.govde.winfo_ismapped())
+        self.assertFalse(self.app.fatura_govde.winfo_ismapped())
+        self.assertRegex(self.db.v_bas.get(), r"^01/01/\d{4}$")
+        self.assertIn("kontrol", self.db._islem())     # varsayilan islem yalniz kontrol
+
+    def test_kontrol_onaysiz_baslar_ve_tablo_dolar(self):
+        self._soru(True)
+        self.db.v_bas.set("01/01/2026")
+        self.db.v_bit.set("30/09/2026")
+        self.db.calistir()
+        self.assertIsNotNone(self.db.surec)
+        self.assertEqual(self.sorular, [])             # kontrol icin onay istenmez
+        self.assertTrue(self._bekle(lambda: self.db.surec is None))
+        log = self.db.log_metni()
+        self.assertIn("--islem kontrol", log)
+        self.assertIn("--tarih 01/01/2026-30/09/2026", log)
+        satirlar = {self.db.agac.item(i)["values"][0]: self.db.agac.item(i)["values"]
+                    for i in self.db.agac.get_children()}
+        self.assertEqual(satirlar["ALFA"][6], "Gönderilmeyen yok")
+        self.assertEqual(satirlar["BETA"][6], "Yalnız sabit kıymet (es geçilir)")
+        self.assertEqual(str(satirlar["BETA"][5]), "1")
+        self.assertEqual(satirlar["GAMA"][6], "GÖNDERİLMEYEN VAR")
+        self.assertIn("Tutarı 0.00", satirlar["GAMA"][7])
+        self.assertEqual(satirlar["DELTA"][6], "Hata")
+        self.assertIn("Gönderilmeyen yok: 1", self.db.ozet_etiketi.cget("text"))
+
+    def test_gonder_onay_ister_ve_hayir_baslatmaz(self):
+        self._soru(False)
+        self.db.v_islem.set("Gönder (Cari Sorgula → Kaydet → Gönder)")
+        self.db.calistir()
+        self.assertIsNone(self.db.surec)
+        self.assertEqual(len(self.sorular), 1)
+        self.assertIn("GÖNDERİLECEK", self.sorular[0][1])
+
+    def test_gonder_onaylaninca_komut(self):
+        self._soru(True)
+        self.db.v_islem.set("Gönder (Cari Sorgula → Kaydet → Gönder)")
+        self.db.v_firma.set("ALFA")
+        self.db.calistir()
+        self.assertIsNotNone(self.db.surec)
+        self.assertTrue(self._bekle(lambda: self.db.surec is None))
+        self.assertIn("--islem gonder", self.db.log_metni())
+        self.assertIn("--firma ALFA", self.db.log_metni())
+
+    def test_kar_zarar_calisirken_baslamaz(self):
+        self.app.surec = mock.MagicMock()
+        import defter_beyan_sekmesi
+        bilgi = []
+        eski = defter_beyan_sekmesi.messagebox.showinfo
+        defter_beyan_sekmesi.messagebox.showinfo = lambda *a, **k: bilgi.append(a)
+        self.addCleanup(setattr, defter_beyan_sekmesi.messagebox, "showinfo", eski)
+        self.addCleanup(setattr, self.app, "surec", None)
+        self.assertTrue(self.db._baska_calisiyor())
+        self.assertTrue(bilgi)
+
+    def test_ayrinti_ve_excel(self):
+        self._soru(True)
+        self.db.calistir()
+        self.assertTrue(self._bekle(lambda: self.db.surec is None))
+        from openpyxl import load_workbook
+        yol = self.d / "db.xlsx"
+        self.db._excel_yaz_db(str(yol))
+        wb = load_workbook(yol)
+        ozet = [[h.value for h in r] for r in wb["Özet"].iter_rows(min_row=4)]
+        self.assertEqual([r[0] for r in ozet], ["ALFA", "BETA", "GAMA", "DELTA"])
+        gonderilmeyen = [[h.value for h in r] for r in wb["Gönderilmeyenler"].iter_rows(min_row=2)]
+        self.assertEqual([(r[0], r[2], r[8]) for r in gonderilmeyen], [("BETA", "G3", "EVET"), ("GAMA", "L1", None)])
+        # ayrinti penceresi: secili firma (BETA) icin sabit kiymet vurgulanir
+        beta = [i for i in self.db.agac.get_children() if self.db.agac.item(i)["values"][0] == "BETA"][0]
+        self.db.agac.selection_set(beta)
+        pencereler = []
+        eski = tk.Toplevel
+        self.addCleanup(setattr, tk, "Toplevel", eski)
+        tk.Toplevel = lambda *a, **k: pencereler.append(eski(*a, **k)) or pencereler[-1]
+        self.db.ayrinti()
+        metin = [w for w in pencereler[0].winfo_children() if isinstance(w, tk.Text)][0].get("1.0", "end")
+        self.assertIn("SABİT KIYMET", metin)
+        self.assertIn("Bilgisayar", metin)
+        pencereler[0].destroy()
 
 
 if __name__ == "__main__":

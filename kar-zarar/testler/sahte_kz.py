@@ -276,6 +276,134 @@ def mizan_xlsx(firma, bas, bit):
     return cikti.getvalue()
 
 
+# --- Luca > Isletme Defteri > "Defter Beyan Sistemi" sayfasi (luca2.do?tur=defter_beyan) -----------------------
+# Ekran goruntulerinden: Gelirler / Giderler / Gelir Alt Tur Tanimlari / Muhtasar; Evrak Tarihi + Durum + Gonderilme
+# Tarihi + Listele; liste (baslik kutusu, #, Seri No, Evrak No, Evrak Tarihi, ... ) ve alttaki arac cubugu
+# (Kaydet, Arama, Yenile, Islemler > Defter Beyan Sistemine Gonder, ...). Gonder: SORGULAMA UYARI > Giris Bilgileri >
+# DEFTER BEYAN ENTEGRASYON penceresi ("gonderim tamamlandi. (N)").
+DB_SEC = {"firma": sahte_luca.FIRMALAR[0]}      # secili firma (gercek Luca'da sunucu oturumunda)
+DB_GONDERILDI = set()                            # (firma, tur, evrak no)
+DB_OLAYLAR = []                                  # sunucu tarafi islem sirasi: cari, kaydet, gonder
+DB_AYAR = {"sabit_hatasi": False, "satir_hatasi": False, "gonderim_hatasi": False, "api_bos": False, "yavas": 0.0}
+DB_TARIHLER = ("03/10/2026", "15/10/2026", "28/10/2026", "05/11/2026")
+
+
+def db_kayitlari(firma, tur):
+    """[(evrak no, tarih, kategori, belge turu, aciklama, tutar)]: firmaya gore degisen sabit veri."""
+    taban = {"ALFA ISLETME": {"gelir": 1, "gider": 3}, "FATURASIZ AS": {"gelir": 0, "gider": 0},
+             "KEREM TICARET": {"gelir": 2, "gider": 1}, "SERBEST KISI": {"gelir": 1, "gider": 1}}.get(firma, {})
+    adet = taban.get(tur, 0)
+    kategori, belge = (("Serbest Meslek Fişleri", "Meslek Gideri") if tur == "gider" else ("Satışlar", "Fatura"))
+    sonuc = []
+    for i in range(adet):
+        sabit = tur == "gider" and adet >= 3 and i == adet - 1      # ALFA: gider listesinin son kaydi sabit kiymet
+        sonuc.append((f"{'GDR' if tur == 'gider' else 'GLR'}{firma[:2]}{i + 1:04d}", DB_TARIHLER[i % 4],
+                      "Sabit Kıymet" if sabit else kategori, "Amortisman" if sabit else belge,
+                      f"{firma} kayıt {i + 1}", 1000.0 * (i + 1) + 250.5))
+    return sonuc
+
+
+def db_liste(firma, tur, bas, bit, durum):
+    def gun(t):
+        g, a, y = (int(x) for x in t.split("/"))
+        return (y, a, g)
+    sonuc = []
+    for k in db_kayitlari(firma, tur):
+        gonderildi = (firma, tur, k[0]) in DB_GONDERILDI
+        if not (gun(bas) <= gun(k[1]) <= gun(bit)):
+            continue
+        if durum == "Gönderilmemişler" and gonderildi or durum == "Gönderilmişler" and not gonderildi:
+            continue
+        sonuc.append(k)
+    return sonuc
+
+
+DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter Beyan</title>
+""" + ORTAK_STIL + """
+<style>#menu{background:#777;color:#fff;padding:6px}#menu a{margin-right:16px;cursor:pointer;color:#fff}
+.alt{position:fixed;bottom:0;left:0;right:0;background:#9bb;padding:4px}.alt button{margin-right:8px}
+#islemMenu{position:fixed;bottom:30px;left:120px;background:#fff;border:1px solid #888}
+#islemMenu a{display:block;padding:6px 10px;cursor:pointer}</style></head><body>
+<div id="menu"><a id="gelir">Gelirler</a><a id="gider">Giderler</a><a>Gelir Alt Tür Tanımları</a><a>Muhtasar</a></div>
+<div id="form"><h4 id="baslik">Gelir Listesi</h4>
+ <table style="border:0"><tr><td style="border:0">Evrak Tarihi</td>
+ <td style="border:0"><input type="text" id="b1" value="01/10/2026"> <input type="text" id="b2" value="31/10/2026"></td></tr>
+ <tr><td style="border:0">Durum</td><td style="border:0"><select id="durum"><option>Tümü</option>
+ <option>Gönderilmemişler</option><option>Gönderilmişler</option></select></td></tr>
+ <tr><td style="border:0">Gönderilme Tarihi</td><td style="border:0"><input type="text" id="g1"> <input type="text" id="g2"></td></tr>
+ <tr><td style="border:0"></td><td style="border:0"><button id="listele">Listele</button></td></tr></table></div>
+<div id="liste" class="gizli">
+ <table id="grid"><thead><tr><th><input type="checkbox" id="hepsi"></th><th>#</th><th>Seri No</th><th>Evrak No</th>
+ <th>Evrak Tarihi</th><th>Kategori</th><th>Belge Türü</th><th>Fiş Açıklama</th><th>Tutar</th></tr></thead><tbody></tbody></table></div>
+<div class="alt gizli" id="arac"><button id="kaydet">Kaydet</button><button id="arama">Arama</button><button>Yenile</button>
+ <button id="islemler">İşlemler ▲</button><button>Sütunlar</button><button>KDV Hariç</button><button>KDV Dahil</button>
+ <button>GİB DBS Portalı</button></div>
+<div id="islemMenu" class="gizli"><a>Defter Beyan Sisteminden Sil</a><a id="gonder">Defter Beyan Sistemine Gönder</a>
+ <a id="cari">Cari Bilgi Sorgula</a><a>Toplu Değer Ata</a></div>
+<div id="cariPen" class="luca-open-window gizli"><b>CARİ BİLGİ SORGULA</b><p>Cari bilgi sorgulama tamamlandı.</p>
+ <button id="cTamam">Tamam</button></div>
+<div id="kayPen" class="luca-open-window gizli"><b>BİLGİ</b><p>Kayıt işlemi tamamlandı.</p><button id="kTamam">Tamam</button></div>
+<div id="uyari" class="luca-open-window gizli"><b>SORGULAMA UYARI</b><p>Sadece seçili kayıtlar üzerinde işlem yapılacaktır.
+ Gönderilmemiş kayıtları seçmek için <a href="#">buraya</a> tıklayınız.<br><br>Devam etmek istiyor musunuz?</p>
+ <button id="uTamam">Tamam</button> <button id="uKapat">Kapat</button></div>
+<div id="giris" class="luca-open-window gizli"><b>Defter Beyan Sistemi - Giriş Bilgileri</b>
+ <p>Giriş Yöntem: <select><option>API Key/Secret</option></select><br>
+ API Key: <input type="text" id="apiKey" value="__KEY__"><br>API Secret: <input type="text" id="apiSecret" value="__SECRET__"></p>
+ <button id="gTamam">Tamam</button> <button id="gKapat">Kapat</button></div>
+<div id="ent" class="luca-open-window gizli"><b>DEFTER BEYAN ENTEGRASYON</b>
+ <div id="entYazi" style="border:1px solid #000;height:120px;width:340px;white-space:pre"></div>
+ <button id="eTamam">Tamam</button></div>
+<script>
+ const g = id => document.getElementById(id);
+ let tur = 'gelir', kayitlar = [];
+ function sekme(t) { tur = t; g('baslik').textContent = (t == 'gelir' ? 'Gelir' : 'Gider') + ' Listesi';
+   g('form').classList.remove('gizli'); g('liste').classList.add('gizli'); g('arac').classList.add('gizli'); }
+ g('gelir').onclick = () => sekme('gelir'); g('gider').onclick = () => sekme('gider');
+ g('listele').onclick = async () => {
+   const q = 'tur=' + tur + '&bas=' + encodeURIComponent(g('b1').value) + '&bit=' + encodeURIComponent(g('b2').value)
+     + '&durum=' + encodeURIComponent(g('durum').value);
+   kayitlar = await (await fetch('/api/db-liste?' + q)).json();
+   setTimeout(() => { const tb = g('grid').querySelector('tbody'); tb.innerHTML = '';
+     kayitlar.forEach((k, i) => tb.insertAdjacentHTML('beforeend', '<tr><td><input type="checkbox"></td><td>' + (i + 1)
+       + '</td><td></td><td>' + k[0] + '</td><td>' + k[1] + '</td><td>' + k[2] + '</td><td>' + k[3] + '</td><td>' + k[4]
+       + '</td><td>' + k[5].toLocaleString('tr-TR', {minimumFractionDigits: 2}) + '</td></tr>'));
+     g('hepsi').checked = false; g('form').classList.add('gizli'); g('liste').classList.remove('gizli');
+     g('arac').classList.remove('gizli');
+     if (!kayitlar.length) { const u = document.createElement('div'); u.textContent = 'Kayıt bulunamadı'; } }, 400); };
+ g('hepsi').onchange = () => g('grid').querySelectorAll('tbody input').forEach(k => k.checked = g('hepsi').checked);
+ const olay = ad => fetch('/api/db-olay?ad=' + ad);
+ g('cari').onclick = () => { g('islemMenu').classList.add('gizli'); olay('cari');
+   setTimeout(() => g('cariPen').classList.remove('gizli'), 300); };
+ g('cTamam').onclick = () => g('cariPen').classList.add('gizli');
+ g('kaydet').onclick = () => { olay('kaydet');   // gercek Luca gibi: kayit sonrasi liste yenilenir, secim kalkar
+   g('grid').querySelectorAll('tbody input').forEach(k => k.checked = false); g('hepsi').checked = false;
+   setTimeout(() => g('kayPen').classList.remove('gizli'), 300); };
+ g('kTamam').onclick = () => g('kayPen').classList.add('gizli');
+ g('arama').onclick = () => { g('form').classList.remove('gizli'); g('liste').classList.add('gizli'); };
+ g('islemler').onclick = () => g('islemMenu').classList.toggle('gizli');
+ g('gonder').onclick = () => { g('islemMenu').classList.add('gizli'); setTimeout(() => g('uyari').classList.remove('gizli'), 200); };
+ g('uKapat').onclick = () => g('uyari').classList.add('gizli');
+ g('uTamam').onclick = () => { g('uyari').classList.add('gizli'); setTimeout(() => g('giris').classList.remove('gizli'), 250); };
+ g('gKapat').onclick = () => g('giris').classList.add('gizli');
+ g('gTamam').onclick = async () => {
+   olay('gonder');
+   g('giris').classList.add('gizli'); g('entYazi').textContent = ''; g('ent').classList.remove('gizli');
+   const sec = [...g('grid').querySelectorAll('tbody tr')].filter(r => r.querySelector('input').checked)
+     .map(r => r.children[3].textContent);
+   const yaz = s => g('entYazi').textContent += s + '\\n';
+   yaz('Defter Beyan Sistemine gönderim başlıyor.');
+   if (!sec.length) { setTimeout(() => yaz('Gönderilecek seçili kayıt bulunamadı.'), 300); return; }
+   const s = await (await fetch('/api/db-gonder?tur=' + tur, {method: 'POST', body: JSON.stringify(sec)})).json();
+   sec.forEach((_, i) => setTimeout(() => { yaz((i + 1) + '. satır için.');
+     if ((s.hatali || {})[sec[i]]) yaz(s.hatali[sec[i]] + ' (' + (i + 1) + '.1)'); }, 300 * (i + 1)));
+   setTimeout(() => yaz(s.hata ? 'Hata: ' + s.hata : 'Defter Beyan Sistemine gönderim tamamlandı. (' + s.gonderilen + ')'),
+     300 * (sec.length + 1));
+ };
+ g('eTamam').onclick = () => g('ent').classList.add('gizli');
+ window.Luca = {defter_beyan: {gonder: t => g('gonder').click()}};
+</script></body></html>"""
+
+
 class Isleyici(sahte_luca.Isleyici):
     """Once kar/zarar rotalari, bulunamazsa Luca taklidi."""
 
@@ -291,6 +419,24 @@ class Isleyici(sahte_luca.Isleyici):
             super().do_GET()
 
     def _kz_get(self, yol, firma):
+        if yol == "/api/firma-sec":
+            with KILIT:
+                DB_SEC["firma"] = parse_qs(urlparse(self.path).query).get("firma", [DB_SEC["firma"]])[0]
+            return self._yanit("{}", "application/json")
+        if yol == "/Luca/luca2.do":
+            bos = DB_AYAR["api_bos"]
+            return self._yanit(DB_SAYFASI.replace("__KEY__", "" if bos else "TESTKEY123")
+                               .replace("__SECRET__", "" if bos else "TESTSECRET456"))
+        if yol == "/api/db-olay":
+            with KILIT:
+                DB_OLAYLAR.append(parse_qs(urlparse(self.path).query).get("ad", [""])[0])
+            return self._yanit("{}", "application/json")
+        if yol == "/api/db-liste":
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+            import time
+            time.sleep(DB_AYAR["yavas"])
+            return self._yanit(json.dumps(db_liste(DB_SEC["firma"], q["tur"], q["bas"], q["bit"], q["durum"]),
+                                          ensure_ascii=False), "application/json")
         if yol == "/mizan":
             return self._yanit(MIZAN_SAYFASI.replace("__FIRMA__", firma))
         if yol == "/mizan.xlsx":
@@ -335,6 +481,25 @@ class Isleyici(sahte_luca.Isleyici):
     def do_POST(self):
         self._yanit_verildi = False
         yol, firma, tip = self._parametre()
+        if yol == "/api/db-gonder":
+            tur = parse_qs(urlparse(self.path).query).get("tur", ["gelir"])[0]
+            n = int(self.headers.get("Content-Length") or 0)
+            evraklar = json.loads(self.rfile.read(n) or b"[]")
+            with KILIT:
+                if DB_AYAR["gonderim_hatasi"]:
+                    return self._yanit(json.dumps({"hata": "Defter Beyan Sistemi yanıt vermedi", "gonderilen": 0}),
+                                       "application/json")
+                hatali = {}      # evrak -> hata yazisi; bunlar Defter Beyan'a gitmez, Gonderilmemisler'de kalir
+                if DB_AYAR["satir_hatasi"] and evraklar:
+                    hatali[evraklar[0]] = "Tutarı 0.00 olan satır girilemez."
+                for e in evraklar:
+                    k = next((x for x in db_kayitlari(DB_SEC["firma"], tur) if x[0] == e), None)
+                    if k and "Sabit" in k[2] and DB_AYAR["sabit_hatasi"]:
+                        hatali[e] = "Sabit kıymet adı boş olamaz. - 0"
+                gidecek = [e for e in evraklar if e not in hatali]
+                for e in gidecek:
+                    DB_GONDERILDI.add((DB_SEC["firma"], tur, e))
+            return self._yanit(json.dumps({"gonderilen": len(gidecek), "hatali": hatali, "hata": ""}), "application/json")
         if yol.startswith("/db/"):
             q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
             with KILIT:
@@ -358,3 +523,7 @@ def baslat(port=0):
 def sifirla():
     sahte_luca.sifirla()
     DB_DURUM.update(giris=False, vkn=None)
+    DB_SEC["firma"] = sahte_luca.FIRMALAR[0]
+    DB_GONDERILDI.clear()
+    DB_AYAR.update(gonderim_hatasi=False, api_bos=False, satir_hatasi=False, sabit_hatasi=False, yavas=0.0)
+    DB_OLAYLAR.clear()

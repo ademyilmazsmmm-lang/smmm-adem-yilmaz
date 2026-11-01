@@ -33,6 +33,7 @@ KOK = Path(__file__).resolve().parent
 sys.path.insert(0, str(KOK))
 
 from kar_zarar_sekmesi import KarZararSekmesi  # noqa: E402
+from defter_beyan_sekmesi import DefterBeyanSekmesi  # noqa: E402
 from kurulum_sihirbazi import KurulumSihirbazi  # noqa: E402
 from lucabot import SURUM, SURUM_TARIHI, beyanname, firma_tablosu, gostergeler, lisans, musteri_listesi, rapor  # noqa: E402
 from tablo_gorunumu import SiralaFiltreTablosu  # noqa: E402
@@ -706,6 +707,7 @@ class Arayuz:
         tk.Frame(govde, bg=CIZGI, width=1).pack(side="left", fill="y")
         self._sag_panel(govde)
         self.kz = KarZararSekmesi(self, kok, sys.modules[__name__])
+        self.db = DefterBeyanSekmesi(self, kok, sys.modules[__name__])
         self.muavin_govde = self._muavin_taslagi(kok)
         self.sekme_sec("fatura")
         self._giris_ozetini_yaz()
@@ -726,7 +728,7 @@ class Arayuz:
 
     def tema_degistir(self):
         """Acik <-> koyu: ayar kaydedilir, arayuz ayni pencerede yeniden kurulur (calisma sirasinda yapilmaz)."""
-        if self.surec or self.kz.calisiyor():
+        if self.surec or self.kz.calisiyor() or self.db.calisiyor():
             messagebox.showinfo("Çalışma sürüyor", "Tema, çalışma bitince değiştirilebilir.", parent=self.kok)
             return
         a = self.ayarlar
@@ -807,7 +809,8 @@ class Arayuz:
         cubuk = tk.Frame(self.kok, bg=PANEL)
         cubuk.pack(fill="x")
         self.sekme_dugmeleri, self.sekme_cizgileri = {}, {}
-        for anahtar, ad in (("fatura", "Fatura İndirme"), ("kz", "Kâr / Zarar"), ("muavin", "Muavin")):
+        for anahtar, ad in (("fatura", "Fatura İndirme"), ("kz", "Kâr / Zarar"), ("db", "Defter Beyan"),
+                              ("muavin", "Muavin")):
             hucre = tk.Frame(cubuk, bg=PANEL, cursor="hand2")
             hucre.pack(side="left")
             d = tk.Label(hucre, text=ad, font=("Segoe UI", 12, "bold"), padx=28, pady=11, cursor="hand2", bg=PANEL)
@@ -860,8 +863,9 @@ class Arayuz:
     def sekme_sec(self, anahtar):
         self.fatura_govde.pack_forget()
         self.kz.govde.pack_forget()
+        self.db.govde.pack_forget()
         self.muavin_govde.pack_forget()
-        {"fatura": self.fatura_govde, "kz": self.kz.govde, "muavin": self.muavin_govde}[anahtar].pack(
+        {"fatura": self.fatura_govde, "kz": self.kz.govde, "db": self.db.govde, "muavin": self.muavin_govde}[anahtar].pack(
             fill="both", expand=True)
         for k, d in self.sekme_dugmeleri.items():
             d.configure(fg=ALTIN_FG if k == anahtar else ETIKET)
@@ -1400,8 +1404,8 @@ class Arayuz:
         return False
 
     def _baslat(self, komut, ilk_etiket, mod="calisma"):
-        if self.kz.calisiyor():
-            messagebox.showinfo("Başka çalışma sürüyor", "Kâr / Zarar çalışıyor; bitince başlatın "
+        if self.kz.calisiyor() or self.db.calisiyor():
+            messagebox.showinfo("Başka çalışma sürüyor", "Kâr / Zarar ya da Defter Beyan çalışıyor; bitince başlatın "
                                 "(ikisi aynı anda Luca'ya girmemeli).", parent=self.kok)
             return
         ortam = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
@@ -1484,6 +1488,7 @@ class Arayuz:
             self._bitti(self.surec.returncode)
         self._son_islemi_goster()
         self.kz.tikla()
+        self.db.tikla()
         self.dongu_id = self.kok.after(150, self._dongu)
 
     def _metni_isle(self, metin):
@@ -1931,11 +1936,12 @@ class Arayuz:
         dosya_ac(indirme_koku(self.ayarlar))
 
     def kapat(self):
-        if self.kz.calisiyor():
-            if not messagebox.askyesno("Çalışma sürüyor", "Kâr / Zarar çalışıyor. Durdurup çıkılsın mı?",
+        if self.kz.calisiyor() or self.db.calisiyor():
+            if not messagebox.askyesno("Çalışma sürüyor", "Kâr / Zarar ya da Defter Beyan çalışıyor. Durdurup çıkılsın mı?",
                                        parent=self.kok):
                 return
             self.kz.kapat()
+            self.db.kapat()
         if self.surec:
             if not messagebox.askyesno("Çalışma sürüyor", "Program çalışıyor. Durdurup çıkılsın mı?",
                                        parent=self.kok):
