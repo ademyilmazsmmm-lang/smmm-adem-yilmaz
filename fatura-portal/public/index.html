@@ -414,6 +414,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       <div id="kurAlan" hidden><label for="kur" id="kurEtiket">Kur (1 birim = ? ₺)</label><input id="kur" inputmode="decimal" autocomplete="off"></div>
     </div>
     <div><label for="ekNot">Fatura notu (isteğe bağlı)</label><input id="ekNot" autocomplete="off" placeholder="Ödenecek tutar yazıyla her faturada otomatik eklenir"></div>
+    <div><label for="bankaNot">Banka bilgisi (faturanın notuna eklenir)</label><input id="bankaNot" autocomplete="off" maxlength="250" placeholder="Banka adı · IBAN TR.. · Hesap sahibi (boşsa eklenmez)"></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="k" type="button" id="bankaKaydet">Mükellef profiline kaydet</button><span class="not" id="bankaDurum" style="margin:0"></span></div>
     <label class="onay"><input type="checkbox" id="notIrs" checked> “İrsaliye yerine geçer” notu ekle</label>
     <div class="not" id="notOnizleme"></div>
   </div></details>
@@ -752,9 +754,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 
   /* ---------- giriş ---------- */
   var kurulu = false, sifreMin = 8;
-  var kurulu = false, eskiKayit = false, sifreMin = 8, mSifreMin = 8, ROL = "", PERSONEL = false, KULLANICI = "", yedek = null;
+  var kurulu = false, eskiKayit = false, sifreMin = 8, mSifreMin = 8, ROL = "", PERSONEL = false, COKLU = false, KULLANICI = "", yedek = null;
   /* çalışan hesabı arayüzde "ofis" gibi davranır (seçili mükellefler adına işlem) ama yönetim bölümleri (mükellef ekle/sil, yedek, çalışanlar) kapalıdır */
-  function rolAta(r){ PERSONEL = r === "personel"; ROL = PERSONEL ? "ofis" : r; }
+  /* "musteri": birden çok firması olan mükellefin kısıtlı hesabı — arayüz mükellef gibi, ama üstte firma seçici vardır */
+  function rolAta(r){ PERSONEL = r === "personel"; COKLU = r === "musteri"; ROL = PERSONEL ? "ofis" : COKLU ? "mukellef" : r; }
   function acilis(){
     api("/api/durum").then(function(d){
       kurulu = d.kurulu; eskiKayit = !!d.eski; $("sahte").hidden = !d.sahte; $("surum").textContent = d.surum ? "sürüm " + d.surum : ""; $("girisSurum").textContent = d.surum ? "Sürüm " + d.surum + (ANA_EKRAN ? " · ana ekran kipi" : "") : ""; sifreMin = d.sifreMin || 8; mSifreMin = d.mSifreMin || 8;
@@ -797,7 +800,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("cikis").addEventListener("click", function(){
     var b = this; b.disabled = true; b.textContent = "Çıkılıyor…";
     api("/api/cikis", "POST", {}).then(function(){
-      V = null; ROL = ""; PERSONEL = false; kabulKontrol(); markaUygula(); acilis();
+      V = null; ROL = ""; PERSONEL = false; COKLU = false; kabulKontrol(); markaUygula(); acilis();
       var d = $("girisDurum"); d.className = "durum ok"; d.textContent = "Çıkış yapıldı; GİB oturumunuz kapatıldı. Dilerseniz GİB portalına şimdi girebilirsiniz.";
     }, function(er){ if (!oturumDustu(er)) { alert("Çıkış tamamlanamadı: " + er.message); } }).then(function(){ b.disabled = false; b.textContent = "Çıkış"; });
   });
@@ -807,7 +810,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     api("/api/veri").then(function(v){
       V = v; rolAta(v.rol); KULLANICI = v.kullanici; $("giris").hidden = true; $("uyg").hidden = false; yedekle();
       mSec = V.mukellefler.length ? V.mukellefler[0].id : null; F.alici = ""; F.kalemler = [ilkKalem()]; F.tip = tipKalemden(F.kalemler[0]);
-      $("kimlik").textContent = ROL === "ofis" ? (PERSONEL ? "Çalışan · " : "Ofis · ") + KULLANICI : (V.mukellefler[0] ? V.mukellefler[0].ad : KULLANICI);
+      $("kimlik").textContent = ROL === "ofis" ? (PERSONEL ? "Çalışan · " : "Ofis · ") + KULLANICI : (COKLU ? "Mükellef · " + KULLANICI : V.mukellefler[0] ? V.mukellefler[0].ad : KULLANICI);
       /* ayarlar bölümleri kapalı açılır (düzenli görünsün) */
       hepsi(); gecmisYukle(); markaYukle(mSec); postaDurumu();
       sekme("ana");
@@ -867,7 +870,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("sekmeler").style.gridTemplateColumns = "repeat(" + (n || 1) + ", 1fr)";
     if (gizli.earsiv && EAGRUP.indexOf(aktifSekme) >= 0) sekme("vd");
   }
-  function seritGoster(){ $("mSerit").hidden = !(ROL === "ofis" && V && V.mukellefler.length > 0) || aktifSekme === "ayar"; }
+  function seritGoster(){ $("mSerit").hidden = !((ROL === "ofis" || COKLU) && V && V.mukellefler.length > 0) || aktifSekme === "ayar"; }
   function cizAlici(){
     var m = mk(), h = '<option value="">— Alıcı seç —</option>';
     if (m) m.aliciler.forEach(function(a){ h += '<option value="' + a.id + '"' + (a.id === F.alici ? " selected" : "") + '>' + esc(a.ad) + '</option>'; });
@@ -962,7 +965,15 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     return '<div><label>İstisna sebebi *</label><select data-kf="istisna"><option value="">Seçin…</option>' + ISTISNALAR.map(function(x){ return '<option value="' + x[0] + '"' + (x[0] === String(k.istisna || "") ? " selected" : "") + ">" + x[0] + " · " + x[1] + "</option>"; }).join("") + "</select></div>";
   }
   function cizKalemler(){ $("kalemler").innerHTML = F.kalemler.map(kalemHtml).join(""); }
+  /* banka bilgisi: mükellef ya da profilindeki değer değişince alan profilden dolar; bu faturaya özel değiştirilebilir, kalıcı yapmak için "Mükellef profiline kaydet" */
+  function bankaYenile(){
+    var bk = $("bankaNot"), bm = mk(); if (!bk || document.activeElement === bk) return;
+    var pv = (bm && bm.profil && bm.profil.banka) || "";
+    if (bk.getAttribute("data-mid") !== String(mSec) || bk.getAttribute("data-prof") !== pv) { bk.value = pv; bk.setAttribute("data-mid", String(mSec)); bk.setAttribute("data-prof", pv); }
+  }
   function formDoldur(){
+    bankaYenile();
+    var bk = $("bankaNot"), bm = mk(); if (bk && document.activeElement !== bk && bk.getAttribute("data-mid") !== String(mSec)) { bk.value = (bm && bm.profil && bm.profil.banka) || ""; bk.setAttribute("data-mid", String(mSec)); }
     $("tip").value = F.tip; $("iadeAlan").hidden = F.tip !== "IADE"; $("para").value = F.para; $("kur").value = F.kur;
     $("kurAlan").hidden = F.para === "TRY"; $("kurEtiket").textContent = "Kur (1 " + F.para + " = ? ₺)";
     var dsg = document.querySelector("[data-dahil]"); if (dsg && dsg.parentElement && dsg.parentElement.parentElement) dsg.parentElement.parentElement.hidden = F.tip === "OZELMATRAH"; /* özel matrahta fiyat KDV hariç mal bedelidir */
@@ -976,7 +987,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var a = aliciBilgi();
     return { mukellefId: mSec, aliciUnvan: a.ad, aliciVkn: a.vkn, aliciAdres: a.adres, vergiDairesi: a.vd, aliciEposta: a.eposta, epostaGonder: $("yEpostaGonder").checked && !!a.eposta && MAILHAZIR, tarih: $("tarih").value, tip: F.tip, para: F.para, kur: sayi(F.kur), kdvDahil: F.dahil,
       kalemler: F.kalemler.map(function(k){ return { ad: k.ad, aciklama: k.aciklama, miktar: sayi(k.miktar), birim: k.birim, fiyat: sayi(k.fiyat), kdv: sayi(k.kdv), tev: parseInt(k.tev, 10) || 0, kod: k.kod, istisna: k.istisna || "", ozelNeden: k.ozelNeden || "", ozelTutar: sayi(k.ozelTutar) }; }),
-      notEk: $("ekNot").value.trim(), notIrsaliye: $("notIrs").checked, iadeNo: $("iadeNo").value.trim(), iadeTarih: $("iadeTarih").value };
+      notEk: $("ekNot").value.trim(), banka: $("bankaNot").value.trim(), notIrsaliye: $("notIrs").checked, iadeNo: $("iadeNo").value.trim(), iadeTarih: $("iadeTarih").value };
   }
   var onizTimer, sonHesap = null;
   function onizle(){
@@ -1287,7 +1298,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (F.alici === "__yeni") { $("yAd").value = ""; $("yVkn").value = ""; $("yAdres").value = ""; $("yVd").value = ""; $("yEposta").value = ""; $("sorguDurum").textContent = ""; }
     cizAlici(); onizle();
   });
-  ["tarih", "ekNot", "notIrs", "iadeNo", "iadeTarih", "yAd", "yVkn", "yAdres", "yVd", "yEposta"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
+  ["tarih", "ekNot", "bankaNot", "notIrs", "iadeNo", "iadeTarih", "yAd", "yVkn", "yAdres", "yVd", "yEposta"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
   $("tip").addEventListener("change", function(){
     F.tip = this.value; if (F.tip === "OZELMATRAH") F.dahil = false; formDoldur();
     if (F.tip === "OZELMATRAH") F.kalemler.forEach(function(k){ if (!k.kdv || k.kdv === "0") k.kdv = "20"; k.istisna = ""; });
@@ -1295,6 +1306,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     else F.kalemler.forEach(function(k){ if (k.kdv === "0" && k.istisna) { k.kdv = "20"; k.istisna = ""; } });
     if (F.tip === "TEVKIFAT") F.kalemler.forEach(function(k){ var h = HZ().filter(function(x){ return x.id === k.preset; })[0]; if (h && (!k.tev || k.tev === "0")) { k.tev = String(h.tev); k.kod = k.kod || h.kod || ""; } });
     cizKalemler(); onizle();
+  });
+  $("bankaKaydet").addEventListener("click", function(){
+    var m = mk(), d = $("bankaDurum"); if (!m) return; (m.profil = m.profil || {}).banka = $("bankaNot").value.trim(); d.textContent = "Kaydediliyor…";
+    kaydetV().then(function(){ d.textContent = m.profil.banka ? "Profile kaydedildi; bu mükellefin tüm faturalarında görünür." : "Profildeki banka bilgisi silindi."; }, function(er){ d.textContent = er.message; });
   });
   $("para").addEventListener("change", function(){ F.para = this.value; formDoldur(); cizKalemler(); onizle(); });
   $("kur").addEventListener("input", function(){ F.kur = this.value; onizle(); });
@@ -1587,7 +1602,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   /* Geçmiş listesi: arama, durum, tip, tarih ve mükellef filtresi; özet satırında adet ve para birimine göre toplam */
   function gecmisCiz(){
-    var ara = trk($("gAra").value).trim(), dur = $("gDurumF").value, tip = $("gTipF").value, tr = gTarihAraligi(), mk2 = ROL === "ofis" ? (mSec || "") : "";
+    var ara = trk($("gAra").value).trim(), dur = $("gDurumF").value, tip = $("gTipF").value, tr = gTarihAraligi(), mk2 = (ROL === "ofis" || COKLU) ? (mSec || "") : "";
     var liste = [];
     gecmis.forEach(function(k, i){
       var iptal = /^İptal/.test(k.durum || "");
@@ -1763,7 +1778,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function mBul(id){ return V.mukellefler.filter(function(x){ return x.id === id; })[0]; }
   function mDurum(id, msg, tip){ var el = document.querySelector('[data-mid="' + id + '"] [data-md]'); if (el) { el.className = "durum " + (tip || ""); el.textContent = msg; } }
   function hesabimHtml(){
-    return '<details class="grup" data-ak="g:hs"' + ac("g:hs") + '><summary>Hesabım <small>' + esc(KULLANICI) + (ROL === "ofis" ? (PERSONEL ? " · çalışan" : " · ofis") : "") + '</small></summary><div class="icerik">' +
+    return '<details class="grup" data-ak="g:hs"' + ac("g:hs") + '><summary>Hesabım <small>' + esc(KULLANICI) + (ROL === "ofis" ? (PERSONEL ? " · çalışan" : " · ofis") : COKLU ? " · çok firmalı" : "") + '</small></summary><div class="icerik">' +
       '<div><label>Mevcut şifre</label><input id="sEski" type="password" autocomplete="off"></div>' +
       '<div><label>Yeni şifre (en az ' + (ROL === "ofis" ? sifreMin : mSifreMin) + ' karakter)</label><input id="sYeni" type="password" autocomplete="new-password"></div>' +
       '<div><label>Yeni şifre (tekrar)</label><input id="sYeni2" type="password" autocomplete="new-password"></div>' +
@@ -1968,11 +1983,12 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function prKutular(sec, ad){ return V.mukellefler.map(function(m){ return '<label class="onay" style="align-items:flex-start"><input type="checkbox" ' + ad + '="' + esc(m.id) + '"' + (sec.indexOf(m.id) >= 0 ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>' + esc(m.ad || m.vkn) + '</span></label>'; }).join("") || '<p class="not" style="margin:0">Henüz mükellef yok.</p>'; }
   function personelIcHtml(){
     return PERS.map(function(p){
-      return '<details class="kayit" data-pid="' + esc(p.id) + '" data-ak="pr:' + esc(p.id) + '"' + ac("pr:" + p.id) + '><summary><span>' + esc(p.ad) + '</span><small>' + esc(p.kullanici) + ' · ' + p.atamalar.length + ' mükellef</small></summary><div class="icerik" style="display:grid;gap:8px">' +
+      return '<details class="kayit" data-pid="' + esc(p.id) + '" data-ak="pr:' + esc(p.id) + '"' + ac("pr:" + p.id) + '><summary><span>' + esc(p.ad) + '</span><small>' + esc(p.kullanici) + ' · ' + p.atamalar.length + ' mükellef' + (p.musteri ? ' · müşteri hesabı' : '') + '</small></summary><div class="icerik" style="display:grid;gap:8px">' +
         '<b style="font-size:.9rem">Görebileceği mükellefler</b><div style="display:grid;gap:6px;max-height:260px;overflow:auto">' + prKutular(p.atamalar, "data-pa") + '</div><button class="btn ikincil" type="button" data-pkaydet="' + esc(p.id) + '">Atamayı kaydet</button>' +
+        '<label class="onay" style="align-items:flex-start"><input type="checkbox" data-ptur="' + esc(p.id) + '"' + (p.musteri ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>Müşteri hesabı (kısıtlı): mükellef gibi görür, belge yükleyemez, talep yanıtlayamaz. Değiştirince açık oturumu kapanır.</span></label>' +
         '<div class="satir"><div><label>Yeni şifre (en az ' + sifreMin + ')</label><input type="password" data-psif="' + esc(p.id) + '" autocomplete="new-password"></div><div style="align-self:end"><button class="k" type="button" data-psifre="' + esc(p.id) + '">Şifreyi sıfırla</button></div></div>' +
         '<button class="btn tehlike" type="button" data-psil="' + esc(p.id) + '">Çalışanı sil</button><div class="durum" data-pdurum="' + esc(p.id) + '" role="status"></div></div></details>';
-    }).join("") + '<details class="alt2" data-ak="pr:yeni"' + ac("pr:yeni") + '><summary>+ Yeni çalışan</summary><div class="icerik" style="display:grid;gap:8px"><div><label>Ad soyad</label><input id="pyAd" autocomplete="off"></div><div class="satir"><div><label>Kullanıcı adı</label><input id="pyKul" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div><label>Şifre (en az ' + sifreMin + ')</label><input id="pySif" type="password" autocomplete="new-password"></div></div><b style="font-size:.9rem">Görebileceği mükellefler</b><div style="display:grid;gap:6px;max-height:260px;overflow:auto">' + prKutular([], "data-py") + '</div><button class="btn" type="button" id="pyEkle">Çalışan ekle</button><div class="durum" id="pyDurum" role="status"></div></div></details>';
+    }).join("") + '<details class="alt2" data-ak="pr:yeni"' + ac("pr:yeni") + '><summary>+ Yeni çalışan</summary><div class="icerik" style="display:grid;gap:8px"><div><label>Ad soyad</label><input id="pyAd" autocomplete="off"></div><div class="satir"><div><label>Kullanıcı adı</label><input id="pyKul" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div><label>Şifre (en az ' + sifreMin + ')</label><input id="pySif" type="password" autocomplete="new-password"></div></div><b style="font-size:.9rem">Görebileceği mükellefler</b><div style="display:grid;gap:6px;max-height:260px;overflow:auto">' + prKutular([], "data-py") + '</div><label class="onay" style="align-items:flex-start"><input type="checkbox" id="pyMus" style="margin-top:3px;flex:none"><span><b>Müşteri hesabı</b> (kısıtlı): birden çok firması olan mükellef için. Yalnız seçtiğiniz firmaları mükellef gibi görür; belge yükleyemez, talep yanıtlayamaz.</span></label><button class="btn" type="button" id="pyEkle">Çalışan ekle</button><div class="durum" id="pyDurum" role="status"></div></div></details>';
   }
   function personelCiz(){ var e = $("prIc"); if (!e) return; var acik = {}; e.querySelectorAll("details[open]").forEach(function(d){ acik[d.getAttribute("data-ak")] = 1; }); e.innerHTML = personelIcHtml(); e.querySelectorAll("details").forEach(function(d){ if (acik[d.getAttribute("data-ak")]) d.open = true; }); if ($("prSay")) $("prSay").textContent = PERS.length; }
   function personelYukle(){ api("/api/personel").then(function(r){ PERS = r.personel || []; personelCiz(); }, function(er){ oturumDustu(er); }); }
@@ -1981,9 +1997,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var t = e.target, id;
     if (t.id === "pyEkle") {
       var d = $("pyDurum"), mk2 = [].map.call($("prIc").querySelectorAll("[data-py]:checked"), function(x){ return x.getAttribute("data-py"); }); t.disabled = true; pDurum(d, "Ekleniyor…");
-      api("/api/personel/ekle", "POST", { ad: $("pyAd").value, kullanici: $("pyKul").value, sifre: $("pySif").value, mukellefler: mk2 }).then(function(r){ PERS = r.personel; personelCiz(); }, function(er){ if (!oturumDustu(er)) pDurum(d, er.message, "hata"); }).then(function(){ t.disabled = false; });
+      api("/api/personel/ekle", "POST", { ad: $("pyAd").value, kullanici: $("pyKul").value, sifre: $("pySif").value, mukellefler: mk2, musteri: $("pyMus").checked }).then(function(r){ PERS = r.personel; personelCiz(); }, function(er){ if (!oturumDustu(er)) pDurum(d, er.message, "hata"); }).then(function(){ t.disabled = false; });
       return;
     }
+    if ((id = t.getAttribute("data-ptur"))) { var dk = t.closest("[data-pid]").querySelector("[data-pdurum]"); pDurum(dk, "Kaydediliyor…"); api("/api/personel/tur", "POST", { pid: id, musteri: t.checked }).then(function(r){ PERS = r.personel; personelCiz(); pDurum($("prIc").querySelector('[data-pid="' + id + '"] [data-pdurum]'), "Hesap türü değişti.", "ok"); }, function(er){ if (!oturumDustu(er)) pDurum(dk, er.message, "hata"); }); return; }
     if ((id = t.getAttribute("data-pkaydet"))) {
       var kart = t.closest("[data-pid]"), sec = [].map.call(kart.querySelectorAll("[data-pa]:checked"), function(x){ return x.getAttribute("data-pa"); }), dd = kart.querySelector("[data-pdurum]"); t.disabled = true; pDurum(dd, "Kaydediliyor…");
       api("/api/personel/atama", "POST", { pid: id, mukellefler: sec }).then(function(r){ PERS = r.personel; personelCiz(); var k2 = $("prIc").querySelector('[data-pid="' + id + '"] [data-pdurum]'); pDurum(k2, "Atama kaydedildi.", "ok"); }, function(er){ if (!oturumDustu(er)) pDurum(dd, er.message, "hata"); }).then(function(){ t.disabled = false; });
@@ -2408,7 +2425,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     if (t.hasAttribute("data-profil-kaydet")) {
       var pid = mEl && mEl.getAttribute("data-mid"), pr = (mm && mm.profil) || {};
       if (pr.eposta && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pr.eposta.trim())) { mDurum(pid, "E-posta adresi geçerli görünmüyor.", "hata"); return; }
-      mDurum(pid, "Kaydediliyor…", ""); kaydetV().then(function(){ hepsi(); mDurum(pid, "Profil kaydedildi.", "ok"); gkProfildenDoldur(pid).then(function(n){ if (n === null) return; hepsi(); mDurum(pid, "Profil kaydedildi. GİB e-Arşiv kullanıcı bilgileri formu hazırlandı" + (n ? " (" + n + " alan profilden dolduruldu)" : "") + "; Ayarlar → GİB e-Arşiv kullanıcı bilgileri bölümünden kontrol edip GİB’e kaydedin.", "ok"); }, function(){ /* GİB’e bağlanılamadı; form hazırlanmadı */ }); }, function(er){ mDurum(pid, er.message, "hata"); }); return;
+      mDurum(pid, "Kaydediliyor…", ""); kaydetV().then(function(){ hepsi(); mDurum(pid, "Profil kaydedildi.", "ok"); if ($("bankaNot")) $("bankaNot").setAttribute("data-mid", ""); gkProfildenDoldur(pid).then(function(n){ if (n === null) return; hepsi(); mDurum(pid, "Profil kaydedildi. GİB e-Arşiv kullanıcı bilgileri formu hazırlandı" + (n ? " (" + n + " alan profilden dolduruldu)" : "") + "; Ayarlar → GİB e-Arşiv kullanıcı bilgileri bölümünden kontrol edip GİB’e kaydedin.", "ok"); }, function(){ /* GİB’e bağlanılamadı; form hazırlanmadı */ }); }, function(er){ mDurum(pid, er.message, "hata"); }); return;
     }
     if (t.hasAttribute("data-logo-kaydet")) { var lid = mEl && mEl.getAttribute("data-mid"); mDurum(lid, "Kaydediliyor…", ""); kaydetV().then(function(){ hepsi(); mDurum(lid, "Kaydedildi.", "ok"); }, function(er){ mDurum(lid, er.message, "hata"); }); return; }
     if (t.id === "ayarKaydet") { kaydetV().then(function(){ hepsi(); var d = $("ayarDurum"); d.className = "durum ok"; d.textContent = "Kaydedildi."; }, function(er){ ayarHata($("ayarDurum"), er); }); return; }
@@ -3050,7 +3067,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   var EAGRUP = ["yeni", "taslak", "gecmis"], EASON = "yeni";
   function sekme(ad){
     if (ad === "earsiv") ad = EASON;
-    aktifSekme = ad; var grupta = EAGRUP.indexOf(ad) >= 0; if (grupta) EASON = ad;
+    aktifSekme = ad; var grupta = EAGRUP.indexOf(ad) >= 0; if (grupta) EASON = ad; if (grupta) bankaYenile();
     document.querySelectorAll("[data-sayfa]").forEach(function(x){ x.hidden = x.getAttribute("data-sayfa") !== ad; });
     var nav = grupta ? "earsiv" : ad;
     document.querySelectorAll("#sekmeler [data-sekme]").forEach(function(b){ if (b.getAttribute("data-sekme") === nav) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
@@ -3254,7 +3271,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       var ofis = ROL === "ofis"; if (ofis) talepRozet(r.talepler.filter(function(t){ return t.durum === "Bekliyor"; }).length);
       $("talepListe").innerHTML = r.talepler.length ? r.talepler.map(function(t){
         var bek = t.durum === "Bekliyor";
-        return '<div class="kayit" style="display:grid;gap:6px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + (ofis ? esc(t.firma) + ' · ' : "") + esc(t.tur) + '</b><span class="durum ' + (bek ? "" : "ok") + '" style="padding:2px 10px;min-height:0;border-radius:99px;font-size:.78rem;white-space:nowrap">' + esc(t.durum) + '</span></div>' +
+        return '<div class="kayit" style="display:grid;gap:6px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + (ofis || COKLU ? esc(t.firma) + ' · ' : "") + esc(t.tur) + '</b><span class="durum ' + (bek ? "" : "ok") + '" style="padding:2px 10px;min-height:0;border-radius:99px;font-size:.78rem;white-space:nowrap">' + esc(t.durum) + '</span></div>' +
           '<div style="white-space:pre-wrap;overflow-wrap:anywhere">' + esc(t.metin) + '</div><small class="not">' + tarihYaz(t.zaman) + (t.yanit ? ' · Yanıt: ' + esc(t.yanit) : "") + '</small>' +
           (ofis ? (bek ? '<input type="text" maxlength="400" placeholder="Yanıt (isteğe bağlı)" data-ty="' + esc(t.id) + '"><button class="btn" type="button" style="min-height:42px" data-tt="' + esc(t.id) + '" data-tm="' + esc(t.mid) + '">Yapıldı</button>' : '<button class="k" type="button" data-tb="' + esc(t.id) + '" data-tm="' + esc(t.mid) + '" style="justify-self:start">Yeniden aç</button>') : "") + '</div>';
       }).join("") : '<p class="not" style="margin:0">' + (ofis ? "Bekleyen talep yok." : "Henüz talebiniz yok.") + '</p>';
@@ -3264,7 +3281,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     var d = $("talepDurum"), btn = this, t = $("talepMetin").value.trim(); d.className = "durum"; d.textContent = "";
     if (t.length < 3) { d.className = "durum hata"; d.textContent = "Talebinizi birkaç kelimeyle yazın."; return; }
     btn.disabled = true;
-    api("/api/talep", "POST", { tur: $("talepTur").value, metin: t }).then(function(){ $("talepMetin").value = ""; d.className = "durum ok"; d.textContent = "Talebiniz ofise iletildi."; talepListele(); }, function(er){ if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = er.message; }).then(function(){ btn.disabled = false; });
+    api("/api/talep", "POST", { tur: $("talepTur").value, metin: t, mukellefId: COKLU ? mSec : undefined }).then(function(){ $("talepMetin").value = ""; d.className = "durum ok"; d.textContent = "Talebiniz ofise iletildi."; talepListele(); }, function(er){ if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = er.message; }).then(function(){ btn.disabled = false; });
   });
   $("talepListe").addEventListener("click", function(e){
     var t = e.target.closest("[data-tt],[data-tb]"); if (!t) return; var bek = t.hasAttribute("data-tb"), id = t.getAttribute(bek ? "data-tb" : "data-tt"), inp = bek ? null : $("talepListe").querySelector('[data-ty="' + id + '"]');

@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-01-207";
+const SURUM = "2026-11-01-208";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -104,10 +104,12 @@ const htSay = new Map();
 const ISVEREN_SAYFALAR = new Set(["DonemBorcGoruntuleme", "CariDonemBorc", "Mufredat", "IAIIBYEB", "IAIOTGBYEB", "IAIOTIBYEB", "IAKBYEB", "IATBYEB", "IAHBYEB", "IASBYEB", "IAKGFBYEB", "IAKU", "TesvikPotansiyel"]);
 function temizMukellef(o, id) {
   const v = depo.mukellef(o, id).veri;
-  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, earsiv: v.earsiv !== false, defterBeyan: v.defterBeyan === true, sgk: { ad: (v.sgk && v.sgk.ad) || "", kullanici: (v.sgk && v.sgk.kullanici) || "", isyeriKod: (v.sgk && v.sgk.isyeriKod) || "", sistemVar: !!(v.sgk && v.sgk.sistemSifre), isyeriVar: !!(v.sgk && v.sgk.isyeriSifre) }, sgkEk: (v.sgkEk || []).map((x) => ({ id: x.id, ad: x.ad || "", kullanici: x.kullanici || "", isyeriKod: x.isyeriKod || "", sistemVar: !!x.sistemSifre, isyeriVar: !!x.isyeriSifre })), profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: o.rol === "mukellef" && !(v.kabul && v.kabul.surum === KABUL_SURUM), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
+  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, earsiv: v.earsiv !== false, defterBeyan: v.defterBeyan === true, sgk: { ad: (v.sgk && v.sgk.ad) || "", kullanici: (v.sgk && v.sgk.kullanici) || "", isyeriKod: (v.sgk && v.sgk.isyeriKod) || "", sistemVar: !!(v.sgk && v.sgk.sistemSifre), isyeriVar: !!(v.sgk && v.sgk.isyeriSifre) }, sgkEk: (v.sgkEk || []).map((x) => ({ id: x.id, ad: x.ad || "", kullanici: x.kullanici || "", isyeriKod: x.isyeriKod || "", sistemVar: !!x.sistemSifre, isyeriVar: !!x.isyeriSifre })), profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: mGibi(o) && !(o.musteri ? depo.personelKabulSurum(o) === KABUL_SURUM : (v.kabul && v.kabul.surum === KABUL_SURUM)), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
     hesapKullanici: o.rol === "ofis" ? depo.hesapKullanicisi(id) : undefined, sonGiris: v.sonGiris || null };
 }
-const temiz = (o) => ({ rol: o.rol, kullanici: o.kullanici, mukellefler: depo.mukellefIdleri(o).map((id) => temizMukellef(o, id)) });
+const mGibi = (o) => !!o && (o.rol === "mukellef" || o.musteri === true); /* mükellef yetkileri: kendi hesabı ya da çok firmalı müşteri hesabı */
+const rolAd = (o) => (o && o.musteri ? "musteri" : o && o.rol);
+const temiz = (o) => ({ rol: rolAd(o), kullanici: o.kullanici, mukellefler: depo.mukellefIdleri(o).map((id) => temizMukellef(o, id)) });
 /* İstemciden gelen güncelleme: ofis tüm mükellefleri, mükellef yalnız kendisini düzenler. Mükellef ekleme/silme ayrı uçlardadır. */
 function birlestir(o, g) {
   for (const m of g.mukellefler) {
@@ -127,8 +129,8 @@ function birlestir(o, g) {
       }
       if (JSON.stringify(yeni) !== JSON.stringify(v.sgkEk || [])) { v.sgkEk = yeni; sgkBirak(id); }
     }
-    if (o.rol !== "mukellef" && typeof m.defterBeyan === "boolean") v.defterBeyan = m.defterBeyan; // Defter-Beyan (şahıs 2. sınıf) kullanan mükellefte Hesap özeti açılır
-    if (o.rol !== "mukellef" && typeof m.earsiv === "boolean") v.earsiv = m.earsiv; // e-Arşiv kullanmayan mükellef yalnız Vergi Dairesi bölümünü kullanır
+    if (!mGibi(o) && typeof m.defterBeyan === "boolean") v.defterBeyan = m.defterBeyan; // Defter-Beyan (şahıs 2. sınıf) kullanan mükellefte Hesap özeti açılır
+    if (!mGibi(o) && typeof m.earsiv === "boolean") v.earsiv = m.earsiv; // e-Arşiv kullanmayan mükellef yalnız Vergi Dairesi bölümünü kullanır
     v.aliciler = aliciTemiz(m.aliciler); v.hizmetler = hizmetTemiz(m.hizmetler); if (m.marka) v.marka = markaTemiz(m.marka); if (m.profil) v.profil = profilTemiz(m.profil);
     depo.kaydet(id);
     if (v.kullanici !== eskiK || v.gibSifre !== eskiS) { gibBirak(id); ivdBirak(id); ivdKilit.delete(id); ivdHata.delete(id); }
@@ -288,7 +290,7 @@ const kisitTemizle = (ip, ad) => { denemeler.delete(ip); if (ad) denemeler.delet
 const SIFRE_HATA = "Kullanıcı adı ya da şifre yanlış.";
 function sifreKontrol(sifre, min) { if (!sifre || String(sifre).length < min) throw new Error("Şifre en az " + min + " karakter olmalı."); }
 const ofisGerek = (o) => { if (!o || o.rol !== "ofis") throw new Error("Bu işlem için yetkiniz yok (yalnız ofis hesabı)."); };
-const personelOlur = (o) => { if (!o || o.rol === "mukellef") throw new Error("Bu işlem için yetkiniz yok (ofis ya da çalışan hesabı)."); }; /* ofis + atanmış mükellefleri için çalışan */
+const personelOlur = (o) => { if (!o || mGibi(o)) throw new Error("Bu işlem için yetkiniz yok (ofis ya da çalışan hesabı)."); }; /* ofis + atanmış mükellefleri için çalışan */
 async function oturumBaslat(req, res, o, ip, ad) {
   kisitTemizle(ip, ad);
   if (o.rol === "mukellef") { const e = depo.mukellef(o, o.mid); e.veri.sonGiris = new Date().toISOString(); depo.kaydet(o.mid); }
@@ -318,9 +320,10 @@ async function api(req, res, yol) {
     if (OFIS_EPOSTA && posta.hazir()) posta.gonder({ gonderenAd: "Mükellef Portalı", to: [OFIS_EPOSTA], cc: [], konu: "Portal giriş bilgisi talebi: " + ad, metin: "Giriş ekranından kullanıcı adı ve şifre talebi geldi.\n\nAd / unvan: " + ad + "\nTelefon: " + t.tel + (vkn ? "\nVKN/TCKN: " + vkn : "") + (t.not ? "\nNot: " + t.not : "") + "\n\nPortalda Ayarlar → Hesap talepleri bölümünden de görebilirsiniz." }, DIR).catch((e) => console.log("Hesap talebi bildirimi gönderilemedi: " + e.message));
     return cevap(res, 200, { tamam: true });
   }
-  if (yol === "/api/durum") return cevap(res, 200, { kurulu: depo.kurulu, eski: depo.eskiVar, giris: !!o, rol: o && o.rol, kullanici: o && o.kullanici, sahte: gib.MOCK, surum: SURUM, sifreMin, mSifreMin });
+  if (yol === "/api/durum") return cevap(res, 200, { kurulu: depo.kurulu, eski: depo.eskiVar, giris: !!o, rol: rolAd(o), kullanici: o && o.kullanici, sahte: gib.MOCK, surum: SURUM, sifreMin, mSifreMin });
   if (yol === "/api/kabul" && req.method === "POST") {
-    if (!o || o.rol !== "mukellef") return cevap(res, 403, { hata: "Bu işlem yalnız mükellef hesabı içindir." });
+    if (!mGibi(o)) return cevap(res, 403, { hata: "Bu işlem yalnız mükellef hesabı içindir." });
+    if (o.musteri) { depo.personelKabul(o, KABUL_SURUM); gunluk(o, depo.mukellefIdleri(o)[0] || "", "Aydınlatma ve onay metni kabul edildi (müşteri hesabı)"); return cevap(res, 200, { ok: true }); }
     const e = depo.mukellef(o, o.mid); e.veri.kabul = { zaman: new Date().toISOString(), surum: KABUL_SURUM }; depo.kaydet(o.mid);
     gunluk(o, o.mid, "Aydınlatma ve onay metni kabul edildi");
     return cevap(res, 200, { ok: true });
@@ -432,7 +435,7 @@ async function api(req, res, yol) {
     const mr = depo.mukellef(o, mid).veri.marka || {}; return cevap(res, 200, { logo: mr.logo || "", imza: mr.imza || "" });
   }
   if (yol === "/api/sifre" && req.method === "POST") {
-    const { eski, yeni } = await oku(req); sifreKontrol(yeni, o.rol === "mukellef" ? mSifreMin : sifreMin);
+    const { eski, yeni } = await oku(req); sifreKontrol(yeni, mGibi(o) ? mSifreMin : sifreMin);
     const ip = istemciIp(req), kb = "s:" + o.kullanici; if (kilitli(kb)) return cevap(res, 429, { hata: "Çok fazla yanlış deneme; biraz bekleyin." });
     try { await depo.sifreDegistir(o, String(eski || ""), String(yeni)); denemeler.delete(kb); } catch (e) { hataSay(kb); return cevap(res, 401, { hata: "Mevcut şifre yanlış." }); }
     return cevap(res, 200, { ok: true });
@@ -443,11 +446,12 @@ async function api(req, res, yol) {
     ofisGerek(o); const g = await oku(req), ne = yol.slice(14);
     if (ne === "ekle") {
       try { sifreKontrol(g.sifre, sifreMin); } catch (e) { return cevap(res, 400, { hata: e.message }); }
-      const id = await depo.personelEkle(o, { ad: g.ad, kullanici: g.kullanici, sifre: String(g.sifre) });
+      const id = await depo.personelEkle(o, { ad: g.ad, kullanici: g.kullanici, sifre: String(g.sifre), musteri: g.musteri === true });
       if (Array.isArray(g.mukellefler) && g.mukellefler.length) depo.personelAta(o, id, g.mukellefler);
       gunluk(o, depo.mukellefIdleri(o)[0] || "", "Çalışan hesabı açıldı", ""); return cevap(res, 200, { id, personel: depo.personelListe(o) });
     }
     const pid = String(g.pid || "");
+    if (ne === "tur") { depo.personelTur(o, pid, g.musteri === true); for (const [c, x] of oturumlar) if (x.rol === "personel" && x.pid === pid) oturumKapat(c); return cevap(res, 200, { personel: depo.personelListe(o) }); }
     if (ne === "atama") { depo.personelAta(o, pid, Array.isArray(g.mukellefler) ? g.mukellefler : []); return cevap(res, 200, { personel: depo.personelListe(o) }); }
     if (ne === "sifre") { try { sifreKontrol(g.sifre, sifreMin); } catch (e) { return cevap(res, 400, { hata: e.message }); } await depo.personelSifre(o, pid, String(g.sifre)); for (const [c, x] of oturumlar) if (x.rol === "personel" && x.pid === pid) oturumKapat(c); return cevap(res, 200, { tamam: true }); }
     if (ne === "sil") { depo.personelSil(o, pid); for (const [c, x] of oturumlar) if (x.rol === "personel" && x.pid === pid) oturumKapat(c); return cevap(res, 200, { personel: depo.personelListe(o) }); }
@@ -546,7 +550,7 @@ async function api(req, res, yol) {
     return cevap(res, 200, { gunluk: (depo.mukellef(o, mid).veri.gunluk || []).slice().reverse().slice(0, 100) });
   }
   if (yol === "/api/hesapla" && req.method === "POST") {
-    const g = await oku(req), mid0 = o.rol === "mukellef" ? o.mid : String(g.mukellefId || ""), pr0 = mid0 && depo.yetkili(o, mid0) ? depo.mukellef(o, mid0).veri.profil : null, m = modelTemiz(g, false, pr0 && pr0.banka);
+    const g = await oku(req), mid0 = o.rol === "mukellef" ? o.mid : String(g.mukellefId || ""), pr0 = mid0 && depo.yetkili(o, mid0) ? depo.mukellef(o, mid0).veri.profil : null, m = modelTemiz(g, false, typeof g.banka === "string" ? g.banka : pr0 && pr0.banka);
     return cevap(res, 200, { satirlar: m._h.satirlar, toplam: m._h.toplam, not: m.not });
   }
   if (yol === "/api/gecmis" && req.method === "GET") {
@@ -557,7 +561,7 @@ async function api(req, res, yol) {
   if (yol === "/api/kira-orani" && req.method === "GET") return cevap(res, 200, { oran: await kiraOrani() });
   if (yol === "/api/ozet" && req.method === "GET") {
     const mid = o.rol === "mukellef" ? o.mid : new URL(req.url, "http://x").searchParams.get("mid") || "";
-    let bekleyenToplam = null, hesapTalep = 0; if (o.rol === "ofis") { htTemizle(); hesapTalep = hesapTalepleri.length; } if (o.rol !== "mukellef") { bekleyenToplam = hesapTalep; for (const id of depo.mukellefIdleri(o)) bekleyenToplam += (depo.mukellef(o, id).veri.talepler || []).filter((t) => t.durum === "Bekliyor").length; }
+    let bekleyenToplam = null, hesapTalep = 0; if (o.rol === "ofis") { htTemizle(); hesapTalep = hesapTalepleri.length; } if (!mGibi(o)) { bekleyenToplam = hesapTalep; for (const id of depo.mukellefIdleri(o)) bekleyenToplam += (depo.mukellef(o, id).veri.talepler || []).filter((t) => t.durum === "Bekliyor").length; }
     if (!mid) return cevap(res, 200, { son: {}, belge: null, acikTalep: null, bekleyenToplam, hesapTalep });
     if (!depo.yetkili(o, mid)) return cevap(res, 400, { hata: "Mükellef seçin." });
     const v = depo.mukellef(o, mid).veri;
@@ -601,7 +605,7 @@ async function api(req, res, yol) {
   }
   if (yol === "/api/belge-sil") { personelOlur(o); const k = depo.belgeSil(o, mid, String(g.id || "")); gunluk(o, mid, "Belge silindi", k.tur + " · " + k.ad); return cevap(res, 200, { tamam: true }); }
   if (yol === "/api/talep") {
-    if (o.rol !== "mukellef") return cevap(res, 403, { hata: "Talebi mükellef hesabı gönderir." });
+    if (!mGibi(o)) return cevap(res, 403, { hata: "Talebi mükellef hesabı gönderir." });
     const metin = gib.temizMetin(g.metin, 600), tur = TALEP_TURLERI.includes(g.tur) ? g.tur : "Diğer";
     if (metin.length < 3) return cevap(res, 400, { hata: "Talebinizi birkaç kelimeyle yazın." });
     const liste = (m.talepler = Array.isArray(m.talepler) ? m.talepler : []);
@@ -677,7 +681,7 @@ async function api(req, res, yol) {
   }
   if (!m.kullanici || (!m.gibSifre && !gib.MOCK)) return cevap(res, 400, { hata: "Bu mükellef için GİB / Dijital Vergi Dairesi kullanıcı kodu ve şifresi girilmemiş (Ayarlar)." });
   if (yol === "/api/taslak") {
-    const x = modelTemiz(g, true, m.profil && m.profil.banka), uuid = crypto.randomUUID();
+    const x = modelTemiz(g, true, typeof g.banka === "string" ? g.banka : m.profil && m.profil.banka), uuid = crypto.randomUUID();
     const r = await istemci(m).taslak((v) => gib.faturaGovdesi(x, uuid, v));
     const satirlar = x.kalemler.map((k, i) => Object.assign({}, k, { matrah: x._h.satirlar[i].matrah, kdvTutar: x._h.satirlar[i].kdv, tevKdv: x._h.satirlar[i].tevKdv }));
     const kayit = {

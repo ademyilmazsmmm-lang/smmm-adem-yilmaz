@@ -80,7 +80,7 @@ class Depo {
     if (ad === this.sistem.ofis.kullanici) return this.ofisAc(ad, sifre);
     const h = this.sistem.hesaplar.filter((x) => x.kullanici === ad)[0];
     const p = !h && (this.sistem.personel || []).filter((x) => x.kullanici === ad)[0];
-    if (p) { const KEK = await kdf(sifre, Buffer.from(p.tuz, "base64"), p.iter); return { rol: "personel", pid: p.id, S: ac(KEK, p.wrapSifre), kullanici: ad, ad: p.ad }; } // yanlış şifrede fırlatır
+    if (p) { const KEK = await kdf(sifre, Buffer.from(p.tuz, "base64"), p.iter); return { rol: "personel", pid: p.id, S: ac(KEK, p.wrapSifre), kullanici: ad, ad: p.ad, musteri: p.musteri === true }; } // yanlış şifrede fırlatır
     if (!h) { await kdf(sifre, this.sahte, this.iter); throw new Error("Giriş başarısız."); }
     const v = this.vaultOku(h.id);
     if (!v.wrapSifre) throw new Error("Giriş başarısız.");
@@ -142,14 +142,18 @@ class Depo {
   /* ---- çalışanlar (yalnız ofis yönetir) ----
    * Her çalışanın rastgele bir anahtarı (S) vardır: şifresiyle ve ofis ana anahtarıyla sarılır. Atanan her mükellefin kasa anahtarı (K) S ile ayrıca sarılıp
    * mükellef kasasının başlığına yazılır; atanmayan mükellefin kasası çalışan için açılamaz (yalnız ekranda gizlemek değil, şifreleme düzeyinde ayrım). */
-  personelListe(o) { if (o.rol !== "ofis") throw new Error("Yetkiniz yok."); return (this.sistem.personel || []).map((p) => ({ id: p.id, ad: p.ad, kullanici: p.kullanici, atamalar: p.atamalar.slice() })); }
+  personelListe(o) { if (o.rol !== "ofis") throw new Error("Yetkiniz yok."); return (this.sistem.personel || []).map((p) => ({ id: p.id, ad: p.ad, kullanici: p.kullanici, atamalar: p.atamalar.slice(), musteri: p.musteri === true })); }
+  /* müşteri hesabı: birden çok firması olan mükellefin tek girişle kendi firmalarını görmesi için kısıtlı çalışan türü (belge yükleyemez, talep yanıtlayamaz, ofis yönetimi yok) */
+  personelTur(o, pid, musteri) { if (o.rol !== "ofis") throw new Error("Yetkiniz yok."); this.personelBul(pid).musteri = musteri === true; this.sistemYaz(); }
+  personelKabulSurum(o) { const p = (this.sistem.personel || []).filter((x) => x.id === o.pid)[0]; return p && p.kabul ? p.kabul.surum : ""; }
+  personelKabul(o, surum) { const p = this.personelBul(o.pid); p.kabul = { zaman: new Date().toISOString(), surum }; this.sistemYaz(); }
   async personelEkle(o, b) {
     if (o.rol !== "ofis") throw new Error("Yetkiniz yok.");
     const kullanici = adTemiz(b.kullanici), ad = String(b.ad || "").replace(/[\u0000-\u001f<>]/g, " ").trim().slice(0, 80);
     if (!adGecerli(kullanici)) throw new Error("Kullanıcı adı 3-32 karakter olmalı (harf, rakam, nokta, tire, alt çizgi).");
     if (!this.adMusait(kullanici)) throw new Error("Bu kullanıcı adı kullanılıyor.");
     const S = crypto.randomBytes(32), tuz = crypto.randomBytes(16), KEK = await kdf(b.sifre, tuz, this.iter), id = crypto.randomBytes(5).toString("hex");
-    (this.sistem.personel = this.sistem.personel || []).push({ id, ad: ad || kullanici, kullanici, tuz: b64(tuz), iter: this.iter, wrapSifre: sar(KEK, S), wrapOfis: sar(o.M, S), atamalar: [] });
+    (this.sistem.personel = this.sistem.personel || []).push({ id, ad: ad || kullanici, kullanici, tuz: b64(tuz), iter: this.iter, wrapSifre: sar(KEK, S), wrapOfis: sar(o.M, S), atamalar: [], musteri: b.musteri === true });
     this.sistemYaz(); return id;
   }
   personelBul(id) { const p = (this.sistem.personel || []).filter((x) => x.id === id)[0]; if (!p) throw new Error("Çalışan bulunamadı."); return p; }
