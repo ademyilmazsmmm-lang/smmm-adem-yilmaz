@@ -3338,13 +3338,22 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     return '<div class="kayit" style="display:grid;gap:4px;border-left:5px solid ' + (kar < 0 ? "var(--danger)" : "var(--accent)") + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>' + AYLAR_UZUN[b.getMonth()] + "–" + AYLAR_UZUN[e.getMonth()] + " " + e.getFullYear() + ' ' + (kar < 0 ? "zarar" : "kâr") + '</b><b style="font-size:1.25rem;color:' + (kar < 0 ? "var(--danger)" : "var(--accent)") + '">' + anaTl(Math.abs(kar)) + '</b></div>' +
       '<span class="not" style="margin:0">Gelir ' + anaTl(h.gelir || 0) + ' · gider ' + anaTl(h.gider || 0) + ' · ' + anaZaman(h.zaman) + ' alındı</span><span class="not" style="margin:0;font-size:.78rem">Defter-Beyan’a girilen verilere göredir. ' + sonra + ' ve sonrası için beyan verilip veri girilmediyse dahil değildir; güncel KDV durumu için aşağıdaki fatura özetine bakın.</span></div>';
   }
+  /* KDV devri kartı: en son kayıtlı ay sonu devreden KDV (tahakkuk fişinden okunan ya da girilen) */
+  function devirKartHtml(m){
+    if (!m) return ""; var d = m.kdvDevir || {}, anah = Object.keys(d).sort().pop();
+    if (!anah && m.earsiv === false) return "";
+    var yenile = '<button type="button" class="k" data-git="vd" data-vdsek="kdv" style="margin-top:4px;justify-self:start">' + (anah ? "KDV raporu / devri yenile" : "Devri tahakkuk fişinden al") + '</button>';
+    if (!anah) return '<div class="kayit" style="display:grid;gap:4px"><b>KDV devri</b><span class="not" style="margin:0">Devreden KDV henüz okunmadı. KDV raporunda “Tahakkuk fişinden otomatik al” ile son beyanın devri gelir.</span>' + yenile + '</div>';
+    var p = anah.split("-"), v = Number(d[anah]) || 0;
+    return '<div class="kayit" style="display:grid;gap:4px;border-left:5px solid var(--accent)"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>KDV devri · ' + AYLAR_UZUN[+p[1] - 1] + " " + p[0] + ' sonu</b><b style="font-size:1.25rem;color:' + (v > 0 ? "var(--accent)" : "var(--muted)") + '">' + anaTl(v) + '</b></div><span class="not" style="margin:0;font-size:.8rem">Sonraki döneme devreden KDV (tahakkuk fişine göre). Aylık KDV raporu bu tutarı düşer.</span>' + yenile + '</div>';
+  }
   function anaCiz(r){
     r = r || {}; var son = r.son || {}, ofis = ROL === "ofis", m = mk(), now = new Date(), ad = m ? m.ad : "Mükellef Portalı";
     var h = '<div class="anahero"><div class="av">' + esc((String(ad).trim().charAt(0) || "M").toLocaleUpperCase("tr-TR")) + '</div><div style="min-width:0"><small>' + anaSelam() + (ROL === "mukellef" ? "" : " · ofis görünümü") + '</small><h2>' + esc(ad) + '</h2><small>' + now.getDate() + ' ' + AYLAR_UZUN[now.getMonth()] + ' ' + now.getFullYear() + ' · ' + GUNLER[now.getDay()] + '</small></div></div>';
     var kapali = duyuruKapali(); (DUYURU || []).filter(function(d){ return kapali.indexOf(d.id) < 0; }).forEach(function(d){
       h += '<div class="kayit" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start;border-left:4px solid var(--warn);background:var(--warn-soft)"><div><b style="font-size:.85rem">Ofisten duyuru</b><div style="overflow-wrap:anywhere;margin-top:2px">' + esc(d.metin) + '</div>' + (d.bitis ? '<small class="not">Son gün: ' + esc(d.bitis.split("-").reverse().join(".")) + '</small>' : "") + '</div><button class="k" type="button" data-dy-kapat="' + esc(d.id) + '" aria-label="Duyuruyu kapat" style="min-height:34px;padding:2px 10px">✕</button></div>';
     });
-    h += saglikHtml(son, m) + karHtml(son, m);
+    h += saglikHtml(son, m) + karHtml(son, m) + devirKartHtml(m);
     var vb = son.vdBorc, sb = son.sgkBorc;
     var kutu = function(git, ikon, baslik, deger, alt, sinif){ return '<button type="button" data-git="' + git + '" class="' + sinif + '"><span class="ik">' + IKON[ikon] + '</span><span>' + baslik + '</span><b>' + deger + '</b><small>' + alt + '</small></button>'; };
     h += '<div><div class="abas"><b>' + IKON.durum + 'Son durum</b><small>Son sorguya göre</small></div><div class="ozet">' +
