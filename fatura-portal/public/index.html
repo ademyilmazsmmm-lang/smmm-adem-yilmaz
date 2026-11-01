@@ -2761,14 +2761,17 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function hoTarih(y, a, g){ return y + "-" + p2(a) + "-" + p2(g); }
   function hoAyarla(tur){ var d = new Date(), y = d.getFullYear(); if (tur === "gecen") { $("hoBas").value = hoTarih(y - 1, 1, 1); $("hoBit").value = hoTarih(y - 1, 12, 31); } else if (tur === "ocak") { $("hoBas").value = hoTarih(y, 1, 1); $("hoBit").value = hoTarih(y, d.getMonth() + 1, d.getDate()); } else { $("hoBas").value = hoTarih(y, 1, 1); $("hoBit").value = hoTarih(y, 12, 31); } }
   var HO_MID = null;
+  function hoAralik(dm){
+    dm = dm || {}; var sb = /^\d{4}-\d{2}$/.test(dm.sonBeyan || "") ? dm.sonBeyan.split("-") : null;
+    if (sb) return { bas: sb[0] + "-01-01", bit: ymd(new Date(+sb[0], +sb[1], 0)) }; var son = hoOtoSon(); return { bas: son.getFullYear() + "-01-01", bit: ymd(son) };
+  }
   function vdHoAlan(){
-    if ($("hoBas").value && HO_MID === VD.mid) return; HO_MID = VD.mid; var dm = mBul(VD.mid) || {}, sb = /^\d{4}-\d{2}$/.test(dm.sonBeyan || "") ? dm.sonBeyan.split("-") : null;
-    if (sb) { $("hoBas").value = sb[0] + "-01-01"; $("hoBit").value = ymd(new Date(+sb[0], +sb[1], 0)); } else { var son = hoOtoSon(); $("hoBas").value = son.getFullYear() + "-01-01"; $("hoBit").value = ymd(son); }
+    if ($("hoBas").value && HO_MID === VD.mid) return; HO_MID = VD.mid; var a = hoAralik(mBul(VD.mid)); $("hoBas").value = a.bas; $("hoBit").value = a.bit;
   }
   /* Son beyan dönemi elle girilmemişse: ayın 28’inden itibaren önceki ayın sonuna kadar, 28’inden önce iki ay öncesinin sonuna kadar (örn. Kasım 28’den önce Eylül sonu, sonra Ekim sonu) */
   function hoOtoSon(){ var d = new Date(), geri = d.getDate() >= 28 ? 0 : -1; return new Date(d.getFullYear(), d.getMonth() + geri, 0); }
   /* Ana ekrandaki "Kâr durumu" için son alınan hesap özeti saklanır (yalnız toplamlar) */
-  function hesapOzetiGonder(mid, r){ try { var o = { bas: r.bas, bit: r.bit, gelir: r.toplamGelir, gider: r.toplamGider, kar: r.kar }; api("/api/son", "POST", { mukellefId: mid, hesapOzeti: o }).then(function(){ if (OZET && OZET.mid === mid) { OZET.son = OZET.son || {}; OZET.son.hesapOzeti = Object.assign({}, o, { zaman: new Date().toISOString() }); } }, function(){}); } catch (e) { /* isteğe bağlı */ } }
+  function hesapOzetiGonder(mid, r){ try { var o = { bas: r.bas, bit: r.bit, gelir: r.toplamGelir, gider: r.toplamGider, kar: r.kar }; return api("/api/son", "POST", { mukellefId: mid, hesapOzeti: o }).then(function(){ if (OZET && OZET.mid === mid) { OZET.son = OZET.son || {}; OZET.son.hesapOzeti = Object.assign({}, o, { zaman: new Date().toISOString() }); } }, function(){}); } catch (e) { return Promise.resolve(); } }
   $("hoHizli").addEventListener("click", function(e){ var b = e.target.closest("[data-ho]"); if (b) hoAyarla(b.getAttribute("data-ho")); });
   $("hoGetir").addEventListener("click", function(){
     var b = this, d = $("hoDurum"); if (!VD.mid) return;
@@ -3333,7 +3336,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   /* Kâr durumu: son alınan Defter-Beyan hesap özeti (yalnız Defter-Beyan kullanan mükellefte) */
   function karHtml(son, m){
     if (!m || !m.defterBeyan) return ""; var h = son.hesapOzeti;
-    if (!h) return '<div class="kayit" style="display:grid;gap:4px"><b>Kâr / zarar durumu</b><span class="not" style="margin:0">Vergi D. → Hesap özeti’ni bir kez alınca son verilen beyana kadarki kâr/zarar burada görünür.</span></div>';
+    if (!h) return '<div class="kayit" style="display:grid;gap:4px"><b>Kâr / zarar durumu</b><span class="not" style="margin:0">Doğrulama kodunu girip bilgileri güncelleyince son verilen beyana kadarki kâr/zarar kendiliğinden burada görünür.</span></div>';
     var b = new Date(h.bas + "T00:00:00"), e = new Date(h.bit + "T00:00:00"), kar = h.kar || 0, sonra = AYLAR_UZUN[(e.getMonth() + 1) % 12];
     return '<div class="kayit" style="display:grid;gap:4px;border-left:5px solid ' + (kar < 0 ? "var(--danger)" : "var(--accent)") + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>' + AYLAR_UZUN[b.getMonth()] + "–" + AYLAR_UZUN[e.getMonth()] + " " + e.getFullYear() + ' ' + (kar < 0 ? "zarar" : "kâr") + '</b><b style="font-size:1.25rem;color:' + (kar < 0 ? "var(--danger)" : "var(--accent)") + '">' + anaTl(Math.abs(kar)) + '</b></div>' +
       '<span class="not" style="margin:0">Gelir ' + anaTl(h.gelir || 0) + ' · gider ' + anaTl(h.gider || 0) + ' · ' + anaZaman(h.zaman) + ' alındı</span><span class="not" style="margin:0;font-size:.78rem">Defter-Beyan’a girilen verilere göredir. ' + sonra + ' ve sonrası için beyan verilip veri girilmediyse dahil değildir; güncel KDV durumu için aşağıdaki fatura özetine bakın.</span></div>';
@@ -3343,7 +3346,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (!m) return ""; var d = m.kdvDevir || {}, anah = Object.keys(d).sort().pop();
     if (!anah && m.earsiv === false) return "";
     var yenile = '<button type="button" class="k" data-git="vd" data-vdsek="kdv" style="margin-top:4px;justify-self:start">' + (anah ? "KDV raporu / devri yenile" : "Devri tahakkuk fişinden al") + '</button>';
-    if (!anah) return '<div class="kayit" style="display:grid;gap:4px"><b>KDV devri</b><span class="not" style="margin:0">Devreden KDV henüz okunmadı. KDV raporunda “Tahakkuk fişinden otomatik al” ile son beyanın devri gelir.</span>' + yenile + '</div>';
+    if (!anah) return '<div class="kayit" style="display:grid;gap:4px"><b>KDV devri</b><span class="not" style="margin:0">Devreden KDV henüz okunmadı. Doğrulama kodunu girip bilgileri güncelleyince son beyanın devri tahakkuk fişinden kendiliğinden gelir.</span>' + yenile + '</div>';
     var p = anah.split("-"), v = Number(d[anah]) || 0;
     return '<div class="kayit" style="display:grid;gap:4px;border-left:5px solid var(--accent)"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>KDV devri · ' + AYLAR_UZUN[+p[1] - 1] + " " + p[0] + ' sonu</b><b style="font-size:1.25rem;color:' + (v > 0 ? "var(--accent)" : "var(--muted)") + '">' + anaTl(v) + '</b></div><span class="not" style="margin:0;font-size:.8rem">Sonraki döneme devreden KDV (tahakkuk fişine göre). Aylık KDV raporu bu tutarı düşer.</span>' + yenile + '</div>';
   }
@@ -3388,7 +3391,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function tebOzetGonder(mid, r){ try { api("/api/son", "POST", { mukellefId: mid, tebligat: tebSayim(r && r.kayitlar) }).then(function(){ if (OZET && OZET.mid === mid) { OZET.son = OZET.son || {}; OZET.son.tebligat = Object.assign(tebSayim(r.kayitlar), { zaman: new Date().toISOString() }); if (aktifSekme === "ana") anaCiz(OZET); } }, function(){}); } catch (e) { /* özet isteğe bağlı */ } }
   function guncGerek(son, m){
     var k = (m && m.sgk) || {}, sgkVar = !!(k.kullanici && k.isyeriKod && k.sistemVar && k.isyeriVar), sinir = Date.now() - 24 * 3600e3, eski = function(x){ var t = x && x.zaman ? new Date(x.zaman).getTime() : 0; return !t || t < sinir; };
-    return eski(son.vdBorc) || eski(son.tebligat) || (sgkVar && eski(son.sgkBorc));
+    return eski(son.vdBorc) || eski(son.tebligat) || (sgkVar && eski(son.sgkBorc)) || (!!m && !!m.defterBeyan && eski(son.hesapOzeti));
   }
   function guncGoster(son){
     var el = $("anaGunc"), m = mk(); if (!m || GUNC.gizle[m.id] || GUNC.calisiyor && GUNC.mid === m.id) { if (!(GUNC.calisiyor && m && GUNC.mid === m.id)) el.hidden = true; return; }
@@ -3415,6 +3418,16 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     d.className = "durum"; d.textContent = "Bilgiler alınıyor…";
     var vdIs = !VD.bagli ? Promise.resolve() : api("/api/vd/borc", "POST", { mukellefId: m.id }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.borc = r; sonuc.push("vergi borcu"); }, function(er){ hata.push("Vergi borcu: " + er.message); })
       .then(function(){ return api("/api/vd/tebligat", "POST", { mukellefId: m.id }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.tebligat = r; tebOzetGonder(m.id, r); sonuc.push("tebligat"); }, function(er){ hata.push("Tebligat: " + er.message); }); });
+    /* Vergi dairesi bağlıysa kâr durumu (Defter-Beyan hesap özeti) ve KDV devri (tahakkuk fişi) de kendiliğinden alınır */
+    if (VD.bagli) {
+      vdIs = vdIs.then(function(){
+        if (!m.defterBeyan) return; var a = hoAralik(m);
+        return api("/api/vd/hesapozeti", "POST", { mukellefId: m.id, bas: a.bas, bit: a.bit, mali: "1" }).then(function(r){ sonuc.push("kâr durumu"); return hesapOzetiGonder(m.id, r); }, function(er){ if (oturumDustu(er)) return; hata.push("Kâr durumu: " + er.message); });
+      }).then(function(){
+        if (m.earsiv === false) return; var dn = kdvDonemler()[new Date().getDate() >= 28 ? "cari" : "onceki"];
+        return kdvDevirTahakkuk(m, kdvDevirKey(dn)).then(function(x){ if (x && x.tutar != null) sonuc.push("KDV devri"); }, function(er){ if (oturumDustu(er)) return; hata.push("KDV devri: " + er.message); });
+      });
+    }
     var sgkIs = !VD.sgkB["isveren|0"] ? Promise.resolve() : api("/api/sgk/sayfa", "POST", { mukellefId: m.id, sistem: "isveren", ix: 0, ad: "DonemBorcGoruntuleme" }).then(function(){ sonuc.push("SGK borcu"); }, function(er){ hata.push("SGK borcu: " + er.message); });
     return Promise.all([vdIs, sgkIs]).then(function(){
       GUNC.calisiyor = false; $("gGuncelle").disabled = false;
