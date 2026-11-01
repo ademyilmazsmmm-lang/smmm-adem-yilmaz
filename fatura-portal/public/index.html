@@ -225,6 +225,11 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 /* alt tutar çubuğu (telefon) */
 
 /* fatura görünümü: tam ekran */
+#tanitimPerde{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:14px}
+#tanitimPerde[hidden]{display:none}
+.tp-kutu{width:100%;max-width:960px;display:flex;flex-direction:column;gap:10px}
+.tp-kutu video{width:100%;max-height:78vh;background:#000;border-radius:12px;display:block}
+.tp-kutu p{margin:0;color:#cfe3dc;font-size:.8rem;text-align:center}
 #kabul{position:fixed;inset:0;z-index:80;background:var(--bg);display:flex;flex-direction:column}
 #kabul .kbas{padding:14px 16px;border-bottom:1px solid var(--line2);font-weight:700;font-size:1.05rem}
 #kabul .kmetin{flex:1;overflow:auto;padding:14px 16px;font-size:.92rem;line-height:1.55;-webkit-overflow-scrolling:touch}
@@ -293,6 +298,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 <body>
 <main id="giris" hidden>
   <div class="marka"><div class="logo"><img alt="" src="/ikon.svg"></div><div><h1 class="gbas">Mükellef Portalı</h1><p class="gaciklama">Fatura, vergi dairesi ve SGK işlemleriniz <b>tek ekranda</b>.</p><ul class="gozel"><li>e-Arşiv fatura kesin, tahsilatı takip edin</li><li>Vergi borcu, tebligat ve e-Vergi levhası</li><li>SGK bildirge ve hizmet dökümü</li></ul></div></div>
+  <button class="btn ikincil" type="button" id="tanitimBtn" style="margin:0 0 12px">▶ Tanıtım videosunu izle (2 dk)</button>
   <form class="card" id="girisForm">
     <p class="not" id="girisYazi"></p>
     <p class="not" id="girisSurum" style="font-size:.75rem"></p>
@@ -308,6 +314,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   </form>
   <div class="imza"><b>Adem Yılmaz</b> · Serbest Muhasebeci Mali Müşavir<br><a href="https://smmmyilmaz.com" target="_blank" rel="noopener">smmmyilmaz.com</a></div>
 </main>
+
+<div id="tanitimPerde" hidden role="dialog" aria-modal="true" aria-label="Mükellef Portalı tanıtım videosu">
+  <div class="tp-kutu">
+    <video id="tanitimVideo" controls playsinline preload="none" poster="https://smmmyilmaz.com/programlar/mukellef-portali-tanitim-poster.jpg"></video>
+    <p>Seslendirme yapay zekâ ile hazırlanmıştır. Görüntüler örnek verilerle hazırlanmıştır.</p>
+    <button class="btn" type="button" id="tanitimKapat">Kapat</button>
+  </div>
+</div>
 
 <div id="uyg" hidden>
   <header class="bar"><div class="bar-ic">
@@ -2135,6 +2149,15 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
     $("ayarIc").innerHTML = h; mAyAraUygula(); sifreleriHazirla($("ayarIc")); yedekYazi(); yansiYazi(); if (ROL === "ofis" && !PERSONEL) personelYukle();
   }
+  /* Tanıtım videosu: giriş ekranında herkese açık; dosya smmmyilmaz.com'dan yalnız açılınca yüklenir */
+  (function(){
+    var VID = "https://smmmyilmaz.com/programlar/mukellef-portali-tanitim.mp4", v = $("tanitimVideo"), pr = $("tanitimPerde");
+    function ac(){ if (!v.getAttribute("src")) v.src = VID; pr.hidden = false; try { var pz = v.play(); if (pz && pz.catch) pz.catch(function(){}); } catch (e) {} $("tanitimKapat").focus(); }
+    function kapat(){ try { v.pause(); } catch (e) {} pr.hidden = true; if ($("tanitimBtn")) $("tanitimBtn").focus(); }
+    $("tanitimBtn").addEventListener("click", ac); $("tanitimKapat").addEventListener("click", kapat);
+    pr.addEventListener("click", function(e){ if (e.target === pr) kapat(); });
+    document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !pr.hidden) kapat(); });
+  })();
   $("ayarIc").addEventListener("click", function(e){ var b = e.target.closest("[data-smsgit]"); if (!b) return; mSec = b.getAttribute("data-smsgit"); VD.sek = "telefon"; sekme("vd"); window.scrollTo(0, 0); });
   /* ---------- marka: logo, imza (seçili mükellefe ait) ---------- */
   var MARKA0 = { ad: "Adem Yılmaz", unvan: "Serbest Muhasebeci Mali Müşavir", web: "smmmyilmaz.com", logo: "", imza: "" };

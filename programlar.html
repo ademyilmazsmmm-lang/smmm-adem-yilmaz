@@ -140,6 +140,9 @@
   .site-whatsapp-fab svg{width:28px;height:28px;fill:currentColor;position:relative;z-index:1;}
   @keyframes sitePulseRing{0%{transform:scale(1);opacity:.6;}100%{transform:scale(1.5);opacity:0;}}
   </style>
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"VideoObject","name":"Mükellef Portalı tanıtım videosu","description":"Adem Yılmaz Mali Müşavirlik Mükellef Portalı: e-Arşiv fatura, vergi dairesi, SGK, KDV raporu ve belge işlemleri.","thumbnailUrl":"https://smmmyilmaz.com/programlar/mukellef-portali-tanitim-poster.jpg","uploadDate":"2026-11-01","duration":"PT1M59S","contentUrl":"https://smmmyilmaz.com/programlar/mukellef-portali-tanitim.mp4","inLanguage":"tr"}
+  </script>
 </head>
 <body>
   <header>
@@ -199,7 +202,7 @@
           <span class="incele">İncele ve indir →</span>
         </div>
       </a>
-      <a class="program-karti" href="https://portal.smmmyilmaz.com/" rel="noopener">
+      <div class="program-karti" id="mukellef-portali">
         <div class="program-ust">
           <img src="programlar/e-arsiv-fatura-logo.png" alt="Mükellef Portalı logosu" width="56" height="56">
           <div>
@@ -207,7 +210,11 @@
             <p>Web uygulaması · Telefon ve bilgisayar</p>
           </div>
         </div>
-        <img class="program-gorsel" src="programlar/mukellef-portali-tanitim.jpg" alt="Mükellef Portalı telefon ekranları: vergi borç durumu, e-Vergi levhası ve SGK borç sorgulama" width="1200" height="630" loading="lazy">
+        <video class="program-gorsel" controls preload="none" playsinline poster="programlar/mukellef-portali-tanitim-poster.jpg" width="1280" height="720" style="aspect-ratio:16/9;max-width:none;box-shadow:none;border-radius:0;margin:0" aria-label="Mükellef Portalı tanıtım videosu">
+          <source src="programlar/mukellef-portali-tanitim.mp4" type="video/mp4">
+          Tarayıcınız video oynatmayı desteklemiyor.
+        </video>
+        <p class="video-not" style="margin:8px 0 0">Mükellef Portalı tanıtım videosu (2 dk) · Seslendirme yapay zekâ ile hazırlanmıştır.</p>
         <div class="program-ic">
           <div class="etiketler">
             <span class="etiket ozel">Ücretsiz</span><span class="etiket ozel">Sadece mükelleflerime özel</span>
@@ -216,9 +223,9 @@
           <div class="etiketler">
             <span class="etiket">e-Arşiv fatura</span><span class="etiket">Vergi dairesi</span><span class="etiket">Borç / Tebligat</span><span class="etiket">Tahakkuk PDF</span><span class="etiket">KDV raporu</span><span class="etiket">SGK borç</span><span class="etiket">E-Borcu Yoktur</span><span class="etiket">Belgelerim</span><span class="etiket">Vergi takvimi</span><span class="etiket">Mobil</span>
           </div>
-          <span class="incele">Giriş yap →</span>
+          <a class="incele" href="https://portal.smmmyilmaz.com/" rel="noopener">Giriş yap →</a>
         </div>
-      </a>
+      </div>
       <a class="program-karti" href="e-defter-goruntuleyici.html">
         <div class="program-ust">
           <img src="programlar/e-defter-goruntuleyici-logo.svg" alt="E-Defter Görüntüleyici logosu" width="56" height="56">
