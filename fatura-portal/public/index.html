@@ -852,16 +852,29 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   /* Altın / gümüş (özel matrah 805, 808): gram + maden bedeli + işçilik (KDV dahil) yazılır; birim fiyat ve özel matrah tutarı (işçilik KDV hariç) otomatik hesaplanır */
   function maden(k){ return F.tip === "OZELMATRAH" && (k.ozelNeden === "805" || k.ozelNeden === "808"); }
   function r2(x){ return Math.round(x * 100) / 100; }
+  /* Gram × Borsa İstanbul külçe gram fiyatı = maden bedeli; tahsilat (KDV dahil) − maden bedeli = işçilik+kâr (KDV dahil) → KDV matrahı */
   function madenHesapla(k){
-    var gr = sayi(k.miktar), kdv = sayi(k.kdv), g = sayi(k.gumusTutar), d = sayi(k.iscilikDahil);
-    if (!(gr > 0) || !(g >= 0) || !(d > 0)) return false;
+    var gr = sayi(k.miktar), kur = sayi(k.gramKur), t = sayi(k.tahsilat), kdv = sayi(k.kdv);
+    k.madenHata = ""; if (!(gr > 0) || !(kur > 0) || !(t > 0)) return false;
+    var g = r2(gr * kur), d = r2(t - g);
+    if (!(d > 0)) { k.madenHata = "Tahsilat tutarı, külçe maden bedelinden (" + tlYaz(g) + ") büyük olmalı."; return false; }
     var isc = r2(d / (1 + kdv / 100)), mal = r2(g + isc);
-    k.ozelTutar = isc.toFixed(2).replace(".", ","); k.fiyat = String(Number((mal / gr).toFixed(6))).replace(".", ","); return true;
+    k.ozelTutar = isc.toFixed(2).replace(".", ","); k.fiyat = String(Number((mal / gr).toFixed(6))).replace(".", ",");
+    if (!k.aciklama || k.aciklamaOto) { k.aciklama = String(k.miktar).trim() + " gr, külçe " + (k.ozelNeden === "805" ? "altın" : "gümüş") + " " + String(k.gramKur).trim() + " TL/gr"; k.aciklamaOto = true; }
+    return true;
   }
-  function madenTuret(k){ /* geçmişten kopyalanan satırda alanlar boşsa mevcut fiyat ve özel matrahtan türetilir */
-    if (k.gumusTutar || k.iscilikDahil) return;
+  function tlYaz(x){ return Number(x).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺"; }
+  function madenOzet(k){
+    if (k.madenHata) return k.madenHata;
+    var gr = sayi(k.miktar), kur = sayi(k.gramKur), t = sayi(k.tahsilat), kdv = sayi(k.kdv);
+    if (!(gr > 0) || !(kur > 0) || !(t > 0)) return "Gram, külçe gram fiyatı ve tahsilat tutarını yazın; gerisi otomatik hesaplanır.";
+    var g = r2(gr * kur), d = r2(t - g), isc = r2(d / (1 + kdv / 100));
+    return "Maden bedeli " + tlYaz(g) + " · işçilik+kâr (KDV dahil) " + tlYaz(d) + " · KDV matrahı " + tlYaz(isc) + " · KDV %" + kdv + " = " + tlYaz(r2(isc * kdv / 100)) + " · toplam " + tlYaz(t);
+  }
+  function madenTuret(k){ /* geçmişten kopyalanan satırda tahsilat boşsa mevcut tutarlardan türetilir (gram fiyatı saklanmadığı için yeniden yazılmadıkça fiyat/özel matrah olduğu gibi kalır) */
+    if (k.tahsilat) return;
     var gr = sayi(k.miktar), f = sayi(k.fiyat), o = sayi(k.ozelTutar), kdv = sayi(k.kdv);
-    if (gr > 0 && f > 0 && o > 0) { k.gumusTutar = r2(gr * f - o).toFixed(2).replace(".", ","); k.iscilikDahil = r2(o * (1 + kdv / 100)).toFixed(2).replace(".", ","); }
+    if (gr > 0 && f > 0 && o > 0) k.tahsilat = r2(gr * f + o * kdv / 100).toFixed(2).replace(".", ",");
   }
   function kalemHtml(k, i){
     var tev = F.tip === "TEVKIFAT", mad = maden(k); if (mad) madenTuret(k);
@@ -909,10 +922,12 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function ozelSecHtml(k){
     var sec = '<div><label>Özel matrah nedeni *</label><select data-kf="ozelNeden"><option value="">Seçin…</option>' + OZELLER.map(function(x){ return '<option value="' + x[0] + '"' + (x[0] === String(k.ozelNeden || "") ? " selected" : "") + ">" + x[0] + " · " + x[1] + "</option>"; }).join("") + "</select></div>";
     if (maden(k)) {
-      var ad = k.ozelNeden === "805" ? "Altın" : "Gümüş";
-      return sec + '<div class="satir"><div><label>' + ad + ' bedeli (' + PARASEM[F.para] + ')</label><input data-kf="gumusTutar" inputmode="decimal" placeholder="0,00" value="' + esc(k.gumusTutar || "") + '"></div>' +
-        '<div><label>İşçilik, KDV dahil (' + PARASEM[F.para] + ')</label><input data-kf="iscilikDahil" inputmode="decimal" placeholder="0,00" value="' + esc(k.iscilikDahil || "") + '"></div></div>' +
-        '<div><label>Özel matrah tutarı (otomatik: işçilik, KDV hariç)</label><input data-kf="ozelTutar" inputmode="decimal" value="' + esc(k.ozelTutar || "") + '" readonly><p class="not" style="margin:4px 0 0;font-size:.78rem">Müşterinin ödeyeceği toplam = ' + ad.toLowerCase() + ' bedeli + işçilik (KDV dahil). KDV yalnız işçilik üzerinden hesaplanır. Gramı “Gram” alanına yazın.</p></div>';
+      var ad = k.ozelNeden === "805" ? "altın" : "gümüş";
+      return sec + '<div class="satir"><div><label>Külçe ' + ad + ' gram fiyatı (' + PARASEM[F.para] + ')</label><input data-kf="gramKur" inputmode="decimal" placeholder="Borsa İstanbul" value="' + esc(k.gramKur || "") + '"></div>' +
+        '<div><label>Tahsilat tutarı, KDV dahil (' + PARASEM[F.para] + ')</label><input data-kf="tahsilat" inputmode="decimal" placeholder="0,00" value="' + esc(k.tahsilat || "") + '"></div></div>' +
+        '<input data-kf="ozelTutar" type="hidden" value="' + esc(k.ozelTutar || "") + '">' +
+        '<p class="not" data-mo style="margin:4px 0 0;font-size:.8rem">' + esc(madenOzet(k)) + '</p>' +
+        '<p class="not" style="margin:4px 0 0;font-size:.78rem">Gramı “Gram”, borsa fiyatını “gram fiyatı”, müşteriden alacağınız toplamı “tahsilat” alanına yazın. Maden bedeli = gram × gram fiyatı; KDV yalnız kalan işçilik+kâr üzerinden hesaplanır.</p>';
     }
     return sec + '<div><label>Özel matrah tutarı (' + PARASEM[F.para] + ') *</label><input data-kf="ozelTutar" inputmode="decimal" placeholder="0,00" value="' + esc(k.ozelTutar || "") + '"><p class="not" style="margin:4px 0 0;font-size:.78rem">KDV, mal bedeli üzerinden değil bu tutar üzerinden hesaplanır (örn. ikinci el araçta alış-satış farkı). Birim fiyat alanına satış bedeli yazılır.</p></div>';
   }
@@ -977,6 +992,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       var n = (i + 1) + ". satır: ", e = [];
       if (!k.ad) e.push("ad"); if (!(k.miktar > 0)) e.push("miktar"); if (!(k.fiyat > 0)) e.push("birim fiyat"); if (!(k.kdv >= 0)) e.push("KDV");
       if (g.tip === "ISTISNA" && !k.istisna) e.push("istisna sebebi");
+      if (g.tip === "OZELMATRAH" && F.kalemler[i] && maden(F.kalemler[i]) && F.kalemler[i].madenHata) e.push("tahsilat tutarı külçe bedelinden büyük olmalı");
       if (g.tip === "OZELMATRAH") { if (!k.ozelNeden) e.push("özel matrah nedeni"); if (!(k.ozelTutar > 0)) e.push("özel matrah tutarı"); else if (k.ozelTutar > k.miktar * k.fiyat + 0.005) e.push("özel matrah tutarı mal bedelinden büyük olamaz"); }
       if (tev && !(k.tev > 0)) e.push("tevkifat oranı"); if (tev && !k.kod) e.push("tevkifat kodu");
       if (e.length) eksik.push(n + e.join(", "));
@@ -1007,7 +1023,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   /* Hazır hizmetteki kodlara göre fatura tipi: özel matrah nedeni varsa Özel matrah, istisna kodu varsa İstisna, tevkifat varsa Tevkifat, yoksa Satış */
   function tipKalemden(k){ return k && k.ozelNeden ? "OZELMATRAH" : k && k.istisna ? "ISTISNA" : k && k.tev && k.tev !== "0" ? "TEVKIFAT" : "SATIS"; }
   function hazirUygula(k, h){
-    k.preset = h.id; k.ad = h.ad; k.kdv = String(h.kdv); k.tev = String(h.tev); k.kod = h.kod || ""; k.istisna = h.istisna || ""; k.ozelNeden = h.ozel || ""; k.kodDiger = false; if (h.ozel === "805" || h.ozel === "808") { k.birim = "GRM"; k.gumusTutar = ""; k.iscilikDahil = ""; }
+    k.preset = h.id; k.ad = h.ad; k.kdv = String(h.kdv); k.tev = String(h.tev); k.kod = h.kod || ""; k.istisna = h.istisna || ""; k.ozelNeden = h.ozel || ""; k.kodDiger = false; if (h.ozel === "805" || h.ozel === "808") { k.birim = "GRM"; k.gramKur = ""; k.tahsilat = ""; }
     /* Tek satırlı faturada hazır hizmet, fatura tipini de belirler (iade tipi korunur) */
     if (F.tip === "IADE") return;
     if (h.ozel) { F.tip = "OZELMATRAH"; F.dahil = false; k.istisna = ""; if (!(Number(k.kdv) > 0)) k.kdv = "20"; } else if (h.istisna) F.tip = "ISTISNA"; else if (h.tev > 0) F.tip = "TEVKIFAT"; else if (F.kalemler.length < 2) F.tip = "SATIS";
@@ -1264,7 +1280,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("kalemler").addEventListener("input", function(e){
     var f = e.target.getAttribute("data-kf"), d = e.target.closest("[data-k]"); if (!f || !d || f === "preset") return;
     var kk = F.kalemler[+d.getAttribute("data-k")]; kk[f] = e.target.value; if (f === "ad") kk.preset = "";
-    if (maden(kk) && /^(miktar|kdv|gumusTutar|iscilikDahil)$/.test(f) && madenHesapla(kk)) { var fi = d.querySelector('[data-kf="fiyat"]'), oz = d.querySelector('[data-kf="ozelTutar"]'); if (fi) fi.value = kk.fiyat; if (oz) oz.value = kk.ozelTutar; }
+    if (maden(kk) && /^(miktar|kdv|gramKur|tahsilat)$/.test(f)) { if (/^(gramKur|miktar)$/.test(f) && kk.aciklamaOto) kk.aciklama = ""; var okay = madenHesapla(kk), fi = d.querySelector('[data-kf="fiyat"]'), oz = d.querySelector('[data-kf="ozelTutar"]'), mo = d.querySelector("[data-mo]"); if (!okay) { kk.fiyat = ""; kk.ozelTutar = ""; } if (fi) fi.value = kk.fiyat; if (oz) oz.value = kk.ozelTutar; if (mo) mo.textContent = madenOzet(kk); }
     onizle();
   });
   $("kalemler").addEventListener("change", function(e){
