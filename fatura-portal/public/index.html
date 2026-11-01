@@ -799,7 +799,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("cikis").addEventListener("click", function(){
     var b = this; b.disabled = true; b.textContent = "Çıkılıyor…";
     api("/api/cikis", "POST", {}).then(function(){
-      V = null; ROL = ""; PERSONEL = false; COKLU = false; kabulKontrol(); markaUygula(); acilis();
+      V = null; ROL = ""; PERSONEL = false; COKLU = false; GUNC.oto = false; kabulKontrol(); markaUygula(); acilis();
       var d = $("girisDurum"); d.className = "durum ok"; d.textContent = "Çıkış yapıldı; GİB oturumunuz kapatıldı. Dilerseniz GİB portalına şimdi girebilirsiniz.";
     }, function(er){ if (!oturumDustu(er)) { alert("Çıkış tamamlanamadı: " + er.message); } }).then(function(){ b.disabled = false; b.textContent = "Çıkış"; });
   });
@@ -3153,7 +3153,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   function talepRozet(n){ var e = $("bRozet"); if (!e) return; e.hidden = !(ROL === "ofis" && n > 0); e.textContent = n > 0 ? n : ""; }
   /* ---- Ana ekran: tek kartla Dijital VD + SGK kodu; borç, tebligat ve SGK borcu birlikte yenilenir ---- */
-  var GUNC = { gizle: {}, mid: null, vd: false, sgk: false, calisiyor: false };
+  var GUNC = { gizle: {}, mid: null, vd: false, sgk: false, calisiyor: false, oto: false };
   function tebSayim(l){ l = l || []; return { onemli: l.filter(tebOnemli).length, okunmadi: l.filter(tebOkunmadi).length, trafik: l.filter(tebTrafik).length, toplam: l.length }; }
   function tebOzetGonder(mid, r){ try { api("/api/son", "POST", { mukellefId: mid, tebligat: tebSayim(r && r.kayitlar) }).then(function(){ if (OZET && OZET.mid === mid) { OZET.son = OZET.son || {}; OZET.son.tebligat = Object.assign(tebSayim(r.kayitlar), { zaman: new Date().toISOString() }); if (aktifSekme === "ana") anaCiz(OZET); } }, function(){}); } catch (e) { /* özet isteğe bağlı */ } }
   function guncGerek(son, m){
@@ -3166,6 +3166,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     el.hidden = false;
     if (GUNC.mid !== m.id) { GUNC.mid = m.id; GUNC.vd = GUNC.sgk = false; $("gKodlar").style.display = "none"; $("gGuncelle").hidden = true; $("gKodAl").hidden = false; $("gDurum").textContent = ""; $("gVdKod").value = ""; $("gSgkKod").value = ""; }
     var son0 = [son.vdBorc, son.tebligat, son.sgkBorc].filter(Boolean).map(function(x){ return new Date(x.zaman).getTime(); }).filter(Boolean); $("gSon").textContent = son0.length ? "Son: " + anaZaman(new Date(Math.min.apply(null, son0)).toISOString()) : "Hiç sorgulanmadı";
+    /* mükellef kendi hesabıyla girince doğrulama kodları kendiliğinden istenir (oturum başına bir kez, bilgiler 24 saatten eskiyse): yalnız kodları yazması yeter */
+    if (ROL === "mukellef" && !GUNC.oto && !GUNC.calisiyor && $("gKodAl") && !$("gKodAl").hidden && !$("gKodAl").disabled) { GUNC.oto = true; $("gBaslik").textContent = "Giriş yaptınız: bilgileriniz güncellensin"; $("gKodAl").click(); }
   }
   $("gKodAl").addEventListener("click", function(){
     var b = this, d = $("gDurum"), m = mk(); if (!m) return; vdAc(); var k = m.sgk || {}, sgkVar = !!(k.kullanici && k.isyeriKod && k.sistemVar && k.isyeriVar);
