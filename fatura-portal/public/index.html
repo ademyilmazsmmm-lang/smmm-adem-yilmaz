@@ -401,7 +401,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
           <option value="IADE">İade</option>
           <option value="ISTISNA">İstisna</option>
           <option value="OZELMATRAH">Özel matrah</option>
-          <option value="OZELMATRAH" disabled>Özel matrah (yakında)</option>
         </select></div>
     </div>
     <div class="alt" id="iadeAlan" hidden>
@@ -1045,7 +1044,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function ozetleriYaz(g){
     var a = aliciBilgi(), t = (g.tarih || "").split("-").reverse().join(".");
     $("ozAlici").textContent = a.ad ? a.ad + (a.vkn ? " · " + a.vkn : "") : "seçilmedi";
-    $("ozBilgi").textContent = [t, TIPAD[g.tip] || g.tip, g.para !== "TRY" ? g.para : "", g.tip === "IADE" && g.iadeNo ? "iade: " + g.iadeNo : ""].filter(Boolean).join(" · ");
+    $("ozBilgi").textContent = [t, TIPAD[g.tip] || g.tip, g.para !== "TRY" ? g.para : "", g.tip === "IADE" && g.iadeNo ? "iade: " + g.iadeNo : "", g.banka ? "banka notta" : "banka eklenmedi"].filter(Boolean).join(" · ");
     var o = sonHesap && sonHesap.toplam;
     $("ozTip").textContent = TIPAD[g.tip] || "";
     $("ozMal").textContent = g.kalemler.length + " satır" + (o ? " · " + fmt(o.odenecek) + " " + PARASEM[g.para] : "");
