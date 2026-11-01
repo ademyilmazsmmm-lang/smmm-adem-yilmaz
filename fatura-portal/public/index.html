@@ -415,8 +415,6 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       <div id="kurAlan" hidden><label for="kur" id="kurEtiket">Kur (1 birim = ? ₺)</label><input id="kur" inputmode="decimal" autocomplete="off"></div>
     </div>
     <div><label for="ekNot">Fatura notu (isteğe bağlı)</label><input id="ekNot" autocomplete="off" placeholder="Ödenecek tutar yazıyla her faturada otomatik eklenir"></div>
-    <div><label for="bankaNot">Banka bilgisi (faturanın notuna eklenir)</label><input id="bankaNot" autocomplete="off" maxlength="250" placeholder="Banka adı · IBAN TR.. · Hesap sahibi (boşsa eklenmez)"></div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="k" type="button" id="bankaKaydet">Mükellef profiline kaydet</button><span class="not" id="bankaDurum" style="margin:0"></span></div>
     <label class="onay"><input type="checkbox" id="notIrs" checked> “İrsaliye yerine geçer” notu ekle</label>
     <div class="not" id="notOnizleme"></div>
   </div></details>
@@ -967,15 +965,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     return '<div><label>İstisna sebebi *</label><select data-kf="istisna"><option value="">Seçin…</option>' + ISTISNALAR.map(function(x){ return '<option value="' + x[0] + '"' + (x[0] === String(k.istisna || "") ? " selected" : "") + ">" + x[0] + " · " + x[1] + "</option>"; }).join("") + "</select></div>";
   }
   function cizKalemler(){ $("kalemler").innerHTML = F.kalemler.map(kalemHtml).join(""); }
-  /* banka bilgisi: mükellef ya da profilindeki değer değişince alan profilden dolar; bu faturaya özel değiştirilebilir, kalıcı yapmak için "Mükellef profiline kaydet" */
-  function bankaYenile(){
-    var bk = $("bankaNot"), bm = mk(); if (!bk || document.activeElement === bk) return;
-    var pv = (bm && bm.profil && bm.profil.banka) || "";
-    if (bk.getAttribute("data-mid") !== String(mSec) || bk.getAttribute("data-prof") !== pv) { bk.value = pv; bk.setAttribute("data-mid", String(mSec)); bk.setAttribute("data-prof", pv); }
-  }
   function formDoldur(){
-    bankaYenile();
-    var bk = $("bankaNot"), bm = mk(); if (bk && document.activeElement !== bk && bk.getAttribute("data-mid") !== String(mSec)) { bk.value = (bm && bm.profil && bm.profil.banka) || ""; bk.setAttribute("data-mid", String(mSec)); }
     $("tip").value = F.tip; $("iadeAlan").hidden = F.tip !== "IADE"; $("para").value = F.para; $("kur").value = F.kur;
     $("kurAlan").hidden = F.para === "TRY"; $("kurEtiket").textContent = "Kur (1 " + F.para + " = ? ₺)";
     var dsg = document.querySelector("[data-dahil]"); if (dsg && dsg.parentElement && dsg.parentElement.parentElement) dsg.parentElement.parentElement.hidden = F.tip === "OZELMATRAH"; /* özel matrahta fiyat KDV hariç mal bedelidir */
@@ -989,7 +979,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var a = aliciBilgi();
     return { mukellefId: mSec, aliciUnvan: a.ad, aliciVkn: a.vkn, aliciAdres: a.adres, vergiDairesi: a.vd, aliciEposta: a.eposta, epostaGonder: $("yEpostaGonder").checked && !!a.eposta && MAILHAZIR, tarih: $("tarih").value, tip: F.tip, para: F.para, kur: sayi(F.kur), kdvDahil: F.dahil,
       kalemler: F.kalemler.map(function(k){ return { ad: k.ad, aciklama: k.aciklama, miktar: sayi(k.miktar), birim: k.birim, fiyat: sayi(k.fiyat), kdv: sayi(k.kdv), tev: parseInt(k.tev, 10) || 0, kod: k.kod, istisna: k.istisna || "", ozelNeden: k.ozelNeden || "", ozelTutar: sayi(k.ozelTutar) }; }),
-      notEk: $("ekNot").value.trim(), banka: $("bankaNot").value.trim(), notIrsaliye: $("notIrs").checked, iadeNo: $("iadeNo").value.trim(), iadeTarih: $("iadeTarih").value };
+      notEk: $("ekNot").value.trim(), notIrsaliye: $("notIrs").checked, iadeNo: $("iadeNo").value.trim(), iadeTarih: $("iadeTarih").value };
   }
   var onizTimer, sonHesap = null;
   function onizle(){
@@ -1047,7 +1037,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function ozetleriYaz(g){
     var a = aliciBilgi(), t = (g.tarih || "").split("-").reverse().join(".");
     $("ozAlici").textContent = a.ad ? a.ad + (a.vkn ? " · " + a.vkn : "") : "seçilmedi";
-    $("ozBilgi").textContent = [t, TIPAD[g.tip] || g.tip, g.para !== "TRY" ? g.para : "", g.tip === "IADE" && g.iadeNo ? "iade: " + g.iadeNo : "", g.banka ? "banka notta" : "banka eklenmedi"].filter(Boolean).join(" · ");
+    $("ozBilgi").textContent = [t, TIPAD[g.tip] || g.tip, g.para !== "TRY" ? g.para : "", g.tip === "IADE" && g.iadeNo ? "iade: " + g.iadeNo : ""].filter(Boolean).join(" · ");
     var o = sonHesap && sonHesap.toplam;
     $("ozTip").textContent = TIPAD[g.tip] || "";
     $("ozMal").textContent = g.kalemler.length + " satır" + (o ? " · " + fmt(o.odenecek) + " " + PARASEM[g.para] : "");
@@ -1300,7 +1290,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (F.alici === "__yeni") { $("yAd").value = ""; $("yVkn").value = ""; $("yAdres").value = ""; $("yVd").value = ""; $("yEposta").value = ""; $("sorguDurum").textContent = ""; }
     cizAlici(); onizle();
   });
-  ["tarih", "ekNot", "bankaNot", "notIrs", "iadeNo", "iadeTarih", "yAd", "yVkn", "yAdres", "yVd", "yEposta"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
+  ["tarih", "ekNot", "notIrs", "iadeNo", "iadeTarih", "yAd", "yVkn", "yAdres", "yVd", "yEposta"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
   $("tip").addEventListener("change", function(){
     F.tip = this.value; if (F.tip === "OZELMATRAH") F.dahil = false; formDoldur();
     if (F.tip === "OZELMATRAH") F.kalemler.forEach(function(k){ if (!k.kdv || k.kdv === "0") k.kdv = "20"; k.istisna = ""; });
@@ -1308,10 +1298,6 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     else F.kalemler.forEach(function(k){ if (k.kdv === "0" && k.istisna) { k.kdv = "20"; k.istisna = ""; } });
     if (F.tip === "TEVKIFAT") F.kalemler.forEach(function(k){ var h = HZ().filter(function(x){ return x.id === k.preset; })[0]; if (h && (!k.tev || k.tev === "0")) { k.tev = String(h.tev); k.kod = k.kod || h.kod || ""; } });
     cizKalemler(); onizle();
-  });
-  $("bankaKaydet").addEventListener("click", function(){
-    var m = mk(), d = $("bankaDurum"); if (!m) return; (m.profil = m.profil || {}).banka = $("bankaNot").value.trim(); d.textContent = "Kaydediliyor…";
-    kaydetV().then(function(){ d.textContent = m.profil.banka ? "Profile kaydedildi; bu mükellefin tüm faturalarında görünür." : "Profildeki banka bilgisi silindi."; }, function(er){ d.textContent = er.message; });
   });
   $("para").addEventListener("change", function(){ F.para = this.value; formDoldur(); cizKalemler(); onizle(); });
   $("kur").addEventListener("input", function(){ F.kur = this.value; onizle(); });
@@ -2419,7 +2405,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (t.hasAttribute("data-profil-kaydet")) {
       var pid = mEl && mEl.getAttribute("data-mid"), pr = (mm && mm.profil) || {};
       if (pr.eposta && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pr.eposta.trim())) { mDurum(pid, "E-posta adresi geçerli görünmüyor.", "hata"); return; }
-      mDurum(pid, "Kaydediliyor…", ""); kaydetV().then(function(){ hepsi(); mDurum(pid, "Profil kaydedildi.", "ok"); if ($("bankaNot")) $("bankaNot").setAttribute("data-mid", ""); gkProfildenDoldur(pid).then(function(n){ if (n === null) return; hepsi(); mDurum(pid, "Profil kaydedildi. GİB e-Arşiv kullanıcı bilgileri formu hazırlandı" + (n ? " (" + n + " alan profilden dolduruldu)" : "") + "; Ayarlar → GİB e-Arşiv kullanıcı bilgileri bölümünden kontrol edip GİB’e kaydedin.", "ok"); }, function(){ /* GİB’e bağlanılamadı; form hazırlanmadı */ }); }, function(er){ mDurum(pid, er.message, "hata"); }); return;
+      mDurum(pid, "Kaydediliyor…", ""); kaydetV().then(function(){ hepsi(); mDurum(pid, "Profil kaydedildi.", "ok"); gkProfildenDoldur(pid).then(function(n){ if (n === null) return; hepsi(); mDurum(pid, "Profil kaydedildi. GİB e-Arşiv kullanıcı bilgileri formu hazırlandı" + (n ? " (" + n + " alan profilden dolduruldu)" : "") + "; Ayarlar → GİB e-Arşiv kullanıcı bilgileri bölümünden kontrol edip GİB’e kaydedin.", "ok"); }, function(){ /* GİB’e bağlanılamadı; form hazırlanmadı */ }); }, function(er){ mDurum(pid, er.message, "hata"); }); return;
     }
     if (t.hasAttribute("data-logo-kaydet")) { var lid = mEl && mEl.getAttribute("data-mid"); mDurum(lid, "Kaydediliyor…", ""); kaydetV().then(function(){ hepsi(); mDurum(lid, "Kaydedildi.", "ok"); }, function(er){ mDurum(lid, er.message, "hata"); }); return; }
     if (t.id === "ayarKaydet") { kaydetV().then(function(){ hepsi(); var d = $("ayarDurum"); d.className = "durum ok"; d.textContent = "Kaydedildi."; }, function(er){ ayarHata($("ayarDurum"), er); }); return; }
@@ -3061,7 +3047,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   var EAGRUP = ["yeni", "taslak", "gecmis"], EASON = "yeni";
   function sekme(ad){
     if (ad === "earsiv") ad = EASON;
-    aktifSekme = ad; var grupta = EAGRUP.indexOf(ad) >= 0; if (grupta) EASON = ad; if (grupta) bankaYenile();
+    aktifSekme = ad; var grupta = EAGRUP.indexOf(ad) >= 0; if (grupta) EASON = ad;
     document.querySelectorAll("[data-sayfa]").forEach(function(x){ x.hidden = x.getAttribute("data-sayfa") !== ad; });
     var nav = grupta ? "earsiv" : ad;
     document.querySelectorAll("#sekmeler [data-sekme]").forEach(function(b){ if (b.getAttribute("data-sekme") === nav) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
