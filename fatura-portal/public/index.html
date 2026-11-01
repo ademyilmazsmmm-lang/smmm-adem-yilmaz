@@ -225,6 +225,8 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
 /* alt tutar çubuğu (telefon) */
 
 /* fatura görünümü: tam ekran */
+/* teknik tanı / ham yanıt alanları yalnız ofis ve çalışan hesabında görünür; mükellef görmez */
+body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[data-rol="mukellef"] .teknik,body[data-rol="mukellef"] #gTani{display:none!important}
 #tanitimPerde{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:14px}
 #tanitimPerde[hidden]{display:none}
 .tp-kutu{width:100%;max-width:960px;display:flex;flex-direction:column;gap:10px}
@@ -757,7 +759,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   var kurulu = false, eskiKayit = false, sifreMin = 8, mSifreMin = 8, ROL = "", PERSONEL = false, COKLU = false, KULLANICI = "", yedek = null;
   /* çalışan hesabı arayüzde "ofis" gibi davranır (seçili mükellefler adına işlem) ama yönetim bölümleri (mükellef ekle/sil, yedek, çalışanlar) kapalıdır */
   /* "musteri": birden çok firması olan mükellefin kısıtlı hesabı — arayüz mükellef gibi, ama üstte firma seçici vardır */
-  function rolAta(r){ PERSONEL = r === "personel"; COKLU = r === "musteri"; ROL = PERSONEL ? "ofis" : COKLU ? "mukellef" : r; }
+  function rolAta(r){ PERSONEL = r === "personel"; COKLU = r === "musteri"; ROL = PERSONEL ? "ofis" : COKLU ? "mukellef" : r; document.body.setAttribute("data-rol", ROL); }
   function acilis(){
     api("/api/durum").then(function(d){
       kurulu = d.kurulu; eskiKayit = !!d.eski; $("sahte").hidden = !d.sahte; $("surum").textContent = d.surum ? "sürüm " + d.surum : ""; $("girisSurum").textContent = d.surum ? "Sürüm " + d.surum + (ANA_EKRAN ? " · ana ekran kipi" : "") : ""; sifreMin = d.sifreMin || 8; mSifreMin = d.mSifreMin || 8;
@@ -800,7 +802,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   $("cikis").addEventListener("click", function(){
     var b = this; b.disabled = true; b.textContent = "Çıkılıyor…";
     api("/api/cikis", "POST", {}).then(function(){
-      V = null; ROL = ""; PERSONEL = false; COKLU = false; kabulKontrol(); markaUygula(); acilis();
+      V = null; ROL = ""; PERSONEL = false; COKLU = false; document.body.removeAttribute("data-rol"); kabulKontrol(); markaUygula(); acilis();
       var d = $("girisDurum"); d.className = "durum ok"; d.textContent = "Çıkış yapıldı; GİB oturumunuz kapatıldı. Dilerseniz GİB portalına şimdi girebilirsiniz.";
     }, function(er){ if (!oturumDustu(er)) { alert("Çıkış tamamlanamadı: " + er.message); } }).then(function(){ b.disabled = false; b.textContent = "Çıkış"; });
   });
@@ -2863,7 +2865,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         return '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><b style="min-width:6em;font-size:.85rem">' + esc(uygun ? r.basliklar[c.k] : "Belge") + '</b>' + c.belgeler.map(function(b){ return b.var ? '<a class="btn ikincil" style="text-decoration:none;min-height:36px;padding:4px 12px" target="_blank" rel="noopener" href="/api/sgk/belge?mid=' + encodeURIComponent(VD.mid) + '&ix=' + (VD.sgkIx || 0) + '&n=' + sat.n + '&k=' + c.k + '&j=' + b.j + '">' + esc(b.baslik || (b.j === 0 ? "Görüntüle" : b.j === 1 ? "İndir" : "Aç")) + '</a>' : '<span class="not" style="margin:0">(bağlantı yok)</span>'; }).join("") + '</div>';
       }).join("");
       return '<div class="kayit"><div class="not" style="margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:.84rem">' + alanlar + '</div>' + belge + '</div>';
-    }).join("") + (r.ham ? '<details class="alt2"><summary>Teknik ayrıntı (belge düğmeleri çalışmazsa bunu gönderin)</summary><div class="icerik"><pre id="bilHam" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;margin:0;max-height:260px;overflow:auto">' + esc("İşlem işlevi (" + ((r.ham.islem && r.ham.islem.dosya) || "bulunamadı") + "):\n" + ((r.ham.islem && r.ham.islem.kaynak) || "") + "\n\nFormlar:\n" + JSON.stringify(r.ham.formlar || []) + "\n\nSatır:\n" + r.ham.satir + "\n\nBetik:\n" + r.ham.betik) + '</pre><button class="k" type="button" id="bilHamKopya">Kopyala</button></div></details>' : "") + (r.onclickOrnek && r.onclickOrnek.length ? '<p class="not" style="font-size:.74rem;word-break:break-all">Belge düğmesi örnekleri: ' + esc(r.onclickOrnek.join(" | ")) + '</p>' : "");
+    }).join("") + (r.ham ? '<details class="alt2 teknik"><summary>Teknik ayrıntı (belge düğmeleri çalışmazsa bunu gönderin)</summary><div class="icerik"><pre id="bilHam" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;margin:0;max-height:260px;overflow:auto">' + esc("İşlem işlevi (" + ((r.ham.islem && r.ham.islem.dosya) || "bulunamadı") + "):\n" + ((r.ham.islem && r.ham.islem.kaynak) || "") + "\n\nFormlar:\n" + JSON.stringify(r.ham.formlar || []) + "\n\nSatır:\n" + r.ham.satir + "\n\nBetik:\n" + r.ham.betik) + '</pre><button class="k" type="button" id="bilHamKopya">Kopyala</button></div></details>' : "") + (r.onclickOrnek && r.onclickOrnek.length ? '<p class="not" style="font-size:.74rem;word-break:break-all">Belge düğmesi örnekleri: ' + esc(r.onclickOrnek.join(" | ")) + '</p>' : "");
   }
   $("bilSonuc").addEventListener("click", function(e){ if (e.target.id !== "bilHamKopya") return; var t = $("bilHam").textContent; try { navigator.clipboard.writeText(t); e.target.textContent = "Kopyalandı"; } catch (x) { var r = document.createRange(); r.selectNodeContents($("bilHam")); var sl = getSelection(); sl.removeAllRanges(); sl.addRange(r); } });
   $("bilGetir").addEventListener("click", function(){
@@ -2898,7 +2900,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       }
     } else if (r.metin && !r.uyari && !(r.ciftler && r.ciftler.length)) h += '<p class="not" style="margin:6px 0 0;font-size:.84rem">' + esc(r.metin) + '</p>';
     if ((r.dugmeler || []).length) h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' + r.dugmeler.map(function(d){ return '<a class="btn ikincil" style="text-decoration:none;min-height:40px;padding:6px 14px" target="_blank" rel="noopener" href="/api/sgk/form?mid=' + encodeURIComponent(VD.mid) + '&ix=' + (VD.sgkIx || 0) + '&i=' + d.i + '">' + esc(d.etiket) + '</a>'; }).join("") + '</div>';
-    return h + '</div><details class="alt2"><summary>Teknik ayrıntı (sayfa beklediğiniz gibi değilse bunu gönderin)</summary><div class="icerik"><pre id="isvHam" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;margin:0;max-height:260px;overflow:auto">' + esc("Adres: " + r.adres + "\nFormlar: " + JSON.stringify(r.formlar || []) + "\nAlanlar: " + JSON.stringify(r.alanlar || []) + "\nTablolar: " + JSON.stringify(r.tablolar || []) + "\nBağlantılar: " + JSON.stringify(r.baglantilar || []) + "\nYönlendirme: " + JSON.stringify(r.yonlendirme || []) + "\nSatırlar: " + JSON.stringify(r.satirlar || []) + "\n\nTablo ham:\n" + (r.tabloHam || "") + (r.betikOzet ? "\n\nBetik özeti:\n" + r.betikOzet : "") + "\n\n" + (r.ham || "")) + '</pre><button class="k" type="button" id="isvKopya">Kopyala</button></div></details>';
+    return h + '</div><details class="alt2 teknik"><summary>Teknik ayrıntı (sayfa beklediğiniz gibi değilse bunu gönderin)</summary><div class="icerik"><pre id="isvHam" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;margin:0;max-height:260px;overflow:auto">' + esc("Adres: " + r.adres + "\nFormlar: " + JSON.stringify(r.formlar || []) + "\nAlanlar: " + JSON.stringify(r.alanlar || []) + "\nTablolar: " + JSON.stringify(r.tablolar || []) + "\nBağlantılar: " + JSON.stringify(r.baglantilar || []) + "\nYönlendirme: " + JSON.stringify(r.yonlendirme || []) + "\nSatırlar: " + JSON.stringify(r.satirlar || []) + "\n\nTablo ham:\n" + (r.tabloHam || "") + (r.betikOzet ? "\n\nBetik özeti:\n" + r.betikOzet : "") + "\n\n" + (r.ham || "")) + '</pre><button class="k" type="button" id="isvKopya">Kopyala</button></div></details>';
   }
   /* ---- potansiyel teşvik sorgulama (sayfanın kendi formu okunur ve aynı forma gönderilir) ---- */
   var TESVIK = [];
