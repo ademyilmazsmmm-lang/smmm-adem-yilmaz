@@ -590,14 +590,14 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   <section data-sayfa="ana" class="liste" hidden>
     <div class="card" id="anaGunc" hidden style="gap:10px;border-left:4px solid var(--accent)">
       <div class="abas" style="margin:0"><b id="gBaslik">Bilgileri güncelle</b><small id="gSon"></small></div>
-      <p class="not" style="margin:0" id="gAciklama">Vergi borcu, tebligat ve SGK borcunu tek seferde yenilemek için doğrulama kodlarını yazın.</p>
+      <p class="not" style="margin:0" id="gAciklama">Vergi borcu, tebligat, SGK borcu, kâr durumu, KDV devri ve fatura özeti tek seferde yenilenir. Doğrulama kodlarını yazın (küçük harfle).</p>
       <button class="btn ikincil" type="button" id="gKodAl">Doğrulama kodlarını getir</button>
       <div id="gKodlar" style="display:none;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
-        <div id="gVdKutu" style="display:grid;gap:6px"><b style="font-size:.85rem">Dijital Vergi Dairesi</b><img id="gVdResim" alt="Vergi dairesi doğrulama kodu" style="max-width:100%;height:50px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px"><input id="gVdKod" autocomplete="off" inputmode="text" placeholder="Resimdeki kod"></div>
-        <div id="gSgkKutu" style="display:grid;gap:6px"><b style="font-size:.85rem">SGK</b><img id="gSgkResim" alt="SGK güvenlik kodu" style="max-width:100%;height:50px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px"><input id="gSgkKod" autocomplete="off" inputmode="text" placeholder="Resimdeki kod"></div>
+        <div id="gVdKutu" style="display:grid;gap:6px"><b style="font-size:.85rem">Dijital Vergi Dairesi</b><img id="gVdResim" alt="Vergi dairesi doğrulama kodu" style="max-width:100%;height:50px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px"><input id="gVdKod" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" style="text-transform:lowercase" placeholder="Resimdeki kod"></div>
+        <div id="gSgkKutu" style="display:grid;gap:6px"><b style="font-size:.85rem">SGK</b><img id="gSgkResim" alt="SGK güvenlik kodu" style="max-width:100%;height:50px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px"><input id="gSgkKod" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" style="text-transform:lowercase" placeholder="Resimdeki kod"></div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="gGuncelle" hidden>Güncelle</button><button class="k" type="button" id="gSimdiDegil">Şimdi değil</button></div>
-      <div class="durum" id="gDurum" role="status"></div>
+      <div id="gButonlar" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="gGuncelle" hidden>Güncelle</button><button class="k" type="button" id="gSimdiDegil">Şimdi değil</button></div>
+      <div class="durum" id="gGuncDurum" role="status" style="font-size:1rem"></div>
     </div>
     <div id="anaIc" style="display:flex;flex-direction:column;gap:14px"></div>
   </section>
@@ -3081,7 +3081,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     api("/api/sgk/captcha", "POST", { mukellefId: VD.mid, sistem: VD.sgkSis }).then(function(r){ $("vdSgkKodResim").src = r.resim; $("vdSgkKod").value = ""; $("vdSgkKodKutu").style.display = "flex"; d.textContent = ""; b.textContent = "Kodu yenile"; setTimeout(function(){ odakla($("vdSgkKod")); }, 50); }, vdSgkHata).then(function(){ b.disabled = false; });
   });
   function vdSgkGiris(){
-    var b = $("vdSgkGiris"), d = $("vdSgkDurum"), dk = $("vdSgkKod").value.trim(), sis = VD.sgkSis; if (!VD.mid) return;
+    var b = $("vdSgkGiris"), d = $("vdSgkDurum"), dk = $("vdSgkKod").value.trim().toLowerCase(), sis = VD.sgkSis; if (!VD.mid) return;
     if (dk.length < 3) { d.className = "durum hata"; d.textContent = "Resimdeki kodu yazın."; return; }
     b.disabled = true; d.className = "durum"; d.textContent = "Bağlanılıyor…";
     api("/api/sgk/giris", "POST", { mukellefId: VD.mid, sistem: sis, dk: dk }).then(function(){ VD.sgkB[sis + "|" + VD.sgkIx] = true; $("vdSgkKod").value = ""; $("vdSgkKodIste").textContent = "Güvenlik kodu al"; d.textContent = ""; vdSgkCiz(); }, function(er){ $("vdSgkKodKutu").style.display = "none"; $("vdSgkKodIste").textContent = "Yeni güvenlik kodu al"; vdSgkHata(er); }).then(function(){ b.disabled = false; });
@@ -3250,13 +3250,15 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
   });
   function vdGiris(){
-    var b = $("vdGiris"), d = $("vdDurum"), dk = $("vdKod").value.trim(); if (!VD.mid) return;
+    var b = $("vdGiris"), d = $("vdDurum"), dk = $("vdKod").value.trim().toLowerCase(); if (!VD.mid) return;
     if (dk.length < 4) { d.className = "durum hata"; d.textContent = "Resimdeki kodu yazın."; return; }
     b.disabled = true; d.className = "durum"; d.textContent = "Bağlanılıyor… (10–30 sn sürebilir)";
     api("/api/vd/giris", "POST", { mukellefId: VD.mid, dk: dk }).then(function(){
       VD.bagli = true; $("vdKod").value = ""; $("vdKodIste").textContent = "Doğrulama kodu al"; d.textContent = ""; vdSekmeCiz(); vdSorgula();
     }, function(er){ $("vdKodKutu").style.display = "none"; $("vdKodIste").textContent = "Yeni doğrulama kodu al"; vdHata(er, d); }).then(function(){ b.disabled = false; });
   }
+  /* Doğrulama kodları hep küçük harf: yazarken otomatik küçültülür */
+  ["gVdKod", "gSgkKod", "vdKod", "vdSgkKod"].forEach(function(id){ var e = $(id); if (!e) return; e.setAttribute("autocapitalize", "off"); e.style.textTransform = "lowercase"; e.addEventListener("input", function(){ var v = this.value.toLowerCase(); if (v !== this.value) this.value = v; }); });
   $("vdGiris").addEventListener("click", vdGiris);
   $("vdKod").addEventListener("keydown", function(e){ if (e.key === "Enter") { e.preventDefault(); vdGiris(); } });
   $("vdKapat").addEventListener("click", function(){ if (!VD.mid) return; api("/api/vd/cikis", "POST", { mukellefId: VD.mid }).catch(function(){}); VD.bagli = false; vdBagDurum(); });
@@ -3411,11 +3413,11 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var el = $("anaGunc"), m = mk(); if (!m || GUNC.gizle[m.id] || GUNC.calisiyor && GUNC.mid === m.id) { if (!(GUNC.calisiyor && m && GUNC.mid === m.id)) el.hidden = true; return; }
     if (!guncGerek(son || {}, m)) { el.hidden = true; return; }
     el.hidden = false;
-    if (GUNC.mid !== m.id) { GUNC.mid = m.id; GUNC.vd = GUNC.sgk = false; $("gKodlar").style.display = "none"; $("gGuncelle").hidden = true; $("gKodAl").hidden = false; $("gDurum").textContent = ""; $("gVdKod").value = ""; $("gSgkKod").value = ""; }
+    if (GUNC.mid !== m.id) { GUNC.mid = m.id; GUNC.vd = GUNC.sgk = false; $("gKodlar").style.display = "none"; $("gGuncelle").hidden = true; $("gKodAl").hidden = false; $("gGuncDurum").textContent = ""; $("gVdKod").value = ""; $("gSgkKod").value = ""; }
     var son0 = [son.vdBorc, son.tebligat, son.sgkBorc].filter(Boolean).map(function(x){ return new Date(x.zaman).getTime(); }).filter(Boolean); $("gSon").textContent = son0.length ? "Son: " + anaZaman(new Date(Math.min.apply(null, son0)).toISOString()) : "Hiç sorgulanmadı";
   }
   $("gKodAl").addEventListener("click", function(){
-    var b = this, d = $("gDurum"), m = mk(); if (!m) return; vdAc(); var k = m.sgk || {}, sgkVar = !!(k.kullanici && k.isyeriKod && k.sistemVar && k.isyeriVar);
+    var b = this, d = $("gGuncDurum"), m = mk(); if (!m) return; vdAc(); var k = m.sgk || {}, sgkVar = !!(k.kullanici && k.isyeriKod && k.sistemVar && k.isyeriVar);
     b.disabled = true; d.className = "durum"; d.textContent = "Doğrulama kodları isteniyor…"; GUNC.vd = !VD.bagli; GUNC.sgk = sgkVar && !VD.sgkB["isveren|0"]; VD.sgkIx = 0;
     var isler = [];
     if (GUNC.vd) isler.push(api("/api/vd/captcha", "POST", { mukellefId: m.id }).then(function(r){ $("gVdResim").src = r.resim; $("gVdKod").value = ""; }));
@@ -3427,40 +3429,40 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     });
   });
   function guncYukle(m){
-    var d = $("gDurum"), sonuc = [], hata = [];
+    var d = $("gGuncDurum"), sonuc = [], hata = [];
     var ad = function(x, y){ sonuc.push(x); return y; };
-    d.className = "durum"; d.textContent = "Bilgiler alınıyor…";
+    var adim = function(t){ d.className = "durum"; d.textContent = "⏳ Veriler çekiliyor — " + t; }; adim("vergi borcu ve tebligat…");
     var vdIs = !VD.bagli ? Promise.resolve() : api("/api/vd/borc", "POST", { mukellefId: m.id }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.borc = r; sonuc.push("vergi borcu"); }, function(er){ hata.push("Vergi borcu: " + er.message); })
       .then(function(){ return api("/api/vd/tebligat", "POST", { mukellefId: m.id }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.tebligat = r; tebOzetGonder(m.id, r); sonuc.push("tebligat"); }, function(er){ hata.push("Tebligat: " + er.message); }); });
     /* Vergi dairesi bağlıysa kâr durumu (Defter-Beyan hesap özeti) ve KDV devri (tahakkuk fişi) de kendiliğinden alınır */
     if (VD.bagli) {
       vdIs = vdIs.then(function(){
-        if (!m.defterBeyan) return; var a = hoAralik(m);
+        if (!m.defterBeyan) return; var a = hoAralik(m); adim("kâr durumu (Defter-Beyan)…");
         return api("/api/vd/hesapozeti", "POST", { mukellefId: m.id, bas: a.bas, bit: a.bit, mali: "1" }).then(function(r){ sonuc.push("kâr durumu"); return hesapOzetiGonder(m.id, r); }, function(er){ if (oturumDustu(er)) return; hata.push("Kâr durumu: " + er.message); });
       }).then(function(){
-        if (m.earsiv === false) return; var dn = kdvDonemler()[new Date().getDate() >= 28 ? "cari" : "onceki"];
+        if (m.earsiv === false) return; adim("KDV devri (tahakkuk fişi)…"); var dn = kdvDonemler()[new Date().getDate() >= 28 ? "cari" : "onceki"];
         return kdvDevirTahakkuk(m, kdvDevirKey(dn)).then(function(x){ if (x && x.tutar != null) sonuc.push("KDV devri"); }, function(er){ if (oturumDustu(er)) return; hata.push("KDV devri: " + er.message); });
       }).then(function(){
         if (m.earsiv === false || VD.mid !== m.id) return;
-        return kdvOto(function(t){ d.className = "durum"; d.textContent = "Fatura özeti: " + t; }).then(function(h){ if (h) hata.push("Fatura özeti: " + h); else sonuc.push("fatura özeti"); return new Promise(function(r){ setTimeout(r, 700); }); });
+        return kdvOto(function(t){ d.className = "durum"; d.textContent = "⏳ Veriler çekiliyor — fatura özeti: " + t; }).then(function(h){ if (h) hata.push("Fatura özeti: " + h); else sonuc.push("fatura özeti"); return new Promise(function(r){ setTimeout(r, 700); }); });
       });
     }
     var sgkIs = !VD.sgkB["isveren|0"] ? Promise.resolve() : api("/api/sgk/sayfa", "POST", { mukellefId: m.id, sistem: "isveren", ix: 0, ad: "DonemBorcGoruntuleme" }).then(function(){ sonuc.push("SGK borcu"); }, function(er){ hata.push("SGK borcu: " + er.message); });
     return Promise.all([vdIs, sgkIs]).then(function(){
-      GUNC.calisiyor = false; $("gGuncelle").disabled = false;
-      if (hata.length) { d.className = "durum hata"; d.textContent = (sonuc.length ? "Yenilenen: " + sonuc.join(", ") + ". " : "") + hata.join(" · "); } else { d.className = "durum ok"; d.textContent = "Güncellendi: " + sonuc.join(", ") + ". Oturumlar 5 dakika açık kalır."; setTimeout(function(){ if (GUNC.mid === m.id && !GUNC.calisiyor) $("anaGunc").hidden = true; }, 2500); }
+      GUNC.calisiyor = false; $("gGuncelle").disabled = false; $("gButonlar").style.display = "flex";
+      if (hata.length) { d.className = "durum hata"; d.textContent = (sonuc.length ? "Yenilenen: " + sonuc.join(", ") + ". " : "") + hata.join(" · "); $("gKodlar").style.display = "none"; $("gGuncelle").hidden = true; $("gKodAl").hidden = false; $("gKodAl").disabled = false; $("gKodAl").textContent = "Yeniden dene (yeni kodlar)"; } else { d.className = "durum ok"; d.textContent = "✓ Güncellendi: " + sonuc.join(", ") + ". Oturumlar 5 dakika açık kalır."; setTimeout(function(){ if (GUNC.mid === m.id && !GUNC.calisiyor) $("anaGunc").hidden = true; }, 2500); }
       anaAc(); if (hata.length) sonucaGit("anaGunc"); else setTimeout(function(){ sonucaGit("anaIc"); }, 800);
     });
   }
   $("gGuncelle").addEventListener("click", function(){
-    var b = this, d = $("gDurum"), m = mk(); if (!m || GUNC.calisiyor) return;
-    var vk = $("gVdKod").value.trim(), sk = $("gSgkKod").value.trim();
+    var b = this, d = $("gGuncDurum"), m = mk(); if (!m || GUNC.calisiyor) return;
+    var vk = $("gVdKod").value.trim().toLowerCase(), sk = $("gSgkKod").value.trim().toLowerCase();
     if ((GUNC.vd && vk.length < 4) || (GUNC.sgk && sk.length < 4)) { d.className = "durum hata"; d.textContent = "Resimlerdeki kodları yazın."; return; }
-    GUNC.calisiyor = true; b.disabled = true; d.className = "durum"; d.textContent = "Bağlanılıyor… (10–30 sn sürebilir)"; var hatalar = [];
+    GUNC.calisiyor = true; b.disabled = true; $("gKodlar").style.display = "none"; $("gButonlar").style.display = "none"; d.className = "durum"; d.textContent = "⏳ Bağlanılıyor… (10–30 sn sürebilir)"; var hatalar = [];
     var vdG = GUNC.vd ? api("/api/vd/giris", "POST", { mukellefId: m.id, dk: vk }).then(function(){ VD.bagli = true; }, function(er){ hatalar.push("Vergi dairesi: " + er.message); }) : Promise.resolve();
     var sgG = GUNC.sgk ? api("/api/sgk/giris", "POST", { mukellefId: m.id, sistem: "isveren", ix: 0, dk: sk }).then(function(){ VD.sgkB["isveren|0"] = true; }, function(er){ hatalar.push("SGK: " + er.message); }) : Promise.resolve();
     Promise.all([vdG, sgG]).then(function(){
-      if (hatalar.length && !VD.bagli && !VD.sgkB["isveren|0"]) { GUNC.calisiyor = false; b.disabled = false; d.className = "durum hata"; d.textContent = hatalar.join(" · ") + " — yeni kodları getirin."; $("gKodlar").style.display = "none"; b.hidden = true; $("gKodAl").hidden = false; $("gKodAl").textContent = "Yeni doğrulama kodlarını getir"; return; }
+      if (hatalar.length && !VD.bagli && !VD.sgkB["isveren|0"]) { GUNC.calisiyor = false; b.disabled = false; $("gButonlar").style.display = "flex"; d.className = "durum hata"; d.textContent = hatalar.join(" · ") + " — yeni kodları getirin."; $("gKodlar").style.display = "none"; b.hidden = true; $("gKodAl").hidden = false; $("gKodAl").textContent = "Yeni doğrulama kodlarını getir"; return; }
       if (hatalar.length) { d.className = "durum hata"; d.textContent = hatalar.join(" · "); }
       return guncYukle(m);
     });
