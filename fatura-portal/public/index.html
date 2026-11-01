@@ -517,7 +517,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       <div class="vdsek" id="kdvSeg" role="group" aria-label="Rapor dönemi"><button class="chip" type="button" data-kd="onceki" aria-pressed="true"></button><button class="chip" type="button" data-kd="cari" aria-pressed="false"></button></div>
       <div class="satir"><div><label for="kdvBas">Başlangıç</label><input id="kdvBas" type="date"></div><div><label for="kdvBit">Bitiş</label><input id="kdvBit" type="date"></div></div>
       <p class="not" style="margin:0;font-size:.78rem">Tarih aralığını değiştirerek istediğiniz dönemin raporunu alabilirsiniz (en çok 3 ay). Varsayılan: ayın 28’inden önce önceki ay, 28’inden sonra cari ay.</p>
-      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end"><div><label for="kdvDevir" id="kdvDevirEt">Önceki aydan devreden KDV (₺)</label><input id="kdvDevir" inputmode="decimal" placeholder="0,00" autocomplete="off"></div><button class="k" type="button" id="kdvDevirKaydet">Kaydet</button></div>
+      <div><label for="kdvDevir" id="kdvDevirEt">Önceki aydan devreden KDV (₺)</label><input id="kdvDevir" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
       <button class="k" type="button" id="kdvDevirAl">Tahakkuk fişinden otomatik al (Dijital VD)</button>
       <p class="not" id="kdvDevirNot" style="margin:0;font-size:.78rem"></p>
       <button class="btn ikincil" type="button" id="kdvHazirla">Raporu hazırla</button><button class="k" type="button" id="kdvIkisi">Önceki ve cari ayı birlikte hazırla</button><button class="k" type="button" id="kdvDur" hidden>Durdur</button>
@@ -2835,6 +2835,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     $("kdvDevirNot").textContent = "Önceki ayın KDV beyannamesi tahakkuk fişinde “devreden KDV” görünüyorsa buraya yazın; rapor bu tutarı düşer. Boşsa hesaba katılmaz.";
   }
   /* Önceki ayın KDV tahakkuk fişi Dijital VD'den indirilip metninden "devreden KDV" okunur; bulunursa kaydedilir */
+  function fisDokum(r){ var f = (r.fisler || []).filter(function(q){ return q.tutar != null; }); return f.length > 1 ? " (" + f.length + " fişin toplamı: " + f.map(function(q){ return tl(q.tutar); }).join(" + ") + ")" : f.length === 1 ? " (fiş " + f[0].fisNo + ")" : ""; }
   function kdvDevirTahakkuk(m, key){
     var p = key.split("-"); return api("/api/vd/kdvdevir", "POST", { mukellefId: m.id, yil: p[0], ay: p[1] }).then(function(r){
       if (r.tutar == null) return { yok: true, r: r };
@@ -2846,11 +2847,12 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (!VD.bagli || VD.mid !== m.id) { kdvDurumYaz("Önce Dijital Vergi Dairesi’ne bağlanın (Borç durumu ekranındaki doğrulama kodu).", "hata"); return; }
     var key = kdvDevirKey(dnx), b = this; b.disabled = true; kdvDurumYaz("KDV tahakkuk fişi Dijital Vergi Dairesi’nden alınıyor…");
     kdvDevirTahakkuk(m, key).then(function(x){
-      if (x.tutar != null) { $("kdvDevir").value = String(x.tutar).replace(".", ","); var sr = (x.r.satirlar || []).filter(function(q){ return q.mahsup > q.tahakkuk; })[0]; kdvDurumYaz("Tahakkuk fişinden okundu: devreden KDV " + tl(x.tutar) + (sr ? " (mahsup edilen " + tl(sr.mahsup) + " − tahakkuk eden " + tl(sr.tahakkuk) + ")" : "") + ", fiş " + (x.r.fisNo || "—") + ". Kontrol edin; rapor bu tutarı düşecek.", "ok"); }
-      else { kdvDurumYaz("Tahakkuk fişi bulundu ama devreden KDV bulunamadı (fişte mahsup edilen tutar tahakkuk edeni aşmıyor ya da tablo okunamadı); gerekiyorsa elle yazın.", "hata"); if (ROL === "ofis" && x.r.metin) $("kdvDevirNot").textContent = "Fiş metni (tanı): " + x.r.metin; }
+      if (x.tutar != null) { $("kdvDevir").value = String(x.tutar).replace(".", ","); kdvDurumYaz("Tahakkuk fişinden okundu: devreden KDV " + tl(x.tutar) + fisDokum(x.r) + (x.r.okunan < x.r.adet ? " — DİKKAT: " + x.r.adet + " fişten yalnız " + x.r.okunan + " tanesi okunabildi" : "") + ". Kontrol edin; rapor bu tutarı düşecek.", "ok"); }
+      else { kdvDurumYaz("Tahakkuk fişi bulundu ama devreden KDV bulunamadı (fişte mahsup edilen tutar tahakkuk edeni aşmıyor ya da tablo okunamadı); gerekiyorsa elle yazın.", "hata"); var f0 = (x.r.fisler || [])[0]; if (ROL === "ofis" && f0 && f0.metin) $("kdvDevirNot").textContent = "Fiş metni (tanı): " + f0.metin; }
     }, function(er){ if (oturumDustu(er)) return; kdvDurumYaz(er.message, "hata"); }).then(function(){ b.disabled = false; });
   });
-  $("kdvDevirKaydet").addEventListener("click", function(){
+  /* Devreden KDV alanı değişince kendiliğinden kaydedilir (ayrı Kaydet düğmesi yok) */
+  $("kdvDevir").addEventListener("change", function(){
     var m = mk(); if (!m) return; var dnx; try { dnx = KR.donem === "ozel" ? kdvAralikDn() : kdvDonemler()[KR.donem]; } catch (e) { kdvDurumYaz(e.message, "hata"); return; } var key = kdvDevirKey(dnx), t = $("kdvDevir").value.trim(); m.kdvDevir = m.kdvDevir || {}; if (t === "") delete m.kdvDevir[key]; else m.kdvDevir[key] = sayi(t);
     kdvDurumYaz("Kaydediliyor…"); kaydetV().then(function(){ kdvDurumYaz(t === "" ? "Devreden KDV silindi." : "Devreden KDV kaydedildi; rapor bu tutarı düşecek.", "ok"); }, function(er){ kdvDurumYaz(er.message, "hata"); });
   });
