@@ -76,6 +76,7 @@ const temizMetin = (v, n) => String(v == null ? "" : v).replace(/[\u0000-\u001f\
 function notUret(m, toplam) {
   const k = [];
   if (m.notEk) k.push(temizMetin(m.notEk, 300));
+  if (m.banka) k.push("Banka bilgisi: " + temizMetin(m.banka, 250));
   k.push(tutarYazi(toplam.odenecek, m.para || "TRY")); // her faturada ödenecek tutar yazıyla yer alır
   if (m.notIrsaliye !== false && m.notIrsaliye !== "false") k.push("İrsaliye yerine geçer.");
   return k.join(" ");

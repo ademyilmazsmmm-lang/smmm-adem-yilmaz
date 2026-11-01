@@ -312,6 +312,17 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       <label class="k" style="margin:0;cursor:pointer;text-align:center">Yedek dosyasından geri yükle<input type="file" id="yedekDosya" accept="application/json,.json" hidden></label>
     </div>
   </form>
+  <button class="k" type="button" id="htAc" hidden style="margin:12px 0 0;width:100%">Kullanıcı adı ve şifre talep et</button>
+  <form class="card" id="htForm" hidden style="position:relative;margin-top:10px">
+    <p class="not" style="margin:0">Mükellefimizseniz giriş bilgilerinizi ofisimizden talep edebilirsiniz. Bilgileriniz yalnızca size dönüş yapmak için kullanılır.</p>
+    <input id="htAd" placeholder="Ad soyad / firma unvanı" aria-label="Ad soyad ya da firma unvanı" maxlength="100" autocomplete="name">
+    <input id="htTel" type="tel" inputmode="tel" placeholder="Cep telefonu (05XX XXX XX XX)" aria-label="Cep telefonu" maxlength="20" autocomplete="tel">
+    <input id="htVkn" inputmode="numeric" placeholder="VKN / TC kimlik no (isteğe bağlı)" aria-label="VKN ya da TC kimlik no" maxlength="11" autocomplete="off">
+    <input id="htNot" placeholder="Not (isteğe bağlı)" aria-label="Not" maxlength="200" autocomplete="off">
+    <input id="htWeb" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0;padding:0;border:0;min-height:0">
+    <button class="btn" type="submit" id="htGonder">Talebi ofise gönder</button>
+    <div class="durum" id="htDurum" role="status"></div>
+  </form>
   <div class="imza"><b>Adem Yılmaz</b> · Serbest Muhasebeci Mali Müşavir<br><a href="https://smmmyilmaz.com" target="_blank" rel="noopener">smmmyilmaz.com</a></div>
 </main>
 
@@ -534,9 +545,10 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       <div class="vdsek" id="sgkIsy" role="group" aria-label="SGK işyeri dosyası" hidden></div>
       <div class="vdsek" id="sgkSis" role="group" aria-label="SGK sistemi"><button class="chip" type="button" data-sis="isveren" aria-pressed="true"><span>Borç sorgulama</span><small>E-Borcu Yoktur belgesi</small></button><button class="chip" type="button" data-sis="ebildirge" aria-pressed="false"><span>Hizmet · Tahakkuk</span><small>PDF dökümleri</small></button></div>
       <p class="not" id="vdSgkAciklama" style="margin:0"></p>
+      <p class="not" style="margin:0;font-size:.8rem">Bağ-Kur (4/b) prim borç durumunuzu e-Devlet’ten (turkiye.gov.tr) öğrenebilirsiniz.</p>
       <div class="kayit" id="sgkTesvik" style="border-left:4px solid var(--accent)"><b>Potansiyel teşvik sorgulama</b><p class="not" style="margin:4px 0 0">Personel işe almadan önce, adayın T.C. kimlik numarasıyla teşvik durumuna bakın. Bağlandıktan sonra “Teşvik sorgula” düğmesi açılır.</p></div>
       <p class="not" id="vdSgkNot" style="margin:0">Bağlanmak için mükellefin SGK bilgileri Ayarlar’da kayıtlı olmalı; her bağlanışta resimdeki güvenlik kodunu kendiniz, resimdeki gibi (harfler büyük) yazarsınız.</p>
-      <p class="not" id="vdSgkEksik" hidden style="margin:0;color:var(--danger)">Bu mükellefin SGK bilgileri eksik: Ayarlar → mükellef → “SGK İşveren Sistemi bilgileri”.</p>
+      <p class="not" id="vdSgkEksik" hidden style="margin:0;color:var(--danger)">SSK’lı (4/a) çalışanınız yok ya da SGK şifre bilgileri girili değil. Çalışanınız varsa ofise bildirin; ofis bilgileri Ayarlar → mükellef → “SGK İşveren Sistemi bilgileri” bölümüne girer.</p>
       <div id="vdSgkBaglan" style="display:grid;gap:8px">
         <button class="btn ikincil" type="button" id="vdSgkKodIste">Güvenlik kodu al</button>
         <div id="vdSgkKodKutu" style="display:none;gap:8px;align-items:center"><img id="vdSgkKodResim" alt="Güvenlik kodu" style="height:50px;border:1px solid var(--line2);border-radius:6px;background:#fff"><input id="vdSgkKod" type="text" maxlength="10" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Kod" style="width:7.5em"><button class="btn" type="button" id="vdSgkGiris">Bağlan</button></div>
@@ -754,6 +766,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   /* Giriş ekranı sunucu durumuna göre: giriş / ilk kurulum (ofis hesabı) / eski tek kullanıcılı kayıttan taşıma */
   function girisKipi(){
     $("yedekSecenek").hidden = kurulu; $("yeniKurulum").hidden = true; $("k1").hidden = false;
+    $("htAc").hidden = !kurulu; if (!kurulu) $("htForm").hidden = true;
     if (kurulu) { $("girisYazi").textContent = "Devam etmek için kullanıcı adı ve şifrenizi girin."; $("s2").hidden = true; $("girisBtn").textContent = "Giriş yap"; }
     else if (eskiKayit) { $("girisYazi").textContent = "Eski tek kullanıcılı kayıt bulundu. Ofis hesabınız için yeni bir kullanıcı adı belirleyin ve eski uygulama şifrenizi yazın; kayıtlarınız mükellef başına ayrılarak yeni yapıya taşınır (eski dosya yedek olarak saklanır)."; $("s2").hidden = true; $("girisBtn").textContent = "Taşı ve gir"; }
     else { $("girisYazi").textContent = "İlk kurulum — ofis hesabı: bir kullanıcı adı ve şifre belirleyin (şifre en az " + sifreMin + " karakter). Mükellef hesaplarını sonra Ayarlar’dan açarsınız."; $("s2").hidden = false; $("girisBtn").textContent = "Kur"; }
@@ -1852,7 +1865,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     return '<details class="alt2" data-ak="pf:' + m.id + '"' + ac("pf:" + m.id) + '><summary>Profil bilgileri</summary><div class="icerik">' +
       '<div><label>Unvan / ad soyad</label><input data-f="ad" value="' + esc(m.ad) + '"></div>' +
       '<p class="not" style="margin:0">VKN/TCKN: <b>' + esc(m.vkn || "—") + '</b> (“GİB bağlantısı” bölümünden; değişmesi gerekiyorsa ofise bildirin)</p>' +
-      alan("vd", "Vergi dairesi") + alan("adres", "Adres", 'autocomplete="street-address"') + alan("tel", "Telefon", 'type="tel" inputmode="tel" autocomplete="tel"') + alan("eposta", "E-posta", 'type="email" inputmode="email" autocapitalize="off" autocomplete="email"') + alan("web", "Web sitesi (isteğe bağlı)", 'inputmode="url" autocapitalize="off"') +
+      alan("vd", "Vergi dairesi") + alan("adres", "Adres", 'autocomplete="street-address"') + alan("tel", "Telefon", 'type="tel" inputmode="tel" autocomplete="tel"') + alan("eposta", "E-posta", 'type="email" inputmode="email" autocapitalize="off" autocomplete="email"') + alan("web", "Web sitesi (isteğe bağlı)", 'inputmode="url" autocapitalize="off"') + alan("banka", "Banka bilgisi (faturanın not kısmına eklenir)", 'placeholder="Banka adı · IBAN TR.. · Hesap sahibi" autocomplete="off" maxlength="250"') +
       '<p class="not" style="margin:0">Bu bilgiler programdaki fatura kopyasında satıcı bilgisi olarak görünür. GİB’deki resmî faturanın satıcı bilgisi GİB kaydınızdan gelir, buradan değişmez.</p>' +
       '<div class="durum" data-md role="status"></div><button class="btn" type="button" data-profil-kaydet>Profil bilgilerini kaydet</button><button class="k" type="button" data-profil-sicil>Sicilden güncelle (üzerine yazar)</button>' + (ROL === "ofis" && m.earsiv !== false ? '<button class="k" type="button" data-profil-gib>GİB e-Arşiv bilgilerinden güncelle (üzerine yazar)</button>' : "") + '<p class="not" style="margin:0">Profil açılınca, GİB e-Arşiv kullanıcı bilgileri doluysa boş alanlar oradan, sonra (Dijital Vergi Dairesi’ne bağlıysanız) sicilden otomatik doldurulur.</p></div></details>';
   }
@@ -1938,6 +1951,17 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   /* ---- çalışanlar (yalnız ofis): hesap aç, mükellef ata, şifre sıfırla, sil ---- */
   var PERS = [];
+  var HT = null;
+  function htSatirlar(){
+    if (!HT) return '<p class="not" style="margin:0">Yükleniyor…</p>';
+    if (!HT.length) return '<p class="not" style="margin:0">Bekleyen talep yok.</p>';
+    return HT.map(function(t){ var z = new Date(t.zaman).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      return '<div class="kayit" style="padding:10px 12px;display:grid;gap:4px"><b>' + esc(t.ad) + '</b><span class="not" style="margin:0">' + z + ' · <a href="tel:' + esc(t.tel) + '">' + esc(t.tel) + '</a>' + (t.vkn ? ' · ' + esc(t.vkn) : '') + '</span>' + (t.not ? '<span class="not" style="margin:0">' + esc(t.not) + '</span>' : '') + '<button class="k" type="button" data-ht-sil="' + esc(t.id) + '" style="justify-self:start">Sil (işlem tamam)</button></div>'; }).join("");
+  }
+  function htHtml(){
+    return '<details class="grup" data-ak="g:ht"' + ac("g:ht") + '><summary>Hesap talepleri <small id="htSay">' + (HT ? HT.length : (OZET && OZET.hesapTalep) || 0) + '</small></summary><div class="icerik"><p class="not" style="margin:0">Giriş ekranından “Kullanıcı adı ve şifre talep et” ile gelen istekler. İşlem bitince silin; 60 gün sonra kendiliğinden silinir.</p><div id="htListe" style="display:grid;gap:8px">' + htSatirlar() + '</div></div></details>';
+  }
+  function htYukle(){ api("/api/hesap-talepleri").then(function(r){ HT = r.talepler; var l = $("htListe"); if (l) l.innerHTML = htSatirlar(); var c = $("htSay"); if (c) c.textContent = HT.length; }, function(er){ oturumDustu(er); }); }
   function personelHtml(){
     return '<details class="grup" data-ak="g:pr"' + ac("g:pr") + '><summary>Çalışanlar <small id="prSay">' + PERS.length + '</small></summary><div class="icerik"><p class="not" style="margin:0">Çalışanınıza kullanıcı adı ve şifre verin; yalnız <b>sizin seçtiğiniz mükellefleri</b> görür ve onlar adına işlem yapar (fatura, vergi dairesi, SGK, belge). Mükellef ekleme/silme, yedek ve çalışan yönetimi yalnız size aittir.</p><div id="prIc" style="display:grid;gap:8px">' + personelIcHtml() + '</div></div></details>';
   }
@@ -2144,11 +2168,19 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   function cizAyar(){
     var ofis = ROL === "ofis", h = hesabimHtml();
     if (ofis && PERSONEL) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mAraHtml() + mAyarListe() + '</div></details>';
-    else if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + topluHtml() + mukerrerHtml() + mAraHtml() + mAyarListe() + '</div></details>' + personelHtml() + yedekHtml();
+    else if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + topluHtml() + mukerrerHtml() + mAraHtml() + mAyarListe() + '</div></details>' + personelHtml() + htHtml() + yedekHtml();
     else h += V.mukellefler.map(mukellefAyarHtml).join("");
     h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
     $("ayarIc").innerHTML = h; mAyAraUygula(); sifreleriHazirla($("ayarIc")); yedekYazi(); yansiYazi(); if (ROL === "ofis" && !PERSONEL) personelYukle();
   }
+  /* Giriş ekranından kullanıcı adı / şifre talebi (giriş yapmamış mükellef ofise ad + telefon bırakır) */
+  $("htAc").addEventListener("click", function(){ var f = $("htForm"); f.hidden = !f.hidden; if (!f.hidden) { $("htDurum").textContent = ""; f.scrollIntoView({ behavior: "smooth", block: "center" }); odakla($("htAd")); } });
+  $("htForm").addEventListener("submit", function(e){
+    e.preventDefault(); var d = $("htDurum"), b = $("htGonder"); d.className = "durum"; d.textContent = "Gönderiliyor…"; b.disabled = true;
+    api("/api/hesap-talep", "POST", { ad: $("htAd").value, tel: $("htTel").value, vkn: $("htVkn").value, not: $("htNot").value, web: $("htWeb").value }).then(function(){
+      d.className = "durum ok"; d.textContent = "Talebiniz ofise iletildi. En kısa sürede telefonunuzdan size dönüş yapılacak."; b.disabled = false; ["htAd", "htTel", "htVkn", "htNot"].forEach(function(i){ $(i).value = ""; });
+    }, function(er){ d.className = "durum hata"; d.textContent = er.message; b.disabled = false; });
+  });
   /* Tanıtım videosu: giriş ekranında herkese açık; dosya smmmyilmaz.com'dan yalnız açılınca yüklenir */
   (function(){
     var VID = "https://smmmyilmaz.com/programlar/mukellef-portali-tanitim.mp4", v = $("tanitimVideo"), pr = $("tanitimPerde");
@@ -2233,6 +2265,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
   }
   $("ayarIc").addEventListener("toggle", function(e){
     var k = e.target.getAttribute && e.target.getAttribute("data-ak"); if (!k) return; ayarAcik[k] = e.target.open;
+    if (e.target.open && k === "g:ht") htYukle();
     if (e.target.open && /^pf:/.test(k)) { var pid0 = k.slice(3); if (!PROF_GIB[pid0]) { PROF_GIB[pid0] = true; profilGibdenDoldur(pid0, false, true).then(function(){ if (!PROF_SICIL[pid0] && VD.bagli && VD.mid === pid0) { PROF_SICIL[pid0] = true; profilSicilDoldur(pid0, false, true); } }, function(){ if (!PROF_SICIL[pid0] && VD.bagli && VD.mid === pid0) { PROF_SICIL[pid0] = true; profilSicilDoldur(pid0, false, true); } }); } else if (!PROF_SICIL[pid0] && VD.bagli && VD.mid === pid0) { PROF_SICIL[pid0] = true; profilSicilDoldur(pid0, false, true); } }
     if (e.target.open && e.target.parentElement) [].slice.call(e.target.parentElement.children).forEach(function(c){ if (c !== e.target && c.tagName === "DETAILS" && c.open) { c.open = false; var ck = c.getAttribute("data-ak"); if (ck) ayarAcik[ck] = false; } }); /* aynı düzeyde yalnız biri açık */
     if (e.target.open && /^ku?:/.test(k) && !MARKA[k.replace(/^ku?:/, "")]) markaYukle(k.replace(/^ku?:/, "")).then(function(){ if (ayarAcik[k]) cizAyar(); }); // yalnız ilk açılışta; yeniden çizim toggle’ı tekrar tetikler
@@ -2303,6 +2336,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       api("/api/mukellef/sil", "POST", { mid: id }).then(function(r){ V = r.veri; if (mSec === id) mSec = V.mukellefler[0] ? V.mukellefler[0].id : null; F.alici = ""; hepsi(); gecmisYukle(); }, function(er){ ayarHata($("ayarDurum"), er); });
       return;
     }
+    if ((id = t.getAttribute("data-ht-sil"))) { api("/api/hesap-talep/sil", "POST", { id: id }).then(function(r){ HT = r.talepler; var l = $("htListe"); if (l) l.innerHTML = htSatirlar(); var c = $("htSay"); if (c) c.textContent = HT.length; if (OZET) { OZET.hesapTalep = HT.length; } }, function(er){ ayarHata($("ayarDurum"), er); }); return; }
     if ((id = t.getAttribute("data-bir-ana"))) {
       var grp = String(t.getAttribute("data-bir-grup") || "").split(",").filter(function(x){ return x && x !== id; }), sec = mBul(id), dig = grp.map(mBul).filter(Boolean), bd = $("birDurum");
       if (!sec || !dig.length) return;
@@ -3090,7 +3124,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       kutu("vd", "vd", "Vergi borcu", vb ? anaTl(vb.toplam) : "—", vb ? anaZaman(vb.zaman) + " sorgusu" : "Sorgulamak için dokunun", vb ? (vb.toplam > 0 ? "dik" : "iyi") : "") +
       kutu("sgk", "sgk", "SGK borcu", sb ? anaTl(sb.toplam) : "—", sb ? anaZaman(sb.zaman) + " sorgusu" : "Sorgulamak için dokunun", sb ? (sb.toplam > 0 ? "dik" : "iyi") : "") +
       kutu("belge", "belge", "Belgelerim", r.belge == null ? "—" : String(r.belge), "İmza sirküleri, gazete…", "") +
-      kutu("talep", "talep", ofis ? "Bekleyen talepler" : "Taleplerim", ofis ? (r.bekleyenToplam == null ? "—" : String(r.bekleyenToplam)) : (r.acikTalep == null ? "—" : r.acikTalep + " açık"), ofis ? "Tüm mükellefler" : "Ofise sorularınız", ofis && r.bekleyenToplam > 0 ? "dik" : "") +
+      kutu("talep", "talep", ofis ? "Bekleyen talepler" : "Taleplerim", ofis ? (r.bekleyenToplam == null ? "—" : String(r.bekleyenToplam)) : (r.acikTalep == null ? "—" : r.acikTalep + " açık"), ofis ? (r.hesapTalep > 0 ? "Tüm mükellefler · " + r.hesapTalep + " hesap talebi" : "Tüm mükellefler") : "Ofise sorularınız", ofis && r.bekleyenToplam > 0 ? "dik" : "") +
       '</div><p class="not" style="margin:8px 2px 0;font-size:.78rem">Vergi dairesi ve SGK tutarları, o bölümde sorgulayınca güncellenir (güvenlik kodu gerekir).</p></div>';
     var kd = son.kdv, kdKutu = function(d){ if (!d) return '<div class="kdvk"><b>—</b><small>Hazırlanmadı</small></div>'; var kt = function(x){ return x == null ? "—" : anaTl(x / 100); }; return '<div class="kdvk"><b>' + esc(d.ad) + '</b><div><span>Gelir (kesilen)</span><b style="color:var(--accent)">' + kt(d.gelir) + '</b></div><div><span>Gider (alınan)</span><b style="color:var(--danger)">' + kt(d.gider) + '</b></div><small>' + (d.bitti ? "" : "Ay sürüyor · ") + anaZaman(d.zaman) + '</small></div>'; };
     h += '<div><div class="abas"><b>' + IKON.fatura.replace("<svg ", '<svg width="18" height="18" ') + 'Fatura özeti</b><small>KDV dahil · gelir / gider</small></div><div class="kdvg">' + kdKutu(kd && kd.onceki) + kdKutu(kd && kd.cari) + '</div><button type="button" class="k" data-git="vd" data-vdsek="kdv" style="margin-top:6px">Raporu hazırla / yenile</button></div>';
