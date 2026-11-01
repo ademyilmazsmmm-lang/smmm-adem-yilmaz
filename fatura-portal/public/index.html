@@ -1775,6 +1775,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       '<div><label>GİB kullanıcı kodu (e-Arşiv / Dijital Vergi Dairesi)</label><input id="meGk" autocomplete="off"></div>' +
       '<div><label>GİB şifresi</label><input id="meGs" type="password" autocomplete="new-password"></div>' +
       '<label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" id="meEa" checked style="margin-top:3px;flex:none"><span>Bu mükellef e-Arşiv fatura kullanıyor <small class="not">(kapatırsanız yalnız Vergi Dairesi bölümü açılır)</small></span></label>' +
+      '<div><label>Faaliyet (hazır hizmet listesi)</label><select id="mePaket"><option value="genel">Diğer (boş liste: elle ya da geçmiş faturalardan)</option><option value="kurye">Kurye / nakliye (yük taşımacılığı)</option><option value="servis">Servis (personel ve öğrenci taşımacılığı)</option><option value="yazilim">Yazılım</option></select></div>' +
       '<p class="not">İsterseniz mükellefe uygulamaya giriş hesabı da açın (kendi faturasını kendisi kessin). Boş bırakırsanız yalnız siz bu mükellef adına fatura kesersiniz; hesabı sonra da açabilirsiniz.</p>' +
       '<div class="satir"><div><label>Giriş kullanıcı adı</label><input id="meHk" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div><label>Giriş şifresi (en az ' + mSifreMin + ')</label><input id="meHs" type="password" autocomplete="new-password"></div></div>' +
       '<button class="btn" type="button" id="mEkle">Mükellefi ekle</button><div class="durum" id="meDurum" role="status"></div></div></details>';
@@ -1834,6 +1835,13 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (e.target.id !== "tpDosya" || !e.target.files[0]) return; var f = e.target.files[0]; if (f.size > 1e6) { $("tpOnizleAlan").innerHTML = '<div class="durum hata">Dosya çok büyük.</div>'; return; }
     var rd = new FileReader(); rd.onload = function(){ var t = String(rd.result || "").replace(/^\ufeff/, ""); $("tpMetin").value = t; topluOnizle(); }; rd.readAsText(f, "utf-8");
   });
+  /* Hazır (standart) hizmet kataloğu: sektöre özel olanlar yeni mükellefe konmaz, buradan eklenir */
+  var HAZIRK = null, PAKETK = [], STD_SEKTOR = ["ogr10t", "per20t", "ogr10", "per20", "yuk20t", "dag20t", "yaz0i", "yaz20"];
+  function hazirYukle(){ HAZIRK = []; api("/api/hazir-hizmet").then(function(r){ HAZIRK = r.hizmetler || []; PAKETK = r.paketler || []; if (aktifSekme === "ayar") cizAyar(); }, function(){ HAZIRK = null; }); }
+  function stdMi(x){ /* sektöre özel standart hizmet ve hiç değiştirilmemiş mi */
+    if (STD_SEKTOR.indexOf(x.id) < 0 || !HAZIRK) return false; var k = HAZIRK.filter(function(y){ return y.id === x.id; })[0]; if (!k) return false;
+    return ["etiket", "ad", "kod", "istisna", "anah"].every(function(a){ return String(x[a] || "") === String(k[a] || ""); }) && Number(x.kdv) === Number(k.kdv) && Number(x.tev) === Number(k.tev);
+  }
   function hizmetHtml(m){
     var h = '<details class="alt2" data-ak="h:' + m.id + '"' + ac("h:" + m.id) + '><summary>Hizmetler (' + (m.hizmetler || []).length + ')</summary><div class="icerik">';
     (m.hizmetler || []).forEach(function(x){
@@ -1847,7 +1855,11 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
         '<div><label>Mesajda aranacak kelimeler</label><input data-f="anah" value="' + esc(x.anah || "") + '"></div>' +
         '<button class="btn tehlike" type="button" data-sil-h="' + esc(x.id) + '">Hizmeti sil</button></div></details>';
     });
-    return h + '<button class="btn ikincil" type="button" data-hekle="' + m.id + '">+ Hizmet ekle</button></div></details>';
+    if (!HAZIRK) hazirYukle();
+    return h + '<button class="btn ikincil" type="button" data-hekle="' + m.id + '">+ Hizmet ekle</button>' +
+      '<div class="satir" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end"><div><label>Faaliyet paketi (eksik olanları ekler)</label><select data-pk-sec="' + m.id + '"><option value="">Seçin…</option>' + (PAKETK || []).map(function(x){ return '<option value="' + esc(x.id) + '">' + esc(x.ad) + '</option>'; }).join("") + '</select></div><button class="k" type="button" data-pk-ekle="' + m.id + '">Paketi ekle</button></div>' +
+      '<div class="satir" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end"><div><label>Hazır listeden tek hizmet ekle</label><select data-hz-sec="' + m.id + '"><option value="">Seçin…</option>' + (HAZIRK || []).map(function(x){ return '<option value="' + esc(x.id) + '">' + esc(x.etiket) + '</option>'; }).join("") + '</select></div><button class="k" type="button" data-hz-ekle="' + m.id + '">Ekle</button></div>' +
+      ((m.hizmetler || []).some(function(x){ return stdMi(x); }) ? '<button class="k" type="button" data-std-temizle="' + m.id + '">Değiştirilmemiş standart hizmetleri (taşımacılık, yazılım vb.) kaldır</button>' : "") + '</div></details>';
   }
   function markaHtml(m, ust){
     var mr = MARKA[m.id] || {};
@@ -2129,7 +2141,8 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   var IT = { calisiyor: false, mesaj: "" };
   function iaTopluHtml(){
     return '<details class="grup" data-ak="g:it"' + ac("g:it") + '><summary>Toplu cari ve hizmet oluştur</summary><div class="icerik"><p class="not" style="margin:0">Alıcı (cari) listesi boş olan ve GİB bilgisi girili tüm e-Arşiv mükellefleri için, GİB’deki son 6 aylık faturalardan alıcıları ve hizmetleri sırayla oluşturur ve kaydeder. Mevcut kayıtlara dokunulmaz. Mükellef başına birkaç dakika sürebilir; bu sayfayı açık tutun.</p>' +
-      '<button class="btn ikincil" type="button" id="iaToplu"' + (IT.calisiyor ? " disabled" : "") + '>Toplu oluştur</button>' + (IT.calisiyor ? '<button class="k" type="button" id="iaTopluDur">Durdur</button>' : "") + '<div class="durum" id="iaTopluDurum" role="status">' + esc(IT.mesaj || "") + '</div></div></details>';
+      '<button class="btn ikincil" type="button" id="iaToplu"' + (IT.calisiyor ? " disabled" : "") + '>Toplu oluştur</button>' + (IT.calisiyor ? '<button class="k" type="button" id="iaTopluDur">Durdur</button>' : "") + '<div class="durum" id="iaTopluDurum" role="status">' + esc(IT.mesaj || "") + '</div>' +
+      '<button class="k" type="button" id="stdToplu">Tüm mükelleflerde değiştirilmemiş standart hizmetleri (taşımacılık, yazılım vb.) kaldır</button></div></details>';
   }
   function iaTopluYaz(t, tip){ IT.mesaj = t; var e = $("iaTopluDurum"); if (e) { e.className = "durum " + (tip || ""); e.textContent = t; } }
   function iaTopluBasla(){
@@ -2366,6 +2379,14 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       iaBasla(id, b1, b2, { alici: al, hizmet: hz, enCok: parseInt(kap.querySelector('[data-ia="enCok"]').value, 10) || 20 }); return;
     }
     if (t.id === "iaToplu") { iaTopluBasla(); return; }
+    if (t.id === "stdToplu") {
+      if (!HAZIRK || !HAZIRK.length) { hazirYukle(); iaTopluYaz("Hazır liste yükleniyor; birkaç saniye sonra yeniden deneyin.", ""); return; }
+      var topla = 0, mk3 = 0; V.mukellefler.forEach(function(x){ var n = (x.hizmetler || []).filter(stdMi).length; if (n) { topla += n; mk3++; } });
+      if (!topla) { iaTopluYaz("Kaldırılacak değiştirilmemiş standart hizmet yok.", "ok"); return; }
+      if (!confirm(mk3 + " mükellefte toplam " + topla + " değiştirilmemiş standart hizmet (taşımacılık, yazılım vb.) kaldırılacak. Sizin değiştirdiğiniz ve eklediğiniz hizmetlere dokunulmaz. Devam edilsin mi?")) return;
+      V.mukellefler.forEach(function(x){ x.hizmetler = (x.hizmetler || []).filter(function(h){ return !stdMi(h); }); });
+      kaydetV().then(function(){ hepsi(); iaTopluYaz(mk3 + " mükellefte " + topla + " standart hizmet kaldırıldı.", "ok"); }, function(er){ ayarHata($("ayarDurum"), er); }); return;
+    }
     if (t.id === "iaTopluDur") { IT.dur = true; Object.keys(IA).forEach(function(k){ if (IA[k] && IA[k].calisiyor) IA[k].dur = true; }); t.disabled = true; return; }
     if ((id = t.getAttribute("data-ia-dur"))) { if (IA[id]) IA[id].dur = true; t.disabled = true; return; }
     if ((id = t.getAttribute("data-ia-kaydet"))) { iaKaydet(id); return; }
@@ -2408,7 +2429,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       return;
     }
     if (t.id === "mEkle") {
-      var g = { ad: $("meAd").value, vkn: $("meVkn").value, earsiv: $("meEa").checked, kullanici: $("meGk").value, gibSifre: $("meGs").value, hesapKullanici: $("meHk").value, hesapSifre: $("meHs").value }, d = $("meDurum");
+      var g = { ad: $("meAd").value, vkn: $("meVkn").value, earsiv: $("meEa").checked, kullanici: $("meGk").value, gibSifre: $("meGs").value, hesapKullanici: $("meHk").value, hesapSifre: $("meHs").value, paket: $("mePaket").value }, d = $("meDurum");
       if (!g.ad.trim()) { d.className = "durum hata"; d.textContent = "Mükellef unvanını yazın."; return; }
       d.className = "durum"; d.textContent = "Ekleniyor…";
       api("/api/mukellef/ekle", "POST", g).then(function(r){ V = r.veri; mSec = r.id; F.alici = ""; ayarAcik["g:me"] = false; ayarAcik["g:m"] = true; ayarAcik["m:" + r.id] = true; hepsi(); var dd = $("meDurum"); if (dd) { dd.className = "durum ok"; dd.textContent = "Eklendi."; } gecmisYukle(); }, function(er){ ayarHata(d, er); });
@@ -2457,6 +2478,22 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     else if ((id = t.getAttribute("data-sil-h"))) { if ((mm.hizmetler || []).length < 2) return; mm.hizmetler = mm.hizmetler.filter(function(x){ return x.id !== id; }); }
     else if (t.hasAttribute("data-sgk-ekle")) { mm.sgkEk = (mm.sgkEk || []).concat([{ id: "", ad: "", kullanici: "", isyeriKod: "" }]); ayarAcik["sgk:" + mm.id] = true; }
     else if (t.hasAttribute("data-sgk-sil")) { var sq = +t.getAttribute("data-sgk-sil"); if (!confirm("Bu SGK işyeri dosyası silinsin mi?")) return; mm.sgkEk = (mm.sgkEk || []).filter(function(x, q){ return q !== sq; }); ayarAcik["sgk:" + mm.id] = true; }
+    else if ((id = t.getAttribute("data-pk-ekle"))) {
+      var ps = t.closest(".icerik").querySelector('[data-pk-sec]'), pk = ps && (PAKETK || []).filter(function(y){ return y.id === ps.value; })[0];
+      if (!pk) { mDurum(id, "Bir faaliyet paketi seçin.", "hata"); return; }
+      var var_ = {}; (mm.hizmetler || []).forEach(function(x){ var_[trk(x.ad) + "|" + Number(x.kdv) + "|" + Number(x.tev)] = 1; }); var eklenen = 0;
+      pk.hizmetler.forEach(function(hid){ var kt = (HAZIRK || []).filter(function(y){ return y.id === hid; })[0]; if (!kt || var_[trk(kt.ad) + "|" + Number(kt.kdv) + "|" + Number(kt.tev)] || (mm.hizmetler || []).length >= 100) return; (mm.hizmetler = mm.hizmetler || []).push({ id: uid(), etiket: kt.etiket, ad: kt.ad, kdv: kt.kdv, tev: kt.tev, kod: kt.kod || "", istisna: kt.istisna || "", anah: kt.anah || "" }); eklenen++; });
+      ayarAcik["h:" + mm.id] = true; if (!eklenen) { mDurum(id, "Bu paketteki hizmetler zaten listede.", "ok"); return; }
+    }
+    else if ((id = t.getAttribute("data-hz-ekle"))) {
+      var sc = t.closest(".icerik").querySelector('[data-hz-sec]'), kt = sc && (HAZIRK || []).filter(function(y){ return y.id === sc.value; })[0];
+      if (!kt) { mDurum(id, "Listeden bir hizmet seçin.", "hata"); return; } if ((mm.hizmetler || []).length >= 100) { mDurum(id, "En çok 100 hizmet eklenebilir.", "hata"); return; }
+      mm.hizmetler = (mm.hizmetler || []).concat([{ id: uid(), etiket: kt.etiket, ad: kt.ad, kdv: kt.kdv, tev: kt.tev, kod: kt.kod || "", istisna: kt.istisna || "", anah: kt.anah || "" }]); ayarAcik["h:" + mm.id] = true;
+    }
+    else if ((id = t.getAttribute("data-std-temizle"))) {
+      var n0 = (mm.hizmetler || []).length; mm.hizmetler = (mm.hizmetler || []).filter(function(x){ return !stdMi(x); }); if (mm.hizmetler.length === n0) return;
+      if (!confirm((n0 - mm.hizmetler.length) + " standart hizmet kaldırılsın mı? (İsterseniz sonra “Hazır listeden ekle” ile geri alırsınız.)")) { return cizAyar(); } ayarAcik["h:" + mm.id] = true;
+    }
     else if ((id = t.getAttribute("data-hekle"))) { var nh = { id: uid(), etiket: "", ad: "Yeni hizmet", kdv: 20, tev: 0, kod: "", anah: "" }; mm.hizmetler = (mm.hizmetler || []).concat([nh]); ayarAcik["h:" + mm.id] = true; ayarAcik["hh:" + mm.id + ":" + nh.id] = true; }
     else return;
     kaydetV().then(hepsi);

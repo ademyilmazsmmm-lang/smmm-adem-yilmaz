@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-01-215";
+const SURUM = "2026-11-01-216";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -52,9 +52,21 @@ const HAZIR_HIZMET = [
   { id: "muh10", etiket: "Muhtelif ürün satışı %10", ad: "Muhtelif Ürün Satışı", kdv: 10, tev: 0, kod: "", anah: "" },
   { id: "muh20", etiket: "Muhtelif ürün satışı %20", ad: "Muhtelif Ürün Satışı", kdv: 20, tev: 0, kod: "", anah: "muhtelif, ürün" },
   { id: "yaz0i", etiket: "Yazılım bedeli %0 istisna (hizmet ihracatı)", ad: "Yazılım Bedeli", kdv: 0, tev: 0, kod: "", istisna: "302", anah: "ihracat" },
-  { id: "yaz20", etiket: "Yazılım bedeli %20", ad: "Yazılım Bedeli", kdv: 20, tev: 0, kod: "", anah: "yazılım, yazilim" }
+  { id: "yaz20", etiket: "Yazılım bedeli %20", ad: "Yazılım Bedeli", kdv: 20, tev: 0, kod: "", anah: "yazılım, yazilim" },
+  { id: "hiz20", etiket: "Hizmet bedeli %20", ad: "Hizmet Bedeli", kdv: 20, tev: 0, kod: "", anah: "hizmet" },
+  { id: "yuk20", etiket: "Yük taşımacılığı %20", ad: "Yük Taşımacılığı Bedeli", kdv: 20, tev: 0, kod: "", anah: "" }
 ];
-const depo = new Depo(DIR, ITER, HAZIR_HIZMET);
+/* Faaliyet paketleri: mükellef eklenirken ya da Ayarlar → Hizmetler'de seçilir; kurye ise yük taşımacılığı, servis ise personel ve öğrenci taşımacılığı hizmetleri gelir */
+const PAKETLER = [
+  { id: "genel", ad: "Diğer (boş liste: elle ya da geçmiş faturalardan)", hizmetler: [] },
+  { id: "kurye", ad: "Kurye / nakliye (yük taşımacılığı)", hizmetler: ["yuk20t", "yuk20", "dag20t", "hiz20"] },
+  { id: "servis", ad: "Servis (personel ve öğrenci taşımacılığı)", hizmetler: ["per20t", "per20", "ogr10t", "ogr10", "hiz20"] },
+  { id: "yazilim", ad: "Yazılım", hizmetler: ["yaz20", "yaz0i", "hiz20"] }
+];
+const paketHizmet = (id) => { const p = PAKETLER.filter((x) => x.id === id)[0]; return p ? p.hizmetler.map((h) => Object.assign({}, HAZIR_HIZMET.filter((y) => y.id === h)[0])) : null; };
+/* Faaliyet paketi seçilmezse (diğer mükellefler) liste boş kalır; hazır hizmetler Ayarlar → Hizmetler → "Hazır listeden ekle" ile de eklenir */
+const VARSAYILAN_HIZMET = []; /* yeni mükellefin hizmet listesi boş başlar; ofis elle ya da faaliyet paketiyle doldurur, ya da geçmiş faturalardan otomatik oluşturulur */
+const depo = new Depo(DIR, ITER, VARSAYILAN_HIZMET);
 /* İsteğe bağlı GitHub yansısı (kalıcı diski olmayan kurulumlar için): şifreli dosyalar özel bir depoda tutulur, yerel veri yoksa oradan geri yüklenir */
 let yansi = null;
 if (process.env.GITHUB_DEPO && process.env.GITHUB_TOKEN) {
@@ -464,6 +476,7 @@ async function api(req, res, yol) {
     if (hk) { const ad = adTemiz(hk); if (!adGecerli(ad)) return cevap(res, 400, { hata: "Giriş kullanıcı adı 3-32 karakter olmalı (harf, rakam, nokta, tire, alt çizgi)." }); if (!depo.adMusait(ad)) return cevap(res, 400, { hata: "Bu kullanıcı adı kullanılıyor." }); sifreKontrol(g.hesapSifre, mSifreMin); }
     const id = await depo.mukellefEkle(o, g);
     if (hk) await depo.hesapAyarla(o, id, hk, String(g.hesapSifre));
+    const ph = g.paket && g.paket !== "genel" ? paketHizmet(String(g.paket)) : null; if (ph) { depo.mukellef(o, id).veri.hizmetler = ph; depo.kaydet(id); }
     gunluk(o, id, "Mükellef eklendi");
     return cevap(res, 200, { id, veri: temiz(o) });
   }
@@ -553,6 +566,7 @@ async function api(req, res, yol) {
     const g = await oku(req), mid0 = o.rol === "mukellef" ? o.mid : String(g.mukellefId || ""), pr0 = mid0 && depo.yetkili(o, mid0) ? depo.mukellef(o, mid0).veri.profil : null, m = modelTemiz(g, false, typeof g.banka === "string" ? g.banka : pr0 && pr0.banka);
     return cevap(res, 200, { satirlar: m._h.satirlar, toplam: m._h.toplam, not: m.not });
   }
+  if (yol === "/api/hazir-hizmet" && req.method === "GET") return cevap(res, 200, { hizmetler: HAZIR_HIZMET, paketler: PAKETLER });
   if (yol === "/api/gecmis" && req.method === "GET") {
     const hepsi = []; for (const id of depo.mukellefIdleri(o)) hepsi.push(...(depo.mukellef(o, id).veri.gecmis || []));
     return cevap(res, 200, { kayitlar: hepsi.sort((a, b) => String(a.zaman).localeCompare(String(b.zaman))).reverse().slice(0, 1000) });
