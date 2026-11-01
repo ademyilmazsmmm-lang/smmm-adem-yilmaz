@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-01-221";
+const SURUM = "2026-11-01-222";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -811,6 +811,7 @@ async function api(req, res, yol) {
       if (ne === "defter") { if (o.rol !== "ofis") return cevap(res, 400, { hata: "Bu geliştirme aracı yalnız ofis hesabına açıktır." }); return cevap(res, 200, await vdSorgu(m, (x) => x.defterKesif())); }
       if (ne === "hesapozeti") return cevap(res, 200, await vdSorgu(m, (x) => x.hesapOzeti(g.yil, g.mali === false || g.mali === "0" ? false : true, g.bas ? String(g.bas) : "", g.bit ? String(g.bit) : "")));
       if (ne === "sicil") return cevap(res, 200, await vdSorgu(m, (x) => x.sicilBilgi()));
+      if (ne === "kdvdevir") return cevap(res, 200, await vdSorgu(m, (x) => x.kdvDevir(g.yil, g.ay)));
       if (ne === "tahakkuk") return cevap(res, 200, await vdSorgu(m, (x) => x.tahakkukListe(String(g.tbas || ""), String(g.tbit || ""))));
       if (ne === "arac") return cevap(res, 200, await vdSorgu(m, (x) => x.aracListe(g.gecmis === true)));
       if (ne === "pos") return cevap(res, 200, await vdSorgu(m, (x) => x.posListe(String(g.yil || ""), String(g.ay || ""))));

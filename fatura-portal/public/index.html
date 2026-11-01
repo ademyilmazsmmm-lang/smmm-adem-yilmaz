@@ -518,6 +518,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       <div class="satir"><div><label for="kdvBas">Başlangıç</label><input id="kdvBas" type="date"></div><div><label for="kdvBit">Bitiş</label><input id="kdvBit" type="date"></div></div>
       <p class="not" style="margin:0;font-size:.78rem">Tarih aralığını değiştirerek istediğiniz dönemin raporunu alabilirsiniz (en çok 3 ay). Varsayılan: ayın 28’inden önce önceki ay, 28’inden sonra cari ay.</p>
       <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end"><div><label for="kdvDevir" id="kdvDevirEt">Önceki aydan devreden KDV (₺)</label><input id="kdvDevir" inputmode="decimal" placeholder="0,00" autocomplete="off"></div><button class="k" type="button" id="kdvDevirKaydet">Kaydet</button></div>
+      <button class="k" type="button" id="kdvDevirAl">Tahakkuk fişinden otomatik al (Dijital VD)</button>
       <p class="not" id="kdvDevirNot" style="margin:0;font-size:.78rem"></p>
       <button class="btn ikincil" type="button" id="kdvHazirla">Raporu hazırla</button><button class="k" type="button" id="kdvIkisi">Önceki ve cari ayı birlikte hazırla</button><button class="k" type="button" id="kdvDur" hidden>Durdur</button>
       <div class="durum" id="kdvDurum" role="status"></div>
@@ -740,7 +741,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   var YEDEKSIZ = /^\/api\/(hesapla|sorgu|gorunum|liste|cikis|giris|kurulum|geriyukle|durum|kasa|gecmis|veri|belge|belge-sil)$/;
   /* Yalnız okuma (sorgu) isteklerinde: bağlantı kopar ya da sunucu geç uyanırsa program kendisi 2 kez yeniden dener; olmazsa "tekrar sorgulayın" der.
    * Yazma işlemleri (taslak, onay, SMS, giriş vb.) kendiliğinden tekrarlanmaz: çift kayıt oluşmasın. */
-  var TEKRARLI = /^\/api\/(liste|sorgu|hesapla|son|gecmis|vd\/(borc|tebligat|yazilar|haciz|zrapor|yoklama|hesapozeti|sicil|tahakkuk|arac|pos|gelen)|sgk\/(tesvik|sayfa|bildirge-donemler|bildirge-liste))(\?|$)/;
+  var TEKRARLI = /^\/api\/(liste|sorgu|hesapla|son|gecmis|vd\/(borc|tebligat|yazilar|haciz|kdvdevir|zrapor|yoklama|hesapozeti|sicil|tahakkuk|arac|pos|gelen)|sgk\/(tesvik|sayfa|bildirge-donemler|bildirge-liste))(\?|$)/;
   function bekle(ms){ return new Promise(function(ok){ setTimeout(ok, ms); }); }
   function api(yol, yontem, govde){
     if (govde && yol.indexOf("/api/sgk/") === 0 && govde.ix === undefined && typeof VD !== "undefined" && VD.sgkIx) govde.ix = VD.sgkIx; /* mükellefin seçili SGK işyeri dosyası */
@@ -2833,6 +2834,22 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     $("kdvDevirEt").textContent = AYLAR_UZUN[+p[1] - 1] + " " + p[0] + " sonunda devreden KDV (₺)"; $("kdvDevir").value = v != null ? String(v).replace(".", ",") : "";
     $("kdvDevirNot").textContent = "Önceki ayın KDV beyannamesi tahakkuk fişinde “devreden KDV” görünüyorsa buraya yazın; rapor bu tutarı düşer. Boşsa hesaba katılmaz.";
   }
+  /* Önceki ayın KDV tahakkuk fişi Dijital VD'den indirilip metninden "devreden KDV" okunur; bulunursa kaydedilir */
+  function kdvDevirTahakkuk(m, key){
+    var p = key.split("-"); return api("/api/vd/kdvdevir", "POST", { mukellefId: m.id, yil: p[0], ay: p[1] }).then(function(r){
+      if (r.tutar == null) return { yok: true, r: r };
+      m.kdvDevir = m.kdvDevir || {}; m.kdvDevir[key] = r.tutar; return kaydetV().then(function(){ return { tutar: r.tutar, r: r }; });
+    });
+  }
+  $("kdvDevirAl").addEventListener("click", function(){
+    var m = mk(); if (!m) return; var dnx; try { dnx = KR.donem === "ozel" ? kdvAralikDn() : kdvDonemler()[KR.donem]; } catch (e) { kdvDurumYaz(e.message, "hata"); return; }
+    if (!VD.bagli || VD.mid !== m.id) { kdvDurumYaz("Önce Dijital Vergi Dairesi’ne bağlanın (Borç durumu ekranındaki doğrulama kodu).", "hata"); return; }
+    var key = kdvDevirKey(dnx), b = this; b.disabled = true; kdvDurumYaz("KDV tahakkuk fişi Dijital Vergi Dairesi’nden alınıyor…");
+    kdvDevirTahakkuk(m, key).then(function(x){
+      if (x.tutar != null) { $("kdvDevir").value = String(x.tutar).replace(".", ","); kdvDurumYaz("Tahakkuk fişinden okundu: " + tl(x.tutar) + " (fiş " + (x.r.fisNo || "—") + "). Kontrol edin; rapor bu tutarı düşecek.", "ok"); }
+      else { kdvDurumYaz("Tahakkuk fişi bulundu ama “devreden KDV” satırı okunamadı; tutarı elle yazın.", "hata"); if (ROL === "ofis" && x.r.metin) $("kdvDevirNot").textContent = "Fiş metni (tanı): " + x.r.metin; }
+    }, function(er){ if (oturumDustu(er)) return; kdvDurumYaz(er.message, "hata"); }).then(function(){ b.disabled = false; });
+  });
   $("kdvDevirKaydet").addEventListener("click", function(){
     var m = mk(); if (!m) return; var dnx; try { dnx = KR.donem === "ozel" ? kdvAralikDn() : kdvDonemler()[KR.donem]; } catch (e) { kdvDurumYaz(e.message, "hata"); return; } var key = kdvDevirKey(dnx), t = $("kdvDevir").value.trim(); m.kdvDevir = m.kdvDevir || {}; if (t === "") delete m.kdvDevir[key]; else m.kdvDevir[key] = sayi(t);
     kdvDurumYaz("Kaydediliyor…"); kaydetV().then(function(){ kdvDurumYaz(t === "" ? "Devreden KDV silindi." : "Devreden KDV kaydedildi; rapor bu tutarı düşecek.", "ok"); }, function(er){ kdvDurumYaz(er.message, "hata"); });
@@ -2912,7 +2929,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var z = r.z, satKdv = (s ? s.kdv : 0) + (z ? z.kdv : 0), alKdv = a ? a.kdv : 0, dev = r.devir != null ? r.devir : 0, fark = satKdv - alKdv - dev;
     h += '<div class="kayit" style="border-left:5px solid var(--accent)"><b>' + esc(r.ad) + ' · tahmini KDV durumu</b>' + (r.bitti ? "" : '<div class="not" style="margin:0">Ay henüz bitmedi; bugüne kadarki faturalar.</div>') +
       '<div style="font-size:.8rem;color:var(--muted);margin-top:6px">' + (fark >= 0 ? "Tahmini ödenecek KDV" : "Tahmini devreden KDV") + '</div><div style="font-size:1.6rem;font-weight:700;color:' + (fark > 0 ? "var(--danger)" : "var(--accent)") + '">' + k2(Math.abs(fark)) + '</div>' +
-      '<div class="not" style="margin:6px 0 0;font-size:.8rem">' + (r.devir != null ? "Önceki aydan devreden KDV " + k2(r.devir) + " düşüldü (hesaplanan " + k2(satKdv) + " − indirilecek " + k2(alKdv) + " − devir " + k2(r.devir) + ")." : "Önceki aydan devreden KDV girilmedi, hesaba katılmadı (yukarıdaki alana yazabilirsiniz).") + '</div>' +
+      '<div class="not" style="margin:6px 0 0;font-size:.8rem">' + (r.devir != null ? "Önceki aydan devreden KDV " + k2(r.devir) + (r.devirKaynak ? " (tahakkuk fişinden okundu)" : "") + " düşüldü (hesaplanan " + k2(satKdv) + " − indirilecek " + k2(alKdv) + " − devir " + k2(r.devir) + ")." : "Önceki aydan devreden KDV girilmedi, hesaba katılmadı" + (r.devirNot ? " (" + esc(r.devirNot) + ")" : "") + "; yukarıdaki alana yazabilirsiniz.") + '</div>' +
       (!s || !a ? '<div class="durum" style="display:block;margin-top:6px">' + (!s ? "Kesilen fatura tarafı hesaplanamadı (" + esc(r.satisNot || "e-Arşiv kapalı") + "). " : "") + (!a ? "Gelen fatura tarafı hesaplanamadı: Dijital Vergi Dairesi’ne bağlanın, sonra raporu yeniden hazırlayın." : "") + '</div>' : "") + '</div>';
     if (s) h += '<div class="kayit"><b>Kesilen faturalar (satış)</b><div class="not" style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:4px 0 0;font-size:.84rem"><span>Fatura sayısı</span><span style="color:var(--fg)">' + s.adet + (s.iade ? " (" + s.iade + " iade)" : "") + '</span><span>KDV hariç tutar</span><span style="color:var(--fg)">' + k2(s.matrah) + '</span><span>Hesaplanan KDV</span><span style="color:var(--fg)">' + k2(s.kdv) + '</span>' + (s.tev ? '<span>Tevkifatla alıcıya kalan KDV</span><span style="color:var(--fg)">' + k2(s.tev) + '</span>' : "") + '</div>' + (s.hata ? '<div class="not" style="margin:4px 0 0;color:var(--danger)">' + s.hata + ' fatura okunamadı, hesaba katılmadı.</div>' : "") + '</div>';
     if (z) h += '<div class="kayit"><b>Z raporu (yazar kasa) satışları</b><div class="not" style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:4px 0 0;font-size:.84rem"><span>Bildirim sayısı</span><span style="color:var(--fg)">' + z.adet + '</span><span>Satış tutarı (KDV dahil)</span><span style="color:var(--fg)">' + k2(z.satis) + '</span><span>Hesaplanan KDV</span><span style="color:var(--fg)">' + k2(z.kdv) + '</span></div>' + (z.fatura ? '<div class="not" style="margin:4px 0 0;font-size:.78rem">Z raporunda ' + k2(z.fatura) + ' tutarında fatura düzenlenmiş satış görünüyor; bunlar ayrıca e-Arşiv fatura olarak da kesildiyse KDV iki kez sayılmış olabilir.</div>' : "") + '</div>';
@@ -2926,7 +2943,9 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var pre = kdvDonemler(), dk = dn.bas === pre.onceki.bas && dn.bit === pre.onceki.bit ? "onceki" : dn.bas === pre.cari.bas && dn.bit === pre.cari.bit ? "cari" : "", btn = this, dvk = kdvDevirKey(dn), dvv = (m.kdvDevir || {})[dvk], sonuc = { ad: dn.ad, bitti: dn.bitti, satis: null, alis: null, satisNot: "", devir: dvv != null ? Math.round(dvv * 100) : null, devirAd: dvk };
     KR.calisiyor = true; KR.dur = false; btn.disabled = true; $("kdvDur").hidden = false; $("kdvSonuc").innerHTML = ""; kdvDurumYaz("Kesilen faturalar GİB’den alınıyor…");
     var bitir = function(){ KR.calisiyor = false; btn.disabled = false; $("kdvDur").hidden = true; };
-    var satisIs = m.earsiv === false ? Promise.resolve(null).then(function(){ sonuc.satisNot = "bu mükellef e-Arşiv fatura kullanmıyor"; return null; }) : kdvSatis(m, dn, function(t){ kdvDurumYaz(t); });
+    /* devreden KDV girilmemişse ve Dijital VD bağlıysa tahakkuk fişinden okunmaya çalışılır */
+    var oncesi = dvv == null && VD.bagli && VD.mid === m.id ? (kdvDurumYaz("Devreden KDV tahakkuk fişinden okunuyor…"), kdvDevirTahakkuk(m, dvk).then(function(x){ if (x && x.tutar != null) { sonuc.devir = Math.round(x.tutar * 100); sonuc.devirKaynak = "tahakkuk"; $("kdvDevir").value = String(x.tutar).replace(".", ","); } else sonuc.devirNot = "tahakkuk fişinde devreden KDV satırı bulunamadı"; }, function(er){ if (oturumDustu(er)) throw er; sonuc.devirNot = er.message; })) : Promise.resolve();
+    var satisIs = oncesi.then(function(){ kdvDurumYaz("Kesilen faturalar GİB’den alınıyor…"); return m.earsiv === false ? Promise.resolve(null).then(function(){ sonuc.satisNot = "bu mükellef e-Arşiv fatura kullanmıyor"; return null; }) : kdvSatis(m, dn, function(t){ kdvDurumYaz(t); }); });
     satisIs.then(function(s){ sonuc.satis = s; if (KR.dur) return null; if (!VD.bagli || VD.mid !== m.id) return null; kdvDurumYaz("Gelen faturalar Dijital Vergi Dairesi’nden alınıyor…"); return kdvAlis(m, dn); })
       .then(function(a){ sonuc.alis = a; if (KR.dur || !VD.bagli || VD.mid !== m.id) return null; kdvDurumYaz("Z raporu (yazar kasa) Dijital Vergi Dairesi’nden alınıyor…"); return kdvZ(m, dn).catch(function(er){ if (oturumDustu(er)) throw er; sonuc.zNot = er.message; return null; }); })
       .then(function(z){ sonuc.z = z; kdvDurumYaz(KR.dur ? "Durduruldu; o ana kadarki sonuç gösteriliyor." : "", KR.dur ? "" : ""); kdvCiz(sonuc); if (dk) kdvOzetGonder(m.id, dk, sonuc); bitir(); })

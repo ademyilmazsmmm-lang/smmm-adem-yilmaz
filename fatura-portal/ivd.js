@@ -6,6 +6,7 @@
 "use strict";
 const crypto = require("crypto");
 const sgkYardim = require("./sgk.js");
+const { pdfMetni, devirBul } = require("./pdfmetin.js");
 
 const MOCK = process.env.GIB_MOCK === "1";
 const GW = "https://dijital.gib.gov.tr/apigateway";
@@ -258,6 +259,19 @@ class Ivd {
     this.tahakkuklar = hepsi;
     const kayit = hepsi.map((d, n) => ({ n, vdAdi: d.vdAdi || "", vergiKodu: d.vergiKodu || "", vergiDonem: d.vergiDonem || "", kabulTarihi: d.kabulTarihi || "", fisNo: d.fisNo || "" }));
     return { kayitlar: kayit, sekil: sekil(son), deneme, vdler: vdler.length };
+  }
+  /* Önceki ayın KDV tahakkuk fişinden "devreden KDV"yi okur: KDV beyannamesi dönemi izleyen ay verildiği için kabul tarihi dönemden en çok 3 ay sonradır */
+  async kdvDevir(yil, ay) {
+    yil = String(yil || ""); ay = String(ay || "").padStart(2, "0");
+    if (!/^20\d{2}$/.test(yil) || !/^(0[1-9]|1[0-2])$/.test(ay)) throw new Error("Yıl ve ay seçin.");
+    const simdi = trTarih().slice(0, 7), s3 = new Date(Date.UTC(+yil, +ay - 1 + 3, 1)), son = s3.getUTCFullYear() + "-" + String(s3.getUTCMonth() + 1).padStart(2, "0");
+    const l = await this.tahakkukListe(yil + "-" + ay, son < simdi ? son : simdi);
+    const donemAyi = (t) => { const m = /(\d{4})-(\d{2})/.exec(String(t || "")) || /(\d{2})[./](\d{4})/.exec(String(t || "")); return m ? (m[1].length === 4 ? m[1] + "-" + m[2] : m[2] + "-" + m[1]) : ""; };
+    const kdv = l.kayitlar.filter((k) => /KDV|katma/i.test(k.vergiKodu) && !/KDV\s*-?\s*2|tevkifat\s*iade/i.test(k.vergiKodu)), tam = kdv.filter((k) => donemAyi(k.vergiDonem) === yil + "-" + ay);
+    const secim = (tam.length ? tam : []).sort((a, b) => String(b.kabulTarihi).localeCompare(String(a.kabulTarihi)))[0];
+    if (!secim) throw new Error(ay + "/" + yil + " dönemi için KDV tahakkuk fişi bulunamadı (beyanname verilmemiş ya da fiş henüz düşmemiş olabilir).");
+    const pdf = await this.tahakkukIndir(secim.n), metin = pdfMetni(pdf.veri || pdf.buf || Buffer.alloc(0)), adaylar = devirBul(metin);
+    return { donem: yil + "-" + ay, fisNo: secim.fisNo, adaylar: adaylar.slice(0, 3), tutar: adaylar.length ? adaylar[0].tutar : null, metin: metin.replace(/\s+/g, " ").trim().slice(0, 700) };
   }
   async tahakkukIndir(n) {
     const d = (this.tahakkuklar || [])[n]; if (!d) throw new Error("Tahakkuk bulunamadı; listeyi yenileyin.");
@@ -716,6 +730,7 @@ class SahteIvd {
   async interaktifSayfa(sayfa, derin) { if (sayfa && !/^[A-Z0-9_]{5,80}$/.test(String(sayfa))) throw new Error("Geçersiz sayfa."); return { betikOzet: derin ? "# js/cs/side-common.js (123 bayt)\nuçlar: ornek.jsp" : "", uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: "/tvd_side/index.jsp?token=<jeton> (HTTP 200)", baslik: "Örnek haciz sorgusu", metin: "Örnek içerik: kayıt bulunamadı.", formlar: [], alanlar: [], tablolar: [], baglantilar: [], yonlendirme: [], satirlar: [], tabloHam: "", ham: "<html>örnek</html>" }; }
   ornekPdf(metin) { return { veri: Buffer.from("%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 16 Tf 20 60 Td (" + metin + ") Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF"), tur: "application/pdf", satir: true, ad: String(metin).toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".pdf" }; }
   async tahakkukListe(bas, bit) { if (!bas || !bit) throw new Error("Başlangıç ve bitiş ayını seçin."); this.tahakkuklar = [{ vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0015 - KDV", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:12:00", fisNo: "2026102601KDV0001" }, { vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0003 - MUHTASAR", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:05:00", fisNo: "2026102601MUH0002" }]; return { kayitlar: this.tahakkuklar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
+  async kdvDevir(yil, ay) { if (!yil || !ay) throw new Error("Yıl ve ay seçin."); return { donem: yil + "-" + String(ay).padStart(2, "0"), fisNo: "2026102601KDV0001", adaylar: [{ tutar: 3200.5, baglam: "Sonraki Döneme Devreden KDV 3.200,50" }], tutar: 3200.5, metin: "KATMA DEĞER VERGİSİ TAHAKKUK FİŞİ … Sonraki Döneme Devreden KDV 3.200,50" }; }
   async tahakkukIndir(n) { if (!(this.tahakkuklar || [])[n]) throw new Error("Tahakkuk bulunamadı; listeyi yenileyin."); return this.ornekPdf("ORNEK TAHAKKUK " + (n + 1)); }
   async defterKesif() { return { betikOzet: "[Defter-Beyan keşif]\n/auth/tdvd/edefter-login → https://portal.defterbeyan.gov.tr/ · HTTP 200", uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: "Defter-Beyan keşfi", baslik: "", metin: "", formlar: [], alanlar: [], tablolar: [], baglantilar: [], yonlendirme: [], satirlar: [], tabloHam: "", ham: "" }; }
   async hacizListe(tur) { if (tur !== "banka" && tur !== "arac") throw new Error("Haciz türü seçin."); return { tur, satirlar: tur === "banka" ? [{ vdkod: "034123", no: "2026/12345", tutar: 12500.5, borcDurum: "BORCVAR", alanlar: { vdkod: "034123", hbno: "2026/12345", htutar: "12500,50", borcDurum: "BORCVAR" }, ust: [{ vergiTuru: "KDV", donem: "2026/08", tutar: "9000,00" }], alt: [{ bankaadi: "ÖRNEK BANKA", bloketutar: "12500,50", kaldirmatarihi: "" }] }] : [], vdAdlari: { "034123": "ÜMRANİYE VERGİ DAİRESİ" }, toplam: tur === "banka" ? 1 : 0 }; }
