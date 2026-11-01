@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-01-217";
+const SURUM = "2026-11-01-218";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -116,7 +116,7 @@ const htSay = new Map();
 const ISVEREN_SAYFALAR = new Set(["DonemBorcGoruntuleme", "CariDonemBorc", "Mufredat", "IAIIBYEB", "IAIOTGBYEB", "IAIOTIBYEB", "IAKBYEB", "IATBYEB", "IAHBYEB", "IASBYEB", "IAKGFBYEB", "IAKU", "TesvikPotansiyel"]);
 function temizMukellef(o, id) {
   const v = depo.mukellef(o, id).veri;
-  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, earsiv: v.earsiv !== false, defterBeyan: v.defterBeyan === true, sgk: { ad: (v.sgk && v.sgk.ad) || "", kullanici: (v.sgk && v.sgk.kullanici) || "", isyeriKod: (v.sgk && v.sgk.isyeriKod) || "", sistemVar: !!(v.sgk && v.sgk.sistemSifre), isyeriVar: !!(v.sgk && v.sgk.isyeriSifre) }, sgkEk: (v.sgkEk || []).map((x) => ({ id: x.id, ad: x.ad || "", kullanici: x.kullanici || "", isyeriKod: x.isyeriKod || "", sistemVar: !!x.sistemSifre, isyeriVar: !!x.isyeriSifre })), profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: mGibi(o) && !(o.musteri ? depo.personelKabulSurum(o) === KABUL_SURUM : (v.kabul && v.kabul.surum === KABUL_SURUM)), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
+  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, earsiv: v.earsiv !== false, defterBeyan: v.defterBeyan === true, sonBeyan: v.sonBeyan || "", sgk: { ad: (v.sgk && v.sgk.ad) || "", kullanici: (v.sgk && v.sgk.kullanici) || "", isyeriKod: (v.sgk && v.sgk.isyeriKod) || "", sistemVar: !!(v.sgk && v.sgk.sistemSifre), isyeriVar: !!(v.sgk && v.sgk.isyeriSifre) }, sgkEk: (v.sgkEk || []).map((x) => ({ id: x.id, ad: x.ad || "", kullanici: x.kullanici || "", isyeriKod: x.isyeriKod || "", sistemVar: !!x.sistemSifre, isyeriVar: !!x.isyeriSifre })), profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: mGibi(o) && !(o.musteri ? depo.personelKabulSurum(o) === KABUL_SURUM : (v.kabul && v.kabul.surum === KABUL_SURUM)), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
     hesapKullanici: o.rol === "ofis" ? depo.hesapKullanicisi(id) : undefined, sonGiris: v.sonGiris || null };
 }
 const mGibi = (o) => !!o && (o.rol === "mukellef" || o.musteri === true); /* mükellef yetkileri: kendi hesabı ya da çok firmalı müşteri hesabı */
@@ -141,6 +141,7 @@ function birlestir(o, g) {
       }
       if (JSON.stringify(yeni) !== JSON.stringify(v.sgkEk || [])) { v.sgkEk = yeni; sgkBirak(id); }
     }
+    if (!mGibi(o) && typeof m.sonBeyan === "string" && /^(\d{4}-(0[1-9]|1[0-2]))?$/.test(m.sonBeyan)) v.sonBeyan = m.sonBeyan; /* Defter-Beyan'a verisi girilen son dönem (YYYY-AA) */
     if (!mGibi(o) && typeof m.defterBeyan === "boolean") v.defterBeyan = m.defterBeyan; // Defter-Beyan (şahıs 2. sınıf) kullanan mükellefte Hesap özeti açılır
     if (!mGibi(o) && typeof m.earsiv === "boolean") v.earsiv = m.earsiv; // e-Arşiv kullanmayan mükellef yalnız Vergi Dairesi bölümünü kullanır
     v.aliciler = aliciTemiz(m.aliciler); v.hizmetler = hizmetTemiz(m.hizmetler); if (m.marka) v.marka = markaTemiz(m.marka); if (m.profil) v.profil = profilTemiz(m.profil);
@@ -771,6 +772,8 @@ async function api(req, res, yol) {
     const t = g.tebligat && typeof g.tebligat === "object" ? g.tebligat : {}, n = (v) => Math.max(0, Math.min(9999, parseInt(v, 10) || 0));
     if (g.tebligat) (m.son = m.son || {}).tebligat = { onemli: n(t.onemli), okunmadi: n(t.okunmadi), trafik: n(t.trafik), toplam: n(t.toplam), zaman: new Date().toISOString() }; depo.kaydet(mid);
     if (g.kdv && typeof g.kdv === "object" && (g.kdv.donem === "onceki" || g.kdv.donem === "cari")) { const k = g.kdv, kr = (v) => (v == null || !Number.isFinite(Number(v)) ? null : Math.max(-1e13, Math.min(1e13, Math.round(Number(v))))); (m.son = m.son || {}).kdv = m.son.kdv || {}; m.son.kdv[k.donem] = { ad: String(k.ad || "").slice(0, 40), bitti: !!k.bitti, gelir: kr(k.gelir), gider: kr(k.gider), gelirAdet: kr(k.gelirAdet), giderAdet: kr(k.giderAdet), zaman: new Date().toISOString() }; depo.kaydet(mid); }
+    if (g.hesapOzeti && typeof g.hesapOzeti === "object") { const h = g.hesapOzeti, kr = (v) => (Number.isFinite(Number(v)) ? Math.max(-1e13, Math.min(1e13, Math.round(Number(v) * 100) / 100)) : null), tarih = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? String(v) : "");
+      if (tarih(h.bas) && tarih(h.bit)) (m.son = m.son || {}).hesapOzeti = { bas: tarih(h.bas), bit: tarih(h.bit), gelir: kr(h.gelir), gider: kr(h.gider), kar: kr(h.kar), zaman: new Date().toISOString() }; depo.kaydet(mid); }
     return cevap(res, 200, { tamam: true });
   }
   if (yol.startsWith("/api/vd/")) {

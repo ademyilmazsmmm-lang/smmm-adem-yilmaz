@@ -2065,7 +2065,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   function mukellefBolumler(m, ofis){
     var ea = m.earsiv !== false;
-    return (ofis ? '<label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-ea="' + m.id + '"' + (ea ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>e-Arşiv fatura kullanıyor <small class="not">(kapalıysa yalnız Vergi Dairesi bölümü açılır)</small></span></label><label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-db="' + m.id + '"' + (m.defterBeyan ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>Defter-Beyan kullanıyor <small class="not">(şahıs, 2. sınıf; Vergi D. bölümünde “Hesap özeti” açılır)</small></span></label>' : "") + profilHtml(m) + (ea ? markaHtml(m, true) + hizmetHtml(m) + aliciHtml(m) + iceHtml(m) : "") + gibBagHtml(m) + gibKullaniciHtml(m) + sgkAyarHtml(m) + (ea ? smsAyarHtml(m) : "") + (ofis && !PERSONEL ? hesapHtml(m) + etkinlikHtml(m) : "") +
+    return (ofis ? '<label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-ea="' + m.id + '"' + (ea ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>e-Arşiv fatura kullanıyor <small class="not">(kapalıysa yalnız Vergi Dairesi bölümü açılır)</small></span></label><label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-db="' + m.id + '"' + (m.defterBeyan ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>Defter-Beyan kullanıyor <small class="not">(şahıs, 2. sınıf; Vergi D. bölümünde “Hesap özeti” açılır)</small></span></label>' + (m.defterBeyan ? '<div><label>Defter-Beyan’a verisi girilen son dönem</label><input type="month" data-f="sonBeyan" value="' + esc(m.sonBeyan || "") + '"><p class="not" style="margin:4px 0 0;font-size:.78rem">Ana ekrandaki kâr/zarar durumu bu döneme kadar hesaplanır (örn. Eylül beyanı verildiyse 2026-09). Boşsa 2 ay öncesine kadar alınır.</p></div>' : "") : "") + profilHtml(m) + (ea ? markaHtml(m, true) + hizmetHtml(m) + aliciHtml(m) + iceHtml(m) : "") + gibBagHtml(m) + gibKullaniciHtml(m) + sgkAyarHtml(m) + (ea ? smsAyarHtml(m) : "") + (ofis && !PERSONEL ? hesapHtml(m) + etkinlikHtml(m) : "") +
       '<div class="durum" data-md role="status"></div>' + (ofis && !PERSONEL ? '<button class="btn tehlike" type="button" data-sil-m="' + m.id + '">Mükellefi sil</button>' : "");
   }
   function mukellefAyarHtml(m){
@@ -2755,13 +2755,19 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   function hoTarih(y, a, g){ return y + "-" + p2(a) + "-" + p2(g); }
   function hoAyarla(tur){ var d = new Date(), y = d.getFullYear(); if (tur === "gecen") { $("hoBas").value = hoTarih(y - 1, 1, 1); $("hoBit").value = hoTarih(y - 1, 12, 31); } else if (tur === "ocak") { $("hoBas").value = hoTarih(y, 1, 1); $("hoBit").value = hoTarih(y, d.getMonth() + 1, d.getDate()); } else { $("hoBas").value = hoTarih(y, 1, 1); $("hoBit").value = hoTarih(y, 12, 31); } }
-  function vdHoAlan(){ if (!$("hoBas").value) hoAyarla("bu"); }
+  var HO_MID = null;
+  function vdHoAlan(){
+    if ($("hoBas").value && HO_MID === VD.mid) return; HO_MID = VD.mid; var dm = mBul(VD.mid) || {}, sb = /^\d{4}-\d{2}$/.test(dm.sonBeyan || "") ? dm.sonBeyan.split("-") : null;
+    if (sb) { $("hoBas").value = sb[0] + "-01-01"; $("hoBit").value = ymd(new Date(+sb[0], +sb[1], 0)); } else hoAyarla("bu");
+  }
+  /* Ana ekrandaki "Kâr durumu" için son alınan hesap özeti saklanır (yalnız toplamlar) */
+  function hesapOzetiGonder(mid, r){ try { var o = { bas: r.bas, bit: r.bit, gelir: r.toplamGelir, gider: r.toplamGider, kar: r.kar }; api("/api/son", "POST", { mukellefId: mid, hesapOzeti: o }).then(function(){ if (OZET && OZET.mid === mid) { OZET.son = OZET.son || {}; OZET.son.hesapOzeti = Object.assign({}, o, { zaman: new Date().toISOString() }); } }, function(){}); } catch (e) { /* isteğe bağlı */ } }
   $("hoHizli").addEventListener("click", function(e){ var b = e.target.closest("[data-ho]"); if (b) hoAyarla(b.getAttribute("data-ho")); });
   $("hoGetir").addEventListener("click", function(){
     var b = this, d = $("hoDurum"); if (!VD.mid) return;
     if (!VD.bagli) { d.className = "durum hata"; d.textContent = "Önce Dijital Vergi Dairesi’ne bağlanın (yukarıdaki doğrulama kodu)."; return; }
     b.disabled = true; d.className = "durum"; d.textContent = "Defter-Beyan’dan alınıyor…"; $("hoSonuc").innerHTML = "";
-    api("/api/vd/hesapozeti", "POST", { mukellefId: VD.mid, bas: $("hoBas").value, bit: $("hoBit").value, mali: $("hoMali").value }).then(function(r){ d.textContent = ""; $("hoSonuc").innerHTML = vdHoHtml(r); sonucaGit("hoSonuc"); }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
+    api("/api/vd/hesapozeti", "POST", { mukellefId: VD.mid, bas: $("hoBas").value, bit: $("hoBit").value, mali: $("hoMali").value }).then(function(r){ d.textContent = ""; $("hoSonuc").innerHTML = vdHoHtml(r); sonucaGit("hoSonuc"); hesapOzetiGonder(VD.mid, r); }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
   });
   function vdPosAlan(){
     if ($("vdPosYil").options.length) return; var d = new Date(), y = d.getFullYear(), oncekiAy = d.getMonth() === 0 ? 12 : d.getMonth(), yil = d.getMonth() === 0 ? y - 1 : y;
@@ -2829,6 +2835,14 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     else n = Number(t);
     return Number.isFinite(n) ? n : 0;
   }
+  /* Z raporu (yazar kasa) aylık satış bildirimi: KDV toplamı ve satış tutarı (kuruş); faturalı kısım ayrıca not edilir */
+  function kdvZ(m, dn){
+    return api("/api/vd/zrapor", "POST", { mukellefId: m.id, yil: dn.bas.slice(0, 4), ay: dn.bas.slice(5, 7) }).then(function(r){
+      var z = { adet: 0, kdv: 0, satis: 0, fatura: 0 }, k = function(x){ return Math.round((Number(x) || 0) * 100); };
+      (r.bildirimler || []).forEach(function(b){ z.adet++; z.kdv += k(b.kdvToplam); z.satis += k(b.toplamSatis); var f = (b.belge || []).filter(function(x){ return /^Faturalar/.test(x.ad || ""); })[0]; if (f) z.fatura += k(f.tutar); });
+      return z.adet ? z : null;
+    });
+  }
   function kdvSatis(m, dn, ilerle){
     return api("/api/liste", "POST", { mukellefId: m.id, bas: dn.bas, bit: dn.bit }).then(function(r){
       var gor = {}, bel = (r.belgeler || []).filter(function(b){ if (!b.ettn || gor[b.ettn] || !/^Onayland/i.test(b.durum || "")) return false; gor[b.ettn] = 1; return true; });
@@ -2866,13 +2880,15 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   function kdvCiz(r){
     var k2 = function(n){ return tl(n / 100); }, s = r.satis, a = r.alis, h = "";
-    var satKdv = s ? s.kdv : 0, alKdv = a ? a.kdv : 0, fark = satKdv - alKdv;
+    var z = r.z, satKdv = (s ? s.kdv : 0) + (z ? z.kdv : 0), alKdv = a ? a.kdv : 0, fark = satKdv - alKdv;
     h += '<div class="kayit" style="border-left:5px solid var(--accent)"><b>' + esc(r.ad) + ' · tahmini KDV durumu</b>' + (r.bitti ? "" : '<div class="not" style="margin:0">Ay henüz bitmedi; bugüne kadarki faturalar.</div>') +
       '<div style="font-size:.8rem;color:var(--muted);margin-top:6px">' + (fark >= 0 ? "Tahmini ödenecek KDV" : "Tahmini devreden KDV") + '</div><div style="font-size:1.6rem;font-weight:700;color:' + (fark > 0 ? "var(--danger)" : "var(--accent)") + '">' + k2(Math.abs(fark)) + '</div>' +
       (!s || !a ? '<div class="durum" style="display:block;margin-top:6px">' + (!s ? "Kesilen fatura tarafı hesaplanamadı (" + esc(r.satisNot || "e-Arşiv kapalı") + "). " : "") + (!a ? "Gelen fatura tarafı hesaplanamadı: Dijital Vergi Dairesi’ne bağlanın, sonra raporu yeniden hazırlayın." : "") + '</div>' : "") + '</div>';
     if (s) h += '<div class="kayit"><b>Kesilen faturalar (satış)</b><div class="not" style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:4px 0 0;font-size:.84rem"><span>Fatura sayısı</span><span style="color:var(--fg)">' + s.adet + (s.iade ? " (" + s.iade + " iade)" : "") + '</span><span>KDV hariç tutar</span><span style="color:var(--fg)">' + k2(s.matrah) + '</span><span>Hesaplanan KDV</span><span style="color:var(--fg)">' + k2(s.kdv) + '</span>' + (s.tev ? '<span>Tevkifatla alıcıya kalan KDV</span><span style="color:var(--fg)">' + k2(s.tev) + '</span>' : "") + '</div>' + (s.hata ? '<div class="not" style="margin:4px 0 0;color:var(--danger)">' + s.hata + ' fatura okunamadı, hesaba katılmadı.</div>' : "") + '</div>';
+    if (z) h += '<div class="kayit"><b>Z raporu (yazar kasa) satışları</b><div class="not" style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:4px 0 0;font-size:.84rem"><span>Bildirim sayısı</span><span style="color:var(--fg)">' + z.adet + '</span><span>Satış tutarı (KDV dahil)</span><span style="color:var(--fg)">' + k2(z.satis) + '</span><span>Hesaplanan KDV</span><span style="color:var(--fg)">' + k2(z.kdv) + '</span></div>' + (z.fatura ? '<div class="not" style="margin:4px 0 0;font-size:.78rem">Z raporunda ' + k2(z.fatura) + ' tutarında fatura düzenlenmiş satış görünüyor; bunlar ayrıca e-Arşiv fatura olarak da kesildiyse KDV iki kez sayılmış olabilir.</div>' : "") + '</div>';
+    else if (r.zNot) h += '<div class="not" style="margin:0;font-size:.8rem">Z raporu alınamadı: ' + esc(r.zNot) + '</div>';
     if (a) h += '<div class="kayit"><b>Gelen e-Arşiv faturalar (alış)</b><div class="not" style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:4px 0 0;font-size:.84rem"><span>Fatura sayısı</span><span style="color:var(--fg)">' + a.adet + '</span><span>Toplam tutar</span><span style="color:var(--fg)">' + k2(a.toplam) + '</span><span>İndirilecek KDV (vergiler toplamı)</span><span style="color:var(--fg)">' + k2(a.kdv) + '</span></div>' + (a.yabanci ? '<div class="not" style="margin:4px 0 0">' + a.yabanci + ' fatura döviz cinsinden; tutarları TL olarak alınmıştır.</div>' : "") + (a.uyari ? '<div class="not" style="margin:4px 0 0">' + esc(a.uyari) + '</div>' : "") + '</div>';
-    h += '<div class="not" style="margin:0;font-size:.8rem;display:flex;flex-direction:column;gap:3px"><span><b>Not:</b> Bu bir <b>tahmini</b> rapordur; yalnız GİB’e düşen kesilen e-Arşiv faturalar ve adınıza düzenlenen gelen e-Arşiv faturalar sayılır.</span><span>• Gelen faturalar sisteme <b>geç düşebilir ya da hiç düşmeyebilir</b> (e-Fatura, kâğıt fatura, fiş vb.).</span><span>• <b>Z raporu</b> (yazar kasa) satışları ve KDV’si dahil değildir; varsa ayrıca eklenmelidir.</span><span>• Önceki aydan devreden KDV ve iade/indirim düzeltmeleri hesaba katılmadı. Kesin tutar için KDV beyannamesi esastır.</span></div>';
+    h += '<div class="not" style="margin:0;font-size:.8rem;display:flex;flex-direction:column;gap:3px"><span><b>Not:</b> Bu bir <b>tahmini</b> rapordur; yalnız GİB’e düşen kesilen e-Arşiv faturalar ve adınıza düzenlenen gelen e-Arşiv faturalar sayılır.</span><span>• Gelen faturalar sisteme <b>geç düşebilir ya da hiç düşmeyebilir</b> (e-Fatura, kâğıt fatura, fiş vb.).</span><span>• <b>Z raporu</b> (yazar kasa) satışları varsa yukarıya dahil edildi; Dijital Vergi Dairesi’ne bağlı değilseniz eklenmez.</span><span>• Önceki aydan devreden KDV ve iade/indirim düzeltmeleri hesaba katılmadı. Kesin tutar için KDV beyannamesi esastır.</span></div>';
     $("kdvSonuc").innerHTML = h; sonucaGit("kdvSonuc");
   }
   $("kdvHazirla").addEventListener("click", function(){
@@ -2881,7 +2897,8 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var bitir = function(){ KR.calisiyor = false; btn.disabled = false; $("kdvDur").hidden = true; };
     var satisIs = m.earsiv === false ? Promise.resolve(null).then(function(){ sonuc.satisNot = "bu mükellef e-Arşiv fatura kullanmıyor"; return null; }) : kdvSatis(m, dn, function(t){ kdvDurumYaz(t); });
     satisIs.then(function(s){ sonuc.satis = s; if (KR.dur) return null; if (!VD.bagli || VD.mid !== m.id) return null; kdvDurumYaz("Gelen faturalar Dijital Vergi Dairesi’nden alınıyor…"); return kdvAlis(m, dn); })
-      .then(function(a){ sonuc.alis = a; kdvDurumYaz(KR.dur ? "Durduruldu; o ana kadarki sonuç gösteriliyor." : "", KR.dur ? "" : ""); kdvCiz(sonuc); kdvOzetGonder(m.id, dk, sonuc); bitir(); })
+      .then(function(a){ sonuc.alis = a; if (KR.dur || !VD.bagli || VD.mid !== m.id) return null; kdvDurumYaz("Z raporu (yazar kasa) Dijital Vergi Dairesi’nden alınıyor…"); return kdvZ(m, dn).catch(function(er){ if (oturumDustu(er)) throw er; sonuc.zNot = er.message; return null; }); })
+      .then(function(z){ sonuc.z = z; kdvDurumYaz(KR.dur ? "Durduruldu; o ana kadarki sonuç gösteriliyor." : "", KR.dur ? "" : ""); kdvCiz(sonuc); kdvOzetGonder(m.id, dk, sonuc); bitir(); })
       .catch(function(er){ bitir(); if (oturumDustu(er)) return; if (er.girisGerek) { VD.bagli = false; vdBagDurum(); } kdvDurumYaz(er.message, "hata"); if (sonuc.satis || sonuc.alis) kdvCiz(sonuc); });
   });
   $("kdvIkisi").addEventListener("click", function(){
@@ -3261,13 +3278,21 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     return '<div class="kayit" style="display:grid;gap:6px;border-left:5px solid ' + renk[tam[1]] + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>Vergi sağlığı</b><span style="font-weight:700;color:' + renk[tam[1]] + '">● ' + tam[0] + '</span></div>' +
       sat.map(function(x){ return '<div style="font-size:.86rem;display:flex;gap:8px;align-items:flex-start"><span style="color:' + renk[x[1]] + ';flex:none">●</span><span>' + esc(x[0]) + '</span></div>'; }).join("") + '</div>';
   }
+  /* Kâr durumu: son alınan Defter-Beyan hesap özeti (yalnız Defter-Beyan kullanan mükellefte) */
+  function karHtml(son, m){
+    if (!m || !m.defterBeyan) return ""; var h = son.hesapOzeti;
+    if (!h) return '<div class="kayit" style="display:grid;gap:4px"><b>Kâr / zarar durumu</b><span class="not" style="margin:0">Vergi D. → Hesap özeti’ni bir kez alınca son verilen beyana kadarki kâr/zarar burada görünür.</span></div>';
+    var b = new Date(h.bas + "T00:00:00"), e = new Date(h.bit + "T00:00:00"), kar = h.kar || 0, sonra = AYLAR_UZUN[(e.getMonth() + 1) % 12];
+    return '<div class="kayit" style="display:grid;gap:4px;border-left:5px solid ' + (kar < 0 ? "var(--danger)" : "var(--accent)") + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>' + AYLAR_UZUN[b.getMonth()] + "–" + AYLAR_UZUN[e.getMonth()] + " " + e.getFullYear() + ' ' + (kar < 0 ? "zarar" : "kâr") + '</b><b style="font-size:1.25rem;color:' + (kar < 0 ? "var(--danger)" : "var(--accent)") + '">' + anaTl(Math.abs(kar)) + '</b></div>' +
+      '<span class="not" style="margin:0">Gelir ' + anaTl(h.gelir || 0) + ' · gider ' + anaTl(h.gider || 0) + ' · ' + anaZaman(h.zaman) + ' alındı</span><span class="not" style="margin:0;font-size:.78rem">Defter-Beyan’a girilen verilere göredir. ' + sonra + ' ve sonrası için beyan verilip veri girilmediyse dahil değildir; güncel KDV durumu için aşağıdaki fatura özetine bakın.</span></div>';
+  }
   function anaCiz(r){
     r = r || {}; var son = r.son || {}, ofis = ROL === "ofis", m = mk(), now = new Date(), ad = m ? m.ad : "Mükellef Portalı";
     var h = '<div class="anahero"><div class="av">' + esc((String(ad).trim().charAt(0) || "M").toLocaleUpperCase("tr-TR")) + '</div><div style="min-width:0"><small>' + anaSelam() + (ROL === "mukellef" ? "" : " · ofis görünümü") + '</small><h2>' + esc(ad) + '</h2><small>' + now.getDate() + ' ' + AYLAR_UZUN[now.getMonth()] + ' ' + now.getFullYear() + ' · ' + GUNLER[now.getDay()] + '</small></div></div>';
     var kapali = duyuruKapali(); (DUYURU || []).filter(function(d){ return kapali.indexOf(d.id) < 0; }).forEach(function(d){
       h += '<div class="kayit" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start;border-left:4px solid var(--warn);background:var(--warn-soft)"><div><b style="font-size:.85rem">Ofisten duyuru</b><div style="overflow-wrap:anywhere;margin-top:2px">' + esc(d.metin) + '</div>' + (d.bitis ? '<small class="not">Son gün: ' + esc(d.bitis.split("-").reverse().join(".")) + '</small>' : "") + '</div><button class="k" type="button" data-dy-kapat="' + esc(d.id) + '" aria-label="Duyuruyu kapat" style="min-height:34px;padding:2px 10px">✕</button></div>';
     });
-    h += saglikHtml(son, m);
+    h += saglikHtml(son, m) + karHtml(son, m);
     var vb = son.vdBorc, sb = son.sgkBorc;
     var kutu = function(git, ikon, baslik, deger, alt, sinif){ return '<button type="button" data-git="' + git + '" class="' + sinif + '"><span class="ik">' + IKON[ikon] + '</span><span>' + baslik + '</span><b>' + deger + '</b><small>' + alt + '</small></button>'; };
     h += '<div><div class="abas"><b>' + IKON.durum + 'Son durum</b><small>Son sorguya göre</small></div><div class="ozet">' +
