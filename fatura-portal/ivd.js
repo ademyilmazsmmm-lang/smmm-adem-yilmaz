@@ -267,8 +267,11 @@ class Ivd {
     const simdi = trTarih().slice(0, 7), s3 = new Date(Date.UTC(+yil, +ay - 1 + 3, 1)), son = s3.getUTCFullYear() + "-" + String(s3.getUTCMonth() + 1).padStart(2, "0");
     const l = await this.tahakkukListe(yil + "-" + ay, son < simdi ? son : simdi);
     const donemAyi = (t) => { const m = /(\d{4})-(\d{2})/.exec(String(t || "")) || /(\d{2})[./](\d{4})/.exec(String(t || "")); return m ? (m[1].length === 4 ? m[1] + "-" + m[2] : m[2] + "-" + m[1]) : ""; };
-    const kdv = l.kayitlar.filter((k) => /KDV|katma/i.test(k.vergiKodu) && !/KDV\s*-?\s*2|tevkifat\s*iade/i.test(k.vergiKodu)), tam = kdv.filter((k) => donemAyi(k.vergiDonem) === yil + "-" + ay);
-    const secim = (tam.length ? tam : []).sort((a, b) => String(b.kabulTarihi).localeCompare(String(a.kabulTarihi)))[0];
+    /* KDV kaydı: vergi kodu 0015 ya da adında KDV / katma değer; dönem eşleşmezse (GİB biçimi farklıysa) kabul/düzenleme tarihi dönemi izleyen ayda olan KDV fişi alınır */
+    const kdv = l.kayitlar.filter((k) => (/\b0015\b|KDV|katma/i.test(k.vergiKodu)) && !/tevkifat\s*iade/i.test(k.vergiKodu)), tam = kdv.filter((k) => donemAyi(k.vergiDonem) === yil + "-" + ay);
+    const sonAy = new Date(Date.UTC(+yil, +ay, 1)), sonAyAnahtar = sonAy.getUTCFullYear() + "-" + String(sonAy.getUTCMonth() + 1).padStart(2, "0");
+    const yedek = kdv.filter((k) => !donemAyi(k.vergiDonem) && String(k.kabulTarihi || "").slice(0, 7) === sonAyAnahtar);
+    const secim = (tam.length ? tam : yedek).sort((a, b) => String(b.kabulTarihi).localeCompare(String(a.kabulTarihi)))[0];
     if (!secim) throw new Error(ay + "/" + yil + " dönemi için KDV tahakkuk fişi bulunamadı (beyanname verilmemiş ya da fiş henüz düşmemiş olabilir).");
     const pdf = await this.tahakkukIndir(secim.n), r = fisDevir(pdf.veri || pdf.buf || Buffer.alloc(0));
     return { donem: yil + "-" + ay, fisNo: secim.fisNo, yontem: r.yontem, satirlar: r.satirlar, adaylar: r.adaylar.slice(0, 3), tutar: r.tutar, metin: r.metin.replace(/\s+/g, " ").trim().slice(0, 700) };
