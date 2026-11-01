@@ -404,7 +404,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         </select></div>
     </div>
     <div class="alt" id="iadeAlan" hidden>
-      <p class="not"><b>İade faturasında iade edilen faturanın numarası ve tarihi zorunludur.</b> İade faturası, <b>aldığınız</b> bir faturadaki malı iade ederken karşı tarafa kesilir; asıl faturanın numarasını ve tarihini girin. Geçmiş ve “GİB’deki belgeler” listelerindeki <b>İade kes</b> düğmesi, seçilen faturanın numarasını ve tarihini kendisi doldurur (Geçmiş’ten gelirse alıcı ve satırlar da gelir). Hatalı kestiğiniz faturayı geri almak için <b>İptal</b> kullanın.</p>
+      <p class="not"><b>İade faturasında iade edilen faturanın numarası ve tarihi zorunludur.</b> İade faturası, <b>aldığınız</b> bir faturadaki malı iade ederken karşı tarafa kesilir; asıl faturanın numarasını ve tarihini girin. Kestiğiniz bir satış faturası iade edilmez; hatalıysa Geçmiş’ten <b>İptal</b> kullanın.</p>
       <div class="satir"><div><label for="iadeNo">İade edilen fatura no *</label><input id="iadeNo" autocomplete="off" placeholder="GIB2026000000023"></div><div><label for="iadeTarih">Düzenlenme tarihi *</label><input id="iadeTarih" type="date"></div></div>
     </div>
     <div class="satir">
@@ -1627,7 +1627,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     $("gecmisListe").innerHTML = liste.length ? liste.slice(0, gSayfa).map(function(x){
       var k = x.k, i = x.i, t = (k.tarih || "").split("-").reverse().join("/");
       return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " " + (PARASEM[k.para] || "₺"), esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad),
-        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-ge="' + i + '">E-posta</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (!x.iptal && k.tip !== "IADE" && k.belgeNo ? ' <button class="k" type="button" data-gi="' + i + '">İade kes</button>' : "") + (x.iptal ? ' <small class="iptalyazi" style="font-size:.68rem">TALEP GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>', x.iptal, tahBlok(k, i));
+        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-ge="' + i + '">E-posta</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (x.iptal ? ' <small class="iptalyazi" style="font-size:.68rem">TALEP GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>', x.iptal, tahBlok(k, i));
     }).join("") : '<p class="not">' + (gecmis.length ? "Filtreye uyan fatura yok." : "Bu programdan kesilen fatura henüz yok.") + '</p>';
     $("gDaha").hidden = liste.length <= gSayfa; $("gDaha").textContent = "Daha fazla göster (" + Math.max(0, liste.length - gSayfa) + " fatura daha)";
   }
@@ -1691,7 +1691,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
     }
     if (gs != null) { var kg = gecmis[+gs]; return paylas(kg.mukellefId || mSec, kg.id, "Onaylandı", kg.belgeNo, "gDurum"); }
     if (ip != null) { var kp = gecmis[+ip]; mSec = kp.mukellefId || mSec; return belgeIslemi("iptal", kp.id, kp.tarih, (kp.belgeNo || "Fatura") + " — " + kp.aliciUnvan); }
-    var gi = e.target.getAttribute("data-gi"); if (gi != null) return tekrarla(gecmis[+gi], true);
     if (t != null) return tekrarla(gecmis[+t]);
     var i = e.target.getAttribute("data-gk"); if (i == null) return;
     var k = gecmis[+i]; resmiGoster(k.mukellefId, k.id, k);
@@ -1727,7 +1726,7 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       d.textContent = r.belgeler.length + " belge bulundu.";
       $("gibListe").innerHTML = r.belgeler.map(function(b, i){
         var yerel = gecmis.some(function(k){ return k.id === b.ettn; });
-        return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" && b.talep === "" ? ' <button class="k" type="button" data-gps="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '">Paylaş</button>' + (MAILHAZIR ? ' <button class="k" type="button" data-gpe="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '" data-gpa="' + esc(b.alici) + '" data-gpt="' + esc(b.tarih) + '">E-posta</button>' : "") + ' <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button> <button class="k" type="button" data-gi2="' + esc(b.ettn) + '" data-gin="' + esc(b.belgeNo) + '" data-git="' + esc(b.tarih) + '">İade kes</button>' : "") + '</span>' : "", b.talep !== "");
+        return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" && b.talep === "" ? ' <button class="k" type="button" data-gps="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '">Paylaş</button>' + (MAILHAZIR ? ' <button class="k" type="button" data-gpe="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '" data-gpa="' + esc(b.alici) + '" data-gpt="' + esc(b.tarih) + '">E-posta</button>' : "") + ' <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button>' : "") + '</span>' : "", b.talep !== "");
       }).join(""); sonucaGit("gibListe");
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
   });
@@ -1755,15 +1754,6 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
       return epostaGonder(yk.mukellefId || mSec, pe, e.target.getAttribute("data-gpn"), "gDurum", adr, { alici: e.target.getAttribute("data-gpa"), belgeNo: e.target.getAttribute("data-gpn"), tarih: e.target.getAttribute("data-gpt") });
     }
     if (ip) return belgeIslemi("iptal", ip, e.target.getAttribute("data-gt2"), "Seçilen fatura");
-    var gi2 = e.target.getAttribute("data-gi2");
-    if (gi2) {
-      var yk2 = gecmis.filter(function(k){ return k.id === gi2; })[0]; if (yk2) return tekrarla(yk2, true);
-      /* programdan kesilmemiş fatura: yalnız iade edilen fatura no ve tarihi doldurulur, alıcı ve satırlar elle girilir */
-      var tt = String(e.target.getAttribute("data-git") || "").split(/[-\/.]/), iso = tt.length === 3 ? (tt[0].length === 4 ? tt.join("-") : tt[2] + "-" + tt[1] + "-" + tt[0]) : "";
-      F.tip = "IADE"; formDoldur(); $("iadeNo").value = e.target.getAttribute("data-gin") || ""; $("iadeTarih").value = iso; $("tarih").value = bugunStr(); onizle();
-      ["aliciKart", "bilgiKart", "malKart"].forEach(function(i){ $(i).open = true; }); sekme("yeni"); $("aliciKart").scrollIntoView({ behavior: "smooth" });
-      durum("İade faturası için " + (e.target.getAttribute("data-gin") || "fatura") + " numarası ve tarihi dolduruldu. Alıcıyı ve iade edilen satırları girip taslak kaydedin.", "ok"); return;
-    }
     var id = e.target.getAttribute("data-ge"); if (!id) return;
     var yerel = gecmis.filter(function(k){ return k.id === id; })[0];
     resmiGoster(yerel ? yerel.mukellefId : mSec, id, yerel || null);
