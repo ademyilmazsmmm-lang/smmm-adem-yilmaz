@@ -2961,6 +2961,20 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     (function sonraki(){ if (i >= sira.length) return; KR.donem = sira[i++]; kdvEtiket(); $("kdvHazirla").click(); var bekle = setInterval(function(){ if (!KR.calisiyor) { clearInterval(bekle); if (!KR.dur) sonraki(); } }, 400); })();
   });
   $("kdvDur").addEventListener("click", function(){ KR.dur = true; });
+  /* Ana ekrandan: önceki ve cari ay fatura özeti (KDV raporu) sırayla kendiliğinden hazırlanır; ilerleme yazısı ilerle(metin) ile verilir, hata varsa metni döner */
+  function kdvOto(ilerle){
+    return new Promise(function(ok){
+      if (KR.calisiyor) return ok(""); var sira = ["onceki", "cari"], i = 0, hata = "", eski = KR.donem;
+      (function sonraki(){
+        if (i >= sira.length) { KR.donem = eski; try { kdvEtiket(); } catch (e) { /* ekran yok */ } return ok(hata); }
+        KR.donem = sira[i++]; kdvEtiket(); $("kdvDurum").className = "durum"; $("kdvDurum").textContent = ""; $("kdvHazirla").click();
+        var bekle = setInterval(function(){
+          var t = $("kdvDurum").textContent; if (KR.calisiyor) { if (t) ilerle(t); return; }
+          clearInterval(bekle); if ($("kdvDurum").className.indexOf("hata") >= 0 && t && !hata) hata = t; sonraki();
+        }, 400);
+      })();
+    });
+  }
   function vdCiz(){
     var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
     if (VD.sek === "zrapor") { liste.innerHTML = (s && s.bildirimler ? '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdZHtml(s) : '<p class="not">Yıl ve ayı seçip “Sorgula”ya basın.</p>') + (ROL === "ofis" && VD.bagli ? '<details class="alt2"><summary>Geliştirme aracı</summary><div class="icerik"><button class="k" type="button" id="vdZOku">İnternet VD sayfasını oku (geliştirme)</button></div></details>' : "") + (VD.sonuc.zraporDev ? isvHtml(VD.sonuc.zraporDev, "İnternet Vergi Dairesi · Z raporu") : ""); tani.hidden = true; return; }
@@ -3391,7 +3405,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function tebOzetGonder(mid, r){ try { api("/api/son", "POST", { mukellefId: mid, tebligat: tebSayim(r && r.kayitlar) }).then(function(){ if (OZET && OZET.mid === mid) { OZET.son = OZET.son || {}; OZET.son.tebligat = Object.assign(tebSayim(r.kayitlar), { zaman: new Date().toISOString() }); if (aktifSekme === "ana") anaCiz(OZET); } }, function(){}); } catch (e) { /* özet isteğe bağlı */ } }
   function guncGerek(son, m){
     var k = (m && m.sgk) || {}, sgkVar = !!(k.kullanici && k.isyeriKod && k.sistemVar && k.isyeriVar), sinir = Date.now() - 24 * 3600e3, eski = function(x){ var t = x && x.zaman ? new Date(x.zaman).getTime() : 0; return !t || t < sinir; };
-    return eski(son.vdBorc) || eski(son.tebligat) || (sgkVar && eski(son.sgkBorc)) || (!!m && !!m.defterBeyan && eski(son.hesapOzeti));
+    return eski(son.vdBorc) || eski(son.tebligat) || (sgkVar && eski(son.sgkBorc)) || (!!m && !!m.defterBeyan && eski(son.hesapOzeti)) || (!!m && m.earsiv !== false && eski(son.kdv && son.kdv.onceki));
   }
   function guncGoster(son){
     var el = $("anaGunc"), m = mk(); if (!m || GUNC.gizle[m.id] || GUNC.calisiyor && GUNC.mid === m.id) { if (!(GUNC.calisiyor && m && GUNC.mid === m.id)) el.hidden = true; return; }
@@ -3426,6 +3440,9 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       }).then(function(){
         if (m.earsiv === false) return; var dn = kdvDonemler()[new Date().getDate() >= 28 ? "cari" : "onceki"];
         return kdvDevirTahakkuk(m, kdvDevirKey(dn)).then(function(x){ if (x && x.tutar != null) sonuc.push("KDV devri"); }, function(er){ if (oturumDustu(er)) return; hata.push("KDV devri: " + er.message); });
+      }).then(function(){
+        if (m.earsiv === false || VD.mid !== m.id) return;
+        return kdvOto(function(t){ d.className = "durum"; d.textContent = "Fatura özeti: " + t; }).then(function(h){ if (h) hata.push("Fatura özeti: " + h); else sonuc.push("fatura özeti"); return new Promise(function(r){ setTimeout(r, 700); }); });
       });
     }
     var sgkIs = !VD.sgkB["isveren|0"] ? Promise.resolve() : api("/api/sgk/sayfa", "POST", { mukellefId: m.id, sistem: "isveren", ix: 0, ad: "DonemBorcGoruntuleme" }).then(function(){ sonuc.push("SGK borcu"); }, function(er){ hata.push("SGK borcu: " + er.message); });
