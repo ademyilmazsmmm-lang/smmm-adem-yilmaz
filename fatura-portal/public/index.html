@@ -2667,11 +2667,11 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     return '<div style="display:flex;flex-wrap:wrap;gap:8px">' + kutu("Toplam borç", k.toplam, "#34495e", true) + kutu("Vadesi geçmiş", k.gecmis, "#c0392b") + kutu("Vadesi gelmemiş", k.gecmemis, "#2f7d6b") + '</div>' + (k.zaman ? '<p class="not" style="margin:0">GİB hesaplama zamanı: ' + esc(degerYaz("zaman", k.zaman)) + '</p>' : "");
   }
   /* ---- Tahakkuk / Araç / POS / SMS telefonu ---- */
-  function ayAdi(t){ var d = tarihAl(t); return d ? AYLAR_UZUN[d.getMonth()] + " " + d.getFullYear() : String(t || ""); }
+  function ayAdi(t){ var yy = /^(\d{4})(0[1-9]|1[0-2])(?:\d{6})?$/.exec(String(t || "")); if (yy) return AYLAR_UZUN[+yy[2] - 1] + " " + yy[1]; var d = tarihAl(t); return d ? AYLAR_UZUN[d.getMonth()] + " " + d.getFullYear() : String(t || ""); }
   function vdThkHtml(s){
     if (!s.kayitlar.length) return '<p class="not">Bu aylarda tahakkuk kaydı bulunamadı.</p>';
     return s.kayitlar.map(function(d){
-      return '<div class="kayit" style="display:flex;gap:10px;justify-content:space-between;align-items:center"><div style="min-width:0"><b>' + esc(d.vergiKodu || "Tahakkuk") + '</b><div class="not" style="margin:0;font-size:.8rem;overflow-wrap:anywhere">' + esc([ayAdi(d.vergiDonem) + " dönemi", d.kabulTarihi ? "kabul " + tarihYaz(d.kabulTarihi) : "", d.fisNo ? "fiş " + d.fisNo : ""].filter(Boolean).join(" · ")) + (d.vdAdi ? '<br>' + esc(tebAd(d.vdAdi)) : "") + '</div></div>' +
+      return '<div class="kayit" style="display:flex;gap:10px;justify-content:space-between;align-items:center"><div style="min-width:0"><b>' + esc(d.vergiKodu || "Tahakkuk") + '</b><div class="not" style="margin:0;font-size:.8rem;overflow-wrap:anywhere">' + esc([ayAdi(d.vergiDonem) + " dönemi", d.kabulTarihi ? "kabul " + tarihYaz(d.kabulTarihi) : (/^\d{8}/.test(d.fisNo || "") ? "düzenleme " + d.fisNo.slice(6, 8) + "." + d.fisNo.slice(4, 6) + "." + d.fisNo.slice(0, 4) : ""), d.fisNo ? "fiş " + d.fisNo : ""].filter(Boolean).join(" · ")) + (d.vdAdi ? '<br>' + esc(tebAd(d.vdAdi)) : "") + '</div></div>' +
         '<a class="btn" style="min-height:42px;padding:6px 16px;text-decoration:none;flex:none" target="_blank" rel="noopener" href="/api/vd/tahakkuk?mid=' + encodeURIComponent(VD.mid) + '&n=' + d.n + '">PDF</a></div>';
     }).join("");
   }
