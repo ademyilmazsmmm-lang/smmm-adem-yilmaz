@@ -1595,6 +1595,30 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     return null;
   }
   /* Geçmiş listesi: arama, durum, tip, tarih ve mükellef filtresi; özet satırında adet ve para birimine göre toplam */
+  /* Alacak takibi: tahsil edilmemiş faturalar alıcı bazında; 30 günü geçenler "gecikmiş" sayılır. Hatırlatma metni WhatsApp / e-posta ile gönderilir (banka bilgisi profilden eklenir). */
+  var ALACAK = [], ALACAK_VADE = 30, ALACAK_ACIK = false;
+  function alacakGrupla(mk2){
+    var bugun = new Date(bugunStr() + "T00:00:00"), g = {};
+    gecmis.forEach(function(k){
+      if (mk2 && k.mukellefId !== mk2) return; var d = tahDurum(k); if (!d.uygun || d.kalan <= 0) return;
+      var anah = (k.mukellefId || "") + "|" + (k.aliciVkn || k.aliciUnvan), a = g[anah] = g[anah] || { ad: k.aliciUnvan, vkn: k.aliciVkn, eposta: k.aliciEposta || "", mid: k.mukellefId, para: k.para || "TRY", kalan: 0, adet: 0, eski: 0, kalemler: [] };
+      var gun = Math.max(0, Math.round((bugun - new Date(k.tarih + "T00:00:00")) / 864e5)); a.kalan += d.kalan; a.adet++; a.eski = Math.max(a.eski, gun); a.kalemler.push({ no: k.belgeNo, tarih: k.tarih, kalan: d.kalan, gun: gun });
+      if (!a.eposta && k.epostalar && k.epostalar.length) a.eposta = k.epostalar[k.epostalar.length - 1].to;
+    });
+    return Object.keys(g).map(function(x){ return g[x]; }).sort(function(a, b){ return b.eski - a.eski; });
+  }
+  function alacakMetni(a){
+    var m = mBul(a.mid) || {}, pb = PARASEM[a.para] || a.para, satir = a.kalemler.map(function(x){ return (x.no || "Fatura") + " (" + x.tarih.split("-").reverse().join(".") + ") " + fmt(x.kalan) + " " + pb; }).join(", ");
+    return "Sayın " + a.ad + ", " + (m.ad || "firmamız") + " tarafından kesilen " + satir + " tutarındaki fatura tahsilatını bekliyoruz (toplam " + fmt(a.kalan) + " " + pb + ")." + ((m.profil && m.profil.banka) ? " Ödemeyi şu hesaba yapabilirsiniz: " + m.profil.banka + "." : "") + " Ödemeniz yapıldıysa lütfen dikkate almayınız. Teşekkür ederiz.";
+  }
+  function alacakHtml(mk2){
+    ALACAK = alacakGrupla(mk2); if (!ALACAK.length) return "";
+    var top = {}; ALACAK.forEach(function(a){ top[a.para] = (top[a.para] || 0) + a.kalan; }); var gec = ALACAK.filter(function(a){ return a.eski > ALACAK_VADE; }).length;
+    return '<details class="alt2" id="alacakKart"' + (ALACAK_ACIK ? " open" : "") + '><summary>Alacaklarım · ' + Object.keys(top).map(function(pb){ return fmt(top[pb]) + " " + (PARASEM[pb] || pb); }).join(" + ") + ' <small>(' + ALACAK.length + ' alıcı' + (gec ? ", " + gec + " gecikmiş" : "") + ')</small></summary><div class="icerik">' +
+      '<p class="not" style="margin:0">Tahsil edilmemiş faturalar alıcı bazında; en eskisi üstte. ' + ALACAK_VADE + ' günü geçenler gecikmiş sayılır. Hatırlat’a basınca hazır mesaj açılır.</p>' +
+      ALACAK.map(function(a, i){ return '<div class="kayit" style="padding:10px 12px;display:grid;gap:6px;border-left:4px solid ' + (a.eski > ALACAK_VADE ? "var(--danger)" : "var(--warn)") + '"><b>' + esc(a.ad) + '</b><span class="not" style="margin:0">' + fmt(a.kalan) + " " + (PARASEM[a.para] || a.para) + ' · ' + a.adet + ' fatura · en eskisi ' + a.eski + ' gün' + (a.eski > ALACAK_VADE ? " (gecikmiş)" : "") + '</span>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="k" type="button" data-ala-wa="' + i + '">WhatsApp ile hatırlat</button>' + (a.eposta ? '<button class="k" type="button" data-ala-ep="' + i + '">E-posta ile hatırlat</button>' : "") + '<button class="k" type="button" data-ala-kopya="' + i + '">Metni kopyala</button></div></div>'; }).join("") + '</div></details>';
+  }
   function gecmisCiz(){
     var ara = trk($("gAra").value).trim(), dur = $("gDurumF").value, tip = $("gTipF").value, tr = gTarihAraligi(), mk2 = (ROL === "ofis" || COKLU) ? (mSec || "") : "";
     var liste = [];
@@ -1614,6 +1638,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var kutu = function(b, t, a, c){ return '<div style="flex:1 1 130px;border-left:5px solid ' + c + ';background:color-mix(in srgb,' + c + ' 12%,transparent);border-radius:10px;padding:9px 12px"><div class="not" style="margin:0;font-size:.78rem;font-weight:600">' + b + '</div><div style="font-size:1.02rem;font-weight:700;line-height:1.3">' + esc(t) + '</div><div class="not" style="margin:0;font-size:.76rem">' + a + '</div></div>'; };
     var cip = function(ad, n, a){ return '<button class="chip" type="button" data-gtah="' + a + '" aria-pressed="' + (gTahF === a) + '" style="min-height:34px;padding:5px 12px;font-size:.84rem">' + ad + " " + n + '</button>'; };
     $("gTah").innerHTML = nUygun ? '<div style="display:flex;gap:8px;flex-wrap:wrap">' + kutu("Bekleyen tahsilat", topla(bek), nBek + " fatura", "#d68910") + kutu("Tahsil edilen", topla(tah), nTah + " fatura", "#2f7d6b") + '</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + cip("Tümü", liste.length, "hepsi") + cip("Bekleyen", nBek, "bekleyen") + cip("Tahsil edildi", nTah, "tahsil") + '</div>' : "";
+    $("gTah").insertAdjacentHTML("beforeend", alacakHtml(mk2));
     if (gTahF === "bekleyen") liste = liste.filter(function(x){ return x.td.uygun && x.td.kalan > 0; });
     else if (gTahF === "tahsil") liste = liste.filter(function(x){ return x.td.uygun && x.td.tam; });
     var top = {}; liste.forEach(function(x){ if (x.iptal) return; var pb = x.k.para || "TRY"; top[pb] = (top[pb] || 0) + (x.k.hesap && x.k.hesap.odenecek || 0); });
@@ -1670,6 +1695,13 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     tahIstek(tahI, { islem: "ekle", tarih: $("tahTarih").value, yontem: $("tahYontem").value, not: $("tahNot").value.trim() }, d, this).then(function(ok){ if (ok) tahKapat(); });
   });
   $("gFiltre").addEventListener("click", function(e){ var c = e.target.closest("[data-gtah]"); if (!c) return; gTahF = c.getAttribute("data-gtah"); gSayfa = 30; gecmisCiz(); });
+  $("gTah").addEventListener("toggle", function(e){ if (e.target.id === "alacakKart") ALACAK_ACIK = e.target.open; }, true);
+  $("gTah").addEventListener("click", function(e){
+    var t = e.target.closest("[data-ala-wa],[data-ala-ep],[data-ala-kopya]"); if (!t) return; var i = +(t.getAttribute("data-ala-wa") || t.getAttribute("data-ala-ep") || t.getAttribute("data-ala-kopya")), a = ALACAK[i]; if (!a) return; var metin = alacakMetni(a);
+    if (t.hasAttribute("data-ala-wa")) { window.open("https://wa.me/?text=" + encodeURIComponent(metin), "_blank", "noopener"); return; }
+    if (t.hasAttribute("data-ala-ep")) { window.location.href = "mailto:" + a.eposta + "?subject=" + encodeURIComponent("Fatura tahsilatı hatırlatması") + "&body=" + encodeURIComponent(metin); return; }
+    try { navigator.clipboard.writeText(metin); t.textContent = "Kopyalandı"; } catch (x) { prompt("Metni kopyalayın:", metin); }
+  });
   $("gecmisListe").addEventListener("click", function(e){
     var th = e.target.getAttribute("data-gth"), tg = e.target.getAttribute("data-gtg");
     if (th != null) return tahAc(+th);
@@ -1962,6 +1994,22 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   /* ---- çalışanlar (yalnız ofis): hesap aç, mükellef ata, şifre sıfırla, sil ---- */
   var PERS = [];
+  var DY = null;
+  function duyuruSatirlar(){
+    if (!DY) return '<p class="not" style="margin:0">Yükleniyor…</p>'; if (!DY.length) return '<p class="not" style="margin:0">Yayında duyuru yok.</p>';
+    return DY.map(function(d){ return '<div class="kayit" style="padding:10px 12px;display:grid;gap:4px"><span style="overflow-wrap:anywhere">' + esc(d.metin) + '</span><span class="not" style="margin:0">' + (d.bitis ? "Son gün: " + esc(d.bitis.split("-").reverse().join(".")) : "Süresiz") + '</span><button class="k" type="button" data-dy-sil="' + esc(d.id) + '" style="justify-self:start">Sil</button></div>'; }).join("");
+  }
+  /* "Aylık evrak hatırlatması": 20'sine kadarsa önceki ayın, sonrasında içinde bulunulan ayın evrakları sonraki ayın 20'sine kadar istenir */
+  function evrakMetni(){
+    var n = new Date(), gun = n.getDate(), ay = n.getMonth(), yil = n.getFullYear(), hedefAy = gun <= 20 ? ay : ay + 1, evrakAy = gun <= 20 ? (ay + 11) % 12 : ay, hy = hedefAy > 11 ? yil + 1 : yil; hedefAy = hedefAy % 12;
+    return { metin: AYLAR_UZUN[evrakAy] + " ayı evraklarınızı (satış/alış faturaları, fişler, gider belgeleri) " + AYLAR_UZUN[hedefAy] + " ayının 20’sine kadar bize ulaştırın.", bitis: hy + "-" + String(hedefAy + 1).padStart(2, "0") + "-20" };
+  }
+  function duyuruHtml(){
+    return '<details class="grup" data-ak="g:dy"' + ac("g:dy") + '><summary>Duyurular <small id="dySay">' + (DY ? DY.length : "") + '</small></summary><div class="icerik"><p class="not" style="margin:0">Yazdığınız duyuru tüm mükelleflerin ana ekranında görünür; son gün geçince kendiliğinden kalkar.</p>' +
+      '<textarea id="dyMetin" rows="3" maxlength="400" placeholder="Duyuru metni" aria-label="Duyuru metni"></textarea><div class="satir"><div><label>Son gün (isteğe bağlı)</label><input id="dyBitis" type="date"></div><div style="align-self:end"><button class="k" type="button" id="dyEvrak">Aylık evrak hatırlatması yaz</button></div></div>' +
+      '<button class="btn" type="button" id="dyEkle">Duyuruyu yayınla</button><div class="durum" id="dyDurum" role="status"></div><div id="dyListe" style="display:grid;gap:8px">' + duyuruSatirlar() + '</div></div></details>';
+  }
+  function duyuruAyarYukle(){ api("/api/duyuru").then(function(r){ DY = r.duyurular; var l = $("dyListe"); if (l) l.innerHTML = duyuruSatirlar(); var c = $("dySay"); if (c) c.textContent = DY.length; }, function(er){ oturumDustu(er); }); }
   var HT = null;
   function htSatirlar(){
     if (!HT) return '<p class="not" style="margin:0">Yükleniyor…</p>';
@@ -2217,7 +2265,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function cizAyar(){
     var ofis = ROL === "ofis", h = hesabimHtml();
     if (ofis && PERSONEL) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mAraHtml() + mAyarListe() + '</div></details>';
-    else if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + topluHtml() + mukerrerHtml() + iaTopluHtml() + mAraHtml() + mAyarListe() + '</div></details>' + personelHtml() + htHtml() + yedekHtml();
+    else if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + topluHtml() + mukerrerHtml() + iaTopluHtml() + mAraHtml() + mAyarListe() + '</div></details>' + personelHtml() + htHtml() + duyuruHtml() + yedekHtml();
     else h += V.mukellefler.map(mukellefAyarHtml).join("");
     h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
     $("ayarIc").innerHTML = h; mAyAraUygula(); sifreleriHazirla($("ayarIc")); yedekYazi(); yansiYazi(); if (ROL === "ofis" && !PERSONEL) personelYukle();
@@ -2317,6 +2365,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   $("ayarIc").addEventListener("toggle", function(e){
     var k = e.target.getAttribute && e.target.getAttribute("data-ak"); if (!k) return; ayarAcik[k] = e.target.open;
     if (e.target.open && k === "g:ht") htYukle();
+    if (e.target.open && k === "g:dy") duyuruAyarYukle();
     if (e.target.open && /^pf:/.test(k)) { var pid0 = k.slice(3); if (!PROF_GIB[pid0]) { PROF_GIB[pid0] = true; profilGibdenDoldur(pid0, false, true).then(function(){ if (!PROF_SICIL[pid0] && VD.bagli && VD.mid === pid0) { PROF_SICIL[pid0] = true; profilSicilDoldur(pid0, false, true); } }, function(){ if (!PROF_SICIL[pid0] && VD.bagli && VD.mid === pid0) { PROF_SICIL[pid0] = true; profilSicilDoldur(pid0, false, true); } }); } else if (!PROF_SICIL[pid0] && VD.bagli && VD.mid === pid0) { PROF_SICIL[pid0] = true; profilSicilDoldur(pid0, false, true); } }
     if (e.target.open && e.target.parentElement) [].slice.call(e.target.parentElement.children).forEach(function(c){ if (c !== e.target && c.tagName === "DETAILS" && c.open) { c.open = false; var ck = c.getAttribute("data-ak"); if (ck) ayarAcik[ck] = false; } }); /* aynı düzeyde yalnız biri açık */
     if (e.target.open && /^ku?:/.test(k) && !MARKA[k.replace(/^ku?:/, "")]) markaYukle(k.replace(/^ku?:/, "")).then(function(){ if (ayarAcik[k]) cizAyar(); }); // yalnız ilk açılışta; yeniden çizim toggle’ı tekrar tetikler
@@ -2397,6 +2446,9 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       api("/api/mukellef/sil", "POST", { mid: id }).then(function(r){ V = r.veri; if (mSec === id) mSec = V.mukellefler[0] ? V.mukellefler[0].id : null; F.alici = ""; hepsi(); gecmisYukle(); }, function(er){ ayarHata($("ayarDurum"), er); });
       return;
     }
+    if (t.id === "dyEvrak") { var ev = evrakMetni(); $("dyMetin").value = ev.metin; $("dyBitis").value = ev.bitis; return; }
+    if (t.id === "dyEkle") { var dd = $("dyDurum"); dd.className = "durum"; dd.textContent = "Yayınlanıyor…"; api("/api/duyuru/ekle", "POST", { metin: $("dyMetin").value, bitis: $("dyBitis").value }).then(function(r){ DY = r.duyurular; $("dyMetin").value = ""; $("dyBitis").value = ""; dd.className = "durum ok"; dd.textContent = "Yayınlandı."; $("dyListe").innerHTML = duyuruSatirlar(); $("dySay").textContent = DY.length; }, function(er){ if (!oturumDustu(er)) { dd.className = "durum hata"; dd.textContent = er.message; } }); return; }
+    if ((id = t.getAttribute("data-dy-sil"))) { api("/api/duyuru/sil", "POST", { id: id }).then(function(r){ DY = r.duyurular; $("dyListe").innerHTML = duyuruSatirlar(); $("dySay").textContent = DY.length; }, function(er){ ayarHata($("ayarDurum"), er); }); return; }
     if ((id = t.getAttribute("data-ht-sil"))) { api("/api/hesap-talep/sil", "POST", { id: id }).then(function(r){ HT = r.talepler; var l = $("htListe"); if (l) l.innerHTML = htSatirlar(); var c = $("htSay"); if (c) c.textContent = HT.length; if (OZET) { OZET.hesapTalep = HT.length; } }, function(er){ ayarHata($("ayarDurum"), er); }); return; }
     if ((id = t.getAttribute("data-bir-ana"))) {
       var grp = String(t.getAttribute("data-bir-grup") || "").split(",").filter(function(x){ return x && x !== id; }), sec = mBul(id), dig = grp.map(mBul).filter(Boolean), bd = $("birDurum");
@@ -3177,6 +3229,10 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   function anaTl(n){ return Number(n || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " TL"; }
   function anaZaman(z){ if (!z) return ""; var d = new Date(z); return isNaN(d) ? "" : d.getDate() + " " + AYLAR[d.getMonth()] + " " + p2(d.getHours()) + ":" + p2(d.getMinutes()); }
+  /* Duyurular (ofis yazar; mükellef ✕ ile kendi cihazında kapatır) */
+  var DUYURU = [];
+  function duyuruKapali(){ try { return JSON.parse(localStorage.getItem("duyuruKapali") || "[]"); } catch (e) { return []; } }
+  function duyuruYukle(){ api("/api/duyuru").then(function(r){ DUYURU = r.duyurular || []; if (aktifSekme === "ana") anaCiz(OZET || {}); }, function(){}); }
   var OZET = null, KIRA = null, KIRA_ZAMAN = 0, ANA_TARIH_ACIK = false; try { ANA_TARIH_ACIK = localStorage.getItem("anaTarihAcik") === "1"; } catch (e) { /* kayıt yok */ }
   function kiraHtml(k){
     return '<div><div class="abas"><b>' + IKON.durum + 'Güncel kira artış oranı</b><small>' + esc(k.ay) + '</small></div><div class="ozet"><div class="kiraoran"><span>Konut (ev) kirası</span><b>' + esc(k.konut) + '</b></div><div class="kiraoran"><span>İşyeri kirası</span><b>' + esc(k.isyeri) + '</b></div></div><p class="not" style="margin:8px 2px 0;font-size:.78rem">TÜFE 12 aylık ortalama · yasal kira artış tavanı. Her ay güncellenir.</p></div>';
@@ -3192,9 +3248,26 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     saat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
   };
   function anaSelam(){ var h = new Date().getHours(); return h < 6 ? "İyi geceler" : h < 12 ? "Günaydın" : h < 18 ? "İyi günler" : "İyi akşamlar"; }
+  /* Vergi sağlığı özeti: son sorgulardaki verilerden yeşil / sarı / kırmızı değerlendirme (yeni sorgu yapmaz) */
+  function saglikHtml(son, m){
+    var sat = [], renk = { iyi: "var(--accent)", uyari: "var(--warn)", kotu: "var(--danger)", yok: "var(--muted)" }, seviye = 0, say = function(t, x){ sat.push([t, x]); seviye = Math.max(seviye, x === "kotu" ? 3 : x === "uyari" ? 2 : x === "yok" ? 1 : 0); };
+    var vb = son.vdBorc, sb = son.sgkBorc, tb = son.tebligat, sgkVar = !!(m && m.sgk && m.sgk.kullanici);
+    if (!vb) say("Vergi borcu henüz sorgulanmadı", "yok"); else say(vb.toplam > 0 ? "Vergi borcu var: " + anaTl(vb.toplam) : "Vergi borcu yok", vb.toplam > 0 ? "kotu" : "iyi");
+    if (sgkVar) { if (!sb) say("SGK borcu henüz sorgulanmadı", "yok"); else say(sb.toplam > 0 ? "SGK borcu var: " + anaTl(sb.toplam) : "SGK borcu yok", sb.toplam > 0 ? "kotu" : "iyi"); }
+    if (!tb) say("Tebligatlar henüz sorgulanmadı", "yok"); else if (tb.onemli > 0 && tb.okunmadi > 0) say(tb.okunmadi + " okunmamış tebligat, " + tb.onemli + " önemli", "uyari"); else if (tb.okunmadi > 0) say(tb.okunmadi + " okunmamış tebligat", "uyari"); else say("Okunmamış tebligat yok", "iyi");
+    var zam = [vb, sgkVar ? sb : null, tb].filter(Boolean).map(function(x){ return new Date(x.zaman).getTime(); }).filter(Boolean), eski = zam.length ? Math.round((Date.now() - Math.min.apply(null, zam)) / 864e5) : 0;
+    if (eski > 7) say("Bilgiler " + eski + " gün önceki sorgudan; yenilemek iyi olur", "uyari");
+    var tam = seviye >= 3 ? ["Acil", "kotu"] : seviye === 2 ? ["Dikkat", "uyari"] : seviye === 1 ? ["Eksik bilgi", "yok"] : ["İyi", "iyi"];
+    return '<div class="kayit" style="display:grid;gap:6px;border-left:5px solid ' + renk[tam[1]] + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>Vergi sağlığı</b><span style="font-weight:700;color:' + renk[tam[1]] + '">● ' + tam[0] + '</span></div>' +
+      sat.map(function(x){ return '<div style="font-size:.86rem;display:flex;gap:8px;align-items:flex-start"><span style="color:' + renk[x[1]] + ';flex:none">●</span><span>' + esc(x[0]) + '</span></div>'; }).join("") + '</div>';
+  }
   function anaCiz(r){
     r = r || {}; var son = r.son || {}, ofis = ROL === "ofis", m = mk(), now = new Date(), ad = m ? m.ad : "Mükellef Portalı";
     var h = '<div class="anahero"><div class="av">' + esc((String(ad).trim().charAt(0) || "M").toLocaleUpperCase("tr-TR")) + '</div><div style="min-width:0"><small>' + anaSelam() + (ROL === "mukellef" ? "" : " · ofis görünümü") + '</small><h2>' + esc(ad) + '</h2><small>' + now.getDate() + ' ' + AYLAR_UZUN[now.getMonth()] + ' ' + now.getFullYear() + ' · ' + GUNLER[now.getDay()] + '</small></div></div>';
+    var kapali = duyuruKapali(); (DUYURU || []).filter(function(d){ return kapali.indexOf(d.id) < 0; }).forEach(function(d){
+      h += '<div class="kayit" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start;border-left:4px solid var(--warn);background:var(--warn-soft)"><div><b style="font-size:.85rem">Ofisten duyuru</b><div style="overflow-wrap:anywhere;margin-top:2px">' + esc(d.metin) + '</div>' + (d.bitis ? '<small class="not">Son gün: ' + esc(d.bitis.split("-").reverse().join(".")) + '</small>' : "") + '</div><button class="k" type="button" data-dy-kapat="' + esc(d.id) + '" aria-label="Duyuruyu kapat" style="min-height:34px;padding:2px 10px">✕</button></div>';
+    });
+    h += saglikHtml(son, m);
     var vb = son.vdBorc, sb = son.sgkBorc;
     var kutu = function(git, ikon, baslik, deger, alt, sinif){ return '<button type="button" data-git="' + git + '" class="' + sinif + '"><span class="ik">' + IKON[ikon] + '</span><span>' + baslik + '</span><b>' + deger + '</b><small>' + alt + '</small></button>'; };
     h += '<div><div class="abas"><b>' + IKON.durum + 'Son durum</b><small>Son sorguya göre</small></div><div class="ozet">' +
@@ -3218,7 +3291,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   function anaAc(){
     if (Date.now() - KIRA_ZAMAN > 30 * 60e3) { KIRA_ZAMAN = Date.now(); api("/api/kira-orani").then(function(r){ if (r.oran) { KIRA = r.oran; if (aktifSekme === "ana") anaCiz(OZET || {}); } }, function(){}); }
-    var m = mk(); anaCiz(OZET && OZET.mid === (m && m.id) ? OZET : {});
+    duyuruYukle(); var m = mk(); anaCiz(OZET && OZET.mid === (m && m.id) ? OZET : {});
     if (!m && ROL !== "ofis") return;
     api("/api/ozet" + (m ? "?mid=" + encodeURIComponent(m.id) : "")).then(function(r){ r.mid = m && m.id; OZET = r; if (aktifSekme === "ana") anaCiz(r); talepRozet(r.bekleyenToplam); }, function(er){ oturumDustu(er); });
   }
@@ -3280,6 +3353,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   ["gVdKod", "gSgkKod"].forEach(function(id){ $(id).addEventListener("keydown", function(e){ if (e.key === "Enter") { e.preventDefault(); $("gGuncelle").click(); } }); });
   $("anaIc").addEventListener("toggle", function(e){ if (e.target.id !== "anaTarih") return; ANA_TARIH_ACIK = e.target.open; try { localStorage.setItem("anaTarihAcik", ANA_TARIH_ACIK ? "1" : "0"); } catch (x) { /* kayıt yok */ } var k = e.target.querySelector("summary small"); if (k) k.textContent = "Vergi ve SGK · " + (ANA_TARIH_ACIK ? "gizle" : "göster"); }, true);
   $("anaIc").addEventListener("click", function(e){
+    var dk = e.target.closest("[data-dy-kapat]"); if (dk) { var kl = duyuruKapali(); kl.push(dk.getAttribute("data-dy-kapat")); try { localStorage.setItem("duyuruKapali", JSON.stringify(kl.slice(-50))); } catch (x) {} anaCiz(OZET || {}); return; }
     var b = e.target.closest("[data-git]"); if (!b) return; var g = b.getAttribute("data-git"); if (b.getAttribute("data-vdsek")) VD.sek = b.getAttribute("data-vdsek");
     if (g === "talep") { BS = "talepler"; sekme("belge"); } else sekme(g);
     window.scrollTo(0, 0);

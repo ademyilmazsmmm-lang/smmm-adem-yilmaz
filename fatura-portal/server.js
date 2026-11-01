@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-01-216";
+const SURUM = "2026-11-01-217";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -512,6 +512,17 @@ async function api(req, res, yol) {
     return cevap(res, 200, { kullanici: ad });
   }
   if (yol === "/api/hesap/kaldir" && req.method === "POST") { ofisGerek(o); const g = await oku(req); depo.hesapKaldir(o, String(g.mid || "")); for (const [c, x] of oturumlar) if (x.rol === "mukellef" && x.mid === g.mid) oturumKapat(c); gunluk(o, String(g.mid), "Giriş hesabı kaldırıldı"); return cevap(res, 200, { ok: true }); }
+  /* Duyurular: ofis yazar, tüm mükelleflerin ana ekranında kart olarak görünür (son gün geçince kendiliğinden kalkar). Kişisel veri içermez; sistem kaydında tutulur. */
+  const duyuruAktif = () => { const bugun = gib.trBugunStr(); return (depo.sistem.duyurular || []).filter((d) => !d.bitis || d.bitis >= bugun); };
+  if (yol === "/api/duyuru" && req.method === "GET") return cevap(res, 200, { duyurular: duyuruAktif() });
+  if (yol === "/api/duyuru/ekle" && req.method === "POST") {
+    ofisGerek(o); const g = await oku(req), metin = gib.temizMetin(g.metin, 400), bitis = /^\d{4}-\d{2}-\d{2}$/.test(String(g.bitis || "")) ? String(g.bitis) : "";
+    if (metin.length < 3) return cevap(res, 400, { hata: "Duyuru metnini yazın." });
+    const liste = duyuruAktif(); if (liste.length >= 10) return cevap(res, 400, { hata: "En çok 10 duyuru yayında olabilir; eskisini silin." });
+    liste.unshift({ id: crypto.randomBytes(4).toString("hex"), zaman: new Date().toISOString(), metin, bitis }); depo.sistem.duyurular = liste; depo.sistemYaz();
+    return cevap(res, 200, { duyurular: liste });
+  }
+  if (yol === "/api/duyuru/sil" && req.method === "POST") { ofisGerek(o); const g = await oku(req); depo.sistem.duyurular = duyuruAktif().filter((d) => d.id !== String(g.id || "")); depo.sistemYaz(); return cevap(res, 200, { duyurular: depo.sistem.duyurular }); }
   if (yol === "/api/hesap-talepleri" && req.method === "GET") { ofisGerek(o); htTemizle(); return cevap(res, 200, { talepler: hesapTalepleri.slice().reverse() }); }
   if (yol === "/api/hesap-talep/sil" && req.method === "POST") { ofisGerek(o); const g = await oku(req); hesapTalepleri = hesapTalepleri.filter((t) => t.id !== String(g.id || "")); htKaydet(); return cevap(res, 200, { talepler: hesapTalepleri.slice().reverse() }); }
   /* Mükerrer mükellef kayıtlarını birleştirir: "ana" kalır; diğerlerinin alıcı, hizmet, fatura geçmişi, talep, belge ve eksik bilgileri ana kayda eklenir, sonra diğerleri silinir. */
