@@ -2832,6 +2832,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   /* Önceki aydan devreden KDV: önceki ayın KDV beyannamesi tahakkuk fişinden elle girilir, rapor bu tutarı düşer */
   function kdvDevirKey(dn){ var d = new Date(dn.bas + "T00:00:00"); d.setMonth(d.getMonth() - 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+  function devirAnahtar(){ return kdvDevirKey(kdvDonemler()[new Date().getDate() >= 28 ? "cari" : "onceki"]); }
   function kdvDevirGoster(){
     var m = mk(); if (!m) return; var dnx; try { dnx = KR.donem === "ozel" ? kdvAralikDn() : kdvDonemler()[KR.donem]; } catch (e) { dnx = kdvDonemler().onceki; } var key = kdvDevirKey(dnx), p = key.split("-"), v = (m.kdvDevir || {})[key];
     $("kdvDevirEt").textContent = AYLAR_UZUN[+p[1] - 1] + " " + p[0] + " sonunda devreden KDV (₺)"; $("kdvDevir").value = v != null ? String(v).replace(".", ",") : "";
@@ -3360,11 +3361,20 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   /* KDV devri kartı: en son kayıtlı ay sonu devreden KDV (tahakkuk fişinden okunan ya da girilen) */
   function devirKartHtml(m){
     if (!m) return ""; var d = m.kdvDevir || {}, anah = Object.keys(d).sort().pop();
-    if (!anah && m.earsiv === false) return "";
-    var yenile = '<button type="button" class="k" data-git="vd" data-vdsek="kdv" style="margin-top:4px;justify-self:start">' + (anah ? "KDV raporu / devri yenile" : "Devri tahakkuk fişinden al") + '</button>';
+    var yenile = '<button type="button" class="k" data-devir-yenile="1" style="margin-top:4px;justify-self:start">' + (anah ? "Devri yenile" : "Devri tahakkuk fişinden al") + '</button><span class="not" id="devirDurum" style="margin:0"></span>';
     if (!anah) return '<div class="kayit" style="display:grid;gap:4px"><b>KDV devri</b><span class="not" style="margin:0">Devreden KDV henüz okunmadı. Doğrulama kodunu girip bilgileri güncelleyince son beyanın devri tahakkuk fişinden kendiliğinden gelir.</span>' + yenile + '</div>';
     var p = anah.split("-"), v = Number(d[anah]) || 0;
     return '<div class="kayit" style="display:grid;gap:4px;border-left:5px solid var(--accent)"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>KDV devri · ' + AYLAR_UZUN[+p[1] - 1] + " " + p[0] + ' sonu</b><b style="font-size:1.25rem;color:' + (v > 0 ? "var(--accent)" : "var(--muted)") + '">' + anaTl(v) + '</b></div><span class="not" style="margin:0;font-size:.8rem">Sonraki döneme devreden KDV (tahakkuk fişine göre). Aylık KDV raporu bu tutarı düşer.</span>' + yenile + '</div>';
+  }
+  /* Kartın düğmesi: Vergi dairesi bağlıysa devir hemen okunur, değilse Ana ekrandaki güncelleme kartı (doğrulama kodu) açılır */
+  function devirYenile(){
+    var m = mk(); if (!m) return; var e = $("devirDurum");
+    if (VD.bagli && VD.mid === m.id) {
+      if (e) { e.className = "not"; e.textContent = "⏳ Tahakkuk fişi okunuyor…"; }
+      kdvDevirTahakkuk(m, devirAnahtar()).then(function(x){
+        if (x && x.tutar != null) anaCiz(OZET || {}); else if (e) e.textContent = "Tahakkuk fişinde devreden KDV bulunamadı (son beyan dönemi için fiş yok ya da devir çıkmıyor).";
+      }, function(er){ if (oturumDustu(er)) return; if (e) { e.style.color = "var(--danger)"; e.textContent = er.message; } });
+    } else { GUNC.zorla[m.id] = true; GUNC.gizle[m.id] = false; guncGoster((OZET && OZET.son) || {}); sonucaGit("anaGunc"); window.scrollTo(0, 0); }
   }
   function anaCiz(r){
     r = r || {}; var son = r.son || {}, ofis = ROL === "ofis", m = mk(), now = new Date(), ad = m ? m.ad : "Mükellef Portalı";
@@ -3402,10 +3412,11 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   function talepRozet(n){ var e = $("bRozet"); if (!e) return; e.hidden = !(ROL === "ofis" && n > 0); e.textContent = n > 0 ? n : ""; }
   /* ---- Ana ekran: tek kartla Dijital VD + SGK kodu; borç, tebligat ve SGK borcu birlikte yenilenir ---- */
-  var GUNC = { gizle: {}, mid: null, vd: false, sgk: false, calisiyor: false };
+  var GUNC = { gizle: {}, zorla: {}, mid: null, vd: false, sgk: false, calisiyor: false };
   function tebSayim(l){ l = l || []; return { onemli: l.filter(tebOnemli).length, okunmadi: l.filter(tebOkunmadi).length, trafik: l.filter(tebTrafik).length, toplam: l.length }; }
   function tebOzetGonder(mid, r){ try { api("/api/son", "POST", { mukellefId: mid, tebligat: tebSayim(r && r.kayitlar) }).then(function(){ if (OZET && OZET.mid === mid) { OZET.son = OZET.son || {}; OZET.son.tebligat = Object.assign(tebSayim(r.kayitlar), { zaman: new Date().toISOString() }); if (aktifSekme === "ana") anaCiz(OZET); } }, function(){}); } catch (e) { /* özet isteğe bağlı */ } }
   function guncGerek(son, m){
+    if (m && GUNC.zorla[m.id]) return true;
     var k = (m && m.sgk) || {}, sgkVar = !!(k.kullanici && k.isyeriKod && k.sistemVar && k.isyeriVar), sinir = Date.now() - 24 * 3600e3, eski = function(x){ var t = x && x.zaman ? new Date(x.zaman).getTime() : 0; return !t || t < sinir; };
     return eski(son.vdBorc) || eski(son.tebligat) || (sgkVar && eski(son.sgkBorc)) || (!!m && !!m.defterBeyan && eski(son.hesapOzeti)) || (!!m && m.earsiv !== false && eski(son.kdv && son.kdv.onceki));
   }
@@ -3429,7 +3440,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     });
   });
   function guncYukle(m){
-    var d = $("gGuncDurum"), sonuc = [], hata = [];
+    var d = $("gGuncDurum"), sonuc = [], hata = []; GUNC.zorla[m.id] = false;
     var ad = function(x, y){ sonuc.push(x); return y; };
     var adim = function(t){ d.className = "durum"; d.textContent = "⏳ Veriler çekiliyor — " + t; }; adim("vergi borcu ve tebligat…");
     var vdIs = !VD.bagli ? Promise.resolve() : api("/api/vd/borc", "POST", { mukellefId: m.id }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.borc = r; sonuc.push("vergi borcu"); }, function(er){ hata.push("Vergi borcu: " + er.message); })
@@ -3440,8 +3451,8 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
         if (!m.defterBeyan) return; var a = hoAralik(m); adim("kâr durumu (Defter-Beyan)…");
         return api("/api/vd/hesapozeti", "POST", { mukellefId: m.id, bas: a.bas, bit: a.bit, mali: "1" }).then(function(r){ sonuc.push("kâr durumu"); return hesapOzetiGonder(m.id, r); }, function(er){ if (oturumDustu(er)) return; hata.push("Kâr durumu: " + er.message); });
       }).then(function(){
-        if (m.earsiv === false) return; adim("KDV devri (tahakkuk fişi)…"); var dn = kdvDonemler()[new Date().getDate() >= 28 ? "cari" : "onceki"];
-        return kdvDevirTahakkuk(m, kdvDevirKey(dn)).then(function(x){ if (x && x.tutar != null) sonuc.push("KDV devri"); }, function(er){ if (oturumDustu(er)) return; hata.push("KDV devri: " + er.message); });
+        adim("KDV devri (tahakkuk fişi)…");
+        return kdvDevirTahakkuk(m, devirAnahtar()).then(function(x){ if (x && x.tutar != null) sonuc.push("KDV devri"); }, function(er){ if (oturumDustu(er)) return; hata.push("KDV devri: " + er.message); });
       }).then(function(){
         if (m.earsiv === false || VD.mid !== m.id) return;
         return kdvOto(function(t){ d.className = "durum"; d.textContent = "⏳ Veriler çekiliyor — fatura özeti: " + t; }).then(function(h){ if (h) hata.push("Fatura özeti: " + h); else sonuc.push("fatura özeti"); return new Promise(function(r){ setTimeout(r, 700); }); });
@@ -3471,6 +3482,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   ["gVdKod", "gSgkKod"].forEach(function(id){ $(id).addEventListener("keydown", function(e){ if (e.key === "Enter") { e.preventDefault(); $("gGuncelle").click(); } }); });
   $("anaIc").addEventListener("toggle", function(e){ if (e.target.id !== "anaTarih") return; ANA_TARIH_ACIK = e.target.open; try { localStorage.setItem("anaTarihAcik", ANA_TARIH_ACIK ? "1" : "0"); } catch (x) { /* kayıt yok */ } var k = e.target.querySelector("summary small"); if (k) k.textContent = "Vergi ve SGK · " + (ANA_TARIH_ACIK ? "gizle" : "göster"); }, true);
   $("anaIc").addEventListener("click", function(e){
+    var dy = e.target.closest("[data-devir-yenile]"); if (dy) { devirYenile(); return; }
     var dk = e.target.closest("[data-dy-kapat]"); if (dk) { var kl = duyuruKapali(); kl.push(dk.getAttribute("data-dy-kapat")); try { localStorage.setItem("duyuruKapali", JSON.stringify(kl.slice(-50))); } catch (x) {} anaCiz(OZET || {}); return; }
     var b = e.target.closest("[data-git]"); if (!b) return; var g = b.getAttribute("data-git"); if (b.getAttribute("data-vdsek")) VD.sek = b.getAttribute("data-vdsek");
     if (g === "talep") { BS = "talepler"; sekme("belge"); } else sekme(g);
