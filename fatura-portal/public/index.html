@@ -2846,8 +2846,8 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (!VD.bagli || VD.mid !== m.id) { kdvDurumYaz("Önce Dijital Vergi Dairesi’ne bağlanın (Borç durumu ekranındaki doğrulama kodu).", "hata"); return; }
     var key = kdvDevirKey(dnx), b = this; b.disabled = true; kdvDurumYaz("KDV tahakkuk fişi Dijital Vergi Dairesi’nden alınıyor…");
     kdvDevirTahakkuk(m, key).then(function(x){
-      if (x.tutar != null) { $("kdvDevir").value = String(x.tutar).replace(".", ","); kdvDurumYaz("Tahakkuk fişinden okundu: " + tl(x.tutar) + " (fiş " + (x.r.fisNo || "—") + "). Kontrol edin; rapor bu tutarı düşecek.", "ok"); }
-      else { kdvDurumYaz("Tahakkuk fişi bulundu ama “devreden KDV” satırı okunamadı; tutarı elle yazın.", "hata"); if (ROL === "ofis" && x.r.metin) $("kdvDevirNot").textContent = "Fiş metni (tanı): " + x.r.metin; }
+      if (x.tutar != null) { $("kdvDevir").value = String(x.tutar).replace(".", ","); var sr = (x.r.satirlar || []).filter(function(q){ return q.mahsup > q.tahakkuk; })[0]; kdvDurumYaz("Tahakkuk fişinden okundu: devreden KDV " + tl(x.tutar) + (sr ? " (mahsup edilen " + tl(sr.mahsup) + " − tahakkuk eden " + tl(sr.tahakkuk) + ")" : "") + ", fiş " + (x.r.fisNo || "—") + ". Kontrol edin; rapor bu tutarı düşecek.", "ok"); }
+      else { kdvDurumYaz("Tahakkuk fişi bulundu ama devreden KDV bulunamadı (fişte mahsup edilen tutar tahakkuk edeni aşmıyor ya da tablo okunamadı); gerekiyorsa elle yazın.", "hata"); if (ROL === "ofis" && x.r.metin) $("kdvDevirNot").textContent = "Fiş metni (tanı): " + x.r.metin; }
     }, function(er){ if (oturumDustu(er)) return; kdvDurumYaz(er.message, "hata"); }).then(function(){ b.disabled = false; });
   });
   $("kdvDevirKaydet").addEventListener("click", function(){

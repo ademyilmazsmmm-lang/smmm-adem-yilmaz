@@ -64,17 +64,25 @@ function cmap(veri) {
   return { bayt, esle };
 }
 
-/* içerik akışından metin: yazı tipi değişimi (Tf), Tj/TJ/'/" ve satır sonları */
-function icerikMetni(veri, yaziTipi) {
-  const s = l1(veri); let cikti = "", gecerli = null, i = 0; const n = s.length;
-  const yaz = (bytlar) => {
+/* içerik akışından metin ve konumlu öğeler: yazı tipi değişimi (Tf), Tj/TJ/'/" ve konum matrisleri (cm, Tm, Td, TD, T*) */
+const carp = (m, n) => [m[0] * n[0] + m[1] * n[2], m[0] * n[1] + m[1] * n[3], m[2] * n[0] + m[3] * n[2], m[2] * n[1] + m[3] * n[3], m[4] * n[0] + m[5] * n[2] + n[4], m[4] * n[1] + m[5] * n[3] + n[5]];
+function icerikMetni(veri, yaziTipi, ogeler) {
+  const s = l1(veri); let cikti = "", gecerli = null, boyut = 10, i = 0, TL = 0; const n = s.length;
+  let ctm = [1, 0, 0, 1, 0, 0], tm = [1, 0, 0, 1, 0, 0], tlm = [1, 0, 0, 1, 0, 0]; const yigit = [];
+  const coz = (bytlar) => {
     if (gecerli && gecerli.cm) { const cm = gecerli.cm; let r = ""; for (let k = 0; k + cm.bayt <= bytlar.length; k += cm.bayt) { let c = 0; for (let j = 0; j < cm.bayt; j++) c = c * 256 + bytlar[k + j]; r += cm.esle.has(c) ? cm.esle.get(c) : ""; } return r; }
     return Buffer.from(bytlar).toString("latin1");
   };
+  const goster = (metin) => {
+    if (!metin) return; cikti += metin;
+    if (ogeler) { const g = carp(tm, ctm), efBoyut = Math.abs(boyut * (Math.hypot(tm[0], tm[1]) || 1) * (Math.hypot(ctm[0], ctm[1]) || 1)); ogeler.push({ x: g[4], y: g[5], s: metin, b: efBoyut }); }
+    tm = carp([1, 0, 0, 1, boyut * 0.5 * metin.length * 1, 0], tm); /* aynı satırda sonraki parça için kabaca ilerle */
+  };
   const yigin = [];
+  const sayilar = (k) => yigin.filter((x) => x.t === "d").slice(-k).map((x) => x.v);
   while (i < n) {
     const c = s[i];
-    if (c === "(") { /* literal dize */
+    if (c === "(") {
       let d = 1, j = i + 1, b = []; while (j < n && d > 0) { const x = s[j]; if (x === "\\") { const y = s[j + 1]; const e = { n: 10, r: 13, t: 9, b: 8, f: 12 }[y]; if (e != null) { b.push(e); j += 2; continue; } if (/[0-7]/.test(y)) { let o = y, k = j + 2; while (k < j + 4 && /[0-7]/.test(s[k])) o += s[k++]; b.push(parseInt(o, 8) & 255); j = k; continue; } if (y === "\n") { j += 2; continue; } b.push(y.charCodeAt(0)); j += 2; continue; } if (x === "(") d++; else if (x === ")") { d--; if (d === 0) break; } b.push(x.charCodeAt(0) & 255); j++; }
       yigin.push({ t: "s", v: b }); i = j + 1; continue;
     }
@@ -85,11 +93,18 @@ function icerikMetni(veri, yaziTipi) {
     if (/\s/.test(c)) { i++; continue; }
     let j = i; while (j < n && !/[\s\/\[\]()<>]/.test(s[j])) j++; const w = s.slice(i, j) || s[i]; if (!w) { i++; continue; } i = Math.max(j, i + 1);
     if (/^[+-]?\d*\.?\d+$/.test(w)) { yigin.push({ t: "d", v: parseFloat(w) }); continue; }
-    /* işleç */
-    if (w === "Tf") { const ad = yigin.filter((x) => x.t === "n").pop(); gecerli = ad ? yaziTipi(ad.v) : null; }
-    else if (w === "Tj" || w === "'" || w === '"') { const x = yigin.filter((y) => y.t === "s").pop(); if (x) cikti += yaz(x.v) + (w === "Tj" ? "" : "\n"); }
-    else if (w === "TJ") { const a = yigin.filter((y) => y.t === "a").pop(); if (a) for (const e of a.v) { if (e.t === "s") cikti += yaz(e.v); else if (e.t === "d" && e.v < -250) cikti += " "; } }
-    else if (w === "Td" || w === "TD" || w === "T*" || w === "Tm" || w === "ET") cikti += w === "Td" || w === "TD" || w === "Tm" ? " " : "\n";
+    if (w === "q") yigit.push(ctm.slice());
+    else if (w === "Q") { if (yigit.length) ctm = yigit.pop(); }
+    else if (w === "cm") { const a = sayilar(6); if (a.length === 6) ctm = carp(a, ctm); }
+    else if (w === "BT") { tm = [1, 0, 0, 1, 0, 0]; tlm = tm.slice(); }
+    else if (w === "Tf") { const ad = yigin.filter((x) => x.t === "n").pop(), sz = sayilar(1); gecerli = ad ? yaziTipi(ad.v) : null; if (sz.length) boyut = sz[0]; }
+    else if (w === "TL") { const a = sayilar(1); if (a.length) TL = a[0]; }
+    else if (w === "Tm") { const a = sayilar(6); if (a.length === 6) { tm = a.slice(); tlm = a.slice(); } cikti += " "; }
+    else if (w === "Td" || w === "TD") { const a = sayilar(2); if (a.length === 2) { tlm = carp([1, 0, 0, 1, a[0], a[1]], tlm); tm = tlm.slice(); if (w === "TD") TL = -a[1]; } cikti += " "; }
+    else if (w === "T*") { tlm = carp([1, 0, 0, 1, 0, -TL], tlm); tm = tlm.slice(); cikti += "\n"; }
+    else if (w === "Tj" || w === "'" || w === '"') { if (w !== "Tj") { tlm = carp([1, 0, 0, 1, 0, -TL], tlm); tm = tlm.slice(); } const x = yigin.filter((y) => y.t === "s").pop(); if (x) goster(coz(x.v)); if (w !== "Tj") cikti += "\n"; }
+    else if (w === "TJ") { const a = yigin.filter((y) => y.t === "a").pop(); if (a) { let ek = ""; for (const e of a.v) { if (e.t === "s") ek += coz(e.v); else if (e.t === "d" && e.v < -250) ek += " "; } goster(ek); } }
+    else if (w === "ET") cikti += "\n";
     yigin.length = 0;
   }
   return cikti;
@@ -104,7 +119,7 @@ function anahtarDeger(dict, anahtar) { /* /Anahtar'ın değeri: sözlük, başvu
   const m = new RegExp("/" + anahtar + "(?![A-Za-z0-9])\\s*").exec(dict); if (!m) return ""; const k = m.index + m[0].length;
   if (dict.startsWith("<<", k)) return denge(dict, k); const r = /^(\d+)\s+\d+\s+R/.exec(dict.slice(k)); if (r) return r[0]; if (dict[k] === "[") return dict.slice(k, dict.indexOf("]", k) + 1); return "";
 }
-function pdfMetni(buf) {
+function pdfMetni(buf, ogelerCikis) {
   const t = nesneler(buf), fontCm = new Map();
   const coz = (v) => { const r = /^(\d+)\s+\d+\s+R$/.exec((v || "").trim()); return r && t.get(+r[1]) ? t.get(+r[1]).dict : v || ""; };
   const cmapAl = (no) => { if (fontCm.has(no)) return fontCm.get(no); const o = t.get(no); let r = null; const tu = o ? ref(o.dict, "ToUnicode") : 0; if (tu) { const v = akisVeri(t.get(tu)); if (v) r = cmap(v); } fontCm.set(no, r); return r; };
@@ -117,7 +132,7 @@ function pdfMetni(buf) {
     const yaziTipi = (ad) => (adlar[ad] ? { cm: cmapAl(adlar[ad]) } : null);
     const c = anahtarDeger(sf.dict, "Contents"); if (!c) continue;
     const nolar = [...c.matchAll(/(\d+)\s+\d+\s+R/g)].map((x) => +x[1]);
-    for (const no of nolar) { const v = akisVeri(t.get(no)); if (v) tum += icerikMetni(v, yaziTipi) + "\n"; }
+    for (const no of nolar) { const v = akisVeri(t.get(no)); if (v) tum += icerikMetni(v, yaziTipi, ogelerCikis) + "\n"; }
   }
   return tum;
 }
@@ -139,4 +154,30 @@ function devirBul(metin) {
   return adaylar;
 }
 
-module.exports = { pdfMetni, devirBul, _icerikMetni: icerikMetni, _cmap: cmap };
+/* Tahakkuk fişi tablosu: "TAHAKKUK EDEN | MAHSUP EDİLEN | ÖDENECEK OLAN" başlıklı satırların tutarları. Devreden KDV = mahsup edilen tutarın tahakkuk edeni aşan kısmı.
+ * Satır, öğelerin dikey konumuyla kurulur (PDF'deki yazma sırasından bağımsız); her satırdaki son üç tutar sırasıyla tahakkuk, mahsup, ödenecektir. */
+const TUTAR = /^-?\d{1,3}(?:\.\d{3})*,\d{2}$/;
+function tahakkukTablo(ogeler) {
+  const sirali = ogeler.filter((o) => String(o.s).trim()).sort((a, b) => b.y - a.y || a.x - b.x), satirlar = [];
+  for (const o of sirali) { const son = satirlar[satirlar.length - 1]; if (son && Math.abs(son.y - o.y) <= Math.max(2, (o.b || 8) * 0.5)) son.oge.push(o); else satirlar.push({ y: o.y, oge: [o] }); }
+  for (const r of satirlar) { r.oge.sort((a, b) => a.x - b.x); r.metin = r.oge.map((o) => o.s).join(" "); }
+  const mh = sirali.find((o) => /MAHSUP/i.test(o.s)); if (!mh) return null;
+  /* başlık hücreleri dikeyde ortalanmış olabilir: MAHSUP'a yakın başlık sözcüklerinin en alt konumu başlığın sonudur */
+  const baslik = sirali.filter((o) => Math.abs(o.y - mh.y) <= 32 && /AHAKKUK|EDEN|MAHSUP|ED[İI]LEN|DENECEK|OLAN|ORAN|VADE/i.test(o.s)), alt = Math.min(...baslik.map((o) => o.y));
+  const rows = [];
+  for (const r of satirlar) {
+    if (r.y >= alt - 1) continue; if (/TOPLAM/i.test(r.metin)) break;
+    const tut = r.metin.split(/\s+/).filter((w) => TUTAR.test(w)).map(sayiOku); if (tut.length >= 3) { const [thk, mhs, ode] = tut.slice(-3); rows.push({ tahakkuk: thk, mahsup: mhs, odenecek: ode }); }
+  }
+  if (!rows.length) return null;
+  return { satirlar: rows, devir: Math.round(rows.reduce((t, r) => t + Math.max(0, r.mahsup - r.tahakkuk), 0) * 100) / 100 };
+}
+/* PDF'ten devreden KDV: önce tahakkuk tablosu, olmazsa "devreden KDV" ifadesi */
+function fisDevir(buf) {
+  const ogeler = [], metin = pdfMetni(buf, ogeler), tablo = tahakkukTablo(ogeler), adaylar = devirBul(metin);
+  if (tablo) return { yontem: "tablo", tutar: tablo.devir, satirlar: tablo.satirlar, adaylar, metin };
+  if (adaylar.length) return { yontem: "ifade", tutar: adaylar[0].tutar, satirlar: [], adaylar, metin };
+  return { yontem: "", tutar: null, satirlar: [], adaylar, metin };
+}
+
+module.exports = { fisDevir, tahakkukTablo, pdfMetni, devirBul, _icerikMetni: icerikMetni, _cmap: cmap };
