@@ -432,12 +432,14 @@ class Ivd {
     const j = r.json || {}, c = j.resultContainer;
     if (!c) { const msg = [j.errorCode, j.errorMessage, j.statusMessage, j.message, (j.errors || []).map && (j.errors || []).map((x) => x && (x.message || x.defaultMessage || JSON.stringify(x))).join("; ")].filter(Boolean).join(" · "); throw new Error("Hesap özeti alınamadı (HTTP " + r.durum + ")" + (msg ? ": " + String(msg).slice(0, 200) : "") + "."); }
     const n = (v) => Number(v) || 0, gelirHasilat = n(c.gelirHasilat), gelirDiger = n(c.gelirDiger), giderDiger = n(c.giderDiger), amortisman = n(c.amortismanGiderleri);
-    /* Bilinmeyen tutar alanları: cevapta başka kalemler varsa (kâr/zarar bunlarla hesaplanmış olabilir) ekranda gösterilir */
-    const bilinen = new Set(["unvan", "gelirHasilat", "gelirDiger", "giderDiger", "amortismanGiderleri", "kar", "id", "yil", "donem"]), ek = [];
-    const topla = (o, on, d) => { for (const k of Object.keys(o || {}).slice(0, 60)) { const v = o[k], ad = on ? on + "." + k : k; if (!d && bilinen.has(k)) continue; if (v && typeof v === "object" && !Array.isArray(v)) { if (d < 2) topla(v, ad, d + 1); } else if ((typeof v === "number" || (typeof v === "string" && /^-?\d+([.,]\d+)?$/.test(v.trim()))) && Number(String(v).replace(",", ".")) !== 0 && !/(^|\.)(id|yil|ay|donem|tip|versiyon|sira)$/i.test(ad)) ek.push({ ad, tutar: Number(String(v).replace(",", ".")) }); } };
+    /* Cevaptaki bilinmeyen tutar alanları: adı "gider…" ile başlayanlar giderlere, "gelir…" ile başlayanlar gelirlere eklenir (örn. giderEmtia = mal alışı); diğerleri ham liste olarak gösterilir */
+    const bilinen = new Set(["unvan", "gelirHasilat", "gelirDiger", "giderDiger", "amortismanGiderleri", "kar", "id", "yil", "donem"]), ek = [], ekGider = [], ekGelir = [];
+    const AD = { giderEmtia: "Gider — emtia (mal alışı)" };
+    const topla = (o, on, d) => { for (const k of Object.keys(o || {}).slice(0, 60)) { const v = o[k], ad = on ? on + "." + k : k; if (!d && bilinen.has(k)) continue; if (v && typeof v === "object" && !Array.isArray(v)) { if (d < 2) topla(v, ad, d + 1); } else if ((typeof v === "number" || (typeof v === "string" && /^-?\d+([.,]\d+)?$/.test(v.trim()))) && Number(String(v).replace(",", ".")) !== 0 && !/(^|\.)(id|yil|ay|donem|tip|versiyon|sira)$/i.test(ad)) { const x = { ad, tutar: Number(String(v).replace(",", ".")) }; if (!d && /^gider/i.test(k)) ekGider.push(Object.assign(x, { etiket: AD[k] || k })); else if (!d && /^gelir/i.test(k)) ekGelir.push(Object.assign(x, { etiket: AD[k] || k })); else ek.push(x); } } };
     topla(c, "", 0);
-    const toplamGelir = gelirHasilat + gelirDiger, toplamGider = giderDiger + amortisman, kar = n(c.kar);
-    return { yil, bas, bit, mali: govde.attributes.isMali, unvan: String(c.unvan || ""), gelirHasilat, gelirDiger, giderDiger, amortisman, toplamGelir, toplamGider, kar, ek: ek.slice(0, 40), uyusmuyor: Math.abs(toplamGelir - toplamGider - kar) > 0.5, sekil: sekil(c) };
+    const toplam = (l) => l.reduce((t, x) => t + x.tutar, 0);
+    const toplamGelir = gelirHasilat + gelirDiger + toplam(ekGelir), toplamGider = giderDiger + amortisman + toplam(ekGider), kar = n(c.kar);
+    return { yil, bas, bit, mali: govde.attributes.isMali, unvan: String(c.unvan || ""), gelirHasilat, gelirDiger, giderDiger, amortisman, ekGelir, ekGider, toplamGelir, toplamGider, kar, ek: ek.slice(0, 40), uyusmuyor: Math.abs(toplamGelir - toplamGider - kar) > 0.5, sekil: sekil(c) };
   }
   /* ---- Z raporu: yeni nesil ÖKC aylık satış raporu bildirimleri (İnternet VD "ÖKC Bildirim Görüntüleme") ---- */
   async zRapor(yil, ay, vknIpucu) {

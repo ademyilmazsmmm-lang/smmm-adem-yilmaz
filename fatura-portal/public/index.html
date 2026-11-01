@@ -2477,13 +2477,14 @@ details.alt2{border-left:3px solid var(--accent-soft);padding-left:10px}
         + (r.detayHata ? '<p class="not" style="margin:4px 0 0">Ayrıntı alınamadı: ' + esc(r.detayHata) + '</p>' : "") + '</div>';
     }).join("");
   }
+  function insanAdGelirGider(e){ return /—/.test(e) ? e : String(e).replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g, "$1 $2").replace(/^(\S+)\s+/, function(m, a){ return a.charAt(0).toLocaleUpperCase("tr-TR") + a.slice(1).toLocaleLowerCase("tr-TR") + " — "; }); }
   function vdHoHtml(s){
     var kutu = function(ad, t, renk){ return '<div style="flex:1 1 130px;border-left:5px solid ' + renk + ';background:color-mix(in srgb,' + renk + ' 12%,transparent);border-radius:10px;padding:8px 12px"><div class="not" style="margin:0">' + ad + '</div><div style="font-size:1.2rem;font-weight:700">' + tl(t) + '</div></div>'; };
     var sat = function(ad, t){ return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:.88rem;margin-top:4px"><span>' + esc(ad) + '</span><b style="white-space:nowrap">' + tl(t) + '</b></div>'; };
     return '<div class="kayit"><b>' + esc((s.bas && s.bit ? String(s.bas).split("-").reverse().join(".") + " – " + String(s.bit).split("-").reverse().join(".") : s.yil + " yılı") + " hesap özeti") + '</b> <small class="not">' + (s.mali ? "Mali" : "Ticari") + (s.unvan ? " · " + esc(s.unvan) : "") + '</small>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' + kutu("Toplam gelir", s.toplamGelir, "#2f7d6b") + kutu("Toplam gider", s.toplamGider, "#c0392b") + kutu(s.kar < 0 ? "Zarar" : "Kâr", s.kar, s.kar < 0 ? "#c0392b" : "#34495e") + '</div>'
-      + '<div style="margin-top:10px"><b style="font-size:.85rem">Gelirler</b>' + sat("Gelir — hasılat", s.gelirHasilat) + sat("Gelir — diğer", s.gelirDiger) + '</div>'
-      + '<div style="margin-top:10px"><b style="font-size:.85rem">Giderler</b>' + sat("Gider — diğer", s.giderDiger) + sat("Amortisman giderleri", s.amortisman) + '</div>'
+      + '<div style="margin-top:10px"><b style="font-size:.85rem">Gelirler</b>' + sat("Gelir — hasılat", s.gelirHasilat) + sat("Gelir — diğer", s.gelirDiger) + (s.ekGelir || []).map(function(x){ return sat(insanAdGelirGider(x.etiket), x.tutar); }).join("") + '</div>'
+      + '<div style="margin-top:10px"><b style="font-size:.85rem">Giderler</b>' + sat("Gider — diğer", s.giderDiger) + (s.ekGider || []).map(function(x){ return sat(insanAdGelirGider(x.etiket), x.tutar); }).join("") + sat("Amortisman giderleri", s.amortisman) + '</div>'
       + (s.uyusmuyor ? '<p class="not" style="margin:10px 0 0;color:var(--danger)"><b>Dikkat:</b> yukarıdaki gelir ve gider toplamı kâr/zarar tutarıyla uyuşmuyor. Defter-Beyan cevabında bu ekranda gösterilmeyen başka tutarlar var; aşağıda ham olarak listelendi. Tutarlara Defter-Beyan ekranından da bakıp karşılaştırın.</p>' : '')
       + ((s.ek || []).length ? '<details class="alt2" style="margin-top:8px"' + (s.uyusmuyor ? " open" : "") + '><summary>Cevaptaki diğer tutarlar (' + s.ek.length + ')</summary><div class="icerik">' + s.ek.map(function(x){ return sat(x.ad.replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g, "$1 $2"), x.tutar); }).join("") + '<p class="not" style="margin:6px 0 0;font-size:.78rem">Alan adları GİB cevabından olduğu gibi alınmıştır.</p></div></details>' : '') + '</div>';
   }
