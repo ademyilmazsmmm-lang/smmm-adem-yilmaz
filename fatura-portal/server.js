@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-02-237";
+const SURUM = "2026-11-02-238";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -412,7 +412,7 @@ async function api(req, res, yol) {
       sgkKontrol(an, "f"); sgkZamanla(an);
       const d = await x.formGonder(Number(q.get("i")));
       gunluk(o, mid, "SGK belgesi açıldı", d.ad);
-      res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": "inline; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:" }));
+      res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": "inline; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:" }));
       return res.end(d.veri);
     } catch (e) { if (e && e.oturum) { clearTimeout(sgkZaman.get(an)); sgkler.delete(an); } return duz(500, "Belge alınamadı: " + e.message); }
   }
@@ -425,7 +425,7 @@ async function api(req, res, yol) {
       sgkKontrol(an, "b"); sgkZamanla(an);
       const d = await x.bildirgeBelge(Number(q.get("n")), Number(q.get("k")), Number(q.get("j")));
       gunluk(o, mid, "SGK belgesi açıldı", d.ad);
-      res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": (d.satir ? "inline" : "attachment") + "; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:" }));
+      res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": (d.satir ? "inline" : "attachment") + "; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:" }));
       return res.end(d.veri);
     } catch (e) { if (e && e.oturum) { clearTimeout(sgkZaman.get(an)); sgkler.delete(an); } return duz(500, "Belge alınamadı: " + e.message); }
   }
@@ -439,7 +439,7 @@ async function api(req, res, yol) {
       const n = Number(q.get("n")), yazi = yol === "/api/vd/yazi", levha = yol === "/api/vd/levha", thk = yol === "/api/vd/tahakkuk", yok = yol === "/api/vd/yoklama";
       const d = levha ? await x.levhaIndir(n, q.get("dil"), (depo.mukellef(o, mid).veri.vkn || "").replace(/\D/g, "")) : yazi ? await x.yaziIndir(n) : thk ? await x.tahakkukIndir(n) : yok ? await x.yoklamaIndir(n) : await x.belgeIndir(n);
       gunluk(o, mid, levha ? "e-Vergi levhası açıldı" : yazi ? "Borç durum yazısı açıldı" : thk ? "Tahakkuk fişi açıldı" : yok ? "Yoklama fişi açıldı" : "Tebligat belgesi açıldı", d.ad);
-      res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": (d.satir ? "inline" : "attachment") + "; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:" }));
+      res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": (d.satir ? "inline" : "attachment") + "; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:" }));
       return res.end(d.veri);
     } catch (e) { if (e && e.oturum) await ivdBirak(mid); return duz(500, "Belge alınamadı: " + e.message); }
   }
@@ -605,7 +605,7 @@ async function api(req, res, yol) {
     if (!mid || !depo.yetkili(o, mid)) return duz(403, "Bu mükellef için yetkiniz yok.");
     let b; try { b = depo.belgeAl(o, mid, String(q.get("id") || "")); } catch (e) { return duz(404, e.message); }
     gunluk(o, mid, "Belge indirildi", b.tur + " · " + b.ad);
-    res.writeHead(200, Object.assign({}, GUV, { "content-type": b.tip, "content-disposition": "attachment; filename*=UTF-8''" + encodeURIComponent(b.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:" }));
+    res.writeHead(200, Object.assign({}, GUV, { "content-type": b.tip, "content-disposition": "attachment; filename*=UTF-8''" + encodeURIComponent(b.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:" }));
     return res.end(Buffer.from(b.veri, "base64"));
   }
   if (yol === "/api/talepler" && req.method === "GET") {
