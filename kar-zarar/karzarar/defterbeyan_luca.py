@@ -74,6 +74,60 @@ HEPSINI_SEC_JS = """() => {
   return isaretli;
 }"""
 
+# Luca'nin listesi bir jqx grid'idir (jqx-all.js): <table> degil, yalniz ekrandaki satirlari cizer (sanal kaydirma). Bu yuzden
+# satirlar DOM'dan degil grid'in kendi arayuzunden (getrows / getcelltext / selectallrows) okunur ve secilir.
+GRID_OKU_JS = """() => {
+  const jq = window.jQuery || window.$;
+  if (!jq || !jq.fn || !jq.fn.jqxGrid) return null;
+  const gorunur = e => !!(e.offsetParent || e.getClientRects().length);
+  for (const el of document.querySelectorAll('.jqx-grid')) {
+    if (!gorunur(el)) continue;
+    const g = jq(el);
+    let kl;
+    try { kl = g.jqxGrid('columns'); } catch (e) { continue; }
+    const kolonlar = ((kl && kl.records) || (Array.isArray(kl) ? kl : [])).filter(c => c && !c.hidden);
+    const basliklar = kolonlar.map(c => String(c.text || '').replace(/\\s+/g, ' ').trim());
+    if (!basliklar.some(b => /evrak no/i.test(b))) continue;
+    let satirlar = [];
+    try {
+      const bilgi = g.jqxGrid('getdatainformation');
+      const n = bilgi && bilgi.rowscount != null ? bilgi.rowscount : 0;
+      for (let i = 0; i < n; i++) {
+        satirlar.push(kolonlar.map(c => {
+          if (!c.datafield) return '';
+          let v = '';
+          try { v = g.jqxGrid('getcelltext', i, c.datafield); } catch (e) {}
+          return v == null ? '' : String(v).replace(/\\s+/g, ' ').trim();
+        }));
+      }
+    } catch (e) { return null; }
+    return {basliklar: basliklar, satirlar: satirlar};
+  }
+  return null;
+}"""
+
+# Tum satirlari secer; {'secili': N, 'toplam': M} ya da (jqx grid yoksa) null
+GRID_SEC_JS = """() => {
+  const jq = window.jQuery || window.$;
+  if (!jq || !jq.fn || !jq.fn.jqxGrid) return null;
+  const gorunur = e => !!(e.offsetParent || e.getClientRects().length);
+  for (const el of document.querySelectorAll('.jqx-grid')) {
+    if (!gorunur(el)) continue;
+    const g = jq(el);
+    try {
+      const toplam = g.jqxGrid('getdatainformation').rowscount;
+      g.jqxGrid('selectallrows');
+      let secili = g.jqxGrid('getselectedrowindexes').length;
+      if (secili !== toplam) {   // baslikdaki secim kutusu (jqx-checkbox) ile dene
+        const kutu = el.querySelector('[role=columnheader] .jqx-checkbox, [role=columnheader] .jqx-checkbox-default');
+        if (kutu) { kutu.click(); secili = g.jqxGrid('getselectedrowindexes').length; }
+      }
+      return {secili: secili, toplam: toplam};
+    } catch (e) { continue; }
+  }
+  return null;
+}"""
+
 KAYIT_YOK_METINLERI = ("kayıt bulunamadı", "kayıt bulunamamıştır", "kayıt yok", "listelenecek kayıt")
 
 
@@ -204,12 +258,13 @@ def sekme_ac(sayfa, tur):
 def tabloyu_oku(sayfa):
     """{'basliklar': [...], 'satirlar': [[...]]} ya da (liste henuz yok/okunamadi) None."""
     for fr in cerceveler(sayfa):
-        try:
-            t = fr.evaluate(TABLO_JS)
-        except Exception:
-            continue
-        if t:
-            return t
+        for js in (GRID_OKU_JS, TABLO_JS):   # once jqx grid'in kendi arayuzu, sonra duz HTML tablo
+            try:
+                t = fr.evaluate(js)
+            except Exception:
+                continue
+            if t:
+                return t
     return None
 
 
@@ -362,6 +417,9 @@ def hepsini_sec(sayfa):
     """Listedeki tum kayitlari isaretler; isaretli satir sayisini dondurur."""
     for fr in cerceveler(sayfa):
         try:
+            g = fr.evaluate(GRID_SEC_JS)
+            if g:
+                return int(g["secili"]) if g["secili"] == g["toplam"] else 0   # eksik secim: cagiran durdurur
             sayi = fr.evaluate(HEPSINI_SEC_JS)
         except Exception:
             continue

@@ -284,7 +284,7 @@ def mizan_xlsx(firma, bas, bit):
 DB_SEC = {"firma": sahte_luca.FIRMALAR[0]}      # secili firma (gercek Luca'da sunucu oturumunda)
 DB_GONDERILDI = set()                            # (firma, tur, evrak no)
 DB_OLAYLAR = []                                  # sunucu tarafi islem sirasi: cari, kaydet, gonder
-DB_AYAR = {"sabit_hatasi": False, "satir_hatasi": False, "gonderim_hatasi": False, "api_bos": False, "yavas": 0.0}
+DB_AYAR = {"jqx": False, "sabit_hatasi": False, "satir_hatasi": False, "gonderim_hatasi": False, "api_bos": False, "yavas": 0.0}
 DB_TARIHLER = ("03/10/2026", "15/10/2026", "28/10/2026", "05/11/2026")
 
 
@@ -364,6 +364,34 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
  document.querySelectorAll('#durumListe .d').forEach(d => d.onclick = () => { g('durum').value = d.textContent;
    g('durumYazi').textContent = d.textContent; g('durumListe').classList.add('gizli'); });
  let tur = 'gelir', kayitlar = [];
+ const JQX = __JQX__;
+ // jqx grid taklidi: <table> yok, yalniz ilk 5 satir cizilir (sanal kaydirma); satirlar grid arayuzunden okunur/secilir
+ let secilen = new Set();
+ const KOLONLAR = [['', ''], ['#', 'no'], ['Seri No', 'seri'], ['Evrak No', 'evrak'], ['Evrak Tarihi', 'tarih'],
+   ['Kategori', 'kategori'], ['Belge Türü', 'belge'], ['Fiş Açıklama', 'aciklama'], ['Tutar', 'tutar']];
+ function hucre(i, df) { const k = kayitlar[i]; if (!k) return '';
+   return {no: String(i + 1), seri: '', evrak: k[0], tarih: k[1], kategori: k[2], belge: k[3], aciklama: k[4],
+           tutar: k[5].toLocaleString('tr-TR', {minimumFractionDigits: 2})}[df] || ''; }
+ if (JQX) {
+   g('grid').remove();
+   g('liste').insertAdjacentHTML('afterbegin', '<div id="jg" class="jqx-grid"><div role="row"><div role="columnheader">' +
+     '<div class="jqx-checkbox" id="jqxHepsi">&#9744;</div></div>' + KOLONLAR.slice(1).map(c =>
+     '<div role="columnheader">' + c[0] + '</div>').join('') + '</div><div id="jgGovde"></div></div>');
+   const yontem = {
+     columns: () => ({records: KOLONLAR.map(c => ({text: c[0], datafield: c[1], hidden: false}))}),
+     getdatainformation: () => ({rowscount: kayitlar.length}),
+     getcelltext: (i, df) => hucre(i, df),
+     selectallrows: () => { secilen = new Set(kayitlar.map((_, i) => i)); jqxCiz(); },
+     getselectedrowindexes: () => [...secilen],
+   };
+   window.jQuery = el => ({jqxGrid: (m, ...a) => yontem[m](...a)});
+   window.jQuery.fn = {jqxGrid: true};
+   g('jqxHepsi').onclick = () => yontem.selectallrows();
+ }
+ function jqxCiz() {   // yalniz ilk 5 satir DOM'da (sanal kaydirma)
+   g('jgGovde').innerHTML = kayitlar.slice(0, 5).map((k, i) => '<div role="row"><div role="gridcell">' +
+     (secilen.has(i) ? '&#9745;' : '&#9744;') + '</div>' + KOLONLAR.slice(1).map(c =>
+     '<div role="gridcell">' + hucre(i, c[1]) + '</div>').join('') + '</div>').join(''); }
  function sekme(t) { tur = t; g('baslik').textContent = (t == 'gelir' ? 'Gelir' : 'Gider') + ' Listesi';
    g('form').classList.remove('gizli'); g('liste').classList.add('gizli'); g('arac').classList.add('gizli'); }
  g('gelir').onclick = () => sekme('gelir'); g('gider').onclick = () => sekme('gider');
@@ -371,20 +399,21 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
    const q = 'tur=' + tur + '&bas=' + encodeURIComponent(g('b1').value) + '&bit=' + encodeURIComponent(g('b2').value)
      + '&durum=' + encodeURIComponent(g('durum').value);
    kayitlar = await (await fetch('/api/db-liste?' + q)).json();
-   setTimeout(() => { const tb = g('grid').querySelector('tbody'); tb.innerHTML = '';
+   setTimeout(() => { const tb = JQX ? {insertAdjacentHTML() {}, set innerHTML(v) {}} : g('grid').querySelector('tbody'); tb.innerHTML = '';
+     if (JQX) { secilen = new Set(); jqxCiz(); }
      kayitlar.forEach((k, i) => tb.insertAdjacentHTML('beforeend', '<tr><td><input type="checkbox"></td><td>' + (i + 1)
        + '</td><td></td><td>' + k[0] + '</td><td>' + k[1] + '</td><td>' + k[2] + '</td><td>' + k[3] + '</td><td>' + k[4]
        + '</td><td>' + k[5].toLocaleString('tr-TR', {minimumFractionDigits: 2}) + '</td></tr>'));
-     g('hepsi').checked = false; g('form').classList.add('gizli'); g('liste').classList.remove('gizli');
+     if (!JQX) g('hepsi').checked = false; g('form').classList.add('gizli'); g('liste').classList.remove('gizli');
      g('arac').classList.remove('gizli');
      if (!kayitlar.length) { const u = document.createElement('div'); u.textContent = 'Kayıt bulunamadı'; } }, 400); };
- g('hepsi').onchange = () => g('grid').querySelectorAll('tbody input').forEach(k => k.checked = g('hepsi').checked);
+ if (!JQX) g('hepsi').onchange = () => g('grid').querySelectorAll('tbody input').forEach(k => k.checked = g('hepsi').checked);
  const olay = ad => fetch('/api/db-olay?ad=' + ad);
  g('cari').onclick = () => { g('islemMenu').classList.add('gizli'); olay('cari');
    setTimeout(() => g('cariPen').classList.remove('gizli'), 300); };
  g('cTamam').onclick = () => g('cariPen').classList.add('gizli');
  g('kaydet').onclick = () => { olay('kaydet');   // gercek Luca gibi: kayit sonrasi liste yenilenir, secim kalkar
-   g('grid').querySelectorAll('tbody input').forEach(k => k.checked = false); g('hepsi').checked = false;
+   if (JQX) { secilen = new Set(); jqxCiz(); } else { g('grid').querySelectorAll('tbody input').forEach(k => k.checked = false); g('hepsi').checked = false; }
    setTimeout(() => g('kayPen').classList.remove('gizli'), 300); };
  g('kTamam').onclick = () => g('kayPen').classList.add('gizli');
  g('arama').onclick = () => { g('form').classList.remove('gizli'); g('liste').classList.add('gizli'); };
@@ -396,8 +425,8 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
  g('gTamam').onclick = async () => {
    olay('gonder');
    g('giris').classList.add('gizli'); g('entYazi').textContent = ''; g('ent').classList.remove('gizli');
-   const sec = [...g('grid').querySelectorAll('tbody tr')].filter(r => r.querySelector('input').checked)
-     .map(r => r.children[3].textContent);
+   const sec = JQX ? [...secilen].sort((a, b) => a - b).map(i => kayitlar[i][0]) :
+     [...g('grid').querySelectorAll('tbody tr')].filter(r => r.querySelector('input').checked).map(r => r.children[3].textContent);
    const yaz = s => g('entYazi').textContent += s + '\\n';
    yaz('Defter Beyan Sistemine gönderim başlıyor.');
    if (!sec.length) { setTimeout(() => yaz('Gönderilecek seçili kayıt bulunamadı.'), 300); return; }
@@ -433,7 +462,7 @@ class Isleyici(sahte_luca.Isleyici):
             return self._yanit("{}", "application/json")
         if yol == "/Luca/luca2.do":
             bos = DB_AYAR["api_bos"]
-            return self._yanit(DB_SAYFASI.replace("__KEY__", "" if bos else "TESTKEY123")
+            return self._yanit(DB_SAYFASI.replace("__JQX__", "true" if DB_AYAR["jqx"] else "false").replace("__KEY__", "" if bos else "TESTKEY123")
                                .replace("__SECRET__", "" if bos else "TESTSECRET456"))
         if yol == "/api/db-olay":
             with KILIT:
@@ -533,5 +562,5 @@ def sifirla():
     DB_DURUM.update(giris=False, vkn=None)
     DB_SEC["firma"] = sahte_luca.FIRMALAR[0]
     DB_GONDERILDI.clear()
-    DB_AYAR.update(gonderim_hatasi=False, api_bos=False, satir_hatasi=False, sabit_hatasi=False, yavas=0.0)
+    DB_AYAR.update(gonderim_hatasi=False, api_bos=False, satir_hatasi=False, sabit_hatasi=False, jqx=False, yavas=0.0)
     DB_OLAYLAR.clear()

@@ -174,6 +174,15 @@ class UctanUca(unittest.TestCase):
         self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "yalnız sabit kıymet")
         self.assertIn("SABİT KIYMET", cikti)
 
+    def test_jqx_grid_sanal_kaydirma_tum_satirlar(self):
+        """Gercek Luca listesi jqx grid: DOM'da yalniz 5 satir var; satirlar grid arayuzunden okunur ve secilir."""
+        kod, sonuc, gonderilen, cikti = calistir("gonder", ["--firma-tam", "ALFA ISLETME"], {"jqx": True})
+        self.assertEqual(kod, 0, cikti[-1500:])
+        a = sonuc["ALFA ISLETME"]
+        self.assertEqual((a["gelir"]["gonderilmemis"], a["gider"]["gonderilmemis"], a["gider"]["sabit_kiymet"]), (1, 3, 1))
+        self.assertEqual(len([g for g in gonderilen if g[0] == "ALFA ISLETME"]), 4)
+        self.assertEqual((a["durum"], a["gider"]["gonderim"]["kalan"]), ("tamam", 0))
+
     def test_api_bilgisi_bos_ise_gonderilmez(self):
         kod, sonuc, gonderilen, cikti = calistir("gonder", ["--firma-tam", "ALFA ISLETME"], {"api_bos": True})
         self.assertEqual(gonderilen, set(), cikti[-1500:])
