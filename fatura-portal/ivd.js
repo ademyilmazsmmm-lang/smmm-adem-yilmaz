@@ -192,6 +192,14 @@ class Ivd {
     if (!basari) throw new Error("Talep alınmadı" + (this.mesajMetni(y) ? ": " + String(this.mesajMetni(y)).slice(0, 200) : " (GİB başarı yanıtı vermedi)") + ".");
     return { tamam: true, mesaj: mesajlar.filter((m) => m && m.text).map((m) => m.text).join(" ") || "Talebiniz işleme alındı.", sekil: sekil(y) };
   }
+  /* Mükellefiyet yazısı talebi (merkez): portalın "Mükellefiyet Yazısı Talebi" ekranı /mukellefiyet/mukellefiyetdilekceKaydetMerkez'e { eposta, kurumKodu: "TDVD", subeNo: "" } gönderir;
+   * talep, borç durum yazılarıyla aynı listede (Mükellefiyet / Borç Durum Yazılarım) izlenir ve aynı PDF servisiyle indirilir */
+  async mukellefiyetYaziIste(p) {
+    const y = await this.istek("POST", GW + "/api/mukellefiyet/mukellefiyetdilekceKaydetMerkez", { eposta: String(p.eposta || "").toLowerCase(), kurumKodu: "TDVD", subeNo: "" }, true, { "page-name": "mukellefiyet-yazisi-talebi", "ui-client": "fe" });
+    const mesajlar = (y && y.messages) || [], basari = mesajlar.some((m) => m && m.type === "SUCCESS");
+    if (!basari) { const bilgi = mesajlar.filter((m) => m && m.text).map((m) => m.text).join(" "); throw new Error("Talep alınmadı" + (bilgi || this.mesajMetni(y) ? ": " + String(bilgi || this.mesajMetni(y)).slice(0, 200) : " (GİB başarı yanıtı vermedi)") + "."); }
+    return { tamam: true, mesaj: mesajlar.filter((m) => m && m.text).map((m) => m.text).join(" ") || "Mükellefiyet yazısı talebiniz işleme alındı.", sekil: sekil(y) };
+  }
   async yaziIndir(n) {
     const d = (this.yazilar || [])[n]; if (!d) throw new Error("Yazı bulunamadı; listeyi yenileyin.");
     if (d.durum !== 1) throw new Error("Bu talep henüz cevaplanmadı; cevaplanınca PDF açılabilir.");
@@ -724,6 +732,7 @@ class SahteIvd {
     return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "tebligat.pdf" };
   }
   async yaziListe() { const d = this.yazilar = this.yazilar || [{ ad: "Borç Durum Yazısı", talep: "2026-10-20T10:15:00", cevap: "2026-10-20T11:02:00", durum: 1, eposta: "ornek@ornek.com" }]; return { yazilar: d.map((x, n) => Object.assign({ n }, x)), sekil: {} }; }
+  async mukellefiyetYaziIste(p) { this.yazilar = this.yazilar || []; this.yazilar.unshift({ ad: "Mükellefiyet Yazısı", talep: new Date().toISOString().slice(0, 19), cevap: new Date().toISOString().slice(0, 19), durum: 1, eposta: p.eposta }); return { tamam: true, mesaj: "Mükellefiyet yazısı talebiniz işleme alındı.", sekil: {} }; }
   async yaziIste(p) { this.yazilar = this.yazilar || []; this.yazilar.unshift({ ad: "Borç Durum Yazısı", talep: new Date().toISOString().slice(0, 19), cevap: "", durum: 9, eposta: p.eposta }); this.sonIste = p; return { tamam: true, mesaj: "Talebiniz işleme alındı.", sekil: {} }; }
   async yaziIndir(n) {
     const d = (this.yazilar || [])[n]; if (!d) throw new Error("Yazı bulunamadı; listeyi yenileyin."); if (d.durum !== 1) throw new Error("Bu talep henüz cevaplanmadı; cevaplanınca PDF açılabilir.");

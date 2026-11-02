@@ -544,6 +544,10 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       <div><label for="vdYEposta">Cevabın bildirileceği e-posta</label><input id="vdYEposta" type="email" inputmode="email" autocapitalize="off" autocomplete="off" placeholder="ornek@eposta.com"></div>
       <button class="btn" type="button" id="vdYIste">Borç durum (borcu yoktur) yazısı talep et</button>
       <p class="not" style="margin:0;font-size:.8rem">Bu işlem vergi dairesine resmî bir yazı talebi gönderir (güncel borç durumu). Cevap vergi dairesince verilir; hazır olunca aşağıdaki listede “PDF’yi aç” görünür.</p>
+      <div class="kayit" style="display:grid;gap:6px"><b>Mükellefiyet yazısı</b>
+        <span class="not" style="margin:0;font-size:.82rem">Mükellefiyet (faaliyet) durumunuzu gösteren yazı; merkez için talep edilir. Hazır olunca aşağıdaki listede görünür: PDF’yi açabilir, e-postayla gönderebilir ya da paylaşabilirsiniz.</span>
+        <div><label for="vdMEposta">Cevabın bildirileceği e-posta</label><input id="vdMEposta" type="email" inputmode="email" autocapitalize="off" autocomplete="off" maxlength="60" placeholder="ornek@eposta.com"></div>
+        <button class="btn ikincil" type="button" id="vdMIste">Mükellefiyet yazısı talep et</button></div>
     </div>
     <div id="vdTarih" hidden style="display:grid;gap:8px"><div id="vdHizli" style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" type="button" data-gun="7">Son 7 gün</button><button class="chip" type="button" data-gun="30">Son 30 gün</button><button class="chip" type="button" data-gun="ay">Bu ay</button><button class="chip" type="button" data-gun="gecen">Geçen ay</button><button class="chip" type="button" data-gun="60">Son 2 ay</button></div><div class="satir"><div><label for="vdBas">Başlangıç</label><input id="vdBas" type="date"></div><div><label for="vdBit">Bitiş</label><input id="vdBit" type="date"></div></div></div>
     <button class="btn ikincil" type="button" id="vdSorgula">Sorgula</button>
@@ -3270,7 +3274,19 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var dg = $("vdYKurum").value === "Diger Kurum Kuruluşlara" || $("vdYKurum").value === "Diğer Kurum Kuruluşlara", kgf = $("vdYKurum").value === "Kredi Garanti Fonu";
     $("vdYDigerK").hidden = !dg; $("vdYNedenK").hidden = kgf; if (kgf) $("vdYNeden").value = "2";
     if (!$("vdYEposta").value) { var m = mBul(VD.mid) || {}, e = (m.profil && m.profil.eposta) || ""; if (!e) { try { e = localStorage.getItem("yaziEposta") || ""; } catch (x) {} } $("vdYEposta").value = e; }
+    if (!$("vdMEposta").value) $("vdMEposta").value = $("vdYEposta").value;
   }
+  $("vdMIste").addEventListener("click", function(){
+    var d = $("vdDurum"), ep = $("vdMEposta").value.trim(), b = this;
+    function hata(t){ d.className = "durum hata"; d.textContent = t; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ep)) return hata("Geçerli bir e-posta adresi yazın.");
+    if (!confirm("Vergi dairesine RESMÎ bir mükellefiyet yazısı talebi (merkez) gönderilecek.\n\nE-posta: " + ep + "\n\nDevam edilsin mi?")) return;
+    try { localStorage.setItem("yaziEposta", ep); } catch (x) {}
+    b.disabled = true; d.className = "durum"; d.textContent = "Talep gönderiliyor…";
+    api("/api/vd/mukellefiyet-iste", "POST", { mukellefId: VD.mid, onay: true, eposta: ep }).then(function(r){
+      d.className = "durum ok"; d.textContent = r.mesaj || "Talebiniz işleme alındı."; VD.sonuc.yazi = null; setTimeout(function(){ if (VD.sek === "yazi" && VD.bagli) vdSorgula(); }, 1500);
+    }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
+  });
   $("vdYKurum").addEventListener("change", vdYaziAlan);
   $("vdYIste").addEventListener("click", function(){
     var d = $("vdDurum"), kurum = $("vdYKurum").value, neden = kurum === "Kredi Garanti Fonu" ? "2" : $("vdYNeden").value, diger = $("vdYDiger").value.trim(), ep = $("vdYEposta").value.trim(), b = this;

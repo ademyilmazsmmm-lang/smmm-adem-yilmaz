@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-02-238";
+const SURUM = "2026-11-02-239";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -846,6 +846,15 @@ async function api(req, res, yol) {
         if (g.islem === "kod") { ivdKontrol(m, "t"); return cevap(res, 200, await vdSorgu(m, (x) => x.telefonKodIste(kimlik, tel))); }
         if (g.islem === "guncelle") { ivdKontrol(m, "t"); const r = await vdSorgu(m, (x) => x.telefonGuncelle(tel, String(g.kod || "").replace(/\D/g, ""))); gunluk(o, mid, "Dijital VD onay telefonu güncellendi", ""); return cevap(res, 200, r); }
         return cevap(res, 400, { hata: "Geçersiz işlem." });
+      }
+      if (ne === "mukellefiyet-iste") { /* mükellefiyet yazısı talebi (merkez); borç durum yazısıyla ortak günlük sınır */
+        if (g.onay !== true) return cevap(res, 400, { hata: "Talep için onay gerekli." });
+        const eposta = String(g.eposta || "").trim(); if (!posta.EPOSTA.test(eposta) || eposta.length > 60) return cevap(res, 400, { hata: "Cevabın bildirileceği geçerli bir e-posta adresi yazın (en çok 60 karakter)." });
+        const sin = (yaziSayac.get(m.id) || []).filter((t) => Date.now() - t < 864e5); if (sin.length >= 3) return cevap(res, 429, { hata: "Bir mükellef için günde en çok 3 yazı talebi gönderilebilir." });
+        const r = await vdSorgu(m, (x) => x.mukellefiyetYaziIste({ eposta }));
+        sin.push(Date.now()); yaziSayac.set(m.id, sin);
+        gunluk(o, mid, "Mükellefiyet yazısı talep edildi", "merkez");
+        return cevap(res, 200, r);
       }
       if (ne === "yazi-iste") {
         /* resmî talep: yalnız açık onayla, mükellef başına günde en çok 3 talep */
