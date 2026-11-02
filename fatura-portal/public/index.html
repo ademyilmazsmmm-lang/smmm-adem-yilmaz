@@ -1910,14 +1910,17 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (STD_SEKTOR.indexOf(x.id) < 0 || !HAZIRK) return false; var k = HAZIRK.filter(function(y){ return y.id === x.id; })[0]; if (!k) return false;
     return ["etiket", "ad", "kod", "istisna", "anah"].every(function(a){ return String(x[a] || "") === String(k[a] || ""); }) && Number(x.kdv) === Number(k.kdv) && Number(x.tev) === Number(k.tev);
   }
+  function tevOranSec(t){ var o = ""; for (var j = 0; j <= 9; j++) o += '<option value="' + j + '"' + (String(j) === String(t || 0) ? " selected" : "") + '>' + (j ? j + "/10" : "Yok (tevkifatsız)") + '</option>'; return o; }
+  function tevKodBul(k){ k = String(k || "").trim(); return TEVKODLAR.filter(function(x){ return x[0] === k; })[0] || null; }
+  function tevKodNot(k){ var b = tevKodBul(k); return b ? "✓ " + esc(b[0]) + " · " + esc(b[1]) + " → " + b[2] + "/10 tevkifat" : (String(k || "").trim().length >= 3 ? "Bu kod listede yok; oranı yukarıdan seçin." : ""); }
   function hizmetHtml(m){
-    var h = '<details class="alt2" data-ak="h:' + m.id + '"' + ac("h:" + m.id) + '><summary>Hizmetler (' + (m.hizmetler || []).length + ')</summary><div class="icerik">';
+    var h = '<details class="alt2" data-ak="h:' + m.id + '"' + ac("h:" + m.id) + '><summary>Hizmetler (' + (m.hizmetler || []).length + ')</summary><div class="icerik"><datalist id="tevListe">' + TEVKODLAR.map(function(t){ return '<option value="' + t[0] + '" label="' + esc(t[1] + " (" + t[2] + "/10)") + '">'; }).join("") + '</datalist>';
     (m.hizmetler || []).forEach(function(x){
       h += '<details class="kayit" data-hid="' + esc(x.id) + '" data-ak="hh:' + m.id + ':' + esc(x.id) + '"' + ac("hh:" + m.id + ":" + x.id) + '><summary><span data-ozet>' + esc(x.ad || "(adsız)") + '</span><small data-ozet2>' + hizmetOzet(x) + '</small></summary><div class="icerik">' +
         '<div><label>Listede görünen ad</label><input data-f="etiket" value="' + esc(x.etiket || x.ad) + '"></div>' +
         '<div><label>Faturaya yazılacak hizmet adı</label><input data-f="ad" value="' + esc(x.ad) + '"></div>' +
-        '<div class="satir"><div><label>KDV %</label><input data-f="kdv" inputmode="decimal" value="' + esc(x.kdv) + '"></div><div><label>Tevkifat x/10</label><input data-f="tev" inputmode="numeric" value="' + esc(x.tev) + '"></div></div>' +
-        '<div><label>Tevkifat kodu</label><input data-f="kod" inputmode="numeric" value="' + esc(x.kod) + '"></div>' +
+        '<div class="satir"><div><label>KDV %</label><input data-f="kdv" inputmode="decimal" value="' + esc(x.kdv) + '"></div><div><label>Tevkifat oranı (x/10)</label><select data-f="tev">' + tevOranSec(x.tev) + '</select></div></div>' +
+        '<div><label>Tevkifat kodu (yazın ya da listeden seçin; oran kendiliğinden gelir)</label><input data-f="kod" inputmode="numeric" autocomplete="off" list="tevListe" placeholder="Örn: 624" value="' + esc(x.kod) + '"><span class="not" data-tevnot style="margin:2px 0 0;font-size:.8rem">' + tevKodNot(x.kod) + '</span></div>' +
         '<div><label>İstisna sebep kodu (istisna ise, örn. 302)</label><input data-f="istisna" inputmode="numeric" value="' + esc(x.istisna || "") + '"></div>' +
         '<div><label>Özel matrah nedeni (özel matrahlı satış ise)</label><select data-f="ozel"><option value="">Yok</option>' + OZELLER.map(function(o){ return '<option value="' + o[0] + '"' + (o[0] === String(x.ozel || "") ? " selected" : "") + '>' + o[0] + " · " + esc(o[1]) + '</option>'; }).join("") + '</select></div>' +
         '<div><label>Mesajda aranacak kelimeler</label><input data-f="anah" value="' + esc(x.anah || "") + '"></div>' +
@@ -2447,6 +2450,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (hEl) {
       var x = (mm.hizmetler || []).filter(function(q){ return q.id === hEl.getAttribute("data-hid"); })[0]; x[f] = f === "kdv" ? sayi(v) : f === "tev" ? Math.min(9, Math.max(0, parseInt(v, 10) || 0)) : v;
       var h1 = hEl.querySelector("summary [data-ozet]"), h2 = hEl.querySelector("summary [data-ozet2]");
+      if (f === "kod") { var tb = tevKodBul(v), tn = hEl.querySelector("[data-tevnot]"), ts = hEl.querySelector('[data-f="tev"]'); if (tb) { x.tev = tb[2]; if (ts) ts.value = String(tb[2]); } if (tn) tn.innerHTML = tevKodNot(v); }
       if (f === "ad" && h1) h1.textContent = v || "(adsız)"; if (h2 && (f === "kdv" || f === "tev" || f === "kod" || f === "ozel" || f === "istisna")) h2.innerHTML = hizmetOzet(x);
     } else {
       mm[f] = v; var o1 = mEl.querySelector("summary [data-ozet]"), o2 = mEl.querySelector("summary [data-ozet2]");
