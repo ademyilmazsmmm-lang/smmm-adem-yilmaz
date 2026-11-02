@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-01-232";
+const SURUM = "2026-11-02-233";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -728,6 +728,28 @@ async function api(req, res, yol) {
     if (kayit) { kayit.durum = "Onaylandı"; kayit.onayZamani = new Date().toISOString(); m.gecmis.push(kayit); if (m.gecmis.length > 2000) m.gecmis.shift(); bekleyen.delete(g.uuid); depo.kaydet(mid); }
     gunluk(o, mid, "Fatura onaylandı", (kayit && kayit.belgeNo) || g.uuid); gibKisalt(m.id, 45e3);
     return cevap(res, 200, { mesaj: r.mesaj, kayit: kayit || null });
+  }
+  if (yol === "/api/vd/belge-mail") { /* SGK E-Borcu Yoktur / borç durum yazısı / tahakkuk fişi PDF'si: sunucuda alınır ve e-postayla gönderilir */
+    if (!posta.hazir()) return cevap(res, 400, { hata: "E-posta gönderimi bu sunucuda henüz kurulmadı (sunucu ayarlarında MAIL_ANAHTAR ve MAIL_GONDEREN gerekir)." });
+    const sinir = (postaSayac.get(o.kullanici) || []).filter((t) => Date.now() - t < 3600e3); if (sinir.length >= 40) return cevap(res, 429, { hata: "Saatlik e-posta sınırına ulaşıldı (40). Biraz sonra tekrar deneyin." });
+    const to = (Array.isArray(g.to) ? g.to : [g.to]).map((x) => String(x || "").trim()).filter(Boolean).slice(0, 3);
+    if (!to.length || !to.every((x) => posta.EPOSTA.test(x) && x.length <= 120)) return cevap(res, 400, { hata: "Geçerli bir e-posta adresi yazın." });
+    const tur = String(g.tur || ""), n = Number(g.n); let d;
+    if (tur === "sgk") {
+      const an = sgkAnahtar(mid, "isveren", sgkIx(g.ix)), x = sgkler.get(an); if (!x || !x.girdi) return cevap(res, 409, { hata: "SGK İşveren Sistemi bağlantısı kapalı; güvenlik koduyla yeniden bağlanın." });
+      try { sgkKontrol(an, "f"); sgkZamanla(an); d = await x.formGonder(n); } catch (e) { if (e && e.oturum) { clearTimeout(sgkZaman.get(an)); sgkler.delete(an); } return cevap(res, 500, { hata: "Belge alınamadı: " + e.message }); }
+    } else if (tur === "yazi" || tur === "thk") {
+      const x = ivdler.get(mid); if (!x || !x.girildi) return cevap(res, 409, { hata: "Önce Dijital Vergi Dairesi'ne bağlanın (Vergi D. sekmesi)." });
+      try { ivdKontrol({ id: mid }, "b"); ivdZamanla(mid); d = tur === "yazi" ? await x.yaziIndir(n) : await x.tahakkukIndir(n); } catch (e) { if (e && e.oturum) await ivdBirak(mid); return cevap(res, 500, { hata: "Belge alınamadı: " + e.message }); }
+    } else return cevap(res, 400, { hata: "Geçersiz belge türü." });
+    if (!d || !d.veri || d.veri.length > 5.5e6 || d.veri.slice(0, 4).toString() !== "%PDF") return cevap(res, 400, { hata: "Belge PDF olarak alınamadı; e-posta gönderilmedi." });
+    const pr = m.profil || {}, ad = { sgk: "SGK borcu yoktur belgesi (E-Borcu Yoktur)", yazi: "Vergi borcu yoktur / borç durum yazısı", thk: "Tahakkuk fişi" }[tur];
+    const metin = "Sayın yetkili,\n\n" + m.ad + " adına alınan " + ad + " ektedir.\n\nİyi çalışmalar dileriz.\n" + m.ad + (pr.tel ? "\nTel: " + pr.tel : "") + (pr.eposta ? "\nE-posta: " + pr.eposta : "") + "\n\n— Bu ileti Mükellef Portalı üzerinden gönderilmiştir.";
+    const kopya = pr.eposta && posta.EPOSTA.test(pr.eposta) && !to.includes(pr.eposta) ? [pr.eposta] : [];
+    await posta.gonder({ gonderenAd: m.ad, to, cc: kopya, yanit: pr.eposta || "", konu: ad + " — " + m.ad, metin, ek: { ad: String(d.ad || "belge.pdf").replace(/[^\w.\-]+/g, "_").replace(/^_+/, "") || "belge.pdf", tur: "application/pdf", veri: d.veri } }, DIR);
+    sinir.push(Date.now()); postaSayac.set(o.kullanici, sinir);
+    gunluk(o, mid, "Belge e-postayla gönderildi", ad + " → " + to.join(", "));
+    return cevap(res, 200, { tamam: true, to, kopya });
   }
   if (yol === "/api/mail") {
     if (!posta.hazir()) return cevap(res, 400, { hata: "E-posta gönderimi bu sunucuda henüz kurulmadı (sunucu ayarlarında MAIL_ANAHTAR ve MAIL_GONDEREN gerekir)." });

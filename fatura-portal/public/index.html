@@ -2672,7 +2672,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (!s.kayitlar.length) return '<p class="not">Bu aylarda tahakkuk kaydı bulunamadı.</p>';
     return s.kayitlar.map(function(d){
       return '<div class="kayit" style="display:flex;gap:10px;justify-content:space-between;align-items:center"><div style="min-width:0"><b>' + esc(d.vergiKodu || "Tahakkuk") + '</b><div class="not" style="margin:0;font-size:.8rem;overflow-wrap:anywhere">' + esc([ayAdi(d.vergiDonem) + " dönemi", d.kabulTarihi ? "kabul " + tarihYaz(d.kabulTarihi) : (/^\d{8}/.test(d.fisNo || "") ? "düzenleme " + d.fisNo.slice(6, 8) + "." + d.fisNo.slice(4, 6) + "." + d.fisNo.slice(0, 4) : ""), d.fisNo ? "fiş " + d.fisNo : ""].filter(Boolean).join(" · ")) + (d.vdAdi ? '<br>' + esc(tebAd(d.vdAdi)) : "") + '</div></div>' +
-        '<a class="btn" style="min-height:42px;padding:6px 16px;text-decoration:none;flex:none" target="_blank" rel="noopener" href="/api/vd/tahakkuk?mid=' + encodeURIComponent(VD.mid) + '&n=' + d.n + '">PDF</a></div>';
+        '<a class="btn" style="min-height:42px;padding:6px 16px;text-decoration:none;flex:none" target="_blank" rel="noopener" href="/api/vd/tahakkuk?mid=' + encodeURIComponent(VD.mid) + '&n=' + d.n + '">PDF</a>' + pmailDugme("thk", d.n, 0) + '</div>';
     }).join("");
   }
   function vdYokHtml(s){
@@ -3090,6 +3090,25 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   $("vdSgkGiris").addEventListener("click", vdSgkGiris);
   $("vdSgkKod").addEventListener("keydown", function(e){ if (e.key === "Enter") { e.preventDefault(); vdSgkGiris(); } });
   $("vdSgkKapat").addEventListener("click", function(){ if (!VD.mid) return; api("/api/sgk/cikis", "POST", { mukellefId: VD.mid, sistem: VD.sgkSis }).catch(function(){}); VD.sgkB[VD.sgkSis + "|" + VD.sgkIx] = false; vdSgkCiz(); });
+  /* PDF'nin yanında "E-posta ile gönder": düğmeye basınca adres kutusu açılır (varsayılan mükellefin profil e-postası), PDF sunucuda alınıp gönderilir */
+  function pmailDugme(tur, n, ix){ return '<button class="k" type="button" data-pmail="' + tur + '" data-pn="' + n + '" data-pix="' + ix + '" style="min-height:40px;padding:6px 14px">✉ E-posta ile gönder</button>'; }
+  document.addEventListener("click", function(e){
+    var b = e.target.closest("[data-pmail]"); if (!b) return; var kap = b.closest(".kayit") || b.parentNode, var0 = kap.querySelector(".pmailForm");
+    if (var0) { var0.remove(); return; }
+    var m = mBul(VD.mid) || {}, f = document.createElement("div"); f.className = "pmailForm"; f.style.cssText = "display:grid;gap:6px;margin-top:8px";
+    f.innerHTML = '<label>Gönderilecek e-posta adresi</label><input type="email" inputmode="email" autocomplete="off" autocapitalize="off" value="' + esc((m.profil || {}).eposta || "") + '" placeholder="ornek@eposta.com"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" data-pg="1">Gönder</button><button class="k" type="button" data-pi="1">Vazgeç</button></div><div class="durum" role="status"></div>';
+    kap.appendChild(f);
+    var inp = f.querySelector("input"), dr = f.querySelector(".durum"), g = f.querySelector("[data-pg]");
+    f.querySelector("[data-pi]").addEventListener("click", function(){ f.remove(); });
+    g.addEventListener("click", function(){
+      var adr = inp.value.trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adr)) { dr.className = "durum hata"; dr.textContent = "Geçerli bir e-posta adresi yazın."; return; }
+      g.disabled = true; dr.className = "durum"; dr.textContent = "⏳ Belge alınıp gönderiliyor…";
+      api("/api/vd/belge-mail", "POST", { mukellefId: VD.mid, tur: b.getAttribute("data-pmail"), n: +b.getAttribute("data-pn"), ix: +b.getAttribute("data-pix") || 0, to: [adr] }).then(function(r){
+        dr.className = "durum ok"; dr.textContent = "✓ Gönderildi: " + r.to.join(", ") + (r.kopya && r.kopya.length ? " (kopya: " + r.kopya.join(", ") + ")" : "");
+      }, function(er){ if (oturumDustu(er)) return; dr.className = "durum hata"; dr.textContent = er.message; }).then(function(){ g.disabled = false; });
+    });
+    if (!inp.value) setTimeout(function(){ odakla(inp); }, 50);
+  });
   function isvHtml(r, etiket){
     var h = '<div class="kayit"><b>' + esc(etiket || "SGK") + '</b>' + (r.isyeri ? '<div class="not" style="margin:2px 0 0;font-size:.8rem">' + esc(r.isyeri.unvan) + ' · Sicil ' + esc(r.isyeri.sicil) + '</div>' : "");
     if (r.uyari) h += '<div class="durum ' + (/HATA|bulunmam/i.test(r.uyari) ? "hata" : "") + '" style="display:block;margin-top:6px">' + esc(r.uyari) + '</div>';
@@ -3104,7 +3123,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
         h += '<div style="margin-top:8px"><div class="not" style="margin:0;font-size:.8rem">Toplam bakiye</div><div style="font-size:1.5rem;font-weight:700;color:var(--danger,#b3261e)">' + esc(son) + ' TL</div>' + (ek ? '<div class="not" style="margin:0;font-size:.8rem">' + esc(ek) + '</div>' : "") + (n ? '<div class="not" style="margin:0;font-size:.8rem">' + n + ' kayıtta borç var · ayrıntı için PDF’i açın</div>' : "") + '</div>';
       }
     } else if (r.metin && !r.uyari && !(r.ciftler && r.ciftler.length)) h += '<p class="not" style="margin:6px 0 0;font-size:.84rem">' + esc(r.metin) + '</p>';
-    if ((r.dugmeler || []).length) h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' + r.dugmeler.map(function(d){ return '<a class="btn ikincil" style="text-decoration:none;min-height:40px;padding:6px 14px" target="_blank" rel="noopener" href="/api/sgk/form?mid=' + encodeURIComponent(VD.mid) + '&ix=' + (VD.sgkIx || 0) + '&i=' + d.i + '">' + esc(d.etiket) + '</a>'; }).join("") + '</div>';
+    if ((r.dugmeler || []).length) h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' + r.dugmeler.map(function(d){ return '<a class="btn ikincil" style="text-decoration:none;min-height:40px;padding:6px 14px" target="_blank" rel="noopener" href="/api/sgk/form?mid=' + encodeURIComponent(VD.mid) + '&ix=' + (VD.sgkIx || 0) + '&i=' + d.i + '">' + esc(d.etiket) + '</a>' + pmailDugme("sgk", d.i, VD.sgkIx || 0); }).join("") + '</div>';
     return h + '</div><details class="alt2 teknik"><summary>Teknik ayrıntı (sayfa beklediğiniz gibi değilse bunu gönderin)</summary><div class="icerik"><pre id="isvHam" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;margin:0;max-height:260px;overflow:auto">' + esc("Adres: " + r.adres + "\nFormlar: " + JSON.stringify(r.formlar || []) + "\nAlanlar: " + JSON.stringify(r.alanlar || []) + "\nTablolar: " + JSON.stringify(r.tablolar || []) + "\nBağlantılar: " + JSON.stringify(r.baglantilar || []) + "\nYönlendirme: " + JSON.stringify(r.yonlendirme || []) + "\nSatırlar: " + JSON.stringify(r.satirlar || []) + "\n\nTablo ham:\n" + (r.tabloHam || "") + (r.betikOzet ? "\n\nBetik özeti:\n" + r.betikOzet : "") + "\n\n" + (r.ham || "")) + '</pre><button class="k" type="button" id="isvKopya">Kopyala</button></div></details>';
   }
   /* ---- potansiyel teşvik sorgulama (sayfanın kendi formu okunur ve aynı forma gönderilir) ---- */
@@ -3192,7 +3211,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     return s.yazilar.map(function(y){
       var d = y.durum === 1 ? ["✓ Cevaplandı", "#2f7d6b"] : y.durum === 9 ? ["Değerlendiriliyor", "#d68910"] : ["Cevaplanmadı", "#7f8c8d"];
       return '<div class="kayit"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="min-width:0"><b style="display:block">' + esc(y.ad || "Borç Durum Yazısı") + '</b><span class="not" style="margin:0;font-size:.8rem;display:block">Talep: ' + esc(tarihYaz(y.talep, 1)) + (y.eposta ? " · " + esc(y.eposta) : "") + '</span>' + (y.cevap ? '<span class="not" style="margin:0;font-size:.8rem;display:block">Cevap: ' + esc(tarihYaz(y.cevap, 1)) + '</span>' : "") + '</div><span style="background:color-mix(in srgb,' + d[1] + ' 20%,transparent);border-radius:99px;padding:2px 10px;font-size:.78rem;font-weight:650;white-space:nowrap">' + d[0] + '</span></div>'
-        + (y.durum === 1 ? '<a class="btn" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="/api/vd/yazi?mid=' + encodeURIComponent(VD.mid) + '&n=' + y.n + '">PDF’yi aç</a>' : '') + '</div>';
+        + (y.durum === 1 ? '<a class="btn" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="/api/vd/yazi?mid=' + encodeURIComponent(VD.mid) + '&n=' + y.n + '">PDF’yi aç</a>' + pmailDugme("yazi", y.n, 0) : '') + '</div>';
     }).join("");
   }
   function vdYaziAlan(){
