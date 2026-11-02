@@ -655,6 +655,19 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       <div style="display:flex;gap:8px"><button class="btn ikincil" type="button" id="tahVazgec" style="flex:1">Vazgeç</button><button class="btn" type="button" id="tahKaydet" style="flex:2">✓ Tahsil edildi olarak işaretle</button></div>
     </div>
   </div>
+  <div id="sifreOner" hidden role="dialog" aria-modal="true" aria-label="Şifrenizi belirleyin" style="position:fixed;inset:0;z-index:85;background:color-mix(in srgb,var(--bg) 92%,transparent);display:flex;align-items:center;justify-content:center;padding:16px">
+    <div class="card" style="width:min(440px,100%);gap:10px;max-height:100%;overflow:auto">
+      <h2 style="margin:0">🔐 Şifrenizi kendinize göre belirleyin</h2>
+      <p class="not" style="margin:0">Giriş şifrenizi ofisimiz sizin için oluşturdu. Güvenliğiniz için yalnızca sizin bilebileceğiniz yeni bir şifre belirlemenizi öneririz.</p>
+      <div><label for="soEski">Şu anki şifre</label><input id="soEski" type="password" autocomplete="current-password"></div>
+      <div><label for="soYeni">Yeni şifre <span id="soMin"></span></label><input id="soYeni" type="password" autocomplete="new-password"></div>
+      <div><label for="soYeni2">Yeni şifre (tekrar)</label><input id="soYeni2" type="password" autocomplete="new-password"></div>
+      <button class="btn" type="button" id="soKaydet">Şifremi değiştir</button>
+      <button class="k" type="button" id="soSonra">Daha sonra</button>
+      <div class="durum" id="soDurum" role="status"></div>
+      <p class="not" style="margin:0;font-size:.78rem">İstediğiniz zaman <b>Ayarlar → Hesabım</b> bölümünden de değiştirebilirsiniz.</p>
+    </div>
+  </div>
   <div id="kabul" hidden role="dialog" aria-modal="true" aria-label="Aydınlatma ve onay metni">
     <div class="kbas">e-Arşiv Fatura — Bilgilendirme ve Onay</div>
     <div class="kmetin">
@@ -766,14 +779,14 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
 
   /* ---------- giriş ---------- */
   var kurulu = false, sifreMin = 8;
-  var kurulu = false, eskiKayit = false, sifreMin = 8, mSifreMin = 8, ROL = "", PERSONEL = false, COKLU = false, KULLANICI = "", yedek = null;
+  var SIFRE_ONER = false, kurulu = false, eskiKayit = false, sifreMin = 8, mSifreMin = 8, ROL = "", PERSONEL = false, COKLU = false, KULLANICI = "", yedek = null;
   /* çalışan hesabı arayüzde "ofis" gibi davranır (seçili mükellefler adına işlem) ama yönetim bölümleri (mükellef ekle/sil, yedek, çalışanlar) kapalıdır */
   /* "musteri": birden çok firması olan mükellefin kısıtlı hesabı — arayüz mükellef gibi, ama üstte firma seçici vardır */
   function rolAta(r){ PERSONEL = r === "personel"; COKLU = r === "musteri"; ROL = PERSONEL ? "ofis" : COKLU ? "mukellef" : r; document.body.setAttribute("data-rol", ROL); }
   function acilis(){
     api("/api/durum").then(function(d){
       kurulu = d.kurulu; eskiKayit = !!d.eski; $("sahte").hidden = !d.sahte; $("surum").textContent = d.surum ? "sürüm " + d.surum : ""; $("girisSurum").textContent = d.surum ? "Sürüm " + d.surum + (ANA_EKRAN ? " · ana ekran kipi" : "") : ""; sifreMin = d.sifreMin || 8; mSifreMin = d.mSifreMin || 8;
-      if (d.giris) { rolAta(d.rol); KULLANICI = d.kullanici; return basla(); }
+      if (d.giris) { rolAta(d.rol); KULLANICI = d.kullanici; SIFRE_ONER = !!d.sifreOner; return basla(); }
       ROL = ""; KULLANICI = ""; $("uyg").hidden = true; $("giris").hidden = false; yedek = null; girisKipi();
       if (!kurulu) YDB.al().then(function(y){ if (y && (y.paket || y.kasa)) yedekKipi(y); });
     });
@@ -848,9 +861,26 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function ilkKalem(){ return yeniKalem(null); }
   function hepsi(){ if (!$("tarih").value) $("tarih").value = bugunStr(); $("tarih").max = bugunStr(); cizM(); cizAlici(); cizKalemler(); formDoldur(); onizle(); cizAyar(); markaUygula(); kabulKontrol(); }
   /* mükellef ilk girişinde (ve metin sürümü değişince) aydınlatma/onay metni gösterilir; kabul sunucuya tarihle kaydedilir */
+  /* Mükellef ilk girişte (ofisin verdiği şifre değiştirilmemişse) şifresini belirlemeye davet edilir; "Daha sonra" 1 gün susturur */
+  function sifreOnerSusturuldu(){ try { return Date.now() < (+localStorage.getItem("sifreSustur:" + KULLANICI) || 0); } catch (e) { return false; } }
+  function sifreOnerKontrol(kabulGerek){
+    var goster = SIFRE_ONER && ROL === "mukellef" && !kabulGerek && !sifreOnerSusturuldu(), e = $("sifreOner"); if (!e) return;
+    if (goster && e.hidden) { $("soMin").textContent = "(en az " + mSifreMin + " karakter)"; $("soEski").value = $("soYeni").value = $("soYeni2").value = ""; $("soDurum").textContent = ""; $("soDurum").className = "durum"; }
+    e.hidden = !goster; if (!goster && !SIFRE_ONER) return;
+  }
+  $("soSonra").addEventListener("click", function(){ try { localStorage.setItem("sifreSustur:" + KULLANICI, String(Date.now() + 864e5)); } catch (e) { /* kayıt yok */ } $("sifreOner").hidden = true; });
+  $("soKaydet").addEventListener("click", function(){
+    var d = $("soDurum"), eski = $("soEski").value, yeni = $("soYeni").value, b = this; d.className = "durum hata";
+    if (!eski) { d.textContent = "Şu anki şifrenizi yazın."; return; }
+    if (yeni.length < mSifreMin) { d.textContent = "Yeni şifre en az " + mSifreMin + " karakter olmalı."; return; }
+    if (yeni !== $("soYeni2").value) { d.textContent = "Yeni şifreler aynı değil."; return; }
+    if (yeni === eski) { d.textContent = "Yeni şifre eskisinden farklı olmalı."; return; }
+    b.disabled = true; d.className = "durum"; d.textContent = "Kaydediliyor…";
+    api("/api/sifre", "POST", { eski: eski, yeni: yeni }).then(function(){ SIFRE_ONER = false; d.className = "durum ok"; d.textContent = "✓ Şifreniz değiştirildi. Bir sonraki girişte yenisini kullanın."; setTimeout(function(){ $("sifreOner").hidden = true; }, 1400); }, function(er){ if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = er.message; }).then(function(){ b.disabled = false; });
+  });
   function kabulKontrol(){
     var gerek = ROL === "mukellef" && V && V.mukellefler && V.mukellefler.some(function(m){ return m.kabulGerek; });
-    $("kabul").hidden = !gerek; document.body.style.overflow = gerek ? "hidden" : "";
+    $("kabul").hidden = !gerek; document.body.style.overflow = gerek ? "hidden" : ""; sifreOnerKontrol(gerek);
     if (gerek) { $("kabulKutu").checked = false; $("kabulBtn").disabled = true; $("kabulDurum").textContent = ""; $("kabulDurum").className = "durum"; var km = $("kabul").querySelector(".kmetin"); if (km) km.scrollTop = 0; }
   }
   $("kabulKutu").addEventListener("change", function(){ $("kabulBtn").disabled = !this.checked; });
@@ -2496,7 +2526,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (t.id === "sDegistir") {
       var d2 = $("sDurum"), eski = $("sEski").value, yeni = $("sYeni").value;
       if (yeni !== $("sYeni2").value) { d2.className = "durum hata"; d2.textContent = "Yeni şifreler aynı değil."; return; }
-      api("/api/sifre", "POST", { eski: eski, yeni: yeni }).then(function(){ $("sEski").value = $("sYeni").value = $("sYeni2").value = ""; d2.className = "durum ok"; d2.textContent = "Şifreniz değiştirildi."; }, function(er){ ayarHata(d2, er); });
+      api("/api/sifre", "POST", { eski: eski, yeni: yeni }).then(function(){ SIFRE_ONER = false; $("sEski").value = $("sYeni").value = $("sYeni2").value = ""; d2.className = "durum ok"; d2.textContent = "Şifreniz değiştirildi."; }, function(er){ ayarHata(d2, er); });
       return;
     }
     if (t.hasAttribute("data-gk-oku")) {

@@ -181,7 +181,7 @@ class Depo {
     if (!adGecerli(ad)) throw new Error("Kullanıcı adı 3-32 karakter olmalı (harf, rakam, nokta, tire, alt çizgi).");
     if (!this.adMusait(ad, mid)) throw new Error("Bu kullanıcı adı kullanılıyor.");
     const e = this.mukellef(o, mid), tuz = crypto.randomBytes(16);
-    if (sifre) { e.baslik.tuz = b64(tuz); e.baslik.iter = this.iter; e.baslik.wrapSifre = sar(await kdf(sifre, tuz, this.iter), e.K); this.kaydet(mid); }
+    if (sifre) { e.baslik.tuz = b64(tuz); e.baslik.iter = this.iter; e.baslik.wrapSifre = sar(await kdf(sifre, tuz, this.iter), e.K); e.veri.sifreDegisti = false; this.kaydet(mid); }
     else if (!e.baslik.wrapSifre) throw new Error("Yeni hesap için şifre belirleyin.");
     const h = this.sistem.hesaplar.filter((x) => x.id === mid)[0];
     if (h) h.kullanici = ad; else this.sistem.hesaplar.push({ id: mid, kullanici: ad });
@@ -212,11 +212,17 @@ class Depo {
     }
     if (o.rol === "personel") {
       const p = this.personelBul(o.pid); ac(await kdf(eski, Buffer.from(p.tuz, "base64"), p.iter), p.wrapSifre); // eski şifre doğrulanır
-      const tuz = crypto.randomBytes(16); p.tuz = b64(tuz); p.iter = this.iter; p.wrapSifre = sar(await kdf(yeni, tuz, this.iter), o.S); this.sistemYaz(); return;
+      const tuz = crypto.randomBytes(16); p.tuz = b64(tuz); p.iter = this.iter; p.wrapSifre = sar(await kdf(yeni, tuz, this.iter), o.S); p.sifreDegisti = true; this.sistemYaz(); return;
     }
     const e = this.mukellef(o, o.mid), v = e.baslik;
     ac(await kdf(eski, Buffer.from(v.tuz, "base64"), v.iter), v.wrapSifre); // eski şifre doğrulanır
-    const tuz = crypto.randomBytes(16); v.tuz = b64(tuz); v.iter = this.iter; v.wrapSifre = sar(await kdf(yeni, tuz, this.iter), e.K); this.kaydet(o.mid);
+    const tuz = crypto.randomBytes(16); v.tuz = b64(tuz); v.iter = this.iter; v.wrapSifre = sar(await kdf(yeni, tuz, this.iter), e.K); e.veri.sifreDegisti = true; this.kaydet(o.mid);
+  }
+  /* Mükellef / müşteri hesabında şifre henüz kendisi tarafından değiştirilmediyse ilk girişte değiştirmesi önerilir */
+  sifreOner(o) {
+    if (o.rol === "mukellef") return this.mukellef(o, o.mid).veri.sifreDegisti !== true;
+    if (o.musteri) { const p = this.personelBul(o.pid); return !!p && p.sifreDegisti !== true; }
+    return false;
   }
 
   /* ---- belgeler (imza sirküleri, faaliyet belgesi vb.) ----

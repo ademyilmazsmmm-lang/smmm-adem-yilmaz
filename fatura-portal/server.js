@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-02-234";
+const SURUM = "2026-11-02-235";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -334,7 +334,7 @@ async function api(req, res, yol) {
     if (OFIS_EPOSTA && posta.hazir()) posta.gonder({ gonderenAd: "Mükellef Portalı", to: [OFIS_EPOSTA], cc: [], konu: "Portal giriş bilgisi talebi: " + ad, metin: "Giriş ekranından kullanıcı adı ve şifre talebi geldi.\n\nAd / unvan: " + ad + "\nTelefon: " + t.tel + (vkn ? "\nVKN/TCKN: " + vkn : "") + (t.not ? "\nNot: " + t.not : "") + "\n\nPortalda Ayarlar → Hesap talepleri bölümünden de görebilirsiniz." }, DIR).catch((e) => console.log("Hesap talebi bildirimi gönderilemedi: " + e.message));
     return cevap(res, 200, { tamam: true });
   }
-  if (yol === "/api/durum") return cevap(res, 200, { kurulu: depo.kurulu, eski: depo.eskiVar, giris: !!o, rol: rolAd(o), kullanici: o && o.kullanici, sahte: gib.MOCK, surum: SURUM, sifreMin, mSifreMin });
+  if (yol === "/api/durum") return cevap(res, 200, { kurulu: depo.kurulu, eski: depo.eskiVar, giris: !!o, rol: rolAd(o), kullanici: o && o.kullanici, sahte: gib.MOCK, surum: SURUM, sifreMin, mSifreMin, sifreOner: !!o && mGibi(o) && depo.sifreOner(o) });
   if (yol === "/api/kabul" && req.method === "POST") {
     if (!mGibi(o)) return cevap(res, 403, { hata: "Bu işlem yalnız mükellef hesabı içindir." });
     if (o.musteri) { depo.personelKabul(o, KABUL_SURUM); gunluk(o, depo.mukellefIdleri(o)[0] || "", "Aydınlatma ve onay metni kabul edildi (müşteri hesabı)"); return cevap(res, 200, { ok: true }); }
