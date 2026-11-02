@@ -324,12 +324,17 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
 .alt{position:fixed;bottom:0;left:0;right:0;background:#9bb;padding:4px}.alt button{margin-right:8px}
 #islemMenu{position:fixed;bottom:30px;left:120px;background:#fff;border:1px solid #888}
 #islemMenu a{display:block;padding:6px 10px;cursor:pointer}</style></head><body>
+<div class="gizli" id="tuzak">Evrak Tarihi <input type="text" value="01/01/2000"> <input type="text" value="02/01/2000">
+ <button>Listele</button></div>
 <div id="menu"><a id="gelir">Gelirler</a><a id="gider">Giderler</a><a>Gelir Alt Tür Tanımları</a><a>Muhtasar</a></div>
 <div id="form"><h4 id="baslik">Gelir Listesi</h4>
  <table style="border:0"><tr><td style="border:0">Evrak Tarihi</td>
  <td style="border:0"><input type="text" id="b1" value="01/10/2026"> <input type="text" id="b2" value="31/10/2026"></td></tr>
- <tr><td style="border:0">Durum</td><td style="border:0"><select id="durum"><option>Tümü</option>
- <option>Gönderilmemişler</option><option>Gönderilmişler</option></select></td></tr>
+ <tr><td style="border:0">Durum</td><td style="border:0"><select id="durum" style="display:none"><option>Tümü</option>
+ <option>Gönderilmemişler</option><option>Gönderilmişler</option></select>
+ <div id="durumGos" style="border:1px solid #888;width:200px;cursor:pointer"><span id="durumYazi">Tümü</span> <span>▾</span></div>
+ <div id="durumListe" class="gizli" style="border:1px solid #888;width:200px"><div class="d">Tümü</div>
+ <div class="d">Gönderilmemişler</div><div class="d">Gönderilmişler</div></div></td></tr>
  <tr><td style="border:0">Gönderilme Tarihi</td><td style="border:0"><input type="text" id="g1"> <input type="text" id="g2"></td></tr>
  <tr><td style="border:0"></td><td style="border:0"><button id="listele">Listele</button></td></tr></table></div>
 <div id="liste" class="gizli">
@@ -355,6 +360,9 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
  <button id="eTamam">Tamam</button></div>
 <script>
  const g = id => document.getElementById(id);
+ g('durumGos').onclick = () => g('durumListe').classList.toggle('gizli');
+ document.querySelectorAll('#durumListe .d').forEach(d => d.onclick = () => { g('durum').value = d.textContent;
+   g('durumYazi').textContent = d.textContent; g('durumListe').classList.add('gizli'); });
  let tur = 'gelir', kayitlar = [];
  function sekme(t) { tur = t; g('baslik').textContent = (t == 'gelir' ? 'Gelir' : 'Gider') + ' Listesi';
    g('form').classList.remove('gizli'); g('liste').classList.add('gizli'); g('arac').classList.add('gizli'); }

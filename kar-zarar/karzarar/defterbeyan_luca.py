@@ -20,8 +20,8 @@ import time
 from urllib.parse import urlparse
 
 from lucabot.bekleme import kosulu_bekle, sayfa_durulsun
-from lucabot.luca_ekran import (acik_pencere, acik_pencereleri_kapat, cerceveler, diyalog_bekle, dugmeye_bas, gorunur_mu,
-                                hata_kaydet, metinle_bul, pencerede_tikla, tarih_araligi_yaz, tarih_kutulari)
+from lucabot.luca_ekran import (acik_pencere, acik_pencereleri_kapat, diyalog_bekle, hata_kaydet, kutuya_yaz,
+                                pencerede_tikla)
 from lucabot.ortak import yaz
 
 from . import db_sonuc
@@ -77,6 +77,100 @@ HEPSINI_SEC_JS = """() => {
 KAYIT_YOK_METINLERI = ("kayıt bulunamadı", "kayıt bulunamamıştır", "kayıt yok", "listelenecek kayıt")
 
 
+# --- ekran ogelerini bulma (bu sayfaya ozgu) ------------------------------------------------------------
+# Luca'nin ortak yardimcilari bir metinle eslesen ILK ogeye bakar. Bu sayfada Gelirler/Giderler formlari ayni sayfada
+# durup sekmeyle gizlenip gosterilebildigi icin ilk "Listele"/"Evrak Tarihi" gizli formun olabilir ve ekranda gorunen
+# oge hic bulunamaz. Burada TUM cerceveler ve TUM eslesmeler taranir, yalnizca GORUNEN ilk oge doner.
+
+def cerceveler(sayfa):
+    try:
+        return list(sayfa.frames)
+    except Exception:
+        return []
+
+
+def gorunur_bul(sayfa, kurucu, sure=15000):
+    """kurucu(cerceve) -> locator; tum cerceve ve eslesmelerde ilk GORUNEN ogeyi (cerceve, oge) dondurur."""
+    def dene():
+        for fr in cerceveler(sayfa):
+            try:
+                loc = kurucu(fr)
+                for i in range(min(loc.count(), 40)):
+                    oge = loc.nth(i)
+                    if oge.is_visible():
+                        return fr, oge
+            except Exception:
+                continue  # cerceve yeniden yukleniyor
+        return None
+    sonuc = kosulu_bekle(sayfa, dene, sure, aralik_ms=300)
+    if sonuc:
+        return sonuc
+    raise LookupError("Görünen öğe bulunamadı")
+
+
+def metinle_bul(sayfa, metin, sure=15000):
+    """Once dugme, sonra tam metin, en son metni iceren GORUNEN oge (bkz. gorunur_bul)."""
+    pay = max(300, sure // 4)
+    son = None
+    for kurucu, kurucu_sure in (
+        (lambda f: f.get_by_role("button", name=metin, exact=True), pay),
+        (lambda f: f.get_by_text(metin, exact=True), pay),
+        (lambda f: f.get_by_text(metin, exact=False), sure),
+    ):
+        try:
+            return gorunur_bul(sayfa, kurucu, sure=kurucu_sure)
+        except LookupError as e:
+            son = e
+    raise LookupError(f"'{metin}' ekranda görünmüyor") from son
+
+
+def gorunur_mu(sayfa, metin, sure=1500):
+    if not isinstance(metin, str):
+        return bool(kosulu_bekle(sayfa, lambda: any(gorunur_mu(sayfa, m, sure=0) for m in metin), sure, aralik_ms=200))
+    try:
+        gorunur_bul(sayfa, lambda f: f.get_by_text(metin, exact=False), sure=sure)
+        return True
+    except LookupError:
+        return False
+
+
+def dugmeye_bas(sayfa, metin, sure=8000):
+    try:
+        _, dugme = metinle_bul(sayfa, metin, sure=sure)
+    except LookupError:
+        return False
+    for zorla in (False, True):
+        try:
+            dugme.click(timeout=6000, force=zorla)
+            return True
+        except Exception:
+            continue
+    return False
+
+
+def sayfa_ozeti(sayfa, log):
+    """Beklenmeyen durumda ekrandaki girdi kutularini ve dugmeleri loga yazar (sayfa yapisini incelemek icin)."""
+    js = """() => {
+      const g = e => !!(e.offsetParent || e.getClientRects().length);
+      const ad = e => `${e.tagName.toLowerCase()}${e.type && e.tagName=='INPUT' ? '['+e.type+']' : ''}#${e.id||''}.${(e.name||'')}` +
+                      `="${(e.value||'').slice(0,24)}"${g(e) ? '' : ' (gizli)'}`;
+      const girdi = [...document.querySelectorAll('input,select,textarea')].map(ad).slice(0, 40);
+      const dugme = [...document.querySelectorAll('button,input[type=button],a')].filter(g)
+        .map(e => (e.innerText || e.value || '').trim().slice(0, 24)).filter(Boolean).slice(0, 30);
+      return {url: location.pathname.slice(-40), girdi, dugme, baslik: (document.body.innerText || '').slice(0, 160).replace(/\\s+/g, ' ')};
+    }"""
+    for i, fr in enumerate(cerceveler(sayfa)):
+        try:
+            o = fr.evaluate(js)
+        except Exception:
+            continue
+        if not o["girdi"] and not o["dugme"]:
+            continue
+        yaz(f"    [sayfa kaydı] çerçeve {i} {o['url']}: {o['baslik']}", log)
+        yaz(f"      kutular: {' | '.join(o['girdi'])}", log)
+        yaz(f"      düğmeler: {' | '.join(o['dugme'])}", log)
+
+
 # --- sayfa ----------------------------------------------------------------------------------------
 
 def sayfayi_ac(ctx, luca_sayfasi, log=None):
@@ -96,8 +190,12 @@ def sekme_ac(sayfa, tur):
     ad = SEKMELER[tur]
     _, oge = metinle_bul(sayfa, ad, sure=8000)
     oge.click()
-    sayfa_durulsun(sayfa, azami_ms=1500)
-    if not gorunur_mu(sayfa, ["Listele", "Evrak No"], sure=8000):
+    try:  # sekme sayfayi yeniden yukleyebilir: eski sayfadaki "Listele"yi gorup yanlis karar verilmesin
+        sayfa.wait_for_load_state("domcontentloaded", timeout=8000)
+    except Exception:
+        pass
+    sayfa_durulsun(sayfa, azami_ms=2500)
+    if not gorunur_mu(sayfa, ["Listele", "Evrak No"], sure=15000):
         raise LookupError(f"{ad} sekmesi açılmadı")
 
 
@@ -120,7 +218,10 @@ def _kayit_yok_yazisi(sayfa):
 
 
 def durum_sec(sayfa, hedef):
-    """Durum kutusunu (Tumu / Gonderilmemisler / Gonderilmisler) ayarlar."""
+    """Durum kutusunu (Tumu / Gonderilmemisler / Gonderilmisler) ayarlar ve secimi dogrular.
+
+    Luca'da kutu ozel bir acilir liste olabilir (asil <select> gizli kalir): once gorunen <select>, sonra ozel listeye
+    tiklama, son care gizli <select>'in degerini yazma denenir."""
     istenen = _k(hedef)
     for fr in cerceveler(sayfa):
         try:
@@ -129,12 +230,38 @@ def durum_sec(sayfa, hedef):
                 kutu = kutular.nth(i)
                 secenekler = kutu.locator("option").all_inner_texts()
                 eslesen = next((o for o in secenekler if _k(o) == istenen), None)
-                if eslesen is not None and any("gonderilmemis" in _k(o) for o in secenekler):
-                    kutu.select_option(label=eslesen, timeout=5000)
+                if eslesen is None or not any("gonderilmemis" in _k(o) for o in secenekler):
+                    continue
+                secili = lambda: _k(kutu.evaluate("e => (e.selectedOptions[0] || {}).text || ''")) == istenen
+                if secili():
+                    return True
+                if kutu.is_visible():
+                    try:
+                        kutu.select_option(label=eslesen, timeout=5000)
+                        if secili():
+                            return True
+                    except Exception:
+                        pass
+                else:   # ozel gosterge: gorunen secili yaziya tiklayip listeden sec
+                    simdiki = kutu.evaluate("e => (e.selectedOptions[0] || {}).text || ''").strip()
+                    try:
+                        _, gosterge = metinle_bul(sayfa, simdiki, sure=1500)
+                        gosterge.click(timeout=3000)
+                        _, secenek = metinle_bul(sayfa, eslesen, sure=2500)
+                        secenek.click(timeout=3000)
+                        sayfa_durulsun(sayfa, azami_ms=500)
+                        if secili():
+                            return True
+                    except Exception:
+                        pass
+                kutu.evaluate("""(e, ad) => { const i = [...e.options].findIndex(o => o.text.trim() === ad);
+                    if (i >= 0) { e.selectedIndex = i; e.dispatchEvent(new Event('input', {bubbles: true}));
+                    e.dispatchEvent(new Event('change', {bubbles: true})); } }""", eslesen.strip())
+                if secili():
                     return True
         except Exception:
             continue
-    # ozel (select olmayan) acilir liste: gorunen deger tiklanip secenek secilir
+    # <select> yok: gorunen deger tiklanip secenek secilir
     for gorunen in (TUMU, GONDERILMEMIS, GONDERILMIS):
         try:
             _, oge = metinle_bul(sayfa, gorunen, sure=800)
@@ -147,18 +274,53 @@ def durum_sec(sayfa, hedef):
     raise LookupError("Durum kutusu bulunamadı")
 
 
-def evrak_tarihi_kutulari(sayfa):
-    """'Evrak Tarihi' yazisindan sonraki ilk iki kutu (Gonderilme Tarihi kutulari bos ve ayri); olmazsa genel arama."""
-    for fr in cerceveler(sayfa):
+# Gorunen, tarih yazilabilir kutulari bulup isaretler. 1) "Evrak Tarihi" yazisindan sonra gelen ilk iki gorunen kutu;
+# 2) olmazsa degeri GG/AA/YYYY olan ilk iki gorunen kutu (Gonderilme Tarihi kutulari bos oldugu icin ayri kalir).
+KUTU_ISARETLE_JS = """() => {
+  const norm = s => (s || '').replace(/[\\s\\u00a0]+/g, ' ').trim().toLowerCase();
+  const gorunur = e => !!(e.offsetParent || e.getClientRects().length) && getComputedStyle(e).visibility !== 'hidden';
+  document.querySelectorAll('[data-lb-db]').forEach(e => e.removeAttribute('data-lb-db'));
+  const yasak = ['hidden', 'checkbox', 'radio', 'button', 'submit', 'image', 'file', 'password'];
+  const girdiler = [...document.querySelectorAll('input')].filter(e => gorunur(e) && !yasak.includes((e.type || 'text').toLowerCase()));
+  let sec = [];
+  const etiketler = [...document.querySelectorAll('body *')].filter(e => gorunur(e) && e.children.length < 3 &&
+      norm(e.textContent).startsWith('evrak tarihi') && norm(e.textContent).length <= 16);
+  for (const el of etiketler) {
+    const sonra = girdiler.filter(g => !el.contains(g) && (el.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING));
+    if (sonra.length >= 2) { sec = sonra.slice(0, 2); break; }
+  }
+  let yontem = 'etiket';
+  if (sec.length < 2) {
+    yontem = 'deger';
+    sec = girdiler.filter(e => /^\\d{2}[\\/.]\\d{2}[\\/.]\\d{4}$/.test((e.value || '').trim())).slice(0, 2);
+  }
+  sec.forEach((e, i) => e.setAttribute('data-lb-db', String(i)));
+  return sec.length === 2 ? yontem : '';
+}"""
+
+
+def evrak_tarihi_kutulari(sayfa, sure=12000):
+    """Evrak Tarihi baslangic/bitis kutulari (gorunen); sayfa yuklenirken kutular gecikebilir, beklenir."""
+    def bak():
+        for fr in cerceveler(sayfa):
+            try:
+                if fr.evaluate(KUTU_ISARETLE_JS):
+                    return [fr.locator("[data-lb-db='0']").first, fr.locator("[data-lb-db='1']").first]
+            except Exception:
+                continue
+        return None
+    return kosulu_bekle(sayfa, bak, sure, aralik_ms=500) or []
+
+
+def tarih_araligi_yaz(kutular, bas, bit):
+    """Iki kutuya yazar ve gercekten yazildigini dogrular; yazilmazsa LookupError."""
+    for kutu, deger in zip(kutular, (bas, bit)):
+        if not kutuya_yaz(kutu, deger):
+            raise LookupError(f"Evrak Tarihi kutusuna {deger} yazılamadı")
         try:
-            sec = ("xpath=(//*[normalize-space(text())='Evrak Tarihi']"
-                   "/following::input[not(@type) or @type='text'])")
-            kutu = fr.locator(sec)
-            if kutu.count() >= 2 and kutu.nth(0).is_visible() and kutu.nth(1).is_visible():
-                return [kutu.nth(0), kutu.nth(1)]
+            kutu.press("Tab", timeout=1500)   # tarih secici/dogrulama alani birakilsin
         except Exception:
-            continue
-    return tarih_kutulari(sayfa)[:2]
+            pass
 
 
 def listele(sayfa, bas, bit, durum, sure=30000):
@@ -393,6 +555,8 @@ def firma_isle(sayfa, firma, bas, bit, islem, log, tani_klasoru=None, tani_hep=F
             sonuc[tur] = {}
             sonuc["hata"] = f"{SEKMELER[tur]}: {str(e)[:160]}"
             yaz(f"    HATA ({SEKMELER[tur]}): {str(e)[:160]}", log)
+            if tur == db_sonuc.TURLER[0]:
+                sayfa_ozeti(sayfa, log)     # ilk hatada sayfanin yapisi loga yazilir (kutular, dugmeler)
             if tani_klasoru:
                 hata_kaydet(sayfa, tani_klasoru, f"defter-beyan-{firma}-{tur}-hata")
     if tani_hep and tani_klasoru:
