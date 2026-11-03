@@ -172,6 +172,30 @@ function zipDosyalari(b) {
   }
   return out;
 }
+/* Bağımlılıksız ZIP yazıcı (sıkıştırmasız/“stored”): dosyalar [{ ad, veri:Buffer }] */
+const CRC_TABLO = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xffffffff; for (let i = 0; i < b.length; i++) c = CRC_TABLO[(c ^ b[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function zipYaz(dosyalar) {
+  const parcalar = [], merkez = []; let ofset = 0; const simdi = new Date(), dosTarih = ((simdi.getFullYear() - 1980) << 9) | ((simdi.getMonth() + 1) << 5) | simdi.getDate(), dosSaat = (simdi.getHours() << 11) | (simdi.getMinutes() << 5) | (simdi.getSeconds() >> 1);
+  for (const d of dosyalar) {
+    const ad = Buffer.from(d.ad, "utf8"), veri = d.veri, crc = crc32(veri), yerel = Buffer.alloc(30);
+    yerel.writeUInt32LE(0x04034b50, 0); yerel.writeUInt16LE(20, 4); yerel.writeUInt16LE(0x0800, 6); yerel.writeUInt16LE(0, 8); yerel.writeUInt16LE(dosSaat, 10); yerel.writeUInt16LE(dosTarih, 12); yerel.writeUInt32LE(crc, 14); yerel.writeUInt32LE(veri.length, 18); yerel.writeUInt32LE(veri.length, 22); yerel.writeUInt16LE(ad.length, 26); yerel.writeUInt16LE(0, 28);
+    const m = Buffer.alloc(46);
+    m.writeUInt32LE(0x02014b50, 0); m.writeUInt16LE(20, 4); m.writeUInt16LE(20, 6); m.writeUInt16LE(0x0800, 8); m.writeUInt16LE(0, 10); m.writeUInt16LE(dosSaat, 12); m.writeUInt16LE(dosTarih, 14); m.writeUInt32LE(crc, 16); m.writeUInt32LE(veri.length, 20); m.writeUInt32LE(veri.length, 24); m.writeUInt16LE(ad.length, 28); m.writeUInt32LE(ofset, 42);
+    parcalar.push(yerel, ad, veri); merkez.push(m, ad); ofset += 30 + ad.length + veri.length;
+  }
+  const mb = Buffer.concat(merkez), son = Buffer.alloc(22);
+  son.writeUInt32LE(0x06054b50, 0); son.writeUInt16LE(dosyalar.length, 8); son.writeUInt16LE(dosyalar.length, 10); son.writeUInt32LE(mb.length, 12); son.writeUInt32LE(ofset, 16);
+  return Buffer.concat([...parcalar, mb, son]);
+}
+/* Portalın indirdiği belgeden XML ve HTML baytları (ZIP içinden ya da doğrudan) */
+function faturaDosyaCikar(b) {
+  let xml = null, html = null;
+  if (b.length > 4 && b[0] === 0x50 && b[1] === 0x4b) { for (const [isim, v] of zipDosyalari(b)) { if (/\.xml$/i.test(isim) && !xml) xml = v; else if (/\.html?$/i.test(isim) && !html) html = v; } }
+  else { const t = b.toString("utf8"); if (/<(?:\w+:)?Invoice[\s>]/i.test(t.slice(0, 2000))) xml = b; else if (/<html|<!doctype/i.test(t.slice(0, 500))) html = b; }
+  if (!xml && !html) throw new Error("İndirilen dosyada XML/HTML yok");
+  return { xml, html };
+}
 function htmlCikar(b) {
   if (b.length > 4 && b[0] === 0x50 && b[1] === 0x4b) {
     const d = zipDosyalari(b);
@@ -509,6 +533,7 @@ Gib.prototype.gelenArsiv = async function (bas, bit) {
   const liste = [...hepsi.values()];
   return { kayitlar: ivd.kayitlar(liste), sekil: ivd.sekil(liste) };
 };
+Gib.prototype.faturaDosyalari = async function (uuid, onay) { return this.indirHam(uuid, onay === "Onaylandı" ? "Onaylandı" : "Onaylanmadı", faturaDosyaCikar); };
 Gib.prototype.faturaVerisi = async function (uuid, onay) {
   return this.indirHam(uuid, onay === "Onaylandı" ? "Onaylandı" : "Onaylanmadı", faturaVeriCikar);
 };
@@ -565,6 +590,11 @@ class SahteGib {
       { belgeNumarasi: "XYZ2026000001208", belgeTarihi: "09-10-2026", saticiUnvan: "Yıldız Kırtasiye", saticiVknTckn: "9876543210", toplamTutar: "612,50", onayDurumu: "Onaylandı" }];
     const ivd = require("./ivd"); return { kayitlar: ivd.kayitlar(d), sekil: ivd.sekil(d) };
   }
+  async faturaDosyalari(uuid) {
+    const g = (SahteGib.t && SahteGib.t.get(uuid)) || (SahteGib.o && SahteGib.o.get(uuid)) || (SahteGib.i && SahteGib.i.get(uuid));
+    if (!g) throw new Error("Fatura bulunamadı.");
+    return { xml: Buffer.from('<?xml version="1.0" encoding="UTF-8"?><Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"><ID>' + String(g.belgeNumarasi || uuid) + '</ID></Invoice>'), html: Buffer.from("<html><head><meta charset=\"utf-8\"></head><body>Fatura " + String(g.belgeNumarasi || uuid) + "</body></html>") };
+  }
   async faturaVerisi(uuid) {
     const g = (SahteGib.t && SahteGib.t.get(uuid)) || (SahteGib.o && SahteGib.o.get(uuid)) || (SahteGib.i && SahteGib.i.get(uuid));
     if (!g) throw new Error("Fatura bulunamadı.");
@@ -584,4 +614,4 @@ class SahteGib {
   }
 }
 
-module.exports = { ublCoz, htmlCoz, faturaVeriCikar, trBugunStr, zipDosyalari, htmlCikar, hesaplaFatura, notUret, tutarYazi, temizMetin, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };
+module.exports = { ublCoz, htmlCoz, faturaVeriCikar, trBugunStr, zipDosyalari, zipYaz, faturaDosyaCikar, htmlCikar, hesaplaFatura, notUret, tutarYazi, temizMetin, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };

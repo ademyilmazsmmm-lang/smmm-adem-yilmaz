@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-03-240";
+const SURUM = "2026-11-03-241";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -759,16 +759,26 @@ async function api(req, res, yol) {
     if (!k) { const oz = g.ozet && typeof g.ozet === "object" ? g.ozet : null; if (!oz) return cevap(res, 404, { hata: "Fatura bu programın geçmişinde bulunamadı; e-posta gönderilemedi." }); k = { aliciUnvan: gib.temizMetin(oz.alici, 120), belgeNo: gib.temizMetin(oz.belgeNo, 40), tarih: String(oz.tarih || "").replace(/^(\d{2})[-\/.](\d{2})[-\/.](\d{4})/, "$3-$2-$1").slice(0, 10) }; gibKaydi = true; }
     const to = (Array.isArray(g.to) ? g.to : [g.to]).map((x) => String(x || "").trim()).filter(Boolean).slice(0, 3);
     if (!to.length || !to.every((x) => posta.EPOSTA.test(x) && x.length <= 120)) return cevap(res, 400, { hata: "Geçerli bir e-posta adresi yazın." });
-    const b64 = String(g.pdf || ""); if (!/^[A-Za-z0-9+/=]{100,}$/.test(b64) || b64.length > 5.5e6) return cevap(res, 400, { hata: "PDF eki geçersiz ya da çok büyük." });
-    const veri = Buffer.from(b64, "base64"); if (veri.slice(0, 4).toString() !== "%PDF") return cevap(res, 400, { hata: "Ek bir PDF değil." });
+    const zipMod = g.zip === true; let veri, ekAd, ekTur = "application/pdf", ekNot = "e-Arşiv faturanız ektedir";
+    const belgeAdi = String(k.belgeNo || "belge").replace(/[^\w.-]+/g, "_");
+    if (zipMod) { /* XML + HTML, GİB'den alınıp ZIP'lenir */
+      if (!/^[A-Za-z0-9:_=.-]{8,4000}$/.test(String(g.uuid || ""))) return cevap(res, 400, { hata: "Fatura seçilmedi." });
+      const f = await istemci(m).faturaDosyalari(g.uuid, "Onaylandı"), dosyalar = [];
+      if (f.xml) dosyalar.push({ ad: belgeAdi + ".xml", veri: f.xml }); if (f.html) dosyalar.push({ ad: belgeAdi + ".html", veri: f.html });
+      veri = gib.zipYaz(dosyalar); ekAd = "fatura-" + belgeAdi + ".zip"; ekTur = "application/zip"; ekNot = "e-Arşiv faturanızın XML ve HTML dosyaları (ZIP içinde) ektedir";
+      if (veri.length > 5.5e6) return cevap(res, 400, { hata: "Fatura dosyaları e-posta için çok büyük." });
+    } else {
+      const b64 = String(g.pdf || ""); if (!/^[A-Za-z0-9+/=]{100,}$/.test(b64) || b64.length > 5.5e6) return cevap(res, 400, { hata: "PDF eki geçersiz ya da çok büyük." });
+      veri = Buffer.from(b64, "base64"); if (veri.slice(0, 4).toString() !== "%PDF") return cevap(res, 400, { hata: "Ek bir PDF değil." }); ekAd = "fatura-" + belgeAdi + ".pdf";
+    }
     const pr = m.profil || {}, para = k.para || "TRY", tutar = k.hesap && typeof k.hesap.odenecek === "number" ? (k.hesap.odenecek / 100).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + (para === "TRY" ? "TL" : para) : "";
     const tarih = String(k.tarih || "").split("-").reverse().join(".");
-    const metin = "Sayın " + (k.aliciUnvan || "yetkili") + ",\n\n" + (k.belgeNo ? k.belgeNo + " numaralı " : "") + (tarih ? tarih + " tarihli " : "") + "e-Arşiv faturanız ektedir" + (tutar ? " (toplam: " + tutar + ")" : "") + ".\n\nİyi çalışmalar dileriz.\n" + m.ad + (pr.tel ? "\nTel: " + pr.tel : "") + (pr.eposta ? "\nE-posta: " + pr.eposta : "") + "\n\n— Bu ileti e-Arşiv fatura portalı üzerinden gönderilmiştir.";
+    const metin = "Sayın " + (k.aliciUnvan || "yetkili") + ",\n\n" + (k.belgeNo ? k.belgeNo + " numaralı " : "") + (tarih ? tarih + " tarihli " : "") + ekNot + (tutar ? " (toplam: " + tutar + ")" : "") + ".\n\nİyi çalışmalar dileriz.\n" + m.ad + (pr.tel ? "\nTel: " + pr.tel : "") + (pr.eposta ? "\nE-posta: " + pr.eposta : "") + "\n\n— Bu ileti e-Arşiv fatura portalı üzerinden gönderilmiştir.";
     const kopya = pr.eposta && posta.EPOSTA.test(pr.eposta) && !to.includes(pr.eposta) ? [pr.eposta] : [];
-    await posta.gonder({ gonderenAd: m.ad, to, cc: kopya, yanit: pr.eposta || "", konu: "Fatura" + (k.belgeNo ? " " + k.belgeNo : "") + " — " + m.ad, metin, ek: { ad: "fatura-" + String(k.belgeNo || "belge").replace(/[^\w.-]+/g, "_") + ".pdf", veri } }, DIR);
+    await posta.gonder({ gonderenAd: m.ad, to, cc: kopya, yanit: pr.eposta || "", konu: "Fatura" + (k.belgeNo ? " " + k.belgeNo : "") + " — " + m.ad, metin, ek: { ad: ekAd, tur: ekTur, veri } }, DIR);
     sinir.push(Date.now()); postaSayac.set(o.kullanici, sinir);
     if (!gibKaydi) { (k.epostalar = k.epostalar || []).push({ zaman: new Date().toISOString(), to: to.join(", ") }); if (k.epostalar.length > 20) k.epostalar.shift(); depo.kaydet(mid); }
-    gunluk(o, mid, "Fatura e-postayla gönderildi", (k.belgeNo || g.uuid) + " → " + to.join(", "));
+    gunluk(o, mid, zipMod ? "Fatura XML+HTML (ZIP) e-postayla gönderildi" : "Fatura e-postayla gönderildi", (k.belgeNo || g.uuid) + " → " + to.join(", "));
     return cevap(res, 200, { tamam: true, to, kopya });
   }
   if (yol === "/api/earsiv/kullanici" && req.method === "POST") { /* GİB e-Arşiv kullanıcı bilgileri: okuma ve (istemcide önizleme + onaydan sonra) kaydetme */
@@ -894,6 +904,13 @@ async function api(req, res, yol) {
   if (yol === "/api/fatura-veri") {
     if (!/^[A-Za-z0-9:_=.-]{8,4000}$/.test(String(g.uuid || ""))) return cevap(res, 400, { hata: "Fatura seçilmedi." });
     return cevap(res, 200, await istemci(m).faturaVerisi(g.uuid, g.onay));
+  }
+  if (yol === "/api/fatura-zip") { /* XML + HTML ZIP'i (indirme / paylaşma için, base64) */
+    if (!/^[A-Za-z0-9:_=.-]{8,4000}$/.test(String(g.uuid || ""))) return cevap(res, 400, { hata: "Fatura seçilmedi." });
+    const f = await istemci(m).faturaDosyalari(g.uuid, "Onaylandı"), ad = String(g.ad || "belge").replace(/[^\w.-]+/g, "_"), dosyalar = [];
+    if (f.xml) dosyalar.push({ ad: ad + ".xml", veri: f.xml }); if (f.html) dosyalar.push({ ad: ad + ".html", veri: f.html });
+    const z = gib.zipYaz(dosyalar); if (z.length > 8e6) return cevap(res, 400, { hata: "Fatura dosyaları çok büyük." });
+    gunluk(o, mid, "Fatura XML+HTML (ZIP) alındı", ad); return cevap(res, 200, { ad: "fatura-" + ad + ".zip", zip: z.toString("base64"), xml: !!f.xml, html: !!f.html });
   }
   if (yol === "/api/gorunum") {
     if (!/^[A-Za-z0-9:_=.-]{8,4000}$/.test(String(g.uuid || ""))) return cevap(res, 400, { hata: "Fatura seçilmedi." });
