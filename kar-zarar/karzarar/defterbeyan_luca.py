@@ -20,8 +20,8 @@ import time
 from urllib.parse import urlparse
 
 from lucabot.bekleme import kosulu_bekle, sayfa_durulsun
-from lucabot.luca_ekran import (acik_pencere, acik_pencereleri_kapat, diyalog_bekle, hata_kaydet, kutuya_yaz,
-                                pencerede_tikla)
+from lucabot.luca_ekran import (acik_pencere, acik_pencereleri_kapat, hata_kaydet, kutuya_yaz, pencerede_tikla)
+from lucabot.luca_ekran import diyalog_bekle as _ekran_diyalog_bekle
 from lucabot.ortak import yaz
 
 from . import db_sonuc
@@ -559,6 +559,28 @@ def cari_sorgula(sayfa, log=None):
 
 def gonder_tikla(sayfa, tur):
     return islem_tikla(sayfa, "Defter Beyan Sistemine Gönder", f"Luca.defter_beyan.gonder('{tur}')")
+
+
+def diyalog_bekle(sayfa, capalar, azami_ms=4000):
+    """Yazisinda capalardan biri gecen GORUNEN Luca penceresini bekler; (cerceve, pencere) ya da (None, None).
+
+    Ayni baslikli gizli pencereler (ornegin Cari ve Gonder icin iki ayri 'SORGULAMA UYARI') DOM'da kalabildiginden once
+    acik (gorunen) pencereye bakilir; bulunamazsa Luca'nin ortak yontemi denenir."""
+    if isinstance(capalar, str):
+        capalar = (capalar,)
+
+    def bak():
+        fr, pencere = acik_pencere(sayfa)
+        if pencere is not None:
+            yazi = _pencere_yazisi(pencere)
+            if any(c.lower() in yazi.lower() for c in capalar):
+                return fr, pencere
+        return None
+
+    sonuc = kosulu_bekle(sayfa, bak, azami_ms, aralik_ms=250)
+    if sonuc:
+        return sonuc
+    return _ekran_diyalog_bekle(sayfa, capalar, 500)
 
 
 def pencereyi_gec(sayfa, bekle_sn=8, tuslar=("Tamam", "Evet", "Kapat"), log=None):
