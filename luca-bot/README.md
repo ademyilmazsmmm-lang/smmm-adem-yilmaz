@@ -195,8 +195,11 @@ Defteri*) gelir ve giderlerini elle yaptığınız gibi Defter Beyan'a gönderir
 Her firma için **Gelirler** ve **Giderler** sekmesinde, seçtiğiniz *evrak tarihi* aralığında (varsayılan 01/01 – geçen ayın sonu):
 
 - **Yalnız kontrol** (varsayılan): *Gönderilmemişler* sayılır, **hiçbir şey gönderilmez**.
-- **Gönder**: gönderilmemişlerin hepsi seçilir → **İşlemler > Cari Bilgi Sorgula** → **Kaydet** → **Defter Beyan Sistemine Gönder**.
+- **Gönder**: önce **İşlemler > Cari Bilgi Sorgula**: açılan *SORGULAMA UYARI* penceresinde **buraya** (eksik bilgili kayıtları seçer) →
+  *Tamam* → "N adet cari sorgulandı." / "Sorgulanacak kayıt bulunamadı." → *Tamam*. Sorgulananlar seçili kalır; en az biri sorgulandıysa
+  doğrudan **Kaydet**. Sonra gönderilmemişlerin hepsi seçilip **İşlemler > Defter Beyan Sistemine Gönder** uygulanır.
   Pencerede *Tamam* denir, **Yenile**'ye basılıp liste yeniden okunur; gönderilenler listeden düşer, **hata verenler kalır**.
+  Listedeki her kaydın evrak tarihi seçilen aralıkta değilse (tarih kutusu bozulmuşsa) işlem güvenlik için durur.
   Her çalıştırmada açık onay sorulur (gönderme geri alınamayabilir; Luca'da *Defter Beyan Sisteminden Sil* vardır).
 
 Sonuç tablosu: *Gelir kalan / Gider kalan / Sabit kıymet / Durum / Not*.

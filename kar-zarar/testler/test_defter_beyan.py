@@ -110,7 +110,7 @@ class SonucMantigi(unittest.TestCase):
             self.assertEqual([f["firma"] for f in d.oku(yol)[1]], ["A", "B"])
 
 
-def calistir(islem, ek=(), ayar_degisiklik=None):
+def calistir(islem, ek=(), ayar_degisiklik=None, tarih="01/10/2026-31/10/2026"):
     """Sahte Luca'yi baslatip defter_beyan.py'yi calistirir; (cikis kodu, sonuc dosyasi, sahte sunucu durumu, cikti)."""
     import sahte_kz
     sahte_kz.sifirla()
@@ -123,7 +123,7 @@ def calistir(islem, ek=(), ayar_degisiklik=None):
     (klasor / "ayarlar.json").write_text(json.dumps(ayar), encoding="utf-8")
     ortam = dict(os.environ, LUCA_BOT_AYAR=str(klasor / "ayarlar.json"), LOCALAPPDATA=str(klasor / "yerel"),
                  KARZARAR_CIKTI=str(klasor / "cikti"), PYTHONIOENCODING="utf-8")
-    komut = [sys.executable, str(KOK / "defter_beyan.py"), "--tarih", "01/10/2026-31/10/2026", "--islem", islem,
+    komut = [sys.executable, str(KOK / "defter_beyan.py"), "--tarih", tarih, "--islem", islem,
              "--bitince-kapat", *ek]
     r = subprocess.run(komut, env=ortam, cwd=str(KOK), capture_output=True, text=True, encoding="utf-8")
     sunucu.shutdown()
@@ -182,6 +182,27 @@ class UctanUca(unittest.TestCase):
         self.assertEqual((a["gelir"]["gonderilmemis"], a["gider"]["gonderilmemis"], a["gider"]["sabit_kiymet"]), (1, 3, 1))
         self.assertEqual(len([g for g in gonderilen if g[0] == "ALFA ISLETME"]), 4)
         self.assertEqual((a["durum"], a["gider"]["gonderim"]["kalan"]), ("tamam", 0))
+
+    def test_cari_sorgu_yoksa_kaydet_basilmaz(self):
+        kod, sonuc, gonderilen, cikti = calistir("gonder", ["--firma-tam", "ALFA ISLETME"], {"cari_yok": True})
+        self.assertEqual(kod, 0, cikti[-1500:])
+        self.assertEqual(calistir.olaylar, ["cari", "gonder", "cari", "gonder"])    # sorgulanacak yok: Kaydet basilmaz
+        self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "tamam")
+
+    def test_bozulan_tarih_kutusu_duzeltilir(self):
+        """Tarih bileseni slash'li degeri 2002'ye bozuyorsa yalniz rakamla yazilir; aralik dogru uygulanir."""
+        kod, sonuc, gonderilen, cikti = calistir("kontrol", ["--firma-tam", "ALFA ISLETME"], {"tarih_bozuk": True})
+        self.assertEqual(kod, 0, cikti[-1500:])
+        a = sonuc["ALFA ISLETME"]
+        self.assertEqual((a["gelir"]["gonderilmemis"], a["gider"]["gonderilmemis"]), (1, 3))
+
+    def test_tarih_filtresi_uygulanmazsa_durur(self):
+        """Liste aralik disi kayit getirirse (tarih kutusu bozuk) gonderilmez."""
+        kod, sonuc, gonderilen, cikti = calistir("gonder", ["--firma-tam", "ALFA ISLETME"], {"filtre_yok": True},
+                                                 tarih="01/10/2026-10/10/2026")
+        self.assertEqual(gonderilen, set(), cikti[-1500:])
+        self.assertIn("dışında kayıt", cikti)
+        self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "hata")
 
     def test_api_bilgisi_bos_ise_gonderilmez(self):
         kod, sonuc, gonderilen, cikti = calistir("gonder", ["--firma-tam", "ALFA ISLETME"], {"api_bos": True})

@@ -367,15 +367,75 @@ def evrak_tarihi_kutulari(sayfa, sure=12000):
     return kosulu_bekle(sayfa, bak, sure, aralik_ms=500) or []
 
 
-def tarih_araligi_yaz(kutular, bas, bit):
-    """Iki kutuya yazar ve gercekten yazildigini dogrular; yazilmazsa LookupError."""
-    for kutu, deger in zip(kutular, (bas, bit)):
-        if not kutuya_yaz(kutu, deger):
-            raise LookupError(f"Evrak Tarihi kutusuna {deger} yazılamadı")
+def _kutu_degeri(kutu):
+    try:
+        return (kutu.input_value() or "").strip()
+    except Exception:
+        return ""
+
+
+def _tarih_yaz_bir(kutu, deger):
+    """Kutuya tarihi yazar; kutudan ayrilinca (blur) degeri geri okuyup dogrular. Tarih bilesenleri yazilan degeri
+    bozabildigi icin (maske, secici) yontemler sirayla denenir: dogrudan yaz / yalniz rakam yaz / bicimli yaz / JS."""
+    rakam = deger.replace("/", "")
+    yaz_dizi = getattr(kutu, "press_sequentially", None) or kutu.type
+
+    def tus(metin):
+        kutu.click(timeout=4000)
+        kutu.press("Control+a")
+        kutu.press("Delete")
+        yaz_dizi(metin, delay=90)
+
+    denemeler = (
+        lambda: kutu.fill(deger, timeout=4000),
+        lambda: tus(rakam),
+        lambda: tus(deger),
+        lambda: kutu.evaluate("(e, v) => { e.removeAttribute('readonly'); e.value = v; "
+                              "e.dispatchEvent(new Event('input', {bubbles: true})); }", deger),
+    )
+    for dene in denemeler:
         try:
-            kutu.press("Tab", timeout=1500)   # tarih secici/dogrulama alani birakilsin
+            dene()
+        except Exception:
+            continue
+        try:   # sonraki kutuya gecmeden (secici acilmasin) kutudan ayril: degisiklik olayi tetiklenir
+            kutu.evaluate("e => { e.dispatchEvent(new Event('change', {bubbles: true})); e.blur(); }")
         except Exception:
             pass
+        time.sleep(0.4)
+        if _kutu_degeri(kutu) == deger:
+            return True
+    return False
+
+
+def tarih_araligi_yaz(kutular, bas, bit):
+    """Iki kutuya yazar; ikisinin de gercekten istenen deger oldugunu dogrular (aksi halde LookupError)."""
+    for tur in range(2):    # ikinci kutu birincisini bozabilir (aralik kisiti): tum degerler son kez dogrulanir
+        for kutu, deger in zip(kutular, (bas, bit)):
+            if _kutu_degeri(kutu) != deger and not _tarih_yaz_bir(kutu, deger):
+                raise LookupError(f"Evrak Tarihi kutusuna {deger} yazılamadı (görünen: '{_kutu_degeri(kutu)}')")
+        if [_kutu_degeri(k) for k in kutular] == [bas, bit]:
+            return
+    raise LookupError(f"Evrak Tarihi {bas} - {bit} yerine {_kutu_degeri(kutular[0])} - {_kutu_degeri(kutular[1])} göründü")
+
+
+def _tarih_cozumle(metin):
+    m = re.search(r"(\d{1,2})[/.](\d{1,2})[/.](\d{4})", metin or "")
+    return (int(m.group(3)), int(m.group(2)), int(m.group(1))) if m else None
+
+
+def tarihleri_dogrula(tablo, bas, bit):
+    """Listedeki her kaydin Evrak Tarihi secilen aralikta mi? Degilse (tarih kutusu bozulmus olabilir) LookupError:
+    aralik disindaki kayitlar yanlislikla gonderilmesin diye islem durur."""
+    sutun = next((i for i, b in enumerate(tablo["basliklar"]) if "evrak tarihi" in _k(b)), None)
+    if sutun is None:
+        return
+    alt, ust = _tarih_cozumle(bas), _tarih_cozumle(bit)
+    for satir in tablo["satirlar"]:
+        t = _tarih_cozumle(satir[sutun]) if sutun < len(satir) else None
+        if t and not (alt <= t <= ust):
+            raise LookupError(f"Listede {bas}-{bit} dışında kayıt var ({satir[sutun]}); tarih aralığı uygulanmamış, "
+                              "güvenlik için durduruldu")
 
 
 def listele(sayfa, bas, bit, durum, sure=30000):
@@ -410,6 +470,7 @@ def listele(sayfa, bas, bit, durum, sure=30000):
         t = tabloyu_oku(sayfa) if not gorunur_mu(sayfa, "Listele", sure=0) else None
     if t is None:
         raise LookupError(f"Liste okunamadı ({durum})")
+    tarihleri_dogrula(t, bas, bit)
     return t
 
 
@@ -461,6 +522,39 @@ def islem_tikla(sayfa, hedef, js=None):
         except Exception:
             pass
     return False
+
+
+CARI_SAYISI = re.compile(r"(\d+)\s*adet\s+cari\s+sorgulan", re.I)
+CARI_YOK = re.compile(r"sorgulanacak\s+kay[ıi]t\s+bulunamad", re.I)
+
+
+def cari_sorgula(sayfa, log=None):
+    """Islemler > Cari Bilgi Sorgula. Luca'nin akisi: SORGULAMA UYARI penceresinde 'buraya' (eksik bilgili kayitlari secer)
+    -> Tamam -> '<N> adet cari sorgulandi.' ya da 'Sorgulanacak kayit bulunamadi.' -> Tamam. Sorgulananlar secili kalir.
+    Donus: (sorgulanan adet, pencere yazisi)."""
+    if not islem_tikla(sayfa, "Cari Bilgi Sorgula"):
+        raise LookupError("Işlemler > Cari Bilgi Sorgula bulunamadı; gönderilmedi")
+    _, uyari = diyalog_bekle(sayfa, ("SORGULAMA UYARI", "Sadece seçili kayıtlar"), 10000)
+    if uyari is None:
+        raise LookupError("Cari sorgu onay penceresi (SORGULAMA UYARI) çıkmadı; gönderilmedi")
+    if not pencerede_tikla(sayfa, uyari, ["buraya"]):
+        raise LookupError("Cari sorgu penceresinde 'buraya' bağlantısı bulunamadı; gönderilmedi")
+    sayfa_durulsun(sayfa, azami_ms=1500)
+    _, uyari = diyalog_bekle(sayfa, ("SORGULAMA UYARI", "Devam etmek istiyor"), 4000)
+    if uyari is not None:
+        pencerede_tikla(sayfa, uyari, ["Tamam"])
+    _, sonuc = diyalog_bekle(sayfa, ("cari sorgulandı", "Sorgulanacak kayıt bulunamadı", "sorgulan"), 240000)
+    if sonuc is None:
+        raise LookupError("Cari sorgu sonucu (… adet cari sorgulandı) görünmedi; gönderilmedi")
+    yazi = _pencere_yazisi(sonuc)
+    pencerede_tikla(sayfa, sonuc, ["Tamam"])
+    sayfa_durulsun(sayfa, azami_ms=1500)
+    m = CARI_SAYISI.search(yazi)
+    adet = int(m.group(1)) if m else 0
+    if log:
+        yaz("    Cari sorgu: " + (f"{adet} kayıt sorgulandı" if adet else "sorgulanacak kayıt yok")
+            + ("" if (m or CARI_YOK.search(yazi)) else f" | {' '.join(yazi.split())[:120]}"), log)
+    return adet, yazi
 
 
 def gonder_tikla(sayfa, tur):
@@ -551,24 +645,19 @@ def gonder_tur(sayfa, tur, bas, bit, log=None):
     n = len(t["satirlar"])
     if n == 0:
         return {"sonuc": db_sonuc.KAYIT_YOK, "mesaj": "Gönderilmemiş kayıt yok", "gonderilen": 0, "kalan": 0}
-    secilen = hepsini_sec(sayfa)
-    if secilen != n:
-        raise LookupError(f"{n} kayıttan {secilen} tanesi seçilebildi; güvenlik için gönderilmedi")
-    # Elle yapilan sira: Cari Bilgi Sorgula -> Kaydet -> Gonder (cari bilgileri kayda islenir; liste yenilenip secim bosalabilir)
-    cari = ""
-    if islem_tikla(sayfa, "Cari Bilgi Sorgula"):
-        cari = pencereyi_gec(sayfa, bekle_sn=10, log=log)
-    else:
-        raise LookupError("Işlemler > Cari Bilgi Sorgula bulunamadı; gönderilmedi")
-    if not dugmeye_bas(sayfa, "Kaydet"):
-        raise LookupError("Kaydet düğmesine basılamadı; gönderilmedi")
-    pencereyi_gec(sayfa, bekle_sn=8, log=log)
+    # Elle yapilan sira: Cari Bilgi Sorgula ('buraya' ile eksik bilgililer secilir) -> Kaydet -> sonra GONDER icin tum
+    # gonderilmemisler secilir. Cari oncesi secim yapilmaz: 'buraya' yalniz eksik bilgili kayitlari sorgulatsin.
+    adet, cari = cari_sorgula(sayfa, log)
+    if adet > 0:   # sorgulananlar secili kalir: dogrudan Kaydet
+        if not dugmeye_bas(sayfa, "Kaydet"):
+            raise LookupError("Kaydet düğmesine basılamadı; gönderilmedi")
+        pencereyi_gec(sayfa, bekle_sn=8, log=log)
     t = tabloyu_oku(sayfa) or {"satirlar": []}
     if len(t["satirlar"]) != n:
-        raise LookupError(f"Kaydet sonrası liste {n} yerine {len(t['satirlar'])} kayıt; güvenlik için gönderilmedi")
-    secilen = hepsini_sec(sayfa)   # Kaydet listeyi yenilediyse secim kalkmis olabilir
+        raise LookupError(f"Cari sorgu/Kaydet sonrası liste {n} yerine {len(t['satirlar'])} kayıt; güvenlik için gönderilmedi")
+    secilen = hepsini_sec(sayfa)   # gonderilecekler: tum gonderilmemis kayitlar
     if secilen != n:
-        raise LookupError(f"Kaydet sonrası {n} kayıttan {secilen} tanesi seçilebildi; gönderilmedi")
+        raise LookupError(f"{n} kayıttan {secilen} tanesi seçilebildi; güvenlik için gönderilmedi")
     if not gonder_tikla(sayfa, tur):
         raise LookupError("Işlemler > Defter Beyan Sistemine Gönder bulunamadı")
     mesaj, hata = gonderim_pencereleri(sayfa, log)
@@ -589,7 +678,7 @@ def gonder_tur(sayfa, tur, bas, bit, log=None):
             "bildirilen": bildirilen, "hatalar": ayrinti["hatalar"][:200],
             "hata_ozeti": db_sonuc.hata_ozeti(ayrinti["hatalar"]),
             "kalan_tutar": kalan_tutar, "kalan_kayitlar": kalan_kayitlar, "kalan_sabit": kalan_sabit,
-            "cari_mesaj": cari[:300]}
+            "cari_mesaj": cari[:300], "cari_sorgulanan": adet}
 
 
 # --- firma ----------------------------------------------------------------------------------------

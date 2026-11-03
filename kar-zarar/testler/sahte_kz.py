@@ -284,7 +284,7 @@ def mizan_xlsx(firma, bas, bit):
 DB_SEC = {"firma": sahte_luca.FIRMALAR[0]}      # secili firma (gercek Luca'da sunucu oturumunda)
 DB_GONDERILDI = set()                            # (firma, tur, evrak no)
 DB_OLAYLAR = []                                  # sunucu tarafi islem sirasi: cari, kaydet, gonder
-DB_AYAR = {"jqx": False, "sabit_hatasi": False, "satir_hatasi": False, "gonderim_hatasi": False, "api_bos": False, "yavas": 0.0}
+DB_AYAR = {"cari_yok": False, "tarih_bozuk": False, "filtre_yok": False, "jqx": False, "sabit_hatasi": False, "satir_hatasi": False, "gonderim_hatasi": False, "api_bos": False, "yavas": 0.0}
 DB_TARIHLER = ("03/10/2026", "15/10/2026", "28/10/2026", "05/11/2026")
 
 
@@ -310,7 +310,7 @@ def db_liste(firma, tur, bas, bit, durum):
     sonuc = []
     for k in db_kayitlari(firma, tur):
         gonderildi = (firma, tur, k[0]) in DB_GONDERILDI
-        if not (gun(bas) <= gun(k[1]) <= gun(bit)):
+        if not DB_AYAR["filtre_yok"] and not (gun(bas) <= gun(k[1]) <= gun(bit)):
             continue
         if durum == "Gönderilmemişler" and gonderildi or durum == "Gönderilmişler" and not gonderildi:
             continue
@@ -345,8 +345,10 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
  <button>GİB DBS Portalı</button></div>
 <div id="islemMenu" class="gizli"><a>Defter Beyan Sisteminden Sil</a><a id="gonder">Defter Beyan Sistemine Gönder</a>
  <a id="cari">Cari Bilgi Sorgula</a><a>Toplu Değer Ata</a></div>
-<div id="cariPen" class="luca-open-window gizli"><b>CARİ BİLGİ SORGULA</b><p>Cari bilgi sorgulama tamamlandı.</p>
- <button id="cTamam">Tamam</button></div>
+<div id="cariPen" class="luca-open-window gizli"><b>SORGULAMA UYARI</b><p>Sadece seçili kayıtlar sorgulanacaktır.<br>
+ Eksik bilgili kayıtları seçmek için <a href="#" id="buraya">buraya</a> tıklayınız.<br><br>Devam etmek istiyor musunuz?</p>
+ <button id="cTamam">Tamam</button> <button id="cKapat">Kapat</button></div>
+<div id="cariSonuc" class="luca-open-window gizli"><b>BİLGİ</b><p id="cariSonucYazi"></p><button id="csTamam">Tamam</button></div>
 <div id="kayPen" class="luca-open-window gizli"><b>BİLGİ</b><p>Kayıt işlemi tamamlandı.</p><button id="kTamam">Tamam</button></div>
 <div id="uyari" class="luca-open-window gizli"><b>SORGULAMA UYARI</b><p>Sadece seçili kayıtlar üzerinde işlem yapılacaktır.
  Gönderilmemiş kayıtları seçmek için <a href="#">buraya</a> tıklayınız.<br><br>Devam etmek istiyor musunuz?</p>
@@ -364,7 +366,7 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
  document.querySelectorAll('#durumListe .d').forEach(d => d.onclick = () => { g('durum').value = d.textContent;
    g('durumYazi').textContent = d.textContent; g('durumListe').classList.add('gizli'); });
  let tur = 'gelir', kayitlar = [];
- const JQX = __JQX__;
+ const JQX = __JQX__, CARIYOK = __CARIYOK__, TARIHBOZUK = __TARIHBOZUK__;
  // jqx grid taklidi: <table> yok, yalniz ilk 5 satir cizilir (sanal kaydirma); satirlar grid arayuzunden okunur/secilir
  let secilen = new Set();
  const KOLONLAR = [['', ''], ['#', 'no'], ['Seri No', 'seri'], ['Evrak No', 'evrak'], ['Evrak Tarihi', 'tarih'],
@@ -409,9 +411,21 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
      if (!kayitlar.length) { const u = document.createElement('div'); u.textContent = 'Kayıt bulunamadı'; } }, 400); };
  if (!JQX) g('hepsi').onchange = () => g('grid').querySelectorAll('tbody input').forEach(k => k.checked = g('hepsi').checked);
  const olay = ad => fetch('/api/db-olay?ad=' + ad);
- g('cari').onclick = () => { g('islemMenu').classList.add('gizli'); olay('cari');
+ g('cari').onclick = () => { g('islemMenu').classList.add('gizli');
    setTimeout(() => g('cariPen').classList.remove('gizli'), 300); };
- g('cTamam').onclick = () => g('cariPen').classList.add('gizli');
+ g('buraya').onclick = e => { e.preventDefault();   // eksik bilgili kayitlari (ilk kayit) secer; pencere acik kalir
+   if (CARIYOK) return; if (JQX) { secilen = new Set([0]); jqxCiz(); }
+   else { const k = g('grid').querySelector('tbody input'); if (k) k.checked = true; } };
+ g('cKapat').onclick = () => g('cariPen').classList.add('gizli');
+ g('cTamam').onclick = () => { g('cariPen').classList.add('gizli'); olay('cari');
+   const n = JQX ? secilen.size : g('grid').querySelectorAll('tbody input:checked').length;
+   g('cariSonucYazi').textContent = n ? n + ' adet cari sorgulandı.' : 'Sorgulanacak kayıt bulunamadı.';
+   setTimeout(() => g('cariSonuc').classList.remove('gizli'), 400); };
+ g('csTamam').onclick = () => g('cariSonuc').classList.add('gizli');
+ for (const id of ['b1', 'b2']) g(id).addEventListener('change', () => {   // maskeli tarih bileseni taklidi
+   if (!TARIHBOZUK) return; const v = g(id).value;
+   if (v.includes('/')) g(id).value = '01/01/2002';
+   else if (/^\\d{8}$/.test(v)) g(id).value = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4); });
  g('kaydet').onclick = () => { olay('kaydet');   // gercek Luca gibi: kayit sonrasi liste yenilenir, secim kalkar
    if (JQX) { secilen = new Set(); jqxCiz(); } else { g('grid').querySelectorAll('tbody input').forEach(k => k.checked = false); g('hepsi').checked = false; }
    setTimeout(() => g('kayPen').classList.remove('gizli'), 300); };
@@ -462,7 +476,9 @@ class Isleyici(sahte_luca.Isleyici):
             return self._yanit("{}", "application/json")
         if yol == "/Luca/luca2.do":
             bos = DB_AYAR["api_bos"]
-            return self._yanit(DB_SAYFASI.replace("__JQX__", "true" if DB_AYAR["jqx"] else "false").replace("__KEY__", "" if bos else "TESTKEY123")
+            return self._yanit(DB_SAYFASI.replace("__JQX__", "true" if DB_AYAR["jqx"] else "false")
+                               .replace("__CARIYOK__", "true" if DB_AYAR["cari_yok"] else "false")
+                               .replace("__TARIHBOZUK__", "true" if DB_AYAR["tarih_bozuk"] else "false").replace("__KEY__", "" if bos else "TESTKEY123")
                                .replace("__SECRET__", "" if bos else "TESTSECRET456"))
         if yol == "/api/db-olay":
             with KILIT:
@@ -562,5 +578,5 @@ def sifirla():
     DB_DURUM.update(giris=False, vkn=None)
     DB_SEC["firma"] = sahte_luca.FIRMALAR[0]
     DB_GONDERILDI.clear()
-    DB_AYAR.update(gonderim_hatasi=False, api_bos=False, satir_hatasi=False, sabit_hatasi=False, jqx=False, yavas=0.0)
+    DB_AYAR.update(gonderim_hatasi=False, api_bos=False, satir_hatasi=False, sabit_hatasi=False, jqx=False, cari_yok=False, tarih_bozuk=False, filtre_yok=False, yavas=0.0)
     DB_OLAYLAR.clear()

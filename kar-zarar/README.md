@@ -101,7 +101,7 @@ Diğer seçenekler: `--tarayici chrome|edge|chromium`, `--profil-yerel`, `--chro
 
 ```
 python defter_beyan.py --tarih 01/01/2026-30/09/2026                                     # yalnız kontrol, hiçbir şey gönderilmez
-python defter_beyan.py --tarih 01/01/2026-30/09/2026 --islem gonder --firma-tam "ALFA"   # seç → Cari Bilgi Sorgula → Kaydet → Gönder → Yenile
+python defter_beyan.py --tarih 01/01/2026-30/09/2026 --islem gonder --firma-tam "ALFA"   # Cari Bilgi Sorgula (buraya→Tamam) → Kaydet → hepsini seç → Gönder → Yenile
 ```
 
 Sonuç `cikti/defter-beyan.json`: firma başına gelir/gider için gönderilmemiş/gönderilmiş sayısı, gönderim sonrası kalan kayıtlar,
