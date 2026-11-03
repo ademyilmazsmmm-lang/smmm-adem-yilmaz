@@ -20,8 +20,9 @@ import time
 from urllib.parse import urlparse
 
 from lucabot.bekleme import kosulu_bekle, sayfa_durulsun
-from lucabot.luca_ekran import (acik_pencere, acik_pencereleri_kapat, hata_kaydet, kutuya_yaz, pencerede_tikla)
+from lucabot.luca_ekran import acik_pencere, acik_pencereleri_kapat, hata_kaydet, kutuya_yaz
 from lucabot.luca_ekran import diyalog_bekle as _ekran_diyalog_bekle
+from lucabot.luca_ekran import pencerede_tikla as _ekran_pencerede_tikla
 from lucabot.ortak import yaz
 
 from . import db_sonuc
@@ -38,6 +39,7 @@ TABLO_JS = """() => {
   const hucre = r => [...r.children].filter(c => /^(TD|TH)$/.test(c.tagName));
   const satirlari = t => [...t.querySelectorAll('tr')].filter(r => r.closest('table') === t);
   const adaylar = [...document.querySelectorAll('table')].filter(t => {
+    if (!(t.offsetParent || t.getClientRects().length)) return false;   // gizli (eski) liste sayilmaz
     const m = norm(t.innerText); return /Evrak No/i.test(m) && /Evrak Tarihi/i.test(m);
   });
   const t = adaylar.find(a => !adaylar.some(o => o !== a && a.contains(o)));
@@ -128,7 +130,7 @@ GRID_SEC_JS = """() => {
   return null;
 }"""
 
-KAYIT_YOK_METINLERI = ("kayıt bulunamadı", "kayıt bulunamamıştır", "kayıt yok", "listelenecek kayıt")
+KAYIT_YOK_METINLERI = ("kayıt bulunamadı", "kayıt bulunamamıştır", "kayıt yok", "listelenecek kayıt", "no data to display")
 
 
 # --- ekran ogelerini bulma (bu sayfaya ozgu) ------------------------------------------------------------
@@ -367,6 +369,66 @@ def evrak_tarihi_kutulari(sayfa, sure=12000):
     return kosulu_bekle(sayfa, bak, sure, aralik_ms=500) or []
 
 
+def pencerede_tikla(sayfa, pencere, metinler, sure=4000):
+    """Butona pencerenin icinden basar; pencere ogesi dugmeyi icermiyorsa gorunen dugmeye sayfadan basilir."""
+    m = _ekran_pencerede_tikla(sayfa, pencere, metinler, sure)
+    if m:
+        return m
+    for metin in metinler:
+        if dugmeye_bas(sayfa, metin, sure=2500):
+            sayfa_durulsun(sayfa, azami_ms=600)
+            return metin
+    return None
+
+
+# Luca'nin Evrak Tarihi kutulari jqxDateTimeInput, Durum jqxDropDownList bilesenidir (<input type="textarea"> + gizli <select>).
+# Metin yazmak bilesenin kendi degerini bozabildigi icin (2002 gibi) bilesenin API'si kullanilir: setDate / selectIndex.
+# Etkin bolum ('.section.db_gelir' / '.section.db_gider'; digeri gizli) icinde calisir.
+FORM_AYARLA_JS = """([bas, bit, durum]) => {
+  const jq = window.jQuery || window.$;
+  if (!jq || !jq.fn || !jq.fn.jqxDateTimeInput || !jq.fn.jqxDropDownList) return null;
+  const gorunur = e => !!(e.offsetParent || e.getClientRects().length);
+  const bolum = [...document.querySelectorAll('.section')].find(b => /db_g(elir|ider)\\b/.test(b.className) &&
+      !/alt_tur/.test(b.className) && gorunur(b));
+  if (!bolum) return null;
+  const kutu = ad => bolum.querySelector('div.jqx-datetimeinput[name="' + ad + '"]');
+  const b = kutu('bas_tarih'), t = kutu('bit_tarih');
+  const liste = bolum.querySelector('[role=combobox][id^="durum_"]');
+  const sel = bolum.querySelector('select[name="durum"]');
+  if (!b || !t || !liste) return null;
+  const tarih = s => { const m = /^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})$/.exec(s); return new Date(+m[3], +m[2] - 1, +m[1]); };
+  jq(b).jqxDateTimeInput('setDate', tarih(bas));
+  jq(t).jqxDateTimeInput('setDate', tarih(bit));
+  const dl = jq(liste), ogeler = dl.jqxDropDownList('getItems') || [];
+  const oge = ogeler.find(o => String(o.label).trim() === durum);
+  if (!oge) return {hata: 'durum seçeneği yok: ' + ogeler.map(o => o.label).join('|')};
+  dl.jqxDropDownList('selectIndex', oge.index);
+  const secili = dl.jqxDropDownList('getSelectedItem');
+  if (sel && sel.value !== String(oge.value == null ? '' : oge.value)) {   // gizli select esitlenmediyse esitle
+    sel.value = oge.value == null ? '' : oge.value; sel.dispatchEvent(new Event('change', {bubbles: true}));
+  }
+  return {bas: jq(b).jqxDateTimeInput('getText'), bit: jq(t).jqxDateTimeInput('getText'),
+          durum: secili ? String(secili.label).trim() : '', sel: sel ? sel.value : null};
+}"""
+
+
+def formu_ayarla(sayfa, bas, bit, durum):
+    """jqx bilesenleriyle Evrak Tarihi + Durum ayarlar. True: ayarlandi ve dogrulandi; False: bilesen yok/dogrulanamadi
+    (cagiran metin yazma yoluna doner)."""
+    for fr in cerceveler(sayfa):
+        try:
+            o = fr.evaluate(FORM_AYARLA_JS, [bas, bit, durum])
+        except Exception:
+            continue
+        if not o:
+            continue
+        if o.get("hata"):
+            return False
+        sayfa_durulsun(sayfa, azami_ms=400)
+        return (o.get("bas") == bas and o.get("bit") == bit and o.get("durum") == durum)
+    return False
+
+
 def _kutu_degeri(kutu):
     try:
         return (kutu.input_value() or "").strip()
@@ -438,40 +500,99 @@ def tarihleri_dogrula(tablo, bas, bit):
                               "güvenlik için durduruldu")
 
 
-def listele(sayfa, bas, bit, durum, sure=30000):
+GRID_SAYISI_JS = """() => {
+  const jq = window.jQuery || window.$;
+  if (!jq || !jq.fn || !jq.fn.jqxGrid) return null;
+  for (const el of document.querySelectorAll('.jqx-grid')) {
+    if (!(el.offsetParent || el.getClientRects().length)) continue;
+    try { return jq(el).jqxGrid('getdatainformation').rowscount; } catch (e) {}
+  }
+  return null;
+}"""
+
+
+def _satir_sayisi(sayfa):
+    """Gorunen listenin satir sayisi (jqx grid ya da duz tablo); liste henuz yoksa None. Ucuz: satirlar okunmaz."""
+    for fr in cerceveler(sayfa):
+        try:
+            n = fr.evaluate(GRID_SAYISI_JS)
+        except Exception:
+            continue
+        if n is not None:
+            return int(n)
+    t = tabloyu_oku(sayfa)
+    return None if t is None else len(t["satirlar"])
+
+
+def _liste_kararli(sayfa, sure):
+    """Liste verisi sonradan (ajax) yuklendigi icin satir sayisi kararli olana kadar bekler; bos liste daha uzun beklenir.
+    Hemen okumak 'kayit yok' sanilmasina yol aciyordu (ayni sorgu bir seferinde 35, digerinde 0 donuyordu)."""
+    son, ayni, bitis = None, 0, time.time() + sure
+    while time.time() < bitis:
+        n = _satir_sayisi(sayfa)
+        if n is None:
+            son, ayni = None, 0
+        else:
+            ayni = ayni + 1 if n == son else 0
+            son = n
+            if n == 0 and _kayit_yok_yazisi(sayfa):
+                return True
+            if ayni >= (3 if n else 6):
+                return True
+        time.sleep(0.6)
+    return False
+
+
+def listele(sayfa, bas, bit, durum, sure=40000, log=None, tur=None):
     """Evrak Tarihi araligi + Durum ile Listele'ye basar; okunan tabloyu dondurur (kayit yoksa satirlar bos)."""
     if not gorunur_mu(sayfa, "Listele", sure=1200):
         dugmeye_bas(sayfa, "Arama")  # liste varken suzgec formu 'Arama' ile yeniden acilir
         if not gorunur_mu(sayfa, "Listele", sure=5000):
             raise LookupError("Listele düğmesi bulunamadı")
-    kutular = evrak_tarihi_kutulari(sayfa)
-    if len(kutular) < 2:
-        raise LookupError("Evrak Tarihi kutuları bulunamadı")
-    tarih_araligi_yaz(kutular, bas, bit)  # Gonderilme Tarihi kutulari bos kalir
-    durum_sec(sayfa, durum)
-    if not dugmeye_bas(sayfa, "Listele"):
-        raise LookupError("Listele düğmesine basılamadı")
-
-    def hazir():
-        # form kapanmadan okunan tablo ESKI listedir; Listele gizlenince yeni liste (ya da kayit yok uyarisi) gelmistir
-        if gorunur_mu(sayfa, "Listele", sure=0):
-            return None
-        t = tabloyu_oku(sayfa)
-        if t is not None:
-            return t
-        if _kayit_yok_yazisi(sayfa):
-            acik_pencereleri_kapat(sayfa)
-            return {"basliklar": [], "satirlar": []}
-        return None
-
-    t = kosulu_bekle(sayfa, hazir, sure, aralik_ms=500)
-    if t is None:
+    if not formu_ayarla(sayfa, bas, bit, durum):      # jqx bilesenleri: setDate + selectIndex (dogrulanir)
+        kutular = evrak_tarihi_kutulari(sayfa)
+        if len(kutular) < 2:
+            raise LookupError("Evrak Tarihi kutuları bulunamadı")
+        tarih_araligi_yaz(kutular, bas, bit)  # Gonderilme Tarihi kutulari bos kalir
+        durum_sec(sayfa, durum)
+    from playwright.sync_api import TimeoutError as ZamanAsimi
+    yanit = None
+    try:
+        with sayfa.expect_response(lambda r: "gelir_gider_listesi" in r.url, timeout=20000) as bilgi:
+            if not dugmeye_bas(sayfa, "Listele"):
+                if not (tur and _js_listele(sayfa, tur)):
+                    raise LookupError("Listele düğmesine basılamadı")
+        yanit = bilgi.value
+    except ZamanAsimi:
+        pass   # liste istegi gorulmedi: asagida yine de satir sayisi kararli olana kadar beklenir
+    if log is not None:
+        if yanit is not None:
+            req = yanit.request
+            yaz(f"    Liste isteği ({durum}, {bas}-{bit}): {req.method} {req.url.split('/')[-1][:160]}"
+                + (f" | {(req.post_data or '')[:200]}" if req.method != "GET" else ""), log)
+        else:
+            yaz(f"    Liste isteği görülmedi ({durum}); ekrandaki liste okunacak", log)
+    if yanit is None:
+        time.sleep(1.5)
+    if not _liste_kararli(sayfa, sure):
         acik_pencereleri_kapat(sayfa)
-        t = tabloyu_oku(sayfa) if not gorunur_mu(sayfa, "Listele", sure=0) else None
+    t = tabloyu_oku(sayfa)
+    if t is None and _kayit_yok_yazisi(sayfa):
+        acik_pencereleri_kapat(sayfa)
+        t = {"basliklar": [], "satirlar": []}
     if t is None:
         raise LookupError(f"Liste okunamadı ({durum})")
     tarihleri_dogrula(t, bas, bit)
     return t
+
+
+def _js_listele(sayfa, tur):
+    """Dugmeye basilamazsa Luca'nin kendi islevi (onclick: Luca.defter_beyan.listele('gelir', 0, null))."""
+    try:
+        sayfa.evaluate(f"Luca.defter_beyan.listele('{tur}', 0, null)")
+        return True
+    except Exception:
+        return False
 
 
 def hepsini_sec(sayfa):
@@ -492,13 +613,13 @@ def hepsini_sec(sayfa):
 # --- kontrol --------------------------------------------------------------------------------------
 
 def kontrol_tur(sayfa, tur, bas, bit, log=None):
-    """Bir sekmede (gelir/gider) donemin gonderilmemis ve gonderilmis kayitlarini sayar; ozet sozluk dondurur."""
+    """Bir sekmede (gelir/gider) donemin GONDERILMEMIS kayitlarini sayar; ozet sozluk dondurur.
+
+    Her zaman yalniz Gonderilmemisler listelenir (Gonderilmis/Tumu sorgulanmaz; sayfa bu durumda kalir)."""
     sekme_ac(sayfa, tur)
-    bekleyen = listele(sayfa, bas, bit, GONDERILMEMIS)
+    bekleyen = listele(sayfa, bas, bit, GONDERILMEMIS, log=log, tur=tur)
     adet, tutar, kayitlar, sabit = db_sonuc.kayitlari_ozetle(bekleyen["basliklar"], bekleyen["satirlar"])
-    gonderilmis = listele(sayfa, bas, bit, GONDERILMIS)
-    return {"gonderilmemis": adet, "tutar_gonderilmemis": tutar, "kayitlar": kayitlar, "sabit_kiymet": sabit,
-            "gonderilmis": len(gonderilmis["satirlar"])}
+    return {"gonderilmemis": adet, "tutar_gonderilmemis": tutar, "kayitlar": kayitlar, "sabit_kiymet": sabit}
 
 
 # --- gonderme -------------------------------------------------------------------------------------
@@ -663,7 +784,7 @@ def gonder_tur(sayfa, tur, bas, bit, log=None):
 
     Donus: {'sonuc', 'mesaj', 'gonderilen', 'kalan'}; 'sonuc' db_sonuc.KAYIT_YOK/HATA/BASARILI/BELIRSIZ."""
     sekme_ac(sayfa, tur)
-    t = listele(sayfa, bas, bit, GONDERILMEMIS)
+    t = listele(sayfa, bas, bit, GONDERILMEMIS, log=log, tur=tur)
     n = len(t["satirlar"])
     if n == 0:
         return {"sonuc": db_sonuc.KAYIT_YOK, "mesaj": "Gönderilmemiş kayıt yok", "gonderilen": 0, "kalan": 0}
@@ -691,7 +812,7 @@ def gonder_tur(sayfa, tur, bas, bit, log=None):
     # Elle yapilan kontrol: pencerede Tamam, sonra alttaki Yenile; gonderilenler listeden duser, hatalilar kalir
     dugmeye_bas(sayfa, "Yenile")
     sayfa_durulsun(sayfa, azami_ms=2000)
-    kalan_t = listele(sayfa, bas, bit, GONDERILMEMIS)  # ayni suzgecle yeniden oku (Yenile'nin sonucunu dogrular)
+    kalan_t = listele(sayfa, bas, bit, GONDERILMEMIS, log=log, tur=tur)  # ayni suzgecle yeniden oku (Yenile'nin sonucunu dogrular)
     kalan = len(kalan_t["satirlar"])
     _, kalan_tutar, kalan_kayitlar, kalan_sabit = db_sonuc.kayitlari_ozetle(kalan_t["basliklar"], kalan_t["satirlar"])
     if sinif == db_sonuc.BASARILI and (kalan > 0 or (bildirilen is not None and bildirilen != n)):
@@ -718,7 +839,7 @@ def firma_isle(sayfa, firma, bas, bit, islem, log, tani_klasoru=None, tani_hep=F
             yaz(f"    {SEKMELER[tur]}: {t['gonderilmemis']} gönderilmemiş"
                 + (f" ({t['tutar_gonderilmemis']:,.2f} TL)".replace(",", "_").replace(".", ",").replace("_", ".")
                    if t["tutar_gonderilmemis"] is not None else "")
-                + f", {t['gonderilmis']} gönderilmiş"
+                + ""
                 + (f" (bunların {t['sabit_kiymet']} tanesi SABİT KIYMET)" if t.get("sabit_kiymet") else ""), log)
         except Exception as e:
             sonuc[tur] = {}

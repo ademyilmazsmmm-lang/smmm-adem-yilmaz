@@ -104,7 +104,7 @@ python defter_beyan.py --tarih 01/01/2026-30/09/2026                            
 python defter_beyan.py --tarih 01/01/2026-30/09/2026 --islem gonder --firma-tam "ALFA"   # Cari Bilgi Sorgula (buraya→Tamam) → Kaydet → hepsini seç → Gönder → Yenile
 ```
 
-Sonuç `cikti/defter-beyan.json`: firma başına gelir/gider için gönderilmemiş/gönderilmiş sayısı, gönderim sonrası kalan kayıtlar,
+Sonuç `cikti/defter-beyan.json`: firma başına gelir/gider için gönderilmemiş kayıt sayısı (yalnız *Gönderilmemişler* listelenir), gönderim sonrası kalan kayıtlar,
 satır hataları (`hatalar`, `hata_ozeti`) ve **sabit kıymet** sayısı. Durum: `tamam` / `yalnız sabit kıymet` /
 `gönderilmemiş var` / `hata`. Mantık `karzarar/db_sonuc.py`, sayfa otomasyonu `karzarar/defterbeyan_luca.py`.
 Gönderme penceresinin metni şöyle okunur: `N. satır için.` satırının altındaki her ek satır o satırın hatasıdır;

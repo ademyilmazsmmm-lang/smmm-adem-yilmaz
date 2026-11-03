@@ -386,8 +386,23 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
      selectallrows: () => { secilen = new Set(kayitlar.map((_, i) => i)); jqxCiz(); },
      getselectedrowindexes: () => [...secilen],
    };
-   window.jQuery = el => ({jqxGrid: (m, ...a) => yontem[m](...a)});
-   window.jQuery.fn = {jqxGrid: true};
+   const iki = n => String(n).padStart(2, '0');
+   window.jQuery = el => ({jqxGrid: (m, ...a) => yontem[m](...a),
+     jqxDateTimeInput: (m, d) => { const k = el.querySelector('input');   // bilesen API'si: yazi degil tarih nesnesi alir
+       if (m === 'setDate') k.value = iki(d.getDate()) + '/' + iki(d.getMonth() + 1) + '/' + d.getFullYear(); return k.value; },
+     jqxDropDownList: (m, i) => { const sec = g('durum');
+       if (m === 'getItems') return [...sec.options].map((o, j) => ({label: o.text, value: o.text, index: j}));
+       if (m === 'selectIndex') { g('durumYazi').textContent = sec.options[i].text; return; }   // gizli select ESITLENMEZ (gercek gibi olabilir)
+       if (m === 'getSelectedItem') { const t = g('durumYazi').textContent; return {label: t, value: t}; } }});
+   window.jQuery.fn = {jqxGrid: true, jqxDateTimeInput: true, jqxDropDownList: true};
+   // gercek Luca formu: .section.db_gelir > jqxDateTimeInput (div[name] > input[type=textarea]) + jqxDropDownList (gizli select + combobox)
+   const bolum = document.createElement('div'); bolum.className = 'section db_gelir'; bolum.id = 'bolum';
+   g('form').before(bolum); bolum.appendChild(g('form'));
+   for (const [id, ad] of [['b1', 'bas_tarih'], ['b2', 'bit_tarih']]) { const w = document.createElement('div');
+     w.className = 'jqx-datetimeinput'; w.setAttribute('name', ad); const el = g(id); el.replaceWith(w); w.appendChild(el); el.setAttribute('type', 'textarea'); }
+   g('durum').setAttribute('name', 'durum'); g('durumGos').setAttribute('role', 'combobox'); g('durumGos').id = 'durum_gelir';
+   document.body.insertAdjacentHTML('afterbegin', '<div class="section db_gider" style="display:none"><div class="jqx-datetimeinput" name="bas_tarih"><input type="textarea" value="01/01/2000"></div>' +
+     '<div class="jqx-datetimeinput" name="bit_tarih"><input type="textarea" value="01/01/2000"></div><select name="durum"></select><div role="combobox" id="durum_gider"></div><button class="listele">Listele</button></div>');
    g('jqxHepsi').onclick = () => yontem.selectallrows();
  }
  function jqxCiz() {   // yalniz ilk 5 satir DOM'da (sanal kaydirma)
@@ -397,10 +412,11 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
  function sekme(t) { tur = t; g('baslik').textContent = (t == 'gelir' ? 'Gelir' : 'Gider') + ' Listesi';
    g('form').classList.remove('gizli'); g('liste').classList.add('gizli'); g('arac').classList.add('gizli'); }
  g('gelir').onclick = () => sekme('gelir'); g('gider').onclick = () => sekme('gider');
+ document.addEventListener('click', e => { if (e.target.id === 'gider' || e.target.id === 'gelir') { const b = document.getElementById('bolum'); if (b) b.className = 'section db_' + e.target.id; } });
  g('listele').onclick = async () => {
    const q = 'tur=' + tur + '&bas=' + encodeURIComponent(g('b1').value) + '&bit=' + encodeURIComponent(g('b2').value)
      + '&durum=' + encodeURIComponent(g('durum').value);
-   kayitlar = await (await fetch('/api/db-liste?' + q)).json();
+   kayitlar = await (await fetch('/Luca/defter_beyan_gelir_gider_listesi.jq?' + q)).json();
    setTimeout(() => { const tb = JQX ? {insertAdjacentHTML() {}, set innerHTML(v) {}} : g('grid').querySelector('tbody'); tb.innerHTML = '';
      if (JQX) { secilen = new Set(); jqxCiz(); }
      kayitlar.forEach((k, i) => tb.insertAdjacentHTML('beforeend', '<tr><td><input type="checkbox"></td><td>' + (i + 1)
@@ -484,7 +500,7 @@ class Isleyici(sahte_luca.Isleyici):
             with KILIT:
                 DB_OLAYLAR.append(parse_qs(urlparse(self.path).query).get("ad", [""])[0])
             return self._yanit("{}", "application/json")
-        if yol == "/api/db-liste":
+        if yol == "/Luca/defter_beyan_gelir_gider_listesi.jq":
             q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
             import time
             time.sleep(DB_AYAR["yavas"])
