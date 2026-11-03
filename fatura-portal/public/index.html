@@ -3273,9 +3273,11 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function vdYaziAlan(){
     var dg = $("vdYKurum").value === "Diger Kurum Kuruluşlara" || $("vdYKurum").value === "Diğer Kurum Kuruluşlara", kgf = $("vdYKurum").value === "Kredi Garanti Fonu";
     $("vdYDigerK").hidden = !dg; $("vdYNedenK").hidden = kgf; if (kgf) $("vdYNeden").value = "2";
-    if (!$("vdYEposta").value) { var m = mBul(VD.mid) || {}, e = (m.profil && m.profil.eposta) || ""; if (!e) { try { e = localStorage.getItem("yaziEposta") || ""; } catch (x) {} } $("vdYEposta").value = e; }
+    /* Cevap e-postası mükellef değişince yeniden belirlenir: profilde kayıtlıysa o, yoksa ofisin adresi */
+    if (YAZI_MID !== VD.mid || !$("vdYEposta").value) { YAZI_MID = VD.mid; var m = mBul(VD.mid) || {}, e = String((m.profil && m.profil.eposta) || "").trim() || YAZI_VARSAYILAN; $("vdYEposta").value = e; $("vdMEposta").value = e; }
     if (!$("vdMEposta").value) $("vdMEposta").value = $("vdYEposta").value;
   }
+  var YAZI_MID = null, YAZI_VARSAYILAN = "adem@smmmyilmaz.com";
   $("vdMIste").addEventListener("click", function(){
     var d = $("vdDurum"), ep = $("vdMEposta").value.trim(), b = this;
     function hata(t){ d.className = "durum hata"; d.textContent = t; }
