@@ -98,10 +98,11 @@ SAHTE_KAR_ZARAR = textwrap.dedent('''
 
 SAHTE_DEFTER_BEYAN = textwrap.dedent('''
     import json, sys
+    from datetime import datetime
     from pathlib import Path
     print("ARGS " + " ".join(sys.argv[1:]), flush=True)
     islem = sys.argv[sys.argv.index("--islem") + 1]
-    kayit = {"zaman": "x", "islem": islem}
+    kayit = {"zaman": datetime.now().isoformat(timespec="seconds"), "islem": islem}
     firmalar = [
         dict(kayit, firma="ALFA", donem="01/01/2026-30/09/2026", durum="tamam", hata="",
              gelir={"gonderilmemis": 2, "gonderim": {"sonuc": "basarili", "gonderilen": 2, "kalan": 0}},
@@ -1336,6 +1337,62 @@ class DefterBeyanSekmesiTestleri(ArayuzZemini):
         self.addCleanup(setattr, self.app, "surec", None)
         self.assertTrue(self.db._baska_calisiyor())
         self.assertTrue(bilgi)
+
+    def _mail_yakala(self):
+        """eposta.gonder_ozel'i taklit eder: konu, govde ve ekin sayfa adlarini toplar."""
+        from lucabot import eposta
+        from openpyxl import load_workbook
+        self.postalar = []
+
+        def sahte(ayarlar, konu, govde, ek_yolu=None, log_yaz=None):
+            sayfalar = load_workbook(ek_yolu).sheetnames if ek_yolu and Path(ek_yolu).exists() else None
+            self.postalar.append({"konu": konu, "govde": govde, "ek": ek_yolu, "sayfalar": sayfalar})
+            if log_yaz:
+                log_yaz("Ozet e-postasi gonderildi: deneme@x")
+            return True
+        eski = eposta.gonder_ozel
+        eposta.gonder_ozel = sahte
+        self.addCleanup(setattr, eposta, "gonder_ozel", eski)
+
+    def test_kontrolde_ve_gonderide_mail_gider(self):
+        self._mail_yakala()
+        self._soru(True)
+        for islem in ("Yalnız kontrol (hiçbir şey gönderilmez)", "Gönder (Cari Sorgula → Kaydet → Gönder)"):
+            self.postalar.clear()
+            self.db.v_islem.set(islem)
+            self.db.calistir()
+            self.assertTrue(self._bekle(lambda: self.db.surec is None))
+            self.assertTrue(self._bekle(lambda: len(self.postalar) == 1), islem)
+            p = self.postalar[0]
+            self.assertIn("2 firmada sorun", p["konu"])           # GAMA (gonderilmeyen var) + DELTA (hata)
+            self.assertIn("GÖNDERİLMEYEN VAR (1 firma)", p["govde"])
+            self.assertIn("GAMA: kalan Gelir 1", p["govde"])
+            self.assertIn("1× Tutarı 0.00 olan satır girilemez.", p["govde"])
+            self.assertIn("YALNIZ SABİT KIYMET KALDI (1 firma", p["govde"])
+            self.assertIn("HATA (1 firma)", p["govde"])
+            self.assertIn("GÖNDERİLMEYEN YOK (1 firma): ALFA", p["govde"])
+            self.assertEqual(p["sayfalar"], ["Özet", "Gönderilmeyenler"])
+            self.assertTrue(self._bekle(lambda: "Ozet e-postasi gonderildi" in self.db.log_metni()))
+
+    def test_durdurulunca_mail_gitmez(self):
+        self._mail_yakala()
+        self._soru(True)
+        self.db.calistir()
+        self.db.durdurma_istendi = True
+        self.assertTrue(self._bekle(lambda: self.db.surec is None))
+        self.kok.update()
+        import time as _t
+        _t.sleep(0.5)
+        self.assertEqual(self.postalar, [])
+
+    def test_mail_metni_hepsi_tamamsa_sorunsuz(self):
+        from defter_beyan_sekmesi import mail_metni
+        f = [{"firma": "A", "durum": "tamam", "gelir": {"gonderilmemis": 0}, "gider": {"gonderilmemis": 0}},
+             {"firma": "B", "durum": "tamam", "gelir": {"gonderilmemis": 2, "gonderim": {"gonderilen": 2, "kalan": 0}}, "gider": {}}]
+        konu, govde = mail_metni(f, "01/01/2026-30/09/2026", "gonder", zaman="03/11/2026 10:00")
+        self.assertEqual(konu, "[Sorunsuz] Defter Beyan gönderme - 01/01/2026 – 30/09/2026")
+        self.assertIn("Gönderilen kayıt: 2".replace("Gönderilen kayıt", "Defter Beyan'a gönderilen kayıt"), govde)
+        self.assertIn("GÖNDERİLMEYEN YOK (2 firma): A, B", govde)
 
     def test_ayrinti_ve_excel(self):
         self._soru(True)

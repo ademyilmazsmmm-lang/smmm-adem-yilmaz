@@ -337,18 +337,11 @@ def _smtp_ile_gonder(ayarlar, alicilar, konu, govde, ek_yolu, bildir):
     return True
 
 
-def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem="", ikinci_tur=None):
-    """Ozet e-postasini gonderir. Gonderildiyse (ya da taslak acildiysa) True doner.
-
-    Hicbir hata calismayi durdurmaz; sebep gunluge yazilir.
-    """
-    def bildir(mesaj):
-        if log_yaz:
-            log_yaz(mesaj)
-
+def _gonderim_ayari(ayarlar, bildir):
+    """Mail ayarlarini okur: (yontem, alicilar) ya da gonderilmeyecekse None (sebep bildirilir)."""
     if not _ayar(ayarlar, "mail_gonder", True):  # kurulum sihirbazinda "ozet e-postasi gonderme" secilmis
         bildir("E-posta gonderilmedi: mail_gonder kapali (ayarlar.json)")
-        return False
+        return None
 
     yontem = str(_ayar(ayarlar, "mail_yontemi", "outlook")).strip().lower()
     if yontem not in ("outlook", "smtp"):
@@ -359,12 +352,44 @@ def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem="", ikinci_tur=None):
     # gelir (asagida _outlook_ile_gonder'e gonder_mi olarak geciliyor).
     if yontem == "smtp" and not _ayar(ayarlar, "mail_otomatik_gonder", False):
         bildir("E-posta gonderilmedi: mail_otomatik_gonder kapali (ayarlar.json)")
-        return False
+        return None
 
     alicilar = _alicilar(ayarlar)
     if not alicilar and yontem != "outlook":  # Outlook'ta bos alici = kendi hesabiniz
         bildir("E-posta gonderilmedi: mail_alici bos (ayarlar.json)")
+        return None
+    return yontem, alicilar
+
+
+def gonder_ozel(ayarlar, konu, govde, ek_yolu=None, log_yaz=None):
+    """Hazir konu/govde/ek ile e-posta gonderir (Defter Beyan sonucu gibi fatura disi ozetler icin); ayni mail ayarlari
+    (mail_yontemi, mail_gonder, mail_otomatik_gonder, mail_alici, smtp.*) kullanilir. Gonderildiyse (taslak dahil) True."""
+    def bildir(mesaj):
+        if log_yaz:
+            log_yaz(mesaj)
+
+    hazir = _gonderim_ayari(ayarlar, bildir)
+    if hazir is None:
         return False
+    yontem, alicilar = hazir
+    if yontem == "outlook":
+        return _outlook_ile_gonder(alicilar, konu, govde, ek_yolu, bool(_ayar(ayarlar, "mail_otomatik_gonder", True)), bildir)
+    return _smtp_ile_gonder(ayarlar, alicilar, konu, govde, ek_yolu, bildir)
+
+
+def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem="", ikinci_tur=None):
+    """Ozet e-postasini gonderir. Gonderildiyse (ya da taslak acildiysa) True doner.
+
+    Hicbir hata calismayi durdurmaz; sebep gunluge yazilir.
+    """
+    def bildir(mesaj):
+        if log_yaz:
+            log_yaz(mesaj)
+
+    hazir = _gonderim_ayari(ayarlar, bildir)
+    if hazir is None:
+        return False
+    yontem, alicilar = hazir
 
     govde, uyari_var = ozet_metni(sonuclar, donem, ikinci_tur)
     if _ayar(ayarlar, "mail_sadece_uyari", False) and not uyari_var:

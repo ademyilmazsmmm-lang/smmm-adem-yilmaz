@@ -386,6 +386,27 @@ class RaporTestleri(unittest.TestCase):
             isler = rapor._aksiyon(kayitlar["A"])
             self.assertFalse(any("TEVKIFAT" in i for i in isler))
 
+    def test_eposta_gonder_ozel_ayarlari(self):
+        """Fatura disi ozet (Defter Beyan) ayni mail ayarlarini kullanir; sebepler gunluge yazilir."""
+        log = []
+        eski = (eposta._outlook_ile_gonder, eposta._smtp_ile_gonder)
+        cagrilar = []
+        eposta._outlook_ile_gonder = lambda al, konu, govde, ek, gonder_mi, bildir: cagrilar.append(("outlook", al, konu, gonder_mi)) or True
+        eposta._smtp_ile_gonder = lambda ayar, al, konu, govde, ek, bildir: cagrilar.append(("smtp", al, konu)) or True
+        try:
+            self.assertFalse(eposta.gonder_ozel({"mail_gonder": False}, "k", "g", None, log.append))
+            self.assertIn("mail_gonder kapali", log[-1])
+            self.assertFalse(eposta.gonder_ozel({"mail_yontemi": "smtp"}, "k", "g", None, log.append))   # otomatik kapali
+            self.assertFalse(eposta.gonder_ozel({"mail_yontemi": "smtp", "mail_otomatik_gonder": True}, "k", "g", None, log.append))
+            self.assertIn("mail_alici bos", log[-1])
+            self.assertTrue(eposta.gonder_ozel({}, "konu", "govde", None, log.append))       # varsayilan: outlook, dogrudan gonder
+            self.assertEqual(cagrilar[-1], ("outlook", [], "konu", True))
+            self.assertTrue(eposta.gonder_ozel({"mail_yontemi": "smtp", "mail_otomatik_gonder": True, "mail_alici": "a@b.com; c@d.com"},
+                                               "konu2", "govde", None, log.append))
+            self.assertEqual(cagrilar[-1], ("smtp", ["a@b.com", "c@d.com"], "konu2"))
+        finally:
+            eposta._outlook_ile_gonder, eposta._smtp_ile_gonder = eski
+
     def test_eposta_firma_durumu_ve_hatali_liste(self):
         sonuclar = [self._sonuc("A", "e-arsiv-alis", durum="tamam", fatura_sayisi=3),
                     self._sonuc("A", "e-arsiv-satis", durum="fatura yok"),

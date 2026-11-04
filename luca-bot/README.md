@@ -216,6 +216,11 @@ alan. Alan adı: Vergi Dairesi*, *Sabit kıymet adı boş olamaz*) ve *Not* süt
 firmanın gönderilmeyen kayıtlarını listeler; sabit kıymetler işaretlidir. **Excel olarak indir** *Özet* ve *Gönderilmeyenler*
 sayfalarını yazar (sabit kıymetler sarı). **Seçilenleri Yeniden Çalıştır** yalnız seçili firmalara uygulanır.
 
+**E-posta:** Defter Beyan çalışması (kontrol de gönderme de) bitince, o çalışmadaki tüm firmaların özeti **Excel ekiyle** mail atılır
+(kullanıcı Durdur'a basarsa atılmaz). Sorunlular (gönderilmeyen var, hata) ayrıntılı, sabit kıymet ayrı, gönderilmeyen olmayanlar kısa
+listelenir; konu `[Sorunsuz]` ya da `[N firmada sorun]` ile başlar. Fatura özetiyle aynı mail ayarları kullanılır
+(`mail_yontemi` outlook/smtp, `mail_alici`, `mail_gonder`, `mail_otomatik_gonder`, `smtp.*`).
+
 Fatura İndirme, Kâr / Zarar ve Defter Beyan aynı anda çalışmaz. **Gerçek Luca'da henüz denenmemiştir**: önce tek bir firmayla
 *Yalnız kontrol*, sonra *Gönder* deneyin; sorun olursa `kar-zarar/cikti/<tarih>/tani/` klasöründeki dosyalar gerekir
 (komut satırı: `python defter_beyan.py --tarih 01/01/2026-30/09/2026 --firma "ALFA" --tani`).

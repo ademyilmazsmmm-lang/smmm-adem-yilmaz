@@ -11,11 +11,15 @@ Sonuc kar-zarar/cikti/defter-beyan.json'dan okunur. Kar/Zarar ve Fatura indirme 
 """
 
 import json
+import re
+import threading
 from datetime import datetime
+from pathlib import Path
 from tkinter import filedialog, messagebox
 import tkinter as tk
 
 from kar_zarar_sekmesi import KarZararSekmesi, ayar_hazirla, varsayilan_donem
+from lucabot import eposta
 from lucabot.ortak import TARIH_BICIMI, tarih_cozumle
 from lucabot.gostergeler import tl
 from tablo_gorunumu import SiralaFiltreTablosu
@@ -46,6 +50,59 @@ def hata_ozetleri(sonuc):
         for mesaj, adet in ((sonuc.get(tur) or {}).get("gonderim", {}).get("hata_ozeti") or {}).items():
             toplam[mesaj] = toplam.get(mesaj, 0) + adet
     return toplam
+
+
+def mail_metni(firmalar, donem, islem, zaman=None):
+    """(konu, govde): bu calismanin firmalari icin Defter Beyan ozeti. Sorunlu firmalar (gonderilmeyen kayit, hata) ayrintili,
+    gonderilmeyen yok / yalniz sabit kiymet olanlar kisa listelenir."""
+    gruplar = {"gönderilmemiş var": [], "hata": [], "yalnız sabit kıymet": [], "tamam": []}
+    gonderilen = 0
+    for f in firmalar:
+        gruplar.setdefault(f.get("durum") or "hata", []).append(f)
+        for tur, _ in TURLER:
+            gonderilen += ((f.get(tur) or {}).get("gonderim") or {}).get("gonderilen", 0) or 0
+    adlar = {"gonder": "gönderme", "kontrol": "kontrol"}
+    sorunlu = len(gruplar["gönderilmemiş var"]) + len(gruplar["hata"])
+    konu = (f"[{sorunlu} firmada sorun] " if sorunlu else "[Sorunsuz] ") + f"Defter Beyan {adlar.get(islem, islem)}" \
+        + (f" - {donem.replace('-', ' – ')}" if donem else "")
+
+    def kalan_yazisi(f):
+        parca = []
+        for tur, ad in TURLER:
+            n, sabit, _ = kalan(f.get(tur))
+            if n:
+                parca.append(f"{ad} {n}" + (f" (sabit kıymet {sabit})" if sabit else ""))
+        return ", ".join(parca)
+
+    satir = [f"Defter Beyan {adlar.get(islem, islem)} — {donem.replace('-', ' – ')}" if donem else f"Defter Beyan {adlar.get(islem, islem)}"]
+    if zaman:
+        satir.append(f"Çalışma: {zaman}")
+    satir.append(f"{len(firmalar)} firma: Gönderilmeyen yok {len(gruplar['tamam'])} · Yalnız sabit kıymet {len(gruplar['yalnız sabit kıymet'])}"
+                 f" · GÖNDERİLMEYEN VAR {len(gruplar['gönderilmemiş var'])} · Hata {len(gruplar['hata'])}")
+    if islem == "gonder":
+        satir.append(f"Defter Beyan'a gönderilen kayıt: {gonderilen}")
+    satir.append("")
+    if gruplar["gönderilmemiş var"]:
+        satir.append(f"GÖNDERİLMEYEN VAR ({len(gruplar['gönderilmemiş var'])} firma):")
+        for f in gruplar["gönderilmemiş var"]:
+            neden = "; ".join(f"{n}× {m}" for m, n in hata_ozetleri(f).items())
+            satir.append(f"  - {f['firma']}: kalan {kalan_yazisi(f)}" + (f" — {neden}" if neden else ""))
+        satir.append("")
+    if gruplar["hata"]:
+        satir.append(f"HATA ({len(gruplar['hata'])} firma):")
+        for f in gruplar["hata"]:
+            satir.append(f"  - {f['firma']}: {f.get('hata') or 'işlenemedi'}")
+        satir.append("")
+    if gruplar["yalnız sabit kıymet"]:
+        satir.append(f"YALNIZ SABİT KIYMET KALDI ({len(gruplar['yalnız sabit kıymet'])} firma; normalde gönderilmez, es geçilir):")
+        for f in gruplar["yalnız sabit kıymet"]:
+            satir.append(f"  - {f['firma']}: {kalan_yazisi(f)}")
+        satir.append("")
+    if gruplar["tamam"]:
+        satir.append(f"GÖNDERİLMEYEN YOK ({len(gruplar['tamam'])} firma): " + ", ".join(f["firma"] for f in gruplar["tamam"]))
+        satir.append("")
+    satir.append("Ayrıntı ekteki Excel'de (Özet ve Gönderilmeyenler sayfaları; sabit kıymetler işaretli).")
+    return konu, "\n".join(satir)
 
 
 class DefterBeyanSekmesi(KarZararSekmesi):
@@ -281,7 +338,8 @@ class DefterBeyanSekmesi(KarZararSekmesi):
             return
         self.ui.dosya_ac(yol)
 
-    def _excel_yaz_db(self, yol):
+    def _excel_yaz_db(self, yol, firmalar=None):
+        firmalar = self.ham if firmalar is None else firmalar
         from openpyxl import Workbook
         from openpyxl.styles import Font, PatternFill
         wb = Workbook()
@@ -293,7 +351,7 @@ class DefterBeyanSekmesi(KarZararSekmesi):
         ws.append(["Firma", "İşlem", "Gelir kalan", "Gider kalan", "Sabit kıymet", "Durum", "Not"])
         for h in ws[3]:
             h.font = Font(bold=True)
-        for s in self.ham:
+        for s in firmalar:
             a, b = kalan(s.get("gelir")), kalan(s.get("gider"))
             ozet = hata_ozetleri(s)
             ws.append([s["firma"], "Gönderme" if s.get("islem") == "gonder" else "Kontrol", a[0], b[0],
@@ -306,7 +364,7 @@ class DefterBeyanSekmesi(KarZararSekmesi):
         for h in ws2[1]:
             h.font = Font(bold=True)
         sari = PatternFill("solid", fgColor="FFF2CC")
-        for s in self.ham:
+        for s in firmalar:
             for tur, evrak, tarih, kat, belge, acik, tutar, sabit in self._kalan_satirlari(s):
                 ws2.append([s["firma"], tur, evrak, tarih, kat, belge, acik, tutar, "EVET" if sabit else ""])
                 if sabit:
@@ -399,13 +457,59 @@ class DefterBeyanSekmesi(KarZararSekmesi):
             self._baslat(komut)
 
     def _baslat(self, komut):
+        self._calisma_basi = datetime.now().isoformat(timespec="seconds")
+        self._calisma_islemi = self._islem()
         super()._baslat(komut)
         if self.surec:
             self.ilerleme_etiketi.configure(text="Defter Beyan " + ("gönderiliyor…" if self._islem() == "gonder"
                                                                     else "kontrol ediliyor…"))
 
+    def _mail_gonder(self):
+        """Calisma bitince bu calismanin firmalari icin ozet + Excel e-postasi (kontrol de gonderme de). Kullanici durdurduysa
+        gitmez. Outlook/SMTP beklemesi arayuzu dondurmasin diye arka planda yapilir; sonuc loga yazilir."""
+        basi = getattr(self, "_calisma_basi", "")
+        firmalar = [f for f in self.ham if (f.get("zaman") or "") >= basi]
+        if not firmalar:
+            return
+        konu, govde = mail_metni(firmalar, self.donem_metni, getattr(self, "_calisma_islemi", "kontrol"),
+                                 zaman=datetime.now().strftime("%d/%m/%Y %H:%M"))
+        ek = self.cikti_klasoru() / ("defter-beyan-" + re.sub(r"[^0-9A-Za-z-]+", "", self.donem_metni.replace("/", "")) + ".xlsx")
+        try:
+            ek.parent.mkdir(parents=True, exist_ok=True)
+            self._excel_yaz_db(str(ek), firmalar)
+        except Exception as e:   # Excel yazilamazsa mail eksiz gider
+            self.kuyruk.put(f"UYARI: mail eki (Excel) hazırlanamadı ({type(e).__name__}: {e})\n")
+            ek = None
+        ayarlar = self.a.ayarlar
+
+        def is_():
+            try:
+                import pythoncom   # Outlook (COM) yan is parcaciginda calisabilsin
+                pythoncom.CoInitialize()
+            except Exception:
+                pythoncom = None
+            try:
+                eposta.gonder_ozel(ayarlar, konu, govde, ek, lambda m: self.kuyruk.put(m + "\n"))
+            except Exception as e:
+                self.kuyruk.put(f"UYARI: e-posta adımı hata verdi ({type(e).__name__}: {e})\n")
+            finally:
+                if pythoncom:
+                    try:
+                        pythoncom.CoUninitialize()
+                    except Exception:
+                        pass
+        self.kuyruk.put("E-posta hazırlanıyor (özet + Excel eki)…\n")
+        self.mail_is_parcacigi = threading.Thread(target=is_, daemon=True)
+        self.mail_is_parcacigi.start()
+
     def _bitti(self, kod):
+        durduruldu = self.durdurma_istendi
         super()._bitti(kod)
+        if not durduruldu and kod in (0, 1):
+            try:
+                self._mail_gonder()
+            except Exception as e:
+                self.kuyruk.put(f"UYARI: e-posta adımı hata verdi ({type(e).__name__}: {e})\n")
         if kod == 0 and not self.durdurma_istendi:
             self.ilerleme_etiketi.configure(text=f"Tamamlandı: {len(self.ham)} firma. "
                                                  f"{self.ozet_etiketi.cget('text')}")
