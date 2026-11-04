@@ -348,7 +348,7 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
 <div id="cariPen" class="luca-open-window gizli"><b>SORGULAMA UYARI</b><p>Sadece seçili kayıtlar sorgulanacaktır.<br>
  Eksik bilgili kayıtları seçmek için <a href="#" id="buraya">buraya</a> tıklayınız.<br><br>Devam etmek istiyor musunuz?</p>
  <button id="cTamam">Tamam</button> <button id="cKapat">Kapat</button></div>
-<div id="cariSonuc" class="luca-open-window gizli"><b>CARİ BİLGİ SORGULAMA</b><br><textarea id="cariSonucYazi" readonly style="width:340px;height:90px"></textarea><br><button id="csTamam">Tamam</button></div>
+<div id="cariSonuc" class="gizli"><b>CARİ BİLGİ SORGULAMA</b><br><textarea id="cariSonucYazi" readonly style="width:340px;height:90px"></textarea><br><button id="csTamam">Tamam</button></div>
 <div id="kayPen" class="luca-open-window gizli"><b>BİLGİ</b><p>Kayıt işlemi tamamlandı.</p><button id="kTamam">Tamam</button></div>
 <div id="uyari" class="luca-open-window gizli"><b>SORGULAMA UYARI</b><p>Sadece seçili kayıtlar üzerinde işlem yapılacaktır.
  Gönderilmemiş kayıtları seçmek için <a href="#">buraya</a> tıklayınız.<br><br>Devam etmek istiyor musunuz?</p>
@@ -357,7 +357,7 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
  <p>Giriş Yöntem: <select><option>API Key/Secret</option></select><br>
  API Key: <input type="text" id="apiKey" value="__KEY__"><br>API Secret: <input type="text" id="apiSecret" value="__SECRET__"></p>
  <button id="gTamam">Tamam</button> <button id="gKapat">Kapat</button></div>
-<div id="ent" class="luca-open-window gizli"><b>DEFTER BEYAN ENTEGRASYON</b>
+<div id="ent" class="gizli"><b>DEFTER BEYAN ENTEGRASYON</b>
  <textarea id="entYazi" readonly style="border:1px solid #000;height:120px;width:340px"></textarea>
  <button id="eTamam">Tamam</button></div>
 <script>

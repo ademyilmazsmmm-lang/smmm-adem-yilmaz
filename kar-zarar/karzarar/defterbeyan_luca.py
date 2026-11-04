@@ -371,7 +371,7 @@ def evrak_tarihi_kutulari(sayfa, sure=12000):
 
 def pencerede_tikla(sayfa, pencere, metinler, sure=4000):
     """Butona pencerenin icinden basar; pencere ogesi dugmeyi icermiyorsa gorunen dugmeye sayfadan basilir."""
-    m = _ekran_pencerede_tikla(sayfa, pencere, metinler, sure)
+    m = _ekran_pencerede_tikla(sayfa, pencere, metinler, sure) if pencere is not None else None
     if m:
         return m
     for metin in metinler:
@@ -666,19 +666,20 @@ def cari_sorgula(sayfa, log=None):
         pencerede_tikla(sayfa, uyari, ["Tamam"])
     # Sonuc penceresi: 'CARİ BİLGİ SORGULAMA' (textarea). Satirlar tek tek dusunce ('<TC> sorgulandi.') yazi buyur; son satir
     # '<N> adet cari sorgulandi.' ya da 'Sorgulanacak kayit bulunamadi.' gelince Tamam'a basilir.
-    _, sonuc = diyalog_bekle(sayfa, ("CARİ BİLGİ SORGULAMA", "adet cari sorgulandı", "Sorgulanacak kayıt bulunamadı"), 60000)
-    if sonuc is None:
-        raise LookupError("Cari sorgu sonuç penceresi (CARİ BİLGİ SORGULAMA) görünmedi; gönderilmedi")
-    yazi, bitis = "", time.time() + 300
+    yazi, bitis = "", time.time() + 240
     while time.time() < bitis:
-        _, guncel = acik_pencere(sayfa)
-        yazi = _pencere_yazisi(guncel if guncel is not None else sonuc)
-        if CARI_SAYISI.search(yazi) or CARI_YOK.search(yazi):
+        yazi = log_yazisi(sayfa, ("adet cari sorgulandı", "Sorgulanacak kayıt bulunamadı"))
+        if not yazi:   # metin kutusu degilse: sayfadaki gorunen yazidan ilgili satirlar
+            govde = sayfa_yazisi(sayfa)
+            if CARI_SAYISI.search(govde) or CARI_YOK.search(govde):
+                yazi = "\n".join(l for l in govde.splitlines() if "sorgulan" in _k(l))
+        if yazi and (CARI_SAYISI.search(yazi) or CARI_YOK.search(yazi)):
             break
         time.sleep(1)
     else:
-        raise LookupError("Cari sorgu bitmedi (… adet cari sorgulandı satırı gelmedi); gönderilmedi")
-    pencerede_tikla(sayfa, guncel if guncel is not None else sonuc, ["Tamam"])
+        raise LookupError("Cari sorgu sonucu (… adet cari sorgulandı / Sorgulanacak kayıt bulunamadı) görünmedi; gönderilmedi")
+    pencerede_tikla(sayfa, None, ["Tamam"])   # pencere ogesi yok: gorunen Tamam'a sayfadan basilir
+    kosulu_bekle(sayfa, lambda: not log_yazisi(sayfa, ("adet cari sorgulandı", "Sorgulanacak kayıt bulunamadı")), 8000, aralik_ms=400)
     sayfa_durulsun(sayfa, azami_ms=1500)
     m = CARI_SAYISI.search(yazi)
     adet = int(m.group(1)) if m else 0
@@ -712,6 +713,51 @@ def diyalog_bekle(sayfa, capalar, azami_ms=4000):
     if sonuc:
         return sonuc
     return _ekran_diyalog_bekle(sayfa, capalar, 500)
+
+
+# Sonuc pencereleri (CARİ BİLGİ SORGULAMA, DEFTER BEYAN ENTEGRASYON) yaziyi bir textarea'da gosterir ve yazi ile bulunan
+# "pencere" ogesi cogu zaman yalniz baslik satiridir (textarea icinde degildir). Bu yuzden sonuc, pencere ogesine degil
+# sayfadaki GORUNEN metin kutularina bakilarak okunur.
+LOG_KUTULARI_JS = """() => [...document.querySelectorAll('textarea')]
+  .filter(e => e.offsetParent || e.getClientRects().length).map(e => e.value || '')"""
+SAYFA_YAZISI_JS = "() => (document.body ? document.body.innerText : '') || ''"
+API_ALANLARI_JS = """() => [...document.querySelectorAll('input')].filter(e => (e.offsetParent || e.getClientRects().length) &&
+  ['text', 'password', ''].includes((e.type || '').toLowerCase()) &&
+  /api|key|secret|anahtar/i.test((e.id || '') + ' ' + (e.name || '') + ' ' + (e.placeholder || ''))).map(e => (e.value || '').trim())"""
+
+
+def log_yazisi(sayfa, ipuclari):
+    """Gorunen metin kutularindan (tum cerceveler) ipuclarindan birini iceren ilkinin yazisi; yoksa ''."""
+    for fr in cerceveler(sayfa):
+        try:
+            kutular = fr.evaluate(LOG_KUTULARI_JS)
+        except Exception:
+            continue
+        for y in kutular:
+            if any(_k(i) in _k(y) for i in ipuclari):
+                return y.strip()
+    return ""
+
+
+def sayfa_yazisi(sayfa):
+    parca = []
+    for fr in cerceveler(sayfa):
+        try:
+            parca.append(fr.evaluate(SAYFA_YAZISI_JS))
+        except Exception:
+            continue
+    return "\n".join(parca)
+
+
+def api_alanlari_dolu_mu(sayfa):
+    """Giris Bilgileri penceresindeki API Key/Secret kutulari (sayfa genelinde gorunenler) dolu mu; kutu bulunamazsa True."""
+    degerler = []
+    for fr in cerceveler(sayfa):
+        try:
+            degerler += fr.evaluate(API_ALANLARI_JS)
+        except Exception:
+            continue
+    return all(degerler) if degerler else True
 
 
 def pencereyi_gec(sayfa, bekle_sn=8, tuslar=("Tamam", "Evet", "Kapat"), log=None):
@@ -779,22 +825,28 @@ def gonderim_pencereleri(sayfa, log=None, azami_saniye=300):
         return "", "Onay penceresinde Tamam'a basılamadı"
     _, giris = diyalog_bekle(sayfa, ("Giriş Bilgileri", "API Key"), 6000)
     if giris is not None:
-        if not _alanlar_dolu(giris):
+        if not (_alanlar_dolu(giris) and api_alanlari_dolu_mu(sayfa)):
             pencerede_tikla(sayfa, giris, ["Kapat"])
             return "", "Defter Beyan API Key/Secret bilgileri Luca'da boş; önce Luca'da girin (gönderilmedi)"
         pencerede_tikla(sayfa, giris, ["Tamam"])
     _, ent = diyalog_bekle(sayfa, ("DEFTER BEYAN ENTEGRASYON", "gönderim başlıyor"), 20000)
     if ent is None:
         return "", "Entegrasyon (sonuç) penceresi çıkmadı"
-    son, ayni, bitis = "", 0, time.time() + azami_saniye
+    son, ayni, bitis, bitti_an = "", 0, time.time() + azami_saniye, None
+    ipuclari = ("gönderim başlıyor", "gönderim tamamlandı", "satır için", "Gönderilecek seçili kayıt")
     while time.time() < bitis:
-        yazi = _pencere_yazisi(ent)
+        yazi = log_yazisi(sayfa, ipuclari) or _pencere_yazisi(ent)
         ayni = ayni + 1 if yazi == son else 0
         son = yazi
-        if son and ayni >= 4 and time.time() > bitis - azami_saniye + 3:  # yazi ~4 sn degismedi: bitti
+        if db_sonuc.gonderilen_sayisi(son) is not None or db_sonuc.gonderim_sinifla(son) == db_sonuc.KAYIT_YOK:
+            bitti_an = bitti_an or time.time()      # son satir geldi: kisa sure sonra bitir
+            if time.time() - bitti_an >= 1.5:
+                break
+        elif son and ayni >= 4 and time.time() > bitis - azami_saniye + 3:  # yazi ~4 sn degismedi: bitti
             break
         time.sleep(1)
     pencerede_tikla(sayfa, ent, ["Tamam"])
+    kosulu_bekle(sayfa, lambda: not log_yazisi(sayfa, ipuclari), 8000, aralik_ms=400)
     sayfa_durulsun(sayfa, azami_ms=1500)
     return son, ""
 
