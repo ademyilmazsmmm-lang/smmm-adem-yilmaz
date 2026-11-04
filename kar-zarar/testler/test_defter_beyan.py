@@ -155,7 +155,7 @@ class UctanUca(unittest.TestCase):
         a = sonuc["ALFA ISLETME"]
         self.assertEqual((a["durum"], a["gider"]["gonderim"]["kalan"], a["gider"]["gonderim"]["sonuc"]),
                          ("tamam", 0, "basarili"))
-        self.assertEqual(olaylar, ["cari", "kaydet", "gonder", "cari", "kaydet", "gonder"])  # gelir, gider: sorgula-kaydet-gonder
+        self.assertEqual(olaylar, ["cari", "kaydet", "gburaya", "gonder", "cari", "kaydet", "gburaya", "gonder"])  # gelir, gider
 
     def test_satir_hatasi_listede_kalir(self):
         kod, sonuc, gonderilen, cikti = calistir("gonder", ["--firma-tam", "ALFA ISLETME"], {"satir_hatasi": True})
@@ -186,7 +186,7 @@ class UctanUca(unittest.TestCase):
     def test_cari_sorgu_yoksa_kaydet_basilmaz(self):
         kod, sonuc, gonderilen, cikti = calistir("gonder", ["--firma-tam", "ALFA ISLETME"], {"cari_yok": True})
         self.assertEqual(kod, 0, cikti[-1500:])
-        self.assertEqual(calistir.olaylar, ["cari", "gonder", "cari", "gonder"])    # sorgulanacak yok: Kaydet basilmaz
+        self.assertEqual(calistir.olaylar, ["cari", "gburaya", "gonder", "cari", "gburaya", "gonder"])    # sorgulanacak yok: Kaydet basilmaz
         self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "tamam")
 
     def test_bozulan_tarih_kutusu_duzeltilir(self):
@@ -203,6 +203,14 @@ class UctanUca(unittest.TestCase):
         self.assertEqual(gonderilen, set(), cikti[-1500:])
         self.assertIn("dışında kayıt", cikti)
         self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "hata")
+
+    def test_gonder_penceresinde_buraya_ile_secilir(self):
+        """Kendi secimimiz Luca'da tutmasa bile (selectallrows etkisiz) 'buraya' ile tum gonderilmemisler gider."""
+        kod, sonuc, gonderilen, cikti = calistir("gonder", ["--firma-tam", "ALFA ISLETME"], {"jqx": True, "secim_calismaz": True})
+        self.assertEqual(kod, 0, cikti[-1500:])
+        self.assertEqual(len([g for g in gonderilen if g[0] == "ALFA ISLETME"]), 4)
+        self.assertIn("gburaya", calistir.olaylar)
+        self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "tamam")
 
     def test_api_bilgisi_bos_ise_gonderilmez(self):
         kod, sonuc, gonderilen, cikti = calistir("gonder", ["--firma-tam", "ALFA ISLETME"], {"api_bos": True})

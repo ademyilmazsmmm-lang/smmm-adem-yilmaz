@@ -130,6 +130,22 @@ GRID_SEC_JS = """() => {
   return null;
 }"""
 
+# Secili / toplam satir sayisi: jqx grid arayuzu, yoksa listedeki isaretli kutular. Olculemiyorsa null.
+SECILI_SAYISI_JS = """() => {
+  const jq = window.jQuery || window.$;
+  const gorunur = e => !!(e.offsetParent || e.getClientRects().length);
+  if (jq && jq.fn && jq.fn.jqxGrid) {
+    for (const el of document.querySelectorAll('.jqx-grid')) {
+      if (!gorunur(el)) continue;
+      try { const g = jq(el); return {secili: g.jqxGrid('getselectedrowindexes').length,
+                                       toplam: g.jqxGrid('getdatainformation').rowscount}; } catch (e) {}
+    }
+  }
+  const satirlar = [...document.querySelectorAll('table tbody tr')].filter(r => gorunur(r) && r.querySelector('input[type=checkbox]'));
+  if (!satirlar.length) return null;
+  return {secili: satirlar.filter(r => r.querySelector('input[type=checkbox]').checked).length, toplam: satirlar.length};
+}"""
+
 KAYIT_YOK_METINLERI = ("kayıt bulunamadı", "kayıt bulunamamıştır", "kayıt yok", "listelenecek kayıt", "no data to display")
 
 
@@ -595,6 +611,18 @@ def _js_listele(sayfa, tur):
         return False
 
 
+def secili_sayisi(sayfa):
+    """(secili, toplam) ya da olculemezse None."""
+    for fr in cerceveler(sayfa):
+        try:
+            o = fr.evaluate(SECILI_SAYISI_JS)
+        except Exception:
+            continue
+        if o:
+            return int(o["secili"]), int(o["toplam"])
+    return None
+
+
 def hepsini_sec(sayfa):
     """Listedeki tum kayitlari isaretler; isaretli satir sayisini dondurur."""
     for fr in cerceveler(sayfa):
@@ -814,14 +842,27 @@ def _pencere_yazisi(pencere):
             return ""
 
 
-def gonderim_pencereleri(sayfa, log=None, azami_saniye=300):
+def gonderim_pencereleri(sayfa, log=None, azami_saniye=300, beklenen=None):
     """Onay ve giris pencerelerini gecip DEFTER BEYAN ENTEGRASYON penceresinin yazisini dondurur.
 
     Donus: (mesaj, hata). Hata doluysa gonderme baslamamistir (pencere cikmadi / API bilgileri bos)."""
     _, uyari = diyalog_bekle(sayfa, ("SORGULAMA UYARI", "Sadece seçili kayıtlar"), 10000)
     if uyari is None:
         return "", "Onay penceresi (SORGULAMA UYARI) çıkmadı"
-    if not pencerede_tikla(sayfa, uyari, ["Tamam"]):
+    # Luca'nin kendi yolu: "Gönderilmemiş kayıtları seçmek için buraya tıklayınız" -> gonderilmemislerin hepsi secilir.
+    # (Kendi isaretlememiz Luca'da tutmayabiliyor; yalniz cari sorgudan kalan secili kayit gidiyordu.)
+    if not pencerede_tikla(sayfa, uyari, ["buraya"]):
+        pencerede_tikla(sayfa, uyari, ["Kapat"])
+        return "", "Gönder onay penceresinde 'buraya' bağlantısı bulunamadı; gönderilmedi"
+    sayfa_durulsun(sayfa, azami_ms=1500)
+    time.sleep(0.8)
+    if beklenen is not None:
+        durum = secili_sayisi(sayfa)
+        if durum is not None and durum != (beklenen, beklenen):
+            pencerede_tikla(sayfa, None, ["Kapat"])
+            return "", (f"'buraya' sonrası {durum[0]}/{durum[1]} kayıt seçili ({beklenen} bekleniyordu); gönderilmedi")
+    _, uyari2 = diyalog_bekle(sayfa, ("SORGULAMA UYARI", "Devam etmek istiyor"), 4000)
+    if not pencerede_tikla(sayfa, uyari2 or uyari, ["Tamam"]):
         return "", "Onay penceresinde Tamam'a basılamadı"
     _, giris = diyalog_bekle(sayfa, ("Giriş Bilgileri", "API Key"), 6000)
     if giris is not None:
@@ -870,12 +911,10 @@ def gonder_tur(sayfa, tur, bas, bit, log=None):
     t = tabloyu_oku(sayfa) or {"satirlar": []}
     if len(t["satirlar"]) != n:
         raise LookupError(f"Cari sorgu/Kaydet sonrası liste {n} yerine {len(t['satirlar'])} kayıt; güvenlik için gönderilmedi")
-    secilen = hepsini_sec(sayfa)   # gonderilecekler: tum gonderilmemis kayitlar
-    if secilen != n:
-        raise LookupError(f"{n} kayıttan {secilen} tanesi seçilebildi; güvenlik için gönderilmedi")
+    hepsini_sec(sayfa)   # kolaylik: asil secim Gonder penceresindeki 'buraya' ile yapilir ve sayilarak dogrulanir
     if not gonder_tikla(sayfa, tur):
         raise LookupError("Işlemler > Defter Beyan Sistemine Gönder bulunamadı")
-    mesaj, hata = gonderim_pencereleri(sayfa, log)
+    mesaj, hata = gonderim_pencereleri(sayfa, log, beklenen=n)
     if hata:
         return {"sonuc": db_sonuc.HATA, "mesaj": hata, "gonderilen": 0, "kalan": n}
     sinif = db_sonuc.gonderim_sinifla(mesaj)
