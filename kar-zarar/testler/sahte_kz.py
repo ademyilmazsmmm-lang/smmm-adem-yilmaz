@@ -348,7 +348,7 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
 <div id="cariPen" class="luca-open-window gizli"><b>SORGULAMA UYARI</b><p>Sadece seçili kayıtlar sorgulanacaktır.<br>
  Eksik bilgili kayıtları seçmek için <a href="#" id="buraya">buraya</a> tıklayınız.<br><br>Devam etmek istiyor musunuz?</p>
  <button id="cTamam">Tamam</button> <button id="cKapat">Kapat</button></div>
-<div id="cariSonuc" class="luca-open-window gizli"><b>BİLGİ</b><p id="cariSonucYazi"></p><button id="csTamam">Tamam</button></div>
+<div id="cariSonuc" class="luca-open-window gizli"><b>CARİ BİLGİ SORGULAMA</b><br><textarea id="cariSonucYazi" readonly style="width:340px;height:90px"></textarea><br><button id="csTamam">Tamam</button></div>
 <div id="kayPen" class="luca-open-window gizli"><b>BİLGİ</b><p>Kayıt işlemi tamamlandı.</p><button id="kTamam">Tamam</button></div>
 <div id="uyari" class="luca-open-window gizli"><b>SORGULAMA UYARI</b><p>Sadece seçili kayıtlar üzerinde işlem yapılacaktır.
  Gönderilmemiş kayıtları seçmek için <a href="#">buraya</a> tıklayınız.<br><br>Devam etmek istiyor musunuz?</p>
@@ -358,7 +358,7 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
  API Key: <input type="text" id="apiKey" value="__KEY__"><br>API Secret: <input type="text" id="apiSecret" value="__SECRET__"></p>
  <button id="gTamam">Tamam</button> <button id="gKapat">Kapat</button></div>
 <div id="ent" class="luca-open-window gizli"><b>DEFTER BEYAN ENTEGRASYON</b>
- <div id="entYazi" style="border:1px solid #000;height:120px;width:340px;white-space:pre"></div>
+ <textarea id="entYazi" readonly style="border:1px solid #000;height:120px;width:340px"></textarea>
  <button id="eTamam">Tamam</button></div>
 <script>
  const g = id => document.getElementById(id);
@@ -435,8 +435,9 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
  g('cKapat').onclick = () => g('cariPen').classList.add('gizli');
  g('cTamam').onclick = () => { g('cariPen').classList.add('gizli'); olay('cari');
    const n = JQX ? secilen.size : g('grid').querySelectorAll('tbody input:checked').length;
-   g('cariSonucYazi').textContent = n ? n + ' adet cari sorgulandı.' : 'Sorgulanacak kayıt bulunamadı.';
-   setTimeout(() => g('cariSonuc').classList.remove('gizli'), 400); };
+   g('cariSonucYazi').value = n ? '27163387984 sorgulandı.\\n' : '';
+   setTimeout(() => g('cariSonuc').classList.remove('gizli'), 400);
+   setTimeout(() => g('cariSonucYazi').value += n ? n + ' adet cari sorgulandı.\\n' : 'Sorgulanacak kayıt bulunamadı.\\n', 1500); };
  g('csTamam').onclick = () => g('cariSonuc').classList.add('gizli');
  for (const id of ['b1', 'b2']) g(id).addEventListener('change', () => {   // maskeli tarih bileseni taklidi
    if (!TARIHBOZUK) return; const v = g(id).value;
@@ -454,10 +455,10 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
  g('gKapat').onclick = () => g('giris').classList.add('gizli');
  g('gTamam').onclick = async () => {
    olay('gonder');
-   g('giris').classList.add('gizli'); g('entYazi').textContent = ''; g('ent').classList.remove('gizli');
+   g('giris').classList.add('gizli'); g('entYazi').value = ''; g('ent').classList.remove('gizli');
    const sec = JQX ? [...secilen].sort((a, b) => a - b).map(i => kayitlar[i][0]) :
      [...g('grid').querySelectorAll('tbody tr')].filter(r => r.querySelector('input').checked).map(r => r.children[3].textContent);
-   const yaz = s => g('entYazi').textContent += s + '\\n';
+   const yaz = s => g('entYazi').value += s + '\\n';
    yaz('Defter Beyan Sistemine gönderim başlıyor.');
    if (!sec.length) { setTimeout(() => yaz('Gönderilecek seçili kayıt bulunamadı.'), 300); return; }
    const s = await (await fetch('/api/db-gonder?tur=' + tur, {method: 'POST', body: JSON.stringify(sec)})).json();

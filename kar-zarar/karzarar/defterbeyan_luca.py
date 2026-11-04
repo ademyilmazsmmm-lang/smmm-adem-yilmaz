@@ -664,11 +664,21 @@ def cari_sorgula(sayfa, log=None):
     _, uyari = diyalog_bekle(sayfa, ("SORGULAMA UYARI", "Devam etmek istiyor"), 4000)
     if uyari is not None:
         pencerede_tikla(sayfa, uyari, ["Tamam"])
-    _, sonuc = diyalog_bekle(sayfa, ("cari sorgulandı", "Sorgulanacak kayıt bulunamadı", "sorgulan"), 240000)
+    # Sonuc penceresi: 'CARİ BİLGİ SORGULAMA' (textarea). Satirlar tek tek dusunce ('<TC> sorgulandi.') yazi buyur; son satir
+    # '<N> adet cari sorgulandi.' ya da 'Sorgulanacak kayit bulunamadi.' gelince Tamam'a basilir.
+    _, sonuc = diyalog_bekle(sayfa, ("CARİ BİLGİ SORGULAMA", "adet cari sorgulandı", "Sorgulanacak kayıt bulunamadı"), 60000)
     if sonuc is None:
-        raise LookupError("Cari sorgu sonucu (… adet cari sorgulandı) görünmedi; gönderilmedi")
-    yazi = _pencere_yazisi(sonuc)
-    pencerede_tikla(sayfa, sonuc, ["Tamam"])
+        raise LookupError("Cari sorgu sonuç penceresi (CARİ BİLGİ SORGULAMA) görünmedi; gönderilmedi")
+    yazi, bitis = "", time.time() + 300
+    while time.time() < bitis:
+        _, guncel = acik_pencere(sayfa)
+        yazi = _pencere_yazisi(guncel if guncel is not None else sonuc)
+        if CARI_SAYISI.search(yazi) or CARI_YOK.search(yazi):
+            break
+        time.sleep(1)
+    else:
+        raise LookupError("Cari sorgu bitmedi (… adet cari sorgulandı satırı gelmedi); gönderilmedi")
+    pencerede_tikla(sayfa, guncel if guncel is not None else sonuc, ["Tamam"])
     sayfa_durulsun(sayfa, azami_ms=1500)
     m = CARI_SAYISI.search(yazi)
     adet = int(m.group(1)) if m else 0
@@ -694,7 +704,7 @@ def diyalog_bekle(sayfa, capalar, azami_ms=4000):
         fr, pencere = acik_pencere(sayfa)
         if pencere is not None:
             yazi = _pencere_yazisi(pencere)
-            if any(c.lower() in yazi.lower() for c in capalar):
+            if any(_k(c) in _k(yazi) for c in capalar):   # Turkce buyuk/kucuk harf (İ/ı) farki olmadan
                 return fr, pencere
         return None
 
@@ -741,11 +751,21 @@ def _alanlar_dolu(pencere):
     return all((d or "").strip() for d in degerler) if degerler else True
 
 
+PENCERE_YAZISI_JS = """e => { const t = [e.innerText || ''];
+  e.querySelectorAll('textarea, input[type=text]').forEach(x => { if (x.value) t.push(x.value); });   // sonuc kutulari
+  return t.join('\\n'); }"""
+
+
 def _pencere_yazisi(pencere):
+    """Pencerenin gorunen yazisi + icindeki metin kutularinin (textarea) icerigi: Luca sonuc yazilarini textarea'da gosterir
+    ('CARİ BİLGİ SORGULAMA' ve 'DEFTER BEYAN ENTEGRASYON'); inner_text bunlari vermez."""
     try:
-        return (pencere.inner_text() or "").strip()
+        return (pencere.evaluate(PENCERE_YAZISI_JS) or "").strip()
     except Exception:
-        return ""
+        try:
+            return (pencere.inner_text() or "").strip()
+        except Exception:
+            return ""
 
 
 def gonderim_pencereleri(sayfa, log=None, azami_saniye=300):
