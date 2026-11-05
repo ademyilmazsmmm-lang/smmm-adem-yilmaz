@@ -17,6 +17,7 @@ Gerekli ortam değişkeni: TCMB_EVDS_API_KEY
 import os
 import re
 import sys
+import time
 from datetime import date, timedelta
 
 import requests
@@ -38,20 +39,36 @@ def _headers(api_key: str) -> dict:
     }
 
 
-def _get_json(url: str, api_key: str):
-    resp = requests.get(url, headers=_headers(api_key), timeout=30)
-    if resp.status_code != 200 or not resp.text.strip():
-        raise RuntimeError(
-            f"EVDS isteği başarısız: status={resp.status_code}, "
-            f"body_ilk_300={resp.text[:300]!r}, url={url}"
-        )
-    try:
-        return resp.json()
-    except ValueError as exc:
-        raise RuntimeError(
-            f"EVDS cevabı JSON değil: status={resp.status_code}, "
-            f"body_ilk_300={resp.text[:300]!r}, url={url}"
-        ) from exc
+def _get_json(url: str, api_key: str, attempts: int = 3):
+    last_exc: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            resp = requests.get(url, headers=_headers(api_key), timeout=30)
+        except requests.exceptions.RequestException as exc:
+            last_exc = exc
+            if attempt < attempts:
+                time.sleep(5 * attempt)
+                continue
+            raise RuntimeError(f"EVDS isteği {attempts} denemede de başarısız: {exc}") from exc
+
+        if resp.status_code != 200 or not resp.text.strip():
+            last_exc = RuntimeError(
+                f"EVDS isteği başarısız: status={resp.status_code}, "
+                f"body_ilk_300={resp.text[:300]!r}, url={url}"
+            )
+            if attempt < attempts:
+                time.sleep(5 * attempt)
+                continue
+            raise last_exc
+
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise RuntimeError(
+                f"EVDS cevabı JSON değil: status={resp.status_code}, "
+                f"body_ilk_300={resp.text[:300]!r}, url={url}"
+            ) from exc
+    raise RuntimeError(f"EVDS isteği başarısız") from last_exc
 
 
 def fetch_series(api_key: str) -> list[tuple[date, float]]:
