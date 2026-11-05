@@ -1577,7 +1577,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       .then(function(r){ clearInterval(sayac); d.className = "durum ok"; d.textContent = "E-posta gönderildi: " + r.to.join(", ") + (r.kopya && r.kopya.length ? " (kopya: " + r.kopya.join(", ") + ")" : "") + "."; gecmisYukle(); },
         function(er){ clearInterval(sayac); if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = "E-posta gönderilemedi: " + (er.message || er) + " Geçmiş sekmesindeki “E-posta” düğmesiyle yeniden deneyebilirsiniz."; });
   }
-  /* Kesilen faturanın XML ve HTML dosyaları ZIP olarak: adres yazılırsa e-postayla gider, boş bırakılırsa paylaşılır / indirilir */
+  /* Kesilen faturanın XML ve HTML dosyaları ZIP olarak telefonun paylaşım menüsüne verilir (WhatsApp, e-posta…); desteklenmiyorsa indirilir */
   function zipIslem(mid, uuid, ad, durumId, adres, ozet){
     var d = $(durumId), t0 = Date.now(), sayac; function goster(m){ d.className = "durum"; d.textContent = "⏳ " + m + "… (" + Math.round((Date.now() - t0) / 1000) + " sn)"; }
     if (adres) {
@@ -1590,12 +1590,6 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       clearInterval(sayac); var bin = atob(r.zip), u8 = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
       var f = new File([u8], r.ad, { type: "application/zip" }); d.textContent = ""; return pdfVer(f, "Fatura " + (ad || ""), d, false, { hazir: "ZIP hazır (" + (r.xml ? "XML" : "") + (r.xml && r.html ? " + " : "") + (r.html ? "HTML" : "") + ")", ac: "ZIP’i aç / indir" });
     }, function(er){ clearInterval(sayac); if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = "ZIP alınamadı: " + (er.message || er); });
-  }
-  function zipAdresSor(yk, ad){
-    var son = yk && yk.epostalar && yk.epostalar.length ? yk.epostalar[yk.epostalar.length - 1].to : "", varsayilan = (yk && yk.aliciEposta) || son || "";
-    var a = prompt("XML + HTML (ZIP) hangi e-posta adresine gönderilsin?\n(Boş bırakıp Tamam’a basarsanız ZIP paylaşılır / indirilir.)", MAILHAZIR ? varsayilan : ""); if (a == null) return null; a = a.trim();
-    if (a && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a)) { var dg = $("gDurum"); dg.className = "durum hata"; dg.textContent = "E-posta adresi geçerli görünmüyor."; return null; }
-    return a;
   }
   function paylas(mid, uuid, onay, ad, durumId){
     var d = $(durumId); d.className = "durum"; var asama = "1/3 Fatura GİB’den alınıyor", t0 = Date.now();
@@ -1708,7 +1702,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     $("gecmisListe").innerHTML = liste.length ? liste.slice(0, gSayfa).map(function(x){
       var k = x.k, i = x.i, t = (k.tarih || "").split("-").reverse().join("/");
       return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " " + (PARASEM[k.para] || "₺"), esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad),
-        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-ge="' + i + '">E-posta</button> <button class="k" type="button" data-gz="' + i + '">XML+HTML</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (x.iptal ? ' <small class="iptalyazi" style="font-size:.68rem">TALEP GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>', x.iptal, tahBlok(k, i));
+        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-gz="' + i + '">XML+HTML</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (x.iptal ? ' <small class="iptalyazi" style="font-size:.68rem">TALEP GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>', x.iptal, tahBlok(k, i));
     }).join("") : '<p class="not">' + (gecmis.length ? "Filtreye uyan fatura yok." : "Bu programdan kesilen fatura henüz yok.") + '</p>';
     $("gDaha").hidden = liste.length <= gSayfa; $("gDaha").textContent = "Daha fazla göster (" + Math.max(0, liste.length - gSayfa) + " fatura daha)";
   }
@@ -1770,14 +1764,8 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   });
   $("gecmisListe").addEventListener("click", function(e){
     var t = e.target.getAttribute("data-gt"), ip = e.target.getAttribute("data-gp"), gs = e.target.getAttribute("data-gs");
-    var ge = e.target.getAttribute("data-ge"), gz = e.target.getAttribute("data-gz");
-    if (gz != null) { var kz = gecmis[+gz], az = zipAdresSor(kz); if (az === null) return; return zipIslem(kz.mukellefId || mSec, kz.id, kz.belgeNo, "gDurum", az); }
-    if (ge != null) {
-      var ke = gecmis[+ge], adr = prompt("Faturayı hangi e-posta adresine gönderelim?" + (ke.epostalar && ke.epostalar.length ? "\n(Daha önce: " + ke.epostalar[ke.epostalar.length - 1].to + ")" : ""), ke.aliciEposta || (ke.epostalar && ke.epostalar.length ? ke.epostalar[ke.epostalar.length - 1].to : "") || "");
-      if (!adr) return; adr = adr.trim();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adr)) { var dg = $("gDurum"); dg.className = "durum hata"; dg.textContent = "E-posta adresi geçerli görünmüyor."; return; }
-      return epostaGonder(ke.mukellefId || mSec, ke.id, ke.belgeNo, "gDurum", adr);
-    }
+    var gz = e.target.getAttribute("data-gz");
+    if (gz != null) { var kz = gecmis[+gz]; return zipIslem(kz.mukellefId || mSec, kz.id, kz.belgeNo, "gDurum"); }
     if (gs != null) { var kg = gecmis[+gs]; return paylas(kg.mukellefId || mSec, kg.id, "Onaylandı", kg.belgeNo, "gDurum"); }
     if (ip != null) { var kp = gecmis[+ip]; mSec = kp.mukellefId || mSec; return belgeIslemi("iptal", kp.id, kp.tarih, (kp.belgeNo || "Fatura") + " — " + kp.aliciUnvan); }
     if (t != null) return tekrarla(gecmis[+t]);
@@ -1815,7 +1803,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       d.textContent = r.belgeler.length + " belge bulundu.";
       $("gibListe").innerHTML = r.belgeler.map(function(b, i){
         var yerel = gecmis.some(function(k){ return k.id === b.ettn; });
-        return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" && b.talep === "" ? ' <button class="k" type="button" data-gps="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '">Paylaş</button>' + (MAILHAZIR ? ' <button class="k" type="button" data-gpe="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '" data-gpa="' + esc(b.alici) + '" data-gpt="' + esc(b.tarih) + '">E-posta</button>' : "") + ' <button class="k" type="button" data-gpz="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '" data-gpa="' + esc(b.alici) + '" data-gpt="' + esc(b.tarih) + '">XML+HTML</button> <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button>' : "") + '</span>' : "", b.talep !== "");
+        return satirHtml(esc(b.alici) + " — " + esc(b.durum), esc(b.tarih) + " · " + esc(b.belgeNo), b.ettn ? '<span><button class="k" type="button" data-ge="' + esc(b.ettn) + '">Görüntüle</button>' + (b.durum === "Onaylandı" && b.talep === "" ? ' <button class="k" type="button" data-gps="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '">Paylaş</button>' + ' <button class="k" type="button" data-gpz="' + esc(b.ettn) + '" data-gpn="' + esc(b.belgeNo) + '" data-gpa="' + esc(b.alici) + '" data-gpt="' + esc(b.tarih) + '">XML+HTML</button> <button class="k" type="button" data-gp2="' + esc(b.ettn) + '" data-gt2="' + esc(b.tarih) + '">İptal</button>' : "") + '</span>' : "", b.talep !== "");
       }).join(""); sonucaGit("gibListe");
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
   });
@@ -1834,15 +1822,9 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = er.message; } });
   }
   $("gibListe").addEventListener("click", function(e){
-    var ps = e.target.getAttribute("data-gps"), pe = e.target.getAttribute("data-gpe"), ip = e.target.getAttribute("data-gp2"), pz = e.target.getAttribute("data-gpz");
-    if (pz) { var yz = gecmis.filter(function(k){ return k.id === pz; })[0] || {}, az2 = zipAdresSor(yz); if (az2 === null) return; return zipIslem(yz.mukellefId || mSec, pz, e.target.getAttribute("data-gpn"), "gDurum", az2, { alici: e.target.getAttribute("data-gpa"), belgeNo: e.target.getAttribute("data-gpn"), tarih: e.target.getAttribute("data-gpt") }); }
+    var ps = e.target.getAttribute("data-gps"), ip = e.target.getAttribute("data-gp2"), pz = e.target.getAttribute("data-gpz");
+    if (pz) return zipIslem(mSec, pz, e.target.getAttribute("data-gpn"), "gDurum");
     if (ps) return paylas(mSec, ps, "Onaylandı", e.target.getAttribute("data-gpn"), "gDurum");
-    if (pe) {
-      var yk = gecmis.filter(function(k){ return k.id === pe; })[0] || {}, son = yk.epostalar && yk.epostalar.length ? yk.epostalar[yk.epostalar.length - 1].to : "";
-      var adr = prompt("Faturayı hangi e-posta adresine gönderelim?", yk.aliciEposta || son || ""); if (!adr) return; adr = adr.trim();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adr)) { var dg = $("gDurum"); dg.className = "durum hata"; dg.textContent = "E-posta adresi geçerli görünmüyor."; return; }
-      return epostaGonder(yk.mukellefId || mSec, pe, e.target.getAttribute("data-gpn"), "gDurum", adr, { alici: e.target.getAttribute("data-gpa"), belgeNo: e.target.getAttribute("data-gpn"), tarih: e.target.getAttribute("data-gpt") });
-    }
     if (ip) return belgeIslemi("iptal", ip, e.target.getAttribute("data-gt2"), "Seçilen fatura");
     var id = e.target.getAttribute("data-ge"); if (!id) return;
     var yerel = gecmis.filter(function(k){ return k.id === id; })[0];
