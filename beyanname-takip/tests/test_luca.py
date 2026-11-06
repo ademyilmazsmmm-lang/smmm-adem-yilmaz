@@ -6,8 +6,8 @@ import pytest
 from app.cekirdek import Uygulama
 from app.depo import Depo
 from app.kurallar import Tatiller
-from app.luca_ekran_okuma import (beyanname_satirlari, durum_sec, musteri_html_oku, musterileri_birlestir, secenek_esle,
-                                  sorgu_plani)
+from app.luca_ekran_okuma import (beyanname_satirlari, durum_sec, musteri_html_filtre, musteri_html_oku, musteri_yillari,
+                                  musterileri_birlestir, secenek_esle, sorgu_plani)
 from app.luca_toplayici import GercekLucabot, LucaHatasi, LucaToplayici, kimlik_oku
 from tests.test_cekirdek import Saat, SahteTelegram
 from app.bildirim import CaptchaKoprusu
@@ -100,9 +100,10 @@ class SahteKopru:
     def tani_calistir(self, page, bugun):
         self.cagrilar.append("tani")
 
-    def musteri_listesi(self, page):
-        self.cagrilar.append("musteri")
-        return [dict(m) for m in self.musteriler]
+    def musteri_listesi(self, page, yil=None, ac=True):
+        self.cagrilar.append(("musteri" if yil is None else f"musteri:{yil}") + ("" if ac else ":ac-yok"))
+        liste = self.musteriler if yil is None else self.kw.get("yil_listeleri", {}).get(yil, self.musteriler)
+        return [dict(m) for m in liste]
 
     def beyanname_ekrani_ac(self, page, yil):
         self.cagrilar.append(f"ekran:{yil}")
@@ -235,7 +236,7 @@ def test_gercek_lucabot_arayuzu_uyumlu(tmp_path):
         "lb": ["menusu_olan_firmayi_sec", "ekrani_ac", "ARAMA_PENCERESI", "ALANLAR_JS", "_secenek_sec", "_tarih_yaz",
                "bildirim_sayisi", "listelenen_sayi", "LISTELE_DUGMESI", "AYLAR"],
         "le": ["gorunur_mu", "dugmeye_bas", "cerceveler", "acik_pencereleri_kapat"],
-        "gz": ["firma_secici_bekle"], "ml": ["musteri_listesini_ac", "tablolari_al", "tani_kaydet"],
+        "gz": ["firma_secici_bekle"], "ml": ["musteri_listesini_ac", "yili_filtrele", "tablolari_al", "tani_kaydet"],
         "tarayici": ["tarayici_ac", "tarayiciyi_kapat"], "bekleme": ["sayfa_durulsun", "kosulu_bekle"],
     }
     eksik = [f"{mod}.{ad}" for mod, adlar in gereken.items() for ad in adlar if not hasattr(getattr(g.m, mod), ad)]
@@ -379,3 +380,68 @@ def test_gercek_toplayici_musteri_listesi_sayfadan_okur_ve_sayiyi_dogrular(tmp_p
     html["v"] = "<html></html>"
     with pytest.raises(LucaHatasi, match="tablosu bulunamadı"):
         g.musteri_listesi("sayfa")
+
+
+# ---------- yıl filtresi ----------
+
+def test_musteri_yillari():
+    assert musteri_yillari(date(2026, 11, 6)) == [2026]
+    assert musteri_yillari(date(2027, 1, 14)) == [2027]                  # geçmiş yıl okunmaz (Ocak dahil)
+    assert musteri_yillari(date(2026, 11, 6), "yok") == [] and musteri_yillari(date(2026, 11, 6), "otomatik") == [2026]
+    assert musteri_yillari(date(2026, 11, 6), "2026, 2025") == [2026, 2025]
+
+
+def test_musteri_html_filtre_durumu():
+    filtresiz = musteri_sayfasi(SATIRLAR)
+    assert musteri_html_filtre(filtresiz) == {"yil": None, "durum": None, "sinif": None}
+    filtreli = filtresiz.replace("</body>", '<script>byId("YIL").value = "2026";\n byId("DURUM").value = "";\n byId("SINIF").value = "";</script></body>')
+    assert musteri_html_filtre(filtreli) == {"yil": "2026", "durum": "", "sinif": ""}
+
+
+def test_yil_filtresi_varsayilan():
+    firmalar = [{"sirket_id": "1", "ad": "AKTIF", "unvan": "AKTIF", "vkn": "1", "acilis": "01/01/2020", "kapanis": ""},
+                {"sirket_id": "2", "ad": "DONEMSIZ", "unvan": "DONEMSIZ", "vkn": "2", "acilis": "01/01/2020", "kapanis": ""}]
+    k = SahteKopru(musteriler=firmalar, yil_listeleri={2026: [firmalar[0]]})
+    r = toplayici(k).topla(date(2026, 11, 26))
+    assert [c for c in k.cagrilar if c.startswith("musteri")] == ["musteri:2026"]          # filtresiz okuma yok
+    assert [m["ad"] for m in r["mukellefler"]] == ["AKTIF"] and r["uyarilar"] == []
+
+
+def test_acik_yil_listesi_iki_yil_birlestirir():
+    a = {"sirket_id": "1", "ad": "A", "unvan": "A", "vkn": "1", "acilis": "01/01/2020", "kapanis": ""}
+    b = {"sirket_id": "2", "ad": "B", "unvan": "B", "vkn": "2", "acilis": "01/01/2020", "kapanis": ""}
+    k = SahteKopru(musteriler=[a, b], yil_listeleri={2027: [a], 2026: [a, b]})
+    r = toplayici(k, {"LUCA_MUSTERI_YILI": "2027,2026"}).topla(date(2027, 1, 14))        # isteğe bağlı açık liste
+    assert {m["ad"] for m in r["mukellefler"]} == {"A", "B"}
+    assert [c for c in k.cagrilar if c.startswith("musteri")] == ["musteri:2027", "musteri:2026:ac-yok"]   # ekran bir kez açılır
+
+
+def test_yil_filtresi_kapali_ve_bos_filtre_sonucu():
+    k = SahteKopru()
+    r = toplayici(k, {"LUCA_MUSTERI_YILI": "yok"}).topla(date(2026, 11, 26))
+    assert [c for c in k.cagrilar if c.startswith("musteri")] == ["musteri"]
+    with pytest.raises(LucaHatasi, match="boş"):
+        toplayici(SahteKopru(yil_listeleri={2026: []})).topla(date(2026, 11, 26))
+
+
+def test_koprude_yil_filtresi_dogrulamasi(tmp_path):
+    """Filtre uygulanmadan önceki eski sayfa okunmamalı: sayfa uygulanan yılı kendisi yazar."""
+    from types import SimpleNamespace
+    g = GercekLucabot.__new__(GercekLucabot)
+    g.log, g.tani_klasoru = tmp_path / "log.txt", tmp_path
+    filtresiz = musteri_sayfasi(SATIRLAR)
+    filtreli = musteri_sayfasi(SATIRLAR[:2]).replace("</body>", '<script>byId("YIL").value = "2026";</script></body>')
+    durum = {"html": filtresiz, "uygulandi": True}
+    g.m = SimpleNamespace(
+        ml=SimpleNamespace(yili_filtrele=lambda page, yil, log: durum["uygulandi"], tani_kaydet=lambda *a, **k: None),
+        le=SimpleNamespace(cerceveler=lambda page: [SimpleNamespace(content=lambda: durum["html"])]),
+        bekleme=SimpleNamespace(kosulu_bekle=lambda page, f, ms, aralik_ms=0: f()))
+    with pytest.raises(LucaHatasi, match="hâlâ filtresiz"):                  # filtre sayfaya yansımadı: eski sayfa kabul edilmez
+        g.musteri_listesi("sayfa", 2026, ac=False)
+    durum["html"] = filtreli
+    assert len(g.musteri_listesi("sayfa", 2026, ac=False)) == 2
+    with pytest.raises(LucaHatasi, match="Yıl=2025"):                        # istenen yıl ile sayfadaki yıl uyuşmuyor
+        g.musteri_listesi("sayfa", 2025, ac=False)
+    durum["uygulandi"] = False
+    with pytest.raises(LucaHatasi, match="uygulanamadı"):
+        g.musteri_listesi("sayfa", 2026, ac=False)

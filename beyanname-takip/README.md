@@ -97,10 +97,13 @@ Dosyalar güncellenince her uyarı slotunda yeniden okunur. Web sayfasındaki "�
 Her şey Luca'nın içinde yapılır, GİB/e-Beyanname'ye bağlanılmaz:
 
 1. Luca girişi (üye no, kullanıcı, parola; **doğrulama anahtarı varsa kod otomatik üretilir**).
-2. *Yönetici > Müşteri İşlemleri > Müşteri Listesi*: **tüm** mükellefler (yıl filtresi boş; kapanmışlar dahil). Sayfa HTML'inden
-   okunur (Kısa/Uzun Ad, VKN, TC, Kuruluş ve Kapanış Tarihi ve Luca'nın değişmez şirket kimliği) ve sayfanın yazdığı
-   "Kayıt Sayısı" ile doğrulanır. Aynı VKN'yi taşıyan iki kayıt (tasfiye) ayrı mükelleftir. Kapanmış firmalar tarihten anlaşılır
-   ve web sayfasında varsayılan olarak gizlenir.
+2. *Yönetici > Müşteri İşlemleri > Müşteri Listesi*: ekranı açar, **Yıl'ı seçip Ara'ya basar**, sonra listeyi okur. Yalnızca o yılın
+   dönemi açılmış firmalar gelir (kapanış tarihi girilmemiş eski firmalar böylece listeye girmez); geçen yıl okunmaz
+   (`LUCA_MUSTERI_YILI=otomatik|yok|2027,2026`; Ocak'ta yeni dönemi henüz açılmamış firmaların Aralık beyannameleri
+   için gerekirse `2027,2026` yazılabilir). Sayfa HTML'inden okunur (Kısa/Uzun Ad, VKN, TC, Kuruluş ve Kapanış
+   Tarihi ve Luca'nın değişmez şirket kimliği); filtrenin gerçekten uygulandığı sayfanın kendi yazdığı yıl bilgisinden ve
+   "Kayıt Sayısı"ndan doğrulanır. Aynı VKN'yi taşıyan iki kayıt (tasfiye) ayrı mükelleftir. Kapanmış firmalar tarihten
+   anlaşılır ve web sayfasında varsayılan olarak gizlenir. **Dönemi açılmamış firma için beyanname takibi yapılmaz.**
 3. *Muhasebe > Beyannameler > GİB Beyanname Takip*: son günü yaklaşan her dönem ve beyanname türü için
    (dönem, "Onaylanmış", tür) filtresiyle listeler ve "Mükellef Adı" sütununu okur. Listede olan firma o beyannameyi vermiştir.
 4. Karşılaştırma, uyarı ve Telegram yukarıdaki gibidir.

@@ -22,6 +22,7 @@ LUCA_OFIS_UYE_NO gibi ön ekli adlar kullanılır; tek hesapta ön eksiz LUCA_UY
   LUCABOT_YOLU     lucabot paketinin bulunduğu dizin
   LUCA_TANI=1      tanı modu: giriş + ekranlar açılır, filtre seçenekleri ve ekran görüntüleri DATA_DIR/tani'ya
                    yazılır, veri KAYDEDİLMEZ. Env değişkenine gerek yok: web sayfasındaki "Tanı" sekmesi aynısını yapar.
+  LUCA_MUSTERI_YILI=otomatik|yok|2027,2026   müşteri listesi yıl filtresi (otomatik: yalnızca bu yıl)
   LUCA_UCAYLIK_DONEM=bit|bas   3 aylık dönemlerin Luca filtresindeki ayı (varsayılan bit)
 Tarayıcı Xvfb altında (ekranlı kipte) çalışır: Dockerfile.luca'ya bakın.
 """
@@ -35,8 +36,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from .kurallar import Tatiller
-from .luca_ekran_okuma import (beyanname_satirlari, durum_sec, musteri_html_oku, musterileri_birlestir, secenek_esle,
-                               sorgu_plani)
+from .luca_ekran_okuma import (beyanname_satirlari, durum_sec, musteri_html_filtre, musteri_html_oku, musteri_yillari,
+                               musterileri_birlestir, secenek_esle, sorgu_plani)
 
 
 class LucaHatasi(RuntimeError):
@@ -111,8 +112,13 @@ class LucaToplayici:
             raise TaniTamam("Tanı modu tamamlandı (veri kaydedilmedi). Sonuçlar web sayfasında 'Tanı' sekmesinde; "
                             "bitince LUCA_TANI'yı kaldırın.")
 
-        # yıl filtresi boşken Luca tüm müşterileri (kapanmışlar dahil) tek sayfada getirir; kapanışlar tarihten anlaşılır
-        mus = musterileri_birlestir([kopru.musteri_listesi(page)])
+        # Ekranı aç, Yıl'ı seç, Ara'ya bas, sonra oku: yalnızca o yılın dönemi açılmış firmalar gelir (kapanış tarihi
+        # girilmemiş eski firmalar böylece listeye girmez). Geçen yıl okunmaz. LUCA_MUSTERI_YILI=yok: filtresiz.
+        yillar = musteri_yillari(bugun, self.env.get("LUCA_MUSTERI_YILI"))
+        if yillar:
+            mus = musterileri_birlestir([kopru.musteri_listesi(page, y, ac=(i == 0)) for i, y in enumerate(yillar)])
+        else:
+            mus = musterileri_birlestir([kopru.musteri_listesi(page)])
         if not mus:
             raise LucaHatasi("Luca müşteri listesi boş okundu (ekran yapısı değişmiş olabilir; LUCA_TANI=1 ile bakın)")
 
@@ -222,34 +228,44 @@ class GercekLucabot:
         except Exception:  # noqa: BLE001 - tanı çabası asıl hatayı gizlememeli
             pass
 
-    def _musteri_html(self, page):
-        """Açık Luca sayfalarının çerçevelerinden Müşteri Listesi tablosunu içeren HTML'i bulur (yoksa None)."""
+    def _musteri_html(self, page, yil=None):
+        """Müşteri Listesi tablosunu içeren HTML. yil verilmişse yalnızca o yıl filtresi UYGULANMIŞ sayfa kabul edilir
+        (sayfa uygulanan filtreyi sonunda kendisi yazar); böylece filtre öncesi eski sayfa yanlışlıkla okunmaz."""
         for fr in self.m.le.cerceveler(page):
             try:
                 html = fr.content()
             except Exception:  # noqa: BLE001
                 continue
             if "kisa-ad-td" in html and "sirket_id" in html:
-                return html
+                if yil is None or musteri_html_filtre(html)["yil"] == str(yil):
+                    return html
         return None
 
-    def musteri_listesi(self, page):
-        """Yönetici > Müşteri İşlemleri > Müşteri Listesi: tüm müşteriler (yıl filtresi yok), sayfa HTML'inden okunur."""
+    def musteri_listesi(self, page, yil=None, ac=True):
+        """Yönetici > Müşteri İşlemleri > Müşteri Listesi: ekranı açar (ac=True), varsa Yıl'ı seçip Ara'ya basar, sayfa
+        HTML'inden okur ve 'Kayıt Sayısı' ile doğrular. Aynı oturumda ikinci yıl için ac=False (ekran açık kalır)."""
         with self._sessiz():
-            try:
-                self.m.ml.musteri_listesini_ac(page, self.log)
-            except LookupError as e:
-                self.m.ml.tani_kaydet(page, self.tani_klasoru, self.log, "-menu")
-                raise LucaHatasi(f"Müşteri Listesi ekranı açılamadı: {e}") from e
-            html = self.m.bekleme.kosulu_bekle(page, lambda: self._musteri_html(page), 30000, aralik_ms=700)
-            self.m.ml.tani_kaydet(page, self.tani_klasoru, self.log)
+            if ac:
+                try:
+                    self.m.ml.musteri_listesini_ac(page, self.log)
+                except LookupError as e:
+                    self.m.ml.tani_kaydet(page, self.tani_klasoru, self.log, "-menu")
+                    raise LucaHatasi(f"Müşteri Listesi ekranı açılamadı: {e}") from e
+            if yil is not None and not self.m.ml.yili_filtrele(page, yil, self.log):
+                self.m.ml.tani_kaydet(page, self.tani_klasoru, self.log, f"-yil{yil}")
+                raise LucaHatasi(f"Müşteri Listesi'nde Yıl={yil} filtresi uygulanamadı (Tanı sekmesine bakın)")
+            html = self.m.bekleme.kosulu_bekle(page, lambda: self._musteri_html(page, yil), 30000, aralik_ms=700)
+            self.m.ml.tani_kaydet(page, self.tani_klasoru, self.log, "" if yil is None else f"-yil{yil}")
+            sayfa_var = html or self._musteri_html(page)
         if not html:
+            if sayfa_var and yil is not None:
+                raise LucaHatasi(f"Yıl={yil} filtresi uygulanamadı: sayfa hâlâ filtresiz görünüyor")
             raise LucaHatasi("Müşteri Listesi tablosu bulunamadı (sayfa yapısı değişmiş olabilir; Tanı sekmesine bakın)")
         kayitlar, toplam = musteri_html_oku(html)
         if toplam is not None and toplam != len(kayitlar):
             raise LucaHatasi(f"Müşteri Listesi sayfası {toplam} kayıt yazıyor ama {len(kayitlar)} satır okundu")
         if not kayitlar:
-            raise LucaHatasi("Müşteri Listesi boş okundu")
+            raise LucaHatasi("Müşteri Listesi boş okundu" + ("" if yil is None else f" (Yıl={yil})"))
         return kayitlar
 
     def beyanname_ekrani_ac(self, page, yil):

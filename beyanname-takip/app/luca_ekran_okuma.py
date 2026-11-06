@@ -100,6 +100,26 @@ def beyanname_satirlari(tablolar):
     return None
 
 
+def musteri_anahtari(k):
+    """Firmanın kimliği: Luca şirket kimliği; yoksa VKN + kısa ad."""
+    return (str(k.get("sirket_id") or "").strip()
+            or f"{(k.get('vkn') or '').strip()}|{sade(k.get('ad') or k.get('unvan'))}")
+
+
+def musteri_yillari(bugun, ayar=None):
+    """Müşteri listesinin hangi yıl(lar)la filtreleneceği. LUCA_MUSTERI_YILI: 'otomatik' (varsayılan: yalnızca bu yıl),
+    'yok' (filtresiz) ya da '2027,2026' (açık liste).
+
+    DİKKAT: Ocak'ta henüz yeni yılın dönemi açılmamış bir firmanın Aralık dönemi beyannameleri (KDV 28 Ocak, MUHSGK
+    26 Ocak) ve 4. dönem geçici vergisi (17 Şubat) takip dışı kalır; gerekirse Ocak-Mart için '2027,2026' yazın."""
+    a = (ayar or "otomatik").strip().lower()
+    if a in ("yok", "0", "hayir", "hayır"):
+        return []
+    if a in ("", "otomatik"):
+        return [bugun.year]
+    return [int(x) for x in a.split(",") if x.strip().isdigit()]
+
+
 def musterileri_birlestir(listeler):
     """Birden çok listeyi (öncelik sırasıyla) tek listede toplar; aynı firma yalnızca bir kez, öndeki liste kazanır.
 
@@ -109,8 +129,7 @@ def musterileri_birlestir(listeler):
     gorulen, sonuc = set(), []
     for liste in listeler:
         for k in liste:
-            anahtar = (str(k.get("sirket_id") or "").strip()
-                       or f"{(k.get('vkn') or '').strip()}|{sade(k.get('ad') or k.get('unvan'))}")
+            anahtar = musteri_anahtari(k)
             if anahtar.strip("|") and anahtar not in gorulen:
                 gorulen.add(anahtar)
                 sonuc.append(k)
@@ -152,6 +171,15 @@ class _MusteriHtml(HTMLParser):
     def handle_data(self, data):
         if self._satir is not None and self._alan:
             self._satir[self._alan] += data
+
+
+def musteri_html_filtre(html):
+    """Sayfanın sonunda yazdığı uygulanmış filtre: {'yil','durum','sinif'} (yazılmamışsa None). Filtresiz sayfada hepsi None."""
+    sonuc = {}
+    for ad, anahtar in (("YIL", "yil"), ("DURUM", "durum"), ("SINIF", "sinif")):
+        m = re.search(r'byId\("%s"\)\.value\s*=\s*"([^"]*)"' % ad, html or "")
+        sonuc[anahtar] = m.group(1) if m else None
+    return sonuc
 
 
 def musteri_html_oku(html):
