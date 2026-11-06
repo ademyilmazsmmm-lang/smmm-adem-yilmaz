@@ -735,6 +735,8 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
   function uid(){ return Math.random().toString(36).slice(2, 10); }
   function trk(s){ return String(s || "").replace(/İ/g, "i").replace(/I/g, "ı").toLocaleLowerCase("tr-TR"); }
+  /* Arama için: büyük/küçük harf ve Türkçe harf (ı/i, ş/s, ğ/g, ü/u, ö/o, ç/c) ayrımı yapılmaz; “yilmaz” yazınca “YILMAZ” da bulunur */
+  function arak(s){ return String(s || "").replace(/İ/g, "i").replace(/I/g, "i").toLocaleLowerCase("tr-TR").replace(/ı/g, "i").replace(/ş/g, "s").replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ö/g, "o").replace(/ç/g, "c").replace(/[âîû]/g, function(c){ return { "â": "a", "î": "i", "û": "u" }[c]; }); }
   function sayi(s){ var n = parseFloat(String(s || "").trim().replace(/\./g, "").replace(",", ".")); return isFinite(n) ? n : 0; }
   function fmt(k){ return (k / 100).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function durum(m, t){ var d = $("durum"); d.className = "durum " + (t || ""); d.textContent = m; }
@@ -910,7 +912,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   /* mükellef filtresi: düğme -> arama kutulu liste */
   function mPanelAc(){ $("mPanel").hidden = false; $("mSecBtn").setAttribute("aria-expanded", "true"); $("mAra").value = ""; mAraSuz(); setTimeout(function(){ var s0 = document.querySelector("#mChips [aria-pressed=true]"); if (s0 && s0.scrollIntoView) s0.scrollIntoView({ block: "center" }); }, 30); }
   function mPanelKapat(){ $("mPanel").hidden = true; $("mSecBtn").setAttribute("aria-expanded", "false"); }
-  function mAraSuz(){ var q = trk($("mAra").value).trim(), n = 0; document.querySelectorAll("#mChips .chip").forEach(function(b){ var g = !q || trk(b.textContent).indexOf(q) > -1; b.hidden = !g; if (g) n++; }); $("mBos").hidden = n > 0; }
+  function mAraSuz(){ var q = arak($("mAra").value).trim(), n = 0; document.querySelectorAll("#mChips .chip").forEach(function(b){ var g = !q || arak(b.textContent).indexOf(q) > -1; b.hidden = !g; if (g) n++; }); $("mBos").hidden = n > 0; }
   $("mSecBtn").addEventListener("click", mPanelAc);
   $("mKapat").addEventListener("click", mPanelKapat);
   $("mAra").addEventListener("input", mAraSuz);
@@ -1692,7 +1694,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
         '<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="k" type="button" data-ala-wa="' + i + '">WhatsApp ile hatırlat</button>' + (a.eposta ? '<button class="k" type="button" data-ala-ep="' + i + '">E-posta ile hatırlat</button>' : "") + '<button class="k" type="button" data-ala-kopya="' + i + '">Metni kopyala</button></div></div>'; }).join("") + '</div></details>';
   }
   function gecmisCiz(){
-    var ara = trk($("gAra").value).trim(), dur = $("gDurumF").value, tip = $("gTipF").value, tr = gTarihAraligi(), mk2 = (ROL === "ofis" || COKLU) ? (mSec || "") : "";
+    var ara = arak($("gAra").value).trim(), dur = $("gDurumF").value, tip = $("gTipF").value, tr = gTarihAraligi(), mk2 = (ROL === "ofis" || COKLU) ? (mSec || "") : "";
     var liste = [];
     gecmis.forEach(function(k, i){
       var iptal = /^İptal/.test(k.durum || "");
@@ -1700,7 +1702,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       if (tip && (k.tip || (k.tevkifat ? "TEVKIFAT" : "SATIS")) !== tip) return;
       if (tr && !(k.tarih >= tr[0] && k.tarih <= tr[1])) return;
       if (mk2 && k.mukellefId !== mk2) return;
-      if (ara && trk([k.aliciUnvan, k.aliciVkn, k.belgeNo, k.mukellef && k.mukellef.ad].join(" ")).indexOf(ara) < 0) return;
+      if (ara && arak([k.aliciUnvan, k.aliciVkn, k.belgeNo, k.mukellef && k.mukellef.ad].join(" ")).indexOf(ara) < 0) return;
       liste.push({ k: k, i: i, iptal: iptal });
     });
     /* tahsilat özeti ve süzgeci (öteki süzgeçlerden sonra) */
@@ -2318,13 +2320,13 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       gr.map(function(x){ return '<div class="kayit" style="padding:8px 10px;display:grid;gap:6px">' + x.map(function(m){ return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="flex:1 1 180px"><b>' + esc(m.ad || "(adsız)") + '</b><br><small class="not">VKN ' + esc(m.vkn || "—") + ' · kullanıcı ' + esc(m.kullanici || "—") + (m.hesapKullanici ? ' · giriş hesabı var' : "") + '</small></span><button class="k" type="button" data-bir-ana="' + m.id + '" data-bir-grup="' + x.map(function(y){ return y.id; }).join(",") + '">Bunu tut, diğerlerini birleştir</button></div>'; }).join("") + '</div>'; }).join("") + '<div class="durum" id="birDurum" role="status"></div></div></details>';
   }
   function mAyarListe(){
-    var q = trk(MAYARA).trim();
-    return mSirali().map(function(m){ var h = mukellefAyarHtml(m); return q && trk([m.ad, m.vkn, m.kullanici].join(" ")).indexOf(q) < 0 ? h.replace(/^<details /, "<details hidden ") : h; }).join("");
+    var q = arak(MAYARA).trim();
+    return mSirali().map(function(m){ var h = mukellefAyarHtml(m); return q && arak([m.ad, m.vkn, m.kullanici].join(" ")).indexOf(q) < 0 ? h.replace(/^<details /, "<details hidden ") : h; }).join("");
   }
   function mAraHtml(){ return '<div><input id="mAyAra" type="search" placeholder="Mükellef ara (unvan, VKN, kullanıcı kodu)" value="' + esc(MAYARA) + '" aria-label="Mükellef ara" autocomplete="off"><p class="not" id="mAyAraSay" style="margin:4px 0 0"></p></div>'; }
   function mAyAraUygula(){
-    var q = trk(MAYARA).trim(), n = 0;
-    V.mukellefler.forEach(function(m){ var el = document.querySelector('#ayarIc details.kayit[data-mid="' + m.id + '"]'); if (!el) return; var g = !q || trk([m.ad, m.vkn, m.kullanici].join(" ")).indexOf(q) > -1; el.hidden = !g; if (g) n++; });
+    var q = arak(MAYARA).trim(), n = 0;
+    V.mukellefler.forEach(function(m){ var el = document.querySelector('#ayarIc details.kayit[data-mid="' + m.id + '"]'); if (!el) return; var g = !q || arak([m.ad, m.vkn, m.kullanici].join(" ")).indexOf(q) > -1; el.hidden = !g; if (g) n++; });
     var s = $("mAyAraSay"); if (s) s.textContent = q ? n + " mükellef bulundu." : "";
   }
   function cizAyar(){
