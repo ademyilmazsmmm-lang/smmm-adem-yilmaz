@@ -53,7 +53,7 @@ uyarıda "ayar onaysız" yazar (uyarı kaçmasın diye). Bir dönem için beyann
 ```bash
 pip install -r requirements.txt pytest httpx
 python -m pytest                                   # testler
-WEB_SIFRE=en-az-10-karakter TOPLAYICI=ornek python -m uvicorn app.web:app_fabrikasi --factory --port 8000
+WEB_SIFRE=sifreniz TOPLAYICI=ornek python -m uvicorn app.web:app_fabrikasi --factory --port 8000
 ```
 `TOPLAYICI=ornek` uydurma 6 firma gösterir. Gerçek veri için aşağıdaki "dosya" modunu kullanın.
 
@@ -61,15 +61,22 @@ WEB_SIFRE=en-az-10-karakter TOPLAYICI=ornek python -m uvicorn app.web:app_fabrik
 
 | Ad | Anlamı |
 |---|---|
-| `WEB_SIFRE` | **Zorunlu**, en az 10 karakter. Şifresiz açılmaz. 5 yanlış denemeden sonra bekletir. |
+| `WEB_SIFRE` | **Zorunlu**, en az 4 karakter (kısa şifre tahmine açıktır; sayfa mükellef listesini gösterir). Şifresiz açılmaz. 5 yanlış denemeden sonra bekletir. |
 | `WEB_GIZLI` | Oturum imzası için rastgele metin (yoksa her açılışta yeni üretilir, oturumlar düşer) |
 | `DATA_DIR` | Veri klasörü. Render'da kalıcı disk (`/data`) |
 | `TOPLAYICI` | `ornek`, `dosya` ya da `luca` |
-| `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram botu (aşağıda) |
+| `SMTP_KULLANICI`, `SMTP_PAROLA`, `MAIL_ALICI` | **E-posta bildirimi.** Gmail için `SMTP_KULLANICI` adresiniz, `SMTP_PAROLA` Google hesabından alınan 16 haneli "uygulama şifresi" (normal şifre çalışmaz; 2 adımlı doğrulama açık olmalı). `MAIL_ALICI` virgülle birden çok adres olabilir, boşsa kendinize gider. İsteğe bağlı: `SMTP_HOST` (smtp.gmail.com), `SMTP_PORT` (587; 465 de olur), `MAIL_GONDEREN`. |
+| `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram botu (isteğe bağlı, sonradan eklenebilir; aşağıda) |
 | `ZAMANLAYICI` | `0` ise zamanlayıcı kapanır (yalnızca test için) |
 | `TZ` | `Europe/Istanbul` |
 
 Şifreler ve token'lar **yalnızca Render'ın gizli ortam değişkenlerine** girilir; koda, depoya ya da sohbete yazılmaz.
+
+## Bildirim kanalları
+E-posta ve Telegram birlikte ya da ayrı ayrı kullanılabilir. Mesaj, hazır kanallardan **en az birine** ulaştıysa gönderildi sayılır;
+hiçbirine ulaşmazsa 5 dakikada bir yeniden denenir. Captcha resmi e-postayla gitmez (web sayfasında ya da Telegram'da çözülür).
+**Render notu:** bazı Render planları giden SMTP portlarını (25/465/587) kapatabilir; e-posta gitmezse Sistem sekmesindeki
+"Test mesajı gönder" başarısız olur. O durumda ücretli plana geçin ya da Telegram'ı kullanın.
 
 ## Telegram botu
 

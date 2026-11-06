@@ -25,7 +25,7 @@ def giris(ic):
 
 def test_sifresiz_acilmaz():
     with pytest.raises(RuntimeError):
-        uygulama_olustur(object(), env={"WEB_SIFRE": "kisa"})
+        uygulama_olustur(object(), env={"WEB_SIFRE": "abc"})
 
 
 def test_api_giris_olmadan_kapali(istemci):
@@ -141,3 +141,20 @@ def test_sgk_ayari_kaydedilir_ve_dogrulanir(istemci):
     assert ic.put("/api/mukellef/ayar", params={"mid": mid}, json={"sgk": "var", "onayli": True}).status_code == 200
     assert [x["ayar"]["sgk"] for x in ic.get("/api/mukellefler").json() if x["id"] == mid] == ["var"]
     assert ic.put("/api/mukellef/ayar", params={"mid": mid}, json={"sgk": "bozuk"}).status_code == 400
+
+
+def test_web_sifre_alt_siniri_4():
+    from app.web import uygulama_olustur as olustur
+    with pytest.raises(RuntimeError):
+        olustur(object(), env={"WEB_SIFRE": "123"})
+    olustur(object(), env={"WEB_SIFRE": "1234", "ZAMANLAYICI": "0"})
+
+
+def test_durum_bildirim_kanallarini_gosterir(tmp_path):
+    from app.bildirim import Bildirici, Eposta
+    tg = Bildirici([Eposta("h", 587, "a@b.c", "p", "a@b.c")])
+    c = Uygulama(Depo(tmp_path), OrnekToplayici(), tg, CaptchaKoprusu(tg), saat=Saat("2026-11-26T09:00"))
+    ic = TestClient(uygulama_olustur(c, env={"WEB_SIFRE": SIFRE, "WEB_GIZLI": "x" * 32, "ZAMANLAYICI": "0"}))
+    giris(ic)
+    d = ic.get("/api/durum").json()
+    assert d["telegram"] and d["kanallar"] == ["E-posta"]

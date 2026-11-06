@@ -1,16 +1,21 @@
-"""Telegram bildirimi ve captcha köprüsü.
+"""Bildirim kanalları (Telegram, e-posta) ve captcha köprüsü.
 
-Token ve sohbet no yalnızca ortam değişkenlerinden okunur (TELEGRAM_TOKEN, TELEGRAM_CHAT_ID).
-Günlüklere mesaj metni, mükellef adı ya da token yazılmaz.
+Token, sohbet no ve SMTP parolası yalnızca ortam değişkenlerinden okunur (TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, SMTP_*).
+Günlüklere mesaj metni, mükellef adı, token ya da parola yazılmaz.
 """
 
+import html
 import json
 import logging
+import re
+import smtplib
+import ssl
 import threading
 import time
 import urllib.error
 import urllib.request
 import uuid
+from email.message import EmailMessage
 
 log = logging.getLogger("bildirim")
 
@@ -22,6 +27,8 @@ def _http(url, veri=None, baslik=None, zaman=35):
 
 
 class Telegram:
+    ad = "Telegram"
+
     def __init__(self, token, chat_id, http=_http):
         self.token = (token or "").strip()
         self.chat_id = str(chat_id or "").strip()
@@ -83,6 +90,87 @@ class Telegram:
             if str((m.get("chat") or {}).get("id")) == self.chat_id and m.get("text"):
                 sonuc.append(m["text"].strip())
         return sonuc
+
+
+class Eposta:
+    """SMTP ile e-posta (örn. Gmail: smtp.gmail.com:587 + "uygulama şifresi"). Mesajlar Telegram'la aynı HTML işaretlemesini taşır."""
+    ad = "E-posta"
+
+    def __init__(self, host, port, kullanici, parola, alici, gonderen=None, smtp_fabrikasi=None):
+        self.host = (host or "").strip()
+        self.port = int(port or 587)
+        self.kullanici = (kullanici or "").strip()
+        self.parola = parola or ""
+        self.alicilar = [a.strip() for a in re.split(r"[,;]", alici or self.kullanici) if a.strip()]
+        self.gonderen = (gonderen or self.kullanici).strip()
+        self._fabrika = smtp_fabrikasi or self._baglan
+
+    @classmethod
+    def ortamdan(cls, env):
+        return cls(env.get("SMTP_HOST") or ("smtp.gmail.com" if env.get("SMTP_KULLANICI") else ""), env.get("SMTP_PORT"),
+                   env.get("SMTP_KULLANICI"), env.get("SMTP_PAROLA"), env.get("MAIL_ALICI"), env.get("MAIL_GONDEREN"))
+
+    @property
+    def hazir(self):
+        return bool(self.host and self.kullanici and self.parola and self.alicilar and self.gonderen)
+
+    def _baglan(self):
+        if self.port == 465:
+            return smtplib.SMTP_SSL(self.host, self.port, timeout=30, context=ssl.create_default_context())
+        c = smtplib.SMTP(self.host, self.port, timeout=30)
+        c.starttls(context=ssl.create_default_context())
+        return c
+
+    def gonder(self, metin):
+        if not self.hazir:
+            log.warning("E-posta ayarlı değil; mesaj gönderilmedi")
+            return False
+        duz = html.unescape(re.sub(r"<[^>]+>", "", metin)).strip()
+        ilk = next((satir.strip() for satir in duz.splitlines() if satir.strip()), "bildirim")
+        ileti = EmailMessage()
+        ileti["Subject"] = "Beyanname Takip: " + ilk[:120]
+        ileti["From"] = self.gonderen
+        ileti["To"] = ", ".join(self.alicilar)
+        ileti.set_content(duz)
+        ileti.add_alternative(f'<div style="white-space:pre-wrap;font-family:sans-serif">{metin}</div>', subtype="html")
+        try:
+            with self._fabrika() as c:
+                c.login(self.kullanici, self.parola)
+                c.send_message(ileti)
+            return True
+        except (smtplib.SMTPException, OSError) as e:
+            log.warning("E-posta gönderilemedi (%s)", type(e).__name__)     # parola/adres/metin yazılmaz
+            return False
+
+    def foto_gonder(self, png, aciklama=""):
+        return False                # captcha e-postayla çözülmez; web sayfası ya da Telegram kullanılır
+
+    def yeni_mesajlar(self):
+        return []
+
+
+class Bildirici:
+    """Birden çok kanalı tek nesne gibi kullanır. Mesaj, hazır olan kanalların en az birine ulaştıysa 'gönderildi' sayılır."""
+
+    def __init__(self, kanallar):
+        self.kanallar = list(kanallar)
+
+    @property
+    def hazir(self):
+        return any(k.hazir for k in self.kanallar)
+
+    def hazir_kanallar(self):
+        return [getattr(k, "ad", type(k).__name__) for k in self.kanallar if k.hazir]
+
+    def gonder(self, metin):
+        sonuc = [k.gonder(metin) for k in self.kanallar if k.hazir]           # biri düşse diğeri yine denenir
+        return any(sonuc)
+
+    def foto_gonder(self, png, aciklama=""):
+        return any([k.foto_gonder(png, aciklama) for k in self.kanallar if k.hazir])
+
+    def yeni_mesajlar(self):
+        return [m for k in self.kanallar if k.hazir for m in k.yeni_mesajlar()]
 
 
 class CaptchaKoprusu:

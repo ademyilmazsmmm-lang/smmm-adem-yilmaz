@@ -215,3 +215,74 @@ def test_captcha_webden_cevap_ve_zaman_asimi():
     assert k.sor(b"x") == "WEB1"
     assert not k.cevapla("fazla")                                   # bekleyen yokken cevap kabul edilmez
     assert CaptchaKoprusu(SahteTelegram(), bekleme_sn=0.05, aralik_sn=0.01).sor(b"x") is None
+
+
+# ---- E-posta ve birleşik bildirici ----
+
+class SahteSMTP:
+    gonderilen, girisler, hata = [], [], None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def login(self, k, p):
+        SahteSMTP.girisler.append((k, p))
+
+    def send_message(self, ileti):
+        if SahteSMTP.hata:
+            raise SahteSMTP.hata
+        SahteSMTP.gonderilen.append(ileti)
+
+
+def eposta(**kw):
+    from app.bildirim import Eposta
+    SahteSMTP.gonderilen, SahteSMTP.girisler, SahteSMTP.hata = [], [], None
+    return Eposta("smtp.test", 587, "ben@test.com", "uygulama-sifresi", kw.pop("alici", "ben@test.com, ofis@test.com"),
+                  smtp_fabrikasi=SahteSMTP, **kw)
+
+
+def test_eposta_gonderir_konu_ve_html_duzenler():
+    e = eposta()
+    assert e.hazir and e.gonder("<b>SON UYARI</b>\nALFA &amp; BETA: KDV eksik")
+    ileti = SahteSMTP.gonderilen[0]
+    assert ileti["Subject"] == "Beyanname Takip: SON UYARI" and ileti["To"] == "ben@test.com, ofis@test.com"
+    assert "ALFA & BETA: KDV eksik" in ileti.get_body(("plain",)).get_content()
+    assert "<b>SON UYARI</b>" in ileti.get_body(("html",)).get_content()
+    assert SahteSMTP.girisler == [("ben@test.com", "uygulama-sifresi")]
+
+
+def test_eposta_hata_ve_ayarsizlik_sessiz_dusmez_ama_sizdirmaz():
+    import logging
+    import smtplib
+    kayit = []
+    h = logging.Handler()
+    h.emit = lambda r: kayit.append(r.getMessage())
+    logging.getLogger("bildirim").addHandler(h)
+    e = eposta()
+    SahteSMTP.hata = smtplib.SMTPAuthenticationError(535, b"kullanici ben@test.com uygulama-sifresi hatali")
+    assert e.gonder("x") is False
+    assert kayit and all("uygulama-sifresi" not in k and "ben@test.com" not in k for k in kayit)
+    from app.bildirim import Eposta
+    assert Eposta("", 587, "", "", "").gonder("x") is False and not Eposta("", 587, "", "", "").hazir
+
+
+def test_eposta_ortamdan_ve_alici_varsayilani():
+    from app.bildirim import Eposta
+    e = Eposta.ortamdan({"SMTP_KULLANICI": "ben@test.com", "SMTP_PAROLA": "p"})
+    assert e.hazir and e.host == "smtp.gmail.com" and e.port == 587 and e.alicilar == ["ben@test.com"]
+    assert not Eposta.ortamdan({}).hazir
+
+
+def test_bildirici_en_az_bir_kanal_ulasirsa_gonderildi_sayar():
+    from app.bildirim import Bildirici
+    tg = SahteTelegram(basarili=False)
+    e = eposta()
+    b = Bildirici([tg, e])
+    assert b.hazir and b.gonder("<b>merhaba</b>") and len(SahteSMTP.gonderilen) == 1      # Telegram düştü, e-posta gitti
+    SahteSMTP.hata = OSError("ağ")
+    assert b.gonder("tekrar") is False                                                     # ikisi de düşerse tekrar denenir
+    assert Bildirici([]).gonder("x") is False and not Bildirici([]).hazir
+    assert b.hazir_kanallar() == ["SahteTelegram", "E-posta"]

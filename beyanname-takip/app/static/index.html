@@ -100,7 +100,7 @@ function bannerCiz() {
     const n = [...(v.uyarilar || [])];
     if (v.hata) n.push("Luca verisi alınamadı: " + v.hata);
     else if (v.eski) n.push("Veri 24 saatten eski.");
-    if (!durumVeri.telegram) n.push("Telegram ayarlı değil: uyarı mesajı gitmez!");
+    if (!durumVeri.telegram) n.push("Bildirim kanalı (e-posta / Telegram) ayarlı değil: uyarı mesajı gitmez!");
     b.append(h("div", {class: "kart uyari"}, n.join(" ")));
   }
   if (durumVeri.captcha_bekliyor) b.append(captchaKarti());
@@ -178,8 +178,8 @@ function sistemCiz() {
     h("p", {}, "Son başarılı: " + (v.zaman ? v.zaman.replace("T", " ") : "hiç"), h("br"),
       t ? "Son deneme: " + (t.ok ? "başarılı · " + t.mukellef + " mükellef, " + t.beyanname + " beyanname" : "BAŞARISIZ · " + t.hata) : "Henüz deneme yok"),
     h("button", {class: "ana", onclick: async (e) => { e.target.disabled = true; await api("/api/kontrol", "POST"); setTimeout(yukle, 4000); }}, "Şimdi Luca'dan çek")));
-  kok.append(h("div", {class: "kart"}, h("div", {class: "baslik"}, "Telegram"),
-    h("p", {class: "soluk"}, durumVeri.telegram ? "Ayarlı." : "TELEGRAM_TOKEN / TELEGRAM_CHAT_ID tanımlı değil."),
+  kok.append(h("div", {class: "kart"}, h("div", {class: "baslik"}, "Bildirim"),
+    h("p", {class: "soluk"}, durumVeri.telegram ? "Ayarlı: " + (durumVeri.kanallar || []).join(", ") : "SMTP_KULLANICI / SMTP_PAROLA (e-posta) ya da TELEGRAM_TOKEN / TELEGRAM_CHAT_ID tanımlı değil."),
     h("p", {}, h("a", {href: "/api/tani.zip"}, "Luca tanı dosyalarını indir")),
     h("button", {onclick: async (e) => { const r = await api("/api/test-bildirim", "POST"); e.target.textContent = r.gonderildi ? "Gönderildi ✓" : "Gönderilemedi ✗"; }}, "Test mesajı gönder")));
 }

@@ -1,11 +1,13 @@
 """Web arayüzü ve API (FastAPI). Tek işçi (worker) ile çalıştırın: zamanlayıcı bu süreçte döner.
 
 Ortam değişkenleri:
-  WEB_SIFRE         (zorunlu) arayüz giriş şifresi, en az 10 karakter
+  WEB_SIFRE         (zorunlu) arayüz giriş şifresi, en az 4 karakter
   WEB_GIZLI         oturum imzası için rastgele metin (yoksa her açılışta üretilir; oturumlar açılışta düşer)
   DATA_DIR          veri klasörü (varsayılan ./veri); Render'da kalıcı disk
   TOPLAYICI         ornek | dosya | luca
-  TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
+  TELEGRAM_TOKEN, TELEGRAM_CHAT_ID          (isteğe bağlı) Telegram
+  SMTP_KULLANICI, SMTP_PAROLA, MAIL_ALICI   (isteğe bağlı) e-posta; SMTP_HOST (varsayılan smtp.gmail.com), SMTP_PORT (587),
+                                            MAIL_GONDEREN (varsayılan SMTP_KULLANICI); MAIL_ALICI virgülle birden çok adres olabilir
   ZAMANLAYICI       0 yazılırsa zamanlayıcı başlamaz
 """
 
@@ -22,7 +24,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from .bildirim import CaptchaKoprusu, Telegram
+from .bildirim import Bildirici, CaptchaKoprusu, Eposta, Telegram
 from .cekirdek import Uygulama, simdi_tr
 from .depo import Depo
 from .kontrol import VARSAYILAN_AYAR, ayar_al
@@ -36,14 +38,14 @@ OTURUM_SN = 12 * 3600
 
 def uygulama_kur(env=os.environ):
     depo = Depo(env.get("DATA_DIR", "veri"))
-    tg = Telegram(env.get("TELEGRAM_TOKEN"), env.get("TELEGRAM_CHAT_ID"))
+    tg = Bildirici([Telegram(env.get("TELEGRAM_TOKEN"), env.get("TELEGRAM_CHAT_ID")), Eposta.ortamdan(env)])
     return Uygulama(depo, sec(env.get("TOPLAYICI", "ornek"), depo.dizin), tg, CaptchaKoprusu(tg))
 
 
 def uygulama_olustur(cekirdek=None, env=os.environ):
     sifre = env.get("WEB_SIFRE", "")
-    if len(sifre) < 10:
-        raise RuntimeError("WEB_SIFRE ortam değişkeni en az 10 karakter olmalı (arayüz şifresiz açılmaz).")
+    if len(sifre) < 4:
+        raise RuntimeError("WEB_SIFRE ortam değişkeni en az 4 karakter olmalı (arayüz şifresiz açılmaz).")
     gizli = (env.get("WEB_GIZLI") or secrets.token_hex(32)).encode()
     cekirdek = cekirdek or uygulama_kur(env)
     hatalar = {"sayi": 0, "kilit_bitis": 0.0}
@@ -111,7 +113,8 @@ def uygulama_olustur(cekirdek=None, env=os.environ):
     def durum():
         d = cekirdek.depo.oku("durum.json", {})
         return {"veri": cekirdek.veri_durumu(), "son_toplama": d.get("son_toplama"),
-                "telegram": cekirdek.telegram.hazir, "captcha_bekliyor": cekirdek.captcha.bekliyor_mu(),
+                "telegram": cekirdek.telegram.hazir, "kanallar": getattr(cekirdek.telegram, "hazir_kanallar", lambda: [])(),
+                "captcha_bekliyor": cekirdek.captcha.bekliyor_mu(),
                 "simdi": simdi_tr().isoformat(), "son_tani": d.get("son_tani"), "tani_suruyor": cekirdek.tani_suruyor,
                 "tani_var": hasattr(cekirdek.toplayici, "tani"),
                 "turler": {k: {"ad": v["ad"], "periyotlar": list(v["periyotlar"])} for k, v in BEYANNAMELER.items()}}
