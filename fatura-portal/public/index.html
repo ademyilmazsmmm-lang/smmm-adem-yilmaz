@@ -871,7 +871,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   var PARASEM = { TRY: "₺", USD: "$", EUR: "€", GBP: "£" };
   function birimAd(k){ var b = BIRIMLER.filter(function(x){ return x[0] === k; })[0]; return b ? b[1] : k; }
   /* Yeni satır: miktar 1, birim Adet, KDV %20 otomatik gelir (hazır hizmet seçilirse onun KDV/tevkifat değerleri); hepsi değiştirilebilir */
-  function yeniKalem(h){ return { preset: h ? h.id : "", ad: h ? h.ad : "", aciklama: "", miktar: "1", birim: h && (h.ozel === "805" || h.ozel === "808") ? "GRM" : "C62", fiyat: "", kdv: h ? String(h.kdv) : "20", tev: h ? String(h.tev) : "0", kod: h ? (h.kod || "") : "", istisna: h ? (h.istisna || "") : "", ozelNeden: h ? (h.ozel || "") : "", ozelTutar: "" }; }
+  function yeniKalem(h){ return { preset: h ? h.id : "", ad: h ? h.ad : "", aciklama: "", miktar: "1", birim: h && (h.ozel === "805" || h.ozel === "808") ? "GRM" : "C62", fiyat: "", kdv: h ? String(h.kdv) : "20", tev: h ? String(h.tev) : "0", kod: h ? (h.kod || "") : "", istisna: h ? (h.istisna || "") : "", ozelNeden: h ? (h.ozel || "") : "", ozelTutar: "", konaklama: "" }; }
   /* İlk açılışta boş satır ve fatura tipi Satış; hazır hizmet seçilince tip (tevkifat/istisna) kendiliğinden ayarlanır */
   function ilkKalem(){ return yeniKalem(null); }
   function hepsi(){ if (!$("tarih").value) $("tarih").value = bugunStr(); $("tarih").max = bugunStr(); cizM(); cizAlici(); cizKalemler(); formDoldur(); onizle(); cizAyar(); markaUygula(); kabulKontrol(); }
@@ -976,7 +976,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       '<div><label>' + (mad ? "Gram fiyatı (otomatik)" : "Birim fiyat (" + PARASEM[F.para] + ")") + '</label><input data-kf="fiyat" inputmode="decimal" placeholder="0,00" value="' + esc(k.fiyat) + '"' + (mad ? " readonly" : "") + '></div></div>' +
       '<div class="satir"><div><label>KDV %</label><input data-kf="kdv" inputmode="decimal" value="' + esc(k.kdv) + '"></div>' +
       (tev ? '<div><label>Tevkifat (x/10)</label><select data-kf="tev">' + tevSec + '</select></div>' : '<div></div>') + '</div>' +
-      (tev ? kodSecHtml(k) : "") + (F.tip === "ISTISNA" ? istisnaSecHtml(k) : "") + (F.tip === "OZELMATRAH" ? ozelSecHtml(k) : "") +
+      (F.tip === "SATIS" ? konaklamaSecHtml(k) : "") + (tev ? kodSecHtml(k) : "") + (F.tip === "ISTISNA" ? istisnaSecHtml(k) : "") + (F.tip === "OZELMATRAH" ? ozelSecHtml(k) : "") +
       '<div class="kt" data-kt="' + i + '"></div></div>';
   }
   /* Tevkifat kodları (KDV Genel Uygulama Tebliği, kısmi tevkifat). Sık kullanılanlar en üstte. Listede olmayan için “Diğer”. */
@@ -994,6 +994,12 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     ["308", "Transit ve gümrük antrepo taşımacılığı"], ["311", "Uluslararası taşımacılık"], ["201", "Diplomatik istisna"],
     ["350", "Diğer"]
   ];
+  /* Konaklama vergisi: oran kanunla belirlenir (31.12.2026'ya kadar %1; uzatılmazsa 2027'den itibaren %2). Fatura tarihine göre yasal oran ipucu olarak gösterilir, seçim kullanıcıdadır. */
+  function konaklamaYasal(t){ return String(t || "") <= "2026-12-31" ? 1 : 2; }
+  function konaklamaSecHtml(k){
+    var yo = konaklamaYasal($("tarih").value || bugunStr()), kv = String(k.konaklama || "");
+    return '<div><label>Konaklama vergisi (isteğe bağlı)</label><select data-kf="konaklama"><option value=""' + (kv === "" ? " selected" : "") + '>Yok</option><option value="1"' + (kv === "1" ? " selected" : "") + '>%1</option><option value="2"' + (kv === "2" ? " selected" : "") + '>%2</option></select><span class="not" style="margin:2px 0 0;font-size:.78rem">Yasal oran bu fatura tarihi için %' + yo + ' (31.12.2026’ya kadar %1; uzatılmazsa 2027’den itibaren %2). KDV’siz tutar üzerinden hesaplanır, KDV matrahına girmez.</span></div>';
+  }
   function kodSecHtml(k){
     var bil = TEVKODLAR.some(function(x){ return x[0] === String(k.kod); }), diger = k.kodDiger || (!bil && !!k.kod);
     var o = '<option value="">Kod seçin…</option>' + TEVKODLAR.map(function(x){ return '<option value="' + x[0] + '"' + (!diger && x[0] === String(k.kod) ? " selected" : "") + ">" + x[0] + " · " + x[1] + " (" + x[2] + "/10)</option>"; }).join("") + '<option value="__diger"' + (diger ? " selected" : "") + ">Diğer (kodu elle yaz)</option>";
@@ -1035,7 +1041,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function girdi(){
     var a = aliciBilgi();
     return { mukellefId: mSec, aliciUnvan: a.ad, aliciVkn: a.vkn, aliciAdres: a.adres, vergiDairesi: a.vd, aliciEposta: a.eposta, epostaGonder: $("yEpostaGonder").checked && !!a.eposta && MAILHAZIR, tarih: $("tarih").value, tip: F.tip, para: F.para, kur: sayi(F.kur), kdvDahil: F.dahil,
-      kalemler: F.kalemler.map(function(k){ return { ad: k.ad, aciklama: k.aciklama, miktar: sayi(k.miktar), birim: k.birim, fiyat: sayi(k.fiyat), kdv: sayi(k.kdv), tev: parseInt(k.tev, 10) || 0, kod: k.kod, istisna: k.istisna || "", ozelNeden: k.ozelNeden || "", ozelTutar: sayi(k.ozelTutar) }; }),
+      kalemler: F.kalemler.map(function(k){ return { ad: k.ad, aciklama: k.aciklama, miktar: sayi(k.miktar), birim: k.birim, fiyat: sayi(k.fiyat), kdv: sayi(k.kdv), tev: parseInt(k.tev, 10) || 0, kod: k.kod, istisna: k.istisna || "", ozelNeden: k.ozelNeden || "", ozelTutar: sayi(k.ozelTutar), konaklama: F.tip === "SATIS" ? sayi(k.konaklama) : 0 }; }),
       notEk: $("ekNot").value.trim(), notIrsaliye: $("notIrs").checked, iadeNo: $("iadeNo").value.trim(), iadeTarih: $("iadeTarih").value };
   }
   var onizTimer, sonHesap = null;
@@ -1048,6 +1054,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
         sonHesap = h; var t = h.toplam, pb = " " + PARASEM[F.para];
         var s = [["Mal/Hizmet toplamı", t.matrah], ["Hesaplanan KDV", t.kdv]];
         if (F.tip === "TEVKIFAT") s.push(["Tevkif edilen KDV", t.tevKdv]);
+        if (t.konV > 0) s.push(["Konaklama vergisi", t.konV]);
         s.push(["Vergiler dahil toplam", t.toplam]);
         $("ozet").innerHTML = s.map(function(r){ return '<div>' + esc(r[0]) + '</div><div class="t">' + fmt(r[1]) + pb + '</div>'; }).join("") + '<div class="s">Ödenecek tutar</div><div class="t s">' + fmt(t.odenecek) + pb + '</div>';
         $("ozetHata").textContent = ""; $("notOnizleme").textContent = h.not ? "Fatura notu: " + h.not : "";
@@ -1059,7 +1066,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function kalemToplamlari(h){
     document.querySelectorAll("[data-kt]").forEach(function(el){
       var s = h && h.satirlar[+el.getAttribute("data-kt")];
-      el.textContent = s ? "Satır tutarı: " + fmt(s.matrah) + " + KDV " + fmt(s.kdv) + (s.tevKdv ? " (tevkifat " + fmt(s.tevKdv) + ")" : "") : "";
+      el.textContent = s ? "Satır tutarı: " + fmt(s.matrah) + " + KDV " + fmt(s.kdv) + (s.tevKdv ? " (tevkifat " + fmt(s.tevKdv) + ")" : "") + (s.konV ? " + konaklama vergisi " + fmt(s.konV) : "") : "";
     });
   }
   var TIPAD = { SATIS: "Satış", TEVKIFAT: "Tevkifat", IADE: "İade", ISTISNA: "İstisna", OZELMATRAH: "Özel matrah" };
@@ -1207,6 +1214,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       : "Önizleme: girdiğiniz bilgilerden üretilmiştir, GİB’in resmi belgesi değildir.";
     var topl = [["Mal/Hizmet toplamı", h.matrah], ["Hesaplanan KDV", h.kdv]];
     if (tev) topl.push(["Tevkif edilen KDV", -h.tevKdv]);
+    if (h.konV > 0) topl.push(["Konaklama vergisi", h.konV]);
     topl.push(["Vergiler dahil toplam", h.toplam]);
     return '<html><head><meta charset="utf-8"><title>Fatura ' + esc(k.belgeNo || t) + " " + esc(k.aliciUnvan) + '</title><style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;padding:18px;max-width:760px;margin:auto}h2{margin:0 0 4px}td,th{padding:7px 10px;border:1px solid #bbb;text-align:left}th{background:#f2f2f2}.r{text-align:right;white-space:nowrap}table{border-collapse:collapse;width:100%;margin:14px 0}.u{background:#fff3cd;border:1px solid #e0c36a;padding:8px;font-size:12px;margin-bottom:12px}.g{display:grid;grid-template-columns:1fr 1fr;gap:16px}.k{font-size:12px;color:#555}@media print{.u{display:none}}</style></head><body>' +
       '<div class="u">' + uyari + (neden ? "<br>Neden: " + esc(neden) : "") + "</div>" +

@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-06-248";
+const SURUM = "2026-11-06-249";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -278,7 +278,8 @@ function modelTemiz(g, tam, banka) {
   const kalemler = g.kalemler.map((k, i) => {
     const q = { ad: T(k.ad, 150), aciklama: T(k.aciklama, 150), miktar: Number(k.miktar), birim: /^[A-Z0-9]{2,4}$/.test(String(k.birim)) ? String(k.birim) : "C62",
       fiyat: Number(k.fiyat), kdv: Number(k.kdv), tev: tip === "TEVKIFAT" ? Math.min(9, Math.max(0, parseInt(k.tev, 10) || 0)) : 0, kod: T(k.kod, 10), istisna: tip === "ISTISNA" ? String(k.istisna || "") : "",
-      ozelNeden: tip === "OZELMATRAH" ? String(k.ozelNeden || "") : "", ozelTutar: tip === "OZELMATRAH" ? Number(k.ozelTutar) || 0 : 0 };
+      ozelNeden: tip === "OZELMATRAH" ? String(k.ozelNeden || "") : "", ozelTutar: tip === "OZELMATRAH" ? Number(k.ozelTutar) || 0 : 0,
+      konaklama: tip === "SATIS" ? Math.min(20, Math.max(0, Number(k.konaklama) || 0)) : 0 };
     if (tip === "OZELMATRAH" && tam) {
       if (!OZEL_AD[q.ozelNeden]) throw new Error((i + 1) + ". satırda özel matrah nedenini seçin.");
       if (!(q.ozelTutar > 0)) throw new Error((i + 1) + ". satırda özel matrah tutarını (KDV’nin hesaplanacağı tutar) yazın.");

@@ -16,17 +16,19 @@ function hesaplaFatura(m) {
   const satirlar = (m.kalemler || []).map((k) => {
     const miktar = Number(k.miktar), fiyat = Number(k.fiyat), oran = Number(k.kdv), t = tev ? Number(k.tev) || 0 : 0;
     if (!(miktar > 0) || !(fiyat >= 0) || !(oran >= 0) || t < 0 || t > 10) throw new Error("Miktar, birim fiyat, KDV oranı veya tevkifat geçersiz.");
+    const kon = Number(k.konaklama) || 0; /* konaklama vergisi oranı (%); KDV matrahına dahil edilmez, KDV'siz matrah üzerinden hesaplanır */
+    if (kon < 0 || kon > 20) throw new Error("Konaklama vergisi oranı geçersiz.");
     const brut = Math.round(miktar * fiyat * 100);
     let matrah, kdv, ozel = 0;
     if (ozm) { /* Özel matrah: mal bedeli olduğu gibi yazılır; KDV yalnız girilen özel matrah tutarı üzerinden hesaplanır */
       matrah = brut; ozel = Math.round((Number(k.ozelTutar) || 0) * 100); kdv = Math.round(ozel * oran / 100);
     } else if (m.kdvDahil) { matrah = Math.round(brut / (1 + oran / 100)); kdv = brut - matrah; }
     else { matrah = brut; kdv = Math.round(matrah * oran / 100); }
-    const tevKdv = Math.round(kdv * t / 10);
-    return { matrah, kdv, tev: t, tevKdv, toplam: matrah + kdv, oran, miktar, ozel };
+    const tevKdv = Math.round(kdv * t / 10), konV = kon > 0 ? Math.round(matrah * kon / 100) : 0;
+    return { matrah, kdv, tev: t, tevKdv, konV, konOran: kon, toplam: matrah + kdv + konV, oran, miktar, ozel };
   });
   if (!satirlar.length) throw new Error("En az bir mal/hizmet satırı gerekli.");
-  const top = satirlar.reduce((a, x) => ({ matrah: a.matrah + x.matrah, kdv: a.kdv + x.kdv, tevKdv: a.tevKdv + x.tevKdv, toplam: a.toplam + x.toplam }), { matrah: 0, kdv: 0, tevKdv: 0, toplam: 0 });
+  const top = satirlar.reduce((a, x) => ({ matrah: a.matrah + x.matrah, kdv: a.kdv + x.kdv, tevKdv: a.tevKdv + x.tevKdv, konV: a.konV + x.konV, toplam: a.toplam + x.toplam }), { matrah: 0, kdv: 0, tevKdv: 0, konV: 0, toplam: 0 });
   top.odenecek = top.toplam - top.tevKdv;
   return { satirlar, toplam: top };
 }
@@ -130,6 +132,7 @@ function faturaGovdesi(m, uuid, varyant) {
     };
     if (ozm) satir.ozelMatrahNedeni = String(k.ozelNeden || ""); // portal alan adı doğrulanmadı (açık kaynak istemcilerden)
     if (ist) satir.istisnaKodu = String(k.istisna || ""); // portal alan adı doğrulanmadı
+    if (s.konV > 0) Object.assign(satir, { V0059Orani: Number(k.konaklama), V0059Tutari: nf(s.konV) }); /* Konaklama vergisi (vergi kodu 0059): tevkifatın V9015 düzenine benzetilmiştir; portal alan adları doğrulanmadı */
     if (tev) Object.assign(satir, { hesaplananotvtevkifatakatkisi: "0", tevkifatKodu: String(k.kod || ""), V9015Orani: Number(k.tev) * 10, V9015Tutari: nf(s.tevKdv) });
     return satir;
   });
@@ -140,12 +143,13 @@ function faturaGovdesi(m, uuid, varyant) {
     binaAdi: "", binaNo: "", kapiNo: "", kasabaKoy: "", vergiDairesi: temizMetin(a.vd, 100), ulke: "Türkiye", bulvarcaddesokak: temizMetin(a.adres, 250),
     irsaliyeNumarasi: "", irsaliyeTarihi: "", mahalleSemtIlce: "", sehir: " ", postaKodu: "", tel: "", fax: "", eposta: "", websitesi: "",
     iadeTable: iade ? [{ faturaNo: temizMetin(m.iade.no, 30), duzenlenmeTarihi: dmy(m.iade.tarih) }] : [], ihracKayitliKarsiBelgeNo: "", yatirimTesvikNumarasi: "", yatirimTesvikTarihi: tarih, kdvOranKontrolMuafiyeti: false,
-    vergiCesidi: tev ? "V9015" : " ",
+    vergiCesidi: tev ? "V9015" : x.toplam.konV > 0 ? "V0059" : " ",
     malHizmetTable: kalemler,
     tip: "İskonto", matrah: nf(x.toplam.matrah), malhizmetToplamTutari: nf(x.toplam.matrah), toplamIskonto: "0", hesaplanankdv: nf(x.toplam.kdv),
-    vergilerToplami: nf(x.toplam.kdv), vergilerDahilToplamTutar: nf(x.toplam.toplam), odenecekTutar: nf(x.toplam.odenecek), not: m.not || "",
+    vergilerToplami: nf(x.toplam.kdv + x.toplam.konV), vergilerDahilToplamTutar: nf(x.toplam.toplam), odenecekTutar: nf(x.toplam.odenecek), not: m.not || "",
     siparisNumarasi: "", siparisTarihi: "", fisNo: "", fisTarihi: "", fisSaati: " ", fisTipi: " ", zRaporNo: "", okcSeriNo: ""
   };
+  if (x.toplam.konV > 0) govde.hesaplananV0059 = nf(x.toplam.konV);
   if (tev) Object.assign(govde, { tevkifataTabiIslemTutar: nf(x.toplam.matrah), tevkifataTabiIslemKdv: nf(x.toplam.kdv), hesaplananV9015: nf(x.toplam.tevKdv) });
   return govde;
 }
