@@ -221,8 +221,10 @@ def mukellef_normalize(kayit, hesap):
     ad = (kayit.get("ad") or kayit.get("kisa_ad") or "").strip()
     unvan = (kayit.get("unvan") or "").strip()
     vkn = str(kayit.get("vkn") or kayit.get("tc") or "").strip()
-    anahtar = vkn or sade(ad or unvan)
+    # Luca şirket kimliği benzersiz ve değişmezdir; aynı VKN'yi taşıyan iki kayıt (tasfiye) ayrı mükelleftir
+    anahtar = str(kayit.get("sirket_id") or "").strip() or vkn or sade(ad or unvan)
     ac, ka = tarih_coz(kayit.get("acilis")), tarih_coz(kayit.get("kapanis"))
-    return {"id": f"{hesap}:{anahtar}", "hesap": hesap, "ad": ad or unvan, "unvan": unvan, "vkn": vkn,
+    return {"id": f"{hesap}:{anahtar}", "hesap": hesap, "sirket_id": str(kayit.get("sirket_id") or ""),
+            "aciklama": (kayit.get("aciklama") or "").strip(), "ad": ad or unvan, "unvan": unvan, "vkn": vkn,
             "vergi_dairesi": kayit.get("vergi_dairesi") or "",
             "acilis": ac.isoformat() if ac else "", "kapanis": ka.isoformat() if ka else ""}

@@ -145,6 +145,23 @@ def uygulama_olustur(cekirdek=None, env=os.environ):
         cekirdek.depo.guncelle("ayarlar.json", isle)
         return {"ok": True}
 
+    class TopluOnay(BaseModel):
+        ids: list[str]
+
+    @app.post("/api/mukellef/toplu-onay", dependencies=gerekli)
+    def toplu_onay(g: TopluOnay):
+        """Ayarı henüz onaylanmamış mükellefleri varsayılan ayarlarıyla onaylar (var olan ayarlara dokunmaz)."""
+        sayi = {"n": 0}
+
+        def isle(d):
+            m = d.setdefault("mukellef", {})
+            for mid in g.ids:
+                if not m.get(mid, {}).get("onayli"):
+                    m[mid] = {**VARSAYILAN_AYAR, **m.get(mid, {}), "onayli": True}
+                    sayi["n"] += 1
+        cekirdek.depo.guncelle("ayarlar.json", isle)
+        return {"onaylanan": sayi["n"]}
+
     class MuafGirdi(BaseModel):
         id: str
         tur: str

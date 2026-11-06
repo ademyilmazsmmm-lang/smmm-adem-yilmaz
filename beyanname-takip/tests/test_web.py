@@ -114,3 +114,19 @@ def test_tani_calistir_luca_disinda_400(istemci):
     assert ic.post("/api/tani/calistir").status_code == 400          # OrnekToplayici'nin tani() yok
     d = ic.get("/api/durum").json()
     assert d["tani_var"] is False and d["tani_suruyor"] is False
+
+
+def test_toplu_onay(istemci):
+    ic, c, _ = istemci
+    assert ic.post("/api/mukellef/toplu-onay", json={"ids": ["x"]}).status_code == 401
+    giris(ic)
+    c.topla()
+    m = ic.get("/api/mukellefler").json()
+    ids = [x["id"] for x in m]
+    ic.put("/api/mukellef/ayar", params={"mid": ids[0]}, json={"KDV1": "3aylik", "MPHB": "yok", "GECICI": "yok", "onayli": True})
+    assert ic.post("/api/mukellef/toplu-onay", json={"ids": ids}).json() == {"onaylanan": len(ids) - 1}
+    m2 = {x["id"]: x["ayar"] for x in ic.get("/api/mukellefler").json()}
+    assert all(a["onayli"] for a in m2.values())
+    assert m2[ids[0]]["KDV1"] == "3aylik" and m2[ids[0]]["MPHB"] == "yok"        # var olan ayara dokunulmaz
+    assert m2[ids[1]]["KDV1"] == "aylik" and m2[ids[1]]["GECICI"] == "3aylik"
+    assert ic.post("/api/mukellef/toplu-onay", json={"ids": ids}).json() == {"onaylanan": 0}

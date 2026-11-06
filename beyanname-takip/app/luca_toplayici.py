@@ -2,7 +2,8 @@
 
 AKIŞ (hepsi Luca içinde; GİB/e-Beyanname'ye hiç bağlanılmaz):
   1. Luca girişi (üye no, kullanıcı, parola, doğrulama anahtarı → kod otomatik üretilir).
-  2. Yönetici > Müşteri İşlemleri > Müşteri Listesi: mükellefler, açılış/kapanış tarihleri.
+  2. Yönetici > Müşteri İşlemleri > Müşteri Listesi: tüm mükellefler (Kısa/Uzun Ad, VKN, TC, Kuruluş ve Kapanış
+     Tarihi, Luca şirket kimliği). Sayfa HTML'inden okunur; sayfanın yazdığı "Kayıt Sayısı" ile doğrulanır.
   3. Muhasebe > Beyannameler > GİB Beyanname Takip: son günü yaklaşan her dönem ve beyanname türü için
      filtre (dönem, "Onaylanmış", tür) + "Beyannameleri Listele" → ekrandaki "Mükellef Adı" sütunu.
   4. Okunan firmalar "o dönem o beyannameyi vermiş" kaydı olur; karşılaştırmayı cekirdek yapar.
@@ -34,7 +35,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from .kurallar import Tatiller
-from .luca_ekran_okuma import (beyanname_satirlari, durum_sec, musterileri_birlestir, secenek_esle, sorgu_plani)
+from .luca_ekran_okuma import (beyanname_satirlari, durum_sec, musteri_html_oku, musterileri_birlestir, secenek_esle,
+                               sorgu_plani)
 
 
 class LucaHatasi(RuntimeError):
@@ -109,12 +111,8 @@ class LucaToplayici:
             raise TaniTamam("Tanı modu tamamlandı (veri kaydedilmedi). Sonuçlar web sayfasında 'Tanı' sekmesinde; "
                             "bitince LUCA_TANI'yı kaldırın.")
 
-        listeler = [kopru.musteri_listesi(page, bugun.year)]
-        try:                                    # geçen yılın listesi: yalnızca eksik kalan firmaları tamamlar (en iyi çaba)
-            listeler.append(kopru.musteri_listesi(page, bugun.year - 1))
-        except LucaHatasi as e:
-            uyarilar.append(f"{bugun.year - 1} müşteri listesi okunamadı ({e})")
-        mus = musterileri_birlestir(listeler)
+        # yıl filtresi boşken Luca tüm müşterileri (kapanmışlar dahil) tek sayfada getirir; kapanışlar tarihten anlaşılır
+        mus = musterileri_birlestir([kopru.musteri_listesi(page)])
         if not mus:
             raise LucaHatasi("Luca müşteri listesi boş okundu (ekran yapısı değişmiş olabilir; LUCA_TANI=1 ile bakın)")
 
@@ -224,12 +222,34 @@ class GercekLucabot:
         except Exception:  # noqa: BLE001 - tanı çabası asıl hatayı gizlememeli
             pass
 
-    def musteri_listesi(self, page, yil):
+    def _musteri_html(self, page):
+        """Açık Luca sayfalarının çerçevelerinden Müşteri Listesi tablosunu içeren HTML'i bulur (yoksa None)."""
+        for fr in self.m.le.cerceveler(page):
+            try:
+                html = fr.content()
+            except Exception:  # noqa: BLE001
+                continue
+            if "kisa-ad-td" in html and "sirket_id" in html:
+                return html
+        return None
+
+    def musteri_listesi(self, page):
+        """Yönetici > Müşteri İşlemleri > Müşteri Listesi: tüm müşteriler (yıl filtresi yok), sayfa HTML'inden okunur."""
         with self._sessiz():
             try:
-                kayitlar = self.m.ml.listeyi_oku(page, yil, self.tani_klasoru, self.log)
+                self.m.ml.musteri_listesini_ac(page, self.log)
             except LookupError as e:
-                raise LucaHatasi(f"{yil} müşteri listesi okunamadı: {e}") from e
+                self.m.ml.tani_kaydet(page, self.tani_klasoru, self.log, "-menu")
+                raise LucaHatasi(f"Müşteri Listesi ekranı açılamadı: {e}") from e
+            html = self.m.bekleme.kosulu_bekle(page, lambda: self._musteri_html(page), 30000, aralik_ms=700)
+            self.m.ml.tani_kaydet(page, self.tani_klasoru, self.log)
+        if not html:
+            raise LucaHatasi("Müşteri Listesi tablosu bulunamadı (sayfa yapısı değişmiş olabilir; Tanı sekmesine bakın)")
+        kayitlar, toplam = musteri_html_oku(html)
+        if toplam is not None and toplam != len(kayitlar):
+            raise LucaHatasi(f"Müşteri Listesi sayfası {toplam} kayıt yazıyor ama {len(kayitlar)} satır okundu")
+        if not kayitlar:
+            raise LucaHatasi("Müşteri Listesi boş okundu")
         return kayitlar
 
     def beyanname_ekrani_ac(self, page, yil):
@@ -296,7 +316,7 @@ class GercekLucabot:
     def tani_calistir(self, page, bugun):
         """Tanı modu: müşteri listesini açar, beyanname ekranını açar, seçenekleri ve ekranları kaydeder."""
         import json
-        self.musteri_listesi(page, bugun.year)
+        self.musteri_listesi(page)
         ekran = self.beyanname_ekrani_ac(page, bugun.year)
         secenekler = self.filtre_secenekleri(ekran)
         (self.tani_klasoru / "filtre-secenekleri.json").write_text(

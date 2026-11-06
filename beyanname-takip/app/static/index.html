@@ -74,7 +74,8 @@ async function api(yol, yontem, govde) {
   if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
   return r.json();
 }
-let durumVeri = null, sekme = "durum", filtre = "eksik";
+let durumVeri = null, sekme = "durum", filtre = "eksik", kapanmislariGoster = false;
+const KAPANMIS = (m) => { if (!m.kapanis) return false; const sinir = new Date(Date.now() - 120 * 864e5).toISOString().slice(0, 10); return m.kapanis < sinir; };
 function goster(ne) { $("giris").classList.toggle("gizli", ne !== "giris"); $("uygulama").classList.toggle("gizli", ne === "giris"); }
 const TR_TARIH = (iso) => iso ? iso.slice(8, 10) + "." + iso.slice(5, 7) + "." + iso.slice(0, 4) : "";
 const DURUM_AD = {eksik: "EKSİK", onaysiz: "ONAYSIZ", verildi: "verildi", muaf: "verilmeyecek"};
@@ -142,9 +143,15 @@ async function durumCiz() {
 }
 
 async function mukellefCiz() {
-  const liste = await api("/api/mukellefler"), kok = $("mukellef"); kok.textContent = "";
-  const onaysiz = liste.filter((m) => !m.ayar.onayli).length;
-  kok.append(h("p", {class: "soluk"}, liste.length + " mükellef" + (onaysiz ? " · " + onaysiz + " tanesinin ayarı onaylanmadı (yine de uyarı gelir, \"ayar onaysız\" notuyla)." : "")));
+  const tum = await api("/api/mukellefler"), kok = $("mukellef"); kok.textContent = "";
+  const liste = tum.filter((m) => kapanmislariGoster || !KAPANMIS(m));
+  const onaysizlar = liste.filter((m) => !m.ayar.onayli);
+  kok.append(h("p", {class: "soluk"}, liste.length + " mükellef gösteriliyor (" + (tum.length - liste.length) + " kapanmış gizli)" + (onaysizlar.length ? " · " + onaysizlar.length + " tanesinin ayarı onaylanmadı (yine de uyarı gelir, \"ayar onaysız\" notuyla)." : "")),
+    h("p", {}, h("button", {onclick: () => { kapanmislariGoster = !kapanmislariGoster; mukellefCiz(); }}, kapanmislariGoster ? "Kapanmışları gizle" : "Kapanmışları göster (son 4 aydan eski)"), " ",
+      onaysizlar.length ? h("button", {class: "ana", onclick: async () => {
+        if (!confirm(onaysizlar.length + " mükellef varsayılan ayarla (KDV aylık, MUHSGK aylık, geçici 3 aylık) onaylansın mı? Çalışanı olmayanlar için sonra düzeltebilirsiniz.")) return;
+        await api("/api/mukellef/toplu-onay", "POST", {ids: onaysizlar.map((m) => m.id)}); mukellefCiz();
+      }}, "Görünen " + onaysizlar.length + " firmayı varsayılanla onayla") : ""));
   const turler = durumVeri.turler;
   for (const m of liste) {
     const sel = {};

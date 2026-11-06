@@ -4,7 +4,9 @@ Tarayıcıyı süren kısım luca_toplayici.py'dedir; bu dosya yalnızca "ne sor
 "ekrandan okunan tablo nasıl yorumlanır" sorularına cevap verir.
 """
 
+import re
 from datetime import timedelta
+from html.parser import HTMLParser
 
 from .kurallar import BEYANNAMELER, donemler_uret, sade, tur_coz
 
@@ -99,12 +101,72 @@ def beyanname_satirlari(tablolar):
 
 
 def musterileri_birlestir(listeler):
-    """Yıl listelerini (en yeniden eskiye) tek listede toplar; aynı firma (VKN ya da ad) yalnızca bir kez, yeni yıl kazanır."""
+    """Birden çok listeyi (öncelik sırasıyla) tek listede toplar; aynı firma yalnızca bir kez, öndeki liste kazanır.
+
+    Firma anahtarı Luca'nın şirket kimliğidir (yoksa VKN + kısa ad). Yalnızca VKN KULLANILMAZ: tasfiye halindeki
+    şirketlerde eski (kapanmış) ve yeni kayıt aynı VKN'yi taşır ve ikisi de ayrı mükelleftir.
+    """
     gorulen, sonuc = set(), []
     for liste in listeler:
         for k in liste:
-            anahtar = (k.get("vkn") or "").strip() or sade(k.get("ad") or k.get("unvan"))
-            if anahtar and anahtar not in gorulen:
+            anahtar = (str(k.get("sirket_id") or "").strip()
+                       or f"{(k.get('vkn') or '').strip()}|{sade(k.get('ad') or k.get('unvan'))}")
+            if anahtar.strip("|") and anahtar not in gorulen:
                 gorulen.add(anahtar)
                 sonuc.append(k)
     return sonuc
+
+
+_HUCRE = {"kisa-ad-td": "ad", "uzun-ad-td": "unvan", "vergi-dairesi-td": "vergi_dairesi", "vergi-no-td": "vkn",
+          "tc-kimlik-no-td": "tc", "aciklama-td": "aciklama", "kurulus-tarihi-td": "acilis", "kapanis-tarihi-td": "kapanis"}
+
+
+class _MusteriHtml(HTMLParser):
+    """Luca 'Müşteri Listesi' (listSirketAction.do) sayfasındaki satırları sınıf adlarından okur."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.kayitlar, self._satir, self._alan = [], None, None
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        sinif = (a.get("class") or "").split()
+        if tag == "tr" and "satir" in sinif:
+            self._satir = {"sirket_id": "", **{v: "" for v in _HUCRE.values()}}
+            m = re.search(r"sec\(\s*this\s*,\s*'([^']*)'", a.get("onclick") or "")
+            if m:
+                self._satir["sirket_id"] = m.group(1).strip()
+        elif self._satir is not None:
+            if tag == "input" and a.get("name") == "sirket_id" and a.get("value") and not self._satir["sirket_id"]:
+                self._satir["sirket_id"] = a["value"].strip()
+            if tag == "td":
+                self._alan = next((_HUCRE[c] for c in sinif if c in _HUCRE), None)
+
+    def handle_endtag(self, tag):
+        if tag == "td":
+            self._alan = None
+        elif tag == "tr" and self._satir is not None:
+            self.kayitlar.append(self._satir)
+            self._satir = None
+
+    def handle_data(self, data):
+        if self._satir is not None and self._alan:
+            self._satir[self._alan] += data
+
+
+def musteri_html_oku(html):
+    """Müşteri Listesi sayfasının HTML'inden (kayıtlar, sayfanın yazdığı 'Kayıt Sayısı' ya da None).
+
+    Kayıtlar: sirket_id, ad (Kısa Adı), unvan (Uzun Adı), vergi_dairesi, vkn, tc, aciklama, acilis (Kuruluş Tarihi),
+    kapanis (Kapanış Tarihi; tarihler GG/AA/YYYY). Boşluklar temizlenir; ad ve sirket_id'si boş satırlar atılır.
+    """
+    p = _MusteriHtml()
+    p.feed(html or "")
+    p.close()
+    kayitlar = []
+    for k in p.kayitlar:
+        k = {a: re.sub(r"\s+", " ", v).strip() for a, v in k.items()}
+        if k["ad"] or k["sirket_id"]:
+            kayitlar.append(k)
+    m = re.search(r"Kay[ıi]t\s+Say[ıi]s[ıi]\s*:\s*(\d+)", html or "")
+    return kayitlar, (int(m.group(1)) if m else None)
