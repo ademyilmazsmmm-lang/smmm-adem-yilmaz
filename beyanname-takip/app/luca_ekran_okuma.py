@@ -44,6 +44,17 @@ def beyanname_json_kayitlari(cevap):
     return kayitlar, (int(m.group(1)) if m else None)
 
 
+def sgk_isyerleri_say(satirlar):
+    """"E-Bildirge Giriş Dosyası Tanımlama" listesinden {Luca şirket kimliği: SGK işyeri sayısı}. Satırlar köprünün tarayıcıdan
+    çıkardığı {sirket_id, isyeri_id, etiket, dolu} kayıtlarıdır (dolu: kullanıcı adı girilmiş). Şifre alanları HİÇ okunmaz."""
+    sonuc = {}
+    for r in satirlar or []:
+        sid = str(r.get("sirket_id") or "").strip()
+        if sid and r.get("dolu"):
+            sonuc[sid] = sonuc.get(sid, 0) + 1
+    return sonuc
+
+
 def gib_getir_araligi(bugun, gun=15):
     """"GİB'den Getir" penceresine yazılacak yükleme tarihi aralığı: son `gun` gün (en çok 31; pencere en fazla 31 günlük
     aralık kabul eder) ve iki tarih AYNI YIL içinde olmalıdır: yıl başından öncesi kırpılır."""

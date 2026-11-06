@@ -26,6 +26,7 @@ LUCA_OFIS_UYE_NO gibi ön ekli adlar kullanılır; tek hesapta ön eksiz LUCA_UY
   LUCA_TANI=1      tanı modu: giriş + ekranlar açılır, filtre seçenekleri ve ekran görüntüleri DATA_DIR/tani'ya
                    yazılır, veri KAYDEDİLMEZ. Env değişkenine gerek yok: web sayfasındaki "Tanı" sekmesi aynısını yapar.
   LUCA_MUSTERI_YILI=otomatik|yok|2027,2026   müşteri listesi yıl filtresi (otomatik: yalnızca bu yıl)
+  LUCA_SGK_LISTESI=1|0 "E-Bildirge Giriş Dosyası" listesinden çalışanı olan firmaları oku (varsayılan 1)
   LUCA_GIB_GETIR=1|0   okumadan önce "GİB'den Getir"e bas (varsayılan 1); LUCA_GIB_GUN: kaç günlük aralık (15, en çok 31);
                        LUCA_GIB_GETIR_SN: en çok bekleme (180)
 Tarayıcı Xvfb altında (ekranlı kipte) çalışır: Dockerfile.luca'ya bakın.
@@ -41,7 +42,7 @@ from types import SimpleNamespace
 
 from .kurallar import Tatiller
 from .luca_ekran_okuma import (beyanname_json_kayitlari, gib_getir_araligi, musteri_html_filtre, musteri_html_oku,
-                               musteri_yillari, musterileri_birlestir, yukleme_araligi)
+                               musteri_yillari, musterileri_birlestir, sgk_isyerleri_say, yukleme_araligi)
 
 
 class LucaHatasi(RuntimeError):
@@ -126,6 +127,15 @@ class LucaToplayici:
         if not mus:
             raise LucaHatasi("Luca müşteri listesi boş okundu (ekran yapısı değişmiş olabilir; LUCA_TANI=1 ile bakın)")
 
+        if self.env.get("LUCA_SGK_LISTESI", "1") != "0":
+            # Personel > E-SGK İşlemleri > E-Bildirge Şifre Dosyası Oluşturma: SGK dosyası (işyeri tanımı) olan firmalar = çalışanı olanlar.
+            # Okunamazsa SGK kuralı geçmiş e-Bildirge kayıtlarına göre çalışır.
+            try:
+                sgk = kopru.sgk_isyerleri(page)
+                for k in mus:
+                    k["sgk_isyeri"] = sgk.get(str(k.get("sirket_id") or ""), 0)
+            except LucaHatasi as e:
+                uyarilar.append(f"SGK dosya listesi okunamadı, çalışanı olanlar e-Bildirge geçmişinden tahmin edilir: {e}")
         ekran = kopru.beyanname_ekrani_ac(page, bugun.year)
         if self.env.get("LUCA_GIB_GETIR", "1") != "0":
             # Luca beyannameleri kendiliğinden GİB'den çekmez: "GİB'den Getir" düğmesi çeker. Düğme çalışmazsa eski veriyle
@@ -258,6 +268,49 @@ class GercekLucabot:
             raise LucaHatasi("Müşteri Listesi boş okundu" + ("" if yil is None else f" (Yıl={yil})"))
         return kayitlar
 
+    # E-Bildirge Giriş Dosyası listesi: yalnızca kimlikler okunur; "Sistem Şifresi" ve "İşyeri Şifresi" alanlarına (sayfada düz metin
+    # olarak durur) KESİNLİKLE dokunulmaz, sayfanın HTML'i/ekran görüntüsü kaydedilmez (tani_kaydet çağrılmaz).
+    SGK_JS = """() => {
+      const sonuc = [];
+      document.querySelectorAll('#data tr').forEach(tr => {
+        const s = tr.querySelector('input[name="SIRKET_ID"]');
+        if (!s) return;
+        const i = tr.querySelector('input[name="ISYERI_ID"]'), k = tr.querySelector('input[name="KULLANICI_ADI"]');
+        const td = tr.querySelector('td');
+        sonuc.push({sirket_id: s.value, isyeri_id: i ? i.value : '', etiket: td ? td.innerText.trim() : '',
+                    dolu: !!(k && k.value && k.value.trim())});
+      });
+      return sonuc;
+    }"""
+
+    def _sgk_satirlari(self, page):
+        for fr in self.m.le.cerceveler(page):
+            try:
+                satirlar = fr.evaluate(self.SGK_JS)
+            except Exception:  # noqa: BLE001
+                continue
+            if satirlar:
+                return satirlar
+        return None
+
+    def sgk_isyerleri(self, page):
+        """Personel > E-SGK İşlemleri > E-Bildirge Şifre Dosyası Oluşturma: {şirket kimliği: SGK işyeri sayısı}."""
+        le, gz = self.m.le, self.m.gz
+        yol = ["Personel", "E-SGK İşlemleri", "E-Bildirge Şifre Dosyası Oluşturma"]
+        with self._sessiz():
+            try:
+                le.acik_pencereleri_kapat(page)
+                for parca, sonraki in zip(yol[:-1], yol[1:]):
+                    gz.menu_ogesini_ac(page, parca, sure=6000, dogrula=lambda m=sonraki: le.gorunur_mu(page, m, sure=1200))
+                _, madde = le.metinle_bul(page, yol[-1], sure=5000)
+                madde.click(timeout=8000)
+            except Exception as e:  # noqa: BLE001
+                raise LucaHatasi(f"'{' > '.join(yol)}' menüsü açılamadı ({type(e).__name__})") from e
+            satirlar = self.m.bekleme.kosulu_bekle(page, lambda: self._sgk_satirlari(page), 30000, aralik_ms=700)
+        if not satirlar:
+            raise LucaHatasi("E-Bildirge Giriş Dosyası listesi okunamadı (sayfa yapısı değişmiş olabilir)")
+        return sgk_isyerleri_say(satirlar)
+
     def beyanname_ekrani_ac(self, page, yil):
         with self._sessiz():
             try:
@@ -369,10 +422,16 @@ class GercekLucabot:
             if not bitti:
                 self.m.ml.tani_kaydet(ekran, self.tani_klasoru, self.log, "-gibgetir", "beyanname-takip")
                 raise LucaHatasi(f"{sure // 1000} sn içinde bitmedi (GİB şifresi Luca'da kayıtlı mı? Tanı ekran görüntüsüne bakın)")
-            try:
-                le.dugmeye_bas(ekran, "Kapat", sure=3000)           # "İşlem Takip" penceresi, filtre penceresini engellemesin
-            except Exception:  # noqa: BLE001
-                pass
+            # "İşlem Takip" penceresi kendiliğinden kapanmaz: yeşil "buraya" bağlantısı (Ekrandaki listeyi yenilemek için buraya
+            # tıklayınız) pencereyi kapatır ve listeyi yeniler. Pencere kapanmadan filtre penceresine geçilemez.
+            if not le.dugmeye_bas(ekran, "buraya", sure=5000):
+                raise LucaHatasi("'Ekrandaki listeyi yenilemek için buraya' bağlantısına basılamadı")
+            kapandi = lambda: True if self._islem_takip_metni(ekran, self.GIB_BITIS) is None else None  # noqa: E731
+            if not self.m.bekleme.kosulu_bekle(ekran, kapandi, 20000, aralik_ms=500):
+                le.dugmeye_bas(ekran, "Kapat", sure=3000)           # yedek
+                if not self.m.bekleme.kosulu_bekle(ekran, kapandi, 8000, aralik_ms=500):
+                    self.m.ml.tani_kaydet(ekran, self.tani_klasoru, self.log, "-gibkapanmadi", "beyanname-takip")
+                    raise LucaHatasi("'İşlem Takip' penceresi kapanmadı (Tanı ekran görüntüsüne bakın)")
 
     def beyanname_listele(self, ekran, bas, bit):
         """Filtre penceresinde 'Beyanname Durum'u Tümü yapıp 'Paket Yükleme Tarihi' aralığını yazar ve listeler; ekranın kendi
@@ -413,6 +472,8 @@ class GercekLucabot:
         import json
         from datetime import timedelta
         self.musteri_listesi(page, bugun.year)
+        sgk = self.sgk_isyerleri(page)                          # yalnızca {şirket kimliği: işyeri sayısı}; şifre/HTML kaydedilmez
+        (self.tani_klasoru / "sgk-isyerleri.json").write_text(json.dumps(sgk, ensure_ascii=False, indent=1), encoding="utf-8")
         ekran = self.beyanname_ekrani_ac(page, bugun.year)
         veri = self.beyanname_listele(ekran, bugun - timedelta(days=30), bugun)
         (self.tani_klasoru / "beyan_listele.json").write_text(json.dumps(veri, ensure_ascii=False, indent=1), encoding="utf-8")

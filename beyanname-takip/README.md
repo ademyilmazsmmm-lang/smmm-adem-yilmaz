@@ -109,8 +109,8 @@ Her şey Luca'nın içinde yapılır, GİB/e-Beyanname'ye bağlanılmaz:
      kayıtları bulur. Düğme bir **"GİB Beyanname Sorgula" tarih penceresi** açar (en fazla 31 günlük, aynı yıl içinde bir
      yükleme tarihi aralığı); program son `LUCA_GIB_GUN` günü (varsayılan 15, en çok 31; yıl başından öncesi kırpılır) yazar,
      "Beyannameleri GİB'dan Getir"e basar. "İşlem Takip" penceresinde GİB sorgusu ilerler (yaklaşık 1 dk/ay) ve bitince
-     "Ekrandaki listeyi yenilemek için…" yazısı çıkar (liste kendiliğinden yenilenmez); program bu yazıyı bekler, pencereyi
-     kapatır. `LUCA_GIB_GETIR=0` adımı kapatır, `LUCA_GIB_GETIR_SN` bekleme süresidir (180). Luca'nın GİB kullanıcı kodu/şifresi
+     "Ekrandaki listeyi yenilemek için…" yazısı çıkar; pencere kendiliğinden kapanmaz: program bu yazıyı bekler ve yeşil
+     **"buraya"** bağlantısına basar (pencereyi kapatır ve listeyi yeniler; kapanmazsa yedek olarak "Kapat"). `LUCA_GIB_GETIR=0` adımı kapatır, `LUCA_GIB_GETIR_SN` bekleme süresidir (180). Luca'nın GİB kullanıcı kodu/şifresi
      "Yönetici > SM/SMM Bilgileri > Kurum Şifre Bilgileri"nde kayıtlı olmalıdır. İlk kurulumda bir kez `LUCA_GIB_GUN=31` verin.
      Çalışmazsa eski veriyle devam edilir ve mesajlara "Luca verisi güncel olmayabilir" uyarısı eklenir.
    * Sonra Filtre penceresinde **"Beyanname Durum" = Tümü** (pencere varsayılan olarak "Onaylanmış" açılır; Tümü seçilmezse
@@ -124,10 +124,14 @@ Her şey Luca'nın içinde yapılır, GİB/e-Beyanname'ye bağlanılmaz:
    * **SGK (e-Bildirge):** ekrandaki "E-Bil." sütunu; simge, işyeri SGK numarası başına bir bildirgeyi gösterir (rozet: yeşil
      onaylı, kırmızı hatalı, gri iptal). Kural: **çalışanı olan firmanın MUHSGK'sında e-Bildirge de olmalı; yoksa prim hizmet
      bildirgesi verilmemiştir.** Onaylı bir MUHSGK'da en az bir e-Bildirge yoksa ya da yalnızca iptal (`muhSgkDurum` 6) /
-     hatalı (0) e-Bildirge varsa durum **"SGK EKSİK"** olur ve diğer eksikler gibi uyarılır. Mükellef ayarında **SGK**:
-     *Otomatik* (firmanın kayıtlarında e-Bildirgeli onaylı bir MUHSGK geçmişi varsa çalışanı var sayılır), *Çalışanı var*
-     (her MUHSGK'da e-Bildirge beklenir), *Çalışanı yok*. `muhSgkDurum` "3"ün tam anlamı bilinmiyor; yeşil rozet olduğundan
-     tamam sayılıyor.
+     hatalı (0) e-Bildirge varsa durum **"SGK EKSİK"** olur ve diğer eksikler gibi uyarılır.
+   * **Çalışanı olanlar:** *Personel > E-SGK İşlemleri > E-Bildirge Şifre Dosyası Oluşturma* listesi (SGK dosyası/işyeri tanımı
+     olan firmalar; Luca şirket kimliğiyle müşteri listesine eşleşir) okunur: listede olan firma çalışanı var sayılır, olmayan
+     sayılmaz (`LUCA_SGK_LISTESI=0` kapatır). **Bu sayfanın HTML'inde SGK sistem ve işyeri şifreleri düz metin olarak durur;**
+     program yalnızca şirket/işyeri kimliklerini ve "kullanıcı adı dolu mu" bilgisini okur, şifre alanlarına dokunmaz,
+     sayfanın HTML'ini ya da ekran görüntüsünü hiçbir yere kaydetmez. Liste okunamazsa firmanın geçmiş e-Bildirge
+     kayıtlarına bakılır. Mükellef ayarında **SGK**: *Otomatik* (yukarıdaki), *Çalışanı var*, *Çalışanı yok*.
+     `muhSgkDurum` "3"ün tam anlamı bilinmiyor; yeşil rozet olduğundan tamam sayılıyor.
 4. Karşılaştırma, uyarı ve Telegram yukarıdaki gibidir.
 
 **Doğrulanan:** JSON yorumlama (gerçek yanıtın alan yapısıyla uydurma veride), eşleştirme ve durum kuralları, 3 aylık
@@ -156,6 +160,7 @@ bulunup doldurulduğu, filtre alanlarının beklenen biçimde doldurulduğu.
   **Captcha cevabını sunucudan Luca'ya otomatik yazma henüz yok** (captcha alanını gerçek ekranda görmeden yazılmadı);
   Luca'da kimlik doğrulayıcı ile iki aşamalı doğrulama açıksa captcha hiç çıkmaz.
 * Hatalı ve iptal edilmiş beyannameler de okunur; yalnızca onaylı kayıt "verildi" sayılır.
+* Tanı ve çalışma sırasında SGK şifre sayfasının HTML'i/ekran görüntüsü diske yazılmaz (`tani_kaydet` o ekranda çağrılmaz).
 
 ## Render'a kurulum
 

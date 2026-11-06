@@ -107,8 +107,8 @@ def degerlendir(mukellefler, ayarlar, beyannameler, bugun, tatil, once=10, sonra
     sonuc = []
     for m in mukellefler:
         ay = ayar_al(ayarlar, m["id"])
-        # SGK: ayar "var" ise her MUHSGK'da e-Bildirge beklenir; "auto"da firmanın kayıtlarında e-Bildirgeli bir MUHSGK geçmişi
-        # varsa (çalışanı var) beklenir; "yok"ta beklenmez. Çalışanı olan firmada e-Bildirge yoksa prim hizmet bildirgesi verilmemiştir.
+        # SGK: ayar "var" ise her MUHSGK'da e-Bildirge beklenir; "auto"da firmanın SGK dosyası (işyeri tanımı) varsa, liste okunamadıysa
+        # e-Bildirgeli bir MUHSGK geçmişi varsa (çalışanı var) beklenir; "yok"ta beklenmez. Çalışanı olan firmada e-Bildirge yoksa prim hizmet bildirgesi verilmemiştir.
         sgk_ayar = ay.get("sgk", "auto")
         sgk_beklenir = None
         acilis, kapanis = tarih_coz(m.get("acilis")), tarih_coz(m.get("kapanis"))
@@ -125,7 +125,12 @@ def degerlendir(mukellefler, ayarlar, beyannameler, bugun, tatil, once=10, sonra
                     durum = "verildi"
                     if tur == "MPHB" and sgk_ayar != "yok":
                         if sgk_beklenir is None:
-                            sgk_beklenir = sgk_ayar == "var" or any(sgk_tamam(r) for r in mphb_kayitlari if ayni_firma(m, r))
+                            if sgk_ayar == "var":
+                                sgk_beklenir = True
+                            elif m.get("sgk_isyeri") is not None:
+                                sgk_beklenir = m["sgk_isyeri"] > 0         # SGK dosya listesi okunabildi: kesin bilgi
+                            else:                                          # liste okunamadıysa geçmiş e-Bildirge kaydı
+                                sgk_beklenir = any(sgk_tamam(r) for r in mphb_kayitlari if ayni_firma(m, r))
                         if sgk_beklenir and not any(sgk_tamam(r) for r in onayli):
                             durum = "sgk_eksik"
                 elif kayitlar:
@@ -254,6 +259,6 @@ def mukellef_normalize(kayit, hesap):
     anahtar = str(kayit.get("sirket_id") or "").strip() or vkn or sade(ad or unvan)
     ac, ka = tarih_coz(kayit.get("acilis")), tarih_coz(kayit.get("kapanis"))
     return {"id": f"{hesap}:{anahtar}", "hesap": hesap, "sirket_id": str(kayit.get("sirket_id") or ""),
-            "aciklama": (kayit.get("aciklama") or "").strip(), "ad": ad or unvan, "unvan": unvan, "vkn": vkn,
+            "aciklama": (kayit.get("aciklama") or "").strip(), "sgk_isyeri": kayit.get("sgk_isyeri"), "ad": ad or unvan, "unvan": unvan, "vkn": vkn,
             "vergi_dairesi": kayit.get("vergi_dairesi") or "",
             "acilis": ac.isoformat() if ac else "", "kapanis": ka.isoformat() if ka else ""}
