@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Beyanname Takip</title>
+<style>
+:root{--bg:#f6f7f9;--kart:#fff;--yazi:#1b2433;--soluk:#5a6478;--cizgi:#d8dee8;--ana:#1c3f63;--kirmizi:#c0392b;--sari:#b7791f;--yesil:#2f855a;--gri:#8b95a7}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1624;--kart:#182236;--yazi:#e8edf5;--soluk:#9aa6bb;--cizgi:#2b3a54;--ana:#7fb0e6;--kirmizi:#ff7b6b;--sari:#f0b74a;--yesil:#5fcf97;--gri:#7d89a0}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--yazi);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:0 16px 40px}
+main{max-width:860px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 0 8px}
+h1{font-size:1.2rem;margin:0}
+nav{display:flex;gap:6px;margin:8px 0 14px;flex-wrap:wrap}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--kart);border:1px solid var(--cizgi);border-radius:8px;padding:7px 12px;cursor:pointer}
+button.ana{background:var(--ana);color:var(--bg);border-color:var(--ana);font-weight:600}
+nav button[aria-pressed=true]{background:var(--ana);color:var(--bg);border-color:var(--ana)}
+.kart{background:var(--kart);border:1px solid var(--cizgi);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+.baslik{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-weight:600}
+.soluk{color:var(--soluk);font-size:.85rem}
+.satir{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--cizgi)}
+.etiket{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.78rem;border:1px solid currentColor;white-space:nowrap}
+.eksik{color:var(--kirmizi)}.onaysiz{color:var(--sari)}.verildi{color:var(--yesil)}.muaf{color:var(--gri)}
+.uyari{border-color:var(--kirmizi);color:var(--kirmizi)}
+.izgara{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:8px}
+label{font-size:.8rem;color:var(--soluk);display:block}
+select,input[type=text],input[type=password]{width:100%;padding:7px 8px;border:1px solid var(--cizgi);border-radius:8px;background:var(--bg)}
+.gizli{display:none}
+#giris{max-width:340px;margin:20vh auto}
+</style>
+</head>
+<body>
+<main>
+<section id="giris" class="kart gizli">
+  <h1>Beyanname Takip</h1>
+  <p class="soluk">Giriş şifresi</p>
+  <input type="password" id="sifre" autocomplete="current-password">
+  <p><button class="ana" id="girisBtn">Giriş</button> <span id="girisHata" class="eksik"></span></p>
+</section>
+
+<section id="uygulama" class="gizli">
+<header><h1>Beyanname Takip</h1><button id="cikisBtn">Çıkış</button></header>
+<div id="banner"></div>
+<nav>
+  <button data-sekme="durum" aria-pressed="true">Durum</button>
+  <button data-sekme="mukellef" aria-pressed="false">Mükellefler</button>
+  <button data-sekme="sistem" aria-pressed="false">Sistem</button>
+</nav>
+<div id="durum"></div>
+<div id="mukellef" class="gizli"></div>
+<div id="sistem" class="gizli"></div>
+</section>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+function h(tag, attr, ...cocuk) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attr || {})) {
+    if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
+  }
+  for (const c of cocuk.flat()) if (c !== null && c !== undefined && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return e;
+}
+async function api(yol, yontem, govde) {
+  const r = await fetch(yol, {method: yontem || "GET", headers: govde ? {"Content-Type": "application/json"} : {}, body: govde ? JSON.stringify(govde) : undefined});
+  if (r.status === 401) { goster("giris"); throw new Error("giris"); }
+  if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
+  return r.json();
+}
+let durumVeri = null, sekme = "durum", filtre = "eksik";
+function goster(ne) { $("giris").classList.toggle("gizli", ne !== "giris"); $("uygulama").classList.toggle("gizli", ne === "giris"); }
+const TR_TARIH = (iso) => iso ? iso.slice(8, 10) + "." + iso.slice(5, 7) + "." + iso.slice(0, 4) : "";
+const DURUM_AD = {eksik: "EKSİK", onaysiz: "ONAYSIZ", verildi: "verildi", muaf: "verilmeyecek"};
+const KALAN = (k) => k < 0 ? (-k) + " gün geçti" : k === 0 ? "BUGÜN SON GÜN" : k + " gün kaldı";
+
+$("girisBtn").onclick = async () => {
+  try { await api("/api/giris", "POST", {sifre: $("sifre").value}); $("sifre").value = ""; goster("app"); yukle(); }
+  catch (e) { $("girisHata").textContent = e.message === "giris" ? "Şifre yanlış" : e.message; }
+};
+$("sifre").addEventListener("keydown", (e) => { if (e.key === "Enter") $("girisBtn").click(); });
+$("cikisBtn").onclick = async () => { await fetch("/api/cikis", {method: "POST"}); goster("giris"); };
+document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
+  sekme = b.dataset.sekme;
+  document.querySelectorAll("nav button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+  for (const s of ["durum", "mukellef", "sistem"]) $(s).classList.toggle("gizli", s !== sekme);
+  yukle();
+});
+
+function bannerCiz() {
+  const v = durumVeri.veri, b = $("banner"); b.textContent = "";
+  if (v.hata || v.eski || !durumVeri.telegram) {
+    const n = [];
+    if (v.hata) n.push("Luca verisi alınamadı: " + v.hata);
+    else if (v.eski) n.push("Veri 24 saatten eski.");
+    if (!durumVeri.telegram) n.push("Telegram ayarlı değil: uyarı mesajı gitmez!");
+    b.append(h("div", {class: "kart uyari"}, n.join(" ")));
+  }
+  if (durumVeri.captcha_bekliyor) b.append(captchaKarti());
+}
+function captchaKarti() {
+  const kod = h("input", {type: "text", placeholder: "Resimdeki kod", autocomplete: "off"});
+  return h("div", {class: "kart uyari"}, h("div", {class: "baslik"}, "Luca güvenlik kodu gerekli"),
+    h("img", {src: "/api/captcha.png?" + Date.now(), alt: "captcha", style: "max-width:100%;margin:8px 0"}), kod,
+    h("p", {}, h("button", {class: "ana", onclick: async () => { await api("/api/captcha", "POST", {kod: kod.value}); yukle(); }}, "Gönder")));
+}
+
+async function durumCiz() {
+  const maddeler = await api("/api/maddeler"), kok = $("durum"); kok.textContent = "";
+  const sec = h("div", {style: "margin-bottom:10px"},
+    ...[["eksik", "Eksik / onaysız"], ["hepsi", "Hepsi"]].map(([k, ad]) =>
+      h("button", {"aria-pressed": filtre === k, class: filtre === k ? "ana" : "", onclick: () => { filtre = k; durumCiz(); }}, ad)));
+  kok.append(sec);
+  const liste = maddeler.filter((m) => filtre === "hepsi" || m.durum === "eksik" || m.durum === "onaysiz");
+  if (!liste.length) kok.append(h("div", {class: "kart"}, filtre === "hepsi" ? "Pencerede beyanname yok." : "Eksik beyanname yok ✓"));
+  const gruplar = new Map();
+  for (const m of liste) { const a = m.son_gun + "|" + m.tur + "|" + m.donem; if (!gruplar.has(a)) gruplar.set(a, []); gruplar.get(a).push(m); }
+  for (const ms of gruplar.values()) {
+    const m0 = ms[0], eksik = ms.filter((x) => x.durum === "eksik" || x.durum === "onaysiz").length;
+    const kart = h("div", {class: "kart"}, h("div", {class: "baslik"},
+      h("span", {}, m0.tur_ad + " – " + m0.etiket), h("span", {class: eksik ? "eksik" : "verildi"}, eksik + " / " + ms.length + " eksik")),
+      h("div", {class: "soluk"}, "Son gün " + TR_TARIH(m0.son_gun) + " · " + KALAN(m0.kalan)));
+    for (const m of ms) {
+      kart.append(h("div", {class: "satir"},
+        h("span", {}, m.ad, m.isyeri ? h("span", {class: "soluk"}, " · " + m.isyeri) : "", m.ayar_onayli ? "" : h("span", {class: "soluk"}, " · ayar onaysız")),
+        h("span", {}, h("span", {class: "etiket " + m.durum}, DURUM_AD[m.durum]), " ",
+          m.durum === "eksik" ? h("button", {onclick: async () => {
+            const not = prompt("Bu dönem için beyanname verilmeyecek (örn. işlem yok). Not:", "");
+            if (not === null) return;
+            await api("/api/muaf", "POST", {id: m.mid, tur: m.tur, donem: m.donem, aciklama: not}); durumCiz();
+          }}, "Verilmeyecek") : "",
+          m.durum === "muaf" ? h("button", {onclick: async () => { await api("/api/muaf/sil", "POST", {id: m.mid, tur: m.tur, donem: m.donem}); durumCiz(); }}, "Geri al") : "")));
+    }
+    kok.append(kart);
+  }
+}
+
+async function mukellefCiz() {
+  const liste = await api("/api/mukellefler"), kok = $("mukellef"); kok.textContent = "";
+  const onaysiz = liste.filter((m) => !m.ayar.onayli).length;
+  kok.append(h("p", {class: "soluk"}, liste.length + " mükellef" + (onaysiz ? " · " + onaysiz + " tanesinin ayarı onaylanmadı (yine de uyarı gelir, \"ayar onaysız\" notuyla)." : "")));
+  const turler = durumVeri.turler;
+  for (const m of liste) {
+    const sel = {};
+    const alan = (tur) => {
+      const s = h("select", {}, ...["yok", ...turler[tur].periyotlar].map((p) => h("option", {value: p}, p === "yok" ? "yok" : p === "aylik" ? "aylık" : "3 aylık")));
+      s.value = m.ayar[tur]; sel[tur] = s; return h("div", {}, h("label", {}, turler[tur].ad), s);
+    };
+    const isyeri = h("input", {type: "text", maxlength: "40", placeholder: "Etiket (örn. işletme)"}); isyeri.value = m.ayar.isyeri || "";
+    const kaydet = h("button", {class: m.ayar.onayli ? "" : "ana", onclick: async () => {
+      await api("/api/mukellef/ayar?mid=" + encodeURIComponent(m.id), "PUT", {KDV1: sel.KDV1.value, MPHB: sel.MPHB.value, GECICI: sel.GECICI.value, isyeri: isyeri.value, onayli: true});
+      kaydet.textContent = "Kaydedildi ✓";
+    }}, m.ayar.onayli ? "Kaydet" : "Onayla ve kaydet");
+    kok.append(h("div", {class: "kart"}, h("div", {class: "baslik"}, h("span", {}, m.ad), h("span", {class: "soluk"}, m.hesap + (m.kapanis ? " · kapanış " + TR_TARIH(m.kapanis) : ""))),
+      h("div", {class: "soluk"}, m.unvan + (m.vkn ? " · " + m.vkn : "")),
+      h("div", {class: "izgara"}, alan("KDV1"), alan("MPHB"), alan("GECICI"), h("div", {}, h("label", {}, "İşyeri etiketi"), isyeri)),
+      h("p", {}, kaydet)));
+  }
+}
+
+function sistemCiz() {
+  const v = durumVeri.veri, t = durumVeri.son_toplama, kok = $("sistem"); kok.textContent = "";
+  kok.append(h("div", {class: "kart"}, h("div", {class: "baslik"}, "Luca verisi"),
+    h("p", {}, "Son başarılı: " + (v.zaman ? v.zaman.replace("T", " ") : "hiç"), h("br"),
+      t ? "Son deneme: " + (t.ok ? "başarılı · " + t.mukellef + " mükellef, " + t.beyanname + " beyanname" : "BAŞARISIZ · " + t.hata) : "Henüz deneme yok"),
+    h("button", {class: "ana", onclick: async (e) => { e.target.disabled = true; await api("/api/kontrol", "POST"); setTimeout(yukle, 4000); }}, "Şimdi Luca'dan çek")));
+  kok.append(h("div", {class: "kart"}, h("div", {class: "baslik"}, "Telegram"),
+    h("p", {class: "soluk"}, durumVeri.telegram ? "Ayarlı." : "TELEGRAM_TOKEN / TELEGRAM_CHAT_ID tanımlı değil."),
+    h("button", {onclick: async (e) => { const r = await api("/api/test-bildirim", "POST"); e.target.textContent = r.gonderildi ? "Gönderildi ✓" : "Gönderilemedi ✗"; }}, "Test mesajı gönder")));
+}
+
+async function yukle() {
+  try {
+    durumVeri = await api("/api/durum"); goster("app"); bannerCiz();
+    if (sekme === "durum") await durumCiz(); else if (sekme === "mukellef") await mukellefCiz(); else sistemCiz();
+  } catch (e) { if (e.message !== "giris") $("banner").textContent = "Hata: " + e.message; }
+}
+yukle();
+setInterval(() => {
+  const yazıyor = document.activeElement && $("banner").contains(document.activeElement);   // captcha yazarken sayfa yenilenmesin
+  if (!document.hidden && !yazıyor && !$("uygulama").classList.contains("gizli") && sekme !== "mukellef") yukle();
+}, 15000);
+</script>
+</body>
+</html>
