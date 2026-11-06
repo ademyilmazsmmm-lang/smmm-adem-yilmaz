@@ -192,6 +192,32 @@ class Ivd {
     if (!basari) throw new Error("Talep alınmadı" + (this.mesajMetni(y) ? ": " + String(this.mesajMetni(y)).slice(0, 200) : " (GİB başarı yanıtı vermedi)") + ".");
     return { tamam: true, mesaj: mesajlar.filter((m) => m && m.text).map((m) => m.text).join(" ") || "Talebiniz işleme alındı.", sekil: sekil(y) };
   }
+  /* ---- Dilekçelerim (Gönderilen Dilekçeler): liste, durum, ilgili evrak (üst yazı / ek) ve evrak PDF'i ----
+   * Portalın kendi çağrıları: /dilekcelerim/dilekcelerimListele, dilekceDurumSorgula, dilekceIlgiliEvrakUstyaziEkListe, dilekceGoruntule. bas/bit "YYYYMMDD" */
+  async dilekcelerimListe(bas, bit) {
+    const y = await this.istek("POST", GW + "/api/dilekcelerim/dilekcelerimListele", this.tablo({ body: { basTarih: bas, bitTarih: bit } }, 100, { alan: "kayitZamani", yon: "DESC" }), true);
+    const dizi = (y && (y.dilekcelerimListeleDTOList || (y.data && y.data.dilekcelerimListeleDTOList))) || [];
+    this.dilekceler = dizi.map((d) => ({ oid: d.oid, secureId: d.secureId, konu: d.konu || "", sayi: d.sayi, zaman: d.kayitZamani || "", birim: d.ilgiliBirim || "" }));
+    return { dilekceler: this.dilekceler.map((d, n) => ({ n, konu: d.konu, sayi: d.sayi, zaman: d.zaman, birim: d.birim })), sekil: sekil(y) };
+  }
+  async dilekceDurum(n) {
+    const d = (this.dilekceler || [])[n]; if (!d) throw new Error("Dilekçe bulunamadı; listeyi yenileyin.");
+    const y = await this.istek("POST", GW + "/api/dilekcelerim/dilekceDurumSorgula", { evrakOid: d.oid, secureId: d.secureId, dilekceTuru: "" }, true);
+    const dizi = (y && (y.durumListesi || (y.data && y.data.durumListesi))) || [];
+    return { durumlar: dizi.map((x) => String((x && x.durumAciklama) || "")).filter(Boolean), sekil: sekil(y) };
+  }
+  async dilekceEvrakListe(n) {
+    const d = (this.dilekceler || [])[n]; if (!d) throw new Error("Dilekçe bulunamadı; listeyi yenileyin.");
+    const y = await this.istek("POST", GW + "/api/dilekcelerim/dilekceIlgiliEvrakUstyaziEkListe", this.tablo({ body: { evrakOid: d.oid, secureId: d.secureId } }, 50, { alan: "tur", yon: "ASC" }), true);
+    const dizi = (y && (y.dilekcelerimEvrakUstyaziEkListe || (y.data && y.data.dilekcelerimEvrakUstyaziEkListe))) || [];
+    this.dilekceEvrak = dizi.map((e) => ({ dokumanOid: e.dokumanOid, secureId: e.secureId, isDokuman: e.isDokuman, adi: e.adi || "evrak", uzanti: e.uzanti || "", tur: e.tur === 1 ? "Ek" : "Üst yazı" }));
+    return { belgeler: this.dilekceEvrak.map((e, k) => ({ n: k, ad: e.adi, tur: e.tur, uzanti: String(e.uzanti || "").replace(/^\./, "") })), sekil: sekil(y) };
+  }
+  async dilekceBelgeIndir(k) {
+    const e = (this.dilekceEvrak || [])[k]; if (!e) throw new Error("Evrak bulunamadı; dilekçenin evraklarını yeniden açın.");
+    const y = await this.istek("POST", GW + "/api/dilekcelerim/dilekceGoruntule", { data: { dokumanOid: e.dokumanOid, secureId: e.secureId, dokuman: e.isDokuman, filename: e.adi, extension: e.uzanti } }, true);
+    return this.dosyaCek(y, e.adi, e.uzanti);
+  }
   /* Mükellefiyet yazısı talebi (merkez): portalın "Mükellefiyet Yazısı Talebi" ekranı /mukellefiyet/mukellefiyetdilekceKaydetMerkez'e { eposta, kurumKodu: "TDVD", subeNo: "" } gönderir;
    * talep, borç durum yazılarıyla aynı listede (Mükellefiyet / Borç Durum Yazılarım) izlenir ve aynı PDF servisiyle indirilir */
   async mukellefiyetYaziIste(p) {
@@ -732,6 +758,10 @@ class SahteIvd {
     return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "tebligat.pdf" };
   }
   async yaziListe() { const d = this.yazilar = this.yazilar || [{ ad: "Borç Durum Yazısı", talep: "2026-10-20T10:15:00", cevap: "2026-10-20T11:02:00", durum: 1, eposta: "ornek@ornek.com" }]; return { yazilar: d.map((x, n) => Object.assign({ n }, x)), sekil: {} }; }
+  async dilekcelerimListe() { this.dilekceler = [{ oid: "D1", secureId: "s1", konu: "Genel Amaçlı Dilekçe", sayi: 1, zaman: "2026-10-28 11:20", birim: "Ümraniye Vergi Dairesi" }, { oid: "D2", secureId: "s2", konu: "Borç Durum Yazısı", sayi: 1, zaman: "2026-10-20 10:15", birim: "Ümraniye Vergi Dairesi" }]; return { dilekceler: this.dilekceler.map((d, n) => ({ n, konu: d.konu, sayi: d.sayi, zaman: d.zaman, birim: d.birim })), sekil: {} }; }
+  async dilekceDurum(n) { if (!(this.dilekceler || [])[n]) throw new Error("Dilekçe bulunamadı; listeyi yenileyin."); return { durumlar: ["Dilekçeniz alınmıştır.", "Vergi dairesinde işleme alındı."], sekil: {} }; }
+  async dilekceEvrakListe(n) { if (!(this.dilekceler || [])[n]) throw new Error("Dilekçe bulunamadı; listeyi yenileyin."); this.dilekceEvrak = [{ adi: "Üst yazı", uzanti: "pdf", tur: "Üst yazı" }, { adi: "Ek-1", uzanti: "pdf", tur: "Ek" }]; return { belgeler: this.dilekceEvrak.map((e, k) => ({ n: k, ad: e.adi, tur: e.tur, uzanti: e.uzanti })), sekil: {} }; }
+  async dilekceBelgeIndir(k) { const e = (this.dilekceEvrak || [])[k]; if (!e) throw new Error("Evrak bulunamadı."); const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 18 Tf 20 60 Td (ORNEK DILEKCE EVRAKI) Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF"; return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: e.adi + ".pdf" }; }
   async mukellefiyetYaziIste(p) { this.yazilar = this.yazilar || []; this.yazilar.unshift({ ad: "Mükellefiyet Yazısı", talep: new Date().toISOString().slice(0, 19), cevap: new Date().toISOString().slice(0, 19), durum: 1, eposta: p.eposta }); return { tamam: true, mesaj: "Mükellefiyet yazısı talebiniz işleme alındı.", sekil: {} }; }
   async yaziIste(p) { this.yazilar = this.yazilar || []; this.yazilar.unshift({ ad: "Borç Durum Yazısı", talep: new Date().toISOString().slice(0, 19), cevap: "", durum: 9, eposta: p.eposta }); this.sonIste = p; return { tamam: true, mesaj: "Talebiniz işleme alındı.", sekil: {} }; }
   async yaziIndir(n) {
