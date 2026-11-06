@@ -42,7 +42,7 @@ from types import SimpleNamespace
 
 from .kurallar import Tatiller
 from .luca_ekran_okuma import (beyanname_json_kayitlari, gib_getir_araligi, musteri_html_filtre, musteri_html_oku,
-                               musteri_yillari, musterileri_birlestir, sgk_isyerleri_say, yukleme_araligi)
+                               musteri_yillari, musterileri_birlestir, onayli_kayitlar, sgk_isyerleri_say, yukleme_araligi)
 
 
 class LucaHatasi(RuntimeError):
@@ -153,6 +153,7 @@ class LucaToplayici:
             raise LucaHatasi(f"Beyanname listesi yanıtı okunamadı ({e}); Tanı sekmesine bakın") from e
         if toplam is not None and toplam != len(bey):
             raise LucaHatasi(f"Luca {toplam} beyanname kaydı yazıyor ama yanıtta {len(bey)} kayıt var (liste kesilmiş olabilir)")
+        bey = onayli_kayitlar(bey)          # hatalı/iptal kayıtlar hiç okunmaz: yalnızca onaylılar "verildi" sayılır
         return mus, bey, uyarilar
 
 

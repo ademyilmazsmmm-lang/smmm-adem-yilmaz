@@ -119,8 +119,9 @@ Her şey Luca'nın içinde yapılır, GİB/e-Beyanname'ye bağlanılmaz:
    * Ekranın kendi isteğinin yanıtı (`beyan_listele.jq`, JSON) yakalanır; tablo okunmaz. Her kayıtta tür (`beyannameKodu`:
      KDV1, MUHSGK, KGECICI…), dönem (3 aylıklarda dönem bitişi), durum, VKN/TCKN, Luca kısa adı vardır; toplam sayı
      ("243 adet beyanname kaydı listelendi") yanıttaki kayıt sayısıyla doğrulanır.
-   * Eşleştirme: VKN/TCKN, yoksa Luca kısa adı, yoksa unvan. Bir dönem için **onaylanmış kayıt varsa verildi**; yalnızca
-     hatalı/iptal edilmiş kayıt varsa "gönderilmiş ama ONAYLANMAMIŞ" diye uyarılır; tanınmayan bir durum metni onaylı sayılmaz.
+   * **Yalnızca "Onaylanmış" kayıtlar okunur;** hatalı (kırmızı), iptal edilmiş ve tanınmayan durumlu kayıtlar hiç alınmaz
+     (yanıt sayısı ham liste üzerinden doğrulanır). Onaylı kaydı olmayan dönem **eksik** sayılır.
+   * Eşleştirme: VKN/TCKN, yoksa Luca kısa adı, yoksa unvan.
    * **SGK (e-Bildirge):** ekrandaki "E-Bil." sütunu; simge, işyeri SGK numarası başına bir bildirgeyi gösterir (rozet: yeşil
      onaylı, kırmızı hatalı, gri iptal). Kural: **çalışanı olan firmanın MUHSGK'sında e-Bildirge de olmalı; yoksa prim hizmet
      bildirgesi verilmemiştir.** Onaylı bir MUHSGK'da en az bir e-Bildirge yoksa ya da yalnızca iptal (`muhSgkDurum` 6) /
@@ -131,7 +132,7 @@ Her şey Luca'nın içinde yapılır, GİB/e-Beyanname'ye bağlanılmaz:
      program yalnızca şirket/işyeri kimliklerini ve "kullanıcı adı dolu mu" bilgisini okur, şifre alanlarına dokunmaz,
      sayfanın HTML'ini ya da ekran görüntüsünü hiçbir yere kaydetmez. Liste okunamazsa firmanın geçmiş e-Bildirge
      kayıtlarına bakılır. Mükellef ayarında **SGK**: *Otomatik* (yukarıdaki), *Çalışanı var*, *Çalışanı yok*.
-     `muhSgkDurum` "3"ün tam anlamı bilinmiyor; yeşil rozet olduğundan tamam sayılıyor.
+     `muhSgkDurum` "3" de yeşil rozettir (onaylı satırda yeşil "2" görülen kayıt) ve tamam sayılır.
 4. Karşılaştırma, uyarı ve Telegram yukarıdaki gibidir.
 
 **Doğrulanan:** JSON yorumlama (gerçek yanıtın alan yapısıyla uydurma veride), eşleştirme ve durum kuralları, 3 aylık
@@ -159,7 +160,7 @@ bulunup doldurulduğu, filtre alanlarının beklenen biçimde doldurulduğu.
 * Luca girişi başarısız olursa o anki ekran görüntüsü Telegram'a gönderilir (captcha ya da şifre sorunu görülsün).
   **Captcha cevabını sunucudan Luca'ya otomatik yazma henüz yok** (captcha alanını gerçek ekranda görmeden yazılmadı);
   Luca'da kimlik doğrulayıcı ile iki aşamalı doğrulama açıksa captcha hiç çıkmaz.
-* Hatalı ve iptal edilmiş beyannameler de okunur; yalnızca onaylı kayıt "verildi" sayılır.
+* Hatalı ve iptal edilmiş beyannameler okunmaz; yalnızca onaylı kayıt "verildi" sayılır.
 * Tanı ve çalışma sırasında SGK şifre sayfasının HTML'i/ekran görüntüsü diske yazılmaz (`tani_kaydet` o ekranda çağrılmaz).
 
 ## Render'a kurulum

@@ -11,7 +11,7 @@ from app.depo import Depo
 from app.kontrol import degerlendir, mukellef_normalize
 from app.kurallar import Tatiller, onayli_mi
 from app.luca_ekran_okuma import (beyanname_json_kayitlari, gib_getir_araligi, musteri_html_filtre, musteri_html_oku,
-                                  musteri_yillari, musterileri_birlestir, sgk_isyerleri_say, yukleme_araligi)
+                                  musteri_yillari, musterileri_birlestir, onayli_kayitlar, sgk_isyerleri_say, yukleme_araligi)
 from app.luca_toplayici import GercekLucabot, LucaHatasi, LucaToplayici, kimlik_oku
 from tests.test_cekirdek import Saat, SahteTelegram
 
@@ -306,6 +306,26 @@ def test_sgk_listesi_kapatilabilir():
     k = SahteKopru()
     r = toplayici(k, {"LUCA_SGK_LISTESI": "0"}).topla(date(2026, 11, 26))
     assert "sgk" not in k.cagrilar and all(m.get("sgk_isyeri") is None for m in r["mukellefler"])
+
+
+def test_hatali_ve_iptal_kayitlar_hic_okunmaz_donem_eksik_sayilir(tmp_path):
+    cevap = cevap_json([bey_kaydi("ALFA", "ALFA LTD", "1111111111", "KDV1", *EKIM),
+                        bey_kaydi("ALFA", "ALFA LTD", "1111111111", "KDV1", *EKIM, durum=0),          # hatalı: yok sayılır
+                        bey_kaydi("BETA", "BETA AŞ", "2222222222", "KDV1", *EKIM, durum=0),          # yalnızca hatalı
+                        bey_kaydi("BETA", "BETA AŞ", "2222222222", "KDV1", *EKIM, durum=3)])         # ve iptal -> eksik
+    r = toplayici(SahteKopru(cevap)).topla(date(2026, 11, 26))                                         # sayı doğrulaması ham sayıyla (4)
+    assert [(b["firma"], b["durum"]) for b in r["beyannameler"]] == [("ALFA LTD", "Onaylanmış")]
+    assert r["hesaplar"]["ofis"]["beyanname"] == 1
+    tg = SahteTelegram()
+    u = Uygulama(Depo(tmp_path), toplayici(SahteKopru(cevap)), tg, CaptchaKoprusu(tg), saat=Saat("2026-11-26T09:00"))
+    u.topla()
+    d = {x.ad: x.durum for x in u.maddeler() if x.tur == "KDV1" and x.donem == "2026-10"}
+    assert d == {"ALFA": "verildi", "BETA": "eksik"}
+
+
+def test_onayli_kayitlar_filtresi():
+    k, _ = beyanname_json_kayitlari(cevap_json([bey_kaydi("A", "A", "1111111111", "KDV1", *EKIM, durum=d) for d in (2, 0, 3)]))
+    assert [x["durum"] for x in onayli_kayitlar(k)] == ["Onaylanmış"]
 
 
 def test_gib_getir_calismazsa_uyari_ile_devam_eder():

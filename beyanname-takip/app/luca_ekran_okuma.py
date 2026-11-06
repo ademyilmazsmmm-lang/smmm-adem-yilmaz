@@ -8,7 +8,7 @@ import re
 from datetime import date, timedelta
 from html.parser import HTMLParser
 
-from .kurallar import BEYANNAMELER, donemler_uret, sade
+from .kurallar import BEYANNAMELER, donemler_uret, onayli_mi, sade
 
 
 # Luca "GİB Beyanname Takip" ekranının listesi (beyan_listele.jq) JSON döner:
@@ -42,6 +42,12 @@ def beyanname_json_kayitlari(cevap):
                          # kurala bağlanmadı (muhSgkDurum görülen değerler: "2", "3", "0", "6")
                          "ebildirge": r.get("ebildirgeSayisi"), "sgk_durum": str(r.get("muhSgkDurum") or "")})
     return kayitlar, (int(m.group(1)) if m else None)
+
+
+def onayli_kayitlar(kayitlar):
+    """Yalnızca onaylanmış beyannameler: hatalı, iptal edilmiş ve tanınmayan durumlu kayıtlar HİÇ okunmaz (yok sayılır). Bir dönemin
+    yalnızca böyle kayıtları varsa o dönem "verilmemiş" (eksik) sayılır."""
+    return [k for k in kayitlar if onayli_mi(k.get("durum"))]
 
 
 def sgk_isyerleri_say(satirlar):
