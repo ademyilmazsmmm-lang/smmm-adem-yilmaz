@@ -20,7 +20,7 @@ LUCA_OFIS_UYE_NO gibi ön ekli adlar kullanılır; tek hesapta ön eksiz LUCA_UY
   LUCA_UYE_NO, LUCA_KULLANICI, LUCA_PAROLA, LUCA_DOGRULAMA_ANAHTARI (kimlik doğrulayıcı gizli anahtarı)
   LUCABOT_YOLU     lucabot paketinin bulunduğu dizin
   LUCA_TANI=1      tanı modu: giriş + ekranlar açılır, filtre seçenekleri ve ekran görüntüleri DATA_DIR/tani'ya
-                   yazılır, veri KAYDEDİLMEZ (ilk kurulumda bunu çalıştırın)
+                   yazılır, veri KAYDEDİLMEZ. Env değişkenine gerek yok: web sayfasındaki "Tanı" sekmesi aynısını yapar.
   LUCA_UCAYLIK_DONEM=bit|bas   3 aylık dönemlerin Luca filtresindeki ayı (varsayılan bit)
 Tarayıcı Xvfb altında (ekranlı kipte) çalışır: Dockerfile.luca'ya bakın.
 """
@@ -39,6 +39,10 @@ from .luca_ekran_okuma import (beyanname_satirlari, durum_sec, musterileri_birle
 
 class LucaHatasi(RuntimeError):
     """Luca'dan veri alınamadı (mesaj kullanıcıya Telegram'da gösterilir; parola/anahtar içermez)."""
+
+
+class TaniTamam(LucaHatasi):
+    """Tanı çalışması bitti (hata değil); veri kaydedilmez."""
 
 
 def kimlik_oku(env, hesap, tek_hesap):
@@ -63,6 +67,19 @@ class LucaToplayici:
         self.kopru_fabrikasi = kopru_fabrikasi or (lambda hesap, kimlik, captcha: GercekLucabot(
             self.veri, hesap, kimlik, captcha, env))
         self.hesaplar = [h.strip() for h in (env.get("LUCA_HESAPLAR") or "ofis").split(",") if h.strip()]
+
+    def tani(self, bugun, captcha=None):
+        """Tanı: giriş + ekranları aç, seçenekleri ve ekran görüntülerini DATA_DIR/tani'ya yaz; veri kaydetme."""
+        for hesap in self.hesaplar:
+            kimlik = kimlik_oku(self.env, hesap, tek_hesap=len(self.hesaplar) == 1)
+            kopru = self.kopru_fabrikasi(hesap, kimlik, captcha)
+            try:
+                self._hesap_topla(kopru, bugun, True)
+            except TaniTamam:
+                pass
+            finally:
+                kopru.kapat()
+        return {"hesaplar": list(self.hesaplar)}
 
     def topla(self, bugun, captcha=None):
         tani = self.env.get("LUCA_TANI") == "1"
@@ -89,8 +106,8 @@ class LucaToplayici:
         page = kopru.oturum_ac()
         if tani:
             kopru.tani_calistir(page, bugun)
-            raise LucaHatasi("Tanı modu tamamlandı (veri kaydedilmedi). Sonuçlar DATA_DIR/tani klasöründe; "
-                             "Web sayfası → Sistem → 'Tanı dosyalarını indir'. Sonra LUCA_TANI'yı kaldırın.")
+            raise TaniTamam("Tanı modu tamamlandı (veri kaydedilmedi). Sonuçlar web sayfasında 'Tanı' sekmesinde; "
+                            "bitince LUCA_TANI'yı kaldırın.")
 
         listeler = [kopru.musteri_listesi(page, bugun.year)]
         try:                                    # geçen yılın listesi: yalnızca eksik kalan firmaları tamamlar (en iyi çaba)

@@ -109,12 +109,14 @@ köprünün çağırdığı bütün fonksiyonları içermesi. **Doğrulanmayan:*
 
 **İlk kurulum (sırayla):**
 1. Dockerfile.luca ile (özel depodan) derleyin; ortam değişkenleri: `TOPLAYICI=luca`, `LUCA_UYE_NO`, `LUCA_KULLANICI`,
-   `LUCA_PAROLA`, `LUCA_DOGRULAMA_ANAHTARI`, `LUCA_TANI=1`. İki Luca hesabı için `LUCA_HESAPLAR=ofis,isletme` ve
+   `LUCA_PAROLA`, `LUCA_DOGRULAMA_ANAHTARI`. İki Luca hesabı için `LUCA_HESAPLAR=ofis,isletme` ve
    `LUCA_OFIS_UYE_NO`, `LUCA_ISLETME_PAROLA` gibi ön ekli adlar kullanılır.
-2. Web sayfası → Sistem → "Şimdi Luca'dan çek". Tanı modu veri kaydetmez; giriş yapıp ekranları açar,
-   filtre seçeneklerini ve ekran görüntülerini kaydeder. **Sistem → "Luca tanı dosyalarını indir"** ile alıp inceleyin
-   (mükellef adı içerir, paylaşmadan önce maskeleyin).
-3. Her şey yolundaysa `LUCA_TANI`'yı silin; gerçek veri akmaya başlar. Web sayfasında uyarı çıkarsa
+2. Web sayfasında **Tanı** sekmesi → "Tanıyı çalıştır". Luca'ya girip müşteri listesi ve GİB Beyanname Takip
+   ekranlarını açar; **ekran görüntülerini, filtre seçeneklerini (Beyanname ve Durum listeleri) ve sayfa kaynaklarını**
+   sayfada gösterir. Veri kaydetmez, beyanname kontrolünü etkilemez; 1-3 dakika sürer. Sonucu buradan inceleyin ya da
+   "Hepsini indir (zip)" ile alın (mükellef adı içerir, paylaşmadan önce karalayın). Aynı işi `LUCA_TANI=1` ortam
+   değişkeni de yapar, ama sekme varken gerekmez. Sayfa kaynağı (html) güvenlik için düz metin olarak gösterilir.
+3. Tanı sonuçları doğruysa "Şimdi Luca'dan çek" ile gerçek veriyi alın. Web sayfasında uyarı çıkarsa
    (örn. "N beyanname satırı hiçbir mükellefle eşleşmedi") ad eşleşmesi ya da sayfalama sorunu vardır.
 
 **Güvenlik kararları:**

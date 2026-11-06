@@ -24,6 +24,7 @@ class Uygulama:
         self.tatil = tatil or Tatiller()
         self.saat = saat
         self._toplama_kilidi = threading.Lock()
+        self.tani_suruyor = False
         self._son_deneme = {}          # slot anahtarı -> son deneme zamanı (başarısız gönderimde Luca'yı yormamak için)
 
     # ---- veri toplama ----
@@ -60,6 +61,27 @@ class Uygulama:
             return sonuc
         finally:
             self._toplama_kilidi.release()
+
+    def tani(self):
+        """Luca tanısı (yalnızca TOPLAYICI=luca): ekranları açıp tanı dosyalarını yazar, veri kaydetmez."""
+        simdi = self.saat()
+        if not hasattr(self.toplayici, "tani"):
+            sonuc = {"ok": False, "zaman": simdi.isoformat(), "mesaj": "Tanı yalnızca TOPLAYICI=luca iken çalışır"}
+        elif not self._toplama_kilidi.acquire(blocking=False):
+            return {"ok": False, "mesaj": "Luca ile başka bir işlem sürüyor"}
+        else:
+            self.tani_suruyor = True
+            try:
+                self.toplayici.tani(simdi.date(), self.captcha)
+                sonuc = {"ok": True, "zaman": simdi.isoformat(), "mesaj": "Tanı tamamlandı"}
+            except Exception as e:  # noqa: BLE001
+                log.exception("tanı başarısız")
+                sonuc = {"ok": False, "zaman": simdi.isoformat(), "mesaj": f"{type(e).__name__}: {e}"[:300]}
+            finally:
+                self.tani_suruyor = False
+                self._toplama_kilidi.release()
+        self.depo.guncelle("durum.json", lambda d: d.update({"son_tani": sonuc}))
+        return sonuc
 
     # ---- değerlendirme ----
     def maddeler(self, bugun=None):

@@ -238,3 +238,38 @@ def test_gercek_lucabot_arayuzu_uyumlu(tmp_path):
     eksik = [f"{mod}.{ad}" for mod, adlar in gereken.items() for ad in adlar if not hasattr(getattr(g.m, mod), ad)]
     assert not eksik, eksik
     assert g.m.ortak.AYAR["tarayici"] == "chromium" and g.m.ortak.AYAR["tarayici_sandbox"] is False
+
+
+# ---------- tanı ----------
+
+def test_tani_veri_kaydetmez_ve_tarayiciyi_kapatir():
+    k = SahteKopru()
+    r = toplayici(k).tani(date(2026, 11, 26))
+    assert r == {"hesaplar": ["ofis"]} and "tani" in k.cagrilar and k.kapandi
+    assert not any(c.startswith(("sorgu", "musteri")) for c in k.cagrilar)
+
+
+def test_tani_giris_hatasini_gizlemez():
+    k = SahteKopru(giris_hatasi=True)
+    with pytest.raises(LucaHatasi, match="giriş"):
+        toplayici(k).tani(date(2026, 11, 26))
+    assert k.kapandi
+
+
+def test_cekirdek_tani_sonucunu_kaydeder(tmp_path):
+    k = SahteKopru()
+    tg = SahteTelegram()
+    u = Uygulama(Depo(tmp_path), toplayici(k), tg, CaptchaKoprusu(tg), saat=Saat("2026-11-26T09:00"))
+    assert u.tani()["ok"] and u.depo.oku("durum.json")["son_tani"]["ok"] and not u.tani_suruyor
+    assert not u.depo.oku("mukellefler.json")                       # veri kaydedilmedi
+    k2 = SahteKopru(giris_hatasi=True)
+    u2 = Uygulama(Depo(tmp_path / "b"), toplayici(k2), tg, CaptchaKoprusu(tg), saat=Saat("2026-11-26T09:00"))
+    r = u2.tani()
+    assert not r["ok"] and "giriş" in r["mesaj"].lower() and not u2.tani_suruyor
+
+
+def test_tani_luca_disi_toplayicida_calismaz(tmp_path):
+    from app.toplayici import OrnekToplayici
+    tg = SahteTelegram()
+    u = Uygulama(Depo(tmp_path), OrnekToplayici(), tg, CaptchaKoprusu(tg), saat=Saat("2026-11-26T09:00"))
+    assert not u.tani()["ok"]

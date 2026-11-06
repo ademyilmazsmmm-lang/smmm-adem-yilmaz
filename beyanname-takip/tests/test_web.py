@@ -82,3 +82,35 @@ def test_captcha_web_uzerinden(istemci):
     c.captcha.resim = b"\x89PNGxx"
     assert ic.get("/api/captcha.png").content == b"\x89PNGxx"
     assert ic.post("/api/captcha", json={"kod": "ABCD"}).json() == {"ok": True}
+
+
+def test_tani_dosyalari_ve_yol_guvenligi(istemci):
+    ic, c, _ = istemci
+    for yol in ("/api/tani/dosyalar", "/api/tani/dosya?yol=x.png", "/api/tani.zip"):
+        assert ic.get(yol).status_code == 401
+    assert ic.post("/api/tani/calistir").status_code == 401
+    giris(ic)
+    tani = c.depo.dizin / "tani" / "ofis"
+    tani.mkdir(parents=True)
+    (tani / "a.png").write_bytes(b"\x89PNGxx")
+    (tani / "sayfa.html").write_text("<script>alert(1)</script>", encoding="utf-8")
+    (tani / "filtre-secenekleri.json").write_text('{"Beyanname": ["KDV1"]}', encoding="utf-8")
+    (c.depo.dizin / "sir.png").write_bytes(b"gizli")                 # tani klasörünün dışında
+    liste = ic.get("/api/tani/dosyalar").json()
+    assert {x["yol"] for x in liste} == {"ofis/a.png", "ofis/sayfa.html", "ofis/filtre-secenekleri.json"}
+    r = ic.get("/api/tani/dosya", params={"yol": "ofis/a.png"})
+    assert r.content == b"\x89PNGxx" and r.headers["content-type"] == "image/png"
+    h = ic.get("/api/tani/dosya", params={"yol": "ofis/sayfa.html"})
+    assert h.headers["content-type"].startswith("text/plain") and h.headers["x-content-type-options"] == "nosniff"
+    assert "sandbox" in h.headers["content-security-policy"]
+    for kotu in ("../sir.png", "ofis/../../sir.png", "/etc/passwd", "ofis", "ofis/yok.png", "ofis/a.exe"):
+        assert ic.get("/api/tani/dosya", params={"yol": kotu}).status_code == 404, kotu
+    assert ic.get("/api/tani.zip").status_code == 200
+
+
+def test_tani_calistir_luca_disinda_400(istemci):
+    ic, _, _ = istemci
+    giris(ic)
+    assert ic.post("/api/tani/calistir").status_code == 400          # OrnekToplayici'nin tani() yok
+    d = ic.get("/api/durum").json()
+    assert d["tani_var"] is False and d["tani_suruyor"] is False

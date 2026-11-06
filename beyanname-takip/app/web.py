@@ -112,7 +112,8 @@ def uygulama_olustur(cekirdek=None, env=os.environ):
         d = cekirdek.depo.oku("durum.json", {})
         return {"veri": cekirdek.veri_durumu(), "son_toplama": d.get("son_toplama"),
                 "telegram": cekirdek.telegram.hazir, "captcha_bekliyor": cekirdek.captcha.bekliyor_mu(),
-                "simdi": simdi_tr().isoformat(),
+                "simdi": simdi_tr().isoformat(), "son_tani": d.get("son_tani"), "tani_suruyor": cekirdek.tani_suruyor,
+                "tani_var": hasattr(cekirdek.toplayici, "tani"),
                 "turler": {k: {"ad": v["ad"], "periyotlar": list(v["periyotlar"])} for k, v in BEYANNAMELER.items()}}
 
     @app.get("/api/maddeler", dependencies=gerekli)
@@ -176,6 +177,39 @@ def uygulama_olustur(cekirdek=None, env=os.environ):
         """Luca'dan veriyi şimdi çeker (arka planda); sonucu /api/durum'dan izleyin. Telegram'a mesaj atmaz."""
         threading.Thread(target=cekirdek.topla, daemon=True).start()
         return {"ok": True}
+
+    @app.post("/api/tani/calistir", dependencies=gerekli)
+    def tani_calistir():
+        """Luca'ya girip ekranları açar, ekran görüntüleri ve filtre seçeneklerini kaydeder (veri kaydetmez)."""
+        if not hasattr(cekirdek.toplayici, "tani"):
+            raise HTTPException(400, "Tanı yalnızca TOPLAYICI=luca iken çalışır")
+        if cekirdek.tani_suruyor:
+            raise HTTPException(409, "Tanı zaten çalışıyor")
+        threading.Thread(target=cekirdek.tani, daemon=True).start()
+        return {"ok": True}
+
+    TANI_TURLERI = {".png": "image/png", ".html": "text/plain", ".json": "text/plain", ".log": "text/plain", ".txt": "text/plain"}
+
+    @app.get("/api/tani/dosyalar", dependencies=gerekli)
+    def tani_dosyalari():
+        kok = cekirdek.depo.dizin / "tani"
+        sonuc = []
+        for yol in kok.rglob("*") if kok.exists() else []:
+            if yol.is_file() and yol.suffix in TANI_TURLERI:
+                st = yol.stat()
+                sonuc.append({"yol": yol.relative_to(kok).as_posix(), "boyut": st.st_size, "zaman": st.st_mtime})
+        return sorted(sonuc, key=lambda x: -x["zaman"])
+
+    @app.get("/api/tani/dosya", dependencies=gerekli)
+    def tani_dosyasi(yol: str):
+        kok = (cekirdek.depo.dizin / "tani").resolve()
+        hedef = (kok / yol).resolve()
+        if kok not in hedef.parents or not hedef.is_file() or hedef.suffix not in TANI_TURLERI:
+            raise HTTPException(404, "Dosya yok")
+        # Luca sayfa kaynağı bu sayfanın kaynağında çalışmasın: html de düz metin olarak sunulur
+        return Response(hedef.read_bytes(), media_type=TANI_TURLERI[hedef.suffix] + ("" if hedef.suffix == ".png" else "; charset=utf-8"),
+                        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store",
+                                 "Content-Security-Policy": "default-src 'none'; img-src 'self'; sandbox"})
 
     @app.get("/api/tani.zip", dependencies=gerekli)
     def tani_zip():

@@ -48,10 +48,12 @@ select,input[type=text],input[type=password]{width:100%;padding:7px 8px;border:1
   <button data-sekme="durum" aria-pressed="true">Durum</button>
   <button data-sekme="mukellef" aria-pressed="false">Mükellefler</button>
   <button data-sekme="sistem" aria-pressed="false">Sistem</button>
+  <button data-sekme="tani" aria-pressed="false">Tanı</button>
 </nav>
 <div id="durum"></div>
 <div id="mukellef" class="gizli"></div>
 <div id="sistem" class="gizli"></div>
+<div id="tani" class="gizli"></div>
 </section>
 </main>
 <script>
@@ -60,6 +62,7 @@ const $ = (id) => document.getElementById(id);
 function h(tag, attr, ...cocuk) {
   const e = document.createElement(tag);
   for (const [k, v] of Object.entries(attr || {})) {
+    if (v === null || v === undefined || v === false) continue;
     if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
   }
   for (const c of cocuk.flat()) if (c !== null && c !== undefined && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
@@ -86,7 +89,7 @@ $("cikisBtn").onclick = async () => { await fetch("/api/cikis", {method: "POST"}
 document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   sekme = b.dataset.sekme;
   document.querySelectorAll("nav button").forEach((x) => x.setAttribute("aria-pressed", x === b));
-  for (const s of ["durum", "mukellef", "sistem"]) $(s).classList.toggle("gizli", s !== sekme);
+  for (const s of ["durum", "mukellef", "sistem", "tani"]) $(s).classList.toggle("gizli", s !== sekme);
   yukle();
 });
 
@@ -173,10 +176,41 @@ function sistemCiz() {
     h("button", {onclick: async (e) => { const r = await api("/api/test-bildirim", "POST"); e.target.textContent = r.gonderildi ? "Gönderildi ✓" : "Gönderilemedi ✗"; }}, "Test mesajı gönder")));
 }
 
+async function taniCiz() {
+  const kok = $("tani"); kok.textContent = "";
+  const t = durumVeri.son_tani, calisiyor = durumVeri.tani_suruyor;
+  kok.append(h("div", {class: "kart"}, h("div", {class: "baslik"}, "Luca tanısı"),
+    h("p", {class: "soluk"}, "Luca'ya girer, müşteri listesi ve GİB Beyanname Takip ekranlarını açar, ekran görüntülerini ve filtre seçeneklerini kaydeder. Veri kaydetmez, beyanname kontrolünü etkilemez. 1-3 dakika sürebilir."),
+    !durumVeri.tani_var ? h("p", {class: "eksik"}, "Tanı yalnızca TOPLAYICI=luca iken çalışır.") : "",
+    h("button", {class: "ana", disabled: calisiyor || !durumVeri.tani_var ? "disabled" : null, onclick: async (e) => {
+      e.target.disabled = true; try { await api("/api/tani/calistir", "POST"); } catch (x) { alert(x.message); } setTimeout(yukle, 3000); }},
+      calisiyor ? "Çalışıyor…" : "Tanıyı çalıştır"),
+    t ? h("p", {class: t.ok ? "verildi" : "eksik"}, (t.zaman || "").replace("T", " ") + " · " + t.mesaj) : h("p", {class: "soluk"}, "Henüz çalıştırılmadı.")));
+  const dosyalar = await api("/api/tani/dosyalar");
+  if (!dosyalar.length) return;
+  const secenek = dosyalar.filter((d) => d.yol.endsWith("filtre-secenekleri.json"));
+  for (const d of secenek) {
+    const r = await fetch("/api/tani/dosya?yol=" + encodeURIComponent(d.yol));
+    let v = {}; try { v = JSON.parse(await r.text()); } catch (e) {}
+    kok.append(h("div", {class: "kart"}, h("div", {class: "baslik"}, "Filtre seçenekleri · " + d.yol.split("/")[0]),
+      ...Object.entries(v).map(([ad, l]) => h("p", {}, h("b", {}, ad + ": "), l.filter(Boolean).join(" · ") || "(boş)"))));
+  }
+  const resimler = dosyalar.filter((d) => d.yol.endsWith(".png")), digerleri = dosyalar.filter((d) => !d.yol.endsWith(".png"));
+  kok.append(h("div", {class: "kart"}, h("div", {class: "baslik"}, "Ekran görüntüleri (" + resimler.length + ")"),
+    h("p", {class: "soluk"}, "Mükellef adları görünür; paylaşmadan önce karalayın. Büyütmek için dokunun."),
+    h("div", {class: "izgara"}, ...resimler.slice(0, 24).map((d) => h("a", {href: "/api/tani/dosya?yol=" + encodeURIComponent(d.yol), target: "_blank"},
+      h("img", {src: "/api/tani/dosya?yol=" + encodeURIComponent(d.yol), alt: d.yol, style: "width:100%;border:1px solid var(--cizgi);border-radius:8px", loading: "lazy"}),
+      h("div", {class: "soluk"}, d.yol)))),
+    h("p", {}, h("a", {href: "/api/tani.zip"}, "Hepsini indir (zip)"))));
+  kok.append(h("div", {class: "kart"}, h("div", {class: "baslik"}, "Diğer dosyalar"),
+    ...digerleri.slice(0, 40).map((d) => h("div", {class: "satir"}, h("a", {href: "/api/tani/dosya?yol=" + encodeURIComponent(d.yol), target: "_blank"}, d.yol), h("span", {class: "soluk"}, Math.round(d.boyut / 1024) + " KB")))));
+}
+
 async function yukle() {
   try {
     durumVeri = await api("/api/durum"); goster("app"); bannerCiz();
-    if (sekme === "durum") await durumCiz(); else if (sekme === "mukellef") await mukellefCiz(); else sistemCiz();
+    if (sekme === "durum") await durumCiz(); else if (sekme === "mukellef") await mukellefCiz(); else if (sekme === "tani") await taniCiz(); else sistemCiz();
+    if (durumVeri.tani_suruyor && sekme === "tani") setTimeout(yukle, 4000);
   } catch (e) { if (e.message !== "giris") $("banner").textContent = "Hata: " + e.message; }
 }
 yukle();
