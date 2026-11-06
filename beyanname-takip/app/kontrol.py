@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 
 from .kurallar import (BEYANNAMELER, donem_bitisi, donemler_uret, onayli_mi, sade, tur_coz)
 
-VARSAYILAN_AYAR = {"KDV1": "aylik", "MPHB": "aylik", "GECICI": "3aylik", "onayli": False, "isyeri": ""}
+VARSAYILAN_AYAR = {"KDV1": "aylik", "MPHB": "aylik", "GECICI": "3aylik", "sgk": "auto", "onayli": False, "isyeri": ""}
 
 # Hangi kalan günde hangi saatlerde uyarı gider (kalan < 0: süre geçmiş, yalnızca sabah).
 SLOTLAR = ("09:00", "13:00", "17:00", "20:30", "21:00", "22:30")
@@ -32,7 +32,7 @@ class Madde:
     etiket: str
     son_gun: date
     kalan: int
-    durum: str            # verildi | onaysiz | eksik | muaf
+    durum: str            # verildi | onaysiz | eksik | sgk_eksik (MUHSGK var, SGK e-Bildirgesi yok) | muaf
     ayar_onayli: bool
     kapanis_donemi: bool
 
@@ -83,6 +83,16 @@ def ayni_firma(m, r):
     return False
 
 
+def sgk_tamam(r):
+    """MUHSGK kaydında SGK (e-Bildirge) kısmı tamam mı: kayıt onaylı, en az bir e-Bildirge var ve durumu hatalı ("0") ya da
+    iptal ("6") değil (rozet: yeşil = 2/3, kırmızı = 0, gri = 6)."""
+    try:
+        sayi = int(r.get("ebildirge") or 0)
+    except (TypeError, ValueError):
+        sayi = 0
+    return onayli_mi(r.get("durum")) and sayi >= 1 and str(r.get("sgk_durum") or "") not in ("0", "6")
+
+
 def degerlendir(mukellefler, ayarlar, beyannameler, bugun, tatil, once=10, sonra=35):
     """Pencere içindeki (bugün-once .. bugün+sonra) tüm beklenen beyannameler ve durumları."""
     bas, bit = bugun - timedelta(days=once), bugun + timedelta(days=sonra)
@@ -93,9 +103,14 @@ def degerlendir(mukellefler, ayarlar, beyannameler, bugun, tatil, once=10, sonra
         if tur and y:
             idx[(tur, y, a)].append(b)
     muaf = {(x.get("id"), x.get("tur"), x.get("donem")) for x in (ayarlar.get("muaf") or [])}
+    mphb_kayitlari = [r for (t, _, _), l in idx.items() if t == "MPHB" for r in l]
     sonuc = []
     for m in mukellefler:
         ay = ayar_al(ayarlar, m["id"])
+        # SGK: ayar "var" ise her MUHSGK'da e-Bildirge beklenir; "auto"da firmanın kayıtlarında e-Bildirgeli bir MUHSGK geçmişi
+        # varsa (çalışanı var) beklenir; "yok"ta beklenmez. Çalışanı olan firmada e-Bildirge yoksa prim hizmet bildirgesi verilmemiştir.
+        sgk_ayar = ay.get("sgk", "auto")
+        sgk_beklenir = None
         acilis, kapanis = tarih_coz(m.get("acilis")), tarih_coz(m.get("kapanis"))
         for tur in BEYANNAMELER:
             periyot = ay.get(tur, "yok")
@@ -105,14 +120,20 @@ def degerlendir(mukellefler, ayarlar, beyannameler, bugun, tatil, once=10, sonra
                 if (acilis and d.bit < acilis) or (kapanis and d.bas > kapanis):
                     continue
                 kayitlar = [r for r in idx.get((tur, d.yil, d.ay), []) if ayni_firma(m, r)]
-                if any(onayli_mi(r.get("durum")) for r in kayitlar):
+                onayli = [r for r in kayitlar if onayli_mi(r.get("durum"))]
+                if onayli:
                     durum = "verildi"
+                    if tur == "MPHB" and sgk_ayar != "yok":
+                        if sgk_beklenir is None:
+                            sgk_beklenir = sgk_ayar == "var" or any(sgk_tamam(r) for r in mphb_kayitlari if ayni_firma(m, r))
+                        if sgk_beklenir and not any(sgk_tamam(r) for r in onayli):
+                            durum = "sgk_eksik"
                 elif kayitlar:
                     durum = "onaysiz"
-                elif (m["id"], tur, d.anahtar) in muaf:
-                    durum = "muaf"
                 else:
                     durum = "eksik"
+                if durum in ("eksik", "sgk_eksik") and (m["id"], tur, d.anahtar) in muaf:
+                    durum = "muaf"
                 sonuc.append(Madde(
                     mid=m["id"], ad=m.get("ad") or m.get("unvan") or m["id"], hesap=m["hesap"],
                     isyeri=ay.get("isyeri", ""), tur=tur, donem=d.anahtar, etiket=d.etiket,
@@ -153,7 +174,7 @@ def mesaj_olustur(maddeler, slot, veri_zamani=None, veri_hatasi=None, veri_eski=
     """Telegram (HTML) metinleri. Uyarı gerekmiyorsa boş liste döner.
     Aynı kalan günü olan eksikler tek başlık altında; mükellef listesi tür+dönem bazında."""
     e = html.escape
-    acik = [m for m in maddeler if m.durum in ("eksik", "onaysiz") and uyari_gerekli(m.kalan, slot)]
+    acik = [m for m in maddeler if m.durum in ("eksik", "onaysiz", "sgk_eksik") and uyari_gerekli(m.kalan, slot)]
     satirlar = []
     if acik:
         grup = defaultdict(list)
@@ -171,6 +192,8 @@ def mesaj_olustur(maddeler, slot, veri_zamani=None, veri_hatasi=None, veri_eski=
                     etk = []
                     if m.durum == "onaysiz":
                         etk.append("gönderilmiş ama ONAYLANMAMIŞ")
+                    elif m.durum == "sgk_eksik":
+                        etk.append("MUHSGK verilmiş ama SGK bildirgesi (E-Bil.) YOK")
                     if not m.ayar_onayli:
                         etk.append("ayar onaysız")
                     if m.kapanis_donemi:

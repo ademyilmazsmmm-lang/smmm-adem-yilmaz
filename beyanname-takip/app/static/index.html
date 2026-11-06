@@ -23,7 +23,7 @@ nav button[aria-pressed=true]{background:var(--ana);color:var(--bg);border-color
 .soluk{color:var(--soluk);font-size:.85rem}
 .satir{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--cizgi)}
 .etiket{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.78rem;border:1px solid currentColor;white-space:nowrap}
-.eksik{color:var(--kirmizi)}.onaysiz{color:var(--sari)}.verildi{color:var(--yesil)}.muaf{color:var(--gri)}
+.eksik{color:var(--kirmizi)}.sgk_eksik{color:var(--kirmizi)}.onaysiz{color:var(--sari)}.verildi{color:var(--yesil)}.muaf{color:var(--gri)}
 .uyari{border-color:var(--kirmizi);color:var(--kirmizi)}
 .izgara{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:8px}
 label{font-size:.8rem;color:var(--soluk);display:block}
@@ -78,7 +78,7 @@ let durumVeri = null, sekme = "durum", filtre = "eksik", kapanmislariGoster = fa
 const KAPANMIS = (m) => { if (!m.kapanis) return false; const sinir = new Date(Date.now() - 120 * 864e5).toISOString().slice(0, 10); return m.kapanis < sinir; };
 function goster(ne) { $("giris").classList.toggle("gizli", ne !== "giris"); $("uygulama").classList.toggle("gizli", ne === "giris"); }
 const TR_TARIH = (iso) => iso ? iso.slice(8, 10) + "." + iso.slice(5, 7) + "." + iso.slice(0, 4) : "";
-const DURUM_AD = {eksik: "EKSİK", onaysiz: "ONAYSIZ", verildi: "verildi", muaf: "verilmeyecek"};
+const DURUM_AD = {eksik: "EKSİK", onaysiz: "ONAYSIZ", sgk_eksik: "SGK EKSİK", verildi: "verildi", muaf: "verilmeyecek"};
 const KALAN = (k) => k < 0 ? (-k) + " gün geçti" : k === 0 ? "BUGÜN SON GÜN" : k + " gün kaldı";
 
 $("girisBtn").onclick = async () => {
@@ -118,12 +118,12 @@ async function durumCiz() {
     ...[["eksik", "Eksik / onaysız"], ["hepsi", "Hepsi"]].map(([k, ad]) =>
       h("button", {"aria-pressed": filtre === k, class: filtre === k ? "ana" : "", onclick: () => { filtre = k; durumCiz(); }}, ad)));
   kok.append(sec);
-  const liste = maddeler.filter((m) => filtre === "hepsi" || m.durum === "eksik" || m.durum === "onaysiz");
+  const liste = maddeler.filter((m) => filtre === "hepsi" || ["eksik", "onaysiz", "sgk_eksik"].includes(m.durum));
   if (!liste.length) kok.append(h("div", {class: "kart"}, filtre === "hepsi" ? "Pencerede beyanname yok." : "Eksik beyanname yok ✓"));
   const gruplar = new Map();
   for (const m of liste) { const a = m.son_gun + "|" + m.tur + "|" + m.donem; if (!gruplar.has(a)) gruplar.set(a, []); gruplar.get(a).push(m); }
   for (const ms of gruplar.values()) {
-    const m0 = ms[0], eksik = ms.filter((x) => x.durum === "eksik" || x.durum === "onaysiz").length;
+    const m0 = ms[0], eksik = ms.filter((x) => ["eksik", "onaysiz", "sgk_eksik"].includes(x.durum)).length;
     const kart = h("div", {class: "kart"}, h("div", {class: "baslik"},
       h("span", {}, m0.tur_ad + " – " + m0.etiket), h("span", {class: eksik ? "eksik" : "verildi"}, eksik + " / " + ms.length + " eksik")),
       h("div", {class: "soluk"}, "Son gün " + TR_TARIH(m0.son_gun) + " · " + KALAN(m0.kalan)));
@@ -131,7 +131,7 @@ async function durumCiz() {
       kart.append(h("div", {class: "satir"},
         h("span", {}, m.ad, m.isyeri ? h("span", {class: "soluk"}, " · " + m.isyeri) : "", m.ayar_onayli ? "" : h("span", {class: "soluk"}, " · ayar onaysız")),
         h("span", {}, h("span", {class: "etiket " + m.durum}, DURUM_AD[m.durum]), " ",
-          m.durum === "eksik" ? h("button", {onclick: async () => {
+          (m.durum === "eksik" || m.durum === "sgk_eksik") ? h("button", {onclick: async () => {
             const not = prompt("Bu dönem için beyanname verilmeyecek (örn. işlem yok). Not:", "");
             if (not === null) return;
             await api("/api/muaf", "POST", {id: m.mid, tur: m.tur, donem: m.donem, aciklama: not}); durumCiz();
@@ -159,14 +159,15 @@ async function mukellefCiz() {
       const s = h("select", {}, ...["yok", ...turler[tur].periyotlar].map((p) => h("option", {value: p}, p === "yok" ? "yok" : p === "aylik" ? "aylık" : "3 aylık")));
       s.value = m.ayar[tur]; sel[tur] = s; return h("div", {}, h("label", {}, turler[tur].ad), s);
     };
+    const sgk = h("select", {}, h("option", {value: "auto"}, "Otomatik"), h("option", {value: "var"}, "Çalışanı var"), h("option", {value: "yok"}, "Çalışanı yok")); sgk.value = m.ayar.sgk || "auto";
     const isyeri = h("input", {type: "text", maxlength: "40", placeholder: "Etiket (örn. işletme)"}); isyeri.value = m.ayar.isyeri || "";
     const kaydet = h("button", {class: m.ayar.onayli ? "" : "ana", onclick: async () => {
-      await api("/api/mukellef/ayar?mid=" + encodeURIComponent(m.id), "PUT", {KDV1: sel.KDV1.value, MPHB: sel.MPHB.value, GECICI: sel.GECICI.value, isyeri: isyeri.value, onayli: true});
+      await api("/api/mukellef/ayar?mid=" + encodeURIComponent(m.id), "PUT", {KDV1: sel.KDV1.value, MPHB: sel.MPHB.value, GECICI: sel.GECICI.value, sgk: sgk.value, isyeri: isyeri.value, onayli: true});
       kaydet.textContent = "Kaydedildi ✓";
     }}, m.ayar.onayli ? "Kaydet" : "Onayla ve kaydet");
     kok.append(h("div", {class: "kart"}, h("div", {class: "baslik"}, h("span", {}, m.ad), h("span", {class: "soluk"}, m.hesap + (m.kapanis ? " · kapanış " + TR_TARIH(m.kapanis) : ""))),
       h("div", {class: "soluk"}, m.unvan + (m.vkn ? " · " + m.vkn : "")),
-      h("div", {class: "izgara"}, alan("KDV1"), alan("MPHB"), alan("GECICI"), h("div", {}, h("label", {}, "İşyeri etiketi"), isyeri)),
+      h("div", {class: "izgara"}, alan("KDV1"), alan("MPHB"), alan("GECICI"), h("div", {}, h("label", {}, "SGK (e-Bildirge)"), sgk), h("div", {}, h("label", {}, "İşyeri etiketi"), isyeri)),
       h("p", {}, kaydet)));
   }
 }

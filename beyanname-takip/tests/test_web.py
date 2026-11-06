@@ -130,3 +130,14 @@ def test_toplu_onay(istemci):
     assert m2[ids[0]]["KDV1"] == "3aylik" and m2[ids[0]]["MPHB"] == "yok"        # var olan ayara dokunulmaz
     assert m2[ids[1]]["KDV1"] == "aylik" and m2[ids[1]]["GECICI"] == "3aylik"
     assert ic.post("/api/mukellef/toplu-onay", json={"ids": ids}).json() == {"onaylanan": 0}
+
+
+def test_sgk_ayari_kaydedilir_ve_dogrulanir(istemci):
+    ic, c, _ = istemci
+    giris(ic)
+    c.topla()
+    mid = ic.get("/api/mukellefler").json()[0]["id"]
+    assert ic.get("/api/mukellefler").json()[0]["ayar"]["sgk"] == "auto"
+    assert ic.put("/api/mukellef/ayar", params={"mid": mid}, json={"sgk": "var", "onayli": True}).status_code == 200
+    assert [x["ayar"]["sgk"] for x in ic.get("/api/mukellefler").json() if x["id"] == mid] == ["var"]
+    assert ic.put("/api/mukellef/ayar", params={"mid": mid}, json={"sgk": "bozuk"}).status_code == 400

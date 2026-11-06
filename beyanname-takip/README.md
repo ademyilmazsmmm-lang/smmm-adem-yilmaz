@@ -106,8 +106,12 @@ Her şey Luca'nın içinde yapılır, GİB/e-Beyanname'ye bağlanılmaz:
    anlaşılır ve web sayfasında varsayılan olarak gizlenir. **Dönemi açılmamış firma için beyanname takibi yapılmaz.**
 3. *Muhasebe > Beyannameler > GİB Beyanname Takip* (Luca bunu ayrı bir pencerede açar):
    * Önce **"GİB'den Getir"**: Luca beyannameleri kendiliğinden çekmez; arama ekranı yalnızca daha önce GİB'den getirilmiş
-     kayıtları bulur. "İşlem Takip" penceresinde GİB sorgusu ilerler ve bitince "Ekrandaki listeyi yenilemek için…" yazısı
-     çıkar; program bu yazıyı bekler, pencereyi kapatır (`LUCA_GIB_GETIR=0` kapatır, `LUCA_GIB_GETIR_SN` bekleme süresi, 180).
+     kayıtları bulur. Düğme bir **"GİB Beyanname Sorgula" tarih penceresi** açar (en fazla 31 günlük, aynı yıl içinde bir
+     yükleme tarihi aralığı); program son `LUCA_GIB_GUN` günü (varsayılan 15, en çok 31; yıl başından öncesi kırpılır) yazar,
+     "Beyannameleri GİB'dan Getir"e basar. "İşlem Takip" penceresinde GİB sorgusu ilerler (yaklaşık 1 dk/ay) ve bitince
+     "Ekrandaki listeyi yenilemek için…" yazısı çıkar (liste kendiliğinden yenilenmez); program bu yazıyı bekler, pencereyi
+     kapatır. `LUCA_GIB_GETIR=0` adımı kapatır, `LUCA_GIB_GETIR_SN` bekleme süresidir (180). Luca'nın GİB kullanıcı kodu/şifresi
+     "Yönetici > SM/SMM Bilgileri > Kurum Şifre Bilgileri"nde kayıtlı olmalıdır. İlk kurulumda bir kez `LUCA_GIB_GUN=31` verin.
      Çalışmazsa eski veriyle devam edilir ve mesajlara "Luca verisi güncel olmayabilir" uyarısı eklenir.
    * Sonra Filtre penceresinde **"Beyanname Durum" = Tümü** (pencere varsayılan olarak "Onaylanmış" açılır; Tümü seçilmezse
      hatalı ve iptal edilmiş beyannameler hiç gelmez) ve yalnızca **Paket Yükleme Tarihi** aralığı yazılır (son günü
@@ -117,15 +121,20 @@ Her şey Luca'nın içinde yapılır, GİB/e-Beyanname'ye bağlanılmaz:
      ("243 adet beyanname kaydı listelendi") yanıttaki kayıt sayısıyla doğrulanır.
    * Eşleştirme: VKN/TCKN, yoksa Luca kısa adı, yoksa unvan. Bir dönem için **onaylanmış kayıt varsa verildi**; yalnızca
      hatalı/iptal edilmiş kayıt varsa "gönderilmiş ama ONAYLANMAMIŞ" diye uyarılır; tanınmayan bir durum metni onaylı sayılmaz.
-   * SGK (e-Bildirge): ekrandaki "E-Bil." sütunu. MUHSGK kayıtlarındaki `ebildirgeSayisi` ve `muhSgkDurum` okunur ve kaydedilir,
-     ama henüz alarm kuralına bağlanmadı (MUHSGK'nın "Onaylanmış" olması şimdilik sigorta kısmını da kapsar sayılır).
+   * **SGK (e-Bildirge):** ekrandaki "E-Bil." sütunu; simge, işyeri SGK numarası başına bir bildirgeyi gösterir (rozet: yeşil
+     onaylı, kırmızı hatalı, gri iptal). Kural: **çalışanı olan firmanın MUHSGK'sında e-Bildirge de olmalı; yoksa prim hizmet
+     bildirgesi verilmemiştir.** Onaylı bir MUHSGK'da en az bir e-Bildirge yoksa ya da yalnızca iptal (`muhSgkDurum` 6) /
+     hatalı (0) e-Bildirge varsa durum **"SGK EKSİK"** olur ve diğer eksikler gibi uyarılır. Mükellef ayarında **SGK**:
+     *Otomatik* (firmanın kayıtlarında e-Bildirgeli onaylı bir MUHSGK geçmişi varsa çalışanı var sayılır), *Çalışanı var*
+     (her MUHSGK'da e-Bildirge beklenir), *Çalışanı yok*. `muhSgkDurum` "3"ün tam anlamı bilinmiyor; yeşil rozet olduğundan
+     tamam sayılıyor.
 4. Karşılaştırma, uyarı ve Telegram yukarıdaki gibidir.
 
 **Doğrulanan:** JSON yorumlama (gerçek yanıtın alan yapısıyla uydurma veride), eşleştirme ve durum kuralları, 3 aylık
 dönemlerin dönem bitişiyle eşleşmesi, "GİB'den Getir" ve filtre adımlarının sırası ve hata yönetimi (sahte tarayıcıyla) ve
 `lucabot` paketinin köprünün çağırdığı bütün fonksiyonları içermesi. **Doğrulanmayan:** gerçek Luca'da uçtan uca çalışma,
-girişin sunucuda (Xvfb, yurt dışı IP) çalışması, "GİB'den Getir"in gerçek süresi ve bir onay penceresi çıkarıp çıkarmadığı,
-filtre alanlarının gerçek sayfada beklenen biçimde doldurulduğu.
+girişin sunucuda (Xvfb, yurt dışı IP) çalışması, "GİB Beyanname Sorgula" penceresindeki tarih kutularının gerçek sayfada
+bulunup doldurulduğu, filtre alanlarının beklenen biçimde doldurulduğu.
 
 **İlk kurulum (sırayla):**
 1. Dockerfile.luca ile (özel depodan) derleyin; ortam değişkenleri: `TOPLAYICI=luca`, `LUCA_UYE_NO`, `LUCA_KULLANICI`,

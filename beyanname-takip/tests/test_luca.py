@@ -10,8 +10,8 @@ from app.cekirdek import Uygulama
 from app.depo import Depo
 from app.kontrol import degerlendir, mukellef_normalize
 from app.kurallar import Tatiller, onayli_mi
-from app.luca_ekran_okuma import (beyanname_json_kayitlari, musteri_html_filtre, musteri_html_oku, musteri_yillari,
-                                  musterileri_birlestir, yukleme_araligi)
+from app.luca_ekran_okuma import (beyanname_json_kayitlari, gib_getir_araligi, musteri_html_filtre, musteri_html_oku,
+                                  musteri_yillari, musterileri_birlestir, yukleme_araligi)
 from app.luca_toplayici import GercekLucabot, LucaHatasi, LucaToplayici, kimlik_oku
 from tests.test_cekirdek import Saat, SahteTelegram
 
@@ -88,6 +88,14 @@ def test_yukleme_araligi():
     assert yukleme_araligi(date(2026, 12, 29), T)[0] > date(2026, 9, 27)                        # geçmiş dönemler pencereden çıkınca ilerler
 
 
+def test_gib_getir_araligi():
+    assert gib_getir_araligi(date(2026, 11, 6), 15) == (date(2026, 10, 23), date(2026, 11, 6))
+    assert gib_getir_araligi(date(2026, 11, 6), 99) == (date(2026, 10, 7), date(2026, 11, 6))        # en çok 31 gün
+    assert gib_getir_araligi(date(2026, 11, 6), "31")[0] == date(2026, 10, 7)
+    assert gib_getir_araligi(date(2027, 1, 10), 31) == (date(2027, 1, 1), date(2027, 1, 10))        # aynı yıl: yıl başına kırpılır
+    assert gib_getir_araligi(date(2026, 11, 6), 0)[0] == date(2026, 11, 6)
+
+
 def mus(ad, vkn, sid):
     return mukellef_normalize({"sirket_id": sid, "ad": ad, "unvan": ad + " LTD", "vkn": vkn, "acilis": "01/01/2020", "kapanis": ""}, "ofis")
 
@@ -128,6 +136,71 @@ def test_ucaylik_muhsgk_ve_gecici_donem_bitisiyle_eslesir():
     assert d == {"MPHB": "verildi", "GECICI": "verildi"}
 
 
+# ================= SGK (e-Bildirge) =================
+
+def sgk_kaydi(kisa, vkn, bit_ay, ebildirge, sgk_durum="2", durum=2, kod="MUHSGK"):
+    gun = {"09": "30", "10": "31", "08": "31"}[bit_ay]
+    r = bey_kaydi(kisa, kisa, vkn, kod, f"01{bit_ay}2026", f"{gun}{bit_ay}2026", durum=durum)
+    r["ebildirgeSayisi"], r["muhSgkDurum"] = ebildirge, sgk_durum
+    return r
+
+
+def sgk_durumlari(kayitlar, ayar=None, mlist=None, bugun=date(2026, 11, 26)):
+    k, _ = beyanname_json_kayitlari(cevap_json(kayitlar))
+    ml = mlist or [mus("ALFA", "1111111111", "1")]
+    return {x.donem: x.durum for x in degerlendir(ml, ayar or {}, k, bugun, T) if x.tur == "MPHB"}
+
+
+def test_sgk_otomatik_gecmiste_ebildirge_varsa_calisani_vardir():
+    # Eylül'de e-Bildirge vardı (çalışanı var), Ekim'in MUHSGK'sı onaylı ama e-Bildirge YOK -> SGK eksik
+    d = sgk_durumlari([sgk_kaydi("ALFA", "1111111111", "09", 1), sgk_kaydi("ALFA", "1111111111", "10", 0)])
+    assert d["2026-10"] == "sgk_eksik"
+
+
+def test_sgk_otomatik_hic_ebildirge_yoksa_beklenmez():
+    d = sgk_durumlari([sgk_kaydi("ALFA", "1111111111", "09", 0), sgk_kaydi("ALFA", "1111111111", "10", 0)])
+    assert d["2026-10"] == "verildi"                                                  # çalışanı olmayan firma
+
+
+def test_sgk_ayari_var_ve_yok():
+    k = [sgk_kaydi("ALFA", "1111111111", "10", 0)]
+    assert sgk_durumlari(k, {"mukellef": {"ofis:1": {"sgk": "var"}}})["2026-10"] == "sgk_eksik"       # kanıt yok ama "var"
+    k2 = [sgk_kaydi("ALFA", "1111111111", "09", 2), sgk_kaydi("ALFA", "1111111111", "10", 0)]
+    assert sgk_durumlari(k2, {"mukellef": {"ofis:1": {"sgk": "yok"}}})["2026-10"] == "verildi"        # "yok" kanıtı yok sayar
+
+
+def test_sgk_tamam_olanlar_ve_iptal_hatali_ebildirge():
+    ok = [sgk_kaydi("ALFA", "1111111111", "09", 1), sgk_kaydi("ALFA", "1111111111", "10", 2, "3")]    # durum 3 de yeşil sayılır
+    assert sgk_durumlari(ok)["2026-10"] == "verildi"
+    iptal = [sgk_kaydi("ALFA", "1111111111", "09", 1), sgk_kaydi("ALFA", "1111111111", "10", 1, "6")]   # e-Bildirge iptal (gri)
+    assert sgk_durumlari(iptal)["2026-10"] == "sgk_eksik"
+    hatali = [sgk_kaydi("ALFA", "1111111111", "09", 1), sgk_kaydi("ALFA", "1111111111", "10", 1, "0")]
+    assert sgk_durumlari(hatali)["2026-10"] == "sgk_eksik"
+    # aynı dönemde bir kayıtta e-Bildirge yok ama başka onaylı kayıtta var -> tamam
+    iki = [sgk_kaydi("ALFA", "1111111111", "09", 1), sgk_kaydi("ALFA", "1111111111", "10", 0), sgk_kaydi("ALFA", "1111111111", "10", 1)]
+    assert sgk_durumlari(iki)["2026-10"] == "verildi"
+
+
+def test_sgk_yalniz_onayli_muhsgk_kaniti_sayilir_ve_diger_turler_etkilenmez():
+    # kanıt yalnızca iptal/hatalı kayıttan geliyorsa çalışanı var sayılmaz; KDV1 hiçbir zaman SGK'ya bağlı değildir
+    d = sgk_durumlari([sgk_kaydi("ALFA", "1111111111", "09", 1, "6", durum=3), sgk_kaydi("ALFA", "1111111111", "10", 0)])
+    assert d["2026-10"] == "verildi"
+    k, _ = beyanname_json_kayitlari(cevap_json([sgk_kaydi("ALFA", "1111111111", "10", 0, kod="KDV1")]))
+    assert {x.donem: x.durum for x in degerlendir([mus("ALFA", "1111111111", "1")], {"mukellef": {"ofis:1": {"sgk": "var"}}}, k,
+                                                  date(2026, 11, 26), T) if x.tur == "KDV1"}["2026-10"] == "verildi"
+
+
+def test_sgk_eksik_muaf_ve_mesaj():
+    from app.kontrol import mesaj_olustur
+    k, _ = beyanname_json_kayitlari(cevap_json([sgk_kaydi("ALFA", "1111111111", "09", 1), sgk_kaydi("ALFA", "1111111111", "10", 0)]))
+    ml = [mus("ALFA", "1111111111", "1")]
+    m = degerlendir(ml, {}, k, date(2026, 11, 26), T)
+    metin = "\n".join(mesaj_olustur(m, "09:00", "2026-11-26T09:00"))
+    assert "SGK bildirgesi (E-Bil.) YOK" in metin and "ALFA" in metin
+    muaf = {"muaf": [{"id": "ofis:1", "tur": "MPHB", "donem": "2026-10"}]}
+    assert {x.donem: x.durum for x in degerlendir(ml, muaf, k, date(2026, 11, 26), T) if x.tur == "MPHB"}["2026-10"] == "muaf"
+
+
 # ================= orkestrasyon (sahte köprü) =================
 
 class SahteKopru:
@@ -157,8 +230,9 @@ class SahteKopru:
         self.cagrilar.append(f"ekran:{yil}")
         return "ekran"
 
-    def gib_getir(self, ekran):
+    def gib_getir(self, ekran, bas, bit):
         self.cagrilar.append("gib-getir")
+        self.gib_aralik = (bas, bit)
         if self.kw.get("gib_hatasi"):
             raise LucaHatasi("180 sn içinde bitmedi")
 
@@ -184,6 +258,7 @@ def test_akis_sirasi_ve_kayitlar():
     r = toplayici(k).topla(date(2026, 11, 26))
     assert k.cagrilar == ["giris", "musteri:2026", "ekran:2026", "gib-getir", "listele"]
     assert k.aralik == (date(2026, 9, 27), date(2026, 11, 26)) and k.kapandi
+    assert k.gib_aralik == (date(2026, 11, 12), date(2026, 11, 26))               # varsayılan 15 gün
     assert [(b["firma"], b["tur"], b["donem"], b["durum"], b["hesap"]) for b in r["beyannameler"]] == [
         ("ALFA LTD", "KDV1", "10/2026", "Onaylanmış", "ofis"), ("BETA AŞ", "MUHSGK", "10/2026", "Onaylanmış", "ofis")]
     assert r["hesaplar"]["ofis"] == {"mukellef": 2, "beyanname": 2} and r["uyarilar"] == []
@@ -194,6 +269,12 @@ def test_gib_getir_calismazsa_uyari_ile_devam_eder():
     r = toplayici(k).topla(date(2026, 11, 26))
     assert "listele" in k.cagrilar
     assert len(r["uyarilar"]) == 1 and "güncel olmayabilir" in r["uyarilar"][0] and "180 sn" in r["uyarilar"][0]
+
+
+def test_gib_getir_gun_sayisi_ayarlanir():
+    k = SahteKopru()
+    toplayici(k, {"LUCA_GIB_GUN": "31"}).topla(date(2026, 11, 26))
+    assert k.gib_aralik == (date(2026, 10, 27), date(2026, 11, 26))
 
 
 def test_gib_getir_kapatilabilir():
@@ -506,47 +587,61 @@ ISLEM_TAKIP = ("İşlem Takip\nBeyannameler GİB'den sorgulanıyor.\n1 adet pake
                "[x1] Paket içindeki beyannameler sorgulandı.\n")
 
 
-def gib_kopru(tmp_path, tiklanan, metinler, basilabilir=True):
-    """İşlem Takip penceresinin metni zamanla büyür; son turda bitiş yazısı eklenir."""
+def gib_kopru(tmp_path, tiklanan, yazilan, metinler, kutu_sayisi=2, basilabilir=lambda ad: True):
+    """"GİB'den Getir" akışı: düğme -> tarih penceresi (2 kutu) -> 'Beyannameleri GİB'dan Getir' -> İşlem Takip metni büyür."""
     metin = {"v": "Tablo satırları...\n"}
-    cerceve = SimpleNamespace(locator=lambda sel: SimpleNamespace(inner_text=lambda timeout=0: metin["v"]))
+    cerceve = SimpleNamespace(
+        evaluate=lambda js: kutu_sayisi,
+        locator=lambda sel: SimpleNamespace(sel=sel, inner_text=lambda timeout=0: metin["v"]))
     le = SimpleNamespace(cerceveler=lambda page: [cerceve],
-                         dugmeye_bas=lambda page, ad, sure=0: (tiklanan.append(ad), basilabilir)[1])
+                         dugmeye_bas=lambda page, ad, sure=0: (tiklanan.append(ad), basilabilir(ad))[1])
+    lb = SimpleNamespace(_tarih_yaz=lambda k, d: yazilan.append((k.sel, d)))
+    adimlar = iter(metinler)
 
     def bekle(page, f, ms, aralik_ms=0):
-        for tur, ek in enumerate(metinler):
-            metin["v"] += ek
+        for _ in range(len(metinler) + 1):
+            metin["v"] += next(adimlar, "")
             sonuc = f()
             if sonuc:
                 return sonuc
         return None
-    return kopru_kur(tmp_path, le=le, bekleme=SimpleNamespace(kosulu_bekle=bekle),
+    return kopru_kur(tmp_path, le=le, lb=lb, bekleme=SimpleNamespace(kosulu_bekle=bekle),
                      ml=SimpleNamespace(tani_kaydet=lambda *a, **k: None), env={})
 
 
-def test_koprude_gib_getir_islem_takip_bitisini_bekler_ve_pencereyi_kapatir(tmp_path):
-    tiklanan = []
-    g = gib_kopru(tmp_path, tiklanan, [ISLEM_TAKIP, "", "Ekrandaki listeyi yenilemek için buraya tıklayınız."])
+BITIS = "Ekrandaki listeyi yenilemek için buraya tıklayınız."
+
+
+def test_koprude_gib_getir_pencereyi_doldurur_bitisi_bekler_ve_kapatir(tmp_path):
+    tiklanan, yazilan = [], []
+    g = gib_kopru(tmp_path, tiklanan, yazilan, ["", ISLEM_TAKIP, "", BITIS])
+    g.gib_getir(SimpleNamespace(on=lambda *a: None), date(2026, 10, 23), date(2026, 11, 6))
+    assert tiklanan == ["GİB'den Getir", "Beyannameleri GİB'dan Getir", "Kapat"]
+    assert yazilan == [('[data-bb-tarih="0"]', date(2026, 10, 23)), ('[data-bb-tarih="1"]', date(2026, 11, 6))]
+
+
+def test_koprude_gib_getir_hatalari(tmp_path):
     ekran = SimpleNamespace(on=lambda *a: None)
-    g.gib_getir(ekran)
-    assert tiklanan == ["GİB'den Getir", "Kapat"]
-
-
-def test_koprude_gib_getir_bitmezse_hata(tmp_path):
     tiklanan = []
-    g = gib_kopru(tmp_path, tiklanan, [ISLEM_TAKIP, "", ""])                       # bitiş yazısı hiç gelmez
+    g = gib_kopru(tmp_path, tiklanan, [], ["", ISLEM_TAKIP, "", ""])                    # bitiş yazısı hiç gelmez
     with pytest.raises(LucaHatasi, match="içinde bitmedi"):
-        g.gib_getir(SimpleNamespace(on=lambda *a: None))
-    assert tiklanan == ["GİB'den Getir"]                                           # Kapat'a basılmaz
-    g2 = gib_kopru(tmp_path, [], [], basilabilir=False)
-    with pytest.raises(LucaHatasi, match="basılamadı"):
-        g2.gib_getir(SimpleNamespace(on=lambda *a: None))
+        g.gib_getir(ekran, date(2026, 10, 23), date(2026, 11, 6))
+    assert "Kapat" not in tiklanan                                                       # bitmeden pencere kapatılmaz
+    g2 = gib_kopru(tmp_path, [], [], [""] * 3, kutu_sayisi=0)                           # tarih penceresi açılmadı
+    with pytest.raises(LucaHatasi, match="tarih penceresi açılmadı"):
+        g2.gib_getir(ekran, date(2026, 10, 23), date(2026, 11, 6))
+    g3 = gib_kopru(tmp_path, [], [], [""], basilabilir=lambda ad: False)
+    with pytest.raises(LucaHatasi, match="'GİB'den Getir' düğmesine basılamadı"):
+        g3.gib_getir(ekran, date(2026, 10, 23), date(2026, 11, 6))
+    g4 = gib_kopru(tmp_path, [], [], [""], basilabilir=lambda ad: ad == "GİB'den Getir")
+    with pytest.raises(LucaHatasi, match="Beyannameleri GİB'dan Getir' düğmesine basılamadı"):
+        g4.gib_getir(ekran, date(2026, 10, 23), date(2026, 11, 6))
 
 
 def test_koprude_gib_getir_onay_pencerelerini_kabul_eder(tmp_path):
     dinleyiciler = []
-    g = gib_kopru(tmp_path, [], ["Ekrandaki listeyi yenilemek için"])
-    g.gib_getir(SimpleNamespace(on=lambda olay, f: dinleyiciler.append(olay)))
+    g = gib_kopru(tmp_path, [], [], ["", BITIS])
+    g.gib_getir(SimpleNamespace(on=lambda olay, f: dinleyiciler.append(olay)), date(2026, 10, 23), date(2026, 11, 6))
     assert dinleyiciler == ["dialog"]
 
 

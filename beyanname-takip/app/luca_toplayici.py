@@ -5,7 +5,8 @@ AKIŞ (hepsi Luca içinde; GİB/e-Beyanname'ye hiç bağlanılmaz):
   2. Yönetici > Müşteri İşlemleri > Müşteri Listesi: tüm mükellefler (Kısa/Uzun Ad, VKN, TC, Kuruluş ve Kapanış
      Tarihi, Luca şirket kimliği). Sayfa HTML'inden okunur; sayfanın yazdığı "Kayıt Sayısı" ile doğrulanır.
   3. Muhasebe > Beyannameler > GİB Beyanname Takip: önce "GİB'den Getir" (Luca beyannameleri kendiliğinden çekmez; arama
-     ekranı yalnızca daha önce GİB'den getirilmiş kayıtları bulur; bitince İşlem Takip penceresinde yazı çıkar), sonra "Beyanname Durum = Tümü" ve "Paket Yükleme
+     ekranı yalnızca daha önce GİB'den getirilmiş kayıtları bulur): açılan tarih penceresine son LUCA_GIB_GUN gün (en çok 31,
+     aynı yıl içinde) yazılır, "Beyannameleri GİB'dan Getir"e basılır, İşlem Takip bitişi beklenir. Sonra "Beyanname Durum = Tümü" ve "Paket Yükleme
      Tarihi" aralığıyla "Beyannameleri Listele" (varsayılan durum "Onaylanmış"tır: Tümü seçilmezse hatalılar görünmez). Ekranın kendi isteğinin yanıtı (beyan_listele.jq,
      JSON) okunur: tür (beyannameKodu), dönem, durum (Onaylanmış/Hatalı/İptal Edilmiş), VKN, kısa ad. Tablo okunmaz.
   4. Karşılaştırmayı cekirdek yapar (onaylı kayıt = verildi; yalnızca hatalı/iptal = "gönderilmiş ama onaysız").
@@ -25,7 +26,8 @@ LUCA_OFIS_UYE_NO gibi ön ekli adlar kullanılır; tek hesapta ön eksiz LUCA_UY
   LUCA_TANI=1      tanı modu: giriş + ekranlar açılır, filtre seçenekleri ve ekran görüntüleri DATA_DIR/tani'ya
                    yazılır, veri KAYDEDİLMEZ. Env değişkenine gerek yok: web sayfasındaki "Tanı" sekmesi aynısını yapar.
   LUCA_MUSTERI_YILI=otomatik|yok|2027,2026   müşteri listesi yıl filtresi (otomatik: yalnızca bu yıl)
-  LUCA_GIB_GETIR=1|0   okumadan önce "GİB'den Getir"e bas (varsayılan 1); LUCA_GIB_GETIR_SN: en çok bekleme (180)
+  LUCA_GIB_GETIR=1|0   okumadan önce "GİB'den Getir"e bas (varsayılan 1); LUCA_GIB_GUN: kaç günlük aralık (15, en çok 31);
+                       LUCA_GIB_GETIR_SN: en çok bekleme (180)
 Tarayıcı Xvfb altında (ekranlı kipte) çalışır: Dockerfile.luca'ya bakın.
 """
 
@@ -38,8 +40,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from .kurallar import Tatiller
-from .luca_ekran_okuma import (beyanname_json_kayitlari, musteri_html_filtre, musteri_html_oku, musteri_yillari,
-                               musterileri_birlestir, yukleme_araligi)
+from .luca_ekran_okuma import (beyanname_json_kayitlari, gib_getir_araligi, musteri_html_filtre, musteri_html_oku,
+                               musteri_yillari, musterileri_birlestir, yukleme_araligi)
 
 
 class LucaHatasi(RuntimeError):
@@ -129,7 +131,7 @@ class LucaToplayici:
             # Luca beyannameleri kendiliğinden GİB'den çekmez: "GİB'den Getir" düğmesi çeker. Düğme çalışmazsa eski veriyle
             # devam edilir (yanlış "eksik" alarmı olabilir, kaçan alarm olmaz) ve bu uyarı mesajlarda görünür.
             try:
-                kopru.gib_getir(ekran)
+                kopru.gib_getir(ekran, *gib_getir_araligi(bugun, self.env.get("LUCA_GIB_GUN", "15")))
             except LucaHatasi as e:
                 uyarilar.append(f"GİB'den Getir çalışmadı, Luca verisi güncel olmayabilir: {e}")
         bas, bit = yukleme_araligi(bugun, self.tatil)
@@ -299,11 +301,52 @@ class GercekLucabot:
                 return (t[i:] if i >= 0 else t)[-800:] or isaret
         return None
 
-    def gib_getir(self, ekran):
-        """Ekrandaki "GİB'den Getir": Luca GİB'e sorar ve "İşlem Takip" penceresinde ilerlemeyi yazar; bitince
-        "Ekrandaki listeyi yenilemek için buraya tıklayınız" çıkar (liste kendiliğinden yenilenmez). O yazıyı bekler, pencereyi
-        kapatır; listeyi sonra beyanname_listele kendisi çeker. Düğme bulunamaz ya da süre dolarsa LucaHatasi."""
-        le = self.m.le
+    # "GİB'den Getir" tıklanınca "GİB Beyanname Sorgula" penceresi açılır: iki tarih kutusu ("Tarih *"), en fazla 31 günlük ve
+    # aynı yıl içinde bir aralık, "Beyannameleri GİB'dan Getir" düğmesi. Tarih kutularını bulur ve işaretler (kaç tane bulduğunu döner).
+    GIB_DIYALOG_JS = """() => {
+      document.querySelectorAll('[data-bb-tarih]').forEach(e => e.removeAttribute('data-bb-tarih'));
+      const gorunur = e => !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length);
+      const duz = e => (e.textContent || '').toLocaleLowerCase('tr').replace(/[^a-zçğıöşü0-9 ]/g, ' ').replace(/ +/g, ' ').trim();
+      const baslik = [...document.querySelectorAll('td, th, div, span, b')]
+        .find(e => gorunur(e) && !e.children.length && duz(e) === 'gib beyanname sorgula');
+      if (!baslik) return 0;
+      const kutular = k => [...k.querySelectorAll('input[type=text], input:not([type])')].filter(gorunur);
+      let kap = baslik.parentElement;
+      while (kap && kutular(kap).length < 2 && kap.parentElement) kap = kap.parentElement;
+      const k = kap ? kutular(kap) : [];
+      k.slice(0, 2).forEach((e, i) => e.setAttribute('data-bb-tarih', i));
+      return k.length;
+    }"""
+    GIB_BITIS = "Ekrandaki listeyi yenilemek"      # "İşlem Takip" penceresinde GİB'den çekme bittiğinde çıkan bağlantının yazısı
+
+    def _gib_diyalog_cercevesi(self, ekran):
+        """"GİB Beyanname Sorgula" penceresinin tarih kutularını içeren çerçeve; pencere açık değilse None."""
+        for fr in self.m.le.cerceveler(ekran):
+            try:
+                if fr.evaluate(self.GIB_DIYALOG_JS) >= 2:
+                    return fr
+            except Exception:  # noqa: BLE001
+                continue
+        return None
+
+    def _islem_takip_metni(self, ekran, isaret):
+        """Çerçevelerin metninde işaret varsa 'İşlem Takip' penceresinin metni (son 800 karakter); yoksa None."""
+        for fr in self.m.le.cerceveler(ekran):
+            try:
+                t = fr.locator("body").inner_text(timeout=1500)
+            except Exception:  # noqa: BLE001
+                continue
+            if isaret in t:
+                i = t.find("İşlem Takip")
+                return (t[i:] if i >= 0 else t)[-800:] or isaret
+        return None
+
+    def gib_getir(self, ekran, bas, bit):
+        """"GİB'den Getir": tarih penceresini açar, aralığı yazar, "Beyannameleri GİB'dan Getir"e basar; Luca GİB'e sorar ve
+        "İşlem Takip" penceresinde ilerler (yaklaşık 1 dk/ay). Bitince "Ekrandaki listeyi yenilemek için…" çıkar (liste kendiliğinden
+        yenilenmez): o yazı beklenir, pencere kapatılır; listeyi sonra beyanname_listele çeker. Luca'nın GİB kullanıcı kodu/şifresi
+        "Yönetici > SM/SMM Bilgileri > Kurum Şifre Bilgileri"nde kayıtlı olmalıdır. Sorun olursa LucaHatasi."""
+        le, lb = self.m.le, self.m.lb
         sure = int(self.env.get("LUCA_GIB_GETIR_SN", "180")) * 1000
         with self._sessiz():
             if not getattr(ekran, "_gib_diyalog", False):
@@ -312,13 +355,20 @@ class GercekLucabot:
                     ekran._gib_diyalog = True
                 except Exception:  # noqa: BLE001
                     pass
-            if not any(le.dugmeye_bas(ekran, ad, sure=6000) for ad in ("GİB'den Getir", "GİB’den Getir", "Getir")):
+            if not any(le.dugmeye_bas(ekran, ad, sure=6000) for ad in ("GİB'den Getir", "GİB’den Getir")):
                 raise LucaHatasi("'GİB'den Getir' düğmesine basılamadı")
+            cerceve = self.m.bekleme.kosulu_bekle(ekran, lambda: self._gib_diyalog_cercevesi(ekran), 15000, aralik_ms=500)
+            if not cerceve:
+                self.m.ml.tani_kaydet(ekran, self.tani_klasoru, self.log, "-gibdiyalog", "beyanname-takip")
+                raise LucaHatasi("'GİB Beyanname Sorgula' tarih penceresi açılmadı (Tanı ekran görüntüsüne bakın)")
+            for sira, d in enumerate((bas, bit)):
+                lb._tarih_yaz(cerceve.locator(f'[data-bb-tarih="{sira}"]'), d)
+            if not any(le.dugmeye_bas(ekran, ad, sure=6000) for ad in ("Beyannameleri GİB'dan Getir", "Beyannameleri GİB’dan Getir")):
+                raise LucaHatasi("'Beyannameleri GİB'dan Getir' düğmesine basılamadı")
             bitti = self.m.bekleme.kosulu_bekle(ekran, lambda: self._islem_takip_metni(ekran, self.GIB_BITIS), sure, aralik_ms=1000)
             if not bitti:
                 self.m.ml.tani_kaydet(ekran, self.tani_klasoru, self.log, "-gibgetir", "beyanname-takip")
-                raise LucaHatasi(f"{sure // 1000} sn içinde bitmedi (GİB girişi/yetkisi ya da bir onay penceresi sorunu olabilir; "
-                                 "Tanı ekran görüntüsüne bakın)")
+                raise LucaHatasi(f"{sure // 1000} sn içinde bitmedi (GİB şifresi Luca'da kayıtlı mı? Tanı ekran görüntüsüne bakın)")
             try:
                 le.dugmeye_bas(ekran, "Kapat", sure=3000)           # "İşlem Takip" penceresi, filtre penceresini engellemesin
             except Exception:  # noqa: BLE001

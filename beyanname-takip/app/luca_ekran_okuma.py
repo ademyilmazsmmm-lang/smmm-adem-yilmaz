@@ -5,7 +5,7 @@ Tarayıcıyı süren kısım luca_toplayici.py'dedir; bu dosya yalnızca "ne sor
 """
 
 import re
-from datetime import timedelta
+from datetime import date, timedelta
 from html.parser import HTMLParser
 
 from .kurallar import BEYANNAMELER, donemler_uret, sade
@@ -42,6 +42,14 @@ def beyanname_json_kayitlari(cevap):
                          # kurala bağlanmadı (muhSgkDurum görülen değerler: "2", "3", "0", "6")
                          "ebildirge": r.get("ebildirgeSayisi"), "sgk_durum": str(r.get("muhSgkDurum") or "")})
     return kayitlar, (int(m.group(1)) if m else None)
+
+
+def gib_getir_araligi(bugun, gun=15):
+    """"GİB'den Getir" penceresine yazılacak yükleme tarihi aralığı: son `gun` gün (en çok 31; pencere en fazla 31 günlük
+    aralık kabul eder) ve iki tarih AYNI YIL içinde olmalıdır: yıl başından öncesi kırpılır."""
+    gun = max(1, min(int(gun), 31))
+    bas = bugun - timedelta(days=gun - 1)
+    return max(bas, date(bugun.year, 1, 1)), bugun
 
 
 def yukleme_araligi(bugun, tatil, once=10, sonra=35, pay=3):

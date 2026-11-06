@@ -130,11 +130,14 @@ def uygulama_olustur(cekirdek=None, env=os.environ):
         KDV1: str = "aylik"
         MPHB: str = "aylik"
         GECICI: str = "3aylik"
+        sgk: str = "auto"
         isyeri: str = ""
         onayli: bool = True
 
     @app.put("/api/mukellef/ayar", dependencies=gerekli)
     def ayar_yaz(mid: str, a: AyarGirdi):
+        if a.sgk not in ("auto", "var", "yok"):
+            raise HTTPException(400, f"sgk için geçersiz değer: {a.sgk}")
         for tur in BEYANNAMELER:
             v = getattr(a, tur)
             if v != "yok" and v not in BEYANNAMELER[tur]["periyotlar"]:
