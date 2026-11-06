@@ -92,8 +92,8 @@ document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
 
 function bannerCiz() {
   const v = durumVeri.veri, b = $("banner"); b.textContent = "";
-  if (v.hata || v.eski || !durumVeri.telegram) {
-    const n = [];
+  if (v.hata || v.eski || !durumVeri.telegram || (v.uyarilar || []).length) {
+    const n = [...(v.uyarilar || [])];
     if (v.hata) n.push("Luca verisi alınamadı: " + v.hata);
     else if (v.eski) n.push("Veri 24 saatten eski.");
     if (!durumVeri.telegram) n.push("Telegram ayarlı değil: uyarı mesajı gitmez!");
@@ -169,6 +169,7 @@ function sistemCiz() {
     h("button", {class: "ana", onclick: async (e) => { e.target.disabled = true; await api("/api/kontrol", "POST"); setTimeout(yukle, 4000); }}, "Şimdi Luca'dan çek")));
   kok.append(h("div", {class: "kart"}, h("div", {class: "baslik"}, "Telegram"),
     h("p", {class: "soluk"}, durumVeri.telegram ? "Ayarlı." : "TELEGRAM_TOKEN / TELEGRAM_CHAT_ID tanımlı değil."),
+    h("p", {}, h("a", {href: "/api/tani.zip"}, "Luca tanı dosyalarını indir")),
     h("button", {onclick: async (e) => { const r = await api("/api/test-bildirim", "POST"); e.target.textContent = r.gonderildi ? "Gönderildi ✓" : "Gönderilemedi ✗"; }}, "Test mesajı gönder")));
 }
 

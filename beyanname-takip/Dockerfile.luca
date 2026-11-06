@@ -1,0 +1,18 @@
+# Luca modu (TOPLAYICI=luca). Bu dosya BU ORTAMDA DERLENMEDİ; ilk derlemede sürüm uyumunu kontrol edin.
+#
+# LİSANS: luca-bot/ klasörü (Dijital Stajyer'in lucabot paketi) lisanslıdır; bu depo herkese açıktır.
+# Bu Dockerfile'ı ve luca-bot/ klasörünü birlikte ÖZEL bir depoya koyup oradan derleyin:
+#   beyanname-takip/        <- bu klasör (app/, requirements.txt, Dockerfile.luca)
+#   beyanname-takip/luca-bot/lucabot/...   <- Dijital Stajyer kurulumundaki luca-bot klasörü (içinde lucabot/ paketi)
+FROM mcr.microsoft.com/playwright/python:v1.47.0-jammy
+ENV PYTHONUNBUFFERED=1 TZ=Europe/Istanbul DATA_DIR=/data TOPLAYICI=luca LUCABOT_YOLU=/opt/luca-bot
+# lucabot tarayıcıyı ekranlı kipte açar (headless=False); sunucuda sanal ekran (Xvfb) gerekir
+RUN apt-get update && apt-get install -y --no-install-recommends xvfb && rm -rf /var/lib/apt/lists/*
+WORKDIR /srv
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt playwright==1.47.0 pyotp>=2.9 openpyxl>=3.1 pypdf
+COPY luca-bot /opt/luca-bot
+COPY app app
+EXPOSE 8000
+# Tek işçi şart: zamanlayıcı bu süreçte çalışır.
+CMD ["sh", "-c", "xvfb-run -a -s '-screen 0 1920x1080x24' uvicorn app.web:app_fabrikasi --factory --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

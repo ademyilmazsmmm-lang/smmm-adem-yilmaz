@@ -3,9 +3,10 @@
 Luca'daki mükellef listesini ve verilmiş beyannameleri karşılaştırır; son güne yaklaşırken ve son gün
 akşamı **verilmemiş** beyannameleri Telegram'dan bildirir. Web sayfasından durum görülür.
 
-> **Durum:** Uyarı mantığı, web sayfası, Telegram ve captcha köprüsü hazır ve test edilmiş (39 test).
-> **Luca'dan otomatik veri çekme (`luca_toplayici.py`) henüz yazılmadı.** Şimdilik `TOPLAYICI=dosya`
-> ile Dijital Stajyer çıktıları sunucuya konarak çalışır. Ayrıntı aşağıda.
+> **Durum:** Uyarı mantığı, web sayfası, Telegram, captcha köprüsü ve Luca toplayıcı yazıldı; 60 otomatik test geçiyor.
+> **Luca toplayıcının tarayıcıyı süren kısmı gerçek Luca'da HİÇ ÇALIŞTIRILMADI.** Ekran okuma ayrıntıları
+> (3 aylık dönemin filtredeki karşılığı, tablo yapısı, sayfalama, tür adları) ilk gerçek çalıştırmada
+> `LUCA_TANI=1` ile doğrulanmalıdır (aşağıda "Luca modu").
 
 ## Ne kontrol eder
 
@@ -91,15 +92,41 @@ Program yalnızca bu sohbetten gelen mesajları (captcha cevabı) dikkate alır.
 
 Dosyalar güncellenince her uyarı slotunda yeniden okunur. Web sayfasındaki "Şimdi Luca'dan çek" de dosyaları yeniden okur.
 
-## Luca toplayıcı (yapılacak)
+## Luca modu (`TOPLAYICI=luca`)
 
-`app/luca_toplayici.py` içinde ayrıntılı not var. Özet: giriş, doğrulama kodu (TOTP), mükellef listesi
-Dijital Stajyer'in `lucabot` paketinden gelir; **GİB Beyanname Takip ekranından satır okuma yeni yazılacak**
-(mevcut kod yalnızca KDV1 PDF'lerini indirir) ve gerçek ekran görülerek doğrulanmalıdır.
+Her şey Luca'nın içinde yapılır, GİB/e-Beyanname'ye bağlanılmaz:
 
-**Önemli:** `lucabot` lisanslı bir programdır ve bu depo herkese açıktır. `lucabot` klasörü bu depoya
-konmamalı; Luca modu için bu klasör, `lucabot` ile birlikte **özel (private) bir depoya** taşınıp oradan
-derlenmelidir. Dockerfile bu durumda Playwright imajına çevrilir.
+1. Luca girişi (üye no, kullanıcı, parola; **doğrulama anahtarı varsa kod otomatik üretilir**).
+2. *Yönetici > Müşteri İşlemleri > Müşteri Listesi*: mükellefler ve açılış/kapanış tarihleri (bu yıl + geçen yıl).
+3. *Muhasebe > Beyannameler > GİB Beyanname Takip*: son günü yaklaşan her dönem ve beyanname türü için
+   (dönem, "Onaylanmış", tür) filtresiyle listeler ve "Mükellef Adı" sütununu okur. Listede olan firma o beyannameyi vermiştir.
+4. Karşılaştırma, uyarı ve Telegram yukarıdaki gibidir.
+
+**Doğrulanan:** sorgu planı, tablo yorumlama (gerçek `lucabot` tablo okuyucusuyla sahte bir tabloda da denendi),
+hata yönetimi (eksik tür seçeneği, boş liste, sütun okunamaması, sayfalama uyarısı) ve `lucabot` paketinin
+köprünün çağırdığı bütün fonksiyonları içermesi. **Doğrulanmayan:** gerçek Luca ekranı, girişin sunucuda
+(Xvfb, yurt dışı IP) çalışması, 3 aylık dönemin filtredeki ayı, listenin sayfalı olup olmadığı.
+
+**İlk kurulum (sırayla):**
+1. Dockerfile.luca ile (özel depodan) derleyin; ortam değişkenleri: `TOPLAYICI=luca`, `LUCA_UYE_NO`, `LUCA_KULLANICI`,
+   `LUCA_PAROLA`, `LUCA_DOGRULAMA_ANAHTARI`, `LUCA_TANI=1`. İki Luca hesabı için `LUCA_HESAPLAR=ofis,isletme` ve
+   `LUCA_OFIS_UYE_NO`, `LUCA_ISLETME_PAROLA` gibi ön ekli adlar kullanılır.
+2. Web sayfası → Sistem → "Şimdi Luca'dan çek". Tanı modu veri kaydetmez; giriş yapıp ekranları açar,
+   filtre seçeneklerini ve ekran görüntülerini kaydeder. **Sistem → "Luca tanı dosyalarını indir"** ile alıp inceleyin
+   (mükellef adı içerir, paylaşmadan önce maskeleyin).
+3. Her şey yolundaysa `LUCA_TANI`'yı silin; gerçek veri akmaya başlar. Web sayfasında uyarı çıkarsa
+   (örn. "N beyanname satırı hiçbir mükellefle eşleşmedi") ad eşleşmesi ya da sayfalama sorunu vardır.
+
+**Güvenlik kararları:**
+* Eksik/uyumsuz bir şey varsa program sessizce devam etmez, **toplamayı durdurur ve Telegram'dan bildirir**
+  (örn. Luca'nın listesinde KDV1/MUHSGK/GECICI türü bulunamazsa, "Onaylanmış" durumu yoksa).
+  Aksi halde o türün her mükellefi "eksik" görünür.
+* İki hesaptan biri başarısız olursa tüm toplama başarısız sayılır, eski veri korunur (bir hesabın verisi sessizce silinmez).
+* `lucabot` ekrana firma adı yazar; bu çıktı sunucu günlüğüne değil `DATA_DIR/tani/<hesap>/calisma.log` dosyasına yönlendirilir.
+* Luca girişi başarısız olursa o anki ekran görüntüsü Telegram'a gönderilir (captcha ya da şifre sorunu görülsün).
+  **Captcha cevabını sunucudan Luca'ya otomatik yazma henüz yok** (captcha alanını gerçek ekranda görmeden yazılmadı);
+  Luca'da kimlik doğrulayıcı ile iki aşamalı doğrulama açıksa captcha hiç çıkmaz.
+* Yalnızca **onaylanmış** beyannameler okunur; "gönderildi ama onaylanmadı" durumu bu sürümde "eksik" görünür.
 
 ## Render'a kurulum
 

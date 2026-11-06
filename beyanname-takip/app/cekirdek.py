@@ -4,7 +4,7 @@ import logging
 import threading
 from datetime import datetime, timedelta, timezone
 
-from .kontrol import (SLOTLAR, degerlendir, gunluk_ozet, mesaj_olustur, mukellef_normalize)
+from .kontrol import (SLOTLAR, ayni_firma, degerlendir, gunluk_ozet, mesaj_olustur, mukellef_normalize)
 from .kurallar import Tatiller
 
 log = logging.getLogger("cekirdek")
@@ -41,10 +41,16 @@ class Uygulama:
             if not mus:
                 raise ValueError("Luca'dan hiç mükellef gelmedi (liste boş)")
             bey = [dict(b, hesap=b.get("hesap") or "ofis") for b in ham["beyannameler"]]
+            uyarilar = list(ham.get("uyarilar", []))
+            eslesmeyen = [b for b in bey if not any(ayni_firma(m, b) for m in mus)]
+            if eslesmeyen:
+                ornek = ", ".join(sorted({b.get("firma", "?") for b in eslesmeyen})[:3])
+                uyarilar.append(f"{len(eslesmeyen)} beyanname satırı hiçbir mükellefle eşleşmedi (örn. {ornek}); "
+                                "Luca'daki 'Mükellef Adı' ile müşteri listesindeki ad farklı olabilir")
             self.depo.yaz("mukellefler.json", {"zaman": simdi.isoformat(), "kayitlar": mus})
             self.depo.yaz("beyannameler.json", {"zaman": simdi.isoformat(), "kayitlar": bey})
             sonuc = {"ok": True, "zaman": simdi.isoformat(), "mukellef": len(mus), "beyanname": len(bey),
-                     "hesaplar": ham.get("hesaplar", {})}
+                     "hesaplar": ham.get("hesaplar", {}), "uyarilar": uyarilar}
             self.depo.guncelle("durum.json", lambda d: d.update({"son_toplama": sonuc, "son_basarili": sonuc}))
             return sonuc
         except Exception as e:  # noqa: BLE001 - her hata kullanıcıya bildirilmeli
@@ -69,7 +75,8 @@ class Uygulama:
         eski = True
         if zaman:
             eski = (self.saat() - datetime.fromisoformat(zaman)) > timedelta(hours=VERI_ESKI_SAAT)
-        return {"zaman": zaman, "eski": eski, "hata": None if (son and son.get("ok")) else (son or {}).get("hata", "hiç veri alınmadı")}
+        return {"zaman": zaman, "eski": eski, "uyarilar": (basarili or {}).get("uyarilar", []),
+                "hata": None if (son and son.get("ok")) else (son or {}).get("hata", "hiç veri alınmadı")}
 
     # ---- zamanlanmış uyarı ----
     def slot_calistir(self, slot, gecikmeli=False):
@@ -85,7 +92,8 @@ class Uygulama:
         for y in {bugun.year, (bugun + timedelta(days=40)).year}:
             if not self.tatil.bayram_verisi_var_mi(y):
                 ek.append(f"{y} yılı bayram tatilleri tatiller.json'da yok; son günler yanlış hesaplanabilir.")
-        metinler = mesaj_olustur(maddeler, slot, vd["zaman"], vd["hata"], vd["eski"], " ".join(ek) or None)
+        ek += vd["uyarilar"]
+        metinler = mesaj_olustur(maddeler, slot, vd["zaman"], vd["hata"], vd["eski"], " | ".join(ek) or None)
         if slot == SLOTLAR[0]:
             ozet = gunluk_ozet(maddeler, vd["zaman"], bugun)
             if vd["hata"]:

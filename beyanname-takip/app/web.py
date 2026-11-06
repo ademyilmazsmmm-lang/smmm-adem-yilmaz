@@ -177,6 +177,20 @@ def uygulama_olustur(cekirdek=None, env=os.environ):
         threading.Thread(target=cekirdek.topla, daemon=True).start()
         return {"ok": True}
 
+    @app.get("/api/tani.zip", dependencies=gerekli)
+    def tani_zip():
+        """Luca tanı dosyaları (ekran görüntüleri, sayfa kaynağı, filtre seçenekleri). Mükellef adı içerir."""
+        import io
+        import zipfile
+        kok = cekirdek.depo.dizin / "tani"
+        tampon = io.BytesIO()
+        with zipfile.ZipFile(tampon, "w", zipfile.ZIP_DEFLATED) as z:
+            for yol in sorted(kok.rglob("*")) if kok.exists() else []:
+                if yol.is_file():
+                    z.write(yol, yol.relative_to(kok).as_posix())
+        return Response(tampon.getvalue(), media_type="application/zip",
+                        headers={"Content-Disposition": "attachment; filename=luca-tani.zip", "Cache-Control": "no-store"})
+
     @app.post("/api/test-bildirim", dependencies=gerekli)
     def test_bildirim():
         return {"gonderildi": cekirdek.telegram.gonder("✅ Beyanname takip: test mesajı")}
