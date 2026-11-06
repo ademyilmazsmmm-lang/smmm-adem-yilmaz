@@ -104,22 +104,35 @@ Her şey Luca'nın içinde yapılır, GİB/e-Beyanname'ye bağlanılmaz:
    Tarihi ve Luca'nın değişmez şirket kimliği); filtrenin gerçekten uygulandığı sayfanın kendi yazdığı yıl bilgisinden ve
    "Kayıt Sayısı"ndan doğrulanır. Aynı VKN'yi taşıyan iki kayıt (tasfiye) ayrı mükelleftir. Kapanmış firmalar tarihten
    anlaşılır ve web sayfasında varsayılan olarak gizlenir. **Dönemi açılmamış firma için beyanname takibi yapılmaz.**
-3. *Muhasebe > Beyannameler > GİB Beyanname Takip*: son günü yaklaşan her dönem ve beyanname türü için
-   (dönem, "Onaylanmış", tür) filtresiyle listeler ve "Mükellef Adı" sütununu okur. Listede olan firma o beyannameyi vermiştir.
+3. *Muhasebe > Beyannameler > GİB Beyanname Takip* (Luca bunu ayrı bir pencerede açar):
+   * Önce **"GİB'den Getir"**: Luca beyannameleri kendiliğinden çekmez; arama ekranı yalnızca daha önce GİB'den getirilmiş
+     kayıtları bulur. "İşlem Takip" penceresinde GİB sorgusu ilerler ve bitince "Ekrandaki listeyi yenilemek için…" yazısı
+     çıkar; program bu yazıyı bekler, pencereyi kapatır (`LUCA_GIB_GETIR=0` kapatır, `LUCA_GIB_GETIR_SN` bekleme süresi, 180).
+     Çalışmazsa eski veriyle devam edilir ve mesajlara "Luca verisi güncel olmayabilir" uyarısı eklenir.
+   * Sonra Filtre penceresinde **"Beyanname Durum" = Tümü** (pencere varsayılan olarak "Onaylanmış" açılır; Tümü seçilmezse
+     hatalı ve iptal edilmiş beyannameler hiç gelmez) ve yalnızca **Paket Yükleme Tarihi** aralığı yazılır (son günü
+     yaklaşan en eski dönemin bitişinden bugüne), "Beyannameleri Listele". Dönem ve tür filtresi yoktur.
+   * Ekranın kendi isteğinin yanıtı (`beyan_listele.jq`, JSON) yakalanır; tablo okunmaz. Her kayıtta tür (`beyannameKodu`:
+     KDV1, MUHSGK, KGECICI…), dönem (3 aylıklarda dönem bitişi), durum, VKN/TCKN, Luca kısa adı vardır; toplam sayı
+     ("243 adet beyanname kaydı listelendi") yanıttaki kayıt sayısıyla doğrulanır.
+   * Eşleştirme: VKN/TCKN, yoksa Luca kısa adı, yoksa unvan. Bir dönem için **onaylanmış kayıt varsa verildi**; yalnızca
+     hatalı/iptal edilmiş kayıt varsa "gönderilmiş ama ONAYLANMAMIŞ" diye uyarılır; tanınmayan bir durum metni onaylı sayılmaz.
+   * SGK (e-Bildirge): ekrandaki "E-Bil." sütunu. MUHSGK kayıtlarındaki `ebildirgeSayisi` ve `muhSgkDurum` okunur ve kaydedilir,
+     ama henüz alarm kuralına bağlanmadı (MUHSGK'nın "Onaylanmış" olması şimdilik sigorta kısmını da kapsar sayılır).
 4. Karşılaştırma, uyarı ve Telegram yukarıdaki gibidir.
 
-**Doğrulanan:** sorgu planı, tablo yorumlama (gerçek `lucabot` tablo okuyucusuyla sahte bir tabloda da denendi),
-hata yönetimi (eksik tür seçeneği, boş liste, sütun okunamaması, sayfalama uyarısı) ve `lucabot` paketinin
-köprünün çağırdığı bütün fonksiyonları içermesi. **Doğrulanmayan:** gerçek Luca ekranı, girişin sunucuda
-(Xvfb, yurt dışı IP) çalışması, 3 aylık dönemin filtredeki ayı, listenin sayfalı olup olmadığı.
+**Doğrulanan:** JSON yorumlama (gerçek yanıtın alan yapısıyla uydurma veride), eşleştirme ve durum kuralları, 3 aylık
+dönemlerin dönem bitişiyle eşleşmesi, "GİB'den Getir" ve filtre adımlarının sırası ve hata yönetimi (sahte tarayıcıyla) ve
+`lucabot` paketinin köprünün çağırdığı bütün fonksiyonları içermesi. **Doğrulanmayan:** gerçek Luca'da uçtan uca çalışma,
+girişin sunucuda (Xvfb, yurt dışı IP) çalışması, "GİB'den Getir"in gerçek süresi ve bir onay penceresi çıkarıp çıkarmadığı,
+filtre alanlarının gerçek sayfada beklenen biçimde doldurulduğu.
 
 **İlk kurulum (sırayla):**
 1. Dockerfile.luca ile (özel depodan) derleyin; ortam değişkenleri: `TOPLAYICI=luca`, `LUCA_UYE_NO`, `LUCA_KULLANICI`,
    `LUCA_PAROLA`, `LUCA_DOGRULAMA_ANAHTARI`. İki Luca hesabı için `LUCA_HESAPLAR=ofis,isletme` ve
    `LUCA_OFIS_UYE_NO`, `LUCA_ISLETME_PAROLA` gibi ön ekli adlar kullanılır.
 2. Web sayfasında **Tanı** sekmesi → "Tanıyı çalıştır". Luca'ya girip müşteri listesi ve GİB Beyanname Takip
-   ekranlarını açar; **ekran görüntülerini, filtre seçeneklerini (Beyanname ve Durum listeleri) ve sayfa kaynaklarını**
-   sayfada gösterir. Veri kaydetmez, beyanname kontrolünü etkilemez; 1-3 dakika sürer. Sonucu buradan inceleyin ya da
+   ekranlarını açar; **ekran görüntülerini ve beyanname listesinin ham yanıtını (`beyan_listele.json`, son 30 gün)** sayfada gösterir. Veri kaydetmez, beyanname kontrolünü etkilemez; 1-3 dakika sürer. Sonucu buradan inceleyin ya da
    "Hepsini indir (zip)" ile alın (mükellef adı içerir, paylaşmadan önce karalayın). Aynı işi `LUCA_TANI=1` ortam
    değişkeni de yapar, ama sekme varken gerekmez. Sayfa kaynağı (html) güvenlik için düz metin olarak gösterilir.
 3. Tanı sonuçları doğruysa "Şimdi Luca'dan çek" ile gerçek veriyi alın. Web sayfasında uyarı çıkarsa
@@ -127,14 +140,13 @@ köprünün çağırdığı bütün fonksiyonları içermesi. **Doğrulanmayan:*
 
 **Güvenlik kararları:**
 * Eksik/uyumsuz bir şey varsa program sessizce devam etmez, **toplamayı durdurur ve Telegram'dan bildirir**
-  (örn. Luca'nın listesinde KDV1/MUHSGK/GECICI türü bulunamazsa, "Onaylanmış" durumu yoksa).
-  Aksi halde o türün her mükellefi "eksik" görünür.
+  (örn. "Beyanname Durum" listesinde "Tümü" yoksa, yanıtın kayıt sayısı sayfanın yazdığıyla uyuşmazsa, yanıt JSON değilse).
 * İki hesaptan biri başarısız olursa tüm toplama başarısız sayılır, eski veri korunur (bir hesabın verisi sessizce silinmez).
 * `lucabot` ekrana firma adı yazar; bu çıktı sunucu günlüğüne değil `DATA_DIR/tani/<hesap>/calisma.log` dosyasına yönlendirilir.
 * Luca girişi başarısız olursa o anki ekran görüntüsü Telegram'a gönderilir (captcha ya da şifre sorunu görülsün).
   **Captcha cevabını sunucudan Luca'ya otomatik yazma henüz yok** (captcha alanını gerçek ekranda görmeden yazılmadı);
   Luca'da kimlik doğrulayıcı ile iki aşamalı doğrulama açıksa captcha hiç çıkmaz.
-* Yalnızca **onaylanmış** beyannameler okunur; "gönderildi ama onaylanmadı" durumu bu sürümde "eksik" görünür.
+* Hatalı ve iptal edilmiş beyannameler de okunur; yalnızca onaylı kayıt "verildi" sayılır.
 
 ## Render'a kurulum
 

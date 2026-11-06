@@ -4,9 +4,11 @@ AKIŞ (hepsi Luca içinde; GİB/e-Beyanname'ye hiç bağlanılmaz):
   1. Luca girişi (üye no, kullanıcı, parola, doğrulama anahtarı → kod otomatik üretilir).
   2. Yönetici > Müşteri İşlemleri > Müşteri Listesi: tüm mükellefler (Kısa/Uzun Ad, VKN, TC, Kuruluş ve Kapanış
      Tarihi, Luca şirket kimliği). Sayfa HTML'inden okunur; sayfanın yazdığı "Kayıt Sayısı" ile doğrulanır.
-  3. Muhasebe > Beyannameler > GİB Beyanname Takip: son günü yaklaşan her dönem ve beyanname türü için
-     filtre (dönem, "Onaylanmış", tür) + "Beyannameleri Listele" → ekrandaki "Mükellef Adı" sütunu.
-  4. Okunan firmalar "o dönem o beyannameyi vermiş" kaydı olur; karşılaştırmayı cekirdek yapar.
+  3. Muhasebe > Beyannameler > GİB Beyanname Takip: önce "GİB'den Getir" (Luca beyannameleri kendiliğinden çekmez; arama
+     ekranı yalnızca daha önce GİB'den getirilmiş kayıtları bulur; bitince İşlem Takip penceresinde yazı çıkar), sonra "Beyanname Durum = Tümü" ve "Paket Yükleme
+     Tarihi" aralığıyla "Beyannameleri Listele" (varsayılan durum "Onaylanmış"tır: Tümü seçilmezse hatalılar görünmez). Ekranın kendi isteğinin yanıtı (beyan_listele.jq,
+     JSON) okunur: tür (beyannameKodu), dönem, durum (Onaylanmış/Hatalı/İptal Edilmiş), VKN, kısa ad. Tablo okunmaz.
+  4. Karşılaştırmayı cekirdek yapar (onaylı kayıt = verildi; yalnızca hatalı/iptal = "gönderilmiş ama onaysız").
 
 DURUM: Orkestrasyon (sorgu planı, tablo yorumlama, hata yönetimi) birim testlerle doğrulandı. Tarayıcıyı süren
 GercekLucabot sınıfı, Dijital Stajyer'in lucabot paketindeki fonksiyonlara göre yazıldı ama GERÇEK LUCA'DA HİÇ
@@ -23,7 +25,7 @@ LUCA_OFIS_UYE_NO gibi ön ekli adlar kullanılır; tek hesapta ön eksiz LUCA_UY
   LUCA_TANI=1      tanı modu: giriş + ekranlar açılır, filtre seçenekleri ve ekran görüntüleri DATA_DIR/tani'ya
                    yazılır, veri KAYDEDİLMEZ. Env değişkenine gerek yok: web sayfasındaki "Tanı" sekmesi aynısını yapar.
   LUCA_MUSTERI_YILI=otomatik|yok|2027,2026   müşteri listesi yıl filtresi (otomatik: yalnızca bu yıl)
-  LUCA_UCAYLIK_DONEM=bit|bas   3 aylık dönemlerin Luca filtresindeki ayı (varsayılan bit)
+  LUCA_GIB_GETIR=1|0   okumadan önce "GİB'den Getir"e bas (varsayılan 1); LUCA_GIB_GETIR_SN: en çok bekleme (180)
 Tarayıcı Xvfb altında (ekranlı kipte) çalışır: Dockerfile.luca'ya bakın.
 """
 
@@ -36,8 +38,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from .kurallar import Tatiller
-from .luca_ekran_okuma import (beyanname_satirlari, durum_sec, musteri_html_filtre, musteri_html_oku, musteri_yillari,
-                               musterileri_birlestir, secenek_esle, sorgu_plani)
+from .luca_ekran_okuma import (beyanname_json_kayitlari, musteri_html_filtre, musteri_html_oku, musteri_yillari,
+                               musterileri_birlestir, yukleme_araligi)
 
 
 class LucaHatasi(RuntimeError):
@@ -122,37 +124,23 @@ class LucaToplayici:
         if not mus:
             raise LucaHatasi("Luca müşteri listesi boş okundu (ekran yapısı değişmiş olabilir; LUCA_TANI=1 ile bakın)")
 
-        plan = sorgu_plani(bugun, self.tatil, ucaylik_ay=self.env.get("LUCA_UCAYLIK_DONEM", "bit"))
-        bey, secenekler, ekran_yili = [], None, None
-        for p in plan:
-            if ekran_yili != p["sorgu_yil"]:
-                ekran = kopru.beyanname_ekrani_ac(page, p["sorgu_yil"])
-                ekran_yili = p["sorgu_yil"]
-                secenekler = kopru.filtre_secenekleri(ekran)
-            durum = durum_sec(secenekler.get("Beyanname Durum", []))
-            if not durum:
-                raise LucaHatasi("'Beyanname Durum' listesinde onaylanmış seçeneği bulunamadı "
-                                 f"(seçenekler: {', '.join(secenekler.get('Beyanname Durum', []))})")
-            turler = secenek_esle(secenekler.get("Beyanname", []), p["tur"])
-            if not turler:
-                # eksik seçenek sessizce geçilirse o türün HER mükellefi "eksik" görünür: durdurmak daha güvenli
-                raise LucaHatasi(f"Luca'nın 'Beyanname' listesinde {p['tur']} türüne uyan seçenek yok "
-                                 f"(seçenekler: {', '.join(secenekler.get('Beyanname', []))})")
-            for tur_secenegi in turler:
-                n, tablolar = kopru.sorgula(ekran, p["sorgu_ay"], p["sorgu_yil"], tur_secenegi, durum)
-                satirlar = beyanname_satirlari(tablolar)
-                if satirlar is None:
-                    if n == 0:
-                        satirlar = []
-                    else:
-                        raise LucaHatasi(f"{n} kayıt listelendi ama 'Mükellef Adı' sütunu okunamadı "
-                                         "(LUCA_TANI=1 ile ekranı inceleyin)")
-                if n is not None and n != len(satirlar):
-                    uyarilar.append(f"{tur_secenegi} {p['sorgu_ay']:02d}/{p['sorgu_yil']}: ekranda {n} kayıt var, "
-                                    f"{len(satirlar)} satır okundu (liste sayfalı olabilir)")
-                for s in satirlar:
-                    bey.append({"firma": s["firma"], "vkn": s["vkn"], "tur": tur_secenegi,
-                                "donem": f"{p['ay']:02d}/{p['yil']}", "durum": durum})
+        ekran = kopru.beyanname_ekrani_ac(page, bugun.year)
+        if self.env.get("LUCA_GIB_GETIR", "1") != "0":
+            # Luca beyannameleri kendiliğinden GİB'den çekmez: "GİB'den Getir" düğmesi çeker. Düğme çalışmazsa eski veriyle
+            # devam edilir (yanlış "eksik" alarmı olabilir, kaçan alarm olmaz) ve bu uyarı mesajlarda görünür.
+            try:
+                kopru.gib_getir(ekran)
+            except LucaHatasi as e:
+                uyarilar.append(f"GİB'den Getir çalışmadı, Luca verisi güncel olmayabilir: {e}")
+        bas, bit = yukleme_araligi(bugun, self.tatil)
+        # Dönem/tür/durum filtresi YOK: yalnızca paket yükleme tarihi aralığı; tüm beyannameler (onaylı, hatalı, iptal) gelir
+        cevap = kopru.beyanname_listele(ekran, bas, bit)
+        try:
+            bey, toplam = beyanname_json_kayitlari(cevap)
+        except (ValueError, AttributeError, TypeError) as e:
+            raise LucaHatasi(f"Beyanname listesi yanıtı okunamadı ({e}); Tanı sekmesine bakın") from e
+        if toplam is not None and toplam != len(bey):
+            raise LucaHatasi(f"Luca {toplam} beyanname kaydı yazıyor ama yanıtta {len(bey)} kayıt var (liste kesilmiş olabilir)")
         return mus, bey, uyarilar
 
 
@@ -297,48 +285,87 @@ class GercekLucabot:
                 return fr
         raise LucaHatasi("Filtre penceresindeki alanlar bulunamadı")
 
-    def filtre_secenekleri(self, ekran):
-        with self._sessiz():
-            cerceve = self._filtre_penceresi(ekran)
-            alan = lambda ad, sira=0: cerceve.locator(f'[data-lucabot-alan="{ad}#{sira}"]')  # noqa: E731
-            return {ad: [t.strip() for t in alan(ad).locator("option").all_inner_texts()]
-                    for ad in ("Beyanname", "Beyanname Durum")}
+    GIB_BITIS = "Ekrandaki listeyi yenilemek"      # "İşlem Takip" penceresinde GİB'den çekme bittiğinde çıkan bağlantının yazısı
 
-    def sorgula(self, ekran, ay, yil, tur_secenegi, durum_secenegi):
-        """Filtreyi doldurup listeler. Dönen: (ekrandaki kayıt sayısı, tablolar[satır listeleri])."""
+    def _islem_takip_metni(self, ekran, isaret):
+        """Çerçevelerin metninde işaret varsa 'İşlem Takip' penceresinin metni (son 800 karakter); yoksa None."""
+        for fr in self.m.le.cerceveler(ekran):
+            try:
+                t = fr.locator("body").inner_text(timeout=1500)
+            except Exception:  # noqa: BLE001
+                continue
+            if isaret in t:
+                i = t.find("İşlem Takip")
+                return (t[i:] if i >= 0 else t)[-800:] or isaret
+        return None
+
+    def gib_getir(self, ekran):
+        """Ekrandaki "GİB'den Getir": Luca GİB'e sorar ve "İşlem Takip" penceresinde ilerlemeyi yazar; bitince
+        "Ekrandaki listeyi yenilemek için buraya tıklayınız" çıkar (liste kendiliğinden yenilenmez). O yazıyı bekler, pencereyi
+        kapatır; listeyi sonra beyanname_listele kendisi çeker. Düğme bulunamaz ya da süre dolarsa LucaHatasi."""
+        le = self.m.le
+        sure = int(self.env.get("LUCA_GIB_GETIR_SN", "180")) * 1000
+        with self._sessiz():
+            if not getattr(ekran, "_gib_diyalog", False):
+                try:
+                    ekran.on("dialog", lambda d: d.accept())        # Luca'nın onay (confirm) soruları kabul edilir
+                    ekran._gib_diyalog = True
+                except Exception:  # noqa: BLE001
+                    pass
+            if not any(le.dugmeye_bas(ekran, ad, sure=6000) for ad in ("GİB'den Getir", "GİB’den Getir", "Getir")):
+                raise LucaHatasi("'GİB'den Getir' düğmesine basılamadı")
+            bitti = self.m.bekleme.kosulu_bekle(ekran, lambda: self._islem_takip_metni(ekran, self.GIB_BITIS), sure, aralik_ms=1000)
+            if not bitti:
+                self.m.ml.tani_kaydet(ekran, self.tani_klasoru, self.log, "-gibgetir", "beyanname-takip")
+                raise LucaHatasi(f"{sure // 1000} sn içinde bitmedi (GİB girişi/yetkisi ya da bir onay penceresi sorunu olabilir; "
+                                 "Tanı ekran görüntüsüne bakın)")
+            try:
+                le.dugmeye_bas(ekran, "Kapat", sure=3000)           # "İşlem Takip" penceresi, filtre penceresini engellemesin
+            except Exception:  # noqa: BLE001
+                pass
+
+    def beyanname_listele(self, ekran, bas, bit):
+        """Filtre penceresinde 'Beyanname Durum'u Tümü yapıp 'Paket Yükleme Tarihi' aralığını yazar ve listeler; ekranın kendi
+        isteğinin yanıtını (beyan_listele.jq, JSON) yakalar. Dönen: {"success": "N adet ...", "data": [...]}."""
         lb, le, ml = self.m.lb, self.m.le, self.m.ml
         with self._sessiz():
             cerceve = self._filtre_penceresi(ekran)
             alan = lambda ad, sira=0: cerceve.locator(f'[data-lucabot-alan="{ad}#{sira}"]')  # noqa: E731
-            for ad, sira, deger in (("Beyanname Dönemi", 0, lb.AYLAR[ay - 1]), ("Beyanname Dönemi", 1, str(yil)),
-                                    ("Beyanname Durum", 0, durum_secenegi), ("Beyanname", 0, tur_secenegi)):
-                if not lb._secenek_sec(alan(ad, sira), deger):
-                    mevcut = ", ".join(t.strip() for t in alan(ad, sira).locator("option").all_inner_texts())
-                    raise LucaHatasi(f"'{ad}' listesinde '{deger}' seçeneği yok (seçenekler: {mevcut})")
-            for sira, d in enumerate((date(yil, ay, 1), date.today())):
+            # "Beyanname Durum" pencerede varsayılan olarak "Onaylanmış" gelir: açıkça "Tümü" seçilmezse hatalı ve iptal edilmiş
+            # beyannameler hiç gelmez ve "gönderildi ama onaylanmadı" tespiti sessizce çalışmaz. Dönem/Paket Durum/tür "Tümü" kalır.
+            durum_kutusu = alan("Beyanname Durum", 0)
+            if not lb._secenek_sec(durum_kutusu, "Tümü"):
+                mevcut = ", ".join(t.strip() for t in durum_kutusu.locator("option").all_inner_texts())
+                raise LucaHatasi(f"'Beyanname Durum' listesinde 'Tümü' seçeneği yok (seçenekler: {mevcut})")
+            for sira, d in enumerate((bas, bit)):
                 lb._tarih_yaz(alan("Paket Yükleme Tarihi", sira), d)
-            eski = lb.bildirim_sayisi(ekran)
-            if not le.dugmeye_bas(ekran, lb.LISTELE_DUGMESI, sure=8000):
-                raise LucaHatasi(f"'{lb.LISTELE_DUGMESI}' düğmesine basılamadı")
-            n = lb.listelenen_sayi(ekran, eski=eski)
-            if n is None:
+            try:
+                with ekran.expect_response(lambda r: "beyan_listele.jq" in r.url, timeout=90000) as bilgi:
+                    if not le.dugmeye_bas(ekran, lb.LISTELE_DUGMESI, sure=8000):
+                        raise LucaHatasi(f"'{lb.LISTELE_DUGMESI}' düğmesine basılamadı")
+            except LucaHatasi:
+                raise
+            except Exception as e:  # noqa: BLE001
                 ml.tani_kaydet(ekran, self.tani_klasoru, self.log, "-liste", "beyanname-takip")
-                raise LucaHatasi("Liste sayısı bildirimi ('N adet beyanname kaydı listelendi') gelmedi")
-            self.m.bekleme.sayfa_durulsun(ekran, azami_ms=1500, sessizlik_ms=500)
-            tablolar = [satirlar for _, satirlar in ml.tablolari_al(ekran)]
-            ml.tani_kaydet(ekran, self.tani_klasoru, self.log, f"-{tur_secenegi}-{ay:02d}-{yil}", "beyanname-takip")
-        return n, tablolar
+                raise LucaHatasi(f"Beyanname listesi yanıtı gelmedi ({type(e).__name__})") from e
+            cevap = bilgi.value
+            if not getattr(cevap, "ok", True):
+                raise LucaHatasi(f"Beyanname listesi isteği başarısız (HTTP {getattr(cevap, 'status', '?')})")
+            try:
+                veri = cevap.json()
+            except Exception as e:  # noqa: BLE001
+                raise LucaHatasi("Beyanname listesi yanıtı JSON değil") from e
+            ml.tani_kaydet(ekran, self.tani_klasoru, self.log, "-liste", "beyanname-takip")
+        return veri
 
     def tani_calistir(self, page, bugun):
-        """Tanı modu: müşteri listesini açar, beyanname ekranını açar, seçenekleri ve ekranları kaydeder."""
+        """Tanı modu: müşteri listesini açar, beyanname ekranında son 30 günün listesini alır, ham yanıtı ve ekranları kaydeder."""
         import json
-        self.musteri_listesi(page)
+        from datetime import timedelta
+        self.musteri_listesi(page, bugun.year)
         ekran = self.beyanname_ekrani_ac(page, bugun.year)
-        secenekler = self.filtre_secenekleri(ekran)
-        (self.tani_klasoru / "filtre-secenekleri.json").write_text(
-            json.dumps(secenekler, ensure_ascii=False, indent=1), encoding="utf-8")
-        with self._sessiz():
-            self.m.ml.tani_kaydet(ekran, self.tani_klasoru, self.log, "-filtre", "beyanname-takip")
+        veri = self.beyanname_listele(ekran, bugun - timedelta(days=30), bugun)
+        (self.tani_klasoru / "beyan_listele.json").write_text(json.dumps(veri, ensure_ascii=False, indent=1), encoding="utf-8")
 
     def kapat(self):
         with self._sessiz():

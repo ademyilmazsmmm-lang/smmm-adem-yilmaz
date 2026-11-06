@@ -8,96 +8,51 @@ import re
 from datetime import timedelta
 from html.parser import HTMLParser
 
-from .kurallar import BEYANNAMELER, donemler_uret, sade, tur_coz
+from .kurallar import BEYANNAMELER, donemler_uret, sade
 
 
-def sorgu_plani(bugun, tatil, once=10, sonra=35, ucaylik_ay="bit"):
-    """Son günü [bugün-once, bugün+sonra] aralığında olan dönemler için Luca'da yapılacak sorgular.
+# Luca "GİB Beyanname Takip" ekranının listesi (beyan_listele.jq) JSON döner:
+#   {"success": "243 adet beyanname kaydı listelendi.", "data": [{beyannameKodu, beyanDonem, donemBas/donemBit (GGAAYYYY),
+#    beyanDurum (0 Hatalı, 2 Onaylanmış, 3 İptal Edilmiş), beyanDurumAciklama, vkn, tckn, mukellefAdi, sirketKisaAd,
+#    yuklemeZamani, ...}]}
+# sirketKisaAd, Müşteri Listesi'ndeki "Kısa Adı" ile birebir aynıdır.
+_DURUM_KODLARI = {"2": "Onaylanmış", "0": "Hatalı", "3": "İptal Edilmiş"}
 
-    Dönen her kayıt: tur, yil/ay (dönemin BİTTİĞİ yıl/ay: karşılaştırmada bu kullanılır) ve sorgu_yil/sorgu_ay
-    (Luca filtresine yazılacak yıl/ay). Aylık dönemde ikisi aynıdır; 3 aylık dönemde Luca'nın "Beyanname Dönemi"
-    ayını dönem başı mı sonu mu tuttuğu gerçek ekranda doğrulanmadı: ucaylik_ay="bit" (varsayılan) ya da "bas".
-    """
-    gorulen, plan = set(), []
+
+def beyanname_json_kayitlari(cevap):
+    """beyan_listele.jq yanıtından (kayıtlar, sayfanın yazdığı toplam ya da None).
+
+    Her kayıt: firma (unvan), kisa_ad, vkn, tckn, tur (beyannameKodu: KDV1, MUHSGK, KGECICI, ...), donem ("AA/YYYY" =
+    dönemin BİTTİĞİ ay), durum (metin), yukleme. Dönem, 3 aylık beyannamelerde de dönem bitişinden okunur (donemBit)."""
+    veri = (cevap or {}).get("data")
+    if not isinstance(veri, list):
+        raise ValueError("yanıtta 'data' listesi yok")
+    m = re.search(r"(\d+)\s+adet", str((cevap or {}).get("success") or ""))
+    kayitlar = []
+    for r in veri:
+        bit = re.sub(r"\D", "", str(r.get("donemBit") or ""))
+        donem = f"{bit[2:4]}/{bit[4:8]}" if len(bit) == 8 else str(r.get("beyanDonem") or "")
+        durum = (r.get("beyanDurumAciklama") or "").strip() or _DURUM_KODLARI.get(str(r.get("beyanDurum")), f"Bilinmeyen durum ({r.get('beyanDurum')})")
+        tckn = str(r.get("tckn") or "").strip()
+        kayitlar.append({"firma": (r.get("mukellefAdi") or "").strip(), "kisa_ad": (r.get("sirketKisaAd") or "").strip(),
+                         "vkn": str(r.get("vkn") or "").strip(), "tckn": "" if tckn in ("", "0") else tckn,
+                         "tur": (r.get("beyannameKodu") or "").strip(), "donem": donem, "durum": durum,
+                         "yukleme": r.get("yuklemeZamani") or "",
+                         # SGK (e-Bildirge) kısmı: ekrandaki "E-Bil." sütunu. Yalnızca MUHSGK kayıtlarında gelir; anlamları henüz
+                         # kurala bağlanmadı (muhSgkDurum görülen değerler: "2", "3", "0", "6")
+                         "ebildirge": r.get("ebildirgeSayisi"), "sgk_durum": str(r.get("muhSgkDurum") or "")})
+    return kayitlar, (int(m.group(1)) if m else None)
+
+
+def yukleme_araligi(bugun, tatil, once=10, sonra=35, pay=3):
+    """Beyanname Takip'te sorgulanacak paket yükleme tarihi aralığı: son günü [bugün-once, bugün+sonra] aralığında olan en eski
+    dönemin bitişinden (bir beyanname dönem bitmeden verilemez) bugüne. Dönem/tür/durum filtresi kullanılmaz: tümü gelir."""
+    en_eski = bugun
     for tur, spec in BEYANNAMELER.items():
         for periyot in spec["periyotlar"]:
             for d in donemler_uret(tur, periyot, bugun - timedelta(days=once), bugun + timedelta(days=sonra), tatil):
-                if ucaylik_ay == "bas" and periyot == "3aylik":
-                    sy, sa = d.bas.year, d.bas.month
-                else:
-                    sy, sa = d.yil, d.ay
-                anahtar = (tur, d.yil, d.ay, sy, sa)
-                if anahtar not in gorulen:
-                    gorulen.add(anahtar)
-                    plan.append({"tur": tur, "yil": d.yil, "ay": d.ay, "sorgu_yil": sy, "sorgu_ay": sa})
-    return sorted(plan, key=lambda p: (p["sorgu_yil"], p["sorgu_ay"], p["tur"]))
-
-
-def secenek_esle(secenekler, tur):
-    """Filtredeki 'Beyanname' listesinden bu türe karşılık gelen seçenekler (GGECICI ve KGECICI ikisi de GECICI)."""
-    return [s.strip() for s in secenekler if s.strip() and tur_coz(s) == tur]
-
-
-def durum_sec(secenekler):
-    """'Beyanname Durum' listesinden onaylanmış beyannameleri getiren seçenek; yoksa None."""
-    aday = [s.strip() for s in secenekler if s.strip()]
-    for s in aday:
-        if sade(s) == "ONAYLANMIS":
-            return s
-    for s in aday:
-        d = sade(s)
-        if "ONAY" in d and not any(k in d for k in ("ONAYLANMAMIS", "BEKL", "HATA")):
-            return s
-    return None
-
-
-def _ara_baslik(satirlar):
-    """(baslik satırı no, firma sütunu, vkn sütunu) ya da None."""
-    for i, satir in enumerate(satirlar):
-        hucre = [sade(h) for h in satir]
-        firma = next((j for j, h in enumerate(hucre) if h == "MUKELLEF ADI" or h == "MUKELLEF UNVANI"
-                      or h == "MUKELLEF" or h == "UNVAN"), None)
-        if firma is None:
-            firma = next((j for j, h in enumerate(hucre) if "MUKELLEF" in h and "ADI" in h), None)
-        if firma is not None:
-            vkn = next((j for j, h in enumerate(hucre) if "VKN" in h or "VERGI KIMLIK" in h or h == "VERGI NO"), None)
-            return i, firma, vkn
-    return None
-
-
-def beyanname_satirlari(tablolar):
-    """Listele'den sonra ekrandaki tablolardan firma satırları: [{"firma", "vkn"}].
-
-    tablolar: her biri hücre metinlerinin satır listesi olan tablolar. Başlık ve veri aynı tabloda ya da
-    (ızgara bileşenlerinde sık görüldüğü gibi) ayrı tablolarda olabilir; veri satırlarının başında sıra no ya da
-    onay kutusu gibi ek sütunlar varsa başlık o kadar sağa hizalanır. Başlık hiç bulunamazsa None döner.
-    """
-    for t_no, satirlar in enumerate(tablolar):
-        b = _ara_baslik(satirlar)
-        if b is None:
-            continue
-        i, firma_j, vkn_j = b
-        baslik = satirlar[i]
-        veri = satirlar[i + 1:]
-        if not veri:
-            # başlık ayrı tabloda: başlığın genişliğine uyan (her satırı en az o kadar hücreli) en çok satırlı tablo veridir;
-            # menü gibi dar tablolar böylece veri sanılmaz
-            digerleri = [x for k, x in enumerate(tablolar) if k != t_no and x and all(len(r) >= len(baslik) for r in x)]
-            veri = max(digerleri, key=len) if digerleri else []
-        sonuc = []
-        for satir in veri:
-            kayma = max(0, len(satir) - len(baslik))
-            if firma_j + kayma >= len(satir):
-                continue
-            ad = satir[firma_j + kayma].strip()
-            if not ad or sade(ad) in ("MUKELLEF ADI", "TOPLAM") or sade(satir[0]).startswith("TOPLAM"):
-                continue
-            vkn = ""
-            if vkn_j is not None and vkn_j + kayma < len(satir):
-                vkn = "".join(ch for ch in satir[vkn_j + kayma] if ch.isdigit())
-            sonuc.append({"firma": ad, "vkn": vkn if len(vkn) in (10, 11) else ""})
-        return sonuc
-    return None
+                en_eski = min(en_eski, d.bit)
+    return en_eski - timedelta(days=pay), bugun
 
 
 def musteri_anahtari(k):

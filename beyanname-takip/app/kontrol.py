@@ -64,10 +64,16 @@ def ayar_al(ayarlar, mid):
 
 
 def ayni_firma(m, r):
+    """Beyanname kaydı bu mükellefe mi ait? Sırayla: VKN/TCKN (varsa kesin), Luca kısa adı (Müşteri Listesi'ndeki ad ile
+    birebir), unvan. VKN önce gelir: tasfiye halindeki şirketin eski ve yeni kaydı aynı VKN'yi taşır, beyanname ikisinde
+    de görünür (eski kaydın kapanışı nedeniyle önemi yoktur)."""
     if r.get("hesap", m["hesap"]) != m["hesap"]:
         return False
-    if r.get("vkn") and m.get("vkn"):
-        return str(r["vkn"]).strip() == str(m["vkn"]).strip()
+    kimlikler = {str(r.get("vkn") or "").strip(), str(r.get("tckn") or "").strip()} - {"", "0"}
+    if kimlikler and m.get("vkn"):
+        return str(m["vkn"]).strip() in kimlikler
+    if sade(r.get("kisa_ad")) and sade(r.get("kisa_ad")) == sade(m.get("ad")):
+        return True
     rn = sade(r.get("firma"))
     if not rn:
         return False

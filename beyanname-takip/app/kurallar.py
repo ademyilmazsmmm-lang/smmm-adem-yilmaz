@@ -143,10 +143,11 @@ def donem_bitisi(kayit):
 
 
 def onayli_mi(durum):
-    """Beyanname durumu onaylı sayılır mı? Boş durum (kayıt var) onaylı sayılır; hata/bekleme sayılmaz."""
+    """Beyanname durumu onaylı sayılır mı? Boş durum (kayıt var) onaylı sayılır. Hata/iptal/bekleme sayılmaz; tanınmayan
+    bir durum metni de onaylı SAYILMAZ (alarm tarafında kalmak, bir eksiği kaçırmaktan iyidir)."""
     d = sade(durum)
     if not d:
         return True
     if any(k in d for k in ("HATA", "BEKL", "ONAYLANMAMIS", "ISLEM", "IPTAL")) or re.search(r"\bRED\b", d):
         return False
-    return True
+    return "ONAY" in d
