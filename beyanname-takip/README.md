@@ -172,6 +172,8 @@ bulunup doldurulduğu, filtre alanlarının beklenen biçimde doldurulduğu.
 
 ## Render'a kurulum
 
+> Adım adım kurulum ve ortam değişkeni tablosu için **[KURULUM.md](KURULUM.md)** dosyasına bakın.
+
 1. Bu klasörü içeren **özel** bir depo oluşturun (yukarıdaki lisans notu) ya da yalnızca `TOPLAYICI=dosya`
    için bu depoyu kullanın (veri depoda değil, diskte durur).
 2. Render → New → **Web Service** → Docker; Root Directory `beyanname-takip`; plan **Starter**;
