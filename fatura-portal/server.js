@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-06-244";
+const SURUM = "2026-11-06-246";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -239,6 +239,7 @@ function sgkKontrol(id, tur) {
   const an = id + ":" + tur, son = sgkSon.get(an) || 0; if (Date.now() - son < 3e3) throw new Error("Çok sık istek: birkaç saniye bekleyin."); sgkSon.set(an, Date.now());
 }
 const yaziSayac = new Map(); // mükellef -> son 24 saatteki borç durum yazısı talepleri
+const dilekceSayac = new Map(), dilekceSmsSayac = new Map(); // mükellef -> genel amaçlı dilekçe gönderimleri (24 sa) / SMS istekleri (10 dk)
 const postaSayac = new Map(); // kullanıcı -> son gönderim zamanları (saatlik sınır)
 const bekleyen = new Map(); // taslak kimliği -> geçmiş kaydı taslağı (onaylanınca kalıcı olur)
 const TIPLER = ["SATIS", "TEVKIFAT", "IADE", "ISTISNA", "OZELMATRAH"];
@@ -860,6 +861,25 @@ async function api(req, res, yol) {
       if (ne === "dilekce") { /* Dilekçelerim: gönderilen dilekçeler (tarih aralığı) */
         const t = (d) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); if (!q) throw new Error("Tarih seçin."); return q[1] + q[2] + q[3]; };
         return cevap(res, 200, await vdSorgu(m, (x) => x.dilekcelerimListe(t(g.bas), t(g.bit))));
+      }
+      if (ne === "beyanname-kesif") { /* geliştirme: İnternet VD menüsündeki beyanname sorgu sayfalarının adlarını/servislerini okur (yalnız ofis) */
+        if (o.rol !== "ofis") return cevap(res, 400, { hata: "Bu geliştirme aracı yalnız ofis hesabına açıktır." });
+        const sayfa = String(g.sayfa || ""); if (!["P_INTVRG_MAIN_SORGULAMALAR", "P_INTVRG_MAIN_EBEYANNAME"].includes(sayfa)) return cevap(res, 400, { hata: "Geçersiz sayfa." });
+        const r0 = await vdSorgu(m, (x) => x.interaktifSayfa(sayfa, true, "intvrg")); gunluk(o, mid, "İnternet VD sayfası görüntülendi", sayfa); return cevap(res, 200, r0);
+      }
+      if (ne === "dilekce-hazirla") return cevap(res, 200, await vdSorgu(m, (x) => x.dilekceHazirla()));
+      if (ne === "dilekce-sms") {
+        const sin = (dilekceSmsSayac.get(m.id) || []).filter((t) => Date.now() - t < 600e3); if (sin.length >= 3) return cevap(res, 429, { hata: "10 dakikada en çok 3 SMS istenebilir; biraz bekleyin." });
+        const r = await vdSorgu(m, (x) => x.dilekceSmsGonder()); sin.push(Date.now()); dilekceSmsSayac.set(m.id, sin); gunluk(o, mid, "Genel amaçlı dilekçe için SMS kodu istendi", ""); return cevap(res, 200, r);
+      }
+      if (ne === "dilekce-yaz") { /* resmî dilekçe: açık onay + SMS kodu; mükellef başına günde en çok 5 */
+        if (g.onay !== true) return cevap(res, 400, { hata: "Gönderim için onay gerekli." });
+        const metin = String(g.metin || "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim(), vdKodu = String(g.vdKodu || "").trim(), smsKod = String(g.smsKod || "").trim();
+        if (metin.length < 20) return cevap(res, 400, { hata: "Dilekçe metni çok kısa (en az 20 karakter)." }); if (metin.length > 4000) return cevap(res, 400, { hata: "Dilekçe metni en çok 4000 karakter olabilir." });
+        if (!/^\d{3,10}$/.test(vdKodu)) return cevap(res, 400, { hata: "Vergi dairesini seçin." }); if (!/^\d{4,8}$/.test(smsKod)) return cevap(res, 400, { hata: "SMS kodunu yazın." });
+        const sin = (dilekceSayac.get(m.id) || []).filter((t) => Date.now() - t < 864e5); if (sin.length >= 5) return cevap(res, 429, { hata: "Bir mükellef için günde en çok 5 dilekçe gönderilebilir." });
+        const r = await vdSorgu(m, (x) => x.genelDilekceKaydet({ metin, vdKodu, smsKod })); sin.push(Date.now()); dilekceSayac.set(m.id, sin);
+        gunluk(o, mid, "Genel amaçlı dilekçe gönderildi", "vd " + vdKodu + " · " + metin.length + " karakter"); return cevap(res, 200, r);
       }
       if (ne === "dilekce-durum") return cevap(res, 200, await vdSorgu(m, (x) => x.dilekceDurum(Number(g.n))));
       if (ne === "dilekce-evrak") return cevap(res, 200, await vdSorgu(m, (x) => x.dilekceEvrakListe(Number(g.n))));
