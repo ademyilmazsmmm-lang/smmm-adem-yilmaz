@@ -113,8 +113,8 @@ Her şey Luca'nın içinde yapılır, GİB/e-Beyanname'ye bağlanılmaz:
      **"buraya"** bağlantısına basar (pencereyi kapatır ve listeyi yeniler; kapanmazsa yedek olarak "Kapat"). `LUCA_GIB_GETIR=0` adımı kapatır, `LUCA_GIB_GETIR_SN` bekleme süresidir (180). Luca'nın GİB kullanıcı kodu/şifresi
      "Yönetici > SM/SMM Bilgileri > Kurum Şifre Bilgileri"nde kayıtlı olmalıdır. İlk kurulumda bir kez `LUCA_GIB_GUN=31` verin.
      Çalışmazsa eski veriyle devam edilir ve mesajlara "Luca verisi güncel olmayabilir" uyarısı eklenir.
-   * Sonra Filtre penceresinde **"Beyanname Durum" = Tümü** (pencere varsayılan olarak "Onaylanmış" açılır; Tümü seçilmezse
-     hatalı ve iptal edilmiş beyannameler hiç gelmez) ve yalnızca **Paket Yükleme Tarihi** aralığı yazılır (son günü
+   * Sonra Filtre penceresinde **"Beyanname Durum" = Onaylanmış** (hatalı/kırmızı ve iptal edilmiş
+     kayıtlar Luca'dan hiç gelmez; kod ayrıca bir güvence olarak onaylı olmayanları süzer) ve yalnızca **Paket Yükleme Tarihi** aralığı yazılır (son günü
      yaklaşan en eski dönemin bitişinden bugüne), "Beyannameleri Listele". Dönem ve tür filtresi yoktur.
    * Ekranın kendi isteğinin yanıtı (`beyan_listele.jq`, JSON) yakalanır; tablo okunmaz. Her kayıtta tür (`beyannameKodu`:
      KDV1, MUHSGK, KGECICI…), dönem (3 aylıklarda dönem bitişi), durum, VKN/TCKN, Luca kısa adı vardır; toplam sayı

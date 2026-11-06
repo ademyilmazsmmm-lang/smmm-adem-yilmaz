@@ -411,7 +411,7 @@ def test_cekirdekle_butunlesme_ve_eslesmeyen_uyarisi(tmp_path):
     r = u.topla()
     assert r["ok"] and any("hiçbir mükellefle eşleşmedi" in x and "TANINMAYAN FIRMA" in x for x in r["uyarilar"])
     d = {(x.ad, x.tur): x.durum for x in u.maddeler() if x.donem == "2026-10"}
-    assert d[("ALFA", "KDV1")] == "verildi" and d[("BETA", "KDV1")] == "eksik" and d[("BETA", "MPHB")] == "onaysiz"
+    assert d[("ALFA", "KDV1")] == "verildi" and d[("BETA", "KDV1")] == "eksik" and d[("BETA", "MPHB")] == "eksik"
     u.slot_calistir("09:00")
     assert any("eşleşmedi" in m for m in tg.mesajlar)
 
@@ -614,13 +614,13 @@ def beyanname_kopru(tmp_path, tiklanan, yazilan, secilen=None, basilabilir=True,
     return kopru_kur(tmp_path, lb=lb, le=le, ml=SimpleNamespace(tani_kaydet=lambda *a, **k: None))
 
 
-def test_koprude_beyanname_listele_durumu_tumu_yapar_tarihleri_yazar_ve_yaniti_yakalar(tmp_path):
+def test_koprude_beyanname_listele_durumu_onayli_yapar_tarihleri_yazar_ve_yaniti_yakalar(tmp_path):
     veri = cevap_json([bey_kaydi("ALFA", "ALFA", "1111111111", "KDV1", *EKIM)])
     tiklanan, yazilan, secilen = [], [], []
     g = beyanname_kopru(tmp_path, tiklanan, yazilan, secilen)
     cevap = SimpleNamespace(ok=True, json=lambda: veri)
     assert g.beyanname_listele(SahteEkran(cevap), date(2026, 9, 27), date(2026, 11, 6)) == veri
-    assert secilen == [('[data-lucabot-alan="Beyanname Durum#0"]', "Tümü")]          # varsayılan "Onaylanmış" olduğundan şart
+    assert secilen == [('[data-lucabot-alan="Beyanname Durum#0"]', "Onaylanmış")]     # kırmızılar (hatalı) hiç gelmez
     assert yazilan == [('[data-lucabot-alan="Paket Yükleme Tarihi#0"]', date(2026, 9, 27)),
                        ('[data-lucabot-alan="Paket Yükleme Tarihi#1"]', date(2026, 11, 6))]
     assert tiklanan == ["Beyannameleri Listele"]
@@ -641,8 +641,8 @@ def test_koprude_beyanname_listele_hatalari(tmp_path):
     with pytest.raises(LucaHatasi, match="düğmesine basılamadı"):
         g2.beyanname_listele(SahteEkran(), date(2026, 9, 27), date(2026, 11, 6))
     tiklanan, yazilan = [], []
-    g3 = beyanname_kopru(tmp_path, tiklanan, yazilan, durum_secilebilir=False)      # "Tümü" yoksa sessizce onaylıyla yetinilmez
-    with pytest.raises(LucaHatasi, match="'Tümü' seçeneği yok"):
+    g3 = beyanname_kopru(tmp_path, tiklanan, yazilan, durum_secilebilir=False)      # "Onaylanmış" yoksa sessizce başka durumla devam edilmez
+    with pytest.raises(LucaHatasi, match="'Onaylanmış' seçeneği yok"):
         g3.beyanname_listele(SahteEkran(), date(2026, 9, 27), date(2026, 11, 6))
     assert tiklanan == [] and yazilan == []
 

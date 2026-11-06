@@ -6,8 +6,8 @@ AKIŞ (hepsi Luca içinde; GİB/e-Beyanname'ye hiç bağlanılmaz):
      Tarihi, Luca şirket kimliği). Sayfa HTML'inden okunur; sayfanın yazdığı "Kayıt Sayısı" ile doğrulanır.
   3. Muhasebe > Beyannameler > GİB Beyanname Takip: önce "GİB'den Getir" (Luca beyannameleri kendiliğinden çekmez; arama
      ekranı yalnızca daha önce GİB'den getirilmiş kayıtları bulur): açılan tarih penceresine son LUCA_GIB_GUN gün (en çok 31,
-     aynı yıl içinde) yazılır, "Beyannameleri GİB'dan Getir"e basılır, İşlem Takip bitişi beklenir. Sonra "Beyanname Durum = Tümü" ve "Paket Yükleme
-     Tarihi" aralığıyla "Beyannameleri Listele" (varsayılan durum "Onaylanmış"tır: Tümü seçilmezse hatalılar görünmez). Ekranın kendi isteğinin yanıtı (beyan_listele.jq,
+     aynı yıl içinde) yazılır, "Beyannameleri GİB'dan Getir"e basılır, İşlem Takip bitişi beklenir. Sonra "Beyanname Durum = Onaylanmış" ve "Paket Yükleme
+     Tarihi" aralığıyla "Beyannameleri Listele" (hatalı/iptal kayıtlar hiç gelmez). Ekranın kendi isteğinin yanıtı (beyan_listele.jq,
      JSON) okunur: tür (beyannameKodu), dönem, durum (Onaylanmış/Hatalı/İptal Edilmiş), VKN, kısa ad. Tablo okunmaz.
   4. Karşılaştırmayı cekirdek yapar (onaylı kayıt = verildi; yalnızca hatalı/iptal = "gönderilmiş ama onaysız").
 
@@ -435,18 +435,18 @@ class GercekLucabot:
                     raise LucaHatasi("'İşlem Takip' penceresi kapanmadı (Tanı ekran görüntüsüne bakın)")
 
     def beyanname_listele(self, ekran, bas, bit):
-        """Filtre penceresinde 'Beyanname Durum'u Tümü yapıp 'Paket Yükleme Tarihi' aralığını yazar ve listeler; ekranın kendi
+        """Filtre penceresinde 'Beyanname Durum'u Onaylanmış yapıp 'Paket Yükleme Tarihi' aralığını yazar ve listeler; ekranın kendi
         isteğinin yanıtını (beyan_listele.jq, JSON) yakalar. Dönen: {"success": "N adet ...", "data": [...]}."""
         lb, le, ml = self.m.lb, self.m.le, self.m.ml
         with self._sessiz():
             cerceve = self._filtre_penceresi(ekran)
             alan = lambda ad, sira=0: cerceve.locator(f'[data-lucabot-alan="{ad}#{sira}"]')  # noqa: E731
-            # "Beyanname Durum" pencerede varsayılan olarak "Onaylanmış" gelir: açıkça "Tümü" seçilmezse hatalı ve iptal edilmiş
-            # beyannameler hiç gelmez ve "gönderildi ama onaylanmadı" tespiti sessizce çalışmaz. Dönem/Paket Durum/tür "Tümü" kalır.
+            # Yalnızca onaylanmış beyannameler istenir: hatalı (kırmızı) ve iptal edilmiş kayıtlar Luca'dan hiç gelmez. Varsayılan da
+            # budur ama açıkça seçilir; seçenek yoksa sessizce başka bir durumla devam edilmez. Dönem/Paket Durum/tür "Tümü" kalır.
             durum_kutusu = alan("Beyanname Durum", 0)
-            if not lb._secenek_sec(durum_kutusu, "Tümü"):
+            if not lb._secenek_sec(durum_kutusu, "Onaylanmış"):
                 mevcut = ", ".join(t.strip() for t in durum_kutusu.locator("option").all_inner_texts())
-                raise LucaHatasi(f"'Beyanname Durum' listesinde 'Tümü' seçeneği yok (seçenekler: {mevcut})")
+                raise LucaHatasi(f"'Beyanname Durum' listesinde 'Onaylanmış' seçeneği yok (seçenekler: {mevcut})")
             for sira, d in enumerate((bas, bit)):
                 lb._tarih_yaz(alan("Paket Yükleme Tarihi", sira), d)
             try:
