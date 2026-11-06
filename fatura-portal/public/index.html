@@ -945,7 +945,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (!(d > 0)) { k.madenHata = "Tahsilat tutarı, külçe maden bedelinden (" + tlYaz(g) + ") büyük olmalı."; return false; }
     var isc = r2(d / (1 + kdv / 100)), mal = r2(g + isc);
     k.ozelTutar = isc.toFixed(2).replace(".", ","); k.fiyat = String(Number((mal / gr).toFixed(6))).replace(".", ",");
-    if (!k.aciklama || k.aciklamaOto) { k.aciklama = String(k.miktar).trim() + " gr, külçe " + (k.ozelNeden === "805" ? "altın" : "gümüş") + " " + String(k.gramKur).trim() + " TL/gr"; k.aciklamaOto = true; }
+    if (k.aciklamaOto) { k.aciklama = ""; k.aciklamaOto = false; } /* “… gr, külçe gümüş … TL/gr” açıklaması artık kendiliğinden yazılmaz; açıklama alanına elle yazılabilir */
     return true;
   }
   function tlYaz(x){ return Number(x).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺"; }
