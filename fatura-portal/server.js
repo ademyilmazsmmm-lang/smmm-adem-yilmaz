@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-07-251";
+const SURUM = "2026-11-07-252";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -431,16 +431,16 @@ async function api(req, res, yol) {
       return res.end(d.veri);
     } catch (e) { if (e && e.oturum) { clearTimeout(sgkZaman.get(an)); sgkler.delete(an); } return duz(500, "Belge alınamadı: " + e.message); }
   }
-  if ((yol === "/api/vd/belge" || yol === "/api/vd/yazi" || yol === "/api/vd/levha" || yol === "/api/vd/tahakkuk" || yol === "/api/vd/yoklama" || yol === "/api/vd/dilekce-belge") && req.method === "GET") {
+  if ((yol === "/api/vd/belge" || yol === "/api/vd/yazi" || yol === "/api/vd/levha" || yol === "/api/vd/tahakkuk" || yol === "/api/vd/yoklama" || yol === "/api/vd/dilekce-belge" || yol === "/api/vd/beyanname-belge") && req.method === "GET") {
     const q = new URL(req.url, "http://x").searchParams, mid = o.rol === "mukellef" ? o.mid : q.get("mid") || "";
     const duz = (kod, metin) => { res.writeHead(kod, Object.assign({ "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }, GUV)); res.end(metin); };
     if (!depo.yetkili(o, mid)) return duz(403, "Bu mükellef için yetkiniz yok.");
     const x = ivdler.get(mid); if (!x || !x.girildi) return duz(409, "Önce Dijital Vergi Dairesi'ne bağlanın (Vergi D. sekmesi).");
     try {
       ivdKontrol({ id: mid }, "b"); ivdZamanla(mid);
-      const n = Number(q.get("n")), yazi = yol === "/api/vd/yazi", levha = yol === "/api/vd/levha", thk = yol === "/api/vd/tahakkuk", yok = yol === "/api/vd/yoklama", dlk = yol === "/api/vd/dilekce-belge";
-      const d = levha ? await x.levhaIndir(n, q.get("dil"), (depo.mukellef(o, mid).veri.vkn || "").replace(/\D/g, "")) : yazi ? await x.yaziIndir(n) : thk ? await x.tahakkukIndir(n) : yok ? await x.yoklamaIndir(n) : dlk ? await x.dilekceBelgeIndir(n) : await x.belgeIndir(n);
-      gunluk(o, mid, levha ? "e-Vergi levhası açıldı" : dlk ? "Dilekçe evrakı açıldı" : yazi ? "Borç durum yazısı açıldı" : thk ? "Tahakkuk fişi açıldı" : yok ? "Yoklama fişi açıldı" : "Tebligat belgesi açıldı", d.ad);
+      const n = Number(q.get("n")), yazi = yol === "/api/vd/yazi", levha = yol === "/api/vd/levha", thk = yol === "/api/vd/tahakkuk", yok = yol === "/api/vd/yoklama", dlk = yol === "/api/vd/dilekce-belge", byn = yol === "/api/vd/beyanname-belge";
+      const d = levha ? await x.levhaIndir(n, q.get("dil"), (depo.mukellef(o, mid).veri.vkn || "").replace(/\D/g, "")) : yazi ? await x.yaziIndir(n) : thk ? await x.tahakkukIndir(n) : yok ? await x.yoklamaIndir(n) : dlk ? await x.dilekceBelgeIndir(n) : byn ? await x.beyannameIndir(n) : await x.belgeIndir(n);
+      gunluk(o, mid, levha ? "e-Vergi levhası açıldı" : byn ? "Beyanname açıldı" : dlk ? "Dilekçe evrakı açıldı" : yazi ? "Borç durum yazısı açıldı" : thk ? "Tahakkuk fişi açıldı" : yok ? "Yoklama fişi açıldı" : "Tebligat belgesi açıldı", d.ad);
       res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": (d.satir ? "inline" : "attachment") + "; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:" }));
       return res.end(d.veri);
     } catch (e) { if (e && e.oturum) await ivdBirak(mid); return duz(500, "Belge alınamadı: " + e.message); }
@@ -740,13 +740,13 @@ async function api(req, res, yol) {
     if (tur === "sgk") {
       const an = sgkAnahtar(mid, "isveren", sgkIx(g.ix)), x = sgkler.get(an); if (!x || !x.girdi) return cevap(res, 409, { hata: "SGK İşveren Sistemi bağlantısı kapalı; güvenlik koduyla yeniden bağlanın." });
       try { sgkKontrol(an, "f"); sgkZamanla(an); d = await x.formGonder(n); } catch (e) { if (e && e.oturum) { clearTimeout(sgkZaman.get(an)); sgkler.delete(an); } return cevap(res, 500, { hata: "Belge alınamadı: " + e.message }); }
-    } else if (tur === "yazi" || tur === "thk" || tur === "teb" || tur === "dlk") {
+    } else if (tur === "yazi" || tur === "thk" || tur === "teb" || tur === "dlk" || tur === "byn") {
       const x = ivdler.get(mid); if (!x || !x.girildi) return cevap(res, 409, { hata: "Önce Dijital Vergi Dairesi'ne bağlanın (Vergi D. sekmesi)." });
-      try { ivdKontrol({ id: mid }, "b"); ivdZamanla(mid); d = tur === "yazi" ? await x.yaziIndir(n) : tur === "teb" ? await x.belgeIndir(n) : tur === "dlk" ? await x.dilekceBelgeIndir(n) : await x.tahakkukIndir(n); } catch (e) { if (e && e.oturum) await ivdBirak(mid); return cevap(res, 500, { hata: "Belge alınamadı: " + e.message }); }
+      try { ivdKontrol({ id: mid }, "b"); ivdZamanla(mid); d = tur === "yazi" ? await x.yaziIndir(n) : tur === "teb" ? await x.belgeIndir(n) : tur === "dlk" ? await x.dilekceBelgeIndir(n) : tur === "byn" ? await x.beyannameIndir(n) : await x.tahakkukIndir(n); } catch (e) { if (e && e.oturum) await ivdBirak(mid); return cevap(res, 500, { hata: "Belge alınamadı: " + e.message }); }
     } else return cevap(res, 400, { hata: "Geçersiz belge türü." });
     const pdfMi = !!d && !!d.veri && d.veri.slice(0, 4).toString() === "%PDF", resimMi = !!d && /^image\/(png|jpeg|gif)$/.test(String(d.tur || "")); /* tebligat ekleri resim de olabilir */
     if (!d || !d.veri || d.veri.length > 5.5e6 || !(pdfMi || ((tur === "teb" || tur === "dlk") && resimMi))) return cevap(res, 400, { hata: "Belge PDF ya da resim olarak alınamadı (ya da çok büyük); e-posta gönderilmedi." });
-    const pr = m.profil || {}, ad = { sgk: "SGK borcu yoktur belgesi (E-Borcu Yoktur)", yazi: "Vergi borcu yoktur / borç durum yazısı", thk: "Tahakkuk fişi", teb: "Tebligat belgesi", dlk: "Dilekçe evrakı" }[tur];
+    const pr = m.profil || {}, ad = { sgk: "SGK borcu yoktur belgesi (E-Borcu Yoktur)", yazi: "Vergi borcu yoktur / borç durum yazısı", thk: "Tahakkuk fişi", teb: "Tebligat belgesi", dlk: "Dilekçe evrakı", byn: "Beyanname" }[tur];
     const metin = "Sayın yetkili,\n\n" + m.ad + " adına alınan " + ad + " ektedir.\n\nİyi çalışmalar dileriz.\n" + m.ad + (pr.tel ? "\nTel: " + pr.tel : "") + (pr.eposta ? "\nE-posta: " + pr.eposta : "") + "\n\n— Bu ileti Mükellef Portalı üzerinden gönderilmiştir.";
     const kopya = pr.eposta && posta.EPOSTA.test(pr.eposta) && !to.includes(pr.eposta) ? [pr.eposta] : [];
     await posta.gonder({ gonderenAd: m.ad, to, cc: kopya, yanit: pr.eposta || "", konu: ad + " — " + m.ad, metin, ek: { ad: String(d.ad || "belge.pdf").replace(/[^\w.\-]+/g, "_").replace(/^_+/, "") || "belge.pdf", tur: pdfMi ? "application/pdf" : d.tur, veri: d.veri } }, DIR);
@@ -863,11 +863,7 @@ async function api(req, res, yol) {
         const t = (d) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); if (!q) throw new Error("Tarih seçin."); return q[1] + q[2] + q[3]; };
         return cevap(res, 200, await vdSorgu(m, (x) => x.dilekcelerimListe(t(g.bas), t(g.bit))));
       }
-      if (ne === "beyanname-kesif") { /* geliştirme: İnternet VD menüsündeki beyanname sorgu sayfalarının adlarını/servislerini okur (yalnız ofis) */
-        if (o.rol !== "ofis") return cevap(res, 400, { hata: "Bu geliştirme aracı yalnız ofis hesabına açıktır." });
-        const sayfa = String(g.sayfa || ""); if (!["P_INTVRG_MAIN_SORGULAMALAR", "P_INTVRG_MAIN_EBEYANNAME"].includes(sayfa)) return cevap(res, 400, { hata: "Geçersiz sayfa." });
-        const r0 = await vdSorgu(m, (x) => x.interaktifSayfa(sayfa, true, "intvrg")); gunluk(o, mid, "İnternet VD sayfası görüntülendi", sayfa); return cevap(res, 200, r0);
-      }
+      if (ne === "beyanname") return cevap(res, 200, await vdSorgu(m, (x) => x.beyannameListe(String(g.tbas || ""), String(g.tbit || ""), String(m.vkn || "")))); /* İnternet VD · Mükellef Dosyası → Beyannameler */
       if (ne === "dilekce-hazirla") return cevap(res, 200, await vdSorgu(m, (x) => x.dilekceHazirla()));
       if (ne === "dilekce-sms") {
         const sin = (dilekceSmsSayac.get(m.id) || []).filter((t) => Date.now() - t < 600e3); if (sin.length >= 3) return cevap(res, 429, { hata: "10 dakikada en çok 3 SMS istenebilir; biraz bekleyin." });

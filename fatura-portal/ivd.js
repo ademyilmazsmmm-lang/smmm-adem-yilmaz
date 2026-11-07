@@ -193,6 +193,47 @@ class Ivd {
     if (!basari) throw new Error("Talep alınmadı" + (this.mesajMetni(y) ? ": " + String(this.mesajMetni(y)).slice(0, 200) : " (GİB başarı yanıtı vermedi)") + ".");
     return { tamam: true, mesaj: mesajlar.filter((m) => m && m.text).map((m) => m.text).join(" ") || "Talebiniz işleme alındı.", sekil: sekil(y) };
   }
+  /* ---- Beyannameler (İnternet Vergi Dairesi · Mükellef Dosyası → Beyannameler) ----
+   * Portal akışı: /intvrg_server/dispatch komutu beyannameIslemleri_beyannameSorgulaSorgu, jp { vkn:{vkn}, basDonem:{ay,yil}, bitDonem:{ay,yil} };
+   * yanıt data.beyanname.beyanname[] { beyanname_turu, donem "YYYYAAYYYYAA", aciklama, kaynak, beyoid }.
+   * PDF: /intvrg_server/goruntuleme?cmd=IMAJ&subcmd=BEYANNAMEGORUNTULE&beyannameOid=…&USERID=&inline=true&goruntuTip=1&token=… */
+  async intvrgOturum() {
+    const o = this.intvrgOt; if (o && Date.now() - o.zaman < 4 * 60e3) return o;
+    let gr; try { gr = await this.sideGiris("intvrg"); } catch (e) { if (e.oturum) throw e; throw new Error("İnternet Vergi Dairesi bağlantısı kurulamadı: " + String(e.message).slice(0, 120)); }
+    const hedef = gr.y.redirectUrl, u = new URL(hedef), token = u.searchParams.get("token") || ""; if (!token) throw new Error("İnternet Vergi Dairesi oturum anahtarı vermedi.");
+    await this.gibGit(hedef);
+    return (this.intvrgOt = { hedef, origin: u.origin, token, zaman: Date.now() });
+  }
+  async intvrgCagir(cmd, jp) {
+    const o = await this.intvrgOturum();
+    const r = await this.gibGit(o.origin + "/intvrg_server/dispatch", "cmd=" + cmd + "&callid=" + Date.now().toString(36) + "-1&token=" + encodeURIComponent(o.token) + "&jp=" + encodeURIComponent(JSON.stringify(jp)), o.hedef);
+    let j; try { j = JSON.parse(r.metin); } catch (e) { this.intvrgOt = null; throw new Error("İnternet Vergi Dairesi beklenmeyen bir yanıt verdi."); }
+    if (j && j.error && String(j.error) !== "0") { const m = ((j.messages || []).map((x) => x && x.text).filter(Boolean).join(" ")).slice(0, 200); this.intvrgOt = null; throw new Error(m || "İnternet Vergi Dairesi hatası."); }
+    return j;
+  }
+  async beyannameListe(bas, bit, vknIpucu) {
+    const ay = (t) => /^\d{4}-(0[1-9]|1[0-2])$/.test(t || ""); if (!ay(bas) || !ay(bit)) throw new Error("Başlangıç ve bitiş ayını seçin."); if (bas > bit) throw new Error("Bitiş ayı başlangıçtan önce olamaz.");
+    const [by, bm] = bas.split("-"), [ey, em] = bit.split("-"), m = (v) => (v === undefined || v === null ? "" : String(v));
+    const oz = await this.intvrgCagir("userSessionService_getUserSessionInfo", { token: (await this.intvrgOturum()).token, rfDataInfo: [] }), od = (oz && oz.data && typeof oz.data === "object" ? oz.data : oz) || {};
+    const adaylar = [...new Set([m(vknIpucu), m(od.KTCKN), m(od.GMSITCKIMLIKNO), m(od.GMSIVERGINO)].map((x) => x.replace(/\D/g, "")).filter((x) => /^\d{10,11}$/.test(x)))];
+    if (!adaylar.length) throw new Error("Mükellefin T.C. / vergi kimlik numarası bulunamadı.");
+    let dizi = null, sonHata = null;
+    for (const vkn of adaylar) {
+      try { const j = await this.intvrgCagir("beyannameIslemleri_beyannameSorgulaSorgu", { vkn: { vkn }, basDonem: { ay: bm, yil: by }, bitDonem: { ay: em, yil: ey } }); const b = j && j.data && j.data.beyanname && j.data.beyanname.beyanname; if (Array.isArray(b)) { dizi = b; if (b.length) break; } else if (dizi === null) dizi = []; }
+      catch (e) { if (e.oturum) throw e; sonHata = e; }
+    }
+    if (dizi === null) throw sonHata || new Error("Beyanname bilgisi alınamadı.");
+    const donem = (d) => { const q = /^(\d{4})(\d{2})(\d{4})(\d{2})$/.exec(String(d || "")); return q ? { bas: q[1] + "-" + q[2], bit: q[3] + "-" + q[4] } : { bas: "", bit: "" }; };
+    this.beyannameler = dizi.map((b) => Object.assign({ oid: m(b.beyoid), tur: m(b.beyanname_turu), aciklama: m(b.aciklama), kaynak: m(b.kaynak) }, donem(b.donem)));
+    return { beyannameler: this.beyannameler.map((b, n) => ({ n, tur: b.tur, bas: b.bas, bit: b.bit, aciklama: b.aciklama, kaynak: b.kaynak })), sekil: "" };
+  }
+  async beyannameIndir(n) {
+    const b = (this.beyannameler || [])[n]; if (!b || !b.oid) throw new Error("Beyanname bulunamadı; listeyi yenileyin.");
+    const o = await this.intvrgOturum();
+    const r = await this.gibGit(o.origin + "/intvrg_server/goruntuleme?cmd=IMAJ&subcmd=BEYANNAMEGORUNTULE&beyannameOid=" + encodeURIComponent(b.oid) + "&USERID=&inline=true&goruntuTip=1&token=" + encodeURIComponent(o.token), null, o.hedef);
+    if (!r.veri || r.veri.slice(0, 4).toString() !== "%PDF") { this.intvrgOt = null; throw new Error("Beyanname PDF olarak alınamadı" + (r.metin ? " (" + String(r.metin).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120) + ")" : "") + "."); }
+    return { veri: r.veri, tur: "application/pdf", satir: true, ad: "beyanname-" + b.tur + "-" + (b.bas || "") + ".pdf" };
+  }
   /* ---- Dilekçelerim (Gönderilen Dilekçeler): liste, durum, ilgili evrak (üst yazı / ek) ve evrak PDF'i ----
    * Portalın kendi çağrıları: /dilekcelerim/dilekcelerimListele, dilekceDurumSorgula, dilekceIlgiliEvrakUstyaziEkListe, dilekceGoruntule. bas/bit "YYYYMMDD" */
   async dilekcelerimListe(bas, bit) {
@@ -601,7 +642,8 @@ class Ivd {
       let r; try { r = await fetch(u, { method: govde != null && n === 0 ? "POST" : "GET", body: govde != null && n === 0 ? govde : undefined, headers: h, redirect: "manual", signal: AbortSignal.timeout(25000) }); } catch (e) { throw new Error(e && (e.name === "TimeoutError" || e.name === "AbortError") ? "İnteraktif Vergi Dairesi 25 saniyede yanıt vermedi." : "İnteraktif Vergi Dairesi'ne ulaşılamadı: " + e.message); }
       for (const sc of (typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [])) { const kv = sc.split(";")[0].trim(), i = kv.indexOf("="); if (i > 0) { let m = jar.get(u.hostname); if (!m) jar.set(u.hostname, (m = new Map())); m.set(kv.slice(0, i), kv.slice(i + 1)); } }
       if ([301, 302, 303, 307, 308].includes(r.status)) { yon.push(r.status + " " + u.pathname + " -> " + (r.headers.get("location") || "").replace(/token=[^&\s]+/gi, "token=<jeton>")); url = new URL(r.headers.get("location") || "/", u).href; continue; }
-      return { url: u.href, durum: r.status, tur: r.headers.get("content-type") || "", metin: Buffer.from(await r.arrayBuffer()).toString("utf8"), yon };
+      const veri = Buffer.from(await r.arrayBuffer());
+      return { url: u.href, durum: r.status, tur: r.headers.get("content-type") || "", metin: veri.toString("utf8"), veri, yon };
     }
     throw new Error("İnteraktif Vergi Dairesi çok fazla yönlendirme yaptı.");
   }
@@ -791,6 +833,8 @@ class SahteIvd {
     return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "tebligat.pdf" };
   }
   async yaziListe() { const d = this.yazilar = this.yazilar || [{ ad: "Borç Durum Yazısı", talep: "2026-10-20T10:15:00", cevap: "2026-10-20T11:02:00", durum: 1, eposta: "ornek@ornek.com" }]; return { yazilar: d.map((x, n) => Object.assign({ n }, x)), sekil: {} }; }
+  async beyannameListe(bas, bit) { this.beyannameler = [{ oid: "B1", tur: "KDV1_45", bas: "2026-09", bit: "2026-09", aciklama: "", kaynak: "internet" }, { oid: "B2", tur: "MUHSGK_21", bas: "2026-09", bit: "2026-09", aciklama: "", kaynak: "internet" }, { oid: "B3", tur: "KDV1_45", bas: "2026-03", bit: "2026-03", aciklama: "SEHVEN BİLDİRİLMİŞTİR.", kaynak: "internet" }, { oid: "B4", tur: "GGECICI_24", bas: "2026-04", bit: "2026-06", aciklama: "", kaynak: "internet" }]; return { beyannameler: this.beyannameler.map((b, n) => Object.assign({ n }, b)), sekil: "" }; }
+  async beyannameIndir(n) { const b = (this.beyannameler || [])[n]; if (!b) throw new Error("Beyanname bulunamadı; listeyi yenileyin."); const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 18 Tf 20 60 Td (ORNEK BEYANNAME) Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF"; return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "beyanname-" + b.tur + ".pdf" }; }
   async dilekceHazirla() { this.dilekceHazir = { adres: "ÖRNEK MAH. DENEME SK. NO:1 ÜMRANİYE/İSTANBUL", adresNo: "1", vdler: [{ kod: "034255", ad: "Ümraniye Vergi Dairesi" }, { kod: "034001", ad: "Kadıköy Vergi Dairesi" }] }; return { adres: this.dilekceHazir.adres, vdler: this.dilekceHazir.vdler }; }
   async dilekceSmsGonder() { return { tamam: true, mesaj: "Doğrulama kodu telefona gönderildi." }; }
   async genelDilekceKaydet(p) { if (!this.dilekceHazir) throw new Error("Önce dilekçe formunu açın."); if (p.smsKod !== "123456") throw new Error("Dilekçe kaydedilmedi: SMS kodu hatalı."); this.dilekceler = this.dilekceler || []; this.dilekceler.unshift({ oid: "D" + Date.now(), secureId: "s", konu: "Genel Amaçlı Dilekçe", sayi: 1, zaman: new Date().toISOString().slice(0, 19).replace("T", " "), birim: (this.dilekceHazir.vdler.find((d) => d.kod === p.vdKodu) || {}).ad || "" }); this.sonDilekce = p; return { tamam: true, evrakOid: "E1", mesaj: "Dilekçeniz kaydedildi." }; }
