@@ -193,6 +193,33 @@ class Ivd {
     if (!basari) throw new Error("Talep alınmadı" + (this.mesajMetni(y) ? ": " + String(this.mesajMetni(y)).slice(0, 200) : " (GİB başarı yanıtı vermedi)") + ".");
     return { tamam: true, mesaj: mesajlar.filter((m) => m && m.text).map((m) => m.text).join(" ") || "Talebiniz işleme alındı.", sekil: sekil(y) };
   }
+  /* ---- e-Tebligat bildirim bilgileri (e-posta ve cep telefonu): okuma, yeni numaraya SMS kodu, güncelleme ----
+   * Portal: GET /etebligat/gercek-tuzel-aktivasyon-sorgula (kayıtlı bilgiler), GET /sms/send-sms-with-no?tcknVkn=&telNo=&islemTuru=10,
+   * POST /etebligat/gercek-iletisim-guncelle { cepTelefonu, cepTelefonu2, eposta, eposta2, smsKod, type:"UPDATE" }; başarıda data.guncelleme === "1" */
+  async tebligatIletisim() {
+    const m = (v) => (v === undefined || v === null ? "" : String(v)), bul = [];
+    const tara = (d, de) => { if (!d || de > 7 || bul.length > 10) return; if (Array.isArray(d)) { d.forEach((x) => tara(x, de + 1)); return; } if (typeof d !== "object") return; if ("cepTelefonu" in d || "eposta" in d) { bul.push(d); return; } Object.values(d).forEach((x) => tara(x, de + 1)); };
+    let y = null; for (const yol of ["/gercek-tuzel-aktivasyon-sorgula", "/aktivasyon-sorgula"]) { try { y = await this.istek("GET", GW + "/etebligat/etebligat" + yol, undefined, true); tara(y, 0); if (bul.length) break; } catch (e) { if (e.oturum) throw e; if (yol === "/aktivasyon-sorgula") throw e; } }
+    this.tebIletisim = bul.map((d) => ({ tckn: m(d.tckn), vkn: m(d.vkn), unvan: m(d.unvan || d.adSoyad), cep1: m(d.cepTelefonu), cep2: m(d.cepTelefonu2), ep1: m(d.eposta), ep2: m(d.eposta2) }));
+    return { kayitlar: this.tebIletisim.map((d, n) => Object.assign({ n, guncellenebilir: !!d.tckn }, d)), sekil: sekil(y) };
+  }
+  async tebligatIletisimKodIste(n, tel) {
+    const k = (this.tebIletisim || [])[n]; if (!k) throw new Error("Kayıt bulunamadı; bilgileri yeniden okuyun.");
+    const kimlik = k.vkn || k.tckn; if (!/^\d{10,11}$/.test(String(kimlik))) throw new Error("Mükellefin VKN/TCKN bilgisi eksik.");
+    if (!/^05\d{9}$/.test(String(tel))) throw new Error("Cep telefonunu 05XX XXX XX XX biçiminde yazın.");
+    const y = await this.istek("GET", GW + "/api/sms/send-sms-with-no?tcknVkn=" + kimlik + "&telNo=" + String(tel).slice(1) + "&islemTuru=10", undefined, true);
+    const hata = ((y && y.messages) || []).find((x) => x && x.type === "ERROR"); if (hata) throw new Error("SMS gönderilemedi: " + String(hata.text || hata.code || "").slice(0, 200));
+    return { tamam: true, mesaj: this.mesajMetni(y) || "Onay kodu yeni numaraya gönderildi.", sekil: sekil(y) };
+  }
+  async tebligatIletisimGuncelle(n, p) {
+    const k = (this.tebIletisim || [])[n]; if (!k) throw new Error("Kayıt bulunamadı; bilgileri yeniden okuyun."); if (!k.tckn) throw new Error("Tüzel kişi (şirket) kayıtları bu ekrandan güncellenemez.");
+    const bicim = (t) => (t && /^0/.test(k.cep1 || "0") ? t : String(t || "").replace(/^0/, "")); /* portal numarayı kayıtlı biçimde (başında 0 olsun/olmasın) tutar */
+    const y = await this.istek("POST", GW + "/etebligat/etebligat/gercek-iletisim-guncelle", { cepTelefonu: bicim(p.cep1), cepTelefonu2: p.cep2 ? bicim(p.cep2) : "", eposta: p.ep1, eposta2: p.ep2 || "", smsKod: p.kod, type: "UPDATE" }, true);
+    const d = (y && y.data) || {}, hata = ((y && y.messages) || []).filter((x) => x && x.type === "ERROR").map((x) => x.text).join(" ");
+    if (String(d.guncelleme) !== "1") throw new Error("Bilgiler güncellenmedi" + (hata ? ": " + hata.slice(0, 200) : " (GİB onay vermedi; SMS kodunu kontrol edin)") + ".");
+    Object.assign(k, { cep1: p.cep1, cep2: p.cep2 || "", ep1: p.ep1, ep2: p.ep2 || "" });
+    return { tamam: true, mesaj: this.mesajMetni(y) || "e-Tebligat bildirim bilgileriniz güncellendi.", sekil: sekil(y) };
+  }
   /* ---- Beyannameler (İnternet Vergi Dairesi · Mükellef Dosyası → Beyannameler) ----
    * Portal akışı: /intvrg_server/dispatch komutu beyannameIslemleri_beyannameSorgulaSorgu, jp { vkn:{vkn}, basDonem:{ay,yil}, bitDonem:{ay,yil} };
    * yanıt data.beyanname.beyanname[] { beyanname_turu, donem "YYYYAAYYYYAA", aciklama, kaynak, beyoid }.
@@ -833,6 +860,9 @@ class SahteIvd {
     return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "tebligat.pdf" };
   }
   async yaziListe() { const d = this.yazilar = this.yazilar || [{ ad: "Borç Durum Yazısı", talep: "2026-10-20T10:15:00", cevap: "2026-10-20T11:02:00", durum: 1, eposta: "ornek@ornek.com" }]; return { yazilar: d.map((x, n) => Object.assign({ n }, x)), sekil: {} }; }
+  async tebligatIletisim() { this.tebIletisim = this.tebIletisim || [{ tckn: "12345678901", vkn: "1111111111", unvan: "ÖRNEK MÜKELLEF", cep1: "05320000000", cep2: "", ep1: "ornek@ornek.com", ep2: "" }]; return { kayitlar: this.tebIletisim.map((d, n) => Object.assign({ n, guncellenebilir: !!d.tckn }, d)), sekil: "" }; }
+  async tebligatIletisimKodIste(n, tel) { if (!(this.tebIletisim || [])[n]) throw new Error("Kayıt bulunamadı."); if (!/^05\d{9}$/.test(String(tel))) throw new Error("Cep telefonunu 05XX XXX XX XX biçiminde yazın."); this.bekleyenTebTel = tel; return { tamam: true, mesaj: "Onay kodu yeni numaraya gönderildi.", sekil: "" }; }
+  async tebligatIletisimGuncelle(n, p) { const k = (this.tebIletisim || [])[n]; if (!k) throw new Error("Kayıt bulunamadı."); if (p.kod !== "123456") throw new Error("Bilgiler güncellenmedi: SMS kodu hatalı."); Object.assign(k, { cep1: p.cep1, cep2: p.cep2 || "", ep1: p.ep1, ep2: p.ep2 || "" }); return { tamam: true, mesaj: "e-Tebligat bildirim bilgileriniz güncellendi.", sekil: "" }; }
   async beyannameListe(bas, bit) { this.beyannameler = [{ oid: "B1", tur: "KDV1_45", bas: "2026-09", bit: "2026-09", aciklama: "", kaynak: "internet" }, { oid: "B2", tur: "MUHSGK_21", bas: "2026-09", bit: "2026-09", aciklama: "", kaynak: "internet" }, { oid: "B3", tur: "KDV1_45", bas: "2026-03", bit: "2026-03", aciklama: "SEHVEN BİLDİRİLMİŞTİR.", kaynak: "internet" }, { oid: "B4", tur: "GGECICI_24", bas: "2026-04", bit: "2026-06", aciklama: "", kaynak: "internet" }]; return { beyannameler: this.beyannameler.map((b, n) => Object.assign({ n }, b)), sekil: "" }; }
   async beyannameIndir(n) { const b = (this.beyannameler || [])[n]; if (!b) throw new Error("Beyanname bulunamadı; listeyi yenileyin."); const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 18 Tf 20 60 Td (ORNEK BEYANNAME) Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF"; return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "beyanname-" + b.tur + ".pdf" }; }
   async dilekceHazirla() { this.dilekceHazir = { adres: "ÖRNEK MAH. DENEME SK. NO:1 ÜMRANİYE/İSTANBUL", adresNo: "1", vdler: [{ kod: "034255", ad: "Ümraniye Vergi Dairesi" }, { kod: "034001", ad: "Kadıköy Vergi Dairesi" }] }; return { adres: this.dilekceHazir.adres, vdler: this.dilekceHazir.vdler }; }

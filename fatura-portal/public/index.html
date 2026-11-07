@@ -537,6 +537,19 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       <div id="vdTelKodKutu" hidden style="display:grid;gap:8px"><div><label for="vdTelKodGir">SMS kodu (yeni numaraya gelen 6 hane)</label><input id="vdTelKodGir" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></div><button class="btn" type="button" id="vdTelGuncelle">Telefonu güncelle</button></div>
     </div>
     <div id="vdYil" hidden style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    <details class="alt2" id="vdTebIlet" hidden><summary><b>✉ e-Tebligat bildirim bilgileri</b> <small>e-posta ve telefon</small></summary><div class="icerik" style="display:grid;gap:8px">
+      <p class="not" style="margin:0;font-size:.82rem">Tebligat geldiğinde haber verilecek e-posta adresi ve cep telefonu. Bilgiler değişince tebligat bildirimleri yeni adrese gider. Onay SMS kodu <b>yeni cep telefonuna</b> gelir.</p>
+      <div id="tebIlBilgi" class="not" style="margin:0"></div>
+      <div id="tebIlForm" style="display:grid;gap:8px" hidden>
+        <div><label for="tebIlCep1">Cep telefonu</label><input id="tebIlCep1" type="tel" inputmode="tel" autocomplete="off" placeholder="05XX XXX XX XX" maxlength="14"></div>
+        <div><label for="tebIlCep2">İkinci cep telefonu (isteğe bağlı)</label><input id="tebIlCep2" type="tel" inputmode="tel" autocomplete="off" placeholder="05XX XXX XX XX" maxlength="14"></div>
+        <div><label for="tebIlEp1">E-posta</label><input id="tebIlEp1" type="email" inputmode="email" autocapitalize="off" autocomplete="off" maxlength="60"></div>
+        <div><label for="tebIlEp2">İkinci e-posta (isteğe bağlı)</label><input id="tebIlEp2" type="email" inputmode="email" autocapitalize="off" autocomplete="off" maxlength="60"></div>
+        <button class="btn ikincil" type="button" id="tebIlSms">Yeni telefona SMS kodu gönder</button>
+        <div><label for="tebIlKod">SMS kodu</label><input id="tebIlKod" inputmode="numeric" maxlength="8" autocomplete="one-time-code" placeholder="6 haneli kod"></div>
+        <button class="btn" type="button" id="tebIlGuncelle">Bilgileri güncelle</button>
+      </div>
+    </div></details>
     <details class="alt2" id="vdDilYaz" hidden><summary><b>✍ Dilekçe yaz</b> <small>Genel amaçlı dilekçe</small></summary><div class="icerik" style="display:grid;gap:8px">
       <p class="not" style="margin:0;font-size:.82rem">Yazdığınız metin, vergi dairesine <b>resmî bir dilekçe</b> olarak gönderilir. Onay için vergi dairesinde kayıtlı cep telefonuna bir SMS kodu gelir. Başka bir ekran ya da özel iş akışı olan işlemler için (iade, tecil vb.) ilgili dilekçe türünü kullanın.</p>
       <div><label for="vdDilVd">Dilekçenin verileceği vergi dairesi</label><select id="vdDilVd"></select></div>
@@ -3060,6 +3073,41 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       })();
     });
   }
+  /* e-Tebligat bildirim bilgileri (e-posta / cep telefonu) güncelleme: Tebligat sekmesinin içinde */
+  var TEB_IL = { mid: null, kayit: null };
+  function tebIlDoldur(k){
+    TEB_IL.kayit = k; $("tebIlCep1").value = k.cep1 || ""; $("tebIlCep2").value = k.cep2 || ""; $("tebIlEp1").value = k.ep1 || ""; $("tebIlEp2").value = k.ep2 || "";
+    $("tebIlBilgi").innerHTML = '<b>' + esc(k.unvan || "Mükellef") + '</b><br>Cep: ' + esc(k.cep1 || "—") + (k.cep2 ? " · " + esc(k.cep2) : "") + '<br>E-posta: ' + esc(k.ep1 || "—") + (k.ep2 ? " · " + esc(k.ep2) : "");
+    $("tebIlForm").hidden = !k.guncellenebilir;
+    if (!k.guncellenebilir) $("tebIlBilgi").innerHTML += '<br><span style="color:var(--warn,#b36b00)">Tüzel kişi (şirket) kayıtları bu ekrandan güncellenemez; Dijital VD’deki e-Tebligat Bilgilerim ekranını kullanın.</span>';
+  }
+  function tebIlYukle(){
+    if (!VD.mid || !VD.bagli) return; var d = $("vdDurum"), mid = VD.mid; d.className = "durum"; d.textContent = "e-Tebligat bildirim bilgileri okunuyor…";
+    api("/api/vd/tebligat-iletisim", "POST", { mukellefId: mid, islem: "bilgi" }).then(function(r){
+      d.textContent = ""; if (!r.kayitlar.length) { $("tebIlBilgi").textContent = "e-Tebligat bildirim bilgisi bulunamadı (e-Tebligat aktivasyonu yapılmamış olabilir)."; $("tebIlForm").hidden = true; return; }
+      TEB_IL.mid = mid; tebIlDoldur(r.kayitlar[0]);
+    }, function(er){ TEB_IL.mid = null; vdHata(er, d); });
+  }
+  $("vdTebIlet").addEventListener("toggle", function(){ if (this.open && VD.mid && VD.bagli && TEB_IL.mid !== VD.mid) tebIlYukle(); });
+  function tebIlGovde(extra){ return Object.assign({ mukellefId: VD.mid, n: TEB_IL.kayit ? TEB_IL.kayit.n : 0, onay: true, cep1: $("tebIlCep1").value, cep2: $("tebIlCep2").value, ep1: $("tebIlEp1").value, ep2: $("tebIlEp2").value }, extra); }
+  $("tebIlSms").addEventListener("click", function(){
+    var d = $("vdDurum"), b = this; if (!TEB_IL.kayit || TEB_IL.mid !== VD.mid) { d.className = "durum hata"; d.textContent = "Önce bilgilerin okunmasını bekleyin."; return; }
+    b.disabled = true; d.className = "durum"; d.textContent = "SMS kodu isteniyor…";
+    api("/api/vd/tebligat-iletisim", "POST", tebIlGovde({ islem: "kod" })).then(function(r){ d.className = "durum ok"; d.textContent = (r.mesaj || "Kod gönderildi.") + " Kodu yazın."; setTimeout(function(){ odakla($("tebIlKod")); }, 50); }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
+  });
+  $("tebIlGuncelle").addEventListener("click", function(){
+    var d = $("vdDurum"), b = this, g = tebIlGovde({ islem: "guncelle", kod: $("tebIlKod").value.trim() }), k = TEB_IL.kayit;
+    function hata(t){ d.className = "durum hata"; d.textContent = t; }
+    if (!k || TEB_IL.mid !== VD.mid) return hata("Önce bilgilerin okunmasını bekleyin.");
+    var ayni = function(a, b2){ return String(a || "").replace(/\s/g, "") === String(b2 || "").replace(/\s/g, ""); };
+    if (ayni(g.cep1, k.cep1) && ayni(g.cep2, k.cep2) && g.ep1.trim().toLowerCase() === String(k.ep1 || "").toLowerCase() && g.ep2.trim().toLowerCase() === String(k.ep2 || "").toLowerCase()) return hata("Bilgilerde bir değişiklik yapmadınız.");
+    if (!/^\d{4,8}$/.test(g.kod)) return hata("SMS kodunu yazın (önce “Yeni telefona SMS kodu gönder”).");
+    if (!confirm("e-Tebligat bildirim bilgileri GİB’de güncellenecek.\n\nCep: " + g.cep1 + (g.cep2 ? " · " + g.cep2 : "") + "\nE-posta: " + g.ep1 + (g.ep2 ? " · " + g.ep2 : "") + "\n\nDevam edilsin mi?")) return;
+    b.disabled = true; d.className = "durum"; d.textContent = "Güncelleniyor…";
+    api("/api/vd/tebligat-iletisim", "POST", g).then(function(r){
+      var ok = "✓ " + (r.mesaj || "Bilgiler güncellendi."); $("tebIlKod").value = ""; TEB_IL.mid = null; tebIlYukle(); setTimeout(function(){ d.className = "durum ok"; d.textContent = ok; }, 1500);
+    }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
+  });
   /* Dilekçe yaz (Genel amaçlı dilekçe): form açılınca sicildeki kayıtlı adres ve bağlı vergi daireleri alınır; SMS kodu istenir; kodla gönderilir */
   var DIL_MID = null;
   $("vdDilYaz").addEventListener("toggle", function(){
@@ -3166,7 +3214,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function vdSekmeCiz(){
     var dbm = mBul(VD.mid), dbVar = !!(dbm && dbm.defterBeyan); var dbc = $("vdSeg").querySelector('[data-vd="hesapozeti"]'); if (dbc) dbc.hidden = !dbVar; if (VD.sek === "hesapozeti" && !dbVar) VD.sek = "borc";
     $("vdSeg").querySelectorAll("[data-vd]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-vd") === VD.sek ? "true" : "false"); });
-    $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen" && VD.sek !== "dilekce"; $("vdDilYaz").hidden = VD.sek !== "dilekce" || !VD.bagli; $("vdYazi").hidden = VD.sek !== "yazi" || !VD.bagli; if (VD.sek === "yazi" && VD.bagli) vdYaziAlan(); $("vdYil").hidden = VD.sek !== "levha" || !VD.bagli; if (VD.sek === "levha") vdYilCiz();
+    $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen" && VD.sek !== "dilekce"; $("vdDilYaz").hidden = VD.sek !== "dilekce" || !VD.bagli; $("vdTebIlet").hidden = VD.sek !== "tebligat" || !VD.bagli; $("vdYazi").hidden = VD.sek !== "yazi" || !VD.bagli; if (VD.sek === "yazi" && VD.bagli) vdYaziAlan(); $("vdYil").hidden = VD.sek !== "levha" || !VD.bagli; if (VD.sek === "levha") vdYilCiz();
     $("vdTahakkuk").hidden = (VD.sek !== "tahakkuk" && VD.sek !== "beyanname") || !VD.bagli; $("vdArac").hidden = VD.sek !== "arac" || !VD.bagli; $("vdPos").hidden = (VD.sek !== "pos" && VD.sek !== "zrapor") || !VD.bagli; $("vdTel").hidden = VD.sek !== "telefon" || !VD.bagli; $("vdKdv").hidden = VD.sek !== "kdv"; $("vdHesap").hidden = VD.sek !== "hesapozeti"; $("vdHaciz").hidden = VD.sek !== "haciz" || !VD.bagli; $("vdHacizDerin").hidden = ROL !== "ofis"; if (VD.sek === "kdv") kdvEtiket(); if (VD.sek === "hesapozeti") vdHoAlan(); if (VD.sek === "tahakkuk" || VD.sek === "beyanname") vdTahakkukAlan(); if (VD.sek === "pos" || VD.sek === "zrapor") vdPosAlan(); if (VD.sek === "telefon" && VD.bagli) vdTelAc(); $("vdTani").hidden = true; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
   }
   function vdAc(){

@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-07-255";
+const SURUM = "2026-11-07-256";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -862,6 +862,24 @@ async function api(req, res, yol) {
       if (ne === "dilekce") { /* Dilekçelerim: gönderilen dilekçeler (tarih aralığı) */
         const t = (d) => { const q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); if (!q) throw new Error("Tarih seçin."); return q[1] + q[2] + q[3]; };
         return cevap(res, 200, await vdSorgu(m, (x) => x.dilekcelerimListe(t(g.bas), t(g.bit))));
+      }
+      if (ne === "tebligat-iletisim") { /* e-Tebligat bildirim e-postası / cep telefonu: bilgi · yeni numaraya SMS kodu · güncelleme (açık onay; değerler günlüğe yazılmaz) */
+        const tel = (v) => String(v || "").replace(/\D/g, "").replace(/^(5\d{9})$/, "0$1"), ep = (v) => String(v || "").trim().toLowerCase(), n = Number(g.n) || 0;
+        if (g.islem === "bilgi") return cevap(res, 200, await vdSorgu(m, (x) => x.tebligatIletisim()));
+        if (g.onay !== true) return cevap(res, 400, { hata: "İşlem için onay gerekli." });
+        if (g.islem === "kod") {
+          const t = tel(g.cep1); if (!/^05\d{9}$/.test(t)) return cevap(res, 400, { hata: "Cep telefonunu 05XX XXX XX XX biçiminde yazın." });
+          const sin = (dilekceSmsSayac.get("teb:" + m.id) || []).filter((x) => Date.now() - x < 600e3); if (sin.length >= 3) return cevap(res, 429, { hata: "10 dakikada en çok 3 SMS istenebilir; biraz bekleyin." });
+          const r = await vdSorgu(m, (x) => x.tebligatIletisimKodIste(n, t)); sin.push(Date.now()); dilekceSmsSayac.set("teb:" + m.id, sin); gunluk(o, mid, "e-Tebligat bildirim bilgileri için SMS kodu istendi", ""); return cevap(res, 200, r);
+        }
+        if (g.islem === "guncelle") {
+          const p = { cep1: tel(g.cep1), cep2: g.cep2 ? tel(g.cep2) : "", ep1: ep(g.ep1), ep2: ep(g.ep2), kod: String(g.kod || "").replace(/\D/g, "") }, ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!/^05\d{9}$/.test(p.cep1)) return cevap(res, 400, { hata: "Cep telefonunu 05XX XXX XX XX biçiminde yazın." }); if (p.cep2 && !/^05\d{9}$/.test(p.cep2)) return cevap(res, 400, { hata: "İkinci cep telefonu geçersiz." });
+          if (!ok.test(p.ep1) || p.ep1.length > 60) return cevap(res, 400, { hata: "Geçerli bir e-posta adresi yazın (en çok 60 karakter)." }); if (p.ep2 && (!ok.test(p.ep2) || p.ep2.length > 60)) return cevap(res, 400, { hata: "İkinci e-posta adresi geçersiz." });
+          if (!/^\d{4,8}$/.test(p.kod)) return cevap(res, 400, { hata: "SMS kodunu yazın." });
+          const r = await vdSorgu(m, (x) => x.tebligatIletisimGuncelle(n, p)); gunluk(o, mid, "e-Tebligat bildirim bilgileri güncellendi", ""); return cevap(res, 200, r);
+        }
+        return cevap(res, 400, { hata: "Geçersiz işlem." });
       }
       if (ne === "beyanname") return cevap(res, 200, await vdSorgu(m, (x) => x.beyannameListe(String(g.tbas || ""), String(g.tbit || ""), String(m.vkn || "")))); /* İnternet VD · Mükellef Dosyası → Beyannameler */
       if (ne === "dilekce-hazirla") return cevap(res, 200, await vdSorgu(m, (x) => x.dilekceHazirla()));
