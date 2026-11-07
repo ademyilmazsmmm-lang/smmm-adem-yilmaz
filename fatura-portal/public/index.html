@@ -871,7 +871,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   var PARASEM = { TRY: "₺", USD: "$", EUR: "€", GBP: "£" };
   function birimAd(k){ var b = BIRIMLER.filter(function(x){ return x[0] === k; })[0]; return b ? b[1] : k; }
   /* Yeni satır: miktar 1, birim Adet, KDV %20 otomatik gelir (hazır hizmet seçilirse onun KDV/tevkifat değerleri); hepsi değiştirilebilir */
-  function yeniKalem(h){ return { preset: h ? h.id : "", ad: h ? h.ad : "", aciklama: "", miktar: "1", birim: h && (h.ozel === "805" || h.ozel === "808") ? "GRM" : "C62", fiyat: "", kdv: h ? String(h.kdv) : "20", tev: h ? String(h.tev) : "0", kod: h ? (h.kod || "") : "", istisna: h ? (h.istisna || "") : "", ozelNeden: h ? (h.ozel || "") : "", ozelTutar: "", konaklama: "" }; }
+  function yeniKalem(h){ return { preset: h ? h.id : "", ad: h ? h.ad : "", aciklama: "", miktar: "1", birim: h && (h.ozel === "805" || h.ozel === "808") ? "GRM" : "C62", fiyat: "", kdv: h ? String(h.kdv) : "20", tev: h ? String(h.tev) : "0", kod: h ? (h.kod || "") : "", istisna: h ? (h.istisna || "") : "", ozelNeden: h ? (h.ozel || "") : "", ozelTutar: "", konaklama: h && h.konaklama > 0 ? String(h.konaklama) : "", konaklamaVar: !!(h && h.konaklama > 0) }; }
   /* İlk açılışta boş satır ve fatura tipi Satış; hazır hizmet seçilince tip (tevkifat/istisna) kendiliğinden ayarlanır */
   function ilkKalem(){ return yeniKalem(null); }
   function hepsi(){ if (!$("tarih").value) $("tarih").value = bugunStr(); $("tarih").max = bugunStr(); cizM(); cizAlici(); cizKalemler(); formDoldur(); onizle(); cizAyar(); markaUygula(); kabulKontrol(); }
@@ -976,7 +976,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       '<div><label>' + (mad ? "Gram fiyatı (otomatik)" : "Birim fiyat (" + PARASEM[F.para] + ")") + '</label><input data-kf="fiyat" inputmode="decimal" placeholder="0,00" value="' + esc(k.fiyat) + '"' + (mad ? " readonly" : "") + '></div></div>' +
       '<div class="satir"><div><label>KDV %</label><input data-kf="kdv" inputmode="decimal" value="' + esc(k.kdv) + '"></div>' +
       (tev ? '<div><label>Tevkifat (x/10)</label><select data-kf="tev">' + tevSec + '</select></div>' : '<div></div>') + '</div>' +
-      (F.tip === "SATIS" ? konaklamaSecHtml(k) : "") + (tev ? kodSecHtml(k) : "") + (F.tip === "ISTISNA" ? istisnaSecHtml(k) : "") + (F.tip === "OZELMATRAH" ? ozelSecHtml(k) : "") +
+      (F.tip === "SATIS" && k.konaklamaVar ? konaklamaSecHtml(k) : "") + (tev ? kodSecHtml(k) : "") + (F.tip === "ISTISNA" ? istisnaSecHtml(k) : "") + (F.tip === "OZELMATRAH" ? ozelSecHtml(k) : "") +
       '<div class="kt" data-kt="' + i + '"></div></div>';
   }
   /* Tevkifat kodları (KDV Genel Uygulama Tebliği, kısmi tevkifat). Sık kullanılanlar en üstte. Listede olmayan için “Diğer”. */
@@ -1041,7 +1041,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function girdi(){
     var a = aliciBilgi();
     return { mukellefId: mSec, aliciUnvan: a.ad, aliciVkn: a.vkn, aliciAdres: a.adres, vergiDairesi: a.vd, aliciEposta: a.eposta, epostaGonder: $("yEpostaGonder").checked && !!a.eposta && MAILHAZIR, tarih: $("tarih").value, tip: F.tip, para: F.para, kur: sayi(F.kur), kdvDahil: F.dahil,
-      kalemler: F.kalemler.map(function(k){ return { ad: k.ad, aciklama: k.aciklama, miktar: sayi(k.miktar), birim: k.birim, fiyat: sayi(k.fiyat), kdv: sayi(k.kdv), tev: parseInt(k.tev, 10) || 0, kod: k.kod, istisna: k.istisna || "", ozelNeden: k.ozelNeden || "", ozelTutar: sayi(k.ozelTutar), konaklama: F.tip === "SATIS" ? sayi(k.konaklama) : 0 }; }),
+      kalemler: F.kalemler.map(function(k){ return { ad: k.ad, aciklama: k.aciklama, miktar: sayi(k.miktar), birim: k.birim, fiyat: sayi(k.fiyat), kdv: sayi(k.kdv), tev: parseInt(k.tev, 10) || 0, kod: k.kod, istisna: k.istisna || "", ozelNeden: k.ozelNeden || "", ozelTutar: sayi(k.ozelTutar), konaklama: F.tip === "SATIS" && k.konaklamaVar ? sayi(k.konaklama) : 0 }; }),
       notEk: $("ekNot").value.trim(), notIrsaliye: $("notIrs").checked, iadeNo: $("iadeNo").value.trim(), iadeTarih: $("iadeTarih").value };
   }
   var onizTimer, sonHesap = null;
@@ -1117,7 +1117,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   /* Hazır hizmetteki kodlara göre fatura tipi: özel matrah nedeni varsa Özel matrah, istisna kodu varsa İstisna, tevkifat varsa Tevkifat, yoksa Satış */
   function tipKalemden(k){ return k && k.ozelNeden ? "OZELMATRAH" : k && k.istisna ? "ISTISNA" : k && k.tev && k.tev !== "0" ? "TEVKIFAT" : "SATIS"; }
   function hazirUygula(k, h){
-    k.preset = h.id; k.ad = h.ad; k.kdv = String(h.kdv); k.tev = String(h.tev); k.kod = h.kod || ""; k.istisna = h.istisna || ""; k.ozelNeden = h.ozel || ""; k.kodDiger = false; if (h.ozel === "805" || h.ozel === "808") { k.birim = "GRM"; k.gramKur = ""; k.tahsilat = ""; }
+    k.preset = h.id; k.ad = h.ad; k.kdv = String(h.kdv); k.tev = String(h.tev); k.kod = h.kod || ""; k.istisna = h.istisna || ""; k.ozelNeden = h.ozel || ""; k.konaklamaVar = h.konaklama > 0; k.konaklama = h.konaklama > 0 ? String(h.konaklama) : ""; k.kodDiger = false; if (h.ozel === "805" || h.ozel === "808") { k.birim = "GRM"; k.gramKur = ""; k.tahsilat = ""; }
     /* Tek satırlı faturada hazır hizmet, fatura tipini de belirler (iade tipi korunur) */
     if (F.tip === "IADE") return;
     if (h.ozel) { F.tip = "OZELMATRAH"; F.dahil = false; k.istisna = ""; if (!(Number(k.kdv) > 0)) k.kdv = "20"; } else if (h.istisna) F.tip = "ISTISNA"; else if (h.tev > 0) F.tip = "TEVKIFAT"; else if (F.kalemler.length < 2) F.tip = "SATIS";
@@ -1381,7 +1381,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   $("kalemler").addEventListener("change", function(e){
     var f = e.target.getAttribute("data-kf"), d = e.target.closest("[data-k]"); if (!f || !d) return;
     var k = F.kalemler[+d.getAttribute("data-k")];
-    if (f === "preset") { var h = HZ().filter(function(x){ return x.id === e.target.value; })[0]; if (h) { hazirUygula(k, h); formDoldur(); } else k.preset = ""; cizKalemler(); onizle(); }
+    if (f === "preset") { var h = HZ().filter(function(x){ return x.id === e.target.value; })[0]; if (h) { hazirUygula(k, h); formDoldur(); } else { k.preset = ""; k.konaklamaVar = false; k.konaklama = ""; } cizKalemler(); onizle(); }
     else if (f === "ozelNeden") { k.ozelNeden = e.target.value; if (maden(k)) { k.birim = "GRM"; madenTuret(k); } cizKalemler(); onizle(); }
     else if (f === "birim" || f === "tev" || f === "istisna") { k[f] = e.target.value; onizle(); }
     else if (f === "kodsec") {
@@ -1817,7 +1817,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (k.mukellefId && V.mukellefler.some(function(m){ return m.id === k.mukellefId; })) mSec = k.mukellefId;
     cizM();
     F.tip = iade ? "IADE" : f.tip; F.para = f.para || "TRY"; F.kur = f.kur ? String(f.kur) : ""; F.dahil = !!f.dahil;
-    F.kalemler = f.kalemler.map(function(x){ return { preset: "", ad: x.ad, aciklama: x.aciklama || "", miktar: String(x.miktar), birim: x.birim || "C62", fiyat: String(x.fiyat).replace(".", ","), kdv: String(x.kdv), tev: String(x.tev || 0), kod: x.kod || "", istisna: x.istisna || "", ozelNeden: x.ozelNeden || "", ozelTutar: x.ozelTutar ? String(x.ozelTutar).replace(".", ",") : "" }; });
+    F.kalemler = f.kalemler.map(function(x){ return { preset: "", ad: x.ad, aciklama: x.aciklama || "", miktar: String(x.miktar), birim: x.birim || "C62", fiyat: String(x.fiyat).replace(".", ","), kdv: String(x.kdv), tev: String(x.tev || 0), kod: x.kod || "", istisna: x.istisna || "", ozelNeden: x.ozelNeden || "", ozelTutar: x.ozelTutar ? String(x.ozelTutar).replace(".", ",") : "", konaklama: x.konaklama > 0 ? String(x.konaklama) : "", konaklamaVar: x.konaklama > 0 }; });
     var m = mk(), kay = m && m.aliciler.filter(function(a){ return a.vkn === f.alici.vkn; })[0];
     if (kay) F.alici = kay.id;
     else { F.alici = "__yeni"; $("yAd").value = f.alici.unvan || ""; $("yVkn").value = f.alici.vkn || ""; $("yAdres").value = f.alici.adres || ""; $("yVd").value = f.alici.vd || ""; $("yEposta").value = f.alici.eposta || ""; }
@@ -1961,6 +1961,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
         '<div><label>Listede görünen ad</label><input data-f="etiket" value="' + esc(x.etiket || x.ad) + '"></div>' +
         '<div><label>Faturaya yazılacak hizmet adı</label><input data-f="ad" value="' + esc(x.ad) + '"></div>' +
         '<div class="satir"><div><label>KDV %</label><input data-f="kdv" inputmode="decimal" value="' + esc(x.kdv) + '"></div><div><label>Tevkifat oranı (x/10)</label><select data-f="tev">' + tevOranSec(x.tev) + '</select></div></div>' +
+        '<div><label>Konaklama vergisi (isteğe bağlı)</label><select data-f="konaklama"><option value=""' + (!(x.konaklama > 0) ? " selected" : "") + '>Yok</option><option value="1"' + (x.konaklama === 1 ? " selected" : "") + '>%1</option><option value="2"' + (x.konaklama === 2 ? " selected" : "") + '>%2</option></select><span class="not" style="margin:2px 0 0;font-size:.78rem">Seçilirse bu hizmet faturaya eklendiğinde konaklama vergisi alanı açılır. Yasal oran: 31.12.2026’ya kadar %1, uzatılmazsa 2027’den itibaren %2.</span></div>' +
         '<div><label>Tevkifat kodu (yazın ya da listeden seçin; oran kendiliğinden gelir)</label><input data-f="kod" inputmode="numeric" autocomplete="off" list="tevListe" placeholder="Örn: 624" value="' + esc(x.kod) + '"><span class="not" data-tevnot style="margin:2px 0 0;font-size:.8rem">' + tevKodNot(x.kod) + '</span></div>' +
         '<div><label>İstisna sebep kodu (istisna ise, örn. 302)</label><input data-f="istisna" inputmode="numeric" value="' + esc(x.istisna || "") + '"></div>' +
         '<div><label>Özel matrah nedeni (özel matrahlı satış ise)</label><select data-f="ozel"><option value="">Yok</option>' + OZELLER.map(function(o){ return '<option value="' + o[0] + '"' + (o[0] === String(x.ozel || "") ? " selected" : "") + '>' + o[0] + " · " + esc(o[1]) + '</option>'; }).join("") + '</select></div>' +
@@ -2411,7 +2412,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       o.readAsDataURL(dosya);
     });
   }
-  function hizmetOzet(x){ return (x.ozel ? "Özel matrah " + esc(x.ozel) + " · " : "") + (x.istisna ? "İstisna " + esc(x.istisna) + " · " : "") + "KDV %" + esc(String(x.kdv).replace(".", ",")) + (x.tev > 0 ? " · tevkifat " + esc(x.tev) + "/10" + (x.kod ? " (" + esc(x.kod) + ")" : "") : " · tevkifatsız"); }
+  function hizmetOzet(x){ return (x.ozel ? "Özel matrah " + esc(x.ozel) + " · " : "") + (x.istisna ? "İstisna " + esc(x.istisna) + " · " : "") + (x.konaklama > 0 ? "Konaklama vergisi %" + esc(x.konaklama) + " · " : "") + "KDV %" + esc(String(x.kdv).replace(".", ",")) + (x.tev > 0 ? " · tevkifat " + esc(x.tev) + "/10" + (x.kod ? " (" + esc(x.kod) + ")" : "") : " · tevkifatsız"); }
   /* aç/kapa durumunu hatırla (toggle olayı kabarcıklanmaz, yakalama aşamasında dinlenir) */
   /* Profil: sicil bilgisinden (Dijital VD) doldurma. Otomatik (açılınca): yalnız boş alanlar; düğme: hepsinin üzerine yazar */
   var PROF_SICIL = {}, PROF_GIB = {};
@@ -2489,10 +2490,10 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var mEl = e.target.closest("[data-mid]"); if (!mEl) return;
     var mm = mBul(mEl.getAttribute("data-mid")), hEl = e.target.closest("[data-hid]"), v = e.target.value;
     if (hEl) {
-      var x = (mm.hizmetler || []).filter(function(q){ return q.id === hEl.getAttribute("data-hid"); })[0]; x[f] = f === "kdv" ? sayi(v) : f === "tev" ? Math.min(9, Math.max(0, parseInt(v, 10) || 0)) : v;
+      var x = (mm.hizmetler || []).filter(function(q){ return q.id === hEl.getAttribute("data-hid"); })[0]; x[f] = f === "kdv" ? sayi(v) : f === "konaklama" ? (Number(v) || 0) : f === "tev" ? Math.min(9, Math.max(0, parseInt(v, 10) || 0)) : v;
       var h1 = hEl.querySelector("summary [data-ozet]"), h2 = hEl.querySelector("summary [data-ozet2]");
       if (f === "kod") { var tb = tevKodBul(v), tn = hEl.querySelector("[data-tevnot]"), ts = hEl.querySelector('[data-f="tev"]'); if (tb) { x.tev = tb[2]; if (ts) ts.value = String(tb[2]); } if (tn) tn.innerHTML = tevKodNot(v); }
-      if (f === "ad" && h1) h1.textContent = v || "(adsız)"; if (h2 && (f === "kdv" || f === "tev" || f === "kod" || f === "ozel" || f === "istisna")) h2.innerHTML = hizmetOzet(x);
+      if (f === "ad" && h1) h1.textContent = v || "(adsız)"; if (h2 && (f === "kdv" || f === "tev" || f === "kod" || f === "ozel" || f === "istisna" || f === "konaklama")) h2.innerHTML = hizmetOzet(x);
     } else {
       mm[f] = v; var o1 = mEl.querySelector("summary [data-ozet]"), o2 = mEl.querySelector("summary [data-ozet2]");
       if (f === "ad" && o1) { o1.textContent = v || "(adsız)"; cizM(); } if (f === "vkn" && o2) o2.textContent = v;
