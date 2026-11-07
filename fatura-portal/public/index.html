@@ -2746,9 +2746,14 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   /* ---- Tahakkuk / Araç / POS / SMS telefonu ---- */
   function ayAdi(t){ var yy = /^(\d{4})(0[1-9]|1[0-2])(?:\d{6})?$/.exec(String(t || "")); if (yy) return AYLAR_UZUN[+yy[2] - 1] + " " + yy[1]; var d = tarihAl(t); return d ? AYLAR_UZUN[d.getMonth()] + " " + d.getFullYear() : String(t || ""); }
+  /* Tahakkuk süzgeci: vergi koduna göre KDV, Muhtasar (stopaj), Geçici vergi, Kurumlar (KV), Gelir (GV), Damga, Diğer */
+  function thkGrup(d){ var t = String(d.vergiKodu || "").toLocaleUpperCase("tr-TR"); return /^0015\b|KATMA DE|\bKDV\b/.test(t) ? "KDV" : /^0003\b|STOPAJ|MUHTASAR|KESİNT/.test(t) ? "MUH" : /GEÇİCİ/.test(t) ? "GEC" : /KURUMLAR/.test(t) ? "KV" : /GELİR VERGİSİ/.test(t) ? "GV" : /DAMGA/.test(t) ? "DAM" : "DIG"; }
+  var THK_GRUP = [["KDV", "KDV"], ["MUH", "Muhtasar"], ["GEC", "Geçici vergi"], ["KV", "Kurumlar (KV)"], ["GV", "Gelir (GV)"], ["DAM", "Damga"], ["DIG", "Diğer"]];
   function vdThkHtml(s){
     if (!s.kayitlar.length) return '<p class="not">Bu aylarda tahakkuk kaydı bulunamadı.</p>';
-    return s.kayitlar.map(function(d){
+    var say = {}; s.kayitlar.forEach(function(d){ var g = thkGrup(d); say[g] = (say[g] || 0) + 1; }); var f = VD.thkF && say[VD.thkF] ? VD.thkF : "";
+    var cip = '<div class="vdsek" role="group" aria-label="Tahakkuk türü" style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" type="button" data-thkg="" aria-pressed="' + (f === "") + '">Tümü ' + s.kayitlar.length + '</button>' + THK_GRUP.filter(function(g){ return say[g[0]]; }).map(function(g){ return '<button class="chip" type="button" data-thkg="' + g[0] + '" aria-pressed="' + (f === g[0]) + '">' + g[1] + ' ' + say[g[0]] + '</button>'; }).join("") + '</div>';
+    return cip + s.kayitlar.filter(function(d){ return !f || thkGrup(d) === f; }).map(function(d){
       return '<div class="kayit" style="display:flex;gap:10px;justify-content:space-between;align-items:center"><div style="min-width:0"><b>' + esc(d.vergiKodu || "Tahakkuk") + '</b><div class="not" style="margin:0;font-size:.8rem;overflow-wrap:anywhere">' + esc([ayAdi(d.vergiDonem) + " dönemi", d.kabulTarihi ? "kabul " + tarihYaz(d.kabulTarihi) : (/^\d{8}/.test(d.fisNo || "") ? "düzenleme " + d.fisNo.slice(6, 8) + "." + d.fisNo.slice(4, 6) + "." + d.fisNo.slice(0, 4) : ""), d.fisNo ? "fiş " + d.fisNo : ""].filter(Boolean).join(" · ")) + (d.vdAdi ? '<br>' + esc(tebAd(d.vdAdi)) : "") + '</div></div>' +
         '<a class="btn" style="min-height:42px;padding:6px 16px;text-decoration:none;flex:none" target="_blank" rel="noopener" href="/api/vd/tahakkuk?mid=' + encodeURIComponent(VD.mid) + '&n=' + d.n + '">PDF</a>' + pmailDugme("thk", d.n, 0) + '</div>';
     }).join("");
@@ -3081,15 +3086,24 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   var BYN_AD = { KDV1: "KDV beyannamesi", KDV2: "KDV beyannamesi (tevkifat)", MUHSGK: "Muhtasar ve prim hizmet", MUH: "Muhtasar", GGECICI: "Gelir geçici vergi", KGECICI: "Kurum geçici vergi", GELIR: "Yıllık gelir vergisi", KURUMLAR: "Kurumlar vergisi", DAMGA: "Damga vergisi", POSET: "Geri kazanım katılım payı", KDV4: "KDV 4", OTV1: "ÖTV (I)", OTV3A: "ÖTV (3A)", KONAKLAMA: "Konaklama vergisi", TURIZM: "Turizm payı", GMSI: "Kira (GMSİ)", EMLAK: "Emlak", MTV: "Motorlu taşıtlar", HASILAT: "Hasılat esaslı" };
   function bynAd(t){ var k = String(t || "").replace(/_\d+$/, ""); return BYN_AD[k] ? BYN_AD[k] + " (" + k + ")" : String(t || "Beyanname"); }
   function bynDonem(b){ var f = function(x){ var q = /^(\d{4})-(\d{2})$/.exec(x || ""); return q ? q[2] + "/" + q[1] : ""; }; return f(b.bas) === f(b.bit) || !b.bit ? f(b.bas) : f(b.bas) + " – " + f(b.bit); }
+  /* Süzgeç: KDV, Muhtasar (MUHSGK), Geçici vergi, Kurumlar (KV), Gelir (GV), Diğer; yalnız listede bulunan gruplar gösterilir */
+  function bynGrup(t){ var k = String(t || "").toUpperCase(); return /^KDV/.test(k) ? "KDV" : /^MUH/.test(k) ? "MUH" : /^[GK]GECICI/.test(k) ? "GEC" : /^KURUMLAR/.test(k) ? "KV" : /^GELIR/.test(k) ? "GV" : "DIG"; }
+  var BYN_GRUP = [["KDV", "KDV"], ["MUH", "Muhtasar"], ["GEC", "Geçici vergi"], ["KV", "Kurumlar (KV)"], ["GV", "Gelir (GV)"], ["DIG", "Diğer"]];
   function vdBynHtml(s){
     if (!s.beyannameler.length) return '<p class="not">Bu dönemde onaylı beyanname bulunamadı.</p>';
-    return s.beyannameler.slice().sort(function(a, b){ return (b.bas + b.tur) < (a.bas + a.tur) ? -1 : 1; }).map(function(b){
+    var say = {}; s.beyannameler.forEach(function(b){ var g = bynGrup(b.tur); say[g] = (say[g] || 0) + 1; });
+    var f = VD.bynF && say[VD.bynF] ? VD.bynF : "";
+    var cip = '<div class="vdsek" id="bynSeg" role="group" aria-label="Beyanname türü" style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" type="button" data-byng="" aria-pressed="' + (f === "") + '">Tümü ' + s.beyannameler.length + '</button>' + BYN_GRUP.filter(function(g){ return say[g[0]]; }).map(function(g){ return '<button class="chip" type="button" data-byng="' + g[0] + '" aria-pressed="' + (f === g[0]) + '">' + g[1] + ' ' + say[g[0]] + '</button>'; }).join("") + '</div>';
+    var l = s.beyannameler.filter(function(b){ return !f || bynGrup(b.tur) === f; });
+    return cip + l.slice().sort(function(a, b){ return (b.bas + b.tur) < (a.bas + a.tur) ? -1 : 1; }).map(function(b){
       var url = "/api/vd/beyanname-belge?mid=" + encodeURIComponent(VD.mid) + "&n=" + b.n;
       return '<div class="kayit" style="display:grid;gap:6px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>' + esc(bynAd(b.tur)) + '</b><span style="font-weight:650">' + esc(bynDonem(b)) + '</span></div>' +
         (b.aciklama ? '<span class="not" style="margin:0;font-size:.8rem;color:var(--warn,#b36b00)">Düzeltme: ' + esc(b.aciklama) + '</span>' : "") +
         '<div style="display:grid;gap:6px"><a class="btn" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="' + url + '">PDF’yi aç</a>' + pmailDugme("byn", b.n, 0) + '</div></div>';
     }).join("");
   }
+  $("vdListe").addEventListener("click", function(e){ var t = e.target.closest("[data-thkg]"); if (!t) return; VD.thkF = t.getAttribute("data-thkg"); vdCiz(); });
+  $("vdListe").addEventListener("click", function(e){ var c = e.target.closest("[data-byng]"); if (!c) return; VD.bynF = c.getAttribute("data-byng"); vdCiz(); });
   function vdDilHtml(s){
     if (!s.dilekceler.length) return '<p class="not">Bu tarih aralığında gönderilmiş dilekçe yok.</p>';
     return s.dilekceler.map(function(d){
