@@ -1,0 +1,378 @@
+"""Web arayüzü ve API (FastAPI). Tek işçi (worker) ile çalıştırın: zamanlayıcı bu süreçte döner.
+
+Ortam değişkenleri:
+  WEB_SIFRE         (zorunlu) arayüz giriş şifresi, en az 4 karakter
+  WEB_GIZLI         oturum imzası için rastgele metin (yoksa her açılışta üretilir; oturumlar açılışta düşer)
+  DATA_DIR          veri klasörü (varsayılan ./veri); Render'da kalıcı disk
+  TOPLAYICI         ornek | dosya | luca
+  TELEGRAM_TOKEN, TELEGRAM_CHAT_ID          (isteğe bağlı) Telegram
+  RESEND_API_KEY, MAIL_ALICI                (isteğe bağlı, en kolayı) Resend ile e-posta; MAIL_GONDEREN varsayılan onboarding@resend.dev
+  GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, MAIL_GONDEREN, MAIL_ALICI   (isteğe bağlı) Gmail API ile e-posta
+                                            (Render ücretsiz planında SMTP kapalıdır; bu yol HTTPS kullanır)
+  SMTP_KULLANICI, SMTP_PAROLA, MAIL_ALICI   (isteğe bağlı) SMTP ile e-posta; SMTP_HOST (varsayılan smtp.gmail.com), SMTP_PORT (587),
+                                            MAIL_GONDEREN (varsayılan SMTP_KULLANICI); MAIL_ALICI virgülle birden çok adres olabilir
+  ZAMANLAYICI       0 yazılırsa zamanlayıcı başlamaz
+"""
+
+import hashlib
+import hmac
+import os
+import secrets
+import threading
+import time
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
+from .ag_testi import ag_testi
+from .bildirim import Bildirici, CaptchaKoprusu, Eposta, GmailApi, ResendApi, Telegram
+from .cekirdek import Uygulama, simdi_tr
+from .depo import Depo
+from .kontrol import VARSAYILAN_AYAR, ayar_al
+from .kurallar import BEYANNAMELER
+from .toplayici import sec
+from .zamanlayici import Zamanlayici
+
+STATIK = Path(__file__).parent / "static"
+OTOMATIK = {"MPHB": "SGK dosyası varsa aylık, yoksa 3 aylık", "KV": "şirketse (TC yoksa) yıllık, şahıssa yok",
+            "GV": "şahıssa (TC varsa) yıllık, şirketse yok"}
+OTURUM_SN = 12 * 3600
+
+
+def uygulama_kur(env=os.environ):
+    depo = Depo(env.get("DATA_DIR", "veri"))
+    tg = Bildirici([Telegram(env.get("TELEGRAM_TOKEN"), env.get("TELEGRAM_CHAT_ID")), ResendApi.ortamdan(env), GmailApi.ortamdan(env), Eposta.ortamdan(env)])
+    return Uygulama(depo, sec(env.get("TOPLAYICI", "ornek"), depo.dizin), tg, CaptchaKoprusu(tg))
+
+
+def _cik():
+    os._exit(0)
+
+
+def _gib_gun(env):
+    """Aralık seçilmezse GİB'den Getir kaç günü kapsar (LUCA_GIB_GUN, varsayılan 15, en çok 31); luca_ekran_okuma.gib_getir_araligi ile aynı sınır."""
+    try:
+        n = int(env.get("LUCA_GIB_GUN") or 15)
+    except (TypeError, ValueError):
+        n = 15
+    return max(1, min(n, 31))
+
+
+def uygulama_olustur(cekirdek=None, env=os.environ):
+    sifre = env.get("WEB_SIFRE", "")
+    if len(sifre) < 4:
+        raise RuntimeError("WEB_SIFRE ortam değişkeni en az 4 karakter olmalı (arayüz şifresiz açılmaz).")
+    gizli = (env.get("WEB_GIZLI") or secrets.token_hex(32)).encode()
+    cekirdek = cekirdek or uygulama_kur(env)
+    hatalar = {"sayi": 0, "kilit_bitis": 0.0}
+
+    @asynccontextmanager
+    async def omur(app):
+        z = None
+        if env.get("ZAMANLAYICI", "1") != "0":
+            z = Zamanlayici(cekirdek)
+            z.start()
+        yield
+        if z:
+            z.durdur()
+
+    app = FastAPI(title="Beyanname Takip", lifespan=omur, docs_url=None, redoc_url=None, openapi_url=None)
+    app.state.cekirdek = cekirdek
+
+    def imza(bitis):
+        return hmac.new(gizli, str(bitis).encode(), hashlib.sha256).hexdigest()
+
+    def giris_gerekli(request: Request):
+        c = request.cookies.get("oturum", "")
+        try:
+            bitis, im = c.split(".", 1)
+            if int(bitis) > time.time() and hmac.compare_digest(im, imza(bitis)):
+                return
+        except ValueError:
+            pass
+        raise HTTPException(401, "Giriş gerekli")
+
+    class Giris(BaseModel):
+        sifre: str
+
+    @app.get("/saglik")
+    def saglik():
+        return {"ok": True}
+
+    @app.get("/")
+    def ana():
+        return FileResponse(STATIK / "index.html", headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/giris")
+    def giris(g: Giris, request: Request, yanit: Response):
+        if time.time() < hatalar["kilit_bitis"]:
+            raise HTTPException(429, "Çok fazla yanlış deneme; biraz bekleyin.")
+        if not hmac.compare_digest(g.sifre.encode(), sifre.encode()):
+            hatalar["sayi"] += 1
+            if hatalar["sayi"] >= 5:
+                hatalar["kilit_bitis"] = time.time() + min(900, 30 * 2 ** (hatalar["sayi"] - 5))
+            raise HTTPException(401, "Şifre yanlış")
+        hatalar["sayi"] = 0
+        bitis = int(time.time()) + OTURUM_SN
+        yanit.set_cookie("oturum", f"{bitis}.{imza(bitis)}", max_age=OTURUM_SN, httponly=True,
+                         samesite="strict", secure=request.url.scheme == "https")
+        return {"ok": True}
+
+    @app.post("/api/cikis")
+    def cikis(yanit: Response):
+        yanit.delete_cookie("oturum")
+        return {"ok": True}
+
+    gerekli = [Depends(giris_gerekli)]
+
+    @app.get("/api/durum", dependencies=gerekli)
+    def durum():
+        d = cekirdek.depo.oku("durum.json", {})
+        return {"veri": cekirdek.veri_durumu(), "son_toplama": d.get("son_toplama"),
+                "telegram": cekirdek.telegram.hazir, "kanallar": getattr(cekirdek.telegram, "hazir_kanallar", lambda: [])(),
+                "captcha_bekliyor": cekirdek.captcha.bekliyor_mu(),
+                "simdi": simdi_tr().isoformat(), "son_tani": d.get("son_tani"), "tani_suruyor": cekirdek.tani_suruyor, "son_rapor": d.get("son_rapor"), "gib_gun": _gib_gun(env), "yerel": env.get("BEYANNAME_YEREL") == "1", "rapor_suruyor": cekirdek.rapor_suruyor,
+                "tani_var": hasattr(cekirdek.toplayici, "tani"),
+                "turler": {k: {"ad": v["ad"], "periyotlar": list(v["periyotlar"]), "auto": OTOMATIK.get(k, "")} for k, v in BEYANNAMELER.items()}}
+
+    @app.get("/api/maddeler", dependencies=gerekli)
+    def maddeler():
+        return [m.sozluk() for m in cekirdek.maddeler()]
+
+    @app.get("/api/mukellefler", dependencies=gerekli)
+    def mukellefler():
+        ayarlar = cekirdek.depo.oku("ayarlar.json", {})
+        mus = cekirdek.depo.oku("mukellefler.json", {}).get("kayitlar", [])
+        return [dict(m, ayar=ayar_al(ayarlar, m["id"])) for m in sorted(mus, key=lambda x: x["ad"])]
+
+    class AyarGirdi(BaseModel):
+        KDV1: str = "aylik"
+        MPHB: str = "auto"
+        GECICI: str = "3aylik"
+        KDV2: str = "yok"
+        POSET: str = "yok"
+        KONAKLAMA: str = "yok"
+        KV: str = "auto"
+        GV: str = "auto"
+        sgk: str = "auto"
+        isyeri: str = ""
+        onayli: bool = True
+
+    @app.put("/api/mukellef/ayar", dependencies=gerekli)
+    def ayar_yaz(mid: str, a: AyarGirdi):
+        if a.sgk not in ("auto", "var", "yok"):
+            raise HTTPException(400, f"sgk için geçersiz değer: {a.sgk}")
+        for tur in BEYANNAMELER:
+            v = getattr(a, tur)
+            if v != "yok" and v not in BEYANNAMELER[tur]["periyotlar"]:
+                raise HTTPException(400, f"{tur} için geçersiz değer: {v}")
+
+        def isle(d):
+            d.setdefault("mukellef", {})[mid] = {**a.model_dump(), "isyeri": a.isyeri[:40]}
+        cekirdek.depo.guncelle("ayarlar.json", isle)
+        return {"ok": True}
+
+    class TopluOnay(BaseModel):
+        ids: list[str]
+
+    @app.post("/api/mukellef/toplu-onay", dependencies=gerekli)
+    def toplu_onay(g: TopluOnay):
+        """Ayarı henüz onaylanmamış mükellefleri varsayılan ayarlarıyla onaylar (var olan ayarlara dokunmaz)."""
+        sayi = {"n": 0}
+
+        def isle(d):
+            m = d.setdefault("mukellef", {})
+            for mid in g.ids:
+                if not m.get(mid, {}).get("onayli"):
+                    m[mid] = {**VARSAYILAN_AYAR, **m.get(mid, {}), "onayli": True}
+                    sayi["n"] += 1
+        cekirdek.depo.guncelle("ayarlar.json", isle)
+        return {"onaylanan": sayi["n"]}
+
+    class MuafGirdi(BaseModel):
+        id: str
+        tur: str
+        donem: str
+        aciklama: str = ""
+
+    @app.post("/api/muaf", dependencies=gerekli)
+    def muaf_ekle(g: MuafGirdi):
+        if g.tur not in BEYANNAMELER:
+            raise HTTPException(400, "Geçersiz tür")
+
+        def isle(d):
+            l = d.setdefault("muaf", [])
+            if not any(x["id"] == g.id and x["tur"] == g.tur and x["donem"] == g.donem for x in l):
+                l.append({"id": g.id, "tur": g.tur, "donem": g.donem, "not": g.aciklama[:200],
+                          "zaman": simdi_tr().isoformat()})
+        cekirdek.depo.guncelle("ayarlar.json", isle)
+        return {"ok": True}
+
+    @app.post("/api/muaf/sil", dependencies=gerekli)
+    def muaf_sil(g: MuafGirdi):
+        def isle(d):
+            d["muaf"] = [x for x in d.get("muaf", [])
+                         if not (x["id"] == g.id and x["tur"] == g.tur and x["donem"] == g.donem)]
+        cekirdek.depo.guncelle("ayarlar.json", isle)
+        return {"ok": True}
+
+    def _gib_aralik(gib_bas, gib_bit):
+        """İsteğe bağlı "GİB'den Getir" aralığı (YYYY-AA-GG); ikisi de boşsa None (varsayılan davranış)."""
+        from datetime import date as _date
+        from .luca_ekran_okuma import gib_araligi_dogrula
+        if not gib_bas and not gib_bit:
+            return None
+        try:
+            bas = _date.fromisoformat(gib_bas) if gib_bas else None
+            bit = _date.fromisoformat(gib_bit) if gib_bit else None
+        except ValueError:
+            raise HTTPException(400, "Tarihler YYYY-AA-GG biçiminde olmalı")
+        try:
+            return gib_araligi_dogrula(bas, bit, simdi_tr().date())
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+
+    @app.post("/api/kontrol", dependencies=gerekli)
+    def kontrol(gib_bas: str = "", gib_bit: str = ""):
+        """Luca'dan veriyi şimdi çeker (arka planda); sonucu /api/durum'dan izleyin. Telegram'a mesaj atmaz.
+        gib_bas/gib_bit (isteğe bağlı): "GİB'den Getir" tarih aralığı; verilmezse son 15 gün (varsayılan)."""
+        aralik = _gib_aralik(gib_bas, gib_bit)
+        threading.Thread(target=cekirdek.topla, args=(aralik,), daemon=True).start()
+        return {"ok": True}
+
+    @app.post("/api/kapat", dependencies=gerekli)
+    def kapat():
+        """Programı kapatır (siyah pencere olmadan açıldığında kapatmanın yolu). Yalnızca yerel çalışmada (baslat.py) vardır."""
+        if env.get("BEYANNAME_YEREL") != "1":
+            raise HTTPException(404, "Bu düğme yalnızca yerel çalışmada vardır")
+        threading.Timer(0.7, _cik).start()
+        return {"ok": True}
+
+    @app.post("/api/kapat-kontrol")
+    def kapat_kontrol(request: Request):
+        """Başlatıcının (Dijital Stajyer sekmesi) programı kapatması için: oturum yerine her açılışta üretilen yerel anahtar
+        (BEYANNAME_KONTROL_TOKEN, başlatıcının yazdığı kontrol.json'da) gerekir. Anahtar tanımlı değilse uç kapalıdır."""
+        anahtar = env.get("BEYANNAME_KONTROL_TOKEN") or ""
+        if not anahtar or not hmac.compare_digest(request.headers.get("x-kontrol-token", ""), anahtar):
+            raise HTTPException(403, "Yetkisiz")
+        threading.Timer(0.7, _cik).start()
+        return {"ok": True}
+
+    @app.post("/api/rapor", dependencies=gerekli)
+    def rapor(gun: int = 10, gib_bas: str = "", gib_bit: str = ""):
+        """Luca'dan taze veri çekip eksik özetini bildirim kanallarına gönderir (arka planda; sonuç /api/durum'da son_rapor)."""
+        if not 1 <= gun <= 60:
+            raise HTTPException(400, "gun 1 ile 60 arasında olmalı")
+        if cekirdek.rapor_suruyor:
+            raise HTTPException(409, "Özet zaten hazırlanıyor")
+        aralik = _gib_aralik(gib_bas, gib_bit)
+        threading.Thread(target=cekirdek.rapor_gonder, args=(gun, aralik), daemon=True).start()
+        return {"ok": True}
+
+    @app.post("/api/tani/calistir", dependencies=gerekli)
+    def tani_calistir():
+        """Luca'ya girip ekranları açar, ekran görüntüleri ve filtre seçeneklerini kaydeder (veri kaydetmez)."""
+        if not hasattr(cekirdek.toplayici, "tani"):
+            raise HTTPException(400, "Tanı yalnızca TOPLAYICI=luca iken çalışır")
+        if cekirdek.tani_suruyor:
+            raise HTTPException(409, "Tanı zaten çalışıyor")
+        threading.Thread(target=cekirdek.tani, daemon=True).start()
+        return {"ok": True}
+
+    @app.post("/api/ag-testi", dependencies=gerekli)
+    def ag_testi_calistir():
+        """Sunucudan Luca/Google/gib.gov.tr'ye istek atar (en çok ~45 sn); engel mi yavaşlık mı olduğunu ayırt eder."""
+        return ag_testi(env.get("LUCA_GIRIS_ADRESI") or "https://www.luca.com.tr")
+
+    TANI_TURLERI = {".png": "image/png", ".html": "text/plain", ".json": "text/plain", ".log": "text/plain", ".txt": "text/plain"}
+
+    @app.get("/api/tani/dosyalar", dependencies=gerekli)
+    def tani_dosyalari():
+        kok = cekirdek.depo.dizin / "tani"
+        sonuc = []
+        for yol in kok.rglob("*") if kok.exists() else []:
+            if yol.is_file() and yol.suffix in TANI_TURLERI:
+                st = yol.stat()
+                sonuc.append({"yol": yol.relative_to(kok).as_posix(), "boyut": st.st_size, "zaman": st.st_mtime})
+        return sorted(sonuc, key=lambda x: -x["zaman"])
+
+    @app.get("/api/tani/dosya", dependencies=gerekli)
+    def tani_dosyasi(yol: str):
+        kok = (cekirdek.depo.dizin / "tani").resolve()
+        hedef = (kok / yol).resolve()
+        if kok not in hedef.parents or not hedef.is_file() or hedef.suffix not in TANI_TURLERI:
+            raise HTTPException(404, "Dosya yok")
+        # Luca sayfa kaynağı bu sayfanın kaynağında çalışmasın: html de düz metin olarak sunulur
+        return Response(hedef.read_bytes(), media_type=TANI_TURLERI[hedef.suffix] + ("" if hedef.suffix == ".png" else "; charset=utf-8"),
+                        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store",
+                                 "Content-Security-Policy": "default-src 'none'; img-src 'self'; sandbox"})
+
+    @app.get("/api/tani.zip", dependencies=gerekli)
+    def tani_zip():
+        """Luca tanı dosyaları (ekran görüntüleri, sayfa kaynağı, filtre seçenekleri). Mükellef adı içerir."""
+        import io
+        import zipfile
+        kok = cekirdek.depo.dizin / "tani"
+        tampon = io.BytesIO()
+        with zipfile.ZipFile(tampon, "w", zipfile.ZIP_DEFLATED) as z:
+            for yol in sorted(kok.rglob("*")) if kok.exists() else []:
+                if yol.is_file():
+                    z.write(yol, yol.relative_to(kok).as_posix())
+        return Response(tampon.getvalue(), media_type="application/zip",
+                        headers={"Content-Disposition": "attachment; filename=luca-tani.zip", "Cache-Control": "no-store"})
+
+    def _onizleme_parametreleri(slot, tarih):
+        from datetime import date as _date
+        from .kontrol import SLOTLAR
+        if slot not in SLOTLAR:
+            raise HTTPException(400, f"slot şunlardan biri olmalı: {', '.join(SLOTLAR)}")
+        try:
+            gun = _date.fromisoformat(tarih) if tarih else None
+        except ValueError:
+            raise HTTPException(400, "tarih YYYY-AA-GG biçiminde olmalı")
+        return slot, gun
+
+    @app.get("/api/onizleme", dependencies=gerekli)
+    def onizleme(slot: str = "21:00", tarih: str = ""):
+        """O gün ve slotta gidecek mesajlar (HTML metni). Gönderilmez, Luca'ya gidilmez; depodaki son veriyle hesaplanır."""
+        slot, gun = _onizleme_parametreleri(slot, tarih)
+        return {"slot": slot, "tarih": (gun or cekirdek.saat().date()).isoformat(), "mesajlar": cekirdek.onizleme(slot, gun)}
+
+    @app.post("/api/onizleme/gonder", dependencies=gerekli)
+    def onizleme_gonder(slot: str = "21:00", tarih: str = ""):
+        """Önizlenen mesajları şimdi e-posta/Telegram'a gönderir (test); 'bu slot çalıştı' diye işaretlemez."""
+        slot, gun = _onizleme_parametreleri(slot, tarih)
+        metinler = cekirdek.onizleme(slot, gun)
+        if not metinler:
+            return {"gonderildi": False, "mesaj": 0, "not": "Bu gün ve slotta uyarı gerekmiyor"}
+        ok = all([cekirdek.telegram.gonder("🧪 <b>ÖNİZLEME (test)</b>\n" + m) for m in metinler])
+        return {"gonderildi": ok, "mesaj": len(metinler)}
+
+    @app.post("/api/test-bildirim", dependencies=gerekli)
+    def test_bildirim():
+        ok = cekirdek.telegram.gonder("✅ Beyanname takip: test mesajı")
+        ayrinti = getattr(cekirdek.telegram, "ayrinti", lambda: [])()
+        return {"gonderildi": ok, **({"ayrinti": ayrinti} if ayrinti else {})}
+
+    @app.get("/api/captcha.png", dependencies=gerekli)
+    def captcha_resim():
+        r = cekirdek.captcha.resim
+        if r is None:
+            raise HTTPException(404, "Bekleyen captcha yok")
+        return Response(r, media_type="image/png", headers={"Cache-Control": "no-store"})
+
+    class CaptchaGirdi(BaseModel):
+        kod: str
+
+    @app.post("/api/captcha", dependencies=gerekli)
+    def captcha_cevap(g: CaptchaGirdi):
+        return {"ok": cekirdek.captcha.cevapla(g.kod)}
+
+    return app
+
+
+def app_fabrikasi():
+    return uygulama_olustur()

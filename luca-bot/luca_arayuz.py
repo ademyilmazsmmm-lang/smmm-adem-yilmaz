@@ -34,6 +34,7 @@ sys.path.insert(0, str(KOK))
 
 from kar_zarar_sekmesi import KarZararSekmesi  # noqa: E402
 from defter_beyan_sekmesi import DefterBeyanSekmesi  # noqa: E402
+from beyanname_takip_sekmesi import BeyannameTakipSekmesi  # noqa: E402
 from kurulum_sihirbazi import KurulumSihirbazi  # noqa: E402
 from lucabot import SURUM, SURUM_TARIHI, beyanname, firma_tablosu, gostergeler, lisans, musteri_listesi, rapor  # noqa: E402
 from tablo_gorunumu import SiralaFiltreTablosu  # noqa: E402
@@ -708,6 +709,7 @@ class Arayuz:
         self._sag_panel(govde)
         self.kz = KarZararSekmesi(self, kok, sys.modules[__name__])
         self.db = DefterBeyanSekmesi(self, kok, sys.modules[__name__])
+        self.bt = BeyannameTakipSekmesi(self, kok, sys.modules[__name__])
         self.muavin_govde = self._muavin_taslagi(kok)
         self.sekme_sec("fatura")
         self._giris_ozetini_yaz()
@@ -810,7 +812,7 @@ class Arayuz:
         cubuk.pack(fill="x")
         self.sekme_dugmeleri, self.sekme_cizgileri = {}, {}
         for anahtar, ad in (("fatura", "Fatura İndirme"), ("kz", "Kâr / Zarar"), ("db", "Defter Beyan"),
-                              ("muavin", "Muavin")):
+                              ("bt", "Beyanname Takip"), ("muavin", "Muavin")):
             hucre = tk.Frame(cubuk, bg=PANEL, cursor="hand2")
             hucre.pack(side="left")
             d = tk.Label(hucre, text=ad, font=("Segoe UI", 12, "bold"), padx=28, pady=11, cursor="hand2", bg=PANEL)
@@ -864,15 +866,18 @@ class Arayuz:
         self.fatura_govde.pack_forget()
         self.kz.govde.pack_forget()
         self.db.govde.pack_forget()
+        self.bt.govde.pack_forget()
         self.muavin_govde.pack_forget()
-        {"fatura": self.fatura_govde, "kz": self.kz.govde, "db": self.db.govde, "muavin": self.muavin_govde}[anahtar].pack(
-            fill="both", expand=True)
+        {"fatura": self.fatura_govde, "kz": self.kz.govde, "db": self.db.govde, "bt": self.bt.govde,
+         "muavin": self.muavin_govde}[anahtar].pack(fill="both", expand=True)
         for k, d in self.sekme_dugmeleri.items():
             d.configure(fg=ALTIN_FG if k == anahtar else ETIKET)
             self.sekme_cizgileri[k].configure(bg=ALTIN if k == anahtar else PANEL)
         self.aktif_sekme = anahtar
         if anahtar == "kz":
             self.kz.sonucu_goster()  # fatura indirme sekmesinde yeni ay indirilmis olabilir
+        elif anahtar == "bt":
+            self.bt.yenile_simdi()   # durumu hemen tazele; sekme gorunurken 2 sn'de bir yenilenir
 
     def _sol_panel(self, govde):
         """Sol panel: Çalıştır/Durdur altta SABİT; üstteki ayarlar pencereye sığmazsa (küçük pencere, yüksek DPI)

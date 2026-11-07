@@ -1,0 +1,7 @@
+# şifre ve kişisel veriler
+ayarlar.env
+veri/
+program.log
+__pycache__/
+.pytest_cache/
+kontrol.json

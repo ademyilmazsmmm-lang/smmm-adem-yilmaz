@@ -1,0 +1,3 @@
+# Beyanname Takip (Dijital Stajyer içinde). playwright, pyotp, openpyxl, pypdf luca-bot/requirements.txt'te zaten var.
+fastapi>=0.115
+uvicorn>=0.30

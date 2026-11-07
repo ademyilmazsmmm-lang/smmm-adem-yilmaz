@@ -4,7 +4,7 @@
     python setup/derle.py --lisans lisans.json [--cikti setup/cikti]
 
 Adimlar:
-  1. git'te izlenen luca-bot/ ve kar-zarar/ dosyalarindan (testler, gelistirici araclari ve kisisel veriler
+  1. git'te izlenen luca-bot/, kar-zarar/ ve beyanname-takip/ dosyalarindan (testler, gelistirici araclari ve kisisel veriler
      haric) bir gecici "sahne" klasoru kurar;
   2. --lisans ile verilen imzali lisansi dogrular (bugun gecerli olmali) ve paketin icine koyar;
   3. NSIS icin dosyalar.nsh (kurulacak dosyalar) ve silme.nsh (kaldirilacak dosyalar) uretir;
@@ -31,12 +31,12 @@ from lucabot import SURUM, lisans  # noqa: E402
 # pakete GIRMEYENLER (gelistirici araclari, testler, kisisel/uretilen veriler)
 HARIC_YOL = ("/testler/", "/birlestirme/", "/__pycache__/")
 HARIC_AD = {"lisans_araci.py", ".gitignore", ".gitattributes", "BIRLESTIRME.md", "kapali-firmalar.md",
-            "giris-gunlugu.log", "luca_bot_sabahki.py", "sabahki-surum-testi.bat", "gecis_rapor_birlestir.py",
+            "giris-gunlugu.log", "ayarlar.env", "kontrol.json", "program.log", "luca_bot_sabahki.py", "sabahki-surum-testi.bat", "gecis_rapor_birlestir.py",
             "gecis-rapor-birlestir.bat", "ayarlar.json", "lisans.json", "lisans-paket.json", "lisans-durum.json", "python-yolu.txt"}
 
 
 def izlenen_dosyalar():
-    cikti = subprocess.check_output(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "luca-bot", "kar-zarar"], cwd=DEPO)
+    cikti = subprocess.check_output(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "luca-bot", "kar-zarar", "beyanname-takip"], cwd=DEPO)
     for yol in cikti.decode("utf-8").split("\0"):
         if not yol:
             continue

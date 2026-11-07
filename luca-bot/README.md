@@ -481,3 +481,7 @@ python testler/uctan_uca.py                    # programın tamamı, sahte Luca 
   eşitlerken kilitliyor, Chrome indirme sırasında çökebiliyor. `C:\luca-bot` gibi bir yer uygundur.
   Tarayıcı profili zaten otomatik olarak OneDrive dışına (`%LOCALAPPDATA%\luca-bot`) alınır.
 - Excel'den Luca'ya yükleme ve yapay zeka ile muhasebe kaydı sonraki adımlarda eklenecek.
+
+## Beyanname Takip sekmesi
+Beyannamelerin son günlerini izleyen ve verilmemiş olanları e-postayla bildiren ayrı bir program (`../beyanname-takip/`) bu arayüzde
+**Beyanname Takip** sekmesinden başlatılır/kapatılır. Ayrıntı: `beyanname-takip/README.md`.
