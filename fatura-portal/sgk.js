@@ -320,7 +320,7 @@ class Sgk {
     let html = r.veri.toString("utf8"), url = r.url;
     if (/kullaniciIlkKontrollerGiris/.test(html)) {
       const m = hataMetni(html);
-      const e = new Error("SGK girişi kabul edilmedi" + (m ? ": " + m : ": SGK aynı giriş formunu yeniden gösterdi, ayrı bir hata metni vermedi. Güvenlik kodu (resimdeki gibi, büyük/küçük harf aynen), kullanıcı adı, işyeri kodu ve iki şifreyi kontrol edin") + ".");
+      const e = new Error("SGK girişi kabul edilmedi" + (m ? ": " + m : ": SGK aynı giriş formunu yeniden gösterdi, ayrı bir hata metni vermedi. Güvenlik kodu, kullanıcı adı, işyeri kodu ve iki şifreyi kontrol edin") + ".");
       e.giris = true; throw e;
     }
     /* başlatıcı sayfa(lar)dan gerçek uygulama penceresine geç */
