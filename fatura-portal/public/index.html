@@ -589,6 +589,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       <div class="kayit" id="sgkTesvik" style="border-left:4px solid var(--accent)"><b>Potansiyel teşvik sorgulama</b><p class="not" style="margin:4px 0 0">Personel işe almadan önce, adayın T.C. kimlik numarasıyla teşvik durumuna bakın. Bağlandıktan sonra “Teşvik sorgula” düğmesi açılır.</p></div>
       <p class="not" id="vdSgkNot" style="margin:0">Bağlanmak için mükellefin SGK bilgileri Ayarlar’da kayıtlı olmalı; her bağlanışta resimdeki güvenlik kodunu kendiniz, resimdeki gibi (harfler büyük) yazarsınız.</p>
       <p class="not" id="vdSgkEksik" hidden style="margin:0;color:var(--danger)">SSK’lı (4/a) çalışanınız yok ya da SGK şifre bilgileri girili değil. Çalışanınız varsa ofise bildirin; ofis bilgileri Ayarlar → mükellef → “SGK İşveren Sistemi bilgileri” bölümüne girer.</p>
+      <p class="not" id="vdSgkOzNot" hidden style="margin:0">İstediğiniz işleme dokunun; SGK güvenlik kodu gerekiyorsa burada sorulur, kodu girince işlem otomatik açılır.</p>
       <div id="vdSgkBaglan" style="display:grid;gap:8px">
         <button class="btn ikincil" type="button" id="vdSgkKodIste">Güvenlik kodu al</button>
         <div id="vdSgkKodKutu" style="display:none;gap:8px;align-items:center"><img id="vdSgkKodResim" alt="Güvenlik kodu" style="height:50px;border:1px solid var(--line2);border-radius:6px;background:#fff"><input id="vdSgkKod" type="text" maxlength="10" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Kod" style="width:7.5em"><button class="btn" type="button" id="vdSgkGiris">Bağlan</button></div>
@@ -3251,14 +3252,15 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     sgkIsyeriCiz(); $("sgkMuk").textContent = (m.ad || "") + ((m.sgkEk || []).length ? " · " + sgkIsyeriAdi(m, VD.sgkIx) : "");
     $("sgkSis").querySelectorAll("[data-sis]").forEach(function(x){ x.setAttribute("aria-pressed", x.getAttribute("data-sis") === sis ? "true" : "false"); });
     $("vdSgkAciklama").textContent = SGKAC[sis];
-    $("vdSgkBaglan").style.display = b ? "none" : "grid"; $("vdSgkBagli").style.display = b ? "flex" : "none";
+    var oz = sis === "isveren" || sis === "tescil"; /* bu iki sistemde işlemler baştan görünür; güvenlik kodu, bir işleme dokununca istenir */
+    $("vdSgkBaglan").style.display = (b || (oz && !VD.sgkBekleyen && !eksik)) ? "none" : "grid"; $("vdSgkOzNot").hidden = !(oz && !b && !VD.sgkBekleyen && !eksik); $("vdSgkBagli").style.display = b ? "flex" : "none";
     $("vdSgkEksik").hidden = !eksik; $("vdSgkKodIste").disabled = eksik; if (b) $("vdSgkKodKutu").style.display = "none";
-    $("sgkTesvik").hidden = sis !== "isveren" || b; $("vdSgkIsv").hidden = !(sis === "isveren" && b); $("vdSgkTescil").hidden = !(sis === "tescil" && b); $("tescilDev").hidden = ROL !== "ofis"; if (!(sis === "tescil" && b)) $("tescilSonuc").innerHTML = ""; if (!(sis === "isveren" && b)) $("isvSonuc").innerHTML = "";
+    $("sgkTesvik").hidden = true; $("vdSgkIsv").hidden = sis !== "isveren"; $("vdSgkTescil").hidden = sis !== "tescil"; $("tescilDev").hidden = ROL !== "ofis"; if (!(sis === "tescil" && b)) { $("tescilSonuc").innerHTML = ""; $("tescilForm").style.display = "none"; } if (!(sis === "isveren" && b)) $("isvSonuc").innerHTML = "";
     var bilGoster = sis === "ebildirge" && b; $("vdSgkBildirge").hidden = !bilGoster; if (bilGoster && !VD.bilYuklendi) bilDonemleriYukle(); if (!b && sis === "ebildirge") { VD.bilYuklendi = false; $("bilSonuc").innerHTML = ""; }
     $("vdSgkBagli").querySelector("span").textContent = "✓ SGK’ya bağlı";
   }
-  $("sgkIsy").addEventListener("click", function(e){ var b = e.target.closest("[data-isy]"); if (!b) return; VD.sgkIx = +b.getAttribute("data-isy"); VD.bilYuklendi = false; $("bilSonuc").innerHTML = ""; $("isvSonuc").innerHTML = ""; $("tesvikSonuc").innerHTML = ""; $("tesvikForm").hidden = true; $("vdSgkDurum").textContent = ""; $("vdSgkDurum").className = "durum"; $("vdSgkKodKutu").style.display = "none"; vdSgkCiz(); });
-  $("sgkSis").addEventListener("click", function(e){ var b = e.target.closest("[data-sis]"); if (!b) return; VD.sgkSis = b.getAttribute("data-sis"); $("vdSgkDurum").textContent = ""; $("vdSgkDurum").className = "durum"; $("vdSgkKodKutu").style.display = "none"; vdSgkCiz(); });
+  $("sgkIsy").addEventListener("click", function(e){ var b = e.target.closest("[data-isy]"); if (!b) return; VD.sgkIx = +b.getAttribute("data-isy"); VD.sgkBekleyen = null; VD.bilYuklendi = false; $("bilSonuc").innerHTML = ""; $("isvSonuc").innerHTML = ""; $("tesvikSonuc").innerHTML = ""; $("tesvikForm").hidden = true; $("vdSgkDurum").textContent = ""; $("vdSgkDurum").className = "durum"; $("vdSgkKodKutu").style.display = "none"; vdSgkCiz(); });
+  $("sgkSis").addEventListener("click", function(e){ var b = e.target.closest("[data-sis]"); if (!b) return; VD.sgkSis = b.getAttribute("data-sis"); VD.sgkBekleyen = null; $("vdSgkDurum").textContent = ""; $("vdSgkDurum").className = "durum"; $("vdSgkKodKutu").style.display = "none"; vdSgkCiz(); });
   /* İşe giriş / işten ayrılış görüntüleme (SGK Sigortalı Tescil; yalnız okuma) */
   var TIS = "", TISAD = { giris: "İşe giriş görüntüleme", cikis: "İşten ayrılış görüntüleme", liste: "İşe giriş / çıkış listesi" };
   function tisAlanHtml(a){
@@ -3308,7 +3310,18 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     }, vdSgkHata).then(function(){ b.disabled = false; });
   });
   $("tescilSonuc").addEventListener("click", function(e){ if (e.target.id !== "isvKopya") return; var t = $("isvHam").textContent; try { navigator.clipboard.writeText(t); e.target.textContent = "Kopyalandı"; } catch (x) { var rg = document.createRange(); rg.selectNodeContents($("isvHam")); var sl = getSelection(); sl.removeAllRanges(); sl.addRange(rg); } });
-  function vdSgkHata(er){ if (oturumDustu(er)) return; var d = $("vdSgkDurum"); if (er.girisGerek) { VD.sgkB[VD.sgkSis + "|" + VD.sgkIx] = false; vdSgkCiz(); } d.className = "durum hata"; d.textContent = er.message; }
+  function vdSgkHata(er){
+    if (oturumDustu(er)) return; var d = $("vdSgkDurum");
+    if (er.girisGerek) {
+      VD.sgkB[VD.sgkSis + "|" + VD.sgkIx] = false;
+      var son = VD.sgkSon; if (son && son.id === "tisGonder") son = document.querySelector('[data-tis="' + TIS + '"]'); else if (son && son.id === "tesvikGonder") son = $("tesvikAc");
+      var oz = VD.sgkSis === "isveren" || VD.sgkSis === "tescil"; VD.sgkBekleyen = oz && son && document.body.contains(son) ? son : null; vdSgkCiz();
+      if (VD.sgkBekleyen && !$("vdSgkKodIste").disabled) { d.className = "durum"; d.textContent = "Bu işlem için SGK güvenlik kodu gerekiyor; resimdeki kodu yazın."; $("vdSgkKodIste").click(); return; }
+    }
+    d.className = "durum hata"; d.textContent = er.message;
+  }
+  /* son dokunulan işlem düğmesi: güvenlik kodu istenirse, kod girilince bu işlem yeniden çalışır */
+  ["vdSgkIsv", "vdSgkTescil"].forEach(function(id){ $(id).addEventListener("click", function(e){ var b = e.target.closest("button"); if (b && b.id !== "vdSgkKodIste") VD.sgkSon = b; }, true); });
   /* e-Bildirge: onaylı bildirgeler */
   function bilDonemleriYukle(){
     var d = $("vdSgkDurum"); VD.bilYuklendi = true; d.className = "durum"; d.textContent = "Dönemler alınıyor…";
@@ -3335,13 +3348,13 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   });
   $("vdSgkKodIste").addEventListener("click", function(){
     var b = this, d = $("vdSgkDurum"); if (!VD.mid) return; b.disabled = true; d.className = "durum"; d.textContent = "Güvenlik kodu isteniyor…";
-    api("/api/sgk/captcha", "POST", { mukellefId: VD.mid, sistem: VD.sgkSis }).then(function(r){ $("vdSgkKodResim").src = r.resim; $("vdSgkKod").value = ""; $("vdSgkKodKutu").style.display = "flex"; d.textContent = ""; b.textContent = "Kodu yenile"; setTimeout(function(){ odakla($("vdSgkKod")); }, 50); }, vdSgkHata).then(function(){ b.disabled = false; });
+    api("/api/sgk/captcha", "POST", { mukellefId: VD.mid, sistem: VD.sgkSis }).then(function(r){ $("vdSgkKodResim").src = r.resim; $("vdSgkKod").value = ""; $("vdSgkKodKutu").style.display = "flex"; d.textContent = VD.sgkBekleyen ? "Bu işlem için SGK güvenlik kodu gerekiyor; resimdeki kodu yazın." : ""; b.textContent = "Kodu yenile"; setTimeout(function(){ odakla($("vdSgkKod")); }, 50); }, vdSgkHata).then(function(){ b.disabled = false; });
   });
   function vdSgkGiris(){
     var b = $("vdSgkGiris"), d = $("vdSgkDurum"), dk = $("vdSgkKod").value.trim(), sis = VD.sgkSis; if (!VD.mid) return;
     if (dk.length < 3) { d.className = "durum hata"; d.textContent = "Resimdeki kodu yazın."; return; }
     b.disabled = true; d.className = "durum"; d.textContent = "Bağlanılıyor…";
-    api("/api/sgk/giris", "POST", { mukellefId: VD.mid, sistem: sis, dk: dk }).then(function(){ VD.sgkB[sis + "|" + VD.sgkIx] = true; $("vdSgkKod").value = ""; $("vdSgkKodIste").textContent = "Güvenlik kodu al"; d.textContent = ""; vdSgkCiz(); }, function(er){ $("vdSgkKodKutu").style.display = "none"; $("vdSgkKodIste").textContent = "Yeni güvenlik kodu al"; vdSgkHata(er); }).then(function(){ b.disabled = false; });
+    api("/api/sgk/giris", "POST", { mukellefId: VD.mid, sistem: sis, dk: dk }).then(function(){ VD.sgkB[sis + "|" + VD.sgkIx] = true; $("vdSgkKod").value = ""; $("vdSgkKodIste").textContent = "Güvenlik kodu al"; d.textContent = ""; var bek = VD.sgkBekleyen; VD.sgkBekleyen = null; vdSgkCiz(); if (bek && document.body.contains(bek) && !bek.disabled) setTimeout(function(){ bek.click(); }, 60); }, function(er){ $("vdSgkKodKutu").style.display = "none"; $("vdSgkKodIste").textContent = "Yeni güvenlik kodu al"; vdSgkHata(er); }).then(function(){ b.disabled = false; });
   }
   $("vdSgkGiris").addEventListener("click", vdSgkGiris);
   $("vdSgkKod").addEventListener("keydown", function(e){ if (e.key === "Enter") { e.preventDefault(); vdSgkGiris(); } });
