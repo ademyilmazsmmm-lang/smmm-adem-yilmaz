@@ -583,7 +583,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     <div class="kartbas"><h2>SGK</h2><small id="sgkMuk"></small></div>
     <div id="vdSgk" style="display:grid;gap:10px">
       <div class="vdsek" id="sgkIsy" role="group" aria-label="SGK işyeri dosyası" hidden></div>
-      <div class="vdsek" id="sgkSis" role="group" aria-label="SGK sistemi"><button class="chip" type="button" data-sis="isveren" aria-pressed="true"><span>Borç sorgulama</span><small>E-Borcu Yoktur belgesi</small></button><button class="chip" type="button" data-sis="ebildirge" aria-pressed="false"><span>Hizmet · Tahakkuk</span><small>PDF dökümleri</small></button><button class="chip" type="button" data-sis="tescil" aria-pressed="false"><span>İşe giriş / çıkış</span><small>Sigortalı tescil</small></button></div>
+      <div class="vdsek" id="sgkSis" role="group" aria-label="SGK sistemi"><button class="chip" type="button" data-sis="isveren" aria-pressed="true"><span>Borç sorgulama</span><small>E-Borcu Yoktur belgesi</small></button><button class="chip" type="button" data-sis="ebildirge" aria-pressed="false"><span>Hizmet · Tahakkuk</span><small>PDF dökümleri</small></button><button class="chip" type="button" data-sis="tescil" aria-pressed="false"><span>İşe giriş / çıkış</span><small>Sigortalı tescil</small></button><button class="chip" type="button" data-sis="rapor" aria-pressed="false"><span>Rapor sorgulama</span><small>İstirahat raporları</small></button></div>
       <p class="not" id="vdSgkAciklama" style="margin:0"></p>
       <div class="kayit" style="display:grid;gap:6px;border-left:4px solid var(--accent)"><b>Bağ-Kur (4/b) prim borcu</b><span class="not" style="margin:0;font-size:.86rem">Bağ-Kur borç durumunu e-Devlet’ten kendiniz öğrenebilirsiniz. Giriş e-Devlet şifrenizle yapılır.</span><a class="btn" style="text-align:center;text-decoration:none" href="https://www.turkiye.gov.tr/4b-borc-durumu" target="_blank" rel="noopener noreferrer">e-Devlet’te Bağ-Kur borç durumunu aç</a></div>
       <div class="kayit" id="sgkTesvik" style="border-left:4px solid var(--accent)"><b>Potansiyel teşvik sorgulama</b><p class="not" style="margin:4px 0 0">Personel işe almadan önce, adayın T.C. kimlik numarasıyla teşvik durumuna bakın. Bağlandıktan sonra “Teşvik sorgula” düğmesi açılır.</p></div>
@@ -595,6 +595,16 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
         <div id="vdSgkKodKutu" style="display:none;gap:8px;align-items:center"><img id="vdSgkKodResim" alt="Güvenlik kodu" style="height:50px;border:1px solid var(--line2);border-radius:6px;background:#fff"><input id="vdSgkKod" type="text" maxlength="10" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Kod" style="width:7.5em"><button class="btn" type="button" id="vdSgkGiris">Bağlan</button></div>
       </div>
       <div id="vdSgkBagli" style="display:none;justify-content:space-between;align-items:center;gap:8px"><span class="not" style="margin:0">✓ SGK’ya bağlı</span><button class="k" type="button" id="vdSgkKapat">Kapat</button></div>
+      <div id="vdSgkRapor" hidden style="display:grid;gap:8px">
+        <div class="kayit" style="display:grid;gap:8px;border-left:4px solid var(--accent)"><b>İstirahat raporu sorgulama</b>
+          <div class="vdsek" id="rpSeg" role="group" aria-label="Sorgu türü"><button class="chip" type="button" data-rp="kimlik" aria-pressed="true">T.C. ile</button><button class="chip" type="button" data-rp="acik" aria-pressed="false">Açık raporlar</button><button class="chip" type="button" data-rp="onayli" aria-pressed="false">Onaylı raporlar</button></div>
+          <div id="rpKimlik" style="display:grid;gap:6px"><label for="rpTc" class="not" style="margin:0">Sigortalının T.C. kimlik numarası</label><input id="rpTc" type="text" inputmode="numeric" maxlength="11" autocomplete="off" placeholder="11 haneli"></div>
+          <div id="rpAcik" hidden style="display:none;gap:6px"><label for="rpTarih" class="not" style="margin:0">Bu tarihten önceki poliklinik tarihli açık raporlar (en çok 100)</label><input id="rpTarih" type="date"></div>
+          <div id="rpOnayli" hidden style="display:none;gap:6px"><div class="satir"><div><label for="rpT1">Başlangıç</label><input id="rpT1" type="date"></div><div><label for="rpT2">Bitiş</label><input id="rpT2" type="date"></div></div></div>
+          <button class="btn" type="button" id="rpGonder">Sorgula</button>
+        </div>
+        <div id="rpSonuc" style="display:grid;gap:8px"></div>
+      </div>
       <div id="vdSgkTescil" hidden style="display:grid;gap:8px">
         <div class="kayit" style="display:grid;gap:8px;border-left:4px solid var(--accent)"><b>Sigortalı işe giriş / işten çıkış</b><span class="not" style="margin:0;font-size:.86rem">Yalnız görüntüleme: SGK’daki işe giriş ve işten ayrılış kayıtlarına bakılır, hiçbir kayıt değiştirilmez.</span>
           <div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))"><button class="btn ikincil" type="button" data-tis="giris">İşe giriş görüntüleme</button><button class="btn ikincil" type="button" data-tis="cikis">İşten ayrılış görüntüleme</button><button class="btn ikincil" type="button" data-tis="liste">İşe giriş / çıkış listesi</button></div>
@@ -3238,7 +3248,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function sonucaGit(id){ setTimeout(function(){ var e = $(id); if (!e || e.hidden || !e.offsetParent || !e.textContent.trim()) return; var r = e.getBoundingClientRect(); if (r.top > 60 && r.top < innerHeight * 0.55) return; e.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); }
   function vdHata(er, d){ if (oturumDustu(er)) return; if (er.girisGerek) { VD.bagli = false; vdBagDurum(); } d.className = "durum hata"; d.textContent = er.message; }
   /* SGK sekmesi: seçili mükellef için SGK İşveren Sistemi ve e-Bildirge (ikisi ayrı oturum, ayrı güvenlik kodu) */
-  var SGKAC = { isveren: "SGK borcunu sorgulayın, E-Borcu Yoktur belgesini alın.", ebildirge: "Onaylı bildirgelerin tahakkuk ve hizmet dökümlerini (PDF) alın.", tescil: "Sigortalı İşe Giriş ve İşten Ayrılış (4/a) sistemi: işe giriş ve işten çıkış bildirimlerini görüntüleme." };
+  var SGKAC = { rapor: "Sigortalıların iş göremezlik (istirahat) raporlarını sorgulayın. Güvenlik kodu gerekmez; yalnız görüntüleme yapılır, hiçbir bildirim ya da onay gönderilmez.", isveren: "SGK borcunu sorgulayın, E-Borcu Yoktur belgesini alın.", ebildirge: "Onaylı bildirgelerin tahakkuk ve hizmet dökümlerini (PDF) alın.", tescil: "Sigortalı İşe Giriş ve İşten Ayrılış (4/a) sistemi: işe giriş ve işten çıkış bildirimlerini görüntüleme." };
   function sgkIsyeri(m, ix){ return (ix ? (m.sgkEk || [])[ix - 1] : m.sgk) || {}; }
   function sgkIsyeriAdi(m, ix){ var k = sgkIsyeri(m, ix); return k.ad || (ix ? "İşyeri " + (ix + 1) : "Ana işyeri"); }
   function sgkAc(){ vdAc(); var m = mBul(VD.mid); if (m && VD.sgkIx > (m.sgkEk || []).length) VD.sgkIx = 0; $("sgkMuk").textContent = m ? m.ad : ""; vdSgkCiz(); }
@@ -3248,12 +3258,12 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     kutu.innerHTML = h; kutu.style.gridTemplateColumns = "repeat(" + Math.min(n, 2) + ",minmax(0,1fr))";
   }
   function vdSgkCiz(){
-    var sis = VD.sgkSis, b = !!VD.sgkB[sis + "|" + VD.sgkIx], m = mBul(VD.mid) || {}, k = sgkIsyeri(m, VD.sgkIx), eksik = !(k.kullanici && k.isyeriKod && k.sistemVar && k.isyeriVar);
+    var sis = VD.sgkSis, b = !!VD.sgkB[sis + "|" + VD.sgkIx], m = mBul(VD.mid) || {}, k = sgkIsyeri(m, VD.sgkIx), eksik = !(k.kullanici && k.isyeriKod && k.isyeriVar && (sis === "rapor" || k.sistemVar));
     sgkIsyeriCiz(); $("sgkMuk").textContent = (m.ad || "") + ((m.sgkEk || []).length ? " · " + sgkIsyeriAdi(m, VD.sgkIx) : "");
     $("sgkSis").querySelectorAll("[data-sis]").forEach(function(x){ x.setAttribute("aria-pressed", x.getAttribute("data-sis") === sis ? "true" : "false"); });
     $("vdSgkAciklama").textContent = SGKAC[sis];
-    var oz = sis === "isveren" || sis === "tescil"; /* bu iki sistemde işlemler baştan görünür; güvenlik kodu, bir işleme dokununca istenir */
-    $("vdSgkBaglan").style.display = (b || (oz && !VD.sgkBekleyen && !eksik)) ? "none" : "grid"; $("vdSgkOzNot").hidden = !(oz && !b && !VD.sgkBekleyen && !eksik); $("vdSgkBagli").style.display = b ? "flex" : "none";
+    var rapor = sis === "rapor", oz = sis === "isveren" || sis === "tescil" || rapor; /* bu iki sistemde işlemler baştan görünür; güvenlik kodu, bir işleme dokununca istenir */
+    $("vdSgkBaglan").style.display = (b || rapor || (oz && !VD.sgkBekleyen && !eksik)) ? "none" : "grid"; $("vdSgkOzNot").hidden = !(oz && !rapor && !b && !VD.sgkBekleyen && !eksik); $("vdSgkRapor").hidden = !rapor; if (rapor) $("vdSgkBagli").style.display = "none"; $("vdSgkBagli").style.display = b ? "flex" : "none";
     $("vdSgkEksik").hidden = !eksik; $("vdSgkKodIste").disabled = eksik; if (b) $("vdSgkKodKutu").style.display = "none";
     $("sgkTesvik").hidden = true; $("vdSgkIsv").hidden = sis !== "isveren"; $("vdSgkTescil").hidden = sis !== "tescil"; $("tescilDev").hidden = ROL !== "ofis"; if (!(sis === "tescil" && b)) { $("tescilSonuc").innerHTML = ""; $("tescilForm").style.display = "none"; } if (!(sis === "isveren" && b)) $("isvSonuc").innerHTML = "";
     var bilGoster = sis === "ebildirge" && b; $("vdSgkBildirge").hidden = !bilGoster; if (bilGoster && !VD.bilYuklendi) bilDonemleriYukle(); if (!b && sis === "ebildirge") { VD.bilYuklendi = false; $("bilSonuc").innerHTML = ""; }
@@ -3261,6 +3271,33 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   $("sgkIsy").addEventListener("click", function(e){ var b = e.target.closest("[data-isy]"); if (!b) return; VD.sgkIx = +b.getAttribute("data-isy"); VD.sgkBekleyen = null; VD.bilYuklendi = false; $("bilSonuc").innerHTML = ""; $("isvSonuc").innerHTML = ""; $("tesvikSonuc").innerHTML = ""; $("tesvikForm").hidden = true; $("vdSgkDurum").textContent = ""; $("vdSgkDurum").className = "durum"; $("vdSgkKodKutu").style.display = "none"; vdSgkCiz(); });
   $("sgkSis").addEventListener("click", function(e){ var b = e.target.closest("[data-sis]"); if (!b) return; VD.sgkSis = b.getAttribute("data-sis"); VD.sgkBekleyen = null; $("vdSgkDurum").textContent = ""; $("vdSgkDurum").className = "durum"; $("vdSgkKodKutu").style.display = "none"; vdSgkCiz(); });
+  /* Rapor sorgulama (SGK Vizite web servisi; yalnız okuma, güvenlik kodu yok) */
+  var RP = "kimlik";
+  function rpSegCiz(){ $("rpSeg").querySelectorAll("[data-rp]").forEach(function(x){ x.setAttribute("aria-pressed", x.getAttribute("data-rp") === RP ? "true" : "false"); }); [["kimlik","rpKimlik"],["acik","rpAcik"],["onayli","rpOnayli"]].forEach(function(q){ var e = $(q[1]); e.hidden = RP !== q[0]; e.style.display = RP === q[0] ? "grid" : "none"; }); $("rpSonuc").innerHTML = ""; }
+  function rpHtml(r){
+    var h = r.uyari ? '<div class="durum ' + (/okunamadı|hatalı|geçersiz/i.test(r.uyari) ? "hata" : "ok") + '" style="display:block">' + esc(r.uyari) + '</div>' : "";
+    if ((r.satirlar || []).length) h += '<div class="not" style="margin:4px 0 0">' + r.satirlar.length + ' rapor</div>';
+    (r.satirlar || []).forEach(function(x){
+      var ust = [x.vaka, x.durum].filter(Boolean).join(" · "), tarih = [x.baslangic, x.bitis].filter(Boolean).join(" → ");
+      h += '<div class="kayit"><b>' + esc(x.ad || x.tc || "Rapor") + '</b><div class="not" style="margin:4px 0 0;overflow-wrap:anywhere">' + esc([x.tc && x.ad ? x.tc : "", ust, tarih, x.tesis].filter(Boolean).join(" · ")) + '</div>' +
+        '<details class="alt2"><summary>Ayrıntı</summary><div class="icerik" style="display:grid;gap:2px">' + (x.alanlar || []).map(function(a){ return '<div style="font-size:.84rem"><span style="color:var(--muted)">' + esc(a.k) + ':</span> ' + esc(a.v) + '</div>'; }).join("") + '</div></details></div>';
+    });
+    if (!(r.satirlar || []).length && !r.uyari) h += '<p class="not" style="margin:0">Kayıt bulunamadı.</p>';
+    if (r.ham) h += '<details class="alt2 teknik"><summary>Teknik ayrıntı (bunu gönderin)</summary><div class="icerik"><pre id="isvHam" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;margin:0;max-height:260px;overflow:auto">' + esc(r.ham) + '</pre><button class="k" type="button" id="isvKopya">Kopyala</button></div></details>';
+    return h;
+  }
+  $("vdSgkRapor").addEventListener("click", function(e){
+    var sg = e.target.closest("[data-rp]"); if (sg) { RP = sg.getAttribute("data-rp"); rpSegCiz(); return; }
+    if (e.target.id === "isvKopya") { var t = $("isvHam").textContent; try { navigator.clipboard.writeText(t); e.target.textContent = "Kopyalandı"; } catch (x) {} return; }
+    if (e.target.id !== "rpGonder") return;
+    var g = e.target, d = $("vdSgkDurum"), q = { mukellefId: VD.mid, sistem: "rapor", ix: VD.sgkIx, islem: RP };
+    if (RP === "kimlik") { q.tc = $("rpTc").value.replace(/\D/g, ""); if (q.tc.length !== 11) { d.className = "durum hata"; d.textContent = "T.C. kimlik numarası 11 haneli olmalı."; return; } }
+    else if (RP === "acik") { q.tarih = $("rpTarih").value; if (!q.tarih) { d.className = "durum hata"; d.textContent = "Tarihi seçin."; return; } }
+    else { q.tarih1 = $("rpT1").value; q.tarih2 = $("rpT2").value; if (!q.tarih1 || !q.tarih2) { d.className = "durum hata"; d.textContent = "Başlangıç ve bitiş tarihini seçin."; return; } if (q.tarih1 > q.tarih2) { d.className = "durum hata"; d.textContent = "Başlangıç tarihi bitişten sonra olamaz."; return; } }
+    g.disabled = true; d.className = "durum"; d.textContent = "SGK'dan sorgulanıyor…"; $("rpSonuc").innerHTML = "";
+    api("/api/sgk/rapor", "POST", q).then(function(r){ d.textContent = ""; $("rpSonuc").innerHTML = rpHtml(r); sonucaGit("rpSonuc"); }, vdSgkHata).then(function(){ g.disabled = false; });
+  });
+  (function(){ var b = new Date(), y = new Date(b.getTime() + 864e5), ay = new Date(b.getFullYear(), b.getMonth(), 1), f = function(x){ return x.getFullYear() + "-" + ("0" + (x.getMonth() + 1)).slice(-2) + "-" + ("0" + x.getDate()).slice(-2); }; $("rpTarih").value = f(y); $("rpT1").value = f(ay); $("rpT2").value = f(b); })();
   /* İşe giriş / işten ayrılış görüntüleme (SGK Sigortalı Tescil; yalnız okuma) */
   var TIS = "", TISAD = { giris: "İşe giriş görüntüleme", cikis: "İşten ayrılış görüntüleme", liste: "İşe giriş / çıkış listesi" };
   function tisAlanHtml(a){

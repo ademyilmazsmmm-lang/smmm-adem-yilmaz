@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-09-261";
+const SURUM = "2026-11-09-262";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -228,12 +228,14 @@ async function vdSorgu(m, calistir) {
   catch (e) { if (e && e.oturum) { await ivdBirak(m.id); e.girisGerek = true; } throw e; }
 }
 /* SGK İşveren Sistemi oturumları: her bağlanışta kullanıcı güvenlik kodunu yazar; boşta 5 dk sonra kapanır. Yalnız art arda hızlı isteklere 3 sn sınır vardır (kilitleme yok). */
+const vizSes = new Map(); /* mükellef:işyeri → Vizite web servisi istemcisi (token önbellekli) */
+const vizite = require("./vizite");
 const sgkler = new Map(), sgkZaman = new Map(), sgkSon = new Map();
 /* bir mükellefin birden çok SGK işyeri dosyası olabilir: ix 0 = ana kayıt (v.sgk), 1..3 = v.sgkEk[ix-1] */
 const sgkIx = (x) => { const n = Number(x); return n >= 1 && n <= 3 ? Math.floor(n) : 0; };
 const sgkKayit = (m, ix) => (ix ? (m.sgkEk || [])[ix - 1] : m.sgk) || {};
 const sgkAnahtar = (id, sis, ix) => id + ":" + sis + (ix ? ":" + ix : "");
-async function sgkBirak(id) { for (const a of [...sgkler.keys()].filter((k) => k.startsWith(id + ":isveren") || k.startsWith(id + ":ebildirge") || k.startsWith(id + ":tescil"))) { clearTimeout(sgkZaman.get(a)); sgkZaman.delete(a); const x = sgkler.get(a); sgkler.delete(a); if (x) await x.cikis().catch(() => {}); } }
+async function sgkBirak(id) { for (const a of [...vizSes.keys()].filter((k) => k.startsWith(id + ":"))) vizSes.delete(a); for (const a of [...sgkler.keys()].filter((k) => k.startsWith(id + ":isveren") || k.startsWith(id + ":ebildirge") || k.startsWith(id + ":tescil"))) { clearTimeout(sgkZaman.get(a)); sgkZaman.delete(a); const x = sgkler.get(a); sgkler.delete(a); if (x) await x.cikis().catch(() => {}); } }
 function sgkZamanla(a) { clearTimeout(sgkZaman.get(a)); sgkZaman.set(a, setTimeout(async () => { sgkZaman.delete(a); const x = sgkler.get(a); sgkler.delete(a); if (x) await x.cikis().catch(() => {}); }, 5 * 60e3).unref()); }
 function sgkKontrol(id, tur) {
   const an = id + ":" + tur, son = sgkSon.get(an) || 0; if (Date.now() - son < 3e3) throw new Error("Çok sık istek: birkaç saniye bekleyin."); sgkSon.set(an, Date.now());
@@ -679,6 +681,18 @@ async function api(req, res, yol) {
     const ne = yol.slice(9), ix = sgkIx(g.ix), k = sgkKayit(m, ix), sis = g.sistem === "ebildirge" ? "ebildirge" : g.sistem === "tescil" ? "tescil" : "isveren", an = sgkAnahtar(m.id, sis, ix);
     const birak = async () => { clearTimeout(sgkZaman.get(an)); sgkZaman.delete(an); const x0 = sgkler.get(an); sgkler.delete(an); if (x0) await x0.cikis().catch(() => {}); };
     try {
+      if (ne === "rapor") { /* Vizite web servisi: istirahat raporu sorgulama (yalnız okuma; güvenlik kodu gerekmez) */
+        const vk = m.id + ":" + ix; let v = vizSes.get(vk); if (!v) { v = vizite.istemci(k); vizSes.set(vk, v); }
+        const islem = String(g.islem || ""); let t;
+        try {
+          if (islem === "kimlik") t = await v.kimlik(String(g.tc || "").replace(/\D/g, ""));
+          else if (islem === "acik") t = await v.acik(String(g.tarih || ""));
+          else if (islem === "onayli") t = await v.onayli(String(g.tarih1 || ""), String(g.tarih2 || ""));
+          else return cevap(res, 400, { hata: "Bilinmeyen işlem." });
+        } catch (e) { if (e && e.giris) vizSes.delete(vk); throw e; }
+        gunluk(o, mid, "SGK rapor sorgulama (" + islem + ")", islem === "kimlik" ? "T.C. ***" + String(g.tc || "").slice(-3) : "");
+        return cevap(res, 200, t);
+      }
       if (ne === "captcha" || ne === "giris") if (!k.kullanici || !k.isyeriKod || !k.sistemSifre || !k.isyeriSifre) return cevap(res, 400, { hata: "Önce Ayarlar'da bu mükellefin SGK İşveren Sistemi bilgilerini (kullanıcı adı, işyeri kodu, sistem şifresi, işyeri şifresi) girin." });
       if (ne === "captcha") { sgkKontrol(an, "c"); await birak(); const x = sgk.istemci(k, sis); sgkler.set(an, x); sgkZamanla(an); return cevap(res, 200, await x.captcha()); }
       if (ne === "giris") {
