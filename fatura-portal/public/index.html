@@ -3313,15 +3313,15 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function tisSonucHtml(r){
     var h = r.uyari ? '<div class="durum ' + (/hata|bulunamad|geçersiz|kayıt yok/i.test(r.uyari) ? "hata" : "ok") + '" style="display:block">' + esc(r.uyari) + '</div>' : "";
     if (r.isyeri) h += '<div class="not" style="margin:0;font-size:.84rem">' + esc((r.isyeri.unvan || "") + (r.isyeri.sicil ? " · Sicil " + r.isyeri.sicil : "")) + '</div>';
-    (r.tablolar || []).forEach(function(t){
+    (r.tablolar || []).forEach(function(t, ti){
       var bs = t.basliklar || [], it = -1, i;
       for (i = 0; i < bs.length; i++) if (/(işe giriş|işten|ayrılış|çıkış|giriş).*tarih/i.test(bs[i])) { it = i; break; }
       if (it < 0) for (i = 0; i < bs.length; i++) if (/tarih/i.test(bs[i])) { it = i; break; }
-      var rows = t.satirlar.slice(); if (it >= 0) rows.sort(function(a, b){ var f = function(x){ var q = /^(\d{2})\.(\d{2})\.(\d{4})/.exec(x[it] || ""); return q ? q[3] + q[2] + q[1] : ""; }; return f(b) < f(a) ? -1 : f(b) > f(a) ? 1 : 0; });
+      var rows = t.satirlar.map(function(x, ix){ x.oi = ix; return x; }); if (it >= 0) rows.sort(function(a, b){ var f = function(x){ var q = /^(\d{2})\.(\d{2})\.(\d{4})/.exec(x[it] || ""); return q ? q[3] + q[2] + q[1] : ""; }; return f(b) < f(a) ? -1 : f(b) > f(a) ? 1 : 0; });
       h += '<div class="not" style="margin:4px 0 0">' + rows.length + ' kayıt' + (it >= 0 ? ' · en yeni üstte' : '') + '</div>';
       rows.forEach(function(s2){
         var bas = it >= 0 && s2[it] ? (bs[it].replace(/\s*tarihi?$/i, "") + ": " + s2[it]) : (s2.find(function(x){ return x; }) || "Kayıt");
-        h += '<div class="kayit"><b>' + esc(bas) + '</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-top:4px;font-size:.84rem">' + s2.map(function(v, q){ return q === it || !v ? "" : '<div style="overflow-wrap:anywhere"><span style="color:var(--muted)">' + esc(bs[q] || "") + ':</span> ' + esc(v) + '</div>'; }).join("") + '</div></div>';
+        h += '<div class="kayit"><b>' + esc(bas) + '</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-top:4px;font-size:.84rem">' + s2.map(function(v, q){ return q === it || !v ? "" : '<div style="overflow-wrap:anywhere"><span style="color:var(--muted)">' + esc(bs[q] || "") + ':</span> ' + esc(v) + '</div>'; }).join("") + '</div>' + (t.belge && t.belge[s2.oi] ? '<a class="btn ikincil" style="text-align:center;text-decoration:none;margin-top:6px" target="_blank" rel="noopener" href="/api/sgk/tescil-belge?mid=' + encodeURIComponent(VD.mid) + '&ix=' + (VD.sgkIx || 0) + '&t=' + ti + '&i=' + s2.oi + '">Bildirgeyi görüntüle (PDF)</a>' : "") + '</div>';
       });
     });
     if (!(r.tablolar || []).length && !r.uyari) h += '<p class="not" style="margin:0">Bu sorgu için kayıt bulunamadı.</p>';
