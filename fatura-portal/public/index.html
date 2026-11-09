@@ -1572,10 +1572,10 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
         });
       });
   }
-  function pdfUret(html, mid, ilerle){
+  function pdfUret(html, mid, ilerle, hazirHtml){
     ilerle = ilerle || function(){};
     ilerle("2/3 Karekod ve görünüm hazırlanıyor");
-    return Promise.all([h2cYukle(), statikHtml(html, mid)]).then(function(r){
+    return Promise.all([h2cYukle(), hazirHtml ? Promise.resolve(html) : statikHtml(html, mid)]).then(function(r){
       var csp = '<meta http-equiv="Content-Security-Policy" content="script-src \'none\'; object-src \'none\'; frame-src \'none\'">', st = r[1];
       st = /<head[^>]*>/i.test(st) ? st.replace(/<head[^>]*>/i, function(h){ return h + csp; }) : csp + st;
       var ilk = "a"; try { var k0 = localStorage.getItem("pdfYontem"); if (k0 && k0 in CIZ_YONTEM) ilk = k0; else if (IOS) ilk = "b"; } catch (e) { if (IOS) ilk = "b"; }
@@ -3320,13 +3320,26 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       h += '<div class="not" style="margin:4px 0 0">' + rows.length + ' kayıt' + (it >= 0 ? ' · en yeni üstte' : '') + '</div>';
       rows.forEach(function(s2){
         var bas = it >= 0 && s2[it] ? (bs[it].replace(/\s*tarihi?$/i, "") + ": " + s2[it]) : (s2.find(function(x){ return x; }) || "Kayıt");
-        h += '<div class="kayit"><b>' + esc(bas) + '</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-top:4px;font-size:.84rem">' + s2.map(function(v, q){ return q === it || !v ? "" : '<div style="overflow-wrap:anywhere"><span style="color:var(--muted)">' + esc(bs[q] || "") + ':</span> ' + esc(v) + '</div>'; }).join("") + '</div>' + (t.belge && t.belge[s2.oi] ? '<a class="btn ikincil" style="text-align:center;text-decoration:none;margin-top:6px" target="_blank" rel="noopener" href="/api/sgk/tescil-belge?mid=' + encodeURIComponent(VD.mid) + '&ix=' + (VD.sgkIx || 0) + '&t=' + ti + '&i=' + s2.oi + '">Bildirgeyi görüntüle (PDF)</a>' : "") + '</div>';
+        h += '<div class="kayit"><b>' + esc(bas) + '</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-top:4px;font-size:.84rem">' + s2.map(function(v, q){ return q === it || !v ? "" : '<div style="overflow-wrap:anywhere"><span style="color:var(--muted)">' + esc(bs[q] || "") + ':</span> ' + esc(v) + '</div>'; }).join("") + '</div>' + (t.belge && t.belge[s2.oi] ? '<div style="display:flex;gap:8px;margin-top:6px"><a class="btn ikincil" style="flex:1;text-align:center;text-decoration:none" target="_blank" rel="noopener" href="/api/sgk/tescil-belge?mid=' + encodeURIComponent(VD.mid) + '&ix=' + (VD.sgkIx || 0) + '&t=' + ti + '&i=' + s2.oi + '">Bildirgeyi görüntüle</a><button class="btn" type="button" style="flex:1" data-tbp="' + ti + ':' + s2.oi + '" data-tbad="' + esc(bas) + '">↗ Paylaş</button></div>' : "") + '</div>';
       });
     });
     if (!(r.tablolar || []).length && !r.uyari) h += '<p class="not" style="margin:0">Bu sorgu için kayıt bulunamadı.</p>';
     return h + '<details class="alt2 teknik"><summary>Teknik ayrıntı (gerekirse gönderin)</summary><div class="icerik"><pre id="isvHam" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;margin:0;max-height:260px;overflow:auto">' + esc(JSON.stringify(r, null, 1).slice(0, 9000)) + '</pre><button class="k" type="button" id="isvKopya">Kopyala</button></div></details>';
   }
+  /* Bildirgeyi PDF yapıp paylaş: SGK PDF verirse aynen, sayfa verirse tarayıcıda PDF'ye çevrilir */
+  function tescilBelgePaylas(b){
+    var d = $("vdSgkDurum"), kon = b.getAttribute("data-tbp").split(":"), url = "/api/sgk/tescil-belge?mid=" + encodeURIComponent(VD.mid) + "&ix=" + (VD.sgkIx || 0) + "&t=" + kon[0] + "&i=" + kon[1] + "&p=1", t0 = Date.now(), tarih = (b.getAttribute("data-tbad") || "").replace(/[^0-9.]/g, "").replace(/^\.+|\.+$/g, ""), ad = "ise-giris-bildirgesi" + (tarih ? "-" + tarih : "") + ".pdf";
+    b.disabled = true; d.className = "durum"; d.textContent = "Bildirge SGK’dan alınıyor…";
+    fetch(url, { credentials: "same-origin" }).then(function(r){
+      if (!r.ok) return r.text().then(function(m){ throw new Error(m || "Bildirge alınamadı."); });
+      if (/pdf/i.test(r.headers.get("content-type") || "")) return r.blob().then(function(bl){ return new File([bl], ad, { type: "application/pdf" }); });
+      return r.text().then(function(html){ return pdfUret(html, VD.mid, function(m){ d.textContent = "PDF hazırlanıyor — " + m + "…"; }, true).then(function(buf){ return new File([buf], ad, { type: "application/pdf" }); }); });
+    }).then(function(dosya){ d.textContent = ""; return pdfVer(dosya, "İşe giriş bildirgesi", d, Date.now() - t0 < 4000); })
+      .catch(function(er){ if (er && er.name === "AbortError") return; if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = (er && er.message || "PDF hazırlanamadı.").slice(0, 200); } })
+      .then(function(){ b.disabled = false; });
+  }
   $("vdSgkTescil").addEventListener("click", function(e){
+    var pb = e.target.closest("[data-tbp]"); if (pb) { tescilBelgePaylas(pb); return; }
     var b = e.target.closest("[data-tis]"), d = $("vdSgkDurum");
     if (b) {
       TIS = b.getAttribute("data-tis"); b.disabled = true; d.className = "durum"; d.textContent = "SGK sayfası açılıyor…"; $("tescilSonuc").innerHTML = ""; $("tescilForm").style.display = "none";

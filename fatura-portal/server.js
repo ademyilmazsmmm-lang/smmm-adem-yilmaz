@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-09-274";
+const SURUM = "2026-11-09-275";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -426,11 +426,11 @@ async function api(req, res, yol) {
     if (!depo.yetkili(o, mid)) return duz(403, "Bu mükellef için yetkiniz yok.");
     const x = sgkler.get(an); if (!x || !x.girdi) return duz(409, "SGK bağlantısı kapalı; güvenlik koduyla yeniden bağlanın.");
     try {
-      sgkKontrol(an, "f"); sgkZamanla(an);
+      sgkKontrol(an, q.get("p") ? "bp" : "b"); sgkZamanla(an); /* görüntüle ve paylaş ayrı sayaç: ikisine art arda dokunulabilir */
       const d = await x.tescilBelge(Number(q.get("t")), Number(q.get("i")));
       gunluk(o, mid, "SGK işe giriş/çıkış bildirgesi açıldı", d.ad);
       const html = /^text\/html/.test(d.tur);
-      res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": "inline; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store" }, html ? { "content-security-policy": "default-src 'none'; style-src 'unsafe-inline' https://uyg.sgk.gov.tr; img-src https://uyg.sgk.gov.tr data:; script-src 'unsafe-inline'; font-src https://uyg.sgk.gov.tr" } : { "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:" }));
+      res.writeHead(200, Object.assign({}, GUV, { "content-type": d.tur, "content-disposition": "inline; filename*=UTF-8''" + encodeURIComponent(d.ad), "cache-control": "no-store" }, html ? { "content-security-policy": "default-src 'none'; style-src 'unsafe-inline' https://uyg.sgk.gov.tr; img-src https://uyg.sgk.gov.tr data:; font-src https://uyg.sgk.gov.tr" } : { "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:" }));
       return res.end(d.veri);
     } catch (e) { if (e && e.oturum) { clearTimeout(sgkZaman.get(an)); sgkler.delete(an); } return duz(500, "Bildirge alınamadı: " + e.message); }
   }

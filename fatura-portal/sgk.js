@@ -269,9 +269,19 @@ class Sgk {
     let h2 = h, yzNot = ""; this.tYazdirBilgi = "";
     try { const y = await this.yazdirBul(h, r.url, g0, hedef0); if (y && y.pdf) return { tur: "application/pdf", veri: y.veri, ad: "bildirge.pdf" }; if (y && y.html) h2 = y.html; } catch (e) { yzNot = e.message; }
     if (h2 === h) yzNot = (this.tYazdirBilgi || "") + (yzNot ? " | hata: " + yzNot : "");
-    const govde = h2.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<(iframe|object|embed|link|meta)\b[^>]*>/gi, "").replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "").replace(/<\/?(html|head|body)\b[^>]*>/gi, "").replace(/<title>[\s\S]*?<\/title>/gi, "").replace(/<a\b[^>]*>\s*(?:anamen[uü]|yazd[ıi]r)\s*<\/a>\s*\|?/gi, "");
-    const sayfa = '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=820"><title>Bildirge</title><base href="https://uyg.sgk.gov.tr/SigortaliTescil/amp/"><style>body{font-family:Arial,sans-serif;font-size:13px;margin:8px;width:800px}table{max-width:800px}.arac{position:sticky;top:0;background:#fff;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:10px}.arac button{font-size:26px;padding:12px 22px}@page{size:A4;margin:8mm}@media print{.arac,.teknik{display:none}body{width:auto;margin:0}}</style></head><body><div class="arac"><button onclick="window.print()">Yazdır / PDF olarak kaydet</button></div>' + govde + (yzNot ? '<details class="teknik" style="margin-top:20px;font-size:20px"><summary>Teknik ayrıntı</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:16px">' + yzNot.replace(/[<>&]/g, " ") + "</pre></details>" : "") + "</body></html>";
+    let govdeSon = h2.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<(iframe|object|embed|link|meta)\b[^>]*>/gi, "").replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "").replace(/<\/?(html|head|body)\b[^>]*>/gi, "").replace(/<title>[\s\S]*?<\/title>/gi, "").replace(/<a\b[^>]*>\s*(?:anamen[uü]|yazd[ıi]r)\s*<\/a>\s*\|?/gi, "");
+    govdeSon = await this.resimleriGom(govdeSon, r.url);
+    const sayfa = '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=820"><title>Bildirge</title><base href="https://uyg.sgk.gov.tr/SigortaliTescil/amp/"><style>body{font-family:Arial,sans-serif;font-size:13px;margin:8px;width:790px;background:#fff;color:#000}table{max-width:790px}@page{size:A4;margin:8mm}@media print{.teknik{display:none}body{width:auto;margin:0}}</style></head><body>' + govdeSon + (yzNot ? '<details class="teknik" style="margin-top:20px;font-size:20px"><summary>Teknik ayrıntı</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:16px">' + yzNot.replace(/[<>&]/g, " ") + "</pre></details>" : "") + "</body></html>";
     return { tur: "text/html; charset=utf-8", veri: Buffer.from(sayfa, "utf8"), ad: "bildirge.html" };
+  }
+  /* sayfadaki küçük resimleri (logo, barkod) oturumla çekip sayfaya gömer: sayfa yalıtılmış/PDF çizimde de eksiksiz görünür */
+  async resimleriGom(html, taban) {
+    const adres = new Map(), re = /\b(src|background)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi; let m;
+    while ((m = re.exec(html)) && adres.size < 12) { const v = m[2] !== undefined ? m[2] : m[3]; if (!v || /^(data:|#|javascript:|mailto:)/i.test(v) || adres.has(v)) continue; adres.set(v, null); }
+    for (const v of adres.keys()) {
+      try { const u = new URL(v, taban); if (u.hostname !== this.s.sunucu || !/^\/SigortaliTescil\//.test(u.pathname) || /logout|cikis|exit/i.test(u.pathname)) continue; const r = await this.git("GET", u.href), tur = (r.tur || "").split(";")[0].trim(); if (/^image\/(png|jpe?g|gif|bmp|webp)$/i.test(tur) && r.veri.length <= 450000) adres.set(v, "data:" + tur + ";base64," + r.veri.toString("base64")); } catch (e) { /* resim alınamazsa olduğu gibi kalır */ }
+    }
+    return html.replace(re, (t, a, d1, d2) => { const v = d1 !== undefined ? d1 : d2, d = adres.get(v); return d ? a + '="' + d + '"' : t; });
   }
   /* bildirge sayfasındaki "YAZDIR" bağlantısının gösterdiği yazdırma sürümü (yalnız okuma) */
   async yazdirBul(h, url, g, hedef) {
