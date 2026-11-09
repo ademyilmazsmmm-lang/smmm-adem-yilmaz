@@ -803,15 +803,20 @@ class Ivd {
   async telefonKodIste(kimlik, tel) {
     if (!/^\d{10,11}$/.test(String(kimlik))) throw new Error("Mükellefin VKN/TCKN bilgisi eksik.");
     if (!/^05\d{9}$/.test(String(tel))) throw new Error("Cep telefonunu 05XX XXX XX XX biçiminde yazın.");
-    const y = await this.istek("GET", GW + "/api/sms/send-sms-with-no?tcknVkn=" + kimlik + "&telNo=" + tel + "&islemTuru=7", undefined, true);
+    const y = await this.istek("GET", GW + "/api/sms/send-sms-with-no?tcknVkn=" + kimlik + "&telNo=" + String(tel).slice(1) + "&islemTuru=7", undefined, true); /* portal numarayı başında 0 olmadan (5XX XXX XX XX, 10 hane) bekler */
     return { tamam: true, mesaj: this.mesajMetni(y) || "Onay kodu yeni numaraya gönderildi.", sekil: sekil(y) };
   }
   async telefonGuncelle(tel, kod) {
     if (!/^05\d{9}$/.test(String(tel))) throw new Error("Cep telefonunu 05XX XXX XX XX biçiminde yazın.");
     if (!/^\d{6}$/.test(String(kod || ""))) throw new Error("6 haneli SMS kodunu yazın.");
-    const y = await this.istek("POST", GW + "/auth/login/user/change-phone-number", { smsKod: String(kod), telNo: String(tel) }, true);
-    const m = ((y && y.messages) || []).filter((x) => x && x.text);
-    if (m.some((x) => x.type === "ERROR")) throw new Error(m.filter((x) => x.type === "ERROR").map((x) => x.text).join(" ").slice(0, 200));
+    /* profildeki numara 10 haneli (başında 0 yok) tutulur; önce 10 haneli denenir, “uzunluğu geçersiz” denirse 11 haneli (0'lı) gönderilir */
+    let y = null, m = [], hata = "";
+    for (const no of [String(tel).slice(1), String(tel)]) {
+      y = await this.istek("POST", GW + "/auth/login/user/change-phone-number", { smsKod: String(kod), telNo: no }, true);
+      m = ((y && y.messages) || []).filter((x) => x && x.text); hata = m.filter((x) => x.type === "ERROR").map((x) => x.text).join(" ");
+      if (!hata || !/uzunlu|ge[çc]ersiz/i.test(hata)) break;
+    }
+    if (hata) throw new Error(hata.slice(0, 200));
     return { tamam: true, mesaj: m.map((x) => x.text).join(" ") || "Telefon numarası güncellendi.", sekil: sekil(y) };
   }
 }
