@@ -253,14 +253,16 @@ class Sgk {
     let r;
     if (a.git) { const u = new URL(a.git, f.url); if (!/^\/SigortaliTescil\//.test(u.pathname) || u.hostname !== this.s.sunucu) throw new Error("Geçersiz bildirge adresi."); this.ref = f.url; try { r = await this.git("GET", u.href); } finally { this.ref = null; } }
     else {
-      const g = Object.assign({}, f.gizli, a.govde), hedef = new URL(a.eylem || f.eylem || "", f.url), jobid = String(g.jobid || hedef.searchParams.get("jobid") || "");
+      const sf = this.tSonucForm || {}, g = Object.assign({}, f.gizli, this.tSorguGovde || {}, sf.gizli || {}, a.govde); delete g[(f.dugme && f.dugme.ad) || "\0"];
+      const hedef = new URL(a.eylem || sf.eylem || f.eylem || "", this.tSonucUrl || f.url), jobid = String(g.jobid || hedef.searchParams.get("jobid") || "");
       if (!/^\/SigortaliTescil\//.test(hedef.pathname) || hedef.hostname !== this.s.sunucu) throw new Error("Geçersiz bildirge adresi.");
       if (/iptal|guncelle|update|kaydet|kayit|sil\b|ekle|gonder|onay|olustur|degistir/i.test(jobid + " " + hedef.search)) throw new Error("Bu işlem yalnız görüntüleme aracında desteklenmez.");
-      this.ref = f.url; try { r = await this.git("POST", hedef.href, g); } finally { this.ref = null; }
+      this.ref = this.tSonucUrl || f.url; try { r = await this.git("POST", hedef.href, g); } finally { this.ref = null; }
+      this.tSonGonder = hedef.pathname + hedef.search + " | " + Object.keys(g).map((k) => k + "=" + (/tc|kimlik/i.test(k) ? String(g[k]).replace(/\d(?=\d{3})/g, "*") : g[k])).join("&");
     }
     if (r.veri.slice(0, 4).toString() === "%PDF") return { tur: "application/pdf", veri: r.veri, ad: "bildirge.pdf" };
     const h = this.metin(r.veri); if (/name\s*=\s*["']?j_username/i.test(h)) throw this.oturumHata();
-    if (/HATA\s*B[İI]LD[İI]R[İI]M\s*SAYFASI/i.test(sade(h))) throw new Error("SGK bildirgeyi açmadı (hata sayfası döndü).");
+    if (/HATA\s*B[İI]LD[İI]R[İI]M\s*SAYFASI/i.test(sade(h))) throw new Error("SGK bildirgeyi açmadı (hata sayfası döndü). Gönderilen: " + (this.tSonGonder || "-") + " | Satır işlemi: " + JSON.stringify(a.govde || a.git || {}));
     const govde = h.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<(iframe|object|embed|link|meta)\b[^>]*>/gi, "").replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "").replace(/<\/?(html|head|body)\b[^>]*>/gi, "").replace(/<title>[\s\S]*?<\/title>/gi, "");
     const sayfa = '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bildirge</title><base href="https://uyg.sgk.gov.tr/SigortaliTescil/amp/"><style>body{font-family:Arial,sans-serif;font-size:13px;margin:12px}.arac{position:sticky;top:0;background:#fff;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:10px}.arac button{font-size:15px;padding:8px 14px}@media print{.arac{display:none}}</style></head><body><div class="arac"><button onclick="window.print()">Yazdır / PDF olarak kaydet</button></div>' + govde + "</body></html>";
     return { tur: "text/html; charset=utf-8", veri: Buffer.from(sayfa, "utf8"), ad: "bildirge.html" };
@@ -299,6 +301,8 @@ class Sgk {
     this.ref = f.url; let r;
     try { r = f.yontem === "post" ? await this.git("POST", hedef.href, g) : (Object.keys(g).forEach((k) => hedef.searchParams.set(k, g[k])), await this.git("GET", hedef.href)); } finally { this.ref = null; }
     const h = this.metin(r.veri); if (/name\s*=\s*["']?j_username/i.test(h)) throw this.oturumHata();
+    this.tSorguGovde = Object.assign({}, g); this.tSonucUrl = r.url;
+    { const gz = {}, sf = /<form\b([^>]*)>([\s\S]*?)<\/form>/i.exec(h.replace(/<script[\s\S]*?<\/script>/gi, "")); if (sf) { for (const m of sf[2].matchAll(/<input\b([^>]*)>/gi)) { const ad = nitelik(m[1], "name"), tur = (nitelik(m[1], "type") || "text").toLowerCase(); if (ad && (tur === "hidden")) gz[ad] = coz(nitelik(m[1], "value")); } this.tSonucForm = { gizli: gz, eylem: nitelik(sf[1], "action") }; } else this.tSonucForm = null; }
     const son = this.tescilSonuc(h), hataSayfa = /HATA\s*B[İI]LD[İI]R[İI]M\s*SAYFASI/i.test(sade(h));
     const gonderilen = Object.keys(g).map((k) => k + "=" + (/tc|kimlik/i.test(k) ? String(g[k]).replace(/\d(?=\d{3})/g, "*") : g[k])).join("&");
     if (hataSayfa) { son.uyari = "SGK sorguyu kabul etmedi (hata sayfası döndü). Aşağıdaki teknik ayrıntıyı gönderin."; son.tablolar = []; }
