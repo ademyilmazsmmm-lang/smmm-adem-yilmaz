@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-09-258";
+const SURUM = "2026-11-09-259";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -676,20 +676,21 @@ async function api(req, res, yol) {
   }
   if (m.earsiv === false && !yol.startsWith("/api/vd/") && !yol.startsWith("/api/sgk/") && yol !== "/api/tahsilat" && yol !== "/api/mail") return cevap(res, 400, { hata: "Bu mükellef için e-Arşiv fatura kapalı; yalnız Vergi Dairesi bölümü kullanılabilir." });
   if (yol.startsWith("/api/sgk/")) {
-    const ne = yol.slice(9), ix = sgkIx(g.ix), k = sgkKayit(m, ix), sis = g.sistem === "ebildirge" ? "ebildirge" : "isveren", an = sgkAnahtar(m.id, sis, ix);
+    const ne = yol.slice(9), ix = sgkIx(g.ix), k = sgkKayit(m, ix), sis = g.sistem === "ebildirge" ? "ebildirge" : g.sistem === "tescil" ? "tescil" : "isveren", an = sgkAnahtar(m.id, sis, ix);
     const birak = async () => { clearTimeout(sgkZaman.get(an)); sgkZaman.delete(an); const x0 = sgkler.get(an); sgkler.delete(an); if (x0) await x0.cikis().catch(() => {}); };
     try {
       if (ne === "captcha" || ne === "giris") if (!k.kullanici || !k.isyeriKod || !k.sistemSifre || !k.isyeriSifre) return cevap(res, 400, { hata: "Önce Ayarlar'da bu mükellefin SGK İşveren Sistemi bilgilerini (kullanıcı adı, işyeri kodu, sistem şifresi, işyeri şifresi) girin." });
       if (ne === "captcha") { sgkKontrol(an, "c"); await birak(); const x = sgk.istemci(k, sis); sgkler.set(an, x); sgkZamanla(an); return cevap(res, 200, await x.captcha()); }
       if (ne === "giris") {
         sgkKontrol(an, "g"); const x = sgkler.get(an); if (!x) return cevap(res, 409, { hata: "Önce güvenlik kodu resmini isteyin.", girisGerek: true });
-        try { await x.giris(g.dk); sgkZamanla(an); gunluk(o, mid, sis === "ebildirge" ? "SGK e-Bildirge bağlantısı" : "SGK İşveren Sistemi bağlantısı", ""); return cevap(res, 200, { tamam: true }); }
+        try { await x.giris(g.dk); sgkZamanla(an); gunluk(o, mid, sis === "ebildirge" ? "SGK e-Bildirge bağlantısı" : sis === "tescil" ? "SGK Sigortalı Tescil (işe giriş / çıkış) bağlantısı" : "SGK İşveren Sistemi bağlantısı", ""); return cevap(res, 200, { tamam: true }); }
         catch (e) { await birak(); throw e; }
       }
       if (ne === "cikis") { if (g.sistem) await birak(); else await sgkBirak(m.id); return cevap(res, 200, { tamam: true }); }
       const x = sgkler.get(an); if (!x || !x.girdi) { const e = new Error("Önce SGK'ya bağlanın (güvenlik kodu)."); e.girisGerek = true; throw e; }
       sgkZamanla(an);
       if (ne === "tani") return cevap(res, 200, await x.tani(g.derin === true));
+      if (sis === "tescil" && ne === "tescil-sayfa") { if (o.rol !== "ofis") return cevap(res, 400, { hata: "Bu geliştirme aracı yalnız ofis hesabına açıktır." }); const t = await x.tescilSayfa(String(g.yol || "")); gunluk(o, mid, "SGK Sigortalı Tescil sayfası görüntülendi", String(g.yol || "").slice(0, 80)); return cevap(res, 200, t); }
       if (sis === "isveren" && ne === "tesvik") {
         if (g.islem === "form") { sgkKontrol(an, "tf"); return cevap(res, 200, await x.tesvikFormu()); }
         if (g.islem === "sorgu") {

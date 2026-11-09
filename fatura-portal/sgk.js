@@ -5,7 +5,7 @@
 "use strict";
 const MOCK = process.env.GIB_MOCK === "1";
 /* iki ayrı SGK sistemi: İşveren Sistemi (borç, borcu yoktur) ve e-Bildirge (onaylı bildirgeler); ikisinin girişi aynı biçimdedir */
-const SISTEMLER = { isveren: { sunucu: "uyg.sgk.gov.tr", kok: "/IsverenSistemi" }, ebildirge: { sunucu: "ebildirge.sgk.gov.tr", kok: "/EBildirgeV2" } };
+const SISTEMLER = { isveren: { sunucu: "uyg.sgk.gov.tr", kok: "/IsverenSistemi" }, ebildirge: { sunucu: "ebildirge.sgk.gov.tr", kok: "/EBildirgeV2" }, tescil: { sunucu: "uyg.sgk.gov.tr", kok: "/SigortaliTescil", tescil: true } }; /* tescil: Sigortalı İşe Giriş ve İşten Ayrılış (4/a); IBM tarzı form girişi /amp/loginldap, sayfalar ISO-8859-9 */
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 
 const coz = (t) => String(t == null ? "" : t).replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(+d)).replace(/&nbsp;/g, " ");
@@ -34,7 +34,7 @@ function baglantilar(html) {
   for (const m of html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) { const a = m[1], href = (/href\s*=\s*["']([^"']*)["']/i.exec(a) || [])[1], on = (/onclick\s*=\s*["']([^"']*)["']/i.exec(a) || [])[1]; if (href) ekle(m[2], href, "a"); if (on) ekle(m[2], on, "onclick"); }
   for (const m of html.matchAll(/<form\b[^>]*action\s*=\s*["']([^"']*)["']/gi)) ekle("(form)", m[1], "form");
   for (const m of html.matchAll(/<i?frame\b[^>]*src\s*=\s*["']([^"']*)["']/gi)) ekle("(çerçeve)", m[1], "frame");
-  for (const m of html.matchAll(/["'](\/(?:IsverenSistemi|EBildirgeV2)\/[A-Za-z0-9_\/.\-]+\.(?:action|jsp|do|html)[^"']*)["']/g)) ekle("(betik)", m[1], "betik");
+  for (const m of html.matchAll(/["'](\/(?:IsverenSistemi|EBildirgeV2|SigortaliTescil)\/[A-Za-z0-9_\/.\-]+\.(?:action|jsp|do|html)[^"']*)["']/g)) ekle("(betik)", m[1], "betik");
   return o.slice(0, 250);
 }
 
@@ -165,14 +165,30 @@ class Sgk {
     }
     throw new Error("SGK çok fazla yönlendirme yaptı.");
   }
+  metin(veri) { return this.s.tescil ? new TextDecoder("iso-8859-9").decode(veri) : veri.toString("utf8"); }
   async captcha() {
     this.cerez.clear(); this.girdi = false;
-    await this.git("GET", this.s.kok);
+    await this.git("GET", this.s.tescil ? this.s.kok + "/amp/loginldap" : this.s.kok);
     const r = await this.git("GET", this.s.kok + "/PG?" + Date.now());
     if (!/^image\//i.test(r.tur) || !r.veri.length) throw new Error("SGK güvenlik kodu resmini vermedi.");
     return { resim: "data:" + r.tur.split(";")[0] + ";base64," + r.veri.toString("base64") };
   }
+  /* Sigortalı Tescil: form /amp/loginldap'a gider (j_username, isyeri_kod, j_password, isyeri_sifre, isyeri_guvenlik); başarısızsa aynı giriş formu döner */
+  async girisTescil(dk) {
+    const k = this.k, r = await this.git("POST", this.s.kok + "/amp/loginldap", { j_username: k.kullanici, isyeri_kod: k.isyeriKod, j_password: k.sistemSifre, isyeri_sifre: k.isyeriSifre, isyeri_guvenlik: String(dk || "").trim(), buttonOK: "Giriş" });
+    const html = this.metin(r.veri);
+    if (/name\s*=\s*["']?j_username/i.test(html)) { const m = hataMetni(html); const e = new Error("SGK girişi kabul edilmedi" + (m ? ": " + m : ": giriş formu yeniden göründü; güvenlik kodunu (resimdeki gibi), kullanıcı adı, işyeri kodu ve iki şifreyi kontrol edin") + "."); e.giris = true; throw e; }
+    this.zincir = [r.url]; this.sayfalar = [{ url: r.url, html }]; this.iz = []; this.girdi = true; this.ana = html; this.anaUrl = r.url;
+  }
+  /* Sigortalı Tescil sayfası (yalnız okuma: GET; yalnız /SigortaliTescil altı): bağlantılar, formlar, tablolar */
+  async tescilSayfa(yol) {
+    if (!this.girdi) throw this.oturumHata();
+    if (!/^\/SigortaliTescil\/[A-Za-z0-9_.\/-]+(\?[A-Za-z0-9_=&%.-]{0,200})?$/.test(String(yol || ""))) throw new Error("Geçersiz sayfa adresi.");
+    const r = await this.git("GET", yol), h = this.metin(r.veri);
+    return { adres: yol, baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(h) || [])[1] || ""), metin: sade(h).slice(0, 1500), baglantilar: baglantilar(h).slice(0, 60), formlar: formlar(h), tablolar: tablolar(h) };
+  }
   async giris(dk) {
+    if (this.s.tescil) return this.girisTescil(dk);
     const k = this.k;
     const r = await this.git("POST", this.s.kok + "/login/kullaniciIlkKontrollerGiris.action", { username: k.kullanici, isyeri_kod: k.isyeriKod, password: k.sistemSifre, isyeri_sifre: k.isyeriSifre, isyeri_guvenlik: String(dk || "").trim() });
     let html = r.veri.toString("utf8"), url = r.url;
@@ -218,13 +234,13 @@ class Sgk {
     const liste = baglantilar(this.ana);
     const ilk = this.sayfalar && this.sayfalar.length > 1 ? baglantilar(this.sayfalar[0].html).map((x) => Object.assign({ not: "başlatıcı sayfa" }, x)) : [];
     const cerceveler = liste.filter((x) => x.tur === "frame" && /sgk\.gov\.tr/i.test(new URL(x.href, this.anaUrl).hostname)).slice(0, 4), ek = [], tum = liste.slice();
-    for (const c of cerceveler) { try { const r = await this.git("GET", new URL(c.href, this.anaUrl).href); const b = baglantilar(r.veri.toString("utf8")); ek.push({ kaynak: c.href, baglantilar: b }); tum.push(...b); } catch (e) { ek.push({ kaynak: c.href, hata: e.message }); } }
+    for (const c of cerceveler) { try { const r = await this.git("GET", new URL(c.href, this.anaUrl).href); const b = baglantilar(this.metin(r.veri)); ek.push({ kaynak: c.href, baglantilar: b }); tum.push(...b); } catch (e) { ek.push({ kaynak: c.href, hata: e.message }); } }
     const sonuc = { baslik: (/<title>([\s\S]*?)<\/title>/i.exec(this.ana) || [])[1] || "", baglantilar: liste, baslatici: ilk, baslaticiBetik: this.sayfalar && this.sayfalar.length > 1 ? betiklerMaskeli(this.sayfalar[0].html) : "", baslaticiHam: basliyorMu((this.sayfalar && this.sayfalar[0] ? this.sayfalar[0].html : this.ana)) ? hamMaskeli((this.sayfalar && this.sayfalar[0] ? this.sayfalar[0].html : this.ana).slice(((this.sayfalar && this.sayfalar[0] ? this.sayfalar[0].html : this.ana).indexOf("<body") + 1) || 0), 3500) : "", zincir: this.zincir || [], iz: this.iz || [], cerceveler: ek, adres: this.anaUrl };
     if (derin) { /* menü sayfalarını gez (yalnız okuma: GET); çıkış bağlantıları atlanır */
       const adaylar = [], gor = new Set();
       for (const x of tum) { if (x.tur !== "a" || !/\.(?:action|jsp|do)/i.test(x.href) || /çıkış|cikis|logout|exit/i.test(x.metin + x.href)) continue; const u = new URL(x.href, this.anaUrl).href; if (gor.has(u)) continue; gor.add(u); adaylar.push({ metin: x.metin, u }); }
       sonuc.sayfalar = [];
-      for (const a of adaylar.slice(0, 12)) { try { const r = await this.git("GET", a.u); const h = r.veri.toString("utf8"); sonuc.sayfalar.push({ metin: a.metin, adres: a.u.replace(this.taban, ""), formlar: formlar(h), tablolar: tablolar(h), baglantilar: baglantilar(h).slice(0, 15) }); } catch (e) { sonuc.sayfalar.push({ metin: a.metin, adres: a.u.replace(this.taban, ""), hata: e.message }); } }
+      for (const a of adaylar.slice(0, 12)) { try { const r = await this.git("GET", a.u); const h = this.metin(r.veri); sonuc.sayfalar.push({ metin: a.metin, adres: a.u.replace(this.taban, ""), formlar: formlar(h), tablolar: tablolar(h), baglantilar: baglantilar(h).slice(0, 15) }); } catch (e) { sonuc.sayfalar.push({ metin: a.metin, adres: a.u.replace(this.taban, ""), hata: e.message }); } }
     }
     return sonuc;
   }
@@ -427,6 +443,7 @@ class SahteSgk {
   async giris(dk) { if (!this.cid) throw new Error("Önce güvenlik kodu resmini isteyin."); this.cid = false; if (String(dk || "").trim() !== "SGK123") { const e = new Error("SGK girişi başarısız: Güvenlik kodu hatalı."); e.giris = true; throw e; } this.girdi = true; }
   async tani(derin) { if (!this.girdi) { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; throw e; } return { baslik: "T.C. Sosyal Güvenlik Kurumu", adres: "https://" + (SISTEMLER[this.sistem] || SISTEMLER.isveren).sunucu + (SISTEMLER[this.sistem] || SISTEMLER.isveren).kok, zincir: [], baslatici: [], baglantilar: [{ tur: "a", metin: "DÖNEM BORÇ GÖRÜNTÜLEME", href: "/IsverenSistemi/ornek/donemBorc.action" }, { tur: "a", metin: "İHALELERE KATILMAK İÇİN", href: "/IsverenSistemi/ornek/ihale.action" }, { tur: "a", metin: "ÇIKIŞ", href: "/IsverenSistemi/cikis.action" }], cerceveler: [], sayfalar: derin ? [{ metin: "Onaylanmış Belgeler", adres: "/EBildirgeV2/ornek/onayli.action", formlar: [{ eylem: "/EBildirgeV2/ornek/liste.action", yontem: "post", alanlar: ["bas_donem:select[2026/09|2026/08]", "bit_donem:select[2026/09|2026/08]", "düğme:Bilgileri Getir"] }], tablolar: [["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Toplam Çalışan Sayısı"]], baglantilar: [] }] : undefined }; }
   async cikis() { this.girdi = false; }
+  async tescilSayfa(yol) { if (!this.girdi) throw this.oturumHata2(); return { adres: yol, baslik: "Sigortalı İşe Giriş ve İşten Ayrılış", metin: "Örnek sayfa", baglantilar: [], formlar: [], tablolar: [] }; }
   async formGonder(i) { if (!this.girdi) throw this.oturumHata2(); return this.bildirgeBelge(0, 0, 0); }
   async tesvikFormu() { if (!this.girdi) throw this.oturumHata2(); this.mf = true; return { alanlar: [{ ad: "tcKimlikNo", tur: "text", etiket: "T.C.Kimlik Numarası", deger: "" }, { ad: "kazanc", tur: "text", etiket: "Sigortalının Kazanç Bilgisi", deger: "" }], aciklama: "Örnek açıklama." }; }
   async tesvikSorgula(d) { if (!this.mf) throw new Error("Önce teşvik formunu açın."); if (!d || !d.tcKimlikNo) return { tablolar: [], uyari: "T.C. Kimlik No boş.", metin: "" }; const metin = "2828 /SAYILI KANUN EK 1.MADDE Sorgulama Tarihi 31.10.2026 Durum Teşvikten Yararlanamazsınız Mesaj Kişinin kaydı bulunamamıştır. 6111 /4447 SAYILI KANUN GEÇİCİ 10.MADDE Sorgulama Tarihi 31.10.2026 Teşvik Süresi 24 Ay Başlangıç-Bitiş Dönemi 2026/10-2028/09 Kazanç 33.030,00 TL Teşvik Tutarı 7.184,03 TL Teşvik Sonrası 5.615,10 TL Mesajlar Örnek. 5510 SAYILI KANUN 81.MADDE 1.FIKRA (ı) BENDİ Sorgulama Tarihi 31.10.2026 Mesaj Teşvikten Yararlanabilirsiniz Teşvik Tutarı 660,60 TL Teşvik Sonrası 12.138,53 TL"; return { tablolar: [], kartlar: tesvikKartlari(metin), uyari: "", metin }; }
