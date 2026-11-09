@@ -80,7 +80,8 @@ function satirEylemi(trAttr, trIc, bet) {
   const c = /(?:onclick|href)\s*=\s*["'](?:javascript:)?\s*(?:return\s+)?([A-Za-z_$][\w$]*)\s*\(([^)]*)\)/i.exec(ham); if (!c) return null;
   const fn = c[1], args = c[2].split(",").map((a) => a.trim().replace(/^["']|["']$/g, "")), src = islevKaynagi(bet, fn); if (!src) return null;
   const ps = (/\(([^)]*)\)/.exec(src) || [, ""])[1].split(",").map((x) => x.trim()).filter(Boolean), govde = {}; let eylem = "";
-  for (const m of src.matchAll(/\.([A-Za-z_]\w*)\.value\s*=\s*([^;\n}]+)/g)) { const v = m[2].trim(), lit = /^["']([^"']*)["']$/.exec(v), pi = ps.indexOf(v); if (lit) govde[m[1]] = lit[1]; else if (pi >= 0 && args[pi] !== undefined) govde[m[1]] = args[pi]; }
+  /* form1.jobid.value = … ya da document.getElementById("tkrVno").value = … */
+  for (const m of src.matchAll(/(?:\.([A-Za-z_]\w*)|getElementById\(\s*["']([A-Za-z_]\w*)["']\s*\)|(?:elements|forms\[[^\]]*\])\[\s*["']([A-Za-z_]\w*)["']\s*\])\.value\s*=\s*([^;\n}]+)/g)) { const ad = m[1] || m[2] || m[3], v = m[4].trim(), lit = /^["']([^"']*)["']$/.exec(v), pi = ps.indexOf(v); if (lit) govde[ad] = lit[1]; else if (pi >= 0 && args[pi] !== undefined) govde[ad] = args[pi]; }
   const ea = /\.action\s*=\s*["']([^"']+)["']/.exec(src); if (ea) eylem = ea[1];
   return Object.keys(govde).length || eylem ? { govde, eylem } : null;
 }
