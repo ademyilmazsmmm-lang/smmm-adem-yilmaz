@@ -216,7 +216,7 @@ class Sgk {
     if (/name\s*=\s*["']?j_username/i.test(h)) throw this.oturumHata();
     const temiz = h.replace(/<script[\s\S]*?<\/script>/gi, ""), alanlar = [], gor = new Map(); let secili = null;
     for (const f of temiz.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)) {
-      const eylem = nitelik(f[1], "action"), gizli = {}, yer = [], dugmeIs = []; let gonder = [];
+      const eylem = nitelik(f[1], "action"), gizli = {}, yer = [], dugmeIs = []; let gonder = []; if (/logout|cikis|exit/i.test(eylem)) continue;
       for (const m of f[2].matchAll(/<input\b([^>]*)>/gi)) {
         const ad = nitelik(m[1], "name"), tur = (nitelik(m[1], "type") || "text").toLowerCase(); if (!ad) continue;
         if (tur === "hidden") { gizli[ad] = coz(nitelik(m[1], "value")); continue; }
@@ -252,12 +252,12 @@ class Sgk {
     if (!this.girdi) throw this.oturumHata();
     const a = ((this.tAks || [])[t] || [])[i], f = this.tForm; if (!a || !f) throw new Error("Önce sorguyu yapın; bu kayıt için bildirge bağlantısı bulunamadı.");
     let r;
-    if (a.git) { const u = new URL(a.git, f.url); if (!/^\/SigortaliTescil\//.test(u.pathname) || u.hostname !== this.s.sunucu) throw new Error("Geçersiz bildirge adresi."); this.ref = f.url; try { r = await this.git("GET", u.href); } finally { this.ref = null; } }
+    if (a.git) { const u = new URL(a.git, f.url); if (!/^\/SigortaliTescil\//.test(u.pathname) || u.hostname !== this.s.sunucu || /logout|cikis|exit/i.test(u.pathname)) throw new Error("Geçersiz bildirge adresi."); this.ref = f.url; try { r = await this.git("GET", u.href); } finally { this.ref = null; } }
     else {
       const sf = this.tSonucForm || {}, g = Object.assign({}, f.gizli, this.tSorguGovde || {}, sf.gizli || {}, a.govde); delete g[(f.dugme && f.dugme.ad) || "\0"];
       const hedef = new URL(a.eylem || sf.eylem || f.eylem || "", this.tSonucUrl || f.url), jobid = String(g.jobid || hedef.searchParams.get("jobid") || "");
       if (!/^\/SigortaliTescil\//.test(hedef.pathname) || hedef.hostname !== this.s.sunucu) throw new Error("Geçersiz bildirge adresi.");
-      if (/iptal|guncelle|update|kaydet|kayit|sil\b|ekle|gonder|onay|olustur|degistir/i.test(jobid + " " + hedef.search)) throw new Error("Bu işlem yalnız görüntüleme aracında desteklenmez.");
+      if (/iptal|guncelle|update|kaydet|kayit|sil\b|ekle|gonder|onay|olustur|degistir/i.test(jobid + " " + hedef.search) || /logout|cikis|exit/i.test(hedef.pathname)) throw new Error("Bu işlem yalnız görüntüleme aracında desteklenmez.");
       this.ref = this.tSonucUrl || f.url; try { r = await this.git("POST", hedef.href, g); } finally { this.ref = null; }
       this.tSonGonder = hedef.pathname + hedef.search + " | " + Object.keys(g).map((k) => k + "=" + (/tc|kimlik/i.test(k) ? String(g[k]).replace(/\d(?=\d{3})/g, "*") : g[k])).join("&");
     }
@@ -298,12 +298,19 @@ class Sgk {
     if (f.dugme && f.dugme.ad && g[f.dugme.ad] === undefined) g[f.dugme.ad] = f.dugme.deger; /* Struts: gönder düğmesinin adı/değeri de forma dahildir */
     const hedef = new URL(f.eylem || "", f.url), jobid = String(g.jobid || hedef.searchParams.get("jobid") || "");
     if (!/^\/SigortaliTescil\//.test(hedef.pathname) || hedef.hostname !== this.s.sunucu) throw new Error("Geçersiz sorgu adresi.");
-    if (/iptal|guncelle|update|kaydet|kayit|sil\b|ekle|gonder|onay|olustur|degistir/i.test(jobid + " " + hedef.search)) throw new Error("Bu işlem yalnız görüntüleme aracında desteklenmez.");
+    if (/iptal|guncelle|update|kaydet|kayit|sil\b|ekle|gonder|onay|olustur|degistir/i.test(jobid + " " + hedef.search) || /logout|cikis|exit/i.test(hedef.pathname)) throw new Error("Bu işlem yalnız görüntüleme aracında desteklenmez.");
     this.ref = f.url; let r;
     try { r = f.yontem === "post" ? await this.git("POST", hedef.href, g) : (Object.keys(g).forEach((k) => hedef.searchParams.set(k, g[k])), await this.git("GET", hedef.href)); } finally { this.ref = null; }
     const h = this.metin(r.veri); if (/name\s*=\s*["']?j_username/i.test(h)) throw this.oturumHata();
     this.tSorguGovde = Object.assign({}, g); this.tSonucUrl = r.url;
-    { const gz = {}, sf = /<form\b([^>]*)>([\s\S]*?)<\/form>/i.exec(h.replace(/<script[\s\S]*?<\/script>/gi, "")); if (sf) { for (const m of sf[2].matchAll(/<input\b([^>]*)>/gi)) { const ad = nitelik(m[1], "name"), tur = (nitelik(m[1], "type") || "text").toLowerCase(); if (ad && (tur === "hidden")) gz[ad] = coz(nitelik(m[1], "value")); } this.tSonucForm = { gizli: gz, eylem: nitelik(sf[1], "action") }; } else this.tSonucForm = null; }
+    { /* sonuç sayfasındaki sorgu formu (menüdeki çıkış formu DEĞİL) */
+      this.tSonucForm = null; const temizh = h.replace(/<script[\s\S]*?<\/script>/gi, "");
+      for (const sf of temizh.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)) {
+        const eylem = nitelik(sf[1], "action"); if (/logout|cikis|exit/i.test(eylem) || !/\/SigortaliTescil\/amp\/sigortaliTescilAction/i.test(eylem)) continue;
+        const gz = {}; for (const m of sf[2].matchAll(/<input\b([^>]*)>/gi)) { const ad = nitelik(m[1], "name"), tur = (nitelik(m[1], "type") || "text").toLowerCase(); if (ad && tur === "hidden") gz[ad] = coz(nitelik(m[1], "value")); }
+        this.tSonucForm = { gizli: gz, eylem }; break;
+      }
+    }
     const son = this.tescilSonuc(h), hataSayfa = /HATA\s*B[İI]LD[İI]R[İI]M\s*SAYFASI/i.test(sade(h));
     const gonderilen = Object.keys(g).map((k) => k + "=" + (/tc|kimlik/i.test(k) ? String(g[k]).replace(/\d(?=\d{3})/g, "*") : g[k])).join("&");
     if (hataSayfa) { son.uyari = "SGK sorguyu kabul etmedi (hata sayfası döndü). Aşağıdaki teknik ayrıntıyı gönderin."; son.tablolar = []; }
