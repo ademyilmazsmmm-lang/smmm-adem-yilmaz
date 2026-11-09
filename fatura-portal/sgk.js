@@ -12,6 +12,12 @@ const coz = (t) => String(t == null ? "" : t).replace(/&amp;/g, "&").replace(/&q
 const nitelik = (a, ad) => { const m = new RegExp("\\b" + ad + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", "i").exec(a); return m ? coz(m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3]) : ""; };
 const ADLI = { Uuml: "Ü", uuml: "ü", Ccedil: "Ç", ccedil: "ç", Ouml: "Ö", ouml: "ö", Iuml: "Ï", iuml: "ï", Auml: "Ä", auml: "ä", acirc: "â", Acirc: "Â", icirc: "î", ucirc: "û" };
 const adliCoz = (t) => String(t).replace(/&([A-Za-z]+);/g, (m, a) => (ADLI[a] != null ? ADLI[a] : m)).replace(/&#(\d+);/g, (m, d) => String.fromCharCode(Number(d)));
+/* Bildirge formundaki A-, B-, C- bölüm başlıkları SGK biçim dosyasında çok büyük çıkar; başlığın hemen önündeki açılış etiketine sınıf eklenir, boyutu sayfa biçiminden küçültülür */
+const baslikIsaretle = (h) => String(h || "").replace(/(<[a-z][^>]*?)(\s*\/?>)(\s*)(?=(?:A\s*-\s*S|B\s*-\s*S|C\s*-\s*(?:İ|I|&#?\w+;))[^<]*)/gi, (t, ac, kapa, bos) => {
+  if (/^<(?:html|head|body|script|style|link|meta|br|img|tr|table|tbody|thead|ul|ol)\b/i.test(ac)) return t;
+  if (/\sclass\s*=\s*(["'])/i.test(ac)) return ac.replace(/(\sclass\s*=\s*)(["'])/i, "$1$2bslk ") + kapa + bos;
+  return ac + ' class="bslk"' + kapa + bos;
+});
 const sade = (h) => adliCoz(String(h || "").replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")).replace(/\s+/g, " ").trim();
 function hataMetni(html) {
   /* 1) bilinen hata kapları (Struts actionError/errorMessage, kırmızı yazı, alert) */
@@ -270,11 +276,12 @@ class Sgk {
     try { const y = await this.yazdirBul(h, r.url, g0, hedef0); if (y && y.pdf) return { tur: "application/pdf", veri: y.veri, ad: "bildirge.pdf" }; if (y && y.html) h2 = y.html; } catch (e) { yzNot = e.message; }
     if (h2 === h) yzNot = (this.tYazdirBilgi || "") + (yzNot ? " | hata: " + yzNot : "");
     let govdeSon = h2.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<(iframe|object|embed|link|meta)\b[^>]*>/gi, "").replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "").replace(/<\/?(html|head|body)\b[^>]*>/gi, "").replace(/<title>[\s\S]*?<\/title>/gi, "").replace(/<a\b[^>]*>\s*(?:anamen[uü]|yazd[ıi]r)\s*<\/a>\s*\|?/gi, "");
+    govdeSon = baslikIsaretle(govdeSon);
     govdeSon = await this.resimleriGom(govdeSon, r.url);
     const cssler = []; /* SGK'nın biçim dosyaları: yoksa başlıklar vb. yanlış boyutta çıkar */
     for (const lm of h2.matchAll(/<link\b[^>]*>/gi)) { if (cssler.length >= 4) break; if (!/stylesheet/i.test(lm[0])) continue; const hr = nitelik(lm[0], "href"); if (!hr) continue;
       try { const u = new URL(hr, r.url); if (u.hostname !== this.s.sunucu || !/^\/SigortaliTescil\//.test(u.pathname) || /logout|cikis|exit/i.test(u.pathname)) continue; const c = await this.git("GET", u.href); if (c.veri.length <= 200000 && /css|text\/plain|octet/i.test(c.tur || "text/css")) cssler.push(this.metin(c.veri).replace(/@import[^;]*;/gi, "").replace(/expression\s*\(|javascript:|<\/?style/gi, "")); } catch (e) { /* biçim dosyası alınamazsa sayfa biçimsiz kalır */ } }
-    const sayfa = '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=820"><title>Bildirge</title><base href="https://uyg.sgk.gov.tr/SigortaliTescil/amp/"><style>' + cssler.join("\n") + '</style><style>body{font-family:Arial,sans-serif;font-size:13px;margin:8px;width:790px;background:#fff;color:#000}table{max-width:790px}@page{size:A4;margin:8mm}@media print{.teknik{display:none}body{width:auto;margin:0}}</style></head><body>' + govdeSon + (yzNot ? '<details class="teknik" style="margin-top:20px;font-size:20px"><summary>Teknik ayrıntı</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:16px">' + yzNot.replace(/[<>&]/g, " ") + "</pre></details>" : "") + "</body></html>";
+    const sayfa = '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=820"><title>Bildirge</title><base href="https://uyg.sgk.gov.tr/SigortaliTescil/amp/"><style>' + cssler.join("\n") + '</style><style>body{font-family:Arial,sans-serif;font-size:13px;margin:8px;width:790px;background:#fff;color:#000}table{max-width:790px}.bslk,.bslk *{font-size:15px!important;line-height:1.25!important}@page{size:A4;margin:8mm}@media print{.teknik{display:none}body{width:auto;margin:0}}</style></head><body>' + govdeSon + (yzNot ? '<details class="teknik" style="margin-top:20px;font-size:20px"><summary>Teknik ayrıntı</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:16px">' + yzNot.replace(/[<>&]/g, " ") + "</pre></details>" : "") + "</body></html>";
     return { tur: "text/html; charset=utf-8", veri: Buffer.from(sayfa, "utf8"), ad: "bildirge.html" };
   }
   /* sayfadaki küçük resimleri (logo, barkod) oturumla çekip sayfaya gömer: sayfa yalıtılmış/PDF çizimde de eksiksiz görünür */
