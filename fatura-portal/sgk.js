@@ -251,7 +251,7 @@ class Sgk {
   async tescilBelge(t, i) {
     if (!this.girdi) throw this.oturumHata();
     const a = ((this.tAks || [])[t] || [])[i], f = this.tForm; if (!a || !f) throw new Error("Önce sorguyu yapın; bu kayıt için bildirge bağlantısı bulunamadı.");
-    let r;
+    let r, g0 = null, hedef0 = null;
     if (a.git) { const u = new URL(a.git, f.url); if (!/^\/SigortaliTescil\//.test(u.pathname) || u.hostname !== this.s.sunucu || /logout|cikis|exit/i.test(u.pathname)) throw new Error("Geçersiz bildirge adresi."); this.ref = f.url; try { r = await this.git("GET", u.href); } finally { this.ref = null; } }
     else {
       const sf = this.tSonucForm || {}, g = Object.assign({}, f.gizli, this.tSorguGovde || {}, sf.gizli || {}, a.govde); delete g[(f.dugme && f.dugme.ad) || "\0"];
@@ -259,14 +259,40 @@ class Sgk {
       if (!/^\/SigortaliTescil\//.test(hedef.pathname) || hedef.hostname !== this.s.sunucu) throw new Error("Geçersiz bildirge adresi.");
       if (/iptal|guncelle|update|kaydet|kayit|sil\b|ekle|gonder|onay|olustur|degistir/i.test(jobid + " " + hedef.search) || /logout|cikis|exit/i.test(hedef.pathname)) throw new Error("Bu işlem yalnız görüntüleme aracında desteklenmez.");
       this.ref = this.tSonucUrl || f.url; try { r = await this.git("POST", hedef.href, g); } finally { this.ref = null; }
+      g0 = g; hedef0 = hedef;
       this.tSonGonder = hedef.pathname + hedef.search + " | " + Object.keys(g).map((k) => k + "=" + (/tc|kimlik/i.test(k) ? String(g[k]).replace(/\d(?=\d{3})/g, "*") : g[k])).join("&");
     }
     if (r.veri.slice(0, 4).toString() === "%PDF") return { tur: "application/pdf", veri: r.veri, ad: "bildirge.pdf" };
     const h = this.metin(r.veri); if (/name\s*=\s*["']?j_username/i.test(h)) throw this.oturumHata();
     if (/HATA\s*B[İI]LD[İI]R[İI]M\s*SAYFASI/i.test(sade(h))) throw new Error("SGK bildirgeyi açmadı (hata sayfası döndü). Gönderilen: " + (this.tSonGonder || "-") + " | Satır işlemi: " + JSON.stringify(a.govde || a.git || {}));
-    const govde = h.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<(iframe|object|embed|link|meta)\b[^>]*>/gi, "").replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "").replace(/<\/?(html|head|body)\b[^>]*>/gi, "").replace(/<title>[\s\S]*?<\/title>/gi, "");
-    const sayfa = '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bildirge</title><base href="https://uyg.sgk.gov.tr/SigortaliTescil/amp/"><style>body{font-family:Arial,sans-serif;font-size:13px;margin:12px}.arac{position:sticky;top:0;background:#fff;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:10px}.arac button{font-size:15px;padding:8px 14px}@media print{.arac{display:none}}</style></head><body><div class="arac"><button onclick="window.print()">Yazdır / PDF olarak kaydet</button></div>' + govde + "</body></html>";
+    /* SGK'nın kendi "YAZDIR" sürümü (sade, A4 form görünümü) varsa onu getir; yoksa ekran sayfasını sadeleştir */
+    let h2 = h, yzNot = ""; this.tYazdirBilgi = "";
+    try { const y = await this.yazdirBul(h, r.url, g0, hedef0); if (y && y.pdf) return { tur: "application/pdf", veri: y.veri, ad: "bildirge.pdf" }; if (y && y.html) h2 = y.html; } catch (e) { yzNot = e.message; }
+    if (h2 === h) yzNot = (this.tYazdirBilgi || "") + (yzNot ? " | hata: " + yzNot : "");
+    const govde = h2.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<(iframe|object|embed|link|meta)\b[^>]*>/gi, "").replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "").replace(/<\/?(html|head|body)\b[^>]*>/gi, "").replace(/<title>[\s\S]*?<\/title>/gi, "").replace(/<a\b[^>]*>\s*(?:anamen[uü]|yazd[ıi]r)\s*<\/a>\s*\|?/gi, "");
+    const sayfa = '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=820"><title>Bildirge</title><base href="https://uyg.sgk.gov.tr/SigortaliTescil/amp/"><style>body{font-family:Arial,sans-serif;font-size:13px;margin:8px;width:800px}table{max-width:800px}.arac{position:sticky;top:0;background:#fff;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:10px}.arac button{font-size:26px;padding:12px 22px}@page{size:A4;margin:8mm}@media print{.arac,.teknik{display:none}body{width:auto;margin:0}}</style></head><body><div class="arac"><button onclick="window.print()">Yazdır / PDF olarak kaydet</button></div>' + govde + (yzNot ? '<details class="teknik" style="margin-top:20px;font-size:20px"><summary>Teknik ayrıntı</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:16px">' + yzNot.replace(/[<>&]/g, " ") + "</pre></details>" : "") + "</body></html>";
     return { tur: "text/html; charset=utf-8", veri: Buffer.from(sayfa, "utf8"), ad: "bildirge.html" };
+  }
+  /* bildirge sayfasındaki "YAZDIR" bağlantısının gösterdiği yazdırma sürümü (yalnız okuma) */
+  async yazdirBul(h, url, g, hedef) {
+    const bet = [...h.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map((x) => x[1]).join("\n"), temiz = h.replace(/<script[\s\S]*?<\/script>/gi, "");
+    let ek = null; for (const m of temiz.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) if (/^yazd[ıi]r$/i.test(sade(m[2]))) { ek = m[1]; break; }
+    if (ek === null) { this.tYazdirBilgi = "YAZDIR bağlantısı bulunamadı"; return null; }
+    const href = nitelik(ek, "href"), oc = nitelik(ek, "onclick"), js = (oc || href).replace(/^\s*javascript:/i, "");
+    let adres = "", jobid = "", src = "";
+    if (href && !/^\s*(javascript:|#)/i.test(href) && !oc) adres = href;
+    const wo = /window\.open\(\s*["']([^"']+)["']/.exec(js); if (wo) adres = wo[1];
+    const c = /^\s*(?:return\s+)?([A-Za-z_$][\w$.]*)\s*\(/.exec(js);
+    if (!adres && c) { src = islevKaynagi(bet, c[1].split(".").pop()); if (src) { const w2 = /window\.open\(\s*["']([^"']+)["']/.exec(src), lh = /location(?:\.href)?\s*=\s*["']([^"']+)["']/.exec(src), jb = /\.jobid\.value\s*=\s*["']([A-Za-z0-9_]+)["']|getElementById\(\s*["']jobid["']\s*\)\.value\s*=\s*["']([A-Za-z0-9_]+)["']/.exec(src); if (w2) adres = w2[1]; else if (lh) adres = lh[1]; else if (jb) jobid = jb[1] || jb[2]; } }
+    this.tYazdirBilgi = "YAZDIR: " + (href || "").slice(0, 120) + " | onclick: " + (oc || "").slice(0, 120) + " | işlev: " + String(src || "").replace(/\s+/g, " ").slice(0, 260);
+    if (/window\.print\(/.test(js + src)) return null;
+    let r2;
+    if (adres) { const u = new URL(adres, url); if (!/^\/SigortaliTescil\//.test(u.pathname) || u.hostname !== this.s.sunucu || /logout|cikis|exit|iptal|guncelle|update|kaydet|sil\b/i.test(u.pathname + u.search)) return null; this.ref = url; try { r2 = await this.git("GET", u.href); } finally { this.ref = null; } }
+    else if (jobid && g && hedef) { if (/iptal|guncelle|update|kaydet|kayit|sil\b|ekle|gonder|onay|olustur|degistir/i.test(jobid)) return null; this.ref = url; try { r2 = await this.git("POST", hedef.href, Object.assign({}, g, { jobid })); } finally { this.ref = null; } }
+    else return null;
+    if (r2.veri.slice(0, 4).toString() === "%PDF") return { pdf: true, veri: r2.veri };
+    const h2 = this.metin(r2.veri); if (/name\s*=\s*["']?j_username/i.test(h2) || /HATA\s*B[İI]LD[İI]R[İI]M/i.test(sade(h2)) || !/B[İI]LD[İI]RGES[İI]/i.test(sade(h2))) return null;
+    return { html: h2 };
   }
   tescilSonuc(h) {
     const temiz = h.replace(/<script[\s\S]*?<\/script>/gi, ""), tablolar = []; let akt = null;
