@@ -66,6 +66,13 @@ function formlar(html) {
   return o.slice(0, 6);
 }
 const etiketAl = (once) => { let t = once.split(/<\/tr>|<tr\b/i).pop(); const g = t.indexOf(">"), a = t.indexOf("<"); if (g >= 0 && (a < 0 || g < a)) t = t.slice(g + 1); return sade(t).replace(/[:*\s]+$/, "").slice(-90); };
+/* sorgu formunun ve sayfa betiklerinin maskeli özeti (yapı keşfi için) */
+function tescilHam(h, form) {
+  const m = (t) => String(t || "").replace(/<script[\s\S]*?<\/script>/gi, "").replace(/\s+/g, " ").replace(/value\s*=\s*["'][A-Za-z0-9+\/=]{24,}["']/g, 'value="<kod>"');
+  const bet = [...h.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map((x) => x[1]).join("\n"), parca = [];
+  for (const q of bet.matchAll(/[^\n;{}]*(?:document\.forms|\.submit\(|jobid|\.action\s*=)[^\n;{}]*/gi)) { parca.push(q[0].trim().slice(0, 160)); if (parca.length >= 12) break; }
+  return "FORM: " + m(form).slice(0, 1800) + "\nBETİK: " + parca.join(" ; ").slice(0, 900);
+}
 const TESCIL_IS = { giris: "sorgulama", cikis: "ayrilissorgula", liste: "hareketBul" };
 const tablolar = (html) => [...html.matchAll(/<table\b[\s\S]*?<\/table>/gi)].map((t) => [...t[0].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((x) => sade(x[1]).slice(0, 30)).filter(Boolean)).filter((b) => b.length > 1).slice(0, 4);
 
@@ -197,26 +204,29 @@ class Sgk {
     if (/name\s*=\s*["']?j_username/i.test(h)) throw this.oturumHata();
     const temiz = h.replace(/<script[\s\S]*?<\/script>/gi, ""), alanlar = [], gor = new Map(); let secili = null;
     for (const f of temiz.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)) {
-      const eylem = nitelik(f[1], "action"), gizli = {}, yer = [];
+      const eylem = nitelik(f[1], "action"), gizli = {}, yer = []; let gonder = [];
       for (const m of f[2].matchAll(/<input\b([^>]*)>/gi)) {
         const ad = nitelik(m[1], "name"), tur = (nitelik(m[1], "type") || "text").toLowerCase(); if (!ad) continue;
         if (tur === "hidden") { gizli[ad] = coz(nitelik(m[1], "value")); continue; }
-        if (/^(submit|button|reset|image|file|password)$/.test(tur)) continue;
+        if (tur === "submit" || tur === "image") { gonder.push({ ad, deger: coz(nitelik(m[1], "value")) }); continue; }
+        if (/^(button|reset|file|password)$/.test(tur)) continue;
         const once = f[2].slice(Math.max(0, m.index - 260), m.index), et = etiketAl(once);
-        if (tur === "radio" || tur === "checkbox") { let a = yer.find((x) => x.ad === ad); if (!a) { a = { ad, tur, etiket: et, secenekler: [] }; yer.push(a); } a.secenekler.push({ deger: coz(nitelik(m[1], "value")), etiket: sade(f[2].slice(m.index + m[0].length, m.index + m[0].length + 80).split(/<(?:br|input|\/tr|\/td)/i)[0]) || coz(nitelik(m[1], "value")) }); continue; }
+        if (tur === "radio" || tur === "checkbox") { let a = yer.find((x) => x.ad === ad); if (!a) { a = { ad, tur, etiket: et, secenekler: [] }; yer.push(a); } if (/\bchecked\b/i.test(m[1])) a.deger = coz(nitelik(m[1], "value")); a.secenekler.push({ deger: coz(nitelik(m[1], "value")), etiket: sade(f[2].slice(m.index + m[0].length, m.index + m[0].length + 80).split(/<(?:br|input|\/tr|\/td)/i)[0]) || coz(nitelik(m[1], "value")) }); continue; }
         if (!yer.some((x) => x.ad === ad)) yer.push({ ad, tur: "text", etiket: et, deger: coz(nitelik(m[1], "value")) });
       }
       for (const sl of f[2].matchAll(/<select\b([^>]*)>([\s\S]*?)<\/select>/gi)) {
         const ad = nitelik(sl[1], "name"); if (!ad || yer.some((x) => x.ad === ad)) continue;
         const once = f[2].slice(Math.max(0, sl.index - 260), sl.index);
-        yer.push({ ad, tur: "select", etiket: etiketAl(once), secenekler: [...sl[2].matchAll(/<option\b([^>]*)>([\s\S]*?)<\/option>/gi)].map((x) => ({ deger: coz(nitelik(x[1], "value")), etiket: sade(x[2]) })) });
+        yer.push({ ad, tur: "select", etiket: etiketAl(once), deger: coz(nitelik((/<option\b([^>]*\bselected\b[^>]*)>/i.exec(sl[2]) || [])[1] || "", "value")), secenekler: [...sl[2].matchAll(/<option\b([^>]*)>([\s\S]*?)<\/option>/gi)].map((x) => ({ deger: coz(nitelik(x[1], "value")), etiket: sade(x[2]) })) });
       }
       if (!eylem && !yer.length) continue;
-      if (!secili || yer.length > secili.yer.length) secili = { eylem, yontem: (nitelik(f[1], "method") || "get").toLowerCase(), gizli, yer };
+      if (!secili || yer.length > secili.yer.length) secili = { eylem, yontem: (nitelik(f[1], "method") || "get").toLowerCase(), gizli, yer, gonder, ham: f[0] };
     }
     if (secili) alanlar.push(...secili.yer);
-    this.tForm = secili ? { eylem: secili.eylem, yontem: secili.yontem, gizli: secili.gizli, url: r.url, izinli: new Set(alanlar.map((a) => a.ad)) } : null;
-    return { is, alanlar, formVar: !!secili, ...this.tescilSonuc(h), ham: !secili ? sade(h).slice(0, 1500) : "" };
+    const dugme = secili && (secili.gonder.find((x) => /sorgula|bul|listele|getir|g[oö]r[uü]nt|ara|tamam/i.test(x.deger)) || secili.gonder[0]);
+    this.tForm = secili ? { eylem: secili.eylem, yontem: secili.yontem, gizli: secili.gizli, url: r.url, dugme: dugme || null, izinli: new Set(alanlar.map((a) => a.ad)) } : null;
+    this.tHam = tescilHam(h, secili && secili.ham);
+    return { is, alanlar: alanlar.map((a) => (a.tur === "select" || a.tur === "radio" || a.tur === "checkbox") && a.deger === undefined && a.secenekler && a.secenekler[0] && a.tur === "select" ? Object.assign(a, { deger: a.secenekler[0].deger }) : a), formVar: !!secili, ...this.tescilSonuc(h), ham: this.tHam };
   }
   tescilSonuc(h) {
     const temiz = h.replace(/<script[\s\S]*?<\/script>/gi, ""), tablolar = []; let akt = null;
@@ -234,13 +244,17 @@ class Sgk {
     const f = this.tForm; if (!f) throw new Error("Önce sayfayı açın.");
     const g = Object.assign({}, f.gizli);
     for (const k of Object.keys(deger || {})) { if (f.izinli.has(k) && deger[k] !== undefined && deger[k] !== null) g[k] = String(deger[k]).slice(0, 80); }
+    if (f.dugme && f.dugme.ad && g[f.dugme.ad] === undefined) g[f.dugme.ad] = f.dugme.deger; /* Struts: gönder düğmesinin adı/değeri de forma dahildir */
     const hedef = new URL(f.eylem || "", f.url), jobid = String(g.jobid || hedef.searchParams.get("jobid") || "");
     if (!/^\/SigortaliTescil\//.test(hedef.pathname) || hedef.hostname !== this.s.sunucu) throw new Error("Geçersiz sorgu adresi.");
     if (/iptal|guncelle|update|kaydet|kayit|sil\b|ekle|gonder|onay|olustur|degistir/i.test(jobid + " " + hedef.search)) throw new Error("Bu işlem yalnız görüntüleme aracında desteklenmez.");
     this.ref = f.url; let r;
     try { r = f.yontem === "post" ? await this.git("POST", hedef.href, g) : (Object.keys(g).forEach((k) => hedef.searchParams.set(k, g[k])), await this.git("GET", hedef.href)); } finally { this.ref = null; }
     const h = this.metin(r.veri); if (/name\s*=\s*["']?j_username/i.test(h)) throw this.oturumHata();
-    return { is, ...this.tescilSonuc(h) };
+    const son = this.tescilSonuc(h), hataSayfa = /HATA\s*B[İI]LD[İI]R[İI]M\s*SAYFASI/i.test(sade(h));
+    const gonderilen = Object.keys(g).map((k) => k + "=" + (/tc|kimlik/i.test(k) ? String(g[k]).replace(/\d(?=\d{3})/g, "*") : g[k])).join("&");
+    if (hataSayfa) { son.uyari = "SGK sorguyu kabul etmedi (hata sayfası döndü). Aşağıdaki teknik ayrıntıyı gönderin."; son.tablolar = []; }
+    return { is, ...son, metin: hataSayfa ? "" : son.metin, ham: (hataSayfa || !son.tablolar.length) ? ("GÖNDERİLEN: " + (f.yontem || "get").toUpperCase() + " " + hedef.pathname + hedef.search + " | " + gonderilen + "\n" + (this.tHam || "") + "\nYANIT: " + sade(h).slice(0, 900)) : "" };
   }
   async giris(dk) {
     if (this.s.tescil) return this.girisTescil(dk);

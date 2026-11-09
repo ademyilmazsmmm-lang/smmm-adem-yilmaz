@@ -3302,8 +3302,8 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   var TIS = "", TISAD = { giris: "İşe giriş görüntüleme", cikis: "İşten ayrılış görüntüleme", liste: "İşe giriş / çıkış listesi" };
   function tisAlanHtml(a){
     var et = '<label class="not" style="margin:0;font-size:.84rem">' + esc(a.etiket || a.ad);
-    if (a.tur === "select") return et + '<select data-ta="' + esc(a.ad) + '">' + (a.secenekler || []).map(function(o){ return '<option value="' + esc(o.deger) + '">' + esc(o.etiket || o.deger) + '</option>'; }).join("") + '</select></label>';
-    if (a.tur === "radio" || a.tur === "checkbox") return et + '</label><div style="display:flex;gap:10px;flex-wrap:wrap">' + (a.secenekler || []).map(function(o, i){ return '<label style="font-size:.86rem"><input type="' + a.tur + '" name="tis_' + esc(a.ad) + '" data-ta="' + esc(a.ad) + '" value="' + esc(o.deger) + '"' + (i === 0 && a.tur === "radio" ? ' checked' : '') + '> ' + esc(o.etiket || o.deger) + '</label>'; }).join("") + '</div>';
+    if (a.tur === "select") return et + '<select data-ta="' + esc(a.ad) + '">' + (a.secenekler || []).map(function(o){ return '<option value="' + esc(o.deger) + '"' + (o.deger === a.deger ? ' selected' : '') + '>' + esc(o.etiket || o.deger) + '</option>'; }).join("") + '</select></label>';
+    if (a.tur === "radio" || a.tur === "checkbox") return et + '</label><div style="display:flex;gap:10px;flex-wrap:wrap">' + (a.secenekler || []).map(function(o, i){ return '<label style="font-size:.86rem"><input type="' + a.tur + '" name="tis_' + esc(a.ad) + '" data-ta="' + esc(a.ad) + '" value="' + esc(o.deger) + '"' + ((a.deger !== undefined ? o.deger === a.deger : (i === 0 && a.tur === "radio")) ? ' checked' : '') + '> ' + esc(o.etiket || o.deger) + '</label>'; }).join("") + '</div>';
     return et + '<input type="text" data-ta="' + esc(a.ad) + '" value="' + esc(a.deger || "") + '" autocomplete="off"></label>';
   }
   function tisSonucHtml(r){
@@ -3326,7 +3326,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       api("/api/sgk/tescil-form", "POST", { mukellefId: VD.mid, sistem: "tescil", ix: VD.sgkIx, is: TIS }).then(function(r){
         d.textContent = ""; var f = $("tescilForm"); f.style.display = "grid"; f.hidden = false;
         f.innerHTML = '<b style="font-size:.92rem">' + esc(TISAD[TIS]) + '</b>' + (r.alanlar || []).map(tisAlanHtml).join("") + (r.formVar ? '<button class="btn" type="button" id="tisGonder">Sorgula</button>' : '<p class="not" style="margin:0">Bu sayfada sorgu formu bulunamadı.</p>');
-        if (r.tablolar && r.tablolar.length || r.uyari || !r.formVar) $("tescilSonuc").innerHTML = tisSonucHtml(r);
+        if (r.tablolar && r.tablolar.length || r.uyari || !r.formVar) $("tescilSonuc").innerHTML = tisSonucHtml(r); else if (r.ham) $("tescilSonuc").innerHTML = '<details class="alt2 teknik"><summary>Teknik ayrıntı (sorun olursa gönderin)</summary><div class="icerik"><pre id="isvHam" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;margin:0;max-height:260px;overflow:auto">' + esc(r.ham) + '</pre><button class="k" type="button" id="isvKopya">Kopyala</button></div></details>';
         sonucaGit("tescilForm");
       }, vdSgkHata).then(function(){ b.disabled = false; });
       return;
