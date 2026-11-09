@@ -65,6 +65,8 @@ function formlar(html) {
   }
   return o.slice(0, 6);
 }
+const etiketAl = (once) => { let t = once.split(/<\/tr>|<tr\b/i).pop(); const g = t.indexOf(">"), a = t.indexOf("<"); if (g >= 0 && (a < 0 || g < a)) t = t.slice(g + 1); return sade(t).replace(/[:*\s]+$/, "").slice(-90); };
+const TESCIL_IS = { giris: "sorgulama", cikis: "ayrilissorgula", liste: "hareketBul" };
 const tablolar = (html) => [...html.matchAll(/<table\b[\s\S]*?<\/table>/gi)].map((t) => [...t[0].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((x) => sade(x[1]).slice(0, 30)).filter(Boolean)).filter((b) => b.length > 1).slice(0, 4);
 
 /* formun gerçek alanları (gizli alanlar, seçenek değer/etiketleri) */
@@ -186,6 +188,59 @@ class Sgk {
     if (!/^\/SigortaliTescil\/[A-Za-z0-9_.\/-]+(\?[A-Za-z0-9_=&%.-]{0,200})?$/.test(String(yol || ""))) throw new Error("Geçersiz sayfa adresi.");
     const r = await this.git("GET", yol), h = this.metin(r.veri);
     return { adres: yol, baslik: sade((/<title>([\s\S]*?)<\/title>/i.exec(h) || [])[1] || ""), metin: sade(h).slice(0, 1500), baglantilar: baglantilar(h).slice(0, 60), formlar: formlar(h), tablolar: tablolar(h) };
+  }
+  /* İşe giriş / işten ayrılış görüntüleme: yalnız okuma. Sayfa formu okunur, alanlar kullanıcıya gösterilir, sorgu gönderilir */
+  async tescilForm(is) {
+    if (!this.girdi) throw this.oturumHata();
+    const jobid = TESCIL_IS[is]; if (!jobid) throw new Error("Bilinmeyen işlem.");
+    const r = await this.git("GET", "/SigortaliTescil/amp/sigortaliTescilAction?jobid=" + jobid), h = this.metin(r.veri);
+    if (/name\s*=\s*["']?j_username/i.test(h)) throw this.oturumHata();
+    const temiz = h.replace(/<script[\s\S]*?<\/script>/gi, ""), alanlar = [], gor = new Map(); let secili = null;
+    for (const f of temiz.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)) {
+      const eylem = nitelik(f[1], "action"), gizli = {}, yer = [];
+      for (const m of f[2].matchAll(/<input\b([^>]*)>/gi)) {
+        const ad = nitelik(m[1], "name"), tur = (nitelik(m[1], "type") || "text").toLowerCase(); if (!ad) continue;
+        if (tur === "hidden") { gizli[ad] = coz(nitelik(m[1], "value")); continue; }
+        if (/^(submit|button|reset|image|file|password)$/.test(tur)) continue;
+        const once = f[2].slice(Math.max(0, m.index - 260), m.index), et = etiketAl(once);
+        if (tur === "radio" || tur === "checkbox") { let a = yer.find((x) => x.ad === ad); if (!a) { a = { ad, tur, etiket: et, secenekler: [] }; yer.push(a); } a.secenekler.push({ deger: coz(nitelik(m[1], "value")), etiket: sade(f[2].slice(m.index + m[0].length, m.index + m[0].length + 80).split(/<(?:br|input|\/tr|\/td)/i)[0]) || coz(nitelik(m[1], "value")) }); continue; }
+        if (!yer.some((x) => x.ad === ad)) yer.push({ ad, tur: "text", etiket: et, deger: coz(nitelik(m[1], "value")) });
+      }
+      for (const sl of f[2].matchAll(/<select\b([^>]*)>([\s\S]*?)<\/select>/gi)) {
+        const ad = nitelik(sl[1], "name"); if (!ad || yer.some((x) => x.ad === ad)) continue;
+        const once = f[2].slice(Math.max(0, sl.index - 260), sl.index);
+        yer.push({ ad, tur: "select", etiket: etiketAl(once), secenekler: [...sl[2].matchAll(/<option\b([^>]*)>([\s\S]*?)<\/option>/gi)].map((x) => ({ deger: coz(nitelik(x[1], "value")), etiket: sade(x[2]) })) });
+      }
+      if (!eylem && !yer.length) continue;
+      if (!secili || yer.length > secili.yer.length) secili = { eylem, yontem: (nitelik(f[1], "method") || "get").toLowerCase(), gizli, yer };
+    }
+    if (secili) alanlar.push(...secili.yer);
+    this.tForm = secili ? { eylem: secili.eylem, yontem: secili.yontem, gizli: secili.gizli, url: r.url, izinli: new Set(alanlar.map((a) => a.ad)) } : null;
+    return { is, alanlar, formVar: !!secili, ...this.tescilSonuc(h), ham: !secili ? sade(h).slice(0, 1500) : "" };
+  }
+  tescilSonuc(h) {
+    const temiz = h.replace(/<script[\s\S]*?<\/script>/gi, ""), tablolar = []; let akt = null;
+    for (const tr of temiz.matchAll(/<tr\b[^>]*>((?:(?!<tr\b)[\s\S])*?)<\/tr>/gi)) {
+      if (/<(input|select|textarea)\b/i.test(tr[1])) continue;
+      const ths = [...tr[1].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((m) => sade(m[1])), tds = [...tr[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => sade(m[1]));
+      if (ths.length >= 2 && !tds.length) { akt = { basliklar: ths, satirlar: [] }; tablolar.push(akt); continue; }
+      if (akt && tds.length >= 2 && akt.satirlar.length < 300 && tds.some((x) => x)) akt.satirlar.push(tds);
+    }
+    const uyari = sade((/id\s*=\s*["']genelUyariCenterTag["'][^>]*>([\s\S]*?)<\/center>/i.exec(temiz) || [])[1] || "") || hataMetni(h);
+    return { tablolar: tablolar.filter((t) => t.satirlar.length), uyari, metin: sade(temiz.replace(/<select\b[\s\S]*?<\/select>/gi, " ")).slice(0, 3000) };
+  }
+  async tescilSorgula(is, deger) {
+    if (!this.girdi) throw this.oturumHata();
+    const f = this.tForm; if (!f) throw new Error("Önce sayfayı açın.");
+    const g = Object.assign({}, f.gizli);
+    for (const k of Object.keys(deger || {})) { if (f.izinli.has(k) && deger[k] !== undefined && deger[k] !== null) g[k] = String(deger[k]).slice(0, 80); }
+    const hedef = new URL(f.eylem || "", f.url), jobid = String(g.jobid || hedef.searchParams.get("jobid") || "");
+    if (!/^\/SigortaliTescil\//.test(hedef.pathname) || hedef.hostname !== this.s.sunucu) throw new Error("Geçersiz sorgu adresi.");
+    if (/iptal|guncelle|update|kaydet|kayit|sil\b|ekle|gonder|onay|olustur|degistir/i.test(jobid + " " + hedef.search)) throw new Error("Bu işlem yalnız görüntüleme aracında desteklenmez.");
+    this.ref = f.url; let r;
+    try { r = f.yontem === "post" ? await this.git("POST", hedef.href, g) : (Object.keys(g).forEach((k) => hedef.searchParams.set(k, g[k])), await this.git("GET", hedef.href)); } finally { this.ref = null; }
+    const h = this.metin(r.veri); if (/name\s*=\s*["']?j_username/i.test(h)) throw this.oturumHata();
+    return { is, ...this.tescilSonuc(h) };
   }
   async giris(dk) {
     if (this.s.tescil) return this.girisTescil(dk);
@@ -443,6 +498,8 @@ class SahteSgk {
   async giris(dk) { if (!this.cid) throw new Error("Önce güvenlik kodu resmini isteyin."); this.cid = false; if (String(dk || "").trim() !== "SGK123") { const e = new Error("SGK girişi başarısız: Güvenlik kodu hatalı."); e.giris = true; throw e; } this.girdi = true; }
   async tani(derin) { if (!this.girdi) { const e = new Error("SGK oturumu kapandı; güvenlik koduyla yeniden bağlanın."); e.oturum = true; throw e; } return { baslik: "T.C. Sosyal Güvenlik Kurumu", adres: "https://" + (SISTEMLER[this.sistem] || SISTEMLER.isveren).sunucu + (SISTEMLER[this.sistem] || SISTEMLER.isveren).kok, zincir: [], baslatici: [], baglantilar: [{ tur: "a", metin: "DÖNEM BORÇ GÖRÜNTÜLEME", href: "/IsverenSistemi/ornek/donemBorc.action" }, { tur: "a", metin: "İHALELERE KATILMAK İÇİN", href: "/IsverenSistemi/ornek/ihale.action" }, { tur: "a", metin: "ÇIKIŞ", href: "/IsverenSistemi/cikis.action" }], cerceveler: [], sayfalar: derin ? [{ metin: "Onaylanmış Belgeler", adres: "/EBildirgeV2/ornek/onayli.action", formlar: [{ eylem: "/EBildirgeV2/ornek/liste.action", yontem: "post", alanlar: ["bas_donem:select[2026/09|2026/08]", "bit_donem:select[2026/09|2026/08]", "düğme:Bilgileri Getir"] }], tablolar: [["Tahakkuk Yıl/Ay", "Hizmet Yıl/Ay", "Belge Türü", "Toplam Çalışan Sayısı"]], baglantilar: [] }] : undefined }; }
   async cikis() { this.girdi = false; }
+  async tescilForm(is) { if (!this.girdi) throw this.oturumHata2(); this.mf2 = true; return { is, formVar: true, alanlar: [{ ad: "tckno", tur: "text", etiket: "T.C. Kimlik No", deger: "" }, { ad: "baslangic", tur: "text", etiket: "Başlangıç tarihi", deger: "" }], tablolar: [], uyari: "", metin: "Örnek form" }; }
+  async tescilSorgula(is, d) { if (!this.mf2) throw new Error("Önce sayfayı açın."); return { is, tablolar: [{ basliklar: ["T.C. Kimlik No", "Ad Soyad", "İşe Giriş Tarihi"], satirlar: [["11111111110", "ÖRNEK KİŞİ", "01.09.2026"], ["22222222220", "DENEME KİŞİ", "15.10.2026"]] }], uyari: "", metin: "Örnek sonuç" }; }
   async tescilSayfa(yol) { if (!this.girdi) throw this.oturumHata2(); return { adres: yol, baslik: "Sigortalı İşe Giriş ve İşten Ayrılış", metin: "Örnek sayfa", baglantilar: [], formlar: [], tablolar: [] }; }
   async formGonder(i) { if (!this.girdi) throw this.oturumHata2(); return this.bildirgeBelge(0, 0, 0); }
   async tesvikFormu() { if (!this.girdi) throw this.oturumHata2(); this.mf = true; return { alanlar: [{ ad: "tcKimlikNo", tur: "text", etiket: "T.C.Kimlik Numarası", deger: "" }, { ad: "kazanc", tur: "text", etiket: "Sigortalının Kazanç Bilgisi", deger: "" }], aciklama: "Örnek açıklama." }; }

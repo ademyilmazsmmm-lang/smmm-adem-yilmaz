@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-09-259";
+const SURUM = "2026-11-09-260";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -233,7 +233,7 @@ const sgkler = new Map(), sgkZaman = new Map(), sgkSon = new Map();
 const sgkIx = (x) => { const n = Number(x); return n >= 1 && n <= 3 ? Math.floor(n) : 0; };
 const sgkKayit = (m, ix) => (ix ? (m.sgkEk || [])[ix - 1] : m.sgk) || {};
 const sgkAnahtar = (id, sis, ix) => id + ":" + sis + (ix ? ":" + ix : "");
-async function sgkBirak(id) { for (const a of [...sgkler.keys()].filter((k) => k.startsWith(id + ":isveren") || k.startsWith(id + ":ebildirge"))) { clearTimeout(sgkZaman.get(a)); sgkZaman.delete(a); const x = sgkler.get(a); sgkler.delete(a); if (x) await x.cikis().catch(() => {}); } }
+async function sgkBirak(id) { for (const a of [...sgkler.keys()].filter((k) => k.startsWith(id + ":isveren") || k.startsWith(id + ":ebildirge") || k.startsWith(id + ":tescil"))) { clearTimeout(sgkZaman.get(a)); sgkZaman.delete(a); const x = sgkler.get(a); sgkler.delete(a); if (x) await x.cikis().catch(() => {}); } }
 function sgkZamanla(a) { clearTimeout(sgkZaman.get(a)); sgkZaman.set(a, setTimeout(async () => { sgkZaman.delete(a); const x = sgkler.get(a); sgkler.delete(a); if (x) await x.cikis().catch(() => {}); }, 5 * 60e3).unref()); }
 function sgkKontrol(id, tur) {
   const an = id + ":" + tur, son = sgkSon.get(an) || 0; if (Date.now() - son < 3e3) throw new Error("Çok sık istek: birkaç saniye bekleyin."); sgkSon.set(an, Date.now());
@@ -691,6 +691,13 @@ async function api(req, res, yol) {
       sgkZamanla(an);
       if (ne === "tani") return cevap(res, 200, await x.tani(g.derin === true));
       if (sis === "tescil" && ne === "tescil-sayfa") { if (o.rol !== "ofis") return cevap(res, 400, { hata: "Bu geliştirme aracı yalnız ofis hesabına açıktır." }); const t = await x.tescilSayfa(String(g.yol || "")); gunluk(o, mid, "SGK Sigortalı Tescil sayfası görüntülendi", String(g.yol || "").slice(0, 80)); return cevap(res, 200, t); }
+      if (sis === "tescil" && (ne === "tescil-form" || ne === "tescil-sorgu")) {
+        const is = String(g.is || ""); if (!["giris", "cikis", "liste"].includes(is)) return cevap(res, 400, { hata: "Bilinmeyen işlem." });
+        const alan = {}; if (g.alan && typeof g.alan === "object") for (const k of Object.keys(g.alan).slice(0, 30)) if (/^[A-Za-z0-9_.]{1,40}$/.test(k)) alan[k] = String(g.alan[k]).slice(0, 80);
+        const t = ne === "tescil-form" ? await x.tescilForm(is) : await x.tescilSorgula(is, alan);
+        gunluk(o, mid, "SGK işe giriş/çıkış " + (ne === "tescil-form" ? "sayfası" : "sorgusu") + " görüntülendi", is);
+        return cevap(res, 200, t);
+      }
       if (sis === "isveren" && ne === "tesvik") {
         if (g.islem === "form") { sgkKontrol(an, "tf"); return cevap(res, 200, await x.tesvikFormu()); }
         if (g.islem === "sorgu") {
