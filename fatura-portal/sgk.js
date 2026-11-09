@@ -204,12 +204,13 @@ class Sgk {
     if (/name\s*=\s*["']?j_username/i.test(h)) throw this.oturumHata();
     const temiz = h.replace(/<script[\s\S]*?<\/script>/gi, ""), alanlar = [], gor = new Map(); let secili = null;
     for (const f of temiz.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)) {
-      const eylem = nitelik(f[1], "action"), gizli = {}, yer = []; let gonder = [];
+      const eylem = nitelik(f[1], "action"), gizli = {}, yer = [], dugmeIs = []; let gonder = [];
       for (const m of f[2].matchAll(/<input\b([^>]*)>/gi)) {
         const ad = nitelik(m[1], "name"), tur = (nitelik(m[1], "type") || "text").toLowerCase(); if (!ad) continue;
         if (tur === "hidden") { gizli[ad] = coz(nitelik(m[1], "value")); continue; }
         if (tur === "submit" || tur === "image") { gonder.push({ ad, deger: coz(nitelik(m[1], "value")) }); continue; }
-        if (/^(button|reset|file|password)$/.test(tur)) continue;
+        if (tur === "button") { const oc = nitelik(m[1], "onclick"), fn = /^\s*([A-Za-z_$][\w$]*)\s*\(/.exec(oc); if (fn) dugmeIs.push({ ad: fn[1], deger: coz(nitelik(m[1], "value")) }); continue; }
+        if (/^(reset|file|password)$/.test(tur)) continue;
         const once = f[2].slice(Math.max(0, m.index - 260), m.index), et = etiketAl(once);
         if (tur === "radio" || tur === "checkbox") { let a = yer.find((x) => x.ad === ad); if (!a) { a = { ad, tur, etiket: et, secenekler: [] }; yer.push(a); } if (/\bchecked\b/i.test(m[1])) a.deger = coz(nitelik(m[1], "value")); a.secenekler.push({ deger: coz(nitelik(m[1], "value")), etiket: sade(f[2].slice(m.index + m[0].length, m.index + m[0].length + 80).split(/<(?:br|input|\/tr|\/td)/i)[0]) || coz(nitelik(m[1], "value")) }); continue; }
         if (!yer.some((x) => x.ad === ad)) yer.push({ ad, tur: "text", etiket: et, deger: coz(nitelik(m[1], "value")) });
@@ -220,21 +221,29 @@ class Sgk {
         yer.push({ ad, tur: "select", etiket: etiketAl(once), deger: coz(nitelik((/<option\b([^>]*\bselected\b[^>]*)>/i.exec(sl[2]) || [])[1] || "", "value")), secenekler: [...sl[2].matchAll(/<option\b([^>]*)>([\s\S]*?)<\/option>/gi)].map((x) => ({ deger: coz(nitelik(x[1], "value")), etiket: sade(x[2]) })) });
       }
       if (!eylem && !yer.length) continue;
-      if (!secili || yer.length > secili.yer.length) secili = { eylem, yontem: (nitelik(f[1], "method") || "get").toLowerCase(), gizli, yer, gonder, ham: f[0] };
+      if (!secili || yer.length > secili.yer.length) secili = { eylem, yontem: (nitelik(f[1], "method") || "get").toLowerCase(), gizli, yer, gonder, dugmeIs, ham: f[0] };
     }
     if (secili) alanlar.push(...secili.yer);
+    /* jobid gizli alanı boş gelir; "Sorgula" düğmesinin betiği (ör. sorgulatescil()) forma jobid.value="…" yazıp gönderir: aynı değeri kullan */
+    let jobidDeger = ""; if (secili) {
+      const bet = [...h.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map((x) => x[1]).join("\n"), al = (src) => { const q = /\.jobid\.value\s*=\s*["']([A-Za-z0-9_]+)["']/.exec(src || ""); return q ? q[1] : ""; };
+      for (const d of secili.dugmeIs) { jobidDeger = al(islevKaynagi(bet, d.ad)); if (jobidDeger) break; }
+      if (!jobidDeger) { for (const q of bet.matchAll(/\.jobid\.value\s*=\s*["']([A-Za-z0-9_]+)["']/g)) if (/sorgul|bul|listele|getir|ara\b/i.test(q[1])) { jobidDeger = q[1]; break; } }
+    }
     const dugme = secili && (secili.gonder.find((x) => /sorgula|bul|listele|getir|g[oö]r[uü]nt|ara|tamam/i.test(x.deger)) || secili.gonder[0]);
-    this.tForm = secili ? { eylem: secili.eylem, yontem: secili.yontem, gizli: secili.gizli, url: r.url, dugme: dugme || null, izinli: new Set(alanlar.map((a) => a.ad)) } : null;
+    this.tForm = secili ? { eylem: secili.eylem, yontem: secili.yontem, gizli: secili.gizli, url: r.url, dugme: dugme || null, jobidDeger, izinli: new Set(alanlar.map((a) => a.ad)) } : null;
     this.tHam = tescilHam(h, secili && secili.ham);
     return { is, alanlar: alanlar.map((a) => (a.tur === "select" || a.tur === "radio" || a.tur === "checkbox") && a.deger === undefined && a.secenekler && a.secenekler[0] && a.tur === "select" ? Object.assign(a, { deger: a.secenekler[0].deger }) : a), formVar: !!secili, ...this.tescilSonuc(h), ham: this.tHam };
   }
   tescilSonuc(h) {
     const temiz = h.replace(/<script[\s\S]*?<\/script>/gi, ""), tablolar = []; let akt = null;
-    for (const tr of temiz.matchAll(/<tr\b[^>]*>((?:(?!<tr\b)[\s\S])*?)<\/tr>/gi)) {
-      if (/<(input|select|textarea)\b/i.test(tr[1])) continue;
-      const ths = [...tr[1].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((m) => sade(m[1])), tds = [...tr[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => sade(m[1]));
+    for (const tr of temiz.matchAll(/<tr\b([^>]*)>((?:(?!<tr\b)[\s\S])*?)<\/tr>/gi)) {
+      if (/<(input|select|textarea)\b/i.test(tr[2])) continue;
+      const ths = [...tr[2].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((m) => sade(m[1])), tds = [...tr[2].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => sade(m[1]));
       if (ths.length >= 2 && !tds.length) { akt = { basliklar: ths, satirlar: [] }; tablolar.push(akt); continue; }
-      if (akt && tds.length >= 2 && akt.satirlar.length < 300 && tds.some((x) => x)) akt.satirlar.push(tds);
+      /* başlık satırı <td> ile de yazılabilir (arka plan renkli, rakamsız kısa yazılar) */
+      if (!ths.length && tds.length >= 3 && (/bgcolor|background/i.test(tr[1]) || /align\s*=\s*["']?center/i.test(tr[1])) && tds.every((x) => x && x.length < 30 && !/\d/.test(x))) { akt = { basliklar: tds, satirlar: [] }; tablolar.push(akt); continue; }
+      if (akt && tds.length >= 2 && akt.satirlar.length < 300 && tds.some((x) => x) && (!akt.basliklar || tds.length === akt.basliklar.length || tds.length >= 2)) akt.satirlar.push(tds);
     }
     const uyari = sade((/id\s*=\s*["']genelUyariCenterTag["'][^>]*>([\s\S]*?)<\/center>/i.exec(temiz) || [])[1] || "") || hataMetni(h);
     return { tablolar: tablolar.filter((t) => t.satirlar.length), uyari, metin: sade(temiz.replace(/<select\b[\s\S]*?<\/select>/gi, " ")).slice(0, 3000) };
@@ -244,6 +253,7 @@ class Sgk {
     const f = this.tForm; if (!f) throw new Error("Önce sayfayı açın.");
     const g = Object.assign({}, f.gizli);
     for (const k of Object.keys(deger || {})) { if (f.izinli.has(k) && deger[k] !== undefined && deger[k] !== null) g[k] = String(deger[k]).slice(0, 80); }
+    if (f.jobidDeger && !g.jobid) g.jobid = f.jobidDeger;
     if (f.dugme && f.dugme.ad && g[f.dugme.ad] === undefined) g[f.dugme.ad] = f.dugme.deger; /* Struts: gönder düğmesinin adı/değeri de forma dahildir */
     const hedef = new URL(f.eylem || "", f.url), jobid = String(g.jobid || hedef.searchParams.get("jobid") || "");
     if (!/^\/SigortaliTescil\//.test(hedef.pathname) || hedef.hostname !== this.s.sunucu) throw new Error("Geçersiz sorgu adresi.");
