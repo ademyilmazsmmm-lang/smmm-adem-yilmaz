@@ -245,8 +245,14 @@ class Sgk {
       if (!ths.length && tds.length >= 3 && (/bgcolor|background/i.test(tr[1]) || /align\s*=\s*["']?center/i.test(tr[1])) && tds.every((x) => x && x.length < 30 && !/\d/.test(x))) { akt = { basliklar: tds, satirlar: [] }; tablolar.push(akt); continue; }
       if (akt && tds.length >= 2 && akt.satirlar.length < 300 && tds.some((x) => x) && (!akt.basliklar || tds.length === akt.basliklar.length || tds.length >= 2)) akt.satirlar.push(tds);
     }
-    const uyari = sade((/id\s*=\s*["']genelUyariCenterTag["'][^>]*>([\s\S]*?)<\/center>/i.exec(temiz) || [])[1] || "") || hataMetni(h);
-    return { tablolar: tablolar.filter((t) => t.satirlar.length), uyari, metin: sade(temiz.replace(/<select\b[\s\S]*?<\/select>/gi, " ")).slice(0, 3000) };
+    let uyari = sade((/id\s*=\s*["']genelUyariCenterTag["'][^>]*>([\s\S]*?)<\/center>/i.exec(temiz) || [])[1] || "") || hataMetni(h);
+    const dolu = tablolar.filter((t) => t.satirlar.length);
+    /* menü başlığını (SIGORTALI ISE GIRIS … Çıkış 10/11/2026 01:49) at; işyeri künyesini ayır */
+    let metin = sade(temiz.replace(/<select\b[\s\S]*?<\/select>/gi, " ")).replace(/^[\s\S]*?Çıkış\s+\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}\s*/, "");
+    const ay = (re) => { const q = re.exec(metin); return q ? q[1].trim() : ""; };
+    const isyeri = { unvan: ay(/İşyeri Ünvanı\s*:\s*(.*?)\s*İşyeri Adresi/), sicil: ay(/İşyeri Sicil No\s*:\s*(.*?)\s*İşyeri Ünvanı/) };
+    if (dolu.length || uyari.length > 240 || /SIGORTALI ISE GIRIS VE ISTEN AYRILIS/.test(uyari)) uyari = /HATA\s*B[İI]LD[İI]R[İI]M/i.test(uyari) ? uyari : "";
+    return { tablolar: dolu, uyari, isyeri: isyeri.unvan || isyeri.sicil ? isyeri : null, metin: metin.slice(0, 3000) };
   }
   async tescilSorgula(is, deger) {
     if (!this.girdi) throw this.oturumHata();

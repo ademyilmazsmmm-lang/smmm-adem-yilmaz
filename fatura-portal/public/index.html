@@ -3308,15 +3308,19 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   function tisSonucHtml(r){
     var h = r.uyari ? '<div class="durum ' + (/hata|bulunamad|geçersiz|kayıt yok/i.test(r.uyari) ? "hata" : "ok") + '" style="display:block">' + esc(r.uyari) + '</div>' : "";
+    if (r.isyeri) h += '<div class="not" style="margin:0;font-size:.84rem">' + esc((r.isyeri.unvan || "") + (r.isyeri.sicil ? " · Sicil " + r.isyeri.sicil : "")) + '</div>';
     (r.tablolar || []).forEach(function(t){
-      var bs = t.basliklar || [];
-      h += '<div class="not" style="margin:4px 0 0">' + t.satirlar.length + ' kayıt</div>';
-      t.satirlar.forEach(function(s2){
-        var bas = s2.find(function(x){ return x; }) || "Kayıt";
-        h += '<div class="kayit"><b>' + esc(bas) + '</b><div class="not" style="margin:4px 0 0;overflow-wrap:anywhere">' + s2.map(function(v, q){ return v && v !== bas ? (bs[q] ? '<span style="color:var(--muted)">' + esc(bs[q]) + ':</span> ' : '') + esc(v) : ""; }).filter(Boolean).join(" · ") + '</div></div>';
+      var bs = t.basliklar || [], it = -1, i;
+      for (i = 0; i < bs.length; i++) if (/(işe giriş|işten|ayrılış|çıkış|giriş).*tarih/i.test(bs[i])) { it = i; break; }
+      if (it < 0) for (i = 0; i < bs.length; i++) if (/tarih/i.test(bs[i])) { it = i; break; }
+      var rows = t.satirlar.slice(); if (it >= 0) rows.sort(function(a, b){ var f = function(x){ var q = /^(\d{2})\.(\d{2})\.(\d{4})/.exec(x[it] || ""); return q ? q[3] + q[2] + q[1] : ""; }; return f(b) < f(a) ? -1 : f(b) > f(a) ? 1 : 0; });
+      h += '<div class="not" style="margin:4px 0 0">' + rows.length + ' kayıt' + (it >= 0 ? ' · en yeni üstte' : '') + '</div>';
+      rows.forEach(function(s2){
+        var bas = it >= 0 && s2[it] ? (bs[it].replace(/\s*tarihi?$/i, "") + ": " + s2[it]) : (s2.find(function(x){ return x; }) || "Kayıt");
+        h += '<div class="kayit"><b>' + esc(bas) + '</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-top:4px;font-size:.84rem">' + s2.map(function(v, q){ return q === it || !v ? "" : '<div style="overflow-wrap:anywhere"><span style="color:var(--muted)">' + esc(bs[q] || "") + ':</span> ' + esc(v) + '</div>'; }).join("") + '</div></div>';
       });
     });
-    if (!(r.tablolar || []).length && !r.uyari) h += r.metin ? '<div class="kayit"><span class="not" style="margin:0;overflow-wrap:anywhere;color:var(--fg)">' + esc(String(r.metin).slice(0, 1500)) + '</span></div>' : '<p class="not" style="margin:0">Sonuç bulunamadı.</p>';
+    if (!(r.tablolar || []).length && !r.uyari) h += '<p class="not" style="margin:0">Bu sorgu için kayıt bulunamadı.</p>';
     return h + '<details class="alt2 teknik"><summary>Teknik ayrıntı (gerekirse gönderin)</summary><div class="icerik"><pre id="isvHam" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;margin:0;max-height:260px;overflow:auto">' + esc(JSON.stringify(r, null, 1).slice(0, 9000)) + '</pre><button class="k" type="button" id="isvKopya">Kopyala</button></div></details>';
   }
   $("vdSgkTescil").addEventListener("click", function(e){
