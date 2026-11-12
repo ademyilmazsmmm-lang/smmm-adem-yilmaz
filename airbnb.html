@@ -505,7 +505,7 @@
       "name": "Airbnb ile ev kiralamak için izin belgesi gerekli mi?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Evet. Kısa dönem kiralama yapmak için Kültür ve Turizm Bakanlığı'ndan \"Turizm Amaçlı Kiralama İzin Belgesi\" almak yasal zorunluluktur. Belgesiz faaliyet hem idari para cezasına hem de daha yüksek KDV yüküne yol açar. Başvuru, Bakanlığın e-Devlet üzerinden açtığı portaldan yapılabilir."
+        "text": "Evet. Kısa dönem kiralama yapmak için Kültür ve Turizm Bakanlığı'ndan \"Turizm Amaçlı Kiralama İzin Belgesi\" almak yasal zorunluluktur. Belgesiz faaliyet idari para cezasına yol açar; KDV oranını etkilemez, zira kiralanan ev/daire her halükârda genel oranda (%20) KDV'ye tabidir. Başvuru, Bakanlığın e-Devlet üzerinden açtığı portaldan yapılabilir."
       }
     },
     {
@@ -513,7 +513,7 @@
       "name": "Kısa dönem kiralamada KDV oranı kaçtır?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Oran izin belgesinin varlığına göre değişir: Turizm Amaçlı Kiralama İzin Belgesi sahipleri için %10, belgesi olmayan kiralamalarda ise genel KDV oranı olan %20 uygulanır. Belge almak KDV yükünü %20'den %10'a indirir."
+        "text": "Kısa dönem kiralanan ev/daireler, Turizm Amaçlı Kiralama İzin Belgesi alınmış olsa dahi Kültür ve Turizm Bakanlığı tarafından resmi bir \"konaklama tesisi\" sayılmadığından genel KDV oranı olan %20'ye tabidir. İzmir Defterdarlığı'nın 17.09.2024 tarihli özelgesi bu hususu teyit etmektedir. %10'luk indirimli oran yalnızca otel, motel, pansiyon, tatil köyü gibi gerçek konaklama tesislerinde ve işletme belgeli tesislerde uygulanır; izin belgesi bu oranı değiştirmez."
       }
     },
     {
@@ -630,7 +630,7 @@
       <ul class="toc-list">
         <li><a href="#giris">Giriş: Yasal Yükümlülüklere Genel Bakış</a></li>
         <li><a href="#konaklama-vergisi">1 — Konaklama Vergisi (%1)</a></li>
-        <li><a href="#kdv-oranlari">2 — KDV Oranları: Belgeli ve Belgesiz Kiralama</a></li>
+        <li><a href="#kdv-oranlari">2 — KDV Oranı: Neden %10 Değil, %20 Uygulanır?</a></li>
         <li><a href="#kdv2">3 — KDV-2: Platform Komisyonlarında Sorumlu Sıfatıyla KDV</a></li>
         <li><a href="#kbs">4 — Kimlik Bildirim Sistemi (KBS): Misafir Bildirimi</a></li>
         <li><a href="#vergi-kaydi-tarihi">5 — İzin Belgesi ve Vergi Kaydı: Aynı Tarihte Açılış</a></li>
@@ -732,9 +732,25 @@
       <h2><span class="num">2</span> KDV Oranları</h2>
 
       <p>
-        Kısa dönem kiralamada uygulanacak KDV oranı, <strong>Turizm Amaçlı Kiralama
-        İzin Belgesi</strong>'nin varlığına göre ikiye ayrılmaktadır.
+        Kısa dönem kiralamada uygulanacak KDV oranı, yaygın bir yanlış kanının aksine
+        <strong>izin belgesinin varlığına göre değişmez.</strong> Belirleyici olan,
+        kiralanan taşınmazın Kültür ve Turizm Bakanlığı nezdinde <strong>resmi bir
+        "konaklama tesisi" sayılıp sayılmadığıdır.
       </p>
+
+      <div class="alert alert-warn">
+        <div class="alert-title">⚠ Önemli Düzeltme</div>
+        <p>
+          <strong>Turizm Amaçlı Kiralanan Konut İzin Belgesi</strong> alınmış olsa dahi,
+          kiraya verilen ev/daire; otel, motel, pansiyon, tatil köyü ve benzerlerinin
+          bulunduğu KDV Genel Uygulama Tebliği eki <strong>(II) sayılı listenin 25.
+          sırasındaki "konaklama tesisi"</strong> tanımına girmez. Bu nedenle bu
+          konutlarda verilen hizmet bedelleri üzerinden <strong>genel oranda (%20)
+          KDV hesaplanması</strong> gerekir — izin belgesi KDV oranını %10'a
+          indirmez. (Kaynak: İzmir Defterdarlığı'nın 17.09.2024 tarihli ve
+          E-21152195-130[28-2024.7318]-550725 sayılı özelgesi.)
+        </p>
+      </div>
 
       <table class="rate-table">
         <thead>
@@ -746,33 +762,39 @@
         </thead>
         <tbody>
           <tr>
-            <td>İzin Belgeli Kiralama</td>
-            <td><span class="badge badge-gold">%10</span></td>
-            <td>Turizm Amaçlı Kiralama İzin Belgesi sahipleri</td>
+            <td>Kısa Dönem Kiralanan Ev / Daire (izin belgeli veya belgesiz)</td>
+            <td><span class="badge badge-red">%20</span></td>
+            <td>Resmi konaklama tesisi sayılmadığından genel KDV oranı uygulanır</td>
           </tr>
           <tr>
-            <td>İzin Belgesiz Kiralama</td>
-            <td><span class="badge badge-red">%20</span></td>
-            <td>Belgesi olmayan kiralamalarda genel KDV oranı</td>
+            <td>Otel, Motel, Pansiyon, Tatil Köyü, Apart Otel ve işletme belgeli konaklama tesisleri</td>
+            <td><span class="badge badge-gold">%10</span></td>
+            <td>(II) sayılı liste 25. sıra kapsamında indirimli oran</td>
           </tr>
         </tbody>
       </table>
 
-      <h3>İzin Belgesi Neden Önemli?</h3>
+      <h3>O Halde İzin Belgesi Neden Alınmalı?</h3>
+      <p>
+        İzin belgesi KDV oranınızı düşürmese de alınması yine de zorunlu ve önemlidir:
+      </p>
       <ul>
-        <li>KDV yükünüzü %20'den %10'a indirmenizi sağlar.</li>
-        <li>Kültür ve Turizm Bakanlığı'na yasal zemin oluşturur, ceza riskini ortadan kaldırır.</li>
-        <li>Platformların talep ettiği yasal uyum koşulunu karşılar.</li>
+        <li>Kültür ve Turizm Bakanlığı mevzuatına göre faaliyetin yasal zeminini oluşturur, idari para cezası riskini ortadan kaldırır.</li>
+        <li>Platformların (Airbnb, Booking vb.) talep ettiği yasal uyum koşulunu karşılar.</li>
+        <li>1774 sayılı Kanun kapsamındaki KBS bildirim sorumluluğunun kime ait olduğunu netleştirir.</li>
         <li>Yargı süreçlerinde lehinize delil niteliği taşır.</li>
       </ul>
 
       <div class="alert alert-gold">
         <div class="alert-title">💡 Mali Müşavir Notu</div>
         <p>
-          Henüz izin belgesi almamışsanız, başvuru sürecinin takibini ve ardından
-          KDV oranı değişikliğini en kısa sürede yönetmenizi tavsiye ederim.
-          Belge için Kültür ve Turizm Bakanlığı'nın e-Devlet üzerinden açtığı
-          portal üzerinden başvuru yapabilirsiniz.
+          İzin belgesi almak KDV yükünüzü azaltmaz; faturalarınızı ve KDV
+          beyannamelerinizi baştan itibaren <strong>%20 oranı</strong> üzerinden
+          düzenlemenizi öneririm. %10'luk indirimli orandan yararlanabilmek için
+          taşınmazın gerçekten otel, motel, pansiyon, tatil köyü gibi bir
+          konaklama tesisi niteliğinde olması ve buna uygun bir işletme/tesis
+          belgesine sahip olması gerekir — sıradan bir ev veya daire için bu
+          mümkün değildir.
         </p>
       </div>
     </section>
@@ -1019,11 +1041,11 @@
     <div class="sss-list">
         <details class="sss-item">
           <summary>Airbnb ile ev kiralamak için izin belgesi gerekli mi?</summary>
-          <div class="sss-a"><p>Evet. Kısa dönem kiralama yapmak için Kültür ve Turizm Bakanlığı&#x27;ndan &quot;Turizm Amaçlı Kiralama İzin Belgesi&quot; almak yasal zorunluluktur. Belgesiz faaliyet hem idari para cezasına hem de daha yüksek KDV yüküne yol açar. Başvuru, Bakanlığın e-Devlet üzerinden açtığı portaldan yapılabilir.</p></div>
+          <div class="sss-a"><p>Evet. Kısa dönem kiralama yapmak için Kültür ve Turizm Bakanlığı&#x27;ndan &quot;Turizm Amaçlı Kiralama İzin Belgesi&quot; almak yasal zorunluluktur. Belgesiz faaliyet idari para cezasına yol açar; KDV oranını etkilemez, zira kiralanan ev/daire her halükârda genel oranda (%20) KDV'ye tabidir. Başvuru, Bakanlığın e-Devlet üzerinden açtığı portaldan yapılabilir.</p></div>
         </details>
         <details class="sss-item">
           <summary>Kısa dönem kiralamada KDV oranı kaçtır?</summary>
-          <div class="sss-a"><p>Oran izin belgesinin varlığına göre değişir: Turizm Amaçlı Kiralama İzin Belgesi sahipleri için %10, belgesi olmayan kiralamalarda ise genel KDV oranı olan %20 uygulanır. Belge almak KDV yükünü %20&#x27;den %10&#x27;a indirir.</p></div>
+          <div class="sss-a"><p>Kısa dönem kiralanan ev/daireler, Turizm Amaçlı Kiralama İzin Belgesi alınmış olsa dahi Kültür ve Turizm Bakanlığı tarafından resmi bir &quot;konaklama tesisi&quot; sayılmadığından genel KDV oranı olan %20&#x27;ye tabidir. İzmir Defterdarlığı&#x27;nın 17.09.2024 tarihli özelgesi bu hususu teyit etmektedir. %10&#x27;luk indirimli oran yalnızca otel, motel, pansiyon, tatil köyü gibi gerçek konaklama tesislerinde ve işletme belgeli tesislerde uygulanır; izin belgesi bu oranı değiştirmez.</p></div>
         </details>
         <details class="sss-item">
           <summary>Konaklama vergisi nedir, oranı nedir?</summary>
