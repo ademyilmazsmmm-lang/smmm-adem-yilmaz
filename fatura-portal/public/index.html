@@ -379,11 +379,6 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     <div class="durum" id="iaBannerDurum" role="status"></div>
   </div>
 
-  <details class="card bolum" id="mesajKart"><summary><span class="no">✨</span><span class="bas">Müşterinin mesajından doldur</span></summary><div class="icerik">
-    <textarea id="mesaj" placeholder="Müşterinin mesajı: Ahmet Yılmaz'a 5.000 TL servis taşımacılık, kdv hariç" aria-label="Müşterinin mesajı"></textarea>
-    <button class="btn ikincil" type="button" id="oku" style="width:100%">Mesajdan doldur</button>
-  </div></details>
-
   <details class="card bolum" id="aliciKart"><summary><span class="no">1</span><span class="bas">Alıcı</span><small id="ozAlici"></small></summary><div class="icerik">
     <div><label for="alici">Alıcı</label><select id="alici"></select></div>
     <div class="alt" id="yeniAlici" hidden>
@@ -500,7 +495,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   <section data-sayfa="vd" class="liste" hidden>
   <div class="card" id="vdKart">
     <div class="kartbas"><h2>Vergi Dairesi</h2><small id="vdMuk"></small></div>
-    <div class="vdsek" id="vdSeg" role="group" aria-label="Vergi Dairesi bölümü"><button class="chip" type="button" data-vd="borc" aria-pressed="true">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false">Tebligat</button><button class="chip" type="button" data-vd="trafik" aria-pressed="false">Trafik cezası</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false">Gelen fatura</button><button class="chip" type="button" data-vd="yazi" aria-pressed="false">Borcu yoktur</button><button class="chip" type="button" data-vd="dilekce" aria-pressed="false">Dilekçelerim</button><button class="chip" type="button" data-vd="levha" aria-pressed="false">e-Vergi levhası</button><button class="chip" type="button" data-vd="tahakkuk" aria-pressed="false">Tahakkuk</button><button class="chip" type="button" data-vd="beyanname" aria-pressed="false">Beyannameler</button><button class="chip" type="button" data-vd="yoklama" aria-pressed="false">Yoklama fişi</button><button class="chip" type="button" data-vd="sicil" aria-pressed="false">Sicil bilgisi</button><button class="chip" type="button" data-vd="hesapozeti" aria-pressed="false">Hesap özeti</button><button class="chip" type="button" data-vd="arac" aria-pressed="false">Araçlarım</button><button class="chip" type="button" data-vd="pos" aria-pressed="false">POS</button><button class="chip" type="button" data-vd="haciz" aria-pressed="false">Haciz</button><button class="chip" type="button" data-vd="zrapor" aria-pressed="false">Z raporu</button><button class="chip" type="button" data-vd="kdv" aria-pressed="false">KDV raporu</button></div>
+    <div class="vdsek" id="vdSeg" role="group" aria-label="Vergi Dairesi bölümü"><button class="chip" type="button" data-vd="borc" aria-pressed="true">Borç durumu</button><button class="chip" type="button" data-vd="tebligat" aria-pressed="false">Tebligat</button><button class="chip" type="button" data-vd="trafik" aria-pressed="false">Trafik cezası</button><button class="chip" type="button" data-vd="gelen" aria-pressed="false">Gelen fatura</button><button class="chip" type="button" data-vd="yazi" aria-pressed="false">Borcu yoktur</button><button class="chip" type="button" data-vd="dilekce" aria-pressed="false">Dilekçelerim</button><button class="chip" type="button" data-vd="levha" aria-pressed="false">e-Vergi levhası</button><button class="chip" type="button" data-vd="bt" aria-pressed="false">Beyanname · Tahakkuk</button><button class="chip" type="button" data-vd="banka" aria-pressed="false">Banka evrakı</button><button class="chip" type="button" data-vd="yoklama" aria-pressed="false">Yoklama fişi</button><button class="chip" type="button" data-vd="sicil" aria-pressed="false">Sicil bilgisi</button><button class="chip" type="button" data-vd="hesapozeti" aria-pressed="false">Hesap özeti</button><button class="chip" type="button" data-vd="arac" aria-pressed="false">Araçlarım</button><button class="chip" type="button" data-vd="pos" aria-pressed="false">POS</button><button class="chip" type="button" data-vd="haciz" aria-pressed="false">Haciz</button><button class="chip" type="button" data-vd="zrapor" aria-pressed="false">Z raporu</button><button class="chip" type="button" data-vd="kdv" aria-pressed="false">KDV raporu</button></div>
     <div id="vdBaglan" style="display:grid;gap:8px">
       <p class="not" style="margin:0">Dijital Vergi Dairesi’ne bağlanmak için resimdeki <b>doğrulama kodunu</b> resimde göründüğü gibi (büyük/küçük harf aynen) yazın. Kullanıcı kodu ve şifre Ayarlar’daki GİB bilgisinden alınır.</p>
       <button class="btn ikincil" type="button" id="vdKodIste">Doğrulama kodu al</button>
@@ -1143,7 +1138,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function sifirla(){ son = { uuid: null, oid: null, hesap: null, imzali: false }; }
   function formuTemizle(){
     F.alici = ""; F.dahil = false; F.para = "TRY"; F.kur = ""; F.kalemler = [ilkKalem()]; F.tip = tipKalemden(F.kalemler[0]); if (F.tip === "OZELMATRAH") F.dahil = false;
-    $("mesaj").value = ""; $("ekNot").value = ""; $("notIrs").checked = true; $("tarih").value = bugunStr(); $("sorguDurum").textContent = ""; $("iadeNo").value = ""; $("iadeTarih").value = "";
+    $("ekNot").value = ""; $("notIrs").checked = true; $("tarih").value = bugunStr(); $("sorguDurum").textContent = ""; $("iadeNo").value = ""; $("iadeTarih").value = "";
     cizAlici(); cizKalemler(); formDoldur(); $("ozet").innerHTML = ""; $("ozetHata").textContent = ""; $("notOnizleme").textContent = ""; sonHesap = null; kontrolBtn();
   }
 
@@ -1155,34 +1150,6 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     /* Tek satırlı faturada hazır hizmet, fatura tipini de belirler (iade tipi korunur) */
     if (F.tip === "IADE") return;
     if (h.ozel) { F.tip = "OZELMATRAH"; F.dahil = false; k.istisna = ""; if (!(Number(k.kdv) > 0)) k.kdv = "20"; } else if (h.istisna) F.tip = "ISTISNA"; else if (h.tev > 0) F.tip = "TEVKIFAT"; else if (F.kalemler.length < 2) F.tip = "SATIS";
-  }
-  function mesajOku(){
-    var met = $("mesaj").value, kt = trk(met), m = mk(); if (!met.trim()) return;
-    var re = /(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?\s*(bin)?\s*(tl|₺|lira)?/gi, q, ad = [];
-    while ((q = re.exec(met))) {
-      var dg = q[1].replace(/\./g, ""); if (!q[4] && !q[3] && /^\d{10,11}$/.test(dg)) continue;
-      var n = parseFloat(dg + (q[2] ? "." + q[2] : "")); if (q[3]) n *= 1000; ad.push({ n: n, tl: !!(q[4] || q[3]) });
-    }
-    var sec = ad.filter(function(a){ return a.tl; })[0] || ad.sort(function(a, b){ return b.n - a.n; })[0];
-    if (!F.kalemler.length) F.kalemler = [ilkKalem()];
-    var k0 = F.kalemler[0];
-    if (sec) k0.fiyat = sec.n.toLocaleString("tr-TR", { useGrouping: false, maximumFractionDigits: 2 });
-    if (/dahil/.test(kt)) F.dahil = true; else if (/hariç|haric|\+\s*kdv|kdv\s*ayrı/.test(kt)) F.dahil = false;
-    HZ().forEach(function(x){ (x.anah || "").split(",").forEach(function(w){ w = trk(w).trim(); if (w && kt.indexOf(w) > -1) hazirUygula(k0, x); }); });
-    if (/tevkifats[ıi]z/.test(kt) && F.tip === "TEVKIFAT") F.tip = "SATIS";
-    var bul = null;
-    if (m) m.aliciler.forEach(function(a){
-      var p = trk(a.ad).split(/\s+/).filter(function(w){ return w.length > 2; });
-      var e = p.filter(function(w){ return kt.indexOf(w.slice(0, Math.max(4, w.length - 2))) > -1; });
-      if (p.length && e.length >= Math.min(2, p.length) && (!bul || e.length > bul.n)) bul = { id: a.id, n: e.length };
-    });
-    var vk = met.match(/\b\d{10,11}\b/);
-    if (bul) F.alici = bul.id; else { F.alici = "__yeni"; if (vk) $("yVkn").value = vk[0]; }
-    cizAlici(); cizKalemler(); formDoldur();
-    if (!bul && vk) vknSorgu(false);
-    onizle();
-    ["aliciKart", "malKart"].forEach(function(i){ $(i).open = true; }); $("mesajKart").open = false;
-    durum(bul ? "Mesajdan dolduruldu. Alıcıyı ve tutarı kontrol edin." : "Alıcı kayıtlı değil; unvanı yazıp kaydedebilirsiniz.", "ok");
   }
 
   /* ---------- fatura kesme adımları ---------- */
@@ -1430,7 +1397,6 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var i = e.target.getAttribute("data-ksil"); if (i == null || F.kalemler.length < 2) return;
     F.kalemler.splice(+i, 1); cizKalemler(); onizle();
   });
-  $("oku").addEventListener("click", mesajOku);
   /* GİB sorgusu: VKN/TCKN yazılınca ad, adres ve vergi dairesi getirilir (yazılmış alanların üstüne yazmaz) */
   function tcknGecerli(n){
     if (!/^[1-9]\d{10}$/.test(n)) return false;
@@ -2677,6 +2643,8 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     tebligat: "E-Tebligat ekranındaki tebligatlar. Önemli (inceleme 77, ihbarname 13, VDK, haciz…) ve okunmamış olanlar sekme rozetinde sayılır; ödeme emirleri (66) önemsiz sayılır.",
     trafik: "Trafik idari para cezası tebligatları (e-Tebligat ekranından süzülür).",
     levha: "Daha önce oluşturulmuş e-Vergi levhalarınız (yıla göre). Türkçe ya da İngilizce PDF olarak açabilirsiniz.",
+    bt: "Onaylı beyannameler ve tahakkuk fişleri yan yana: her dönemin beyannamesi solda, tahakkuk fişi sağda. Başlangıç ve bitiş ayını seçip Sorgula’ya basın; PDF’yi açabilir, paylaşabilir ya da e-postayla gönderebilirsiniz.",
+    banka: "Bankaların istediği evraklar tek ekranda: e-Vergi levhası, faaliyet (mükellefiyet) belgesi, son geçici vergi beyannamesi ve tahakkuku, geçen yılın kurumlar / gelir vergisi beyannamesi ve tahakkuku.",
     beyanname: "Beyannameler: İnternet Vergi Dairesi’nde (Mükellef Dosyası → Beyannameler) onaylı beyannameler. Başlangıç ve bitiş ayını seçip Sorgula’ya basın; her beyannamenin PDF’sini açabilir, paylaşabilir ya da e-postayla gönderebilirsiniz.",
     dilekce: "Dilekçelerim: Dijital Vergi Dairesi’nden gönderdiğiniz dilekçeler (Gönderilen Dilekçeler). Tarih aralığını seçip Sorgula’ya basın; her dilekçenin durumunu ve ilgili evraklarını (üst yazı, ekler) açabilir, e-postayla gönderebilir ya da paylaşabilirsiniz.",
     yazi: "Vergi dairesinden “borç durum yazısı” (borcu yoktur yazısı) talep edilir; son 90 gündeki talepleriniz aşağıda listelenir.",
@@ -3196,6 +3164,89 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       }).join("") : '<span class="not">Bu dilekçede açılabilir evrak yok.</span>';
     }, function(er){ if (oturumDustu(er)) return; if (er.girisGerek) { VD.bagli = false; vdBagDurum(); } kap.innerHTML = '<span class="durum hata">' + esc(er.message) + '</span>'; }).then(function(){ b.disabled = false; });
   });
+  /* ---------- Beyanname · Tahakkuk (yan yana) ve Banka evrakı ---------- */
+  function btAy(t){ var q = /^(\d{4})-?(\d{2})/.exec(String(t || "")); return q ? +q[1] * 12 + (+q[2]) : 0; }
+  function btGrupB(t){ return /^DAMGA/i.test(String(t || "")) ? "DAM" : bynGrup(t); }
+  function btThkBul(b, thk){ var a = btAy(b.bas), z = btAy(b.bit) || a, g = btGrupB(b.tur); return (thk || []).filter(function(d){ var m = btAy(d.vergiDonem); return thkGrup(d) === g && m >= a && m <= z; }); }
+  function btBtn(tur, n){
+    var ek = ' data-pn="' + n + '" data-pix="0" style="min-height:40px;padding:6px 10px"';
+    return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><a class="btn" style="min-height:40px;padding:6px 14px;text-decoration:none" target="_blank" rel="noopener" href="' + belgeUrl(tur, n, 0) + '">PDF</a><button class="k" type="button" data-pshare="' + tur + '"' + ek + ' aria-label="Paylaş">↗ Paylaş</button><button class="k" type="button" data-pmail="' + tur + '"' + ek + ' aria-label="E-posta ile gönder" title="E-posta ile gönder">✉</button><span class="not" data-pshare-d style="margin:0;font-size:.78rem;flex-basis:100%"></span></div>';
+  }
+  function btYan(baslik, govde){ return '<div class="kayit" style="display:grid;gap:6px;align-content:start;min-width:0"><b style="font-size:.86rem">' + baslik + '</b>' + govde + '</div>'; }
+  function btBynKutu(b){
+    if (!b) return btYan("Beyanname", '<span class="not" style="margin:0;font-size:.8rem">Beyanname kaydı yok</span>');
+    return btYan("Beyanname", (b.aciklama ? '<span class="not" style="margin:0;font-size:.76rem;color:var(--warn,#b36b00)">Düzeltme: ' + esc(b.aciklama) + '</span>' : '<span class="not" style="margin:0;font-size:.76rem">onaylı beyanname</span>') + btBtn("byn", b.n));
+  }
+  function btThkKutu(l){
+    if (!l || !l.length) return btYan("Tahakkuk", '<span class="not" style="margin:0;font-size:.8rem">Bu dönem için tahakkuk fişi bulunamadı</span>');
+    return btYan("Tahakkuk", l.map(function(d){ return '<div style="display:grid;gap:6px">' + (l.length > 1 || d.kabulTarihi ? '<span class="not" style="margin:0;font-size:.76rem">' + esc((l.length > 1 ? String(d.vergiKodu || "") + " · " : "") + (d.kabulTarihi ? "kabul " + tarihYaz(d.kabulTarihi) : "")) + '</span>' : "") + btBtn("thk", d.n) + '</div>'; }).join('<div style="border-top:1px solid var(--line);margin:2px 0"></div>'));
+  }
+  function btCift(baslik, alt, b, thk){
+    return '<div style="display:grid;gap:6px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>' + esc(baslik) + '</b><span style="font-weight:650">' + esc(alt) + '</span></div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">' + btBynKutu(b) + btThkKutu(thk) + '</div></div>';
+  }
+  function btHtml(s){
+    var byn = s.byn.beyannameler || [], thk = s.thk.kayitlar || [], kullan = {}, satir = [];
+    byn.forEach(function(b){ var es = btThkBul(b, thk); es.forEach(function(d){ kullan[d.n] = 1; }); satir.push({ g: btGrupB(b.tur), s: btAy(b.bit) || btAy(b.bas), b: b, t: es }); });
+    thk.forEach(function(d){ if (!kullan[d.n]) satir.push({ g: thkGrup(d), s: btAy(d.vergiDonem), b: null, t: [d] }); });
+    if (!satir.length) return '<p class="not" style="margin:0">' + esc(s.zaman) + '</p><p class="not">Bu aylarda beyanname ya da tahakkuk kaydı bulunamadı.</p>';
+    var say = {}; satir.forEach(function(r){ say[r.g] = (say[r.g] || 0) + 1; }); var f = VD.btF && say[VD.btF] ? VD.btF : "";
+    var gruplar = THK_GRUP.concat([]); 
+    var cip = '<div class="vdsek" role="group" aria-label="Tür" style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" type="button" data-btg="" aria-pressed="' + (f === "") + '">Tümü ' + satir.length + '</button>' + gruplar.filter(function(g){ return say[g[0]]; }).map(function(g){ return '<button class="chip" type="button" data-btg="' + g[0] + '" aria-pressed="' + (f === g[0]) + '">' + g[1] + ' ' + say[g[0]] + '</button>'; }).join("") + '</div>';
+    var liste = satir.filter(function(r){ return !f || r.g === f; }).sort(function(a, b){ return b.s - a.s || (b.b ? 1 : 0) - (a.b ? 1 : 0); });
+    return '<p class="not" style="margin:0">' + byn.length + ' beyanname · ' + thk.length + ' tahakkuk · ' + esc(s.zaman) + '</p>' + cip + liste.map(function(r){
+      var d0 = r.b ? bynDonem(r.b) : ayAdi(r.t[0].vergiDonem), bas = r.b ? bynAd(r.b.tur) : String(r.t[0].vergiKodu || "Tahakkuk");
+      return '<div class="kayit" style="display:grid;gap:8px">' + btCift(bas, d0, r.b, r.t).replace('<div style="display:grid;gap:6px"><div', '<div style="display:grid;gap:6px"><div') + '</div>';
+    }).join("");
+  }
+  $("vdListe").addEventListener("click", function(e){ var c = e.target.closest("[data-btg]"); if (!c) return; VD.btF = c.getAttribute("data-btg"); vdCiz(); });
+  /* iki sorgu art arda: beyanname listesi ve tahakkuk listesi (aynı aylar); banka evrakında iki ayrı aralık (n numaraları eklemeli) */
+  function btApi(yol, govde){ return api(yol, "POST", Object.assign({ mukellefId: VD.mid }, govde)); }
+  function btSorgula(sek){
+    var b = $("vdSorgula"), d = $("vdDurum"); b.disabled = true; d.className = "durum"; var son = function(){ b.disabled = false; };
+    var hata = function(er){ VD.sonuc[sek] = null; if (VD.sek === sek) vdCiz(); vdHata(er, d); son(); };
+    if (sek === "bt") {
+      var bas = $("vdTBas").value, bit = $("vdTBit").value; d.textContent = "Beyannameler alınıyor…";
+      btApi("/api/vd/beyanname", { tbas: bas, tbit: bit }).then(function(r1){
+        d.textContent = "Tahakkuk fişleri alınıyor…";
+        return btApi("/api/vd/tahakkuk", { tbas: bas, tbit: bit }).then(function(r2){
+          VD.sonuc.bt = { byn: r1, thk: r2, zaman: new Date().toLocaleString("tr-TR") }; VD.sonuc.banka = null; d.textContent = ""; if (VD.sek === "bt") { vdCiz(); sonucaGit("vdListe"); } son();
+        });
+      }).catch(hata);
+      return;
+    }
+    /* banka evrakı: levha (bu yıl), son geçici + geçen yıl yıllık beyanname ve tahakkukları */
+    var bg = bugunStr(), Y = +bg.slice(0, 4), AY = bg.slice(5, 7), hatalar = [], ad = {};
+    var adim = function(metin, yol, govde, anahtar){ d.textContent = metin; return btApi(yol, govde).then(function(r){ ad[anahtar] = r; }, function(er){ if (er && (er.girisGerek || er.oturum)) throw er; hatalar.push(metin.replace("…", "") + ": " + er.message); }); };
+    adim("e-Vergi levhası alınıyor…", "/api/vd/levha", { yil: Y }, "levha")
+      .then(function(){ return adim("Geçen yılın beyannameleri alınıyor…", "/api/vd/beyanname", { tbas: (Y - 1) + "-01", tbit: (Y - 1) + "-12" }, "b1"); })
+      .then(function(){ return adim("Bu yılın beyannameleri alınıyor…", "/api/vd/beyanname", { tbas: Y + "-01", tbit: Y + "-" + AY, ekle: true }, "b2"); })
+      .then(function(){ return adim("Geçen yılın tahakkukları alınıyor…", "/api/vd/tahakkuk", { tbas: (Y - 1) + "-01", tbit: (Y - 1) + "-12" }, "t1"); })
+      .then(function(){ return adim("Bu yılın tahakkukları alınıyor…", "/api/vd/tahakkuk", { tbas: Y + "-01", tbit: Y + "-" + AY, ekle: true }, "t2"); })
+      .then(function(){
+        VD.sonuc.banka = { Y: Y, levha: ad.levha || null, byn: [].concat((ad.b1 && ad.b1.beyannameler) || [], (ad.b2 && ad.b2.beyannameler) || []), thk: [].concat((ad.t1 && ad.t1.kayitlar) || [], (ad.t2 && ad.t2.kayitlar) || []), hatalar: hatalar, zaman: new Date().toLocaleString("tr-TR") };
+        VD.sonuc.bt = null; d.textContent = ""; if (VD.sek === "banka") { vdCiz(); sonucaGit("vdListe"); } son();
+      }).catch(hata);
+  }
+  function bankaHtml(s){
+    if (!s) return '<p class="not">“Sorgula”ya basınca banka evrakları hazırlanır.</p>';
+    var Y = s.Y, kart = function(baslik, ic, not){ return '<div class="kayit" style="display:grid;gap:8px"><b>' + baslik + '</b>' + (not ? '<span class="not" style="margin:0;font-size:.8rem">' + not + '</span>' : "") + ic + '</div>'; };
+    var yok = function(m){ return '<p class="not" style="margin:0;color:var(--danger)">' + m + '</p>'; };
+    var h = '<p class="not" style="margin:0">' + esc(s.zaman) + '</p>';
+    /* 1) e-Vergi levhası */
+    var lv = s.levha && s.levha.levhalar || [];
+    h += kart("1 · e-Vergi levhası (" + Y + ")", lv.length ? lv.map(function(l){ var ln = function(dil, ad){ return '<a class="btn' + (dil === "en" ? " ikincil" : "") + '" style="min-height:40px;padding:6px 14px;text-align:center;text-decoration:none;flex:1" target="_blank" rel="noopener" href="/api/vd/levha?mid=' + encodeURIComponent(VD.mid) + '&n=' + l.n + '&dil=' + dil + '">' + ad + '</a>'; }; return '<div style="display:flex;gap:8px">' + ln("tr", "Türkçe PDF") + ln("en", "İngilizce PDF") + '</div>'; }).join("") : yok(s.levha ? Y + " yılına ait e-Vergi levhası bulunamadı." : "e-Vergi levhası alınamadı."));
+    /* 2) faaliyet belgesi */
+    h += kart("2 · Faaliyet (mükellefiyet) belgesi", '<button class="btn ikincil" type="button" data-bk-git="yazi">Mükellefiyet yazısı ekranına git</button>', "Vergi dairesinden alınan faaliyet / mükellefiyet yazısıdır; “Borcu yoktur” bölümünden istenir ve oradan paylaşılır.");
+    /* 3) son geçici vergi */
+    var gec = s.byn.filter(function(b){ return bynGrup(b.tur) === "GEC"; }).sort(function(a, b){ return (btAy(b.bit) - btAy(a.bit)) || (btAy(b.bas) - btAy(a.bas)); })[0];
+    h += kart("3 · Son geçici vergi beyannamesi ve tahakkuku", gec ? btCift(bynAd(gec.tur), bynDonem(gec), gec, btThkBul(gec, s.thk)) : yok("Geçici vergi beyannamesi bulunamadı (bu yıl henüz verilmemiş olabilir)."));
+    /* 4) geçen yıl yıllık beyanname */
+    var yil = s.byn.filter(function(b){ var g = bynGrup(b.tur); return (g === "KV" || g === "GV") && /^(\d{4})/.exec(b.bas || "") && +b.bas.slice(0, 4) === Y - 1; });
+    h += kart("4 · " + (Y - 1) + " yılı kurumlar / gelir vergisi beyannamesi ve tahakkuku", yil.length ? yil.map(function(b){ return btCift(bynAd(b.tur), bynDonem(b), b, btThkBul(b, s.thk)); }).join('<div style="border-top:1px solid var(--line)"></div>') : yok((Y - 1) + " yılı kurumlar / gelir vergisi beyannamesi bulunamadı (henüz verilmemiş ya da kayıt GİB’de görünmüyor)."));
+    if (s.hatalar && s.hatalar.length) h += '<div class="durum hata" style="display:block">' + s.hatalar.map(esc).join("<br>") + '</div>';
+    return h;
+  }
+  $("vdListe").addEventListener("click", function(e){ var g = e.target.closest("[data-bk-git]"); if (!g) return; VD.sek = g.getAttribute("data-bk-git"); vdSekmeCiz(); if (VD.bagli && !VD.sonuc[VD.sek]) vdSorgula(); window.scrollTo(0, 0); });
   function vdCiz(){
     var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
     if (VD.sek === "zrapor") { liste.innerHTML = (s && s.bildirimler ? '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdZHtml(s) : '<p class="not">Yıl ve ayı seçip “Sorgula”ya basın.</p>') + (ROL === "ofis" && VD.bagli ? '<details class="alt2"><summary>Geliştirme aracı</summary><div class="icerik"><button class="k" type="button" id="vdZOku">İnternet VD sayfasını oku (geliştirme)</button></div></details>' : "") + (VD.sonuc.zraporDev ? isvHtml(VD.sonuc.zraporDev, "İnternet Vergi Dairesi · Z raporu") : ""); tani.hidden = true; return; }
@@ -3203,6 +3254,8 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (VD.sek === "telefon" || VD.sek === "kdv") { liste.innerHTML = ""; tani.hidden = true; return; }
     if (!s && VD.sek === "sicil") { liste.innerHTML = vdDefterAlan(); tani.hidden = true; return; }
     if (!s) { liste.innerHTML = ""; tani.hidden = true; return; }
+    if (VD.sek === "bt") { liste.innerHTML = btHtml(s); tani.hidden = true; return; }
+    if (VD.sek === "banka") { liste.innerHTML = bankaHtml(s); tani.hidden = true; return; }
     if (VD.sek === "beyanname") { liste.innerHTML = '<p class="not" style="margin:0">' + s.beyannameler.length + ' beyanname · ' + esc(s.zaman) + '</p>' + vdBynHtml(s); tani.hidden = true; return; }
     if (VD.sek === "dilekce") { liste.innerHTML = '<p class="not" style="margin:0">' + s.dilekceler.length + ' dilekçe · ' + esc(s.zaman) + '</p>' + vdDilHtml(s); tani.hidden = true; return; }
     if (VD.sek === "tahakkuk") { liste.innerHTML = '<p class="not" style="margin:0">' + s.kayitlar.length + ' tahakkuk · ' + esc(s.zaman) + "</p>" + vdThkHtml(s); $("vdTaniMetin").textContent = JSON.stringify({ sekil: s.sekil, denenenBicimler: s.deneme }, null, 1); tani.hidden = false; return; }
@@ -3238,7 +3291,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var dbm = mBul(VD.mid), dbVar = !!(dbm && dbm.defterBeyan); var dbc = $("vdSeg").querySelector('[data-vd="hesapozeti"]'); if (dbc) dbc.hidden = !dbVar; if (VD.sek === "hesapozeti" && !dbVar) VD.sek = "borc";
     $("vdSeg").querySelectorAll("[data-vd]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-vd") === VD.sek ? "true" : "false"); });
     $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen" && VD.sek !== "dilekce"; $("vdDilYaz").hidden = VD.sek !== "dilekce" || !VD.bagli; $("vdTebIlet").hidden = VD.sek !== "tebligat" || !VD.bagli; $("vdYazi").hidden = VD.sek !== "yazi" || !VD.bagli; if (VD.sek === "yazi" && VD.bagli) vdYaziAlan(); $("vdYil").hidden = VD.sek !== "levha" || !VD.bagli; if (VD.sek === "levha") vdYilCiz();
-    $("vdTahakkuk").hidden = (VD.sek !== "tahakkuk" && VD.sek !== "beyanname") || !VD.bagli; $("vdArac").hidden = VD.sek !== "arac" || !VD.bagli; $("vdPos").hidden = (VD.sek !== "pos" && VD.sek !== "zrapor") || !VD.bagli; $("vdTel").hidden = VD.sek !== "telefon" || !VD.bagli; $("vdKdv").hidden = VD.sek !== "kdv"; $("vdHesap").hidden = VD.sek !== "hesapozeti"; $("vdHaciz").hidden = VD.sek !== "haciz" || !VD.bagli; $("vdHacizDerin").hidden = ROL !== "ofis"; if (VD.sek === "kdv") kdvEtiket(); if (VD.sek === "hesapozeti") vdHoAlan(); if (VD.sek === "tahakkuk" || VD.sek === "beyanname") vdTahakkukAlan(); if (VD.sek === "pos" || VD.sek === "zrapor") vdPosAlan(); if (VD.sek === "telefon" && VD.bagli) vdTelAc(); $("vdTani").hidden = true; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
+    $("vdTahakkuk").hidden = VD.sek !== "bt" || !VD.bagli; $("vdArac").hidden = VD.sek !== "arac" || !VD.bagli; $("vdPos").hidden = (VD.sek !== "pos" && VD.sek !== "zrapor") || !VD.bagli; $("vdTel").hidden = VD.sek !== "telefon" || !VD.bagli; $("vdKdv").hidden = VD.sek !== "kdv"; $("vdHesap").hidden = VD.sek !== "hesapozeti"; $("vdHaciz").hidden = VD.sek !== "haciz" || !VD.bagli; $("vdHacizDerin").hidden = ROL !== "ofis"; if (VD.sek === "kdv") kdvEtiket(); if (VD.sek === "hesapozeti") vdHoAlan(); if (VD.sek === "bt") vdTahakkukAlan(); if (VD.sek === "pos" || VD.sek === "zrapor") vdPosAlan(); if (VD.sek === "telefon" && VD.bagli) vdTelAc(); $("vdTani").hidden = true; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
   }
   function vdAc(){
     var l = V && V.mukellefler || [], ofis = ROL === "ofis";
@@ -3598,6 +3651,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   });
   function vdSorgula(){
     var b = $("vdSorgula"), sek = VD.sek, d = $("vdDurum"); if (!VD.mid || !VD.bagli || sek === "haciz" || sek === "telefon" || sek === "kdv" || sek === "hesapozeti") return;
+    if (sek === "bt" || sek === "banka") { btSorgula(sek); return; }
     b.disabled = true; d.className = "durum"; d.textContent = "Sorgulanıyor…";
     var govde = { mukellefId: VD.mid, bas: $("vdBas").value, bit: $("vdBit").value, yil: VD.yil };
     if (sek === "tahakkuk" || sek === "beyanname") { govde.tbas = $("vdTBas").value; govde.tbit = $("vdTBit").value; } else if (sek === "arac") govde.gecmis = !!VD.aracGecmis; else if (sek === "pos" || sek === "zrapor") { govde.yil = $("vdPosYil").value; govde.ay = $("vdPosAy").value; }

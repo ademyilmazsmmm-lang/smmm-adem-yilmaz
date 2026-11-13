@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-13-278";
+const SURUM = "2026-11-13-279";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -883,7 +883,7 @@ async function api(req, res, yol) {
       if (ne === "hesapozeti") return cevap(res, 200, await vdSorgu(m, (x) => x.hesapOzeti(g.yil, g.mali === false || g.mali === "0" ? false : true, g.bas ? String(g.bas) : "", g.bit ? String(g.bit) : "")));
       if (ne === "sicil") return cevap(res, 200, await vdSorgu(m, (x) => x.sicilBilgi()));
       if (ne === "kdvdevir") return cevap(res, 200, await vdSorgu(m, (x) => x.kdvDevir(g.yil, g.ay)));
-      if (ne === "tahakkuk") return cevap(res, 200, await vdSorgu(m, (x) => x.tahakkukListe(String(g.tbas || ""), String(g.tbit || ""))));
+      if (ne === "tahakkuk") return cevap(res, 200, await vdSorgu(m, (x) => x.tahakkukListe(String(g.tbas || ""), String(g.tbit || ""), g.ekle === true)));
       if (ne === "arac") return cevap(res, 200, await vdSorgu(m, (x) => x.aracListe(g.gecmis === true)));
       if (ne === "pos") return cevap(res, 200, await vdSorgu(m, (x) => x.posListe(String(g.yil || ""), String(g.ay || ""))));
       if (ne === "telefon") {
@@ -917,7 +917,7 @@ async function api(req, res, yol) {
         }
         return cevap(res, 400, { hata: "Geçersiz işlem." });
       }
-      if (ne === "beyanname") return cevap(res, 200, await vdSorgu(m, (x) => x.beyannameListe(String(g.tbas || ""), String(g.tbit || ""), String(m.vkn || "")))); /* İnternet VD · Mükellef Dosyası → Beyannameler */
+      if (ne === "beyanname") return cevap(res, 200, await vdSorgu(m, (x) => x.beyannameListe(String(g.tbas || ""), String(g.tbit || ""), String(m.vkn || ""), g.ekle === true))); /* İnternet VD · Mükellef Dosyası → Beyannameler */
       if (ne === "dilekce-hazirla") return cevap(res, 200, await vdSorgu(m, (x) => x.dilekceHazirla()));
       if (ne === "dilekce-sms") {
         const sin = (dilekceSmsSayac.get(m.id) || []).filter((t) => Date.now() - t < 600e3); if (sin.length >= 3) return cevap(res, 429, { hata: "10 dakikada en çok 3 SMS istenebilir; biraz bekleyin." });

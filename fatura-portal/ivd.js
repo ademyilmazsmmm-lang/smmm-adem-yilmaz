@@ -238,7 +238,7 @@ class Ivd {
     if (j && j.error && String(j.error) !== "0") { const m = ((j.messages || []).map((x) => x && x.text).filter(Boolean).join(" ")).slice(0, 200); this.intvrgOt = null; throw new Error(m || "İnternet Vergi Dairesi hatası."); }
     return j;
   }
-  async beyannameListe(bas, bit, vknIpucu) {
+  async beyannameListe(bas, bit, vknIpucu, ekle) { /* ekle: önceki listeye eklenir, n numaraları çakışmaz (banka evrakı gibi birden çok aralık için) */
     const ay = (t) => /^\d{4}-(0[1-9]|1[0-2])$/.test(t || ""); if (!ay(bas) || !ay(bit)) throw new Error("Başlangıç ve bitiş ayını seçin."); if (bas > bit) throw new Error("Bitiş ayı başlangıçtan önce olamaz.");
     const [by, bm] = bas.split("-"), [ey, em] = bit.split("-"), m = (v) => (v === undefined || v === null ? "" : String(v));
     const oz = await this.intvrgCagir("userSessionService_getUserSessionInfo", { token: (await this.intvrgOturum()).token, rfDataInfo: [] }), od = (oz && oz.data && typeof oz.data === "object" ? oz.data : oz) || {};
@@ -251,8 +251,9 @@ class Ivd {
     }
     if (dizi === null) throw sonHata || new Error("Beyanname bilgisi alınamadı.");
     const donem = (d) => { const q = /^(\d{4})(\d{2})(\d{4})(\d{2})$/.exec(String(d || "")); return q ? { bas: q[1] + "-" + q[2], bit: q[3] + "-" + q[4] } : { bas: "", bit: "" }; };
-    this.beyannameler = dizi.map((b) => Object.assign({ oid: m(b.beyoid), tur: m(b.beyanname_turu), aciklama: m(b.aciklama), kaynak: m(b.kaynak) }, donem(b.donem)));
-    return { beyannameler: this.beyannameler.map((b, n) => ({ n, tur: b.tur, bas: b.bas, bit: b.bit, aciklama: b.aciklama, kaynak: b.kaynak })), sekil: "" };
+    const yeni = dizi.map((b) => Object.assign({ oid: m(b.beyoid), tur: m(b.beyanname_turu), aciklama: m(b.aciklama), kaynak: m(b.kaynak) }, donem(b.donem))), taban = ekle ? (this.beyannameler || []).length : 0;
+    this.beyannameler = ekle ? (this.beyannameler || []).concat(yeni) : yeni;
+    return { beyannameler: yeni.map((b, i) => ({ n: taban + i, tur: b.tur, bas: b.bas, bit: b.bit, aciklama: b.aciklama, kaynak: b.kaynak })), sekil: "" };
   }
   async beyannameIndir(n) {
     const b = (this.beyannameler || [])[n]; if (!b || !b.oid) throw new Error("Beyanname bulunamadı; listeyi yenileyin.");
@@ -362,7 +363,7 @@ class Ivd {
   }
   /* ---- Tahakkuk Bilgilerim: vergi dairesi + ay aralığı; her fiş için tahakkuk PDF'i ----
    * Portalın tarih biçimi kod okumasından kesin anlaşılamadığı için kabul edilen ilk biçim kullanılır ve hatırlanır. bas/bit "YYYY-AA" */
-  async tahakkukListe(bas, bit) {
+  async tahakkukListe(bas, bit, ekle) {
     const ay = (t) => /^\d{4}-(0[1-9]|1[0-2])$/.test(t || "");
     if (!ay(bas) || !ay(bit)) throw new Error("Başlangıç ve bitiş ayını seçin.");
     if (bas > bit) throw new Error("Bitiş ayı başlangıçtan önce olamaz.");
@@ -391,8 +392,8 @@ class Ivd {
     }
     this.sonDeneme = deneme;
     if (hepsi === null) { if (bosGeldi) hepsi = []; else throw sonHata || new Error("Tahakkuk sorgusu kabul edilmedi."); }
-    this.tahakkuklar = hepsi;
-    const kayit = hepsi.map((d, n) => ({ n, vdAdi: d.vdAdi || "", vergiKodu: d.vergiKodu || "", vergiDonem: d.vergiDonem || "", kabulTarihi: d.kabulTarihi || "", fisNo: d.fisNo || "" }));
+    const taban = ekle ? (this.tahakkuklar || []).length : 0; this.tahakkuklar = ekle ? (this.tahakkuklar || []).concat(hepsi) : hepsi;
+    const kayit = hepsi.map((d, i) => ({ n: taban + i, vdAdi: d.vdAdi || "", vergiKodu: d.vergiKodu || "", vergiDonem: d.vergiDonem || "", kabulTarihi: d.kabulTarihi || "", fisNo: d.fisNo || "" }));
     return { kayitlar: kayit, sekil: sekil(son), deneme, vdler: vdler.length };
   }
   /* Önceki ayın KDV tahakkuk fişinden "devreden KDV"yi okur: KDV beyannamesi dönemi izleyen ay verildiği için kabul tarihi dönemden en çok 3 ay sonradır */
@@ -868,7 +869,7 @@ class SahteIvd {
   async tebligatIletisim() { this.tebIletisim = this.tebIletisim || [{ tckn: "12345678901", vkn: "1111111111", unvan: "ÖRNEK MÜKELLEF", cep1: "05320000000", cep2: "", ep1: "ornek@ornek.com", ep2: "" }]; return { kayitlar: this.tebIletisim.map((d, n) => Object.assign({ n, guncellenebilir: !!d.tckn }, d)), sekil: "" }; }
   async tebligatIletisimKodIste(n, tel) { if (!(this.tebIletisim || [])[n]) throw new Error("Kayıt bulunamadı."); if (!/^05\d{9}$/.test(String(tel))) throw new Error("Cep telefonunu 05XX XXX XX XX biçiminde yazın."); this.bekleyenTebTel = tel; return { tamam: true, mesaj: "Onay kodu yeni numaraya gönderildi.", sekil: "" }; }
   async tebligatIletisimGuncelle(n, p) { const k = (this.tebIletisim || [])[n]; if (!k) throw new Error("Kayıt bulunamadı."); if (p.kod !== "123456") throw new Error("Bilgiler güncellenmedi: SMS kodu hatalı."); Object.assign(k, { cep1: p.cep1, cep2: p.cep2 || "", ep1: p.ep1, ep2: p.ep2 || "" }); return { tamam: true, mesaj: "e-Tebligat bildirim bilgileriniz güncellendi.", sekil: "" }; }
-  async beyannameListe(bas, bit) { this.beyannameler = [{ oid: "B1", tur: "KDV1_45", bas: "2026-09", bit: "2026-09", aciklama: "", kaynak: "internet" }, { oid: "B2", tur: "MUHSGK_21", bas: "2026-09", bit: "2026-09", aciklama: "", kaynak: "internet" }, { oid: "B3", tur: "KDV1_45", bas: "2026-03", bit: "2026-03", aciklama: "SEHVEN BİLDİRİLMİŞTİR.", kaynak: "internet" }, { oid: "B4", tur: "GGECICI_24", bas: "2026-04", bit: "2026-06", aciklama: "", kaynak: "internet" }]; return { beyannameler: this.beyannameler.map((b, n) => Object.assign({ n }, b)), sekil: "" }; }
+  async beyannameListe(bas, bit, vkn, ekle) { const taban0 = ekle ? (this.beyannameler || []).length : 0, eski = ekle ? (this.beyannameler || []) : []; const yeniB = [{ oid: "B1", tur: "KDV1_45", bas: "2026-09", bit: "2026-09", aciklama: "", kaynak: "internet" }, { oid: "B2", tur: "MUHSGK_21", bas: "2026-09", bit: "2026-09", aciklama: "", kaynak: "internet" }, { oid: "B3", tur: "KDV1_45", bas: "2026-03", bit: "2026-03", aciklama: "SEHVEN BİLDİRİLMİŞTİR.", kaynak: "internet" }, { oid: "B4", tur: "GGECICI_24", bas: "2026-04", bit: "2026-06", aciklama: "", kaynak: "internet" }, { oid: "B5", tur: "GELIR_1", bas: "2025-01", bit: "2025-12", aciklama: "", kaynak: "internet" }].filter((b) => b.bas >= bas.slice(0, 7) && b.bit <= bit.slice(0, 7)); this.beyannameler = eski.concat(yeniB); return { beyannameler: yeniB.map((b, i) => Object.assign({ n: taban0 + i }, b)), sekil: "" }; }
   async beyannameIndir(n) { const b = (this.beyannameler || [])[n]; if (!b) throw new Error("Beyanname bulunamadı; listeyi yenileyin."); const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 18 Tf 20 60 Td (ORNEK BEYANNAME) Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF"; return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "beyanname-" + b.tur + ".pdf" }; }
   async dilekceHazirla() { this.dilekceHazir = { adres: "ÖRNEK MAH. DENEME SK. NO:1 ÜMRANİYE/İSTANBUL", adresNo: "1", vdler: [{ kod: "034255", ad: "Ümraniye Vergi Dairesi" }, { kod: "034001", ad: "Kadıköy Vergi Dairesi" }] }; return { adres: this.dilekceHazir.adres, vdler: this.dilekceHazir.vdler }; }
   async dilekceSmsGonder() { return { tamam: true, mesaj: "Doğrulama kodu telefona gönderildi." }; }
@@ -893,7 +894,7 @@ class SahteIvd {
   async gelen() { const d = [{ unvan: "ÖRNEK TEDARİKÇİ A.Ş.", faturaNo: "ABC2026000000012", duzenlenmeTarihi: "12.10.2026", toplamTutar: 11800, odenecekTutar: 11800, vergilerTutari: 1800, paraBirimi: "TRY" }]; return { kayitlar: kayitlar(d), sekil: sekil(d) }; }
   async interaktifSayfa(sayfa, derin) { if (sayfa && !/^[A-Z0-9_]{5,80}$/.test(String(sayfa))) throw new Error("Geçersiz sayfa."); return { betikOzet: derin ? "# js/cs/side-common.js (123 bayt)\nuçlar: ornek.jsp" : "", uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: "/tvd_side/index.jsp?token=<jeton> (HTTP 200)", baslik: "Örnek haciz sorgusu", metin: "Örnek içerik: kayıt bulunamadı.", formlar: [], alanlar: [], tablolar: [], baglantilar: [], yonlendirme: [], satirlar: [], tabloHam: "", ham: "<html>örnek</html>" }; }
   ornekPdf(metin) { return { veri: Buffer.from("%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 16 Tf 20 60 Td (" + metin + ") Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF"), tur: "application/pdf", satir: true, ad: String(metin).toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".pdf" }; }
-  async tahakkukListe(bas, bit) { if (!bas || !bit) throw new Error("Başlangıç ve bitiş ayını seçin."); this.tahakkuklar = [{ vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0015 - KDV", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:12:00", fisNo: "2026102601KDV0001" }, { vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0003 - MUHTASAR", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:05:00", fisNo: "2026102601MUH0002" }]; return { kayitlar: this.tahakkuklar.map((d, n) => Object.assign({ n }, d)), sekil: {} }; }
+  async tahakkukListe(bas, bit, ekle) { if (!bas || !bit) throw new Error("Başlangıç ve bitiş ayını seçin."); const taban0 = ekle ? (this.tahakkuklar || []).length : 0, eski = ekle ? (this.tahakkuklar || []) : []; const yeniT = [{ vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0015 - KDV", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:12:00", fisNo: "2026102601KDV0001" }, { vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0003 - MUHTASAR", vergiDonem: "2026-09-01T00:00:00", kabulTarihi: "2026-10-26T10:05:00", fisNo: "2026102601MUH0002" }, { vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0034 - GEÇİCİ VERGİ", vergiDonem: "2026-06-01T00:00:00", kabulTarihi: "2026-08-17T10:12:00", fisNo: "2026081701GEC0003" }, { vdAdi: "ÖRNEK VERGİ DAİRESİ", vergiKodu: "0021 - GELİR VERGİSİ", vergiDonem: "2025-12-01T00:00:00", kabulTarihi: "2026-03-25T10:12:00", fisNo: "2026032501GV0004" }].filter((d) => d.vergiDonem.slice(0, 7) >= bas && d.vergiDonem.slice(0, 7) <= bit); this.tahakkuklar = eski.concat(yeniT); return { kayitlar: yeniT.map((d, i) => Object.assign({ n: taban0 + i }, d)), sekil: {} }; }
   async kdvDevir(yil, ay) { if (!yil || !ay) throw new Error("Yıl ve ay seçin."); return { donem: yil + "-" + String(ay).padStart(2, "0"), fisNo: "2026102601KDV0001", fisler: [{ fisNo: "2026102601KDV0001", tarih: "2026-10", yontem: "tablo", tutar: 2000, satirlar: [] }, { fisNo: "2026102701KDV0002", tarih: "2026-10", yontem: "tablo", tutar: 1000.5, satirlar: [] }, { fisNo: "2026102801KDV0003", tarih: "2026-10", yontem: "tablo", tutar: 200, satirlar: [] }], okunan: 3, adet: 3, tutar: 3200.5, metin: "KATMA DEĞER VERGİSİ TAHAKKUK FİŞİ … Sonraki Döneme Devreden KDV 3.200,50" }; }
   async tahakkukIndir(n) { if (!(this.tahakkuklar || [])[n]) throw new Error("Tahakkuk bulunamadı; listeyi yenileyin."); return this.ornekPdf("ORNEK TAHAKKUK " + (n + 1)); }
   async defterKesif() { return { betikOzet: "[Defter-Beyan keşif]\n/auth/tdvd/edefter-login → https://portal.defterbeyan.gov.tr/ · HTTP 200", uyari: "", ciftler: [], borc: null, isyeri: null, dugmeler: [], adres: "Defter-Beyan keşfi", baslik: "", metin: "", formlar: [], alanlar: [], tablolar: [], baglantilar: [], yonlendirme: [], satirlar: [], tabloHam: "", ham: "" }; }
