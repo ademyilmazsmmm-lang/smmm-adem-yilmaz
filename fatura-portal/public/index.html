@@ -4189,12 +4189,17 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   /* aynı tür ve dönemde birden çok beyanname (düzeltme): PDF içindeki veriliş zamanlarını iste (yalnız bu durumda) */
   function bkTarihGetir(bitti){
-    BK.tarih = BK.tarih || {}; var tumB = []; Object.keys(BK.yillar).forEach(function(y){ tumB = tumB.concat(BK.yillar[y].byn); }); tumB = tekil(tumB, bynAnah);
+    BK.tarih = BK.tarih || {}; BK.ek = BK.ek || {}; var tumB = []; Object.keys(BK.yillar).forEach(function(y){ tumB = tumB.concat(BK.yillar[y].byn); }); tumB = tekil(tumB, bynAnah);
     var grup = {}; tumB.forEach(function(b){ var g = bynGrup(b.tur); if (g !== "GEC" && g !== "KV" && g !== "GV") return; var k = g + "|" + b.bas + "|" + b.bit; (grup[k] = grup[k] || []).push(b); });
-    var iste = []; Object.keys(grup).forEach(function(k){ if (grup[k].length > 1) grup[k].forEach(function(b){ if (!(b.n in BK.tarih)) iste.push(b.n); }); });
-    if (!iste.length) { bitti(); return; }
-    $("bkDurum").textContent = "Düzeltme beyannameleri: veriliş tarihleri okunuyor…";
-    btApi("/api/vd/beyanname-tarih", { n: iste.slice(0, 10) }).then(function(r){ Object.keys(r.tarihler || {}).forEach(function(n){ BK.tarih[n] = (r.tarihler[n] || {}).zaman || ""; }); }, function(){ iste.forEach(function(n){ BK.tarih[n] = ""; }); }).then(bitti);
+    var iste = {};
+    /* aynı tür ve dönemde birden çok beyanname (düzeltme): veriliş zamanı için PDF */
+    Object.keys(grup).forEach(function(k){ if (grup[k].length > 1) grup[k].forEach(function(b){ if (!(b.n in BK.tarih)) iste[b.n] = 1; }); });
+    /* yıllık gelir vergisi: "Verilen Ek" (Bilanço → mizan; Hesap Özeti → mizan yok) */
+    tumB.forEach(function(b){ if (bynGrup(b.tur) === "GV" && !(b.n in BK.ek)) iste[b.n] = 1; });
+    var l = Object.keys(iste).map(Number).slice(0, 10);
+    if (!l.length) { bitti(); return; }
+    $("bkDurum").textContent = "Beyanname PDF’lerinden bilgi okunuyor…";
+    btApi("/api/vd/beyanname-tarih", { n: l }).then(function(r){ Object.keys(r.tarihler || {}).forEach(function(n){ var t = r.tarihler[n] || {}; BK.tarih[n] = t.zaman || ""; BK.ek[n] = t.ek || ""; }); }, function(){ l.forEach(function(n){ if (!(n in BK.tarih)) BK.tarih[n] = ""; if (!(n in BK.ek)) BK.ek[n] = ""; }); }).then(bitti);
   }
   function bkCiz(){
     var l = $("bkListe"), t = $("bkToplu"); if (!BK) { l.innerHTML = ""; t.hidden = true; return; }
@@ -4221,7 +4226,11 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       if (thkEkle) { var tl = btThkTek(b, tumT); tl.forEach(function(x){ r += satir({ tur: "thk", n: x.n, ad: dosyaAd(etiket + " tahakkuk " + bynDonem(b)), baslik: etiket + " tahakkuk fişi (" + bynDonem(b) + ")", alt: x.kabulTarihi ? "kabul " + tarihYaz(x.kabulTarihi) : "", url: belgeUrl("thk", x.n, 0) }); }); if (!tl.length) { var yy = +String(b.bas || "").slice(0, 4), kk = BK.yillar[yy]; r += kk && !kk.thkTamam ? '<p class="not" style="margin:4px 0 8px;font-size:.76rem;color:var(--warn)">Tahakkuk fişleri henüz alınamadı (GİB istek sınırı); biraz sonra “Evrakları getir”e tekrar basın.</p>' : '<p class="not" style="margin:4px 0 8px;font-size:.76rem">Bu beyanname için tahakkuk fişi bulunamadı.</p>'; } }
       return r; };
     /* mizan: kurumlar vergisi mükellefinde her zaman; gelir vergisinde yalnız bilanço esaslıda (gelir tablosu olan, Defter-Beyan / işletme hesabı olmayan) */
-    var mm = mk() || {}, kurum = tumB.some(function(b){ return /^(KURUMLAR|KGECICI)/i.test(b.tur); }), mizanVar = kurum || !mm.defterBeyan;
+    var mm = mk() || {}, kurum = tumB.some(function(b){ return /^(KURUMLAR|KGECICI)/i.test(b.tur); }), ekler = BK.ek || {}, yedekMizan = !mm.defterBeyan;
+    /* mizan: kurumlarda her zaman; gelir vergisinde beyannamedeki "Verilen Ek"e göre: Bilanço → var, Hesap Özeti (işletme hesabı) → yok; okunamazsa mükellefin Defter-Beyan işaretine göre */
+    var ekDurum = function(b){ var e = b ? ekler[b.n] : ""; return e === "bilanco" ? true : e === "hesapozeti" ? false : null; };
+    var mizanYil = function(y, b){ if (kurum) return true; var e = ekDurum(b); if (e !== null) return e; return yedekMizan; };
+    var sonYillik = tumB.filter(function(b){ return bynGrup(b.tur) === "GV" && ekDurum(b) !== null; }).sort(function(a, c){ return btAy(c.bit) - btAy(a.bit); })[0], mizanVar = kurum || (sonYillik ? ekDurum(sonYillik) : yedekMizan);
     var mzT = belT("Mizan"), mzYil = function(y){ return mzT.filter(function(b){ var q = /(20\d\d)/.exec(b.ad || ""); return q && +q[1] === y; }); };
     var mizanSat = function(y, etiket){ var l = mzYil(y); return l.length ? l.map(function(b){ return belSatir(b, etiket, "mizan " + y); }).join("") : eksik("Mizan", "Banka evrakı için " + y + " " + (y === Y ? "son dönem (geçici) " : "yılı ") + "mizanı", y, etiket); };
     bkYilSecili().sort(function(a, b){ return a - b; }).forEach(function(y){
@@ -4235,10 +4244,10 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       }
       var l2 = sonVerilen(tumB.filter(function(b){ var g = bynGrup(b.tur); return (g === "KV" || g === "GV") && +String(b.bas || "").slice(0, 4) === y; }));
       ic = l2.length ? l2.map(function(b){ return cift(b, (bynGrup(b.tur) === "KV" ? "Kurumlar vergisi " : "Gelir vergisi ") + y); }).join("") : '<p class="not" style="margin:0;color:var(--danger)">' + y + ' yılı kurumlar / gelir vergisi beyannamesi bulunamadı.</p>';
-      if (mizanVar) ic += mizanSat(y, "Mizan (" + y + ")");
+      if (mizanYil(y, l2[0])) ic += mizanSat(y, "Mizan (" + y + ")"); else if (l2[0] && ekDurum(l2[0]) === false) ic += '<p class="not" style="margin:6px 0 0;font-size:.76rem">İşletme hesabı özeti verilmiş; mizan gerekmez.</p>';
       h += kart(y + " · " + (kurum ? "kurumlar vergisi" : "gelir vergisi"), ic);
     });
-    if (mizanVar) { var yilsiz = mzT.filter(function(b){ return !/(20\d\d)/.test(b.ad || ""); }); if (yilsiz.length) h += kart("Diğer mizanlar", '<p class="not" style="margin:0 0 6px;font-size:.76rem">Dosya adında yıl olmayan mizanlar; yüklerken yıl seçilirse ilgili yılın altında görünür.</p>' + yilsiz.map(function(b){ return belSatir(b, "Mizan", "mizan"); }).join("")); }
+    if (mizanVar || mzT.length) { var yilsiz = mzT.filter(function(b){ return !/(20\d\d)/.test(b.ad || ""); }); if (yilsiz.length) h += kart("Diğer mizanlar", '<p class="not" style="margin:0 0 6px;font-size:.76rem">Dosya adında yıl olmayan mizanlar; yüklerken yıl seçilirse ilgili yılın altında görünür.</p>' + yilsiz.map(function(b){ return belSatir(b, "Mizan", "mizan"); }).join("")); }
     if (thkEkle && tumB.length) { var tsiz = tumB.filter(function(b){ var g = bynGrup(b.tur); return (g === "KV" || g === "GV" || g === "GEC") && !btThkTek(b, tumT).length; }).length;
       if (tsiz) { var satirlarT = tumT.slice().sort(function(a, b){ return String(b.vergiDonem).localeCompare(String(a.vergiDonem)); }).slice(0, 60).map(function(x){ return String(x.vergiDonem || "").slice(0, 10) + " | " + String(x.vergiKodu || "").slice(0, 30) + " | " + thkGrup(x) + " | kabul " + String(x.kabulTarihi || "").slice(0, 10); });
         h += '<details class="alt2 teknik"><summary>Tahakkuk bulunamadıysa: GİB’den gelen kayıtlar (' + tumT.length + ')</summary><div class="icerik"><pre style="white-space:pre-wrap;word-break:break-all;font-size:.68rem;margin:0;max-height:240px;overflow:auto">Beyannameler: ' + esc(tumB.map(function(b){ return b.tur + " " + b.bas + ".." + b.bit; }).join("; ")) + "\n\nTahakkuklar (dönem | kod | grup | kabul):\n" + esc(satirlarT.join("\n") || "kayıt yok") + '</pre></div></details>'; } }
