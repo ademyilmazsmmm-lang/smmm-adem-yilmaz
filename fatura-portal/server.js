@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-13-284";
+const SURUM = "2026-11-13-285";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -453,7 +453,7 @@ async function api(req, res, yol) {
     if (!depo.yetkili(o, mid)) return duz(403, "Bu mükellef için yetkiniz yok.");
     const x = ivdler.get(mid); if (!x || !x.girildi) return duz(409, "Önce Dijital Vergi Dairesi'ne bağlanın (Vergi D. sekmesi).");
     try {
-      ivdKontrol({ id: mid }, q.get("p") ? "bp" : "b"); ivdZamanla(mid); /* açma ve paylaşma ayrı sayaç: PDF açıp hemen paylaşılabilir */
+      ivdKontrol({ id: mid }, q.get("p") ? "bp" + yol + (q.get("n") || "") + (q.get("dil") || "") : "b"); ivdZamanla(mid); /* açma ve paylaşma ayrı sayaç; toplu paylaşmada her belge ayrı sayılır */
       const n = Number(q.get("n")), yazi = yol === "/api/vd/yazi", levha = yol === "/api/vd/levha", thk = yol === "/api/vd/tahakkuk", yok = yol === "/api/vd/yoklama", dlk = yol === "/api/vd/dilekce-belge", byn = yol === "/api/vd/beyanname-belge";
       const d = levha ? await x.levhaIndir(n, q.get("dil"), (depo.mukellef(o, mid).veri.vkn || "").replace(/\D/g, "")) : yazi ? await x.yaziIndir(n) : thk ? await x.tahakkukIndir(n) : yok ? await x.yoklamaIndir(n) : dlk ? await x.dilekceBelgeIndir(n) : byn ? await x.beyannameIndir(n) : await x.belgeIndir(n);
       gunluk(o, mid, levha ? "e-Vergi levhası açıldı" : byn ? "Beyanname açıldı" : dlk ? "Dilekçe evrakı açıldı" : yazi ? "Borç durum yazısı açıldı" : thk ? "Tahakkuk fişi açıldı" : yok ? "Yoklama fişi açıldı" : "Tebligat belgesi açıldı", d.ad);
@@ -766,6 +766,38 @@ async function api(req, res, yol) {
     if (kayit) { kayit.durum = "Onaylandı"; kayit.onayZamani = new Date().toISOString(); m.gecmis.push(kayit); if (m.gecmis.length > 2000) m.gecmis.shift(); bekleyen.delete(g.uuid); depo.kaydet(mid); }
     gunluk(o, mid, "Fatura onaylandı", (kayit && kayit.belgeNo) || g.uuid); gibKisalt(m.id, 45e3);
     return cevap(res, 200, { mesaj: r.mesaj, kayit: kayit || null });
+  }
+  if (yol === "/api/vd/banka-mail") { /* Banka evrakı: seçilen belgeler (levha, beyanname, tahakkuk, Belgelerim) tek e-postada, çok ekle */
+    if (!posta.hazir()) return cevap(res, 400, { hata: "E-posta gönderimi bu sunucuda henüz kurulmadı (sunucu ayarlarında MAIL_ANAHTAR ve MAIL_GONDEREN gerekir)." });
+    const sinir = (postaSayac.get(o.kullanici) || []).filter((t) => Date.now() - t < 3600e3); if (sinir.length >= 40) return cevap(res, 429, { hata: "Saatlik e-posta sınırına ulaşıldı (40). Biraz sonra tekrar deneyin." });
+    const to = (Array.isArray(g.to) ? g.to : [g.to]).map((x) => String(x || "").trim()).filter(Boolean).slice(0, 3);
+    if (!to.length || !to.every((x) => posta.EPOSTA.test(x) && x.length <= 120)) return cevap(res, 400, { hata: "Geçerli bir e-posta adresi yazın." });
+    const liste = (Array.isArray(g.belgeler) ? g.belgeler : []).slice(0, 16); if (!liste.length) return cevap(res, 400, { hata: "Gönderilecek belge seçin." });
+    const x = ivdler.get(mid); if (liste.some((b) => b && b.tur !== "bel") && (!x || !x.girildi)) return cevap(res, 409, { hata: "Önce Dijital Vergi Dairesi'ne bağlanın (doğrulama kodu)." });
+    const vkn = String(m.vkn || "").replace(/\D/g, ""), ekler = [], hatalar = [], adlar = []; let toplam = 0;
+    const dosyaAdi = (t, yedek) => (String(t || "").replace(/[çÇ]/g, "c").replace(/[ğĞ]/g, "g").replace(/[ıİ]/g, "i").replace(/[öÖ]/g, "o").replace(/[şŞ]/g, "s").replace(/[üÜ]/g, "u").replace(/[^\w.\-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 80) || yedek);
+    if (x && x.girildi) ivdZamanla(mid);
+    for (const b of liste) {
+      const tur = String((b && b.tur) || ""), n = Number(b && b.n); let d = null;
+      try {
+        if (tur === "byn") d = await x.beyannameIndir(n); else if (tur === "thk") d = await x.tahakkukIndir(n);
+        else if (tur === "lev") d = await x.levhaIndir(n, b.dil === "en" ? "en" : "tr", vkn);
+        else if (tur === "bel") { const k = depo.belgeAl(o, mid, String(b.id || "")); d = { ad: k.ad, tur: k.tip, veri: Buffer.from(k.veri, "base64") }; }
+        else throw new Error("geçersiz tür");
+        if (!d || !d.veri || !d.veri.length) throw new Error("boş belge");
+        const uz = d.veri.slice(0, 4).toString() === "%PDF" ? "pdf" : (String(d.ad || "").split(".").pop() || "pdf").toLowerCase();
+        let ad = dosyaAdi(b.ad, "belge"); if (!new RegExp("\\." + uz + "$", "i").test(ad)) ad += "." + uz;
+        toplam += d.veri.length; if (toplam > 18e6) { hatalar.push((b.ad || tur) + ": e-posta boyut sınırı aşıldı"); break; }
+        ekler.push({ ad, tur: uz === "pdf" ? "application/pdf" : d.tur || "application/octet-stream", veri: d.veri }); adlar.push(String(b.baslik || ad).slice(0, 120));
+      } catch (e) { if (e && e.oturum) { await ivdBirak(mid); return cevap(res, 409, { hata: "Vergi dairesi oturumu kapandı; doğrulama koduyla yeniden bağlanın.", girisGerek: true }); } hatalar.push((b && (b.baslik || b.ad)) + ": " + e.message); }
+    }
+    if (!ekler.length) return cevap(res, 400, { hata: "Belgeler alınamadı: " + hatalar.join(" · ").slice(0, 400) });
+    const pr = m.profil || {}, kopya = pr.eposta && posta.EPOSTA.test(pr.eposta) && !to.includes(pr.eposta) ? [pr.eposta] : [];
+    const metin = "Sayın yetkili,\n\n" + m.ad + " için istenen evraklar ektedir:\n" + adlar.map((a) => "• " + a).join("\n") + "\n\nİyi çalışmalar dileriz.\n" + m.ad + (pr.tel ? "\nTel: " + pr.tel : "") + (pr.eposta ? "\nE-posta: " + pr.eposta : "") + "\n\n— Bu ileti Mükellef Portalı üzerinden gönderilmiştir.";
+    await posta.gonder({ gonderenAd: m.ad, to, cc: kopya, yanit: pr.eposta || "", konu: "Banka evrakları — " + m.ad, metin, ekler }, DIR);
+    sinir.push(Date.now()); postaSayac.set(o.kullanici, sinir);
+    gunluk(o, mid, "Banka evrakları e-postayla gönderildi", ekler.length + " belge → " + to.join(", "));
+    return cevap(res, 200, { tamam: true, to, kopya, adet: ekler.length, hatalar });
   }
   if (yol === "/api/vd/belge-mail") { /* SGK E-Borcu Yoktur / borç durum yazısı / tahakkuk fişi PDF'si: sunucuda alınır ve e-postayla gönderilir */
     if (!posta.hazir()) return cevap(res, 400, { hata: "E-posta gönderimi bu sunucuda henüz kurulmadı (sunucu ayarlarında MAIL_ANAHTAR ve MAIL_GONDEREN gerekir)." });

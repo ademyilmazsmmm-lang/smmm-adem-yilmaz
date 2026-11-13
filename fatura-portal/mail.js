@@ -35,7 +35,7 @@ function mimeKur(m) {
   h.push("Subject: " + baslikKodla(m.konu), "MIME-Version: 1.0", "Content-Type: multipart/mixed; boundary=\"" + sinir + "\"");
   const parca = (tur, icerik) => "Content-Type: " + tur + "; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" + satirla(b64s(icerik));
   let g = h.join("\r\n") + "\r\n\r\n--" + sinir + "\r\nContent-Type: multipart/alternative; boundary=\"" + alt + "\"\r\n\r\n--" + alt + "\r\n" + parca("text/plain", m.metin) + "\r\n--" + alt + "\r\n" + parca("text/html", m.html) + "\r\n--" + alt + "--\r\n";
-  if (m.ek) g += "--" + sinir + "\r\nContent-Type: " + (m.ek.tur || "application/pdf") + "; name=\"" + m.ek.ad + "\"\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"" + m.ek.ad + "\"\r\n\r\n" + satirla(m.ek.veri.toString("base64")) + "\r\n";
+  for (const ek of m.ekler || []) g += "--" + sinir + "\r\nContent-Type: " + (ek.tur || "application/pdf") + "; name=\"" + ek.ad + "\"\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"" + ek.ad + "\"\r\n\r\n" + satirla(ek.veri.toString("base64")) + "\r\n";
   return g + "--" + sinir + "--\r\n";
 }
 let gToken = { deger: "", bitis: 0 };
@@ -53,26 +53,27 @@ async function gmailGonder(m) {
   return { id: j.id || "" };
 }
 
-/* { gonderenAd, to:[e-posta], cc:[e-posta], yanit, konu, metin, ek:{ ad, veri:Buffer } } */
+/* { gonderenAd, to:[e-posta], cc:[e-posta], yanit, konu, metin, ek:{ ad, veri:Buffer } | ekler:[{ ad, tur, veri:Buffer }] } */
 async function gonder(m, dataDir) {
+  const ekler = (m.ekler && m.ekler.length ? m.ekler : m.ek ? [m.ek] : []).filter((e) => e && e.veri);
   const to = (m.to || []).filter((x) => EPOSTA.test(x)), cc = (m.cc || []).filter((x) => EPOSTA.test(x) && !to.includes(x));
   if (!to.length) throw new Error("Geçerli bir alıcı e-posta adresi yok.");
   const ad = baslikTemiz(m.gonderenAd) || "Fatura";
   const html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#222">' + kacis(m.metin).replace(/\n/g, "<br>") + "</div>";
   if (MOCK) {
-    if (dataDir) fs.appendFileSync(path.join(dataDir, "posta-kutusu.jsonl"), JSON.stringify({ zaman: new Date().toISOString(), gonderenAd: ad, to, cc, yanit: m.yanit || "", konu: m.konu, metin: m.metin, ek: m.ek ? { ad: m.ek.ad, boyut: m.ek.veri.length } : null }) + "\n");
+    if (dataDir) fs.appendFileSync(path.join(dataDir, "posta-kutusu.jsonl"), JSON.stringify({ zaman: new Date().toISOString(), gonderenAd: ad, to, cc, yanit: m.yanit || "", konu: m.konu, metin: m.metin, ek: ekler.length === 1 ? { ad: ekler[0].ad, boyut: ekler[0].veri.length } : null, ekler: ekler.map((e) => ({ ad: e.ad, boyut: e.veri.length })) }) + "\n");
     return { id: "deneme" };
   }
   if (!hazir()) throw new Error("E-posta gönderimi bu sunucuda kurulu değil.");
-  if (SAGLAYICI === "gmail") return gmailGonder({ ad, to, cc, yanit: m.yanit, konu: m.konu, metin: m.metin, html, ek: m.ek });
-  const b64 = m.ek ? m.ek.veri.toString("base64") : null;
+  if (SAGLAYICI === "gmail") return gmailGonder({ ad, to, cc, yanit: m.yanit, konu: m.konu, metin: m.metin, html, ekler });
+  const ekB64 = ekler.map((e) => ({ ad: e.ad, b64: e.veri.toString("base64") }));
   let url, baslik, govde;
   if (SAGLAYICI === "resend") {
     url = "https://api.resend.com/emails"; baslik = { authorization: "Bearer " + ANAHTAR };
-    govde = { from: ad + " <" + GONDEREN + ">", to, cc: cc.length ? cc : undefined, reply_to: m.yanit && EPOSTA.test(m.yanit) ? m.yanit : undefined, subject: m.konu, text: m.metin, html, attachments: b64 ? [{ filename: m.ek.ad, content: b64 }] : undefined };
+    govde = { from: ad + " <" + GONDEREN + ">", to, cc: cc.length ? cc : undefined, reply_to: m.yanit && EPOSTA.test(m.yanit) ? m.yanit : undefined, subject: m.konu, text: m.metin, html, attachments: ekB64.length ? ekB64.map((e) => ({ filename: e.ad, content: e.b64 })) : undefined };
   } else {
     url = "https://api.brevo.com/v3/smtp/email"; baslik = { "api-key": ANAHTAR, accept: "application/json" };
-    govde = { sender: { name: ad, email: GONDEREN }, to: to.map((email) => ({ email })), cc: cc.length ? cc.map((email) => ({ email })) : undefined, replyTo: m.yanit && EPOSTA.test(m.yanit) ? { email: m.yanit } : undefined, subject: m.konu, textContent: m.metin, htmlContent: html, attachment: b64 ? [{ name: m.ek.ad, content: b64 }] : undefined };
+    govde = { sender: { name: ad, email: GONDEREN }, to: to.map((email) => ({ email })), cc: cc.length ? cc.map((email) => ({ email })) : undefined, replyTo: m.yanit && EPOSTA.test(m.yanit) ? { email: m.yanit } : undefined, subject: m.konu, textContent: m.metin, htmlContent: html, attachment: ekB64.length ? ekB64.map((e) => ({ name: e.ad, content: e.b64 })) : undefined };
   }
   let r;
   try { r = await fetch(url, { method: "POST", headers: Object.assign({ "content-type": "application/json" }, baslik), body: JSON.stringify(govde), signal: AbortSignal.timeout(30000) }); }
