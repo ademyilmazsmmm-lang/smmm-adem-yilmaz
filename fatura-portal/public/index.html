@@ -136,6 +136,10 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6}
 .a2-tar.yakin .gun{color:var(--danger);background:var(--danger-soft)}.a2-tar.orta .gun{color:var(--warn);background:var(--warn-soft)}
 .a2 details.a2-not summary{cursor:pointer;color:var(--muted);font-size:.78rem;list-style:none}.a2 details.a2-not p{font-size:.76rem;color:var(--muted);margin:6px 0 0}
 .a2-alt{display:flex;justify-content:center;padding:4px 0 2px}
+#bankaBolum{grid-template-columns:minmax(0,1fr)!important}#bankaBolum>*{min-width:0;max-width:100%}
+#bkKodKutu{flex-wrap:wrap}#bkKodKutu{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;align-items:center;gap:8px}#bkKodKutu[style*="display: none"]{display:none!important}#bkKodKutu img{width:100%;height:auto;max-height:50px;min-width:0!important;object-fit:contain}#bkKodKutu input{width:100%!important;min-width:0}#bkKodKutu .btn{padding-left:12px;padding-right:12px}
+#bkYillar{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px!important}#bkYillar .chip{justify-content:center;padding:4px!important;font-size:.9rem;min-height:44px!important;height:44px;border-radius:12px!important;gap:5px!important}#bkYillar .chip input{width:18px;height:18px;margin:0;flex:none}
+#bkListe,#bkListe .a2-kart{min-width:0}#bkListe .a2-sat>div{min-width:0;overflow-wrap:anywhere}
 #belgeSeg{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}#belgeSeg .chip{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:1px;padding:8px 6px;min-width:0}#belgeSeg .chip:last-child{grid-column:auto!important}#belgeSeg .chip span{font-size:.88rem;white-space:nowrap}#belgeSeg .chip small{font-size:.68rem;line-height:1.2}
 .tk.orta{border-left-color:var(--warn)}.tk.orta .gun{color:var(--warn);background:var(--warn-soft)}
 .tk.yakin{border-left-color:var(--danger);background:var(--danger-soft);border-top-color:transparent;border-right-color:transparent;border-bottom-color:transparent}.tk.yakin .gun{color:#fff;background:var(--danger)}
