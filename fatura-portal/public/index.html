@@ -3217,13 +3217,15 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     /* banka evrakı: levha (bu yıl), son geçici + geçen yıl yıllık beyanname ve tahakkukları */
     var bg = bugunStr(), Y = +bg.slice(0, 4), AY = bg.slice(5, 7), hatalar = [], ad = {};
     var adim = function(metin, yol, govde, anahtar){ d.textContent = metin; return btApi(yol, govde).then(function(r){ ad[anahtar] = r; }, function(er){ if (er && (er.girisGerek || er.oturum)) throw er; hatalar.push(metin.replace("…", "") + ": " + er.message); }); };
-    adim("e-Vergi levhası alınıyor…", "/api/vd/levha", { yil: Y }, "levha")
+    d.textContent = "Belgelerim kontrol ediliyor…";
+    api("/api/belgeler?mid=" + encodeURIComponent(VD.mid)).then(function(r){ ad.bel = r.belgeler || []; }, function(){ ad.bel = null; })
+      .then(function(){ return adim("e-Vergi levhası alınıyor…", "/api/vd/levha", { yil: Y }, "levha"); })
       .then(function(){ return adim("Geçen yılın beyannameleri alınıyor…", "/api/vd/beyanname", { tbas: (Y - 1) + "-01", tbit: (Y - 1) + "-12" }, "b1"); })
       .then(function(){ return adim("Bu yılın beyannameleri alınıyor…", "/api/vd/beyanname", { tbas: Y + "-01", tbit: Y + "-" + AY, ekle: true }, "b2"); })
       .then(function(){ return adim("Geçen yılın tahakkukları alınıyor…", "/api/vd/tahakkuk", { tbas: (Y - 1) + "-01", tbit: (Y - 1) + "-12" }, "t1"); })
       .then(function(){ return adim("Bu yılın tahakkukları alınıyor…", "/api/vd/tahakkuk", { tbas: Y + "-01", tbit: Y + "-" + AY, ekle: true }, "t2"); })
       .then(function(){
-        VD.sonuc.banka = { Y: Y, levha: ad.levha || null, byn: [].concat((ad.b1 && ad.b1.beyannameler) || [], (ad.b2 && ad.b2.beyannameler) || []), thk: [].concat((ad.t1 && ad.t1.kayitlar) || [], (ad.t2 && ad.t2.kayitlar) || []), hatalar: hatalar, zaman: new Date().toLocaleString("tr-TR") };
+        VD.sonuc.banka = { Y: Y, bel: ad.bel, levha: ad.levha || null, byn: [].concat((ad.b1 && ad.b1.beyannameler) || [], (ad.b2 && ad.b2.beyannameler) || []), thk: [].concat((ad.t1 && ad.t1.kayitlar) || [], (ad.t2 && ad.t2.kayitlar) || []), hatalar: hatalar, zaman: new Date().toLocaleString("tr-TR") };
         VD.sonuc.bt = null; d.textContent = ""; if (VD.sek === "banka") { vdCiz(); sonucaGit("vdListe"); } son();
       }).catch(hata);
   }
@@ -3235,18 +3237,26 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     /* 1) e-Vergi levhası */
     var lv = s.levha && s.levha.levhalar || [];
     h += kart("1 · e-Vergi levhası (" + Y + ")", lv.length ? lv.map(function(l){ var ln = function(dil, ad){ return '<a class="btn' + (dil === "en" ? " ikincil" : "") + '" style="min-height:40px;padding:6px 14px;text-align:center;text-decoration:none;flex:1" target="_blank" rel="noopener" href="/api/vd/levha?mid=' + encodeURIComponent(VD.mid) + '&n=' + l.n + '&dil=' + dil + '">' + ad + '</a>'; }; return '<div style="display:flex;gap:8px">' + ln("tr", "Türkçe PDF") + ln("en", "İngilizce PDF") + '</div>'; }).join("") : yok(s.levha ? Y + " yılına ait e-Vergi levhası bulunamadı." : "e-Vergi levhası alınamadı."));
+    /* Belgelerim'e yüklenmiş belgeler (ofis yükler): tür başına satırlar */
+    var belTur = function(tur){ return (s.bel || []).filter(function(b){ return b.tur === tur; }); };
+    var belSatir = function(b){ return '<div style="display:grid;gap:6px"><span class="not" style="margin:0;font-size:.8rem;overflow-wrap:anywhere">' + esc(b.ad) + ' · ' + boyutYaz(b.boyut) + ' · ' + tarihYaz(b.zaman) + '</span><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><a class="btn ikincil" style="min-height:40px;padding:6px 14px;text-decoration:none" href="' + belgeUrl("bel", b.id, 0) + '">İndir</a><button class="k" type="button" data-pshare="bel" data-pn="' + esc(b.id) + '" data-pix="0" style="min-height:40px;padding:6px 10px">↗ Paylaş</button><span class="not" data-pshare-d style="margin:0;font-size:.78rem;flex-basis:100%"></span></div></div>'; };
     /* 2) faaliyet belgesi */
-    h += kart("2 · Faaliyet (mükellefiyet) belgesi", '<button class="btn ikincil" type="button" data-bk-git="yazi">Mükellefiyet yazısı ekranına git</button>', "Vergi dairesinden alınan faaliyet / mükellefiyet yazısıdır; “Borcu yoktur” bölümünden istenir ve oradan paylaşılır.");
+    var fb = belTur("Faaliyet belgesi");
+    h += kart("2 · Faaliyet (mükellefiyet) belgesi", (fb.length ? fb.map(belSatir).join("") : "") + '<button class="btn ikincil" type="button" data-bk-git="yazi">Mükellefiyet yazısı ekranına git</button>', fb.length ? "Belgelerim’e yüklenmiş faaliyet belgesi aşağıda; vergi dairesinden güncel yazı için düğmeyi kullanın." : "Vergi dairesinden alınan faaliyet / mükellefiyet yazısıdır; “Borcu yoktur” bölümünden istenir ve oradan paylaşılır.");
     /* 3) son geçici vergi */
     var gec = s.byn.filter(function(b){ return bynGrup(b.tur) === "GEC"; }).sort(function(a, b){ return (btAy(b.bit) - btAy(a.bit)) || (btAy(b.bas) - btAy(a.bas)); })[0];
     h += kart("3 · Son geçici vergi beyannamesi ve tahakkuku", gec ? btCift(bynAd(gec.tur), bynDonem(gec), gec, btThkBul(gec, s.thk)) : yok("Geçici vergi beyannamesi bulunamadı (bu yıl henüz verilmemiş olabilir)."));
     /* 4) geçen yıl yıllık beyanname */
     var yil = s.byn.filter(function(b){ var g = bynGrup(b.tur); return (g === "KV" || g === "GV") && /^(\d{4})/.exec(b.bas || "") && +b.bas.slice(0, 4) === Y - 1; });
     h += kart("4 · " + (Y - 1) + " yılı kurumlar / gelir vergisi beyannamesi ve tahakkuku", yil.length ? yil.map(function(b){ return btCift(bynAd(b.tur), bynDonem(b), b, btThkBul(b, s.thk)); }).join('<div style="border-top:1px solid var(--line)"></div>') : yok((Y - 1) + " yılı kurumlar / gelir vergisi beyannamesi bulunamadı (henüz verilmemiş ya da kayıt GİB’de görünmüyor)."));
+    /* 5) mizan: yalnız 1. sınıf (bilanço esaslı, şirket gibi defter tutan) mükellefte; 2. sınıf (Defter-Beyan) için hesap özeti */
+    var mm = mBul(VD.mid) || {};
+    if (mm.defterBeyan) h += kart("5 · Hesap özeti (Defter-Beyan)", '<button class="btn ikincil" type="button" data-bk-git="hesapozeti">Hesap özeti ekranına git</button>', "İşletme hesabı esasına göre (2. sınıf) Defter-Beyan’da tutulan kayıtlardan mizan çıkmaz; bankaya gelir-gider özeti olan Hesap özeti verilir.");
+    else { var mz = belTur("Mizan"); h += kart("5 · Mizan", (mz.length ? mz.map(belSatir).join("") : '<p class="not" style="margin:0;color:var(--danger)">Mizan henüz yüklenmedi.</p>') + '<button class="btn ikincil" type="button" data-bk-git="belge">' + (ROL === "ofis" ? "Belgelerim’e git: mizanı yükle" : "Belgelerim’e git: ofisten iste") + '</button>', "1. sınıf (bilanço esaslı) kayıtlar muhasebe programında tutulduğundan mizan oradan alınıp Belgelerim’e “Mizan” türüyle yüklenir; burada görünür ve paylaşılır."); }
     if (s.hatalar && s.hatalar.length) h += '<div class="durum hata" style="display:block">' + s.hatalar.map(esc).join("<br>") + '</div>';
     return h;
   }
-  $("vdListe").addEventListener("click", function(e){ var g = e.target.closest("[data-bk-git]"); if (!g) return; VD.sek = g.getAttribute("data-bk-git"); vdSekmeCiz(); if (VD.bagli && !VD.sonuc[VD.sek]) vdSorgula(); window.scrollTo(0, 0); });
+  $("vdListe").addEventListener("click", function(e){ var g = e.target.closest("[data-bk-git]"); if (!g) return; var hd = g.getAttribute("data-bk-git"); if (hd === "belge") { sekme("belge"); window.scrollTo(0, 0); return; } VD.sek = hd; vdSekmeCiz(); if (VD.bagli && !VD.sonuc[VD.sek] && hd !== "hesapozeti") vdSorgula(); window.scrollTo(0, 0); });
   function vdCiz(){
     var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
     if (VD.sek === "zrapor") { liste.innerHTML = (s && s.bildirimler ? '<p class="not" style="margin:0">' + esc(s.zaman) + "</p>" + vdZHtml(s) : '<p class="not">Yıl ve ayı seçip “Sorgula”ya basın.</p>') + (ROL === "ofis" && VD.bagli ? '<details class="alt2"><summary>Geliştirme aracı</summary><div class="icerik"><button class="k" type="button" id="vdZOku">İnternet VD sayfasını oku (geliştirme)</button></div></details>' : "") + (VD.sonuc.zraporDev ? isvHtml(VD.sonuc.zraporDev, "İnternet Vergi Dairesi · Z raporu") : ""); tani.hidden = true; return; }
@@ -3475,10 +3485,10 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   $("vdSgkKapat").addEventListener("click", function(){ if (!VD.mid) return; api("/api/sgk/cikis", "POST", { mukellefId: VD.mid, sistem: VD.sgkSis }).catch(function(){}); VD.sgkB[VD.sgkSis + "|" + VD.sgkIx] = false; vdSgkCiz(); });
   /* PDF'nin yanında "E-posta ile gönder": düğmeye basınca adres kutusu açılır (varsayılan mükellefin profil e-postası), PDF sunucuda alınıp gönderilir */
   function pmailDugme(tur, n, ix){ return '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="k" type="button" data-pshare="' + tur + '" data-pn="' + n + '" data-pix="' + ix + '" style="min-height:40px;padding:6px 14px">↗ Paylaş</button><button class="k" type="button" data-pmail="' + tur + '" data-pn="' + n + '" data-pix="' + ix + '" style="min-height:40px;padding:6px 14px">✉ E-posta ile gönder</button><span class="not" data-pshare-d style="margin:0;font-size:.8rem;align-self:center"></span></div>'; }
-  function belgeUrl(tur, n, ix){ var mid = encodeURIComponent(VD.mid); return tur === "sgk" ? "/api/sgk/form?mid=" + mid + "&ix=" + (ix || 0) + "&i=" + n : tur === "yazi" ? "/api/vd/yazi?mid=" + mid + "&n=" + n : tur === "thk" ? "/api/vd/tahakkuk?mid=" + mid + "&n=" + n : tur === "dlk" ? "/api/vd/dilekce-belge?mid=" + mid + "&n=" + n : tur === "byn" ? "/api/vd/beyanname-belge?mid=" + mid + "&n=" + n : "/api/vd/belge?mid=" + mid + "&n=" + n; }
+  function belgeUrl(tur, n, ix){ var mid = encodeURIComponent(VD.mid); return tur === "sgk" ? "/api/sgk/form?mid=" + mid + "&ix=" + (ix || 0) + "&i=" + n : tur === "yazi" ? "/api/vd/yazi?mid=" + mid + "&n=" + n : tur === "thk" ? "/api/vd/tahakkuk?mid=" + mid + "&n=" + n : tur === "dlk" ? "/api/vd/dilekce-belge?mid=" + mid + "&n=" + n : tur === "byn" ? "/api/vd/beyanname-belge?mid=" + mid + "&n=" + n : tur === "bel" ? "/api/belge-indir?mid=" + mid + "&id=" + encodeURIComponent(n) : "/api/vd/belge?mid=" + mid + "&n=" + n; }
   /* Paylaş: telefonun paylaşma menüsü (WhatsApp, Mail, Dosyalar…) belge dosyasıyla açılır; desteklemeyen tarayıcıda belge yeni sekmede açılır */
   document.addEventListener("click", function(e){
-    var b = e.target.closest("[data-pshare]"); if (!b) return; var tur = b.getAttribute("data-pshare"), n = +b.getAttribute("data-pn"), ix = +b.getAttribute("data-pix") || 0, dr = b.parentNode.querySelector("[data-pshare-d]"), url = belgeUrl(tur, n, ix), ad0 = { sgk: "sgk-borcu-yoktur", yazi: "borc-durum-yazisi", thk: "tahakkuk-fisi", teb: "tebligat", dlk: "dilekce-evraki", byn: "beyanname" }[tur] || "belge";
+    var b = e.target.closest("[data-pshare]"); if (!b) return; var tur = b.getAttribute("data-pshare"), n = tur === "bel" ? b.getAttribute("data-pn") : +b.getAttribute("data-pn"), ix = +b.getAttribute("data-pix") || 0, dr = b.parentNode.querySelector("[data-pshare-d]"), url = belgeUrl(tur, n, ix), ad0 = { sgk: "sgk-borcu-yoktur", yazi: "borc-durum-yazisi", thk: "tahakkuk-fisi", teb: "tebligat", dlk: "dilekce-evraki", byn: "beyanname", bel: "belge" }[tur] || "belge";
     if (!navigator.share || !window.File) { window.open(url, "_blank", "noopener"); return; }
     b.disabled = true; dr.textContent = "⏳ Hazırlanıyor…";
     fetch(url, { credentials: "same-origin" }).then(function(r){

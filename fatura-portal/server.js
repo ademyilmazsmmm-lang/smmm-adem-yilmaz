@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-13-279";
+const SURUM = "2026-11-13-280";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -100,7 +100,7 @@ const profilTemiz = (p) => {
 /* Aydınlatma / onay metni sürümü: public/index.html'deki #kabul metni değişirse bu sayı da artırılır (mükelleflerden yeniden onay istenir) */
 const KABUL_SURUM = "1";
 /* Belgelerim: ofis yükler, mükellef görür/indirir (fatura-fiş yüklemesi bilerek yok) */
-const BELGE_TURLERI = ["İmza sirküleri", "Ticaret sicil gazetesi", "Faaliyet belgesi", "Vergi levhası", "Sözleşme", "Kimlik / vekâletname", "Diğer"];
+const BELGE_TURLERI = ["İmza sirküleri", "Ticaret sicil gazetesi", "Faaliyet belgesi", "Vergi levhası", "Mizan", "Sözleşme", "Kimlik / vekâletname", "Diğer"];
 const BELGE_TIPLERI = [["pdf", "application/pdf", (b) => b.slice(0, 4).toString() === "%PDF"], ["jpg", "image/jpeg", (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff], ["png", "image/png", (b) => b.slice(0, 4).toString("hex") === "89504e47"],
   ["docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", (b) => b[0] === 0x50 && b[1] === 0x4b], ["xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", (b) => b[0] === 0x50 && b[1] === 0x4b],
   ["doc", "application/msword", (b) => b.slice(0, 4).toString("hex") === "d0cf11e0"], ["xls", "application/vnd.ms-excel", (b) => b.slice(0, 4).toString("hex") === "d0cf11e0"]];
