@@ -1497,7 +1497,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   var PDFOnbellek = {}, H2C = null;
   function h2cYukle(){
     if (window.html2canvas) return Promise.resolve();
-    return H2C || (H2C = new Promise(function(res, rej){ var sc = document.createElement("script"); sc.src = "/html2canvas.min.js"; sc.onload = res; sc.onerror = function(){ H2C = null; rej(new Error("PDF bileşeni yüklenemedi")); }; document.head.appendChild(sc); }));
+    return H2C || (H2C = new Promise(function(res, rej){ var sc = document.createElement("script"); sc.src = "/html2canvas.min.js?v=pro2"; sc.onload = res; sc.onerror = function(){ H2C = null; rej(new Error("PDF bileşeni yüklenemedi")); }; document.head.appendChild(sc); }));
   }
   function pdfYap(sf, W, H, M, P){
     var enc = new TextEncoder(), p = [], ofs = [], n = 0, i, adet = sf.length, kids = [];
