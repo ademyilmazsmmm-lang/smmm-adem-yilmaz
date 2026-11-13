@@ -4155,35 +4155,38 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (BK && BK.mid !== m.id) { BK = null; BK_DOSYA = null; }
     bkCiz();
   }
+  /* Evrakları getir: parçalı ve devam ettirilebilir. Alınanlar BK'de saklanır; GİB istek sınırına takılırsa durulur, alınanlar gösterilir, biraz sonra düğmeye basınca yalnız eksikler alınır */
+  var LIMIT_RE = /istek\s*limit|limiti\s*a[şs]/i;
   function bkHazirla(){
     var m = mk(), d = $("bkDurum"), b = $("bkHazirla"); if (!m) return;
     if (VD.mid !== m.id) vdAc();
     if (!VD.bagli) { $("bkBaglan").hidden = false; d.className = "durum hata"; d.textContent = "Önce doğrulama koduyla vergi dairesine bağlanın."; return; }
-    var bg = bugunStr(), Y = +bg.slice(0, 4), AY = bg.slice(5, 7), gerekli = [Y, Y - 1].concat(bkYilSecili()).filter(function(y, i, a){ return a.indexOf(y) === i; });
-    if (!BK || BK.mid !== m.id || BK.Y !== Y) BK = { mid: m.id, Y: Y, yillar: {}, ilkB: false, ilkT: false, levha: null, bel: null, hatalar: [] };
-    BK_DOSYA = null; var gorev = [], hataYut = function(on){ return function(er){ if (er && (er.girisGerek || er.oturum)) throw er; BK.hatalar.push(on + ": " + er.message); }; };
+    var bg = bugunStr(), Y = +bg.slice(0, 4), AY = bg.slice(5, 7), gerekli = [Y, Y - 1].concat(bkYilSecili()).filter(function(y, i, a){ return a.indexOf(y) === i; }).sort(function(a, c){ return c - a; });
+    if (!BK || BK.mid !== m.id || BK.Y !== Y) BK = { mid: m.id, Y: Y, yillar: {}, ilkB: false, ilkT: false, levha: null, bel: null, hatalar: [], bynYil: {} };
+    BK.hatalar = []; BK.limit = false; BK_DOSYA = null; BK.bynYil = BK.bynYil || {};
+    gerekli.forEach(function(y){ BK.yillar[y] = BK.yillar[y] || { byn: [], thk: [], thkTamam: false }; });
+    var gorev = [], hataYut = function(on){ return function(er){ if (er && (er.girisGerek || er.oturum)) throw er; BK.hatalar.push(on + ": " + er.message); }; };
+    var limitKes = function(on){ return function(er){ if (er && (er.girisGerek || er.oturum)) throw er; if (LIMIT_RE.test((er && er.message) || "")) { BK.limit = true; var e2 = new Error("limit"); e2.bkLimit = true; throw e2; } BK.hatalar.push(on + ": " + er.message); }; };
     if (!BK.bel) gorev.push(function(){ d.textContent = "Belgelerim kontrol ediliyor…"; return api("/api/belgeler?mid=" + encodeURIComponent(m.id)).then(function(r){ BK.bel = r.belgeler || []; }, function(){ BK.bel = []; }); });
-    if (!BK.levha) gorev.push(function(){ d.textContent = "e-Vergi levhası alınıyor…"; return btApi("/api/vd/levha", { yil: Y }).then(function(r){ BK.levha = r; }, hataYut("e-Vergi levhası")); });
-    var eksik = gerekli.filter(function(y){ return !BK.yillar[y]; });
-    if (eksik.length) {
-      var ilk = Math.min.apply(null, eksik), son = Math.max.apply(null, eksik), bas = ilk + "-01", bit = son === Y ? Y + "-" + AY : son + "-12", tabanYil = ilk;
-      eksik.forEach(function(y){ BK.yillar[y] = { byn: [], thk: [] }; });
-      /* önce tek geniş sorgu (az istek: GİB istek sınırı); olmazsa yıl yıl */
-      var yilYil = function(tur, alan, ekleAd, ilkAd){
-        var ys = eksik.slice(), pr = Promise.resolve();
-        ys.forEach(function(y){ pr = pr.then(function(){ return bkBekle(1200); }).then(function(){ d.textContent = y + (tur === "beyanname" ? " beyannameleri" : " tahakkukları") + " alınıyor…"; return btApi("/api/vd/" + tur, { tbas: y + "-01", tbit: y === Y ? Y + "-" + AY : y + "-12", ekle: BK[ilkAd] }).then(function(r){ BK.yillar[y][alan] = r[tur === "beyanname" ? "beyannameler" : "kayitlar"] || []; BK[ilkAd] = true; }, hataYut(y + (tur === "beyanname" ? " beyannameleri" : " tahakkukları"))); }); });
-        return pr;
-      };
-      gorev.push(function(){ return bkBekle(1200).then(function(){ d.textContent = "Beyannameler alınıyor (" + ilk + "–" + son + ")…"; return btApi("/api/vd/beyanname", { tbas: bas, tbit: bit, ekle: BK.ilkB }).then(function(r){ BK.yillar[tabanYil].byn = r.beyannameler || []; BK.ilkB = true; }); }).then(null, function(er){ if (er && (er.girisGerek || er.oturum)) throw er; if (/istek\s*limit|limiti\s*a[şs]/i.test(er.message || "")) { BK.hatalar.push("Beyannameler: " + er.message); return; } return yilYil("beyanname", "byn", "", "ilkB"); }); });
-      /* tahakkuk: GİB bir sorguda en çok 200 kayıt döndürür (en yeniden eskiye); geniş aralıkta eski yıllar kesilir. Bu yüzden yıl yıl */
-      eksik.slice().sort(function(a, b){ return b - a; }).forEach(function(y){
-        gorev.push(function(){ return bkBekle(1300).then(function(){ d.textContent = y + " tahakkukları alınıyor…"; return btApi("/api/vd/tahakkuk", { tbas: y + "-01", tbit: y === Y ? Y + "-" + AY : y + "-12", ekle: BK.ilkT, sade: BK.ilkT }); }).then(function(r){ BK.yillar[y].thk = r.kayitlar || []; BK.ilkT = true; }, hataYut(y + " tahakkukları")); });
-      });
+    if (!BK.levha) gorev.push(function(){ d.textContent = "e-Vergi levhası alınıyor…"; return btApi("/api/vd/levha", { yil: Y }).then(function(r){ BK.levha = r; bkCiz(); }, limitKes("e-Vergi levhası")); });
+    /* beyannameler: tek geniş sorgu (eksik yıllar için) */
+    var eksikB = gerekli.filter(function(y){ return !BK.bynYil[y]; });
+    if (eksikB.length) {
+      var ilk = Math.min.apply(null, eksikB), son = Math.max.apply(null, eksikB), bas = ilk + "-01", bit = son === Y ? Y + "-" + AY : son + "-12";
+      gorev.push(function(){ d.textContent = "Beyannameler alınıyor (" + ilk + "–" + son + ")…"; return btApi("/api/vd/beyanname", { tbas: bas, tbit: bit, ekle: BK.ilkB }).then(function(r){ BK.yillar[gerekli[gerekli.length - 1]].byn = (BK.yillar[gerekli[gerekli.length - 1]].byn || []).concat(r.beyannameler || []); BK.ilkB = true; eksikB.forEach(function(y){ BK.bynYil[y] = true; }); bkCiz(); }, limitKes("Beyannameler")); });
     }
+    /* tahakkuklar: GİB bir sorguda en çok 200 kayıt döndürür; bu yüzden yıl yıl (en yeniden eskiye) */
+    gerekli.filter(function(y){ return !BK.yillar[y].thkTamam; }).forEach(function(y){
+      gorev.push(function(){ d.textContent = y + " tahakkukları alınıyor…"; return btApi("/api/vd/tahakkuk", { tbas: y + "-01", tbit: y === Y ? Y + "-" + AY : y + "-12", ekle: BK.ilkT, sade: BK.ilkT }).then(function(r){ BK.yillar[y].thk = r.kayitlar || []; BK.yillar[y].thkTamam = true; BK.ilkT = true; bkCiz(); }, limitKes(y + " tahakkukları")); });
+    });
     b.disabled = true; d.className = "durum";
+    var bitir = function(){ b.disabled = false; VD.sonuc.bt = null; VD.sonuc.banka = null; bkCiz(); sonucaGit("bkListe"); };
     (function sira(i){
-      if (i >= gorev.length) { bkTarihGetir(function(){ b.disabled = false; d.textContent = ""; VD.sonuc.bt = null; VD.sonuc.banka = null; bkCiz(); sonucaGit("bkListe"); }); return; }
-      gorev[i]().then(function(){ sira(i + 1); }, function(er){ b.disabled = false; if (oturumDustu(er)) return; if (er.girisGerek || er.oturum) { VD.bagli = false; $("bkBaglan").hidden = false; BK = null; } d.className = "durum hata"; d.textContent = er.message; });
+      if (i >= gorev.length) { bkTarihGetir(function(){ d.textContent = ""; bitir(); }); return; }
+      (i ? bkBekle(1300) : Promise.resolve()).then(function(){ return gorev[i](); }).then(function(){ sira(i + 1); }, function(er){
+        if (er && er.bkLimit) { d.className = "durum hata"; d.textContent = "Vergi dairesi istek sınırı doldu. Şimdiye kadar alınanlar aşağıda; 1-2 dakika sonra “Evrakları getir”e tekrar basın, yalnız eksikler alınır."; bitir(); return; }
+        b.disabled = false; if (oturumDustu(er)) return; if (er.girisGerek || er.oturum) { VD.bagli = false; $("bkBaglan").hidden = false; BK = null; } d.className = "durum hata"; d.textContent = er.message;
+      });
     })(0);
   }
   /* aynı tür ve dönemde birden çok beyanname (düzeltme): PDF içindeki veriliş zamanlarını iste (yalnız bu durumda) */
@@ -4217,7 +4220,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       if (!e || ((tb && te) ? (tb > te ? 1 : tb < te ? -1 : 0) : (!!b.aciklama - !!e.aciklama || String(b.sira || "").localeCompare(String(e.sira || ""), "tr", { numeric: true }) || b.n - e.n)) > 0) g[k] = b; }); return Object.keys(g).map(function(k){ return g[k]; }); };
     var verilis = function(b){ var z = trh[b.n]; if (!z) return ""; var q = /^(\d{4})-(\d{2})-(\d{2})/.exec(z); return q ? " · verildi " + q[3] + "." + q[2] + "." + q[1] : ""; };
     var cift = function(b, etiket){ var r = satir({ tur: "byn", n: b.n, ad: dosyaAd(etiket + " beyannamesi " + bynDonem(b)), baslik: etiket + " beyannamesi (" + bynDonem(b) + ")", alt: bynAd(b.tur) + verilis(b) + (b.aciklama ? " · " + b.aciklama : ""), url: belgeUrl("byn", b.n, 0) });
-      if (thkEkle) { var tl = btThkTek(b, tumT); tl.forEach(function(x){ r += satir({ tur: "thk", n: x.n, ad: dosyaAd(etiket + " tahakkuk " + bynDonem(b)), baslik: etiket + " tahakkuk fişi (" + bynDonem(b) + ")", alt: x.kabulTarihi ? "kabul " + tarihYaz(x.kabulTarihi) : "", url: belgeUrl("thk", x.n, 0) }); }); if (!tl.length) r += '<p class="not" style="margin:4px 0 8px;font-size:.76rem">Bu beyanname için tahakkuk fişi bulunamadı.</p>'; }
+      if (thkEkle) { var tl = btThkTek(b, tumT); tl.forEach(function(x){ r += satir({ tur: "thk", n: x.n, ad: dosyaAd(etiket + " tahakkuk " + bynDonem(b)), baslik: etiket + " tahakkuk fişi (" + bynDonem(b) + ")", alt: x.kabulTarihi ? "kabul " + tarihYaz(x.kabulTarihi) : "", url: belgeUrl("thk", x.n, 0) }); }); if (!tl.length) { var yy = +String(b.bas || "").slice(0, 4), kk = BK.yillar[yy]; r += kk && !kk.thkTamam ? '<p class="not" style="margin:4px 0 8px;font-size:.76rem;color:var(--warn)">Tahakkuk fişleri henüz alınamadı (GİB istek sınırı); biraz sonra “Evrakları getir”e tekrar basın.</p>' : '<p class="not" style="margin:4px 0 8px;font-size:.76rem">Bu beyanname için tahakkuk fişi bulunamadı.</p>'; } }
       return r; };
     /* mizan: kurumlar vergisi mükellefinde her zaman; gelir vergisinde yalnız bilanço esaslıda (gelir tablosu olan, Defter-Beyan / işletme hesabı olmayan) */
     var mm = mk() || {}, kurum = tumB.some(function(b){ return /^(KURUMLAR|KGECICI)/i.test(b.tur); }), mizanVar = kurum || !mm.defterBeyan;

@@ -80,6 +80,8 @@ class Ivd {
   constructor(kullanici, sifre) { this.k = kullanici; this.s = sifre; this.token = null; this.cid = null; }
   get girildi() { return !!this.token; }
   async istek(yontem, url, govde, bearer, ek) {
+    /* GİB "Servis İstek Limiti": art arda hızlı istekleri seyrelt (aynı oturumda en az 900 ms ara) */
+    const bos = 900 - (Date.now() - (this._sonIstek || 0)); this._sonIstek = Date.now() + Math.max(0, bos); if (bos > 0) await bekle(bos);
     const baslik = { accept: "application/json, text/plain, */*", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36", origin: "https://dijital.gib.gov.tr", referer: "https://dijital.gib.gov.tr/portal/" };
     const form = typeof FormData !== "undefined" && govde instanceof FormData;
     if (govde !== undefined && !form) baslik["content-type"] = "application/json";
@@ -252,7 +254,11 @@ class Ivd {
   async beyannameListe(bas, bit, vknIpucu, ekle) { /* ekle: önceki listeye eklenir, n numaraları çakışmaz (banka evrakı gibi birden çok aralık için) */
     const ay = (t) => /^\d{4}-(0[1-9]|1[0-2])$/.test(t || ""); if (!ay(bas) || !ay(bit)) throw new Error("Başlangıç ve bitiş ayını seçin."); if (bas > bit) throw new Error("Bitiş ayı başlangıçtan önce olamaz.");
     const [by, bm] = bas.split("-"), [ey, em] = bit.split("-"), m = (v) => (v === undefined || v === null ? "" : String(v));
-    const oz = await this.intvrgCagir("userSessionService_getUserSessionInfo", { token: (await this.intvrgOturum()).token, rfDataInfo: [] }), od = (oz && oz.data && typeof oz.data === "object" ? oz.data : oz) || {};
+    const anah = bas + "|" + bit;
+    if (!ekle) this._bynOnbellek = new Map();
+    const onb = ekle && this._bynOnbellek && this._bynOnbellek.get(anah); if (onb && Date.now() - onb.zaman < 15 * 60e3) return onb.sonuc;
+    let od = this._oturumBilgi && Date.now() - this._oturumBilgi.zaman < 30 * 60e3 ? this._oturumBilgi.od : null;
+    if (!od) { const oz = await this.intvrgCagir("userSessionService_getUserSessionInfo", { token: (await this.intvrgOturum()).token, rfDataInfo: [] }); od = (oz && oz.data && typeof oz.data === "object" ? oz.data : oz) || {}; this._oturumBilgi = { od, zaman: Date.now() }; }
     const adaylar = [...new Set([m(vknIpucu), m(od.KTCKN), m(od.GMSITCKIMLIKNO), m(od.GMSIVERGINO)].map((x) => x.replace(/\D/g, "")).filter((x) => /^\d{10,11}$/.test(x)))];
     if (!adaylar.length) throw new Error("Mükellefin T.C. / vergi kimlik numarası bulunamadı.");
     let dizi = null, sonHata = null;
@@ -264,7 +270,9 @@ class Ivd {
     const donem = (d) => { const q = /^(\d{4})(\d{2})(\d{4})(\d{2})$/.exec(String(d || "")); return q ? { bas: q[1] + "-" + q[2], bit: q[3] + "-" + q[4] } : { bas: "", bit: "" }; };
     const yeni = dizi.map((b) => Object.assign({ oid: m(b.beyoid), tur: m(b.beyanname_turu), aciklama: m(b.aciklama), kaynak: m(b.kaynak) }, donem(b.donem))), taban = ekle ? (this.beyannameler || []).length : 0;
     this.beyannameler = ekle ? (this.beyannameler || []).concat(yeni) : yeni;
-    return { beyannameler: yeni.map((b, i) => ({ n: taban + i, tur: b.tur, bas: b.bas, bit: b.bit, aciklama: b.aciklama, kaynak: b.kaynak, sira: b.oid })), sekil: "" };
+    const sonuc = { beyannameler: yeni.map((b, i) => ({ n: taban + i, tur: b.tur, bas: b.bas, bit: b.bit, aciklama: b.aciklama, kaynak: b.kaynak, sira: b.oid })), sekil: "" };
+    if (this._bynOnbellek) this._bynOnbellek.set(anah, { zaman: Date.now(), sonuc });
+    return sonuc;
   }
   async beyannameIndir(n) {
     const b = (this.beyannameler || [])[n]; if (!b || !b.oid) throw new Error("Beyanname bulunamadı; listeyi yenileyin.");
@@ -385,9 +393,16 @@ class Ivd {
     const ay = (t) => /^\d{4}-(0[1-9]|1[0-2])$/.test(t || "");
     if (!ay(bas) || !ay(bit)) throw new Error("Başlangıç ve bitiş ayını seçin.");
     if (bas > bit) throw new Error("Bitiş ayı başlangıçtan önce olamaz.");
-    const vy = await this.istek("POST", GW + "/api/sicil-bilgileri/tahakkuka-gore-vergi-daireleri-list", {}, true);
-    const vdler = ((vy && ((vy.data && vy.data.vdArr) || vy.vdArr)) || []).map((d) => ({ kod: d.vdKodu, ad: d.vdAdi })).filter((d) => d.kod);
-    if (!vdler.length) throw new Error("Tahakkuk kaydı olan vergi dairesi bulunamadı.");
+    const anah = bas + "|" + bit;
+    if (!ekle) this._thkOnbellek = new Map(); /* liste yeniden başlıyor: önceki n numaraları geçersiz */
+    const onb = ekle && this._thkOnbellek && this._thkOnbellek.get(anah); if (onb && Date.now() - onb.zaman < 15 * 60e3) return onb.sonuc; /* aynı aralık tekrar istenirse GİB'e gidilmez */
+    let vdler = this._vdListe && Date.now() - this._vdListe.zaman < 30 * 60e3 ? this._vdListe.l : null;
+    if (!vdler) {
+      const vy = await this.istek("POST", GW + "/api/sicil-bilgileri/tahakkuka-gore-vergi-daireleri-list", {}, true);
+      vdler = ((vy && ((vy.data && vy.data.vdArr) || vy.vdArr)) || []).map((d) => ({ kod: d.vdKodu, ad: d.vdAdi })).filter((d) => d.kod);
+      if (!vdler.length) throw new Error("Tahakkuk kaydı olan vergi dairesi bulunamadı.");
+      this._vdListe = { l: vdler, zaman: Date.now() };
+    }
     const [by, bm] = bas.split("-"), [ey, em] = bit.split("-"), son1 = new Date(Date.UTC(+ey, +em, 0)).getUTCDate();
     /* Portalın ay seçicisinin gönderdiği biçim koddan kesin anlaşılamıyor; yanlış biçimde GİB hata vermeden BOŞ liste dönebiliyor.
      * Bu yüzden boş sonuç "bu biçim olmadı" sayılır ve sıradaki denenir; ilk dolu sonuç veren biçim hatırlanır. */
@@ -413,7 +428,9 @@ class Ivd {
     if (hepsi === null) { if (bosGeldi) hepsi = []; else throw sonHata || new Error("Tahakkuk sorgusu kabul edilmedi."); }
     const taban = ekle ? (this.tahakkuklar || []).length : 0; this.tahakkuklar = ekle ? (this.tahakkuklar || []).concat(hepsi) : hepsi;
     const kayit = hepsi.map((d, i) => ({ n: taban + i, vdAdi: d.vdAdi || "", vergiKodu: d.vergiKodu || "", vergiDonem: d.vergiDonem || "", kabulTarihi: d.kabulTarihi || "", fisNo: d.fisNo || "" }));
-    return { kayitlar: kayit, sekil: sekil(son), deneme, vdler: vdler.length };
+    const sonuc = { kayitlar: kayit, sekil: sekil(son), deneme, vdler: vdler.length };
+    if (this._thkOnbellek) this._thkOnbellek.set(anah, { zaman: Date.now(), sonuc });
+    return sonuc;
   }
   /* Önceki ayın KDV tahakkuk fişinden "devreden KDV"yi okur: KDV beyannamesi dönemi izleyen ay verildiği için kabul tarihi dönemden en çok 3 ay sonradır */
   async kdvDevir(yil, ay) {
