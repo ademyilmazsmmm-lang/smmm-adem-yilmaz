@@ -3405,7 +3405,9 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   });
   $("vdSgkKodIste").addEventListener("click", function(){
     var b = this, d = $("vdSgkDurum"); if (!VD.mid) return; b.disabled = true; d.className = "durum"; d.textContent = "Güvenlik kodu isteniyor…";
-    api("/api/sgk/captcha", "POST", { mukellefId: VD.mid, sistem: VD.sgkSis }).then(function(r){ $("vdSgkKodResim").src = r.resim; $("vdSgkKod").value = ""; $("vdSgkKodKutu").style.display = "flex"; d.textContent = VD.sgkBekleyen ? "Bu işlem için SGK güvenlik kodu gerekiyor; resimdeki kodu yazın." : ""; b.textContent = "Kodu yenile"; setTimeout(function(){ odakla($("vdSgkKod")); }, 50); }, vdSgkHata).then(function(){ b.disabled = false; });
+    /* kutu ve imleç hemen açılır; resim gelince yerine konur (beklerken kutu boş kalmaz) */
+    $("vdSgkKodResim").removeAttribute("src"); $("vdSgkKodResim").style.minWidth = "120px"; $("vdSgkKod").value = ""; $("vdSgkKodKutu").style.display = "flex"; odakla($("vdSgkKod"));
+    api("/api/sgk/captcha", "POST", { mukellefId: VD.mid, sistem: VD.sgkSis }).then(function(r){ $("vdSgkKodResim").src = r.resim; d.textContent = VD.sgkBekleyen ? "Bu işlem için SGK güvenlik kodu gerekiyor; resimdeki kodu yazın." : ""; b.textContent = "Kodu yenile"; }, function(er){ $("vdSgkKodKutu").style.display = "none"; vdSgkHata(er); }).then(function(){ b.disabled = false; });
   });
   function vdSgkGiris(){
     var b = $("vdSgkGiris"), d = $("vdSgkDurum"), dk = $("vdSgkKod").value.trim(), sis = VD.sgkSis; if (!VD.mid) return;
@@ -3622,9 +3624,10 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   });
   $("vdKodIste").addEventListener("click", function(){
     var b = this, d = $("vdDurum"); if (!VD.mid) return; b.disabled = true; d.className = "durum"; d.textContent = "Doğrulama kodu isteniyor…";
+    $("vdKodResim").removeAttribute("src"); $("vdKodResim").style.minWidth = "120px"; $("vdKod").value = ""; $("vdKodKutu").style.display = "flex"; odakla($("vdKod"));
     api("/api/vd/captcha", "POST", { mukellefId: VD.mid }).then(function(r){
-      $("vdKodResim").src = r.resim; $("vdKod").value = ""; $("vdKodKutu").style.display = "flex"; d.textContent = ""; b.textContent = "Kodu yenile"; setTimeout(function(){ odakla($("vdKod")); }, 50);
-    }, function(er){ vdHata(er, d); }).then(function(){ b.disabled = false; });
+      $("vdKodResim").src = r.resim; d.textContent = ""; b.textContent = "Kodu yenile";
+    }, function(er){ $("vdKodKutu").style.display = "none"; vdHata(er, d); }).then(function(){ b.disabled = false; });
   });
   function vdGiris(){
     var b = $("vdGiris"), d = $("vdDurum"), dk = $("vdKod").value.trim().toLowerCase(); if (!VD.mid) return;
