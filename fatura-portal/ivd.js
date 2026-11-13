@@ -74,6 +74,8 @@ function bynVerilis(metin) {
   if (ts.length) return { zaman: ts[ts.length - 1], kaynak: "tarih-saat" };
   return { zaman: "", kaynak: "" };
 }
+const LIMIT = (e) => /istek\s*limit|limiti\s*a[şs]/i.test(String((e && e.message) || e || ""));
+const bekle = (ms) => new Promise((r) => setTimeout(r, ms));
 class Ivd {
   constructor(kullanici, sifre) { this.k = kullanici; this.s = sifre; this.token = null; this.cid = null; }
   get girildi() { return !!this.token; }
@@ -256,7 +258,7 @@ class Ivd {
     let dizi = null, sonHata = null;
     for (const vkn of adaylar) {
       try { const j = await this.intvrgCagir("beyannameIslemleri_beyannameSorgulaSorgu", { vkn: { vkn }, basDonem: { ay: bm, yil: by }, bitDonem: { ay: em, yil: ey } }); const b = j && j.data && j.data.beyanname && j.data.beyanname.beyanname; if (Array.isArray(b)) { dizi = b; if (b.length) break; } else if (dizi === null) dizi = []; }
-      catch (e) { if (e.oturum) throw e; sonHata = e; }
+      catch (e) { if (e.oturum || LIMIT(e)) throw e; sonHata = e; }
     }
     if (dizi === null) throw sonHata || new Error("Beyanname bilgisi alınamadı.");
     const donem = (d) => { const q = /^(\d{4})(\d{2})(\d{4})(\d{2})$/.exec(String(d || "")); return q ? { bas: q[1] + "-" + q[2], bit: q[3] + "-" + q[4] } : { bas: "", bit: "" }; };
@@ -396,6 +398,7 @@ class Ivd {
       const topla = [], yanitlar = [];
       try {
         for (const vd of vdler) {
+          if (topla.length || yanitlar.length) await bekle(300);
           const y = await this.istek("POST", GW + "/api/tahakkuklarim/tahakkuk-sorgula", this.tablo({ vdKodu: vd.kod, baslangicTarihi: b[0], bitisTarihi: b[1] }, 200, { alan: "kabulTarihi", yon: "DESC" }), true);
           yanitlar.push(y); const dizi = y && (Array.isArray(y.tahakkukList) ? y.tahakkukList : y.data && Array.isArray(y.data.tahakkukList) ? y.data.tahakkukList : null);
           if (!dizi) throw new Error("Tahakkuk listesi alınamadı (" + (this.mesajMetni(y) || "beklenmeyen yanıt") + ").");
@@ -404,7 +407,7 @@ class Ivd {
         son = yanitlar[yanitlar.length - 1]; deneme.push(b[0] + ".." + b[1] + " → " + topla.length);
         if (topla.length) { hepsi = topla; this.tahakkukBicim = bicimler.indexOf(b); break; }
         bosGeldi = true; // bu biçimle hiç kayıt gelmedi: ya dönemde tahakkuk yok ya da biçim yanlış
-      } catch (e) { if (e.oturum) throw e; deneme.push(b[0] + ".." + b[1] + " → hata: " + String(e.message).slice(0, 80)); if (e.bos) { bosGeldi = true; continue; } sonHata = e; }
+      } catch (e) { if (e.oturum) throw e; if (LIMIT(e)) throw e; /* GİB istek sınırı: başka biçim denemek sınırı daha da zorlar; çağıran bekleyip yeniden dener */ deneme.push(b[0] + ".." + b[1] + " → hata: " + String(e.message).slice(0, 80)); if (e.bos) { bosGeldi = true; continue; } sonHata = e; }
     }
     this.sonDeneme = deneme;
     if (hepsi === null) { if (bosGeldi) hepsi = []; else throw sonHata || new Error("Tahakkuk sorgusu kabul edilmedi."); }
