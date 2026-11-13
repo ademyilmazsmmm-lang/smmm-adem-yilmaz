@@ -869,13 +869,14 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     function agHata(){ var e = new Error(tekrarli ? "Yanıt alınamadı (bağlantı yavaş ya da kesildi). Lütfen tekrar sorgulayın." : "Bağlantı kurulamadı. Lütfen birkaç saniye bekleyip tekrar deneyin."); e.ag = true; return e; }
     function dene(){
       return fetch(yol, { method: yontem || "GET", headers: { "content-type": "application/json" }, body: govde ? JSON.stringify(govde) : undefined })
-        .then(function(r){ return r.text().then(function(t){ var j = null; try { j = JSON.parse(t); } catch (x) {} return { r: r, j: j }; }); })
+        .then(function(r){ return r.text().then(function(t){ var j = null; try { j = JSON.parse(t); } catch (x) {} return { r: r, j: j, t: t }; }); })
         .catch(function(){ throw agHata(); })
         .then(function(x){
           var r = x.r, j = x.j;
           if (j === null) throw agHata(); /* sunucu uyanıyor / ağ geçidi hatası (JSON olmayan yanıt) */
           if (!r.ok) { var e = new Error(j.hata || "Hata"); e.kod = r.status; if (j.girisGerek) e.girisGerek = true; throw e; }
           if ((yontem && yontem !== "GET" && !YEDEKSIZ.test(yol)) || (yol === "/api/veri" && yontem === "PUT")) yedekSoon();
+          if (j && (Array.isArray(j.mukellefler) || (j.veri && Array.isArray(j.veri.mukellefler)))) BAZ_METIN = x.t; /* sunucunun son bildirdiği tam durum: kaydederken yalnız farklar gönderilir */
           return j;
         })
         .catch(function(e){ if (e && e.ag && tekrarli && deneme < 2) { deneme++; return bekle(deneme === 1 ? 4000 : 8000).then(dene); } throw e; });
@@ -948,8 +949,29 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       if (!$("gBit").value) { var d0 = new Date(); $("gBit").value = bugunStr(); d0.setDate(d0.getDate() - 30); $("gBas").value = d0.getFullYear() + "-" + String(d0.getMonth() + 1).padStart(2, "0") + "-" + String(d0.getDate()).padStart(2, "0"); }
     });
   }
+  /* Kaydetme: tüm listeyi değil yalnız DEĞİŞENi gönderir (sunucuda güncel durumun üstüne uygulanır); iki kişi aynı anda çalışınca biri diğerini ezmez */
+  var BAZ_METIN = "", FARK_ALAN = ["ad", "vkn", "kullanici", "gibSifre", "sgk", "sgkEk", "kdvDevir", "sonBeyan", "defterBeyan", "earsiv", "profil"], FARK_LISTE = ["aliciler", "hizmetler"];
+  function farkHazirla(){
+    var taban = {}, var0 = false; try { var b = JSON.parse(BAZ_METIN); (b.veri && b.veri.mukellefler || b.mukellefler || []).forEach(function(m){ taban[m.id] = m; var0 = true; }); } catch (e) { /* taban yok */ }
+    if (!var0) return null;
+    var js = function(x){ return JSON.stringify(x === undefined ? null : x); }, liste = [];
+    V.mukellefler.forEach(function(m){
+      var m0 = taban[m.id]; if (!m0) return; /* sunucunun bilmediği kayıt: yeni mükellef ayrı uçtan eklenir */
+      var alan = {}, fark = {}, d = false;
+      FARK_ALAN.forEach(function(a){ if (js(m[a]) !== js(m0[a])) { alan[a] = m[a]; d = true; } });
+      if (MARKADEGISTI[m.id] && MARKA[m.id]) { alan.marka = MARKA[m.id]; d = true; }
+      FARK_LISTE.forEach(function(a){
+        var eski = {}, f = { ekle: [], degis: [], sil: [] }, gor = {}; (m0[a] || []).forEach(function(x){ eski[x.id] = js(x); });
+        (m[a] || []).forEach(function(x){ gor[x.id] = 1; if (!(x.id in eski)) f.ekle.push(x); else if (js(x) !== eski[x.id]) f.degis.push(x); });
+        Object.keys(eski).forEach(function(id){ if (!gor[id]) f.sil.push(id); });
+        if (f.ekle.length || f.degis.length || f.sil.length) { fark[a] = f; d = true; }
+      });
+      if (d) liste.push({ id: m.id, alan: alan, fark: fark });
+    });
+    return liste;
+  }
   function kaydetV(){
-    var govde = { mukellefler: V.mukellefler.map(function(m){ var c = {}; for (var a in m) if (a !== "markaVar") c[a] = m[a]; if (MARKADEGISTI[m.id] && MARKA[m.id]) c.marka = MARKA[m.id]; return c; }) };
+    var f = farkHazirla(), govde = f ? { degisiklikler: f } : { mukellefler: V.mukellefler.map(function(m){ var c = {}; for (var a in m) if (a !== "markaVar") c[a] = m[a]; if (MARKADEGISTI[m.id] && MARKA[m.id]) c.marka = MARKA[m.id]; return c; }) }; /* taban yoksa eski tam kayıt */
     return api("/api/veri", "PUT", govde).then(function(v){ V = v; MARKADEGISTI = {}; });
   }
 

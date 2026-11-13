@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-14-299";
+const SURUM = "2026-11-14-300";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -148,6 +148,28 @@ function birlestir(o, g) {
     v.aliciler = aliciTemiz(m.aliciler); v.hizmetler = hizmetTemiz(m.hizmetler); if (m.marka) v.marka = markaTemiz(m.marka); if (m.profil) v.profil = profilTemiz(m.profil);
     depo.kaydet(id);
     if (v.kullanici !== eskiK || v.gibSifre !== eskiS) { gibBirak(id); ivdBirak(id); ivdKilit.delete(id); ivdHata.delete(id); }
+  }
+}
+/* Parçalı güncelleme (yarış koşulu önleyici): istemci yalnız DEĞİŞEN alanları ve liste farklarını (ekle / değiştir / sil) gönderir; bunlar
+   sunucudaki GÜNCEL durumun üstüne uygulanır. Böylece iki kişi aynı anda çalışırken biri diğerinin değişikliğini ya da hiç dokunmadığı
+   mükellefleri ezmez. Aynı alanı aynı anda değiştirirlerse yalnız o alanda sonra gelen kalır. */
+const FARK_ALANLAR = ["ad", "vkn", "kullanici", "gibSifre", "sgk", "sgkEk", "kdvDevir", "sonBeyan", "defterBeyan", "earsiv", "marka", "profil"];
+function listeFark(liste, f) {
+  const sil = new Set((Array.isArray(f.sil) ? f.sil : []).map(String)), out = (Array.isArray(liste) ? liste : []).filter((x) => !sil.has(String(x.id))), idx = new Map(out.map((x, i) => [String(x.id), i]));
+  for (const x of [...(Array.isArray(f.degis) ? f.degis : []), ...(Array.isArray(f.ekle) ? f.ekle : [])]) {
+    if (!x || x.id == null) continue; const k = String(x.id);
+    if (idx.has(k)) out[idx.get(k)] = x; else { idx.set(k, out.length); out.push(x); }
+  }
+  return out;
+}
+function birlestirFark(o, liste) {
+  for (const d of liste.slice(0, 200)) {
+    const id = String(d && d.id); if (!d || !depo.yetkili(o, id)) continue;
+    const m = temizMukellef(o, id), a = d.alan && typeof d.alan === "object" ? d.alan : {}, f = d.fark && typeof d.fark === "object" ? d.fark : {};
+    for (const k of FARK_ALANLAR) if (Object.prototype.hasOwnProperty.call(a, k)) m[k] = a[k];
+    if (f.aliciler && typeof f.aliciler === "object") m.aliciler = listeFark(m.aliciler, f.aliciler);
+    if (f.hizmetler && typeof f.hizmetler === "object") m.hizmetler = listeFark(m.hizmetler, f.hizmetler);
+    birlestir(o, { mukellefler: [m] });
   }
 }
 /* Güncel kira artış oranı: web sitesinin ana sayfasında her ay güncellenen kutudan okunur (6 saat önbellek); okunamazsa kart gösterilmez */
@@ -449,7 +471,7 @@ async function api(req, res, yol) {
   }
   if (yol === "/api/mail/durum" && req.method === "GET") return cevap(res, 200, { hazir: posta.hazir(), saglayici: posta.durum().saglayici, gonderen: o.rol === "ofis" ? posta.durum().gonderen : undefined });
   if (yol === "/api/veri" && req.method === "GET") return cevap(res, 200, temiz(o));
-  if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req, 8e6); if (!Array.isArray(g.mukellefler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(o, g); return cevap(res, 200, temiz(o)); }
+  if (yol === "/api/veri" && req.method === "PUT") { const g = await oku(req, 8e6); if (Array.isArray(g.degisiklikler)) { birlestirFark(o, g.degisiklikler); return cevap(res, 200, temiz(o)); } if (!Array.isArray(g.mukellefler)) return cevap(res, 400, { hata: "Geçersiz veri." }); birlestir(o, g); return cevap(res, 200, temiz(o)); }
   if (yol === "/api/sgk/form" && req.method === "GET") {
     const q = new URL(req.url, "http://x").searchParams, mid = o.rol === "mukellef" ? o.mid : q.get("mid") || "", an = sgkAnahtar(mid, "isveren", sgkIx(q.get("ix")));
     const duz = (kod, metin) => { res.writeHead(kod, Object.assign({ "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }, GUV)); res.end(metin); };
