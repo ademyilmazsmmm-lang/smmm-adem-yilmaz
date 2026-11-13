@@ -3976,7 +3976,8 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     /* hızlı işlemler */
     h += '<div class="a2-eylem">' + (m && m.earsiv !== false ? '<button class="btn" type="button" data-git="yeni">' + IKON.fatura.replace("<svg ", '<svg width="20" height="20" ') + 'Yeni fatura kes</button>' : '') +
       '<button class="k" type="button" data-git="belge"><span>Belgelerim</span>' + (r.belge ? '<em>' + r.belge + '</em>' : '') + '</button>' +
-      '<button class="k" type="button" data-git="talep"><span>' + (ofis ? "Talepler" : "Taleplerim") + '</span>' + (ofis ? (r.bekleyenToplam > 0 ? '<em>' + r.bekleyenToplam + '</em>' : '') : (r.acikTalep > 0 ? '<em>' + r.acikTalep + '</em>' : '')) + '</button></div>';
+      '<button class="k" type="button" data-git="talep"><span>' + (ofis ? "Talepler" : "Taleplerim") + '</span>' + (ofis ? (r.bekleyenToplam > 0 ? '<em>' + r.bekleyenToplam + '</em>' : '') : (r.acikTalep > 0 ? '<em>' + r.acikTalep + '</em>' : '')) + '</button>' +
+      '<button class="k" type="button" data-git="banka" style="grid-column:1/-1"><span>Bankaya verilecek evraklar</span><em>Levha · beyanname · mizan ›</em></button></div>';
     /* mali özet: kâr, KDV devri, fatura gelir / gider */
     var satirlar = "", notlar = [];
     if (m && m.defterBeyan) {
@@ -4012,6 +4013,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       kutu("vd", "vd", "Vergi borcu", vb ? anaTl(vb.toplam) : "—", vb ? anaZaman(vb.zaman) + " sorgusu" : "Sorgulamak için dokunun", vb ? (vb.toplam > 0 ? "dik" : "iyi") : "") +
       kutu("sgk", "sgk", "SGK borcu", sb ? anaTl(sb.toplam) : "—", sb ? anaZaman(sb.zaman) + " sorgusu" : "Sorgulamak için dokunun", sb ? (sb.toplam > 0 ? "dik" : "iyi") : "") +
       kutu("belge", "belge", "Belgelerim", r.belge == null ? "—" : String(r.belge), "İmza sirküleri, gazete…", "") +
+      kutu("banka", "belge", "Banka evrakı", "Hazırla", "Levha, beyanname, mizan", "") +
       kutu("talep", "talep", ofis ? "Bekleyen talepler" : "Taleplerim", ofis ? (r.bekleyenToplam == null ? "—" : String(r.bekleyenToplam)) : (r.acikTalep == null ? "—" : r.acikTalep + " açık"), ofis ? (r.hesapTalep > 0 ? "Tüm mükellefler · " + r.hesapTalep + " hesap talebi" : "Tüm mükellefler") : "Ofise sorularınız", ofis && r.bekleyenToplam > 0 ? "dik" : "") +
       '</div><p class="not" style="margin:8px 2px 0;font-size:.78rem">Vergi dairesi ve SGK tutarları, o bölümde sorgulayınca güncellenir (güvenlik kodu gerekir).</p></div>';
     var kd = son.kdv, kdKutu = function(d){ if (!d) return '<div class="kdvk"><b>—</b><small>Hazırlanmadı</small></div>'; var kt = function(x){ return x == null ? "—" : anaTl(x / 100); }; return '<div class="kdvk"><b>' + esc(d.ad) + '</b><div><span>Gelir (kesilen)</span><b style="color:var(--accent)">' + kt(d.gelir) + '</b></div><div><span>Gider (alınan)</span><b style="color:var(--danger)">' + kt(d.gider) + '</b></div><small>' + (d.bitti ? "" : "Ay sürüyor · ") + anaZaman(d.zaman) + '</small></div>'; };
@@ -4111,7 +4113,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var ga = e.target.closest("[data-gunc-ac]"); if (ga) { var gm = mk(); if (!gm) return; GUNC.zorla[gm.id] = true; GUNC.gizle[gm.id] = false; guncGoster((OZET && OZET.son) || {}); window.scrollTo(0, 0); return; }
     var dk = e.target.closest("[data-dy-kapat]"); if (dk) { var kl = duyuruKapali(); kl.push(dk.getAttribute("data-dy-kapat")); try { localStorage.setItem("duyuruKapali", JSON.stringify(kl.slice(-50))); } catch (x) {} anaCiz(OZET || {}); return; }
     var b = e.target.closest("[data-git]"); if (!b) return; var g = b.getAttribute("data-git"); if (b.getAttribute("data-vdsek")) VD.sek = b.getAttribute("data-vdsek");
-    if (g === "talep") { BS = "talepler"; sekme("belge"); } else { if (g === "belge") BS = "belgeler"; sekme(g); }
+    if (g === "talep") { BS = "talepler"; sekme("belge"); } else if (g === "banka") { BS = "banka"; sekme("belge"); } else { if (g === "belge") BS = "belgeler"; sekme(g); }
     window.scrollTo(0, 0);
   });
 
