@@ -3214,48 +3214,76 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       }).catch(hata);
       return;
     }
-    /* banka evrakı: levha (bu yıl), son geçici + geçen yıl yıllık beyanname ve tahakkukları */
-    var bg = bugunStr(), Y = +bg.slice(0, 4), AY = bg.slice(5, 7), hatalar = [], ad = {};
-    var adim = function(metin, yol, govde, anahtar){ d.textContent = metin; return btApi(yol, govde).then(function(r){ ad[anahtar] = r; }, function(er){ if (er && (er.girisGerek || er.oturum)) throw er; hatalar.push(metin.replace("…", "") + ": " + er.message); }); };
-    d.textContent = "Belgelerim kontrol ediliyor…";
-    api("/api/belgeler?mid=" + encodeURIComponent(VD.mid)).then(function(r){ ad.bel = r.belgeler || []; }, function(){ ad.bel = null; })
-      .then(function(){ return adim("e-Vergi levhası alınıyor…", "/api/vd/levha", { yil: Y }, "levha"); })
-      .then(function(){ return adim("Geçen yılın beyannameleri alınıyor…", "/api/vd/beyanname", { tbas: (Y - 1) + "-01", tbit: (Y - 1) + "-12" }, "b1"); })
-      .then(function(){ return adim("Bu yılın beyannameleri alınıyor…", "/api/vd/beyanname", { tbas: Y + "-01", tbit: Y + "-" + AY, ekle: true }, "b2"); })
-      .then(function(){ return adim("Geçen yılın tahakkukları alınıyor…", "/api/vd/tahakkuk", { tbas: (Y - 1) + "-01", tbit: (Y - 1) + "-12" }, "t1"); })
-      .then(function(){ return adim("Bu yılın tahakkukları alınıyor…", "/api/vd/tahakkuk", { tbas: Y + "-01", tbit: Y + "-" + AY, ekle: true }, "t2"); })
-      .then(function(){
-        VD.sonuc.banka = { Y: Y, bel: ad.bel, levha: ad.levha || null, byn: [].concat((ad.b1 && ad.b1.beyannameler) || [], (ad.b2 && ad.b2.beyannameler) || []), thk: [].concat((ad.t1 && ad.t1.kayitlar) || [], (ad.t2 && ad.t2.kayitlar) || []), hatalar: hatalar, zaman: new Date().toLocaleString("tr-TR") };
-        VD.sonuc.bt = null; d.textContent = ""; if (VD.sek === "banka") { vdCiz(); sonucaGit("vdListe"); } son();
-      }).catch(hata);
+    bankaYukle(VD.sonuc.banka ? VD.sonuc.banka.mod : "son", true, son, hata);
+  }
+  /* Banka evrakı: "Son dönem" (son geçici + geçen yıl yıllık) ya da "Son 3 yıl" (bu yıl dahil 4 takvim yılı). Yıllar tek tek alınır; sonradan istenen yıllar eklenir */
+  function bankaGerekli(mod, Y){ return mod === "son" ? [Y - 1, Y] : [Y - 3, Y - 2, Y - 1, Y]; }
+  function bankaYukle(mod, yenile, son, hata){
+    var b = $("vdSorgula"), d = $("vdDurum"); son = son || function(){ b.disabled = false; }; hata = hata || function(er){ vdHata(er, d); son(); };
+    var bg = bugunStr(), Y = +bg.slice(0, 4), AY = bg.slice(5, 7), s = !yenile && VD.sonuc.banka ? VD.sonuc.banka : null, yeni = !s;
+    if (!s) s = { Y: Y, yillar: {}, hatalar: [], bel: null, levha: null, ilkB: false, ilkT: false, zaman: "" };
+    s.mod = mod; var eksik = bankaGerekli(mod, Y).filter(function(y){ return !s.yillar[y]; });
+    if (!yeni && !eksik.length) { VD.sonuc.banka = s; vdCiz(); return; }
+    b.disabled = true; d.className = "durum";
+    var gorevler = [];
+    if (yeni) {
+      gorevler.push(function(){ d.textContent = "Belgelerim kontrol ediliyor…"; return api("/api/belgeler?mid=" + encodeURIComponent(VD.mid)).then(function(r){ s.bel = r.belgeler || []; }, function(){ s.bel = null; }); });
+      gorevler.push(function(){ d.textContent = "e-Vergi levhası alınıyor…"; return btApi("/api/vd/levha", { yil: Y }).then(function(r){ s.levha = r; }, function(er){ if (er && (er.girisGerek || er.oturum)) throw er; s.hatalar.push("e-Vergi levhası: " + er.message); }); });
+    }
+    eksik.forEach(function(y){
+      var bas = y + "-01", bit = y === Y ? Y + "-" + AY : y + "-12", k = s.yillar[y] = { byn: [], thk: [] };
+      gorevler.push(function(){ d.textContent = y + " beyannameleri alınıyor…"; return btApi("/api/vd/beyanname", { tbas: bas, tbit: bit, ekle: s.ilkB }).then(function(r){ k.byn = r.beyannameler || []; s.ilkB = true; }, function(er){ if (er && (er.girisGerek || er.oturum)) throw er; s.hatalar.push(y + " beyannameleri: " + er.message); }); });
+      gorevler.push(function(){ d.textContent = y + " tahakkukları alınıyor…"; return btApi("/api/vd/tahakkuk", { tbas: bas, tbit: bit, ekle: s.ilkT }).then(function(r){ k.thk = r.kayitlar || []; s.ilkT = true; }, function(er){ if (er && (er.girisGerek || er.oturum)) throw er; s.hatalar.push(y + " tahakkukları: " + er.message); }); });
+    });
+    (function sira(i){
+      if (i >= gorevler.length) { s.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.banka = s; VD.sonuc.bt = null; d.textContent = ""; if (VD.sek === "banka") { vdCiz(); if (yeni) sonucaGit("vdListe"); } son(); return; }
+      gorevler[i]().then(function(){ sira(i + 1); }, hata);
+    })(0);
   }
   function bankaHtml(s){
     if (!s) return '<p class="not">“Sorgula”ya basınca banka evrakları hazırlanır.</p>';
-    var Y = s.Y, kart = function(baslik, ic, not){ return '<div class="kayit" style="display:grid;gap:8px"><b>' + baslik + '</b>' + (not ? '<span class="not" style="margin:0;font-size:.8rem">' + not + '</span>' : "") + ic + '</div>'; };
+    var Y = s.Y, no = 0, kart = function(baslik, ic, not){ no++; return '<div class="kayit" style="display:grid;gap:8px"><b>' + no + ' · ' + baslik + '</b>' + (not ? '<span class="not" style="margin:0;font-size:.8rem">' + not + '</span>' : "") + ic + '</div>'; };
     var yok = function(m){ return '<p class="not" style="margin:0;color:var(--danger)">' + m + '</p>'; };
-    var h = '<p class="not" style="margin:0">' + esc(s.zaman) + '</p>';
+    var bolme = '<div style="border-top:1px solid var(--line)"></div>';
+    var moddugme = '<div class="vdsek" role="group" aria-label="Kapsam" style="display:flex;gap:6px;flex-wrap:wrap">' + [["son", "Son dönem"], ["y3", "Son 3 yıl"], ["y3g", "Son 3 yıl + geçici"]].map(function(m){ return '<button class="chip" type="button" data-bkmod="' + m[0] + '" aria-pressed="' + (s.mod === m[0]) + '">' + m[1] + '</button>'; }).join("") + '</div>';
+    var h = '<p class="not" style="margin:0">' + esc(s.zaman) + '</p>' + moddugme;
+    /* yıl yıl beyanname ve tahakkuk listeleri */
+    var yilByn = function(y){ return (s.yillar[y] && s.yillar[y].byn) || []; }, yilThk = function(y){ return (s.yillar[y] && s.yillar[y].thk) || []; };
+    var tumByn = [], tumThk = []; Object.keys(s.yillar).forEach(function(y){ tumByn = tumByn.concat(yilByn(y)); tumThk = tumThk.concat(yilThk(y)); });
+    var yilBas = function(b, y){ return +String(b.bas || "").slice(0, 4) === y; };
+    var cift = function(b, y){ return btCift(bynAd(b.tur), bynDonem(b), b, btThkBul(b, yilThk(y))); };
     /* 1) e-Vergi levhası */
     var lv = s.levha && s.levha.levhalar || [];
-    h += kart("1 · e-Vergi levhası (" + Y + ")", lv.length ? lv.map(function(l){ var ln = function(dil, ad){ return '<a class="btn' + (dil === "en" ? " ikincil" : "") + '" style="min-height:40px;padding:6px 14px;text-align:center;text-decoration:none;flex:1" target="_blank" rel="noopener" href="/api/vd/levha?mid=' + encodeURIComponent(VD.mid) + '&n=' + l.n + '&dil=' + dil + '">' + ad + '</a>'; }; return '<div style="display:flex;gap:8px">' + ln("tr", "Türkçe PDF") + ln("en", "İngilizce PDF") + '</div>'; }).join("") : yok(s.levha ? Y + " yılına ait e-Vergi levhası bulunamadı." : "e-Vergi levhası alınamadı."));
-    /* Belgelerim'e yüklenmiş belgeler (ofis yükler): tür başına satırlar */
+    h += kart("e-Vergi levhası (" + Y + ")", lv.length ? lv.map(function(l){ var ln = function(dil, ad){ return '<a class="btn' + (dil === "en" ? " ikincil" : "") + '" style="min-height:40px;padding:6px 14px;text-align:center;text-decoration:none;flex:1" target="_blank" rel="noopener" href="/api/vd/levha?mid=' + encodeURIComponent(VD.mid) + '&n=' + l.n + '&dil=' + dil + '">' + ad + '</a>'; }; return '<div style="display:flex;gap:8px">' + ln("tr", "Türkçe PDF") + ln("en", "İngilizce PDF") + '</div>'; }).join("") : yok(s.levha ? Y + " yılına ait e-Vergi levhası bulunamadı." : "e-Vergi levhası alınamadı."));
+    /* Belgelerim'e yüklenmiş belgeler (ofis yükler) */
     var belTur = function(tur){ return (s.bel || []).filter(function(b){ return b.tur === tur; }); };
     var belSatir = function(b){ return '<div style="display:grid;gap:6px"><span class="not" style="margin:0;font-size:.8rem;overflow-wrap:anywhere">' + esc(b.ad) + ' · ' + boyutYaz(b.boyut) + ' · ' + tarihYaz(b.zaman) + '</span><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><a class="btn ikincil" style="min-height:40px;padding:6px 14px;text-decoration:none" href="' + belgeUrl("bel", b.id, 0) + '">İndir</a><button class="k" type="button" data-pshare="bel" data-pn="' + esc(b.id) + '" data-pix="0" style="min-height:40px;padding:6px 10px">↗ Paylaş</button><span class="not" data-pshare-d style="margin:0;font-size:.78rem;flex-basis:100%"></span></div></div>'; };
     /* 2) faaliyet belgesi */
     var fb = belTur("Faaliyet belgesi");
-    h += kart("2 · Faaliyet (mükellefiyet) belgesi", (fb.length ? fb.map(belSatir).join("") : "") + '<button class="btn ikincil" type="button" data-bk-git="yazi">Mükellefiyet yazısı ekranına git</button>', fb.length ? "Belgelerim’e yüklenmiş faaliyet belgesi aşağıda; vergi dairesinden güncel yazı için düğmeyi kullanın." : "Vergi dairesinden alınan faaliyet / mükellefiyet yazısıdır; “Borcu yoktur” bölümünden istenir ve oradan paylaşılır.");
-    /* 3) son geçici vergi */
-    var gec = s.byn.filter(function(b){ return bynGrup(b.tur) === "GEC"; }).sort(function(a, b){ return (btAy(b.bit) - btAy(a.bit)) || (btAy(b.bas) - btAy(a.bas)); })[0];
-    h += kart("3 · Son geçici vergi beyannamesi ve tahakkuku", gec ? btCift(bynAd(gec.tur), bynDonem(gec), gec, btThkBul(gec, s.thk)) : yok("Geçici vergi beyannamesi bulunamadı (bu yıl henüz verilmemiş olabilir)."));
-    /* 4) geçen yıl yıllık beyanname */
-    var yil = s.byn.filter(function(b){ var g = bynGrup(b.tur); return (g === "KV" || g === "GV") && /^(\d{4})/.exec(b.bas || "") && +b.bas.slice(0, 4) === Y - 1; });
-    h += kart("4 · " + (Y - 1) + " yılı kurumlar / gelir vergisi beyannamesi ve tahakkuku", yil.length ? yil.map(function(b){ return btCift(bynAd(b.tur), bynDonem(b), b, btThkBul(b, s.thk)); }).join('<div style="border-top:1px solid var(--line)"></div>') : yok((Y - 1) + " yılı kurumlar / gelir vergisi beyannamesi bulunamadı (henüz verilmemiş ya da kayıt GİB’de görünmüyor)."));
-    /* 5) mizan: yalnız 1. sınıf (bilanço esaslı, şirket gibi defter tutan) mükellefte; 2. sınıf (Defter-Beyan) için hesap özeti */
+    h += kart("Faaliyet (mükellefiyet) belgesi", (fb.length ? fb.map(belSatir).join("") : "") + '<button class="btn ikincil" type="button" data-bk-git="yazi">Mükellefiyet yazısı ekranına git</button>', fb.length ? "Belgelerim’e yüklenmiş faaliyet belgesi aşağıda; vergi dairesinden güncel yazı için düğmeyi kullanın." : "Vergi dairesinden alınan faaliyet / mükellefiyet yazısıdır; “Borcu yoktur” bölümünden istenir ve oradan paylaşılır.");
+    if (s.mod === "son") {
+      var gec = tumByn.filter(function(b){ return bynGrup(b.tur) === "GEC"; }).sort(function(a, b){ return (btAy(b.bit) - btAy(a.bit)) || (btAy(b.bas) - btAy(a.bas)); })[0];
+      h += kart("Son geçici vergi beyannamesi ve tahakkuku", gec ? btCift(bynAd(gec.tur), bynDonem(gec), gec, btThkBul(gec, tumThk)) : yok("Geçici vergi beyannamesi bulunamadı (bu yıl henüz verilmemiş olabilir)."));
+      var yil = yilByn(Y - 1).filter(function(b){ var g = bynGrup(b.tur); return (g === "KV" || g === "GV") && yilBas(b, Y - 1); });
+      h += kart((Y - 1) + " yılı kurumlar / gelir vergisi beyannamesi ve tahakkuku", yil.length ? yil.map(function(b){ return cift(b, Y - 1); }).join(bolme) : yok((Y - 1) + " yılı kurumlar / gelir vergisi beyannamesi bulunamadı (henüz verilmemiş ya da kayıt GİB’de görünmüyor)."));
+    } else {
+      for (var y = Y; y >= Y - 3; y--) {
+        (function(y){
+          var l = yilByn(y), yillik = l.filter(function(b){ var g = bynGrup(b.tur); return (g === "KV" || g === "GV") && yilBas(b, y); }), gecici = (y === Y || s.mod === "y3g") ? l.filter(function(b){ return bynGrup(b.tur) === "GEC" && yilBas(b, y); }).sort(function(a, b){ return (btAy(b.bit) - btAy(a.bit)); }) : [];
+          var ic = yillik.map(function(b){ return cift(b, y); }).concat(gecici.map(function(b){ return cift(b, y); }));
+          var yokMsj = y === Y ? "Bu yıl henüz geçici vergi beyannamesi verilmemiş olabilir." : y + " yılı kurumlar / gelir vergisi beyannamesi bulunamadı.";
+          h += kart(y + " yılı" + (y === Y ? " (devam ediyor)" : ""), ic.length ? ic.join(bolme) : yok(yokMsj), y === Y ? "Geçici vergi beyannameleri ve tahakkukları" : (s.mod === "y3g" ? "Yıllık beyanname ve geçici vergiler" : "Yıllık kurumlar / gelir vergisi beyannamesi ve tahakkuku"));
+        })(y);
+      }
+    }
+    /* mizan: yalnız 1. sınıf (bilanço esaslı) mükellefte; 2. sınıf (Defter-Beyan) için hesap özeti */
     var mm = mBul(VD.mid) || {};
-    if (mm.defterBeyan) h += kart("5 · Hesap özeti (Defter-Beyan)", '<button class="btn ikincil" type="button" data-bk-git="hesapozeti">Hesap özeti ekranına git</button>', "İşletme hesabı esasına göre (2. sınıf) Defter-Beyan’da tutulan kayıtlardan mizan çıkmaz; bankaya gelir-gider özeti olan Hesap özeti verilir.");
-    else { var mz = belTur("Mizan"); h += kart("5 · Mizan", (mz.length ? mz.map(belSatir).join("") : '<p class="not" style="margin:0;color:var(--danger)">Mizan henüz yüklenmedi.</p>') + '<button class="btn ikincil" type="button" data-bk-git="belge">' + (ROL === "ofis" ? "Belgelerim’e git: mizanı yükle" : "Belgelerim’e git: ofisten iste") + '</button>', "1. sınıf (bilanço esaslı) kayıtlar muhasebe programında tutulduğundan mizan oradan alınıp Belgelerim’e “Mizan” türüyle yüklenir; burada görünür ve paylaşılır."); }
+    if (mm.defterBeyan) h += kart("Hesap özeti (Defter-Beyan)", '<button class="btn ikincil" type="button" data-bk-git="hesapozeti">Hesap özeti ekranına git</button>', "İşletme hesabı esasına göre (2. sınıf) Defter-Beyan’da tutulan kayıtlardan mizan çıkmaz; bankaya gelir-gider özeti olan Hesap özeti verilir.");
+    else { var mz = belTur("Mizan"); h += kart("Mizan", (mz.length ? mz.map(belSatir).join(bolme) : '<p class="not" style="margin:0;color:var(--danger)">Mizan henüz yüklenmedi.</p>') + '<button class="btn ikincil" type="button" data-bk-git="belge">' + (ROL === "ofis" ? "Belgelerim’e git: mizanı yükle" : "Belgelerim’e git: ofisten iste") + '</button>', "1. sınıf (bilanço esaslı) kayıtlar muhasebe programında tutulduğundan mizan oradan alınıp Belgelerim’e “Mizan” türüyle yüklenir (yıl yıl birden çok dosya yüklenebilir); burada görünür ve paylaşılır."); }
     if (s.hatalar && s.hatalar.length) h += '<div class="durum hata" style="display:block">' + s.hatalar.map(esc).join("<br>") + '</div>';
     return h;
   }
+  $("vdListe").addEventListener("click", function(e){ var c = e.target.closest("[data-bkmod]"); if (!c || !VD.bagli) return; bankaYukle(c.getAttribute("data-bkmod"), false); });
   $("vdListe").addEventListener("click", function(e){ var g = e.target.closest("[data-bk-git]"); if (!g) return; var hd = g.getAttribute("data-bk-git"); if (hd === "belge") { sekme("belge"); window.scrollTo(0, 0); return; } VD.sek = hd; vdSekmeCiz(); if (VD.bagli && !VD.sonuc[VD.sek] && hd !== "hesapozeti") vdSorgula(); window.scrollTo(0, 0); });
   function vdCiz(){
     var s = VD.sonuc[VD.sek], liste = $("vdListe"), tani = $("vdTani");
