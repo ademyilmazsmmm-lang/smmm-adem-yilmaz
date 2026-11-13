@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-13-297";
+const SURUM = "2026-11-14-298";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -89,7 +89,7 @@ const markaTemiz = (m) => {
 const hizmetTemiz = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 100).map((h, i) => ({
   id: String(h.id || "h" + i).slice(0, 40), etiket: String(h.etiket || "").slice(0, 120), ad: String(h.ad || "").slice(0, 150), kdv: Number(h.kdv) >= 0 ? Number(h.kdv) : 20,
   tev: Math.min(9, Math.max(0, parseInt(h.tev, 10) || 0)), kod: String(h.kod || "").slice(0, 10), istisna: String(h.istisna || "").slice(0, 4), ozel: /^8(0[1-9]|1[0-2])$/.test(String(h.ozel || "")) ? String(h.ozel) : "", konaklama: Math.min(20, Math.max(0, Number(h.konaklama) || 0)), anah: String(h.anah || "").slice(0, 200) }));
-const aliciTemiz = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 2000).map((a) => ({ id: String(a.id), ad: String(a.ad || "").slice(0, 150), vkn: String(a.vkn || "").slice(0, 11), adres: String(a.adres || "").slice(0, 250), vd: String(a.vd || "").slice(0, 100), eposta: posta.EPOSTA.test(String(a.eposta || "").trim()) ? String(a.eposta).trim().slice(0, 120) : "" }));
+const aliciTemiz = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 2000).map((a) => ({ id: String(a.id), ad: String(a.ad || "").slice(0, 150), vkn: String(a.vkn || "").slice(0, 11), adres: String(a.adres || "").slice(0, 250), vd: String(a.vd || "").slice(0, 100), ulke: String(a.ulke || "").slice(0, 60), yurtdisi: a.yurtdisi === true || String(a.vkn || "") === "2222222222", eposta: posta.EPOSTA.test(String(a.eposta || "").trim()) ? String(a.eposta).trim().slice(0, 120) : "" }));
 /* Mükellef profili: yalnız program içinde (yerel fatura kopyası, iletişim bilgisi) kullanılır; GİB'deki resmî satıcı bilgisini değiştirmez */
 const profilTemiz = (p) => {
   p = p && typeof p === "object" ? p : {};
@@ -156,6 +156,26 @@ function kiraOkuHtml(html) {
   const ay = /class="kira-oran-ay">\s*([^<]+?)\s*</.exec(html), al = (ad) => { const m = new RegExp(ad + "\\s*</span>\\s*<span class=\"kira-oran-value\">\\s*([^<]+?)\\s*<", "i").exec(html); return m ? m[1] : ""; };
   const konut = al("Konut \\(Ev\\) Kirası"), isyeri = al("İşyeri Kirası");
   return ay && konut && isyeri ? { ay: ay[1], konut, isyeri } : null;
+}
+/* TCMB döviz alış kuru: fatura tarihinden bir önceki iş günü (hafta sonu / resmî tatilde son yayımlanan gün). Kaynak: tcmb.gov.tr/kurlar/YYYYAA/GGAAYYYY.xml */
+const kurOnbellek = new Map();
+async function tcmbKur(para, tarih) {
+  if (!["USD", "EUR", "GBP"].includes(para)) throw new Error("Bu para birimi için kur alınamaz.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tarih || "")) tarih = gib.trBugunStr();
+  const ak = para + "|" + tarih, o0 = kurOnbellek.get(ak); if (o0 && Date.now() - o0.zaman < 6 * 3600e3) return o0.sonuc;
+  if (gib.MOCK) { const sonuc = { para, kur: { USD: 34.5, EUR: 37.25, GBP: 43.1 }[para], tarih: "2026-11-12", kaynak: "TCMB döviz alış (deneme)" }; kurOnbellek.set(ak, { zaman: Date.now(), sonuc }); return sonuc; }
+  const g = new Date(tarih + "T12:00:00Z"); let hata = "";
+  for (let i = 0; i < 10; i++) {
+    g.setUTCDate(g.getUTCDate() - 1); const Y = g.getUTCFullYear(), A = String(g.getUTCMonth() + 1).padStart(2, "0"), G = String(g.getUTCDate()).padStart(2, "0");
+    if ([0, 6].includes(g.getUTCDay())) continue;
+    try {
+      const r = await fetch("https://www.tcmb.gov.tr/kurlar/" + Y + A + "/" + G + A + Y + ".xml", { signal: AbortSignal.timeout(15000), headers: { "user-agent": "Mozilla/5.0" } });
+      if (r.status === 404) continue; if (!r.ok) { hata = "TCMB HTTP " + r.status; continue; }
+      const x = await r.text(), b = new RegExp('<Currency[^>]*CurrencyCode="' + para + '"[^>]*>([\\s\\S]*?)</Currency>', "i").exec(x), f = b && /<ForexBuying>\s*([\d.,]+)\s*<\/ForexBuying>/i.exec(b[1]), kur = f ? Number(f[1].replace(",", ".")) : 0;
+      if (kur > 0) { const sonuc = { para, kur, tarih: Y + "-" + A + "-" + G, kaynak: "TCMB döviz alış" }; kurOnbellek.set(ak, { zaman: Date.now(), sonuc }); return sonuc; }
+    } catch (e) { hata = e && e.message || "TCMB'ye ulaşılamadı"; }
+  }
+  throw new Error("TCMB kuru alınamadı" + (hata ? " (" + hata + ")" : "") + "; kuru elle yazın.");
 }
 async function kiraOrani() {
   if (Date.now() - kiraOnbellek.zaman < 6 * 3600e3) return kiraOnbellek.oran;
@@ -259,10 +279,11 @@ function modelTemiz(g, tam, banka) {
   if (!PARALAR.includes(para)) throw new Error("Para birimi desteklenmiyor.");
   const kur = Number(g.kur);
   if (para !== "TRY" && !(kur > 0)) throw new Error("Döviz kuru (TL karşılığı) girin.");
-  const alici = { unvan: T(g.aliciUnvan, 150), vkn: String(g.aliciVkn || ""), adres: T(g.aliciAdres, 250), vd: T(g.vergiDairesi, 100), eposta: posta.EPOSTA.test(String(g.aliciEposta || "").trim()) ? String(g.aliciEposta).trim().slice(0, 120) : "" };
+  const alici = { unvan: T(g.aliciUnvan, 150), vkn: String(g.aliciVkn || ""), adres: T(g.aliciAdres, 250), vd: T(g.vergiDairesi, 100), ulke: T(g.aliciUlke, 60), eposta: posta.EPOSTA.test(String(g.aliciEposta || "").trim()) ? String(g.aliciEposta).trim().slice(0, 120) : "" };
   let tarih = String(g.tarih || "");
   if (tam) {
     if (!alici.unvan || !/^\d{10,11}$/.test(alici.vkn)) throw new Error("Alıcı unvanı ve 10/11 haneli VKN/TCKN gerekli.");
+    if (alici.vkn === "2222222222" && !alici.ulke) throw new Error("Yurtdışı alıcıda ülke zorunludur (e-Arşiv ülke alanı boş bırakılamaz); ülkeyi yazın.");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(tarih)) tarih = yerel;
     if (tarih > yerel) throw new Error("Fatura tarihi bugünden ileri olamaz.");
   }
@@ -603,6 +624,7 @@ async function api(req, res, yol) {
     return cevap(res, 200, { kayitlar: hepsi.sort((a, b) => String(a.zaman).localeCompare(String(b.zaman))).reverse().slice(0, 1000) });
   }
 
+  if (yol === "/api/kur" && req.method === "GET") { const q = new URL(req.url, "http://x").searchParams; try { return cevap(res, 200, await tcmbKur(String(q.get("para") || ""), String(q.get("tarih") || ""))); } catch (e) { return cevap(res, 502, { hata: e.message }); } }
   if (yol === "/api/kira-orani" && req.method === "GET") return cevap(res, 200, { oran: await kiraOrani() });
   if (yol === "/api/ozet" && req.method === "GET") {
     const mid = o.rol === "mukellef" ? o.mid : new URL(req.url, "http://x").searchParams.get("mid") || "";
@@ -751,7 +773,7 @@ async function api(req, res, yol) {
     const satirlar = x.kalemler.map((k, i) => Object.assign({}, k, { matrah: x._h.satirlar[i].matrah, kdvTutar: x._h.satirlar[i].kdv, tevKdv: x._h.satirlar[i].tevKdv }));
     const kayit = {
       id: r.uuid, zaman: new Date().toISOString(), mukellefId: m.id, mukellef: { ad: m.ad, vkn: m.vkn }, belgeNo: (r.satir && r.satir.belgeNumarasi) || "",
-      aliciUnvan: x.alici.unvan, aliciVkn: x.alici.vkn, aliciAdres: x.alici.adres, vergiDairesi: x.alici.vd, aliciEposta: x.alici.eposta, epostaGonder: !!g.epostaGonder && !!x.alici.eposta, tarih: x.tarih, tip: x.tip, para: x.para, kur: x.kur,
+      aliciUnvan: x.alici.unvan, aliciVkn: x.alici.vkn, aliciAdres: x.alici.adres, vergiDairesi: x.alici.vd, aliciUlke: x.alici.ulke || "", aliciEposta: x.alici.eposta, epostaGonder: !!g.epostaGonder && !!x.alici.eposta, tarih: x.tarih, tip: x.tip, para: x.para, kur: x.kur,
       kalemler: satirlar, hesap: x._h.toplam, not: x.not, durum: "Taslak", iade: x.iade, olusturan: o.kullanici,
       form: { alici: x.alici, tip: x.tip, para: x.para, kur: x.kur, dahil: x.kdvDahil, iade: x.iade, kalemler: x.kalemler, notEk: x.notEk, notIrsaliye: x.notIrsaliye } // "Tekrarla" için
     };

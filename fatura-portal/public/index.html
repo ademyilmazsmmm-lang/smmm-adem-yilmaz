@@ -423,12 +423,14 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   <details class="card bolum" id="aliciKart"><summary><span class="no">1</span><span class="bas">Alıcı</span><small id="ozAlici"></small></summary><div class="icerik">
     <div><label for="alici">Alıcı</label><select id="alici"></select></div>
     <div class="alt" id="yeniAlici" hidden>
+      <p class="not" id="ydNot" hidden style="margin:0;padding:8px 10px;border-radius:10px;background:var(--accent-soft)">🌍 <b>Yurtdışı alıcı:</b> VKN/TCKN yerine <b>2222222222</b> yazılır (kendiliğinden gelir). e-Arşiv’de <b>ülke zorunludur</b>. Döviz faturasında kur, para birimini seçince TCMB döviz alış kurundan (fatura tarihinden bir önceki iş günü) otomatik gelir.</p>
       <div><label for="yVkn">VKN / TCKN</label><input id="yVkn" inputmode="numeric" autocomplete="off" placeholder="10 ya da 11 hane — yazınca GİB’den sorgulanır"></div>
-      <div><label for="yAd">Alıcı unvanı / ad soyad</label><input id="yAd" autocomplete="off"></div>
+      <div><label for="yAd" id="yAdEt">Alıcı unvanı / ad soyad</label><input id="yAd" autocomplete="off"></div>
+      <div id="yUlkeKutu" hidden><label for="yUlke">Ülke *</label><input id="yUlke" list="ulkeListe" autocomplete="off" placeholder="Örn. Almanya"><datalist id="ulkeListe"><option value="Almanya"><option value="Amerika Birleşik Devletleri"><option value="Avusturya"><option value="Azerbaycan"><option value="Belçika"><option value="Birleşik Arap Emirlikleri"><option value="Birleşik Krallık"><option value="Bulgaristan"><option value="Çin"><option value="Fransa"><option value="Gürcistan"><option value="Hollanda"><option value="Irak"><option value="İspanya"><option value="İsveç"><option value="İsviçre"><option value="İtalya"><option value="Japonya"><option value="Kanada"><option value="Katar"><option value="Kazakistan"><option value="Kuveyt"><option value="Libya"><option value="Rusya"><option value="Suudi Arabistan"><option value="Yunanistan"></datalist></div>
       <button class="btn ikincil" type="button" id="sorgula">GİB’den bilgi getir</button>
       <div class="durum" id="sorguDurum" role="status"></div>
-      <div><label for="yAdres">Adres (faturaya yazılır)</label><input id="yAdres" autocomplete="off" placeholder="Mahalle, cadde, no, ilçe/il"></div>
-      <div><label for="yVd">Vergi dairesi</label><input id="yVd" autocomplete="off"></div>
+      <div><label for="yAdres" id="yAdresEt">Adres (faturaya yazılır)</label><input id="yAdres" autocomplete="off" placeholder="Mahalle, cadde, no, ilçe/il"></div>
+      <div id="yVdKutu"><label for="yVd">Vergi dairesi</label><input id="yVd" autocomplete="off"></div>
       <div><label for="yEposta">E-posta (faturayı göndermek için, isteğe bağlı)</label><input id="yEposta" type="email" inputmode="email" autocapitalize="off" autocomplete="off" placeholder="musteri@ornek.com"></div>
       <label id="yEpostaSatir" class="onay" style="align-items:flex-start;font-weight:500"><input type="checkbox" id="yEpostaGonder" checked style="margin-top:3px;flex:none"><span>Onaylanınca faturayı bu adrese PDF olarak e-postayla gönder</span></label>
       <p class="not" id="yEpostaNot" hidden style="margin:0"></p>
@@ -455,7 +457,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     <div class="satir">
       <div><label for="para">Para birimi</label>
         <select id="para"><option value="TRY">Türk Lirası (₺)</option><option value="USD">Amerikan Doları ($)</option><option value="EUR">Avro (€)</option><option value="GBP">İngiliz Sterlini (£)</option></select></div>
-      <div id="kurAlan" hidden><label for="kur" id="kurEtiket">Kur (1 birim = ? ₺)</label><input id="kur" inputmode="decimal" autocomplete="off"></div>
+      <div id="kurAlan" hidden><label for="kur" id="kurEtiket">Kur (1 birim = ? ₺)</label><input id="kur" inputmode="decimal" autocomplete="off"><p class="not" id="kurNot" style="margin:4px 0 0;font-size:.8rem"></p><button class="k" type="button" id="kurYenile" style="margin-top:4px;justify-self:start">TCMB kurunu getir</button></div>
     </div>
     <div><label for="ekNot">Fatura notu (isteğe bağlı)</label><input id="ekNot" autocomplete="off" placeholder="Ödenecek tutar yazıyla her faturada otomatik eklenir"></div>
     <label class="onay"><input type="checkbox" id="notIrs" checked> “İrsaliye yerine geçer” notu ekle</label>
@@ -1019,11 +1021,19 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function seritGoster(){ $("mSerit").hidden = !((ROL === "ofis" || COKLU) && V && V.mukellefler.length > 0) || aktifSekme === "ayar"; }
   function cizAlici(){
     var m = mk(), h = '<option value="">— Alıcı seç —</option>';
-    if (m) m.aliciler.forEach(function(a){ h += '<option value="' + a.id + '"' + (a.id === F.alici ? " selected" : "") + '>' + esc(a.ad) + '</option>'; });
-    h += '<option value="__yeni"' + (F.alici === "__yeni" ? " selected" : "") + '>+ Yeni alıcı…</option>';
+    if (m) m.aliciler.forEach(function(a){ h += '<option value="' + a.id + '"' + (a.id === F.alici ? " selected" : "") + '>' + (a.yurtdisi || a.vkn === "2222222222" ? "🌍 " : "") + esc(a.ad) + (a.yurtdisi && a.ulke ? " · " + esc(a.ulke) : "") + '</option>'; });
+    h += '<option value="__yeni"' + (F.alici === "__yeni" ? " selected" : "") + '>+ Yeni alıcı…</option><option value="__yd"' + (F.alici === "__yd" ? " selected" : "") + '>🌍 Yeni alıcı — yurtdışı…</option>';
     $("alici").innerHTML = h; $("yeniAlici").hidden = !F.alici;
     var k = m && m.aliciler.filter(function(a){ return a.id === F.alici; })[0];
-    if (k) { $("yAd").value = k.ad; $("yVkn").value = k.vkn; $("yAdres").value = k.adres || ""; $("yVd").value = k.vd || ""; $("yEposta").value = k.eposta || ""; }
+    if (k) { $("yAd").value = k.ad; $("yVkn").value = k.vkn; $("yAdres").value = k.adres || ""; $("yVd").value = k.vd || ""; $("yEposta").value = k.eposta || ""; $("yUlke").value = k.ulke || ""; }
+    ydGoster();
+  }
+  /* Yurtdışı alıcı: VKN 2222222222, ülke zorunlu; vergi dairesi ve GİB sorgusu gizlenir */
+  function ydMi(){ if (F.alici === "__yd") return true; var m = mk(), k = m && F.alici ? m.aliciler.filter(function(a){ return a.id === F.alici; })[0] : null; return !!(k && (k.yurtdisi || k.vkn === "2222222222")); }
+  function ydGoster(){
+    var yd = ydMi(); $("ydNot").hidden = !yd; $("yUlkeKutu").hidden = !yd; $("yVdKutu").hidden = yd; $("sorgula").hidden = yd; $("yVkn").readOnly = yd;
+    $("yAdEt").textContent = yd ? "Alıcı unvanı (yabancı firma / kişi adı)" : "Alıcı unvanı / ad soyad"; $("yAdresEt").textContent = yd ? "Adres (şehir ve ülke dahil)" : "Adres (faturaya yazılır)";
+    if (yd) { $("yVkn").value = "2222222222"; $("sorguDurum").textContent = ""; }
   }
   /* Altın / gümüş (özel matrah 805, 808): gram + maden bedeli + işçilik (KDV dahil) yazılır; birim fiyat ve özel matrah tutarı (işçilik KDV hariç) otomatik hesaplanır */
   function maden(k){ return F.tip === "OZELMATRAH" && (k.ozelNeden === "805" || k.ozelNeden === "808"); }
@@ -1124,12 +1134,13 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     document.querySelectorAll("[data-dahil]").forEach(function(b){ b.setAttribute("aria-pressed", String((b.getAttribute("data-dahil") === "1") === F.dahil)); });
   }
   function aliciBilgi(){
-    if (!F.alici) return { ad: "", vkn: "", adres: "", vd: "", eposta: "" };
-    return { ad: $("yAd").value.trim(), vkn: $("yVkn").value.trim(), adres: $("yAdres").value.trim(), vd: $("yVd").value.trim(), eposta: $("yEposta").value.trim() };
+    if (!F.alici) return { ad: "", vkn: "", adres: "", vd: "", eposta: "", ulke: "" };
+    var yd = ydMi();
+    return { ad: $("yAd").value.trim(), vkn: yd ? "2222222222" : $("yVkn").value.trim(), adres: $("yAdres").value.trim(), vd: yd ? "" : $("yVd").value.trim(), eposta: $("yEposta").value.trim(), ulke: yd ? $("yUlke").value.trim() : "", yd: yd };
   }
   function girdi(){
     var a = aliciBilgi();
-    return { mukellefId: mSec, aliciUnvan: a.ad, aliciVkn: a.vkn, aliciAdres: a.adres, vergiDairesi: a.vd, aliciEposta: a.eposta, epostaGonder: $("yEpostaGonder").checked && !!a.eposta && MAILHAZIR, tarih: $("tarih").value, tip: F.tip, para: F.para, kur: sayi(F.kur), kdvDahil: F.dahil,
+    return { mukellefId: mSec, aliciUnvan: a.ad, aliciVkn: a.vkn, aliciAdres: a.adres, vergiDairesi: a.vd, aliciUlke: a.ulke, aliciEposta: a.eposta, epostaGonder: $("yEpostaGonder").checked && !!a.eposta && MAILHAZIR, tarih: $("tarih").value, tip: F.tip, para: F.para, kur: sayi(F.kur), kdvDahil: F.dahil,
       kalemler: F.kalemler.map(function(k){ return { ad: k.ad, aciklama: k.aciklama, miktar: sayi(k.miktar), birim: k.birim, fiyat: sayi(k.fiyat), kdv: sayi(k.kdv), tev: parseInt(k.tev, 10) || 0, kod: k.kod, istisna: k.istisna || "", ozelNeden: k.ozelNeden || "", ozelTutar: sayi(k.ozelTutar), konaklama: F.tip === "SATIS" && k.konaklamaVar ? sayi(k.konaklama) : 0 }; }),
       notEk: $("ekNot").value.trim(), notIrsaliye: $("notIrs").checked, iadeNo: $("iadeNo").value.trim(), iadeTarih: $("iadeTarih").value };
   }
@@ -1197,7 +1208,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   function sifirla(){ son = { uuid: null, oid: null, hesap: null, imzali: false }; }
   function formuTemizle(){
-    F.alici = ""; F.dahil = false; F.para = "TRY"; F.kur = ""; F.kalemler = [ilkKalem()]; F.tip = tipKalemden(F.kalemler[0]); if (F.tip === "OZELMATRAH") F.dahil = false;
+    F.alici = ""; F.dahil = false; F.para = "TRY"; F.kur = ""; F.kurElle = false; F.kalemler = [ilkKalem()]; F.tip = tipKalemden(F.kalemler[0]); if (F.tip === "OZELMATRAH") F.dahil = false;
     $("ekNot").value = ""; $("notIrs").checked = true; $("tarih").value = bugunStr(); $("sorguDurum").textContent = ""; $("iadeNo").value = ""; $("iadeTarih").value = "";
     cizAlici(); cizKalemler(); formDoldur(); $("ozet").innerHTML = ""; $("ozetHata").textContent = ""; $("notOnizleme").textContent = ""; sonHesap = null; kontrolBtn();
   }
@@ -1415,10 +1426,10 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   document.querySelectorAll("[data-dahil]").forEach(function(b){ b.addEventListener("click", function(){ F.dahil = b.getAttribute("data-dahil") === "1"; formDoldur(); onizle(); }); });
   $("alici").addEventListener("change", function(){
     F.alici = this.value;
-    if (F.alici === "__yeni") { $("yAd").value = ""; $("yVkn").value = ""; $("yAdres").value = ""; $("yVd").value = ""; $("yEposta").value = ""; $("sorguDurum").textContent = ""; }
+    if (F.alici === "__yeni" || F.alici === "__yd") { $("yAd").value = ""; $("yVkn").value = ""; $("yAdres").value = ""; $("yVd").value = ""; $("yEposta").value = ""; $("yUlke").value = ""; $("sorguDurum").textContent = ""; }
     cizAlici(); onizle();
   });
-  ["tarih", "ekNot", "notIrs", "iadeNo", "iadeTarih", "yAd", "yVkn", "yAdres", "yVd", "yEposta"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
+  ["tarih", "ekNot", "notIrs", "iadeNo", "iadeTarih", "yAd", "yVkn", "yAdres", "yVd", "yEposta", "yUlke"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
   $("tip").addEventListener("change", function(){
     F.tip = this.value; if (F.tip === "OZELMATRAH") F.dahil = false; formDoldur();
     if (F.tip === "OZELMATRAH") F.kalemler.forEach(function(k){ if (!k.kdv || k.kdv === "0") k.kdv = "20"; k.istisna = ""; });
@@ -1427,8 +1438,20 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (F.tip === "TEVKIFAT") F.kalemler.forEach(function(k){ var h = HZ().filter(function(x){ return x.id === k.preset; })[0]; if (h && (!k.tev || k.tev === "0")) { k.tev = String(h.tev); k.kod = k.kod || h.kod || ""; } });
     cizKalemler(); onizle();
   });
-  $("para").addEventListener("change", function(){ F.para = this.value; formDoldur(); cizKalemler(); onizle(); });
-  $("kur").addEventListener("input", function(){ F.kur = this.value; onizle(); });
+  /* Döviz kuru: TCMB döviz alış kuru, fatura tarihinden bir önceki iş günü; elle yazılırsa dokunulmaz ("TCMB kurunu getir" ile yeniden alınır) */
+  function kurOtomatik(zorla){
+    var n = $("kurNot"); if (F.para === "TRY") { n.textContent = ""; return; }
+    if (F.kurElle && !zorla) return;
+    var para = F.para, tarih = $("tarih").value || bugunStr(); n.style.color = ""; n.textContent = "TCMB kuru alınıyor…";
+    api("/api/kur?para=" + encodeURIComponent(para) + "&tarih=" + encodeURIComponent(tarih)).then(function(r){
+      if (F.para !== para) return; F.kur = Number(r.kur).toLocaleString("tr-TR", { minimumFractionDigits: 4, maximumFractionDigits: 4, useGrouping: false }); F.kurElle = false; $("kur").value = F.kur;
+      n.textContent = r.kaynak + " · " + String(r.tarih).split("-").reverse().join(".") + " tarihli kur (fatura tarihinden bir önceki iş günü). Değiştirebilirsiniz."; onizle();
+    }, function(er){ if (oturumDustu(er)) return; n.style.color = "var(--danger)"; n.textContent = er.message; });
+  }
+  $("para").addEventListener("change", function(){ F.para = this.value; F.kurElle = false; F.kur = ""; formDoldur(); cizKalemler(); onizle(); kurOtomatik(true); });
+  $("kurYenile").addEventListener("click", function(){ kurOtomatik(true); });
+  $("tarih").addEventListener("change", function(){ kurOtomatik(false); });
+  $("kur").addEventListener("input", function(){ F.kur = this.value; F.kurElle = true; onizle(); });
   $("kalemEkle").addEventListener("click", function(){
     var y = yeniKalem(null), son1 = F.kalemler[F.kalemler.length - 1];
     if (son1) { y.tev = son1.tev; y.kod = son1.kod; y.kdv = son1.kdv; if (F.tip === "OZELMATRAH") y.ozelNeden = son1.ozelNeden; }
@@ -1473,7 +1496,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   var sorguTimer;
   function vknSorgu(elle){
     var vkn = $("yVkn").value.trim(), d = $("sorguDurum");
-    if (!/^\d{10,11}$/.test(vkn) || !mSec) return;
+    if (ydMi() || !/^\d{10,11}$/.test(vkn) || !mSec) return;
     if (!(vkn.length === 11 ? tcknGecerli(vkn) : vknGecerli(vkn))) { d.className = "durum hata"; d.textContent = "Bu numara geçerli bir " + (vkn.length === 11 ? "TC kimlik" : "vergi kimlik") + " numarası değil (kontrol basamağı tutmuyor); GİB’e sorulmadı. Deneme numarası olabilir; unvanı elle yazabilirsiniz."; return; }
     d.className = "durum"; d.textContent = "GİB’de sorgulanıyor…";
     api("/api/sorgu", "POST", { mukellefId: mSec, vkn: vkn }).then(function(r){
@@ -1490,9 +1513,10 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   $("sorgula").addEventListener("click", function(){ vknSorgu(true); });
   $("aliciKaydet").addEventListener("click", function(){
     var m = mk(), a = aliciBilgi(); if (!m) return durum("Önce mükellef ekleyin.", "hata");
-    if (!a.ad || !/^\d{10,11}$/.test(a.vkn)) return durum("Unvan ve 10/11 haneli VKN/TCKN gerekli.", "hata");
-    if (F.alici === "__yeni") { var n = { id: uid(), ad: a.ad, vkn: a.vkn, adres: a.adres, vd: a.vd, eposta: a.eposta }; m.aliciler.push(n); F.alici = n.id; }
-    else { var k = m.aliciler.filter(function(q){ return q.id === F.alici; })[0]; if (k) { k.ad = a.ad; k.vkn = a.vkn; k.adres = a.adres; k.vd = a.vd; k.eposta = a.eposta; } }
+    if (a.yd) { if (!a.ad) return durum("Alıcı unvanını yazın.", "hata"); if (!a.ulke) return durum("Yurtdışı alıcıda ülke zorunludur.", "hata"); }
+    else if (!a.ad || !/^\d{10,11}$/.test(a.vkn)) return durum("Unvan ve 10/11 haneli VKN/TCKN gerekli.", "hata");
+    if (F.alici === "__yeni" || F.alici === "__yd") { var n = { id: uid(), ad: a.ad, vkn: a.vkn, adres: a.adres, vd: a.vd, eposta: a.eposta, ulke: a.ulke, yurtdisi: !!a.yd }; m.aliciler.push(n); F.alici = n.id; }
+    else { var k = m.aliciler.filter(function(q){ return q.id === F.alici; })[0]; if (k) { k.ad = a.ad; k.vkn = a.vkn; k.adres = a.adres; k.vd = a.vd; k.eposta = a.eposta; k.ulke = a.ulke; k.yurtdisi = !!a.yd; } }
     if (a.eposta && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.eposta)) return durum("E-posta adresi geçerli görünmüyor.", "hata");
     kaydetV().then(function(){ cizAlici(); cizAyar(); onizle(); durum("Alıcı kaydedildi.", "ok"); }, function(er){ durum(er.message, "hata"); });
   });
@@ -1878,11 +1902,11 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var f = formdan(k);
     if (k.mukellefId && V.mukellefler.some(function(m){ return m.id === k.mukellefId; })) mSec = k.mukellefId;
     cizM();
-    F.tip = iade ? "IADE" : f.tip; F.para = f.para || "TRY"; F.kur = f.kur ? String(f.kur) : ""; F.dahil = !!f.dahil;
+    F.tip = iade ? "IADE" : f.tip; F.para = f.para || "TRY"; F.kur = f.kur ? String(f.kur).replace(".", ",") : ""; F.kurElle = !!f.kur; F.dahil = !!f.dahil;
     F.kalemler = f.kalemler.map(function(x){ return { preset: "", ad: x.ad, aciklama: x.aciklama || "", miktar: String(x.miktar), birim: x.birim || "C62", fiyat: String(x.fiyat).replace(".", ","), kdv: String(x.kdv), tev: String(x.tev || 0), kod: x.kod || "", istisna: x.istisna || "", ozelNeden: x.ozelNeden || "", ozelTutar: x.ozelTutar ? String(x.ozelTutar).replace(".", ",") : "", konaklama: x.konaklama > 0 ? String(x.konaklama) : "", konaklamaVar: x.konaklama > 0 }; });
-    var m = mk(), kay = m && m.aliciler.filter(function(a){ return a.vkn === f.alici.vkn; })[0];
+    var m = mk(), ydk = f.alici.vkn === "2222222222", kay = m && m.aliciler.filter(function(a){ return a.vkn === f.alici.vkn && (!ydk || String(a.ad || "").toLocaleLowerCase("tr-TR") === String(f.alici.unvan || "").toLocaleLowerCase("tr-TR")); })[0];
     if (kay) F.alici = kay.id;
-    else { F.alici = "__yeni"; $("yAd").value = f.alici.unvan || ""; $("yVkn").value = f.alici.vkn || ""; $("yAdres").value = f.alici.adres || ""; $("yVd").value = f.alici.vd || ""; $("yEposta").value = f.alici.eposta || ""; }
+    else { F.alici = ydk ? "__yd" : "__yeni"; $("yAd").value = f.alici.unvan || ""; $("yVkn").value = f.alici.vkn || ""; $("yAdres").value = f.alici.adres || ""; $("yVd").value = f.alici.vd || ""; $("yEposta").value = f.alici.eposta || ""; $("yUlke").value = f.alici.ulke || ""; }
     $("tarih").value = bugunStr(); $("ekNot").value = f.notEk || ""; $("notIrs").checked = f.notIrsaliye !== false; $("sorguDurum").textContent = "";
     $("iadeNo").value = iade ? (k.belgeNo || "") : ""; $("iadeTarih").value = iade ? (k.tarih || "") : "";
     cizAlici(); cizKalemler(); formDoldur(); onizle();

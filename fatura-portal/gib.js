@@ -140,7 +140,7 @@ function faturaGovdesi(m, uuid, varyant) {
     faturaUuid: varyant === 1 ? uuid : "", belgeNumarasi: "", faturaTarihi: tarih, saat, paraBirimi: m.para || "TRY", dovzTLkur: (m.para || "TRY") === "TRY" ? "0" : String(Number(m.kur)),
     faturaTipi: tev ? "TEVKIFAT" : iade ? "IADE" : ist ? "ISTISNA" : ozm ? "OZELMATRAH" : "SATIS", hangiTip: "5000/30000",
     vknTckn: a.vkn, aliciUnvan: sahis ? "" : a.unvan.trim(), aliciAdi: sahis ? parca.join(" ") : "", aliciSoyadi: sahis ? soyad : "",
-    binaAdi: "", binaNo: "", kapiNo: "", kasabaKoy: "", vergiDairesi: temizMetin(a.vd, 100), ulke: "Türkiye", bulvarcaddesokak: temizMetin(a.adres, 250),
+    binaAdi: "", binaNo: "", kapiNo: "", kasabaKoy: "", vergiDairesi: temizMetin(a.vd, 100), ulke: temizMetin(a.ulke || "", 60) || "Türkiye", bulvarcaddesokak: temizMetin(a.adres, 250),
     irsaliyeNumarasi: "", irsaliyeTarihi: "", mahalleSemtIlce: "", sehir: " ", postaKodu: "", tel: "", fax: "", eposta: "", websitesi: "",
     iadeTable: iade ? [{ faturaNo: temizMetin(m.iade.no, 30), duzenlenmeTarihi: dmy(m.iade.tarih) }] : [], ihracKayitliKarsiBelgeNo: "", yatirimTesvikNumarasi: "", yatirimTesvikTarihi: tarih, kdvOranKontrolMuafiyeti: false,
     vergiCesidi: tev ? "V9015" : x.toplam.konV > 0 ? "V0059" : " ",
