@@ -77,11 +77,11 @@ function bynVerilis(metin) {
 const LIMIT = (e) => /istek\s*limit|limiti\s*a[şs]/i.test(String((e && e.message) || e || ""));
 const bekle = (ms) => new Promise((r) => setTimeout(r, ms));
 class Ivd {
+  /* GİB "Servis İstek Limiti": yalnız çok istekli liste sorgularında (tahakkuk) art arda hızlı istekleri seyrelt */
+  async arala(ms) { const bos = ms - (Date.now() - (this._sonIstek || 0)); this._sonIstek = Date.now() + Math.max(0, bos); if (bos > 0) await bekle(bos); }
   constructor(kullanici, sifre) { this.k = kullanici; this.s = sifre; this.token = null; this.cid = null; }
   get girildi() { return !!this.token; }
   async istek(yontem, url, govde, bearer, ek) {
-    /* GİB "Servis İstek Limiti": art arda hızlı istekleri seyrelt (aynı oturumda en az 900 ms ara) */
-    const bos = 900 - (Date.now() - (this._sonIstek || 0)); this._sonIstek = Date.now() + Math.max(0, bos); if (bos > 0) await bekle(bos);
     const baslik = { accept: "application/json, text/plain, */*", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36", origin: "https://dijital.gib.gov.tr", referer: "https://dijital.gib.gov.tr/portal/" };
     const form = typeof FormData !== "undefined" && govde instanceof FormData;
     if (govde !== undefined && !form) baslik["content-type"] = "application/json";
@@ -398,7 +398,7 @@ class Ivd {
     const onb = ekle && this._thkOnbellek && this._thkOnbellek.get(anah); if (onb && Date.now() - onb.zaman < 15 * 60e3) return onb.sonuc; /* aynı aralık tekrar istenirse GİB'e gidilmez */
     let vdler = this._vdListe && Date.now() - this._vdListe.zaman < 30 * 60e3 ? this._vdListe.l : null;
     if (!vdler) {
-      const vy = await this.istek("POST", GW + "/api/sicil-bilgileri/tahakkuka-gore-vergi-daireleri-list", {}, true);
+      await this.arala(900); const vy = await this.istek("POST", GW + "/api/sicil-bilgileri/tahakkuka-gore-vergi-daireleri-list", {}, true);
       vdler = ((vy && ((vy.data && vy.data.vdArr) || vy.vdArr)) || []).map((d) => ({ kod: d.vdKodu, ad: d.vdAdi })).filter((d) => d.kod);
       if (!vdler.length) throw new Error("Tahakkuk kaydı olan vergi dairesi bulunamadı.");
       this._vdListe = { l: vdler, zaman: Date.now() };
@@ -413,7 +413,7 @@ class Ivd {
       const topla = [], yanitlar = [];
       try {
         for (const vd of vdler) {
-          if (topla.length || yanitlar.length) await bekle(300);
+          await this.arala(900);
           const y = await this.istek("POST", GW + "/api/tahakkuklarim/tahakkuk-sorgula", this.tablo({ vdKodu: vd.kod, baslangicTarihi: b[0], bitisTarihi: b[1] }, 200, { alan: "kabulTarihi", yon: "DESC" }), true);
           yanitlar.push(y); const dizi = y && (Array.isArray(y.tahakkukList) ? y.tahakkukList : y.data && Array.isArray(y.data.tahakkukList) ? y.data.tahakkukList : null);
           if (!dizi) throw new Error("Tahakkuk listesi alınamadı (" + (this.mesajMetni(y) || "beklenmeyen yanıt") + ").");

@@ -4169,12 +4169,10 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var limitKes = function(on){ return function(er){ if (er && (er.girisGerek || er.oturum)) throw er; if (LIMIT_RE.test((er && er.message) || "")) { BK.limit = true; var e2 = new Error("limit"); e2.bkLimit = true; throw e2; } BK.hatalar.push(on + ": " + er.message); }; };
     if (!BK.bel) gorev.push(function(){ d.textContent = "Belgelerim kontrol ediliyor…"; return api("/api/belgeler?mid=" + encodeURIComponent(m.id)).then(function(r){ BK.bel = r.belgeler || []; }, function(){ BK.bel = []; }); });
     if (!BK.levha) gorev.push(function(){ d.textContent = "e-Vergi levhası alınıyor…"; return btApi("/api/vd/levha", { yil: Y }).then(function(r){ BK.levha = r; bkCiz(); }, limitKes("e-Vergi levhası")); });
-    /* beyannameler: tek geniş sorgu (eksik yıllar için) */
-    var eksikB = gerekli.filter(function(y){ return !BK.bynYil[y]; });
-    if (eksikB.length) {
-      var ilk = Math.min.apply(null, eksikB), son = Math.max.apply(null, eksikB), bas = ilk + "-01", bit = son === Y ? Y + "-" + AY : son + "-12";
-      gorev.push(function(){ d.textContent = "Beyannameler alınıyor (" + ilk + "–" + son + ")…"; return btApi("/api/vd/beyanname", { tbas: bas, tbit: bit, ekle: BK.ilkB }).then(function(r){ BK.yillar[gerekli[gerekli.length - 1]].byn = (BK.yillar[gerekli[gerekli.length - 1]].byn || []).concat(r.beyannameler || []); BK.ilkB = true; eksikB.forEach(function(y){ BK.bynYil[y] = true; }); bkCiz(); }, limitKes("Beyannameler")); });
-    }
+    /* beyannameler: yıl yıl (geniş aralıkta GİB yalnız ilk dilimi döndürüyor; yeni yıllar eksik kalıyordu) */
+    gerekli.filter(function(y){ return !BK.bynYil[y]; }).forEach(function(y){
+      gorev.push(function(){ d.textContent = y + " beyannameleri alınıyor…"; return btApi("/api/vd/beyanname", { tbas: y + "-01", tbit: y === Y ? Y + "-" + AY : y + "-12", ekle: BK.ilkB }).then(function(r){ BK.yillar[y].byn = r.beyannameler || []; BK.ilkB = true; BK.bynYil[y] = true; bkCiz(); }, limitKes(y + " beyannameleri")); });
+    });
     /* tahakkuklar: GİB bir sorguda en çok 200 kayıt döndürür; bu yüzden yıl yıl (en yeniden eskiye) */
     gerekli.filter(function(y){ return !BK.yillar[y].thkTamam; }).forEach(function(y){
       gorev.push(function(){ d.textContent = y + " tahakkukları alınıyor…"; return btApi("/api/vd/tahakkuk", { tbas: y + "-01", tbit: y === Y ? Y + "-" + AY : y + "-12", ekle: BK.ilkT, sade: BK.ilkT }).then(function(r){ BK.yillar[y].thk = r.kayitlar || []; BK.yillar[y].thkTamam = true; BK.ilkT = true; bkCiz(); }, limitKes(y + " tahakkukları")); });
