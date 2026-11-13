@@ -704,12 +704,11 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
         <button class="btn ikincil" type="button" id="bkKodIste">Doğrulama kodu al</button>
         <div id="bkKodKutu" style="display:none;gap:8px;align-items:center"><img id="bkKodResim" alt="Doğrulama kodu" style="height:50px;min-width:120px;border:1px solid var(--line2);border-radius:6px;background:#fff"><input id="bkKod" type="text" maxlength="6" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Kod" style="width:7em"><button class="btn" type="button" id="bkGiris">Bağlan</button></div>
       </div>
-      <div style="display:grid;gap:6px"><b style="font-size:.88rem">Hangi yıllar?</b><span class="not" style="margin:0;font-size:.76rem">Geçmiş yıllar: yıllık beyanname · bu yıl: son geçici vergi beyannamesi</span><div id="bkYillar" style="display:flex;gap:8px;flex-wrap:wrap"></div>
-        <label class="onay" style="display:flex;gap:8px;align-items:center;font-size:.88rem"><input type="checkbox" id="bkThk" checked> Tahakkuk fişlerini de ekle</label></div>
+      <div style="display:grid;gap:6px"><b style="font-size:.88rem">Hangi yıllar?</b><span class="not" style="margin:0;font-size:.76rem">Geçmiş yıllar: yıllık beyanname · bu yıl: son geçici vergi beyannamesi</span><div id="bkYillar" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
       <button class="btn" type="button" id="bkHazirla">Evrakları getir</button>
       <div class="durum" id="bkDurum" role="status"></div>
       <div id="bkListe" style="display:grid;gap:10px"></div>
-      <div id="bkToplu" hidden class="a2-kart" style="gap:8px;position:sticky;bottom:calc(76px + env(safe-area-inset-bottom));z-index:5">
+      <div id="bkToplu" hidden class="a2-kart" style="gap:8px">
         <div class="a2-kbas"><b id="bkSecim">Seçilenler</b><button type="button" class="a2-lnk" id="bkHepsi">Tümünü seç</button></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn" type="button" id="bkPaylas">↗ Toplu paylaş</button><button class="btn ikincil" type="button" id="bkMailAc">✉ E-posta</button></div>
         <div id="bkMailForm" hidden style="display:grid;gap:6px"><input type="email" id="bkMail" inputmode="email" autocomplete="off" autocapitalize="off" placeholder="banka@ornek.com"><button class="btn" type="button" id="bkMailGonder">Tek e-postayla gönder</button></div>
@@ -4164,7 +4163,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   function bkCiz(){
     var l = $("bkListe"), t = $("bkToplu"); if (!BK) { l.innerHTML = ""; t.hidden = true; return; }
-    var Y = BK.Y, thkEkle = $("bkThk").checked, h = "";
+    var Y = BK.Y, thkEkle = true, h = "";
     var satir = function(o){ return '<label class="a2-sat" style="cursor:pointer;align-items:center"><input type="checkbox" data-bkc data-tur="' + o.tur + '" data-n="' + (o.n == null ? "" : o.n) + '" data-id="' + esc(o.id || "") + '" data-dil="' + (o.dil || "") + '" data-ad="' + esc(o.ad) + '" data-baslik="' + esc(o.baslik) + '"' + (o.secili === false ? "" : " checked") + ' style="width:20px;height:20px;flex:none;margin:0"><div style="flex:1;min-width:0"><span>' + esc(o.baslik) + '</span>' + (o.alt ? '<small>' + esc(o.alt) + '</small>' : '') + '</div><a class="a2-lnk" href="' + o.url + '" target="_blank" rel="noopener">PDF</a></label>'; };
     var kart = function(baslik, ic){ return '<section class="a2-kart" style="gap:6px"><div class="a2-kbas"><b>' + baslik + '</b></div><div>' + ic + '</div></section>'; };
     var yok = function(m){ return '<p class="not" style="margin:0;color:var(--danger)">' + m + '</p>'; };
@@ -4179,7 +4178,9 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     h += kart("İmza sirküleri / beyannamesi", imza.length ? imza.map(function(b){ return belSatir(b, "İmza sirküleri", "imza sirkuleri"); }).join("") : eksik("İmza sirküleri", "Banka evrakı için imza sirküleri / imza beyannamesi", "", "İmza sirküleri"));
     var tumB = [], tumT = []; Object.keys(BK.yillar).forEach(function(y){ tumB = tumB.concat(BK.yillar[y].byn); tumT = tumT.concat(BK.yillar[y].thk); });
     tumB = tekil(tumB, bynAnah); tumT = tekil(tumT, thkAnah);
-    var cift = function(b, etiket){ var r = satir({ tur: "byn", n: b.n, ad: dosyaAd(etiket + " beyannamesi " + bynDonem(b)), baslik: etiket + " beyannamesi (" + bynDonem(b) + ")", alt: bynAd(b.tur), url: belgeUrl("byn", b.n, 0) });
+    /* aynı tür ve dönemde birden çok beyanname (düzeltme) varsa yalnız en son verilen: açıklaması olan (düzeltme notu) öne, sonra GİB kayıt sırası */
+    var sonVerilen = function(l){ var g = {}; l.forEach(function(b){ var k = bynGrup(b.tur) + "|" + b.bas + "|" + b.bit, e = g[k]; if (!e || (!!b.aciklama - !!e.aciklama || String(b.sira || "").localeCompare(String(e.sira || ""), "tr", { numeric: true }) || b.n - e.n) > 0) g[k] = b; }); return Object.keys(g).map(function(k){ return g[k]; }); };
+    var cift = function(b, etiket){ var r = satir({ tur: "byn", n: b.n, ad: dosyaAd(etiket + " beyannamesi " + bynDonem(b)), baslik: etiket + " beyannamesi (" + bynDonem(b) + ")", alt: bynAd(b.tur) + (b.aciklama ? " · " + b.aciklama : ""), url: belgeUrl("byn", b.n, 0) });
       if (thkEkle) { var tl = btThkTek(b, tumT); tl.forEach(function(x){ r += satir({ tur: "thk", n: x.n, ad: dosyaAd(etiket + " tahakkuk " + bynDonem(b)), baslik: etiket + " tahakkuk fişi (" + bynDonem(b) + ")", alt: x.kabulTarihi ? "kabul " + tarihYaz(x.kabulTarihi) : "", url: belgeUrl("thk", x.n, 0) }); }); if (!tl.length) r += '<p class="not" style="margin:4px 0 8px;font-size:.76rem">Bu beyanname için tahakkuk fişi bulunamadı.</p>'; }
       return r; };
     /* mizan: kurumlar vergisi mükellefinde her zaman; gelir vergisinde yalnız bilanço esaslıda (gelir tablosu olan, Defter-Beyan / işletme hesabı olmayan) */
@@ -4190,12 +4191,12 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       var k = BK.yillar[y], ic = "";
       if (!k) { h += kart(String(y), '<p class="not" style="margin:0">Bu yılı getirmek için “Evrakları getir”e basın.</p>'); return; }
       if (y === Y) {
-        var gec = tumB.filter(function(b){ return bynGrup(b.tur) === "GEC"; }).sort(function(a, b){ return (btAy(b.bit) - btAy(a.bit)) || (btAy(b.bas) - btAy(a.bas)); })[0];
+        var gec = sonVerilen(tumB.filter(function(b){ return bynGrup(b.tur) === "GEC"; })).sort(function(a, b){ return (btAy(b.bit) - btAy(a.bit)) || (btAy(b.bas) - btAy(a.bas)); })[0];
         ic = gec ? cift(gec, "Geçici vergi") : '<p class="not" style="margin:0;color:var(--danger)">Geçici vergi beyannamesi bulunamadı.</p>';
         if (mizanVar) ic += mizanSat(y, "Mizan (" + y + " son dönem)");
         h += kart(y + " · son geçici vergi", ic); return;
       }
-      var l2 = tumB.filter(function(b){ var g = bynGrup(b.tur); return (g === "KV" || g === "GV") && +String(b.bas || "").slice(0, 4) === y; });
+      var l2 = sonVerilen(tumB.filter(function(b){ var g = bynGrup(b.tur); return (g === "KV" || g === "GV") && +String(b.bas || "").slice(0, 4) === y; }));
       ic = l2.length ? l2.map(function(b){ return cift(b, (bynGrup(b.tur) === "KV" ? "Kurumlar vergisi " : "Gelir vergisi ") + y); }).join("") : '<p class="not" style="margin:0;color:var(--danger)">' + y + ' yılı kurumlar / gelir vergisi beyannamesi bulunamadı.</p>';
       if (mizanVar) ic += mizanSat(y, "Mizan (" + y + ")");
       h += kart(y + " · " + (kurum ? "kurumlar vergisi" : "gelir vergisi"), ic);
@@ -4242,7 +4243,6 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   });
   $("bkHepsi").addEventListener("click", function(){ var c = $("bkListe").querySelectorAll("[data-bkc]"), hepsi = [].every.call(c, function(x){ return x.checked; }); [].forEach.call(c, function(x){ x.checked = !hepsi; }); this.textContent = hepsi ? "Tümünü seç" : "Seçimi kaldır"; bkSecimSay(); });
   $("bkYillar").addEventListener("change", function(){ if (BK) bkCiz(); });
-  $("bkThk").addEventListener("change", function(){ if (BK) bkCiz(); });
   $("bkHazirla").addEventListener("click", bkHazirla);
   $("bkKodIste").addEventListener("click", function(){
     var m = mk(), d = $("bkDurum"), b = this; if (!m) return; if (VD.mid !== m.id) vdAc();

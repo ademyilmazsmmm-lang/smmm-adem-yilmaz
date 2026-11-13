@@ -253,7 +253,7 @@ class Ivd {
     const donem = (d) => { const q = /^(\d{4})(\d{2})(\d{4})(\d{2})$/.exec(String(d || "")); return q ? { bas: q[1] + "-" + q[2], bit: q[3] + "-" + q[4] } : { bas: "", bit: "" }; };
     const yeni = dizi.map((b) => Object.assign({ oid: m(b.beyoid), tur: m(b.beyanname_turu), aciklama: m(b.aciklama), kaynak: m(b.kaynak) }, donem(b.donem))), taban = ekle ? (this.beyannameler || []).length : 0;
     this.beyannameler = ekle ? (this.beyannameler || []).concat(yeni) : yeni;
-    return { beyannameler: yeni.map((b, i) => ({ n: taban + i, tur: b.tur, bas: b.bas, bit: b.bit, aciklama: b.aciklama, kaynak: b.kaynak })), sekil: "" };
+    return { beyannameler: yeni.map((b, i) => ({ n: taban + i, tur: b.tur, bas: b.bas, bit: b.bit, aciklama: b.aciklama, kaynak: b.kaynak, sira: b.oid })), sekil: "" };
   }
   async beyannameIndir(n) {
     const b = (this.beyannameler || [])[n]; if (!b || !b.oid) throw new Error("Beyanname bulunamadı; listeyi yenileyin.");
