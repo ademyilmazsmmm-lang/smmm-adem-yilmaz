@@ -944,7 +944,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     $("mYok").hidden = V.mukellefler.length > 0; seritGoster(); modulGuncelle(); iaBannerGuncelle();
   }
   /* mükellef filtresi: düğme -> arama kutulu liste */
-  function mPanelAc(){ $("mPanel").hidden = false; $("mSecBtn").setAttribute("aria-expanded", "true"); $("mAra").value = ""; mAraSuz(); setTimeout(function(){ var s0 = document.querySelector("#mChips [aria-pressed=true]"); if (s0 && s0.scrollIntoView) s0.scrollIntoView({ block: "center" }); }, 30); }
+  function mPanelAc(){ $("mPanel").hidden = false; $("mSecBtn").setAttribute("aria-expanded", "true"); $("mAra").value = ""; mAraSuz(); try { $("mAra").focus({ preventScroll: true }); } catch (e) { $("mAra").focus(); } /* arama kutusunda imleç hemen */ setTimeout(function(){ var s0 = document.querySelector("#mChips [aria-pressed=true]"); if (s0 && s0.scrollIntoView) s0.scrollIntoView({ block: "center" }); }, 30); }
   function mPanelKapat(){ $("mPanel").hidden = true; $("mSecBtn").setAttribute("aria-expanded", "false"); }
   function mAraSuz(){ var q = arak($("mAra").value).trim(), n = 0; document.querySelectorAll("#mChips .chip").forEach(function(b){ var g = !q || arak(b.textContent).indexOf(q) > -1; b.hidden = !g; if (g) n++; }); $("mBos").hidden = n > 0; }
   $("mSecBtn").addEventListener("click", mPanelAc);
@@ -1205,8 +1205,10 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function onayKapat(){ $("onayPanel").hidden = true; $("kodAlan").hidden = true; $("kodGir").value = ""; son = { uuid: null, oid: null, hesap: null, imzali: false }; }
   function smsGonder(){
     var od = $("onayDurum"); od.className = "durum"; od.textContent = "SMS isteniyor…";
+    /* SMS telefona hemen düşer ama sunucunun yanıtı birkaç sn sürebilir: kod kutusu ve imleç beklemeden açılır */
+    $("kodAlan").hidden = false; try { $("kodGir").focus({ preventScroll: true }); } catch (e) { $("kodGir").focus(); }
     api("/api/sms", "POST", { mukellefId: son.mid || mSec }).then(function(r){
-      son.oid = r.oid; $("kodAlan").hidden = false; od.className = "durum ok"; od.textContent = "SMS kodu mükellefin kayıtlı telefonuna gönderildi."; odakla($("kodGir"));
+      son.oid = r.oid; $("kodAlan").hidden = false; od.className = "durum ok"; od.textContent = "SMS kodu mükellefin kayıtlı telefonuna gönderildi. Kodu yazın."; if (document.activeElement !== $("kodGir")) odakla($("kodGir"));
     }, function(er){ if (!oturumDustu(er)) { od.className = "durum hata"; od.textContent = er.message; } });
   }
   function onayBaslat(x){
@@ -1214,7 +1216,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     son = { uuid: x.ettn, oid: null, hesap: null, imzali: false, tarih: t, kayit: null, mid: mSec };
     $("onayBilgi").textContent = (x.belgeNo || "") + (x.tutar ? " · " + fmt(x.tutar) + " ₺" : ""); $("kodGir").value = ""; $("kodAlan").hidden = true;
     var od = $("onayDurum"); od.className = "durum"; od.textContent = "";
-    $("onayPanel").hidden = false; $("onayPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+    $("onayPanel").hidden = false; $("onayPanel").scrollIntoView({ block: "start" }); /* anında: kaydırma animasyonu sürerken dokunuşlar kutuya ulaşmaz */
     if (!confirm("Onay için mükellefin telefonuna SMS kodu gönderilsin mi?\n\n" + x.alici + " — " + x.belgeNo)) { onayKapat(); return; }
     smsGonder();
   }
