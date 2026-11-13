@@ -245,7 +245,7 @@ class Depo {
   belgeEkle(o, mid, b) {
     if (o.rol === "mukellef") throw new Error("Belgeleri yalnız ofis yükleyebilir.");
     const liste = this.belgeler(o, mid);
-    if (liste.length >= 12) throw new Error("Bir mükellef için en çok 12 belge yüklenebilir; önce eskisini silin.");
+    if (liste.length >= 20) throw new Error("Bir mükellef için en çok 20 belge yüklenebilir; önce eskisini silin.");
     if (liste.reduce((t, x) => t + x.boyut, 0) + b.boyut > 9e6) throw new Error("Bu mükellefin belgeleri toplam 9 MB sınırını aşıyor.");
     const k = { id: crypto.randomBytes(6).toString("hex"), tur: b.tur, ad: b.ad, tip: b.tip, boyut: b.boyut, zaman: new Date().toISOString(), veri: b.veri };
     liste.push(k); this.belgeYaz(mid); return k;
