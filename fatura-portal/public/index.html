@@ -3977,7 +3977,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     h += '<div class="a2-eylem">' + (m && m.earsiv !== false ? '<button class="btn" type="button" data-git="yeni">' + IKON.fatura.replace("<svg ", '<svg width="20" height="20" ') + 'Yeni fatura kes</button>' : '') +
       '<button class="k" type="button" data-git="belge"><span>Belgelerim</span>' + (r.belge ? '<em>' + r.belge + '</em>' : '') + '</button>' +
       '<button class="k" type="button" data-git="talep"><span>' + (ofis ? "Talepler" : "Taleplerim") + '</span>' + (ofis ? (r.bekleyenToplam > 0 ? '<em>' + r.bekleyenToplam + '</em>' : '') : (r.acikTalep > 0 ? '<em>' + r.acikTalep + '</em>' : '')) + '</button>' +
-      '<button class="k" type="button" data-git="banka" style="grid-column:1/-1"><span>Bankaya verilecek evraklar</span><em>Levha · beyanname · mizan ›</em></button></div>';
+      '<button class="k" type="button" data-git="banka" style="grid-column:1/-1"><span>Bankaya verilecek evraklar</span><em style="background:none;font-size:1.2rem;padding:0">›</em></button></div>';
     /* mali özet: kâr, KDV devri, fatura gelir / gider */
     var satirlar = "", notlar = [];
     if (m && m.defterBeyan) {
