@@ -136,6 +136,24 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6}
 .a2-tar.yakin .gun{color:var(--danger);background:var(--danger-soft)}.a2-tar.orta .gun{color:var(--warn);background:var(--warn-soft)}
 .a2 details.a2-not summary{cursor:pointer;color:var(--muted);font-size:.78rem;list-style:none}.a2 details.a2-not p{font-size:.76rem;color:var(--muted);margin:6px 0 0}
 .a2-alt{display:flex;justify-content:center;padding:4px 0 2px}
+/* ---- Vergi D. / SGK: sade bölüm menüsü (düğme ızgarası yerine tek düğme + gruplu liste) ---- */
+.a2-menubtn{font:inherit;width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;cursor:pointer;background:var(--surface);color:var(--fg);border:1px solid var(--line2);border-radius:12px;padding:10px 14px;min-height:54px;box-shadow:var(--shadow)}
+.a2-menubtn small{display:block;font-size:.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.a2-menubtn b{display:block;font-size:1.02rem;margin-top:1px}
+.a2-menubtn svg{flex:none;color:var(--accent)}
+html.menuKlasik .a2-menubtn{display:none}
+html:not(.menuKlasik) #vdSeg,html:not(.menuKlasik) #sgkSis{display:none}
+.a2-perde{position:fixed;inset:0;z-index:72;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+.a2-perde[hidden]{display:none}
+.a2-sheet{width:100%;max-width:560px;max-height:84vh;overflow:auto;background:var(--surface);border-radius:18px 18px 0 0;padding:14px 14px calc(16px + env(safe-area-inset-bottom));display:grid;gap:12px;box-shadow:0 -8px 30px rgba(0,0,0,.25)}
+.a2-grup small{display:block;font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 2px 6px}
+.a2-glist{display:grid;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.a2-glist button{font:inherit;text-align:left;cursor:pointer;background:var(--surface);color:var(--fg);border:0;border-top:1px solid var(--line);padding:11px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:48px;border-radius:0}
+.a2-glist button:first-child{border-top:0}
+.a2-glist button span{display:block;font-weight:600;font-size:.95rem}.a2-glist button em{display:block;font-style:normal;font-size:.76rem;color:var(--muted);font-weight:500}
+.a2-glist button[aria-current="true"]{background:var(--accent-soft)}.a2-glist button[aria-current="true"] span{color:var(--accent)}
+.a2-glist button i{font-style:normal;color:var(--muted)}
+details.teknik>summary{font-size:.8rem;color:var(--muted)}
 .tk.orta{border-left-color:var(--warn)}.tk.orta .gun{color:var(--warn);background:var(--warn-soft)}
 .tk.yakin{border-left-color:var(--danger);background:var(--danger-soft);border-top-color:transparent;border-right-color:transparent;border-bottom-color:transparent}.tk.yakin .gun{color:#fff;background:var(--danger)}
 #vdSeg{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -4073,6 +4091,56 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (g === "talep") { BS = "talepler"; sekme("belge"); } else { if (g === "belge") BS = "belgeler"; sekme(g); }
     window.scrollTo(0, 0);
   });
+
+  /* ---------- Vergi D. ve SGK: sade bölüm menüsü ----------
+     Düğme ızgarası gizlenir; yerine "Bölüm: …" düğmesi ve gruplu liste gelir. Listedeki seçim, gizli ızgaradaki
+     asıl düğmeye tıklar (tüm mantık aynen çalışır). "Eski düğme görünümü" ile ızgara geri gelir (bu cihazda saklanır). */
+  var MENU_KLASIK = false; try { MENU_KLASIK = localStorage.getItem("menuGorunum") === "klasik"; } catch (e) { /* kayıt yok */ }
+  function menuGorunumUygula(){ document.documentElement.classList.toggle("menuKlasik", MENU_KLASIK); document.querySelectorAll("[data-menu-klasik]").forEach(function(x){ x.hidden = !MENU_KLASIK; }); }
+  function bolumMenusu(segId, attr, baslik, gruplar){
+    var seg = $(segId); if (!seg) return;
+    var cip = function(){ return [].slice.call(seg.querySelectorAll("[" + attr + "]")); };
+    var ad = function(c){ var sp = c.querySelector("span"); return (sp ? sp.textContent : c.textContent).replace(/\s+/g, " ").trim(); };
+    var alt = function(c){ var sm = c.querySelector("small"); return sm ? sm.textContent.trim() : ""; };
+    var btn = document.createElement("button"); btn.type = "button"; btn.className = "a2-menubtn"; btn.setAttribute("aria-haspopup", "dialog");
+    btn.innerHTML = '<span style="min-width:0"><small>' + esc(baslik) + '</small><b></b></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>';
+    seg.parentNode.insertBefore(btn, seg);
+    var geri = document.createElement("button"); geri.type = "button"; geri.className = "a2-lnk"; geri.setAttribute("data-menu-klasik", "1"); geri.textContent = "Sade menüye geç"; geri.style.justifySelf = "start";
+    seg.parentNode.insertBefore(geri, seg.nextSibling);
+    var perde = document.createElement("div"); perde.className = "a2-perde"; perde.hidden = true; perde.setAttribute("role", "dialog"); perde.setAttribute("aria-modal", "true"); perde.setAttribute("aria-label", baslik);
+    document.body.appendChild(perde);
+    function etiket(){ var a = cip().filter(function(c){ return c.getAttribute("aria-pressed") === "true"; })[0]; btn.querySelector("b").textContent = a ? ad(a) : "Seçin"; }
+    function ac(){
+      var hepsi = cip().filter(function(c){ return !c.hidden; }), kullanildi = {}, h = '<div class="mbas"><b>' + esc(baslik) + '</b><button type="button" class="k" data-mk="1">Kapat</button></div>';
+      var grupHtml = function(gad, l){ return l.length ? '<div class="a2-grup"><small>' + esc(gad) + '</small><div class="a2-glist">' + l.map(function(c){ var d = c.getAttribute(attr); kullanildi[d] = 1; return '<button type="button" data-ms="' + esc(d) + '" aria-current="' + (c.getAttribute("aria-pressed") === "true") + '"><span style="min-width:0"><span>' + esc(ad(c)) + '</span>' + (alt(c) ? '<em>' + esc(alt(c)) + '</em>' : '') + '</span><i>›</i></button>'; }).join("") + '</div></div>' : ""; };
+      gruplar.forEach(function(g){ h += grupHtml(g[0], g[1].map(function(d){ return hepsi.filter(function(c){ return c.getAttribute(attr) === d; })[0]; }).filter(Boolean)); });
+      h += grupHtml("Diğer", hepsi.filter(function(c){ return !kullanildi[c.getAttribute(attr)]; }));
+      h += '<button type="button" class="a2-lnk" data-mklasik="1" style="justify-self:center;color:var(--muted);font-weight:500">Eski düğme görünümüne dön</button>';
+      perde.innerHTML = '<div class="a2-sheet">' + h + '</div>'; perde.hidden = false;
+    }
+    function kapat(){ perde.hidden = true; }
+    btn.addEventListener("click", ac);
+    perde.addEventListener("click", function(e){
+      if (e.target === perde || e.target.closest("[data-mk]")) { kapat(); return; }
+      if (e.target.closest("[data-mklasik]")) { MENU_KLASIK = true; try { localStorage.setItem("menuGorunum", "klasik"); } catch (x) {} menuGorunumUygula(); kapat(); return; }
+      var b = e.target.closest("[data-ms]"); if (!b) return; var c = seg.querySelector("[" + attr + '="' + b.getAttribute("data-ms") + '"]'); kapat(); if (c) c.click(); etiket();
+    });
+    geri.addEventListener("click", function(){ MENU_KLASIK = false; try { localStorage.setItem("menuGorunum", "yeni"); } catch (x) {} menuGorunumUygula(); });
+    new MutationObserver(etiket).observe(seg, { attributes: true, subtree: true, attributeFilter: ["aria-pressed"] });
+    etiket();
+  }
+  bolumMenusu("vdSeg", "data-vd", "Vergi Dairesi bölümü", [
+    ["Borç ve ödeme", ["borc", "yazi", "haciz"]],
+    ["Bildirimler", ["tebligat", "trafik", "yoklama"]],
+    ["Beyan ve raporlar", ["bt", "kdv", "gelen", "pos", "zrapor", "hesapozeti"]],
+    ["Belgeler ve kayıtlar", ["banka", "levha", "dilekce", "sicil", "arac"]]
+  ]);
+  bolumMenusu("sgkSis", "data-sis", "SGK bölümü", [
+    ["Borç ve belge", ["isveren", "eborc", "bagkur"]],
+    ["Personel", ["tescil", "tesvik", "rapor"]],
+    ["Bildirgeler", ["ebildirge"]]
+  ]);
+  menuGorunumUygula();
 
   /* ---------- Belge sekmesi: belgelerim (ofis yükler) ve ofise talep ---------- */
   var BS = "belgeler", BELGE_TUR = [], TALEP_TUR = [];
