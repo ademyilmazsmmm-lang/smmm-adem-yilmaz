@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-14-298";
+const SURUM = "2026-11-14-299";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -156,6 +156,28 @@ function kiraOkuHtml(html) {
   const ay = /class="kira-oran-ay">\s*([^<]+?)\s*</.exec(html), al = (ad) => { const m = new RegExp(ad + "\\s*</span>\\s*<span class=\"kira-oran-value\">\\s*([^<]+?)\\s*<", "i").exec(html); return m ? m[1] : ""; };
   const konut = al("Konut \\(Ev\\) Kirası"), isyeri = al("İşyeri Kirası");
   return ay && konut && isyeri ? { ay: ay[1], konut, isyeri } : null;
+}
+/* .xlsx okuyucu (bağımlılıksız): paylaşılan metinler + sayfa hücreleri → satırlar; sayfalar art arda eklenir */
+function xlsxMetin(buf) {
+  const dosyalar = gib.zipDosyalari(buf), oku1 = (ad) => (dosyalar.get(ad) ? dosyalar.get(ad).toString("utf8") : "");
+  const coz = (t) => String(t).replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(+d)).replace(/&amp;/g, "&");
+  const ortak = [...oku1("xl/sharedStrings.xml").matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)].map((m) => coz([...m[1].matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map((x) => x[1]).join("")));
+  const sutun = (ref) => { let n = 0; for (const c of /^[A-Z]+/.exec(ref)[0]) n = n * 26 + c.charCodeAt(0) - 64; return n - 1; };
+  const sayfalar = [...dosyalar.keys()].filter((k) => /^xl\/worksheets\/sheet\d+\.xml$/.test(k)).sort((a, b) => parseInt(a.replace(/\D/g, "")) - parseInt(b.replace(/\D/g, "")));
+  const cikti = [];
+  for (const ad of sayfalar) {
+    for (const r of oku1(ad).matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+      const hucre = [];
+      for (const c of r[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+        const ref = /\br="([A-Z]+\d+)"/.exec(c[1]); if (!ref) continue; const tur = (/\bt="([^"]*)"/.exec(c[1]) || [])[1] || "", ic = c[2] || "", v = (/<v>([\s\S]*?)<\/v>/.exec(ic) || [])[1];
+        let d = ""; if (tur === "s") d = ortak[+v] || ""; else if (tur === "inlineStr") d = coz([...ic.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map((x) => x[1]).join("")); else if (v !== undefined) { d = coz(v); if (/^-?\d+(\.\d+)?[eE][+-]?\d+$/.test(d)) d = String(Number(d).toFixed(0)); }
+        hucre[sutun(ref[1])] = d.replace(/[\t\r\n]+/g, " ");
+      }
+      if (hucre.some((x) => x)) cikti.push(Array.from(hucre, (x) => x || "").join("\t"));
+    }
+  }
+  if (!cikti.length) throw new Error("sayfada satır bulunamadı");
+  return cikti.join("\n");
 }
 /* TCMB döviz alış kuru: fatura tarihinden bir önceki iş günü (hafta sonu / resmî tatilde son yayımlanan gün). Kaynak: tcmb.gov.tr/kurlar/YYYYAA/GGAAYYYY.xml */
 const kurOnbellek = new Map();
@@ -520,6 +542,39 @@ async function api(req, res, yol) {
     const ph = g.paket && g.paket !== "genel" ? paketHizmet(String(g.paket)) : null; if (ph) { depo.mukellef(o, id).veri.hizmetler = ph; depo.kaydet(id); }
     gunluk(o, id, "Mükellef eklendi");
     return cevap(res, 200, { id, veri: temiz(o) });
+  }
+  if (yol === "/api/mukellef/xlsx-oku" && req.method === "POST") {
+    /* .xlsx → sekmeli metin (her sayfa art arda). Yalnız okuma; dosya saklanmaz. */
+    ofisGerek(o); const g = await oku(req, 5e6), mt = /^data:[^;,]*;base64,([A-Za-z0-9+/=]+)$/.exec(String(g.veri || ""));
+    if (!mt) return cevap(res, 400, { hata: "Dosya okunamadı." });
+    try { return cevap(res, 200, { metin: xlsxMetin(Buffer.from(mt[1], "base64")) }); } catch (e) { return cevap(res, 400, { hata: "Excel dosyası okunamadı: " + e.message }); }
+  }
+  if (yol === "/api/mukellef/firma-listesi" && req.method === "POST") {
+    /* SGK ve GİB şifre listelerinden toplu aktarım: firma adına göre birleştirilir; VKN gerekmez (sonradan GİB'den dolar).
+       Varsa aynı adlı mükellef güncellenir (yalnız dolu gelen bilgiler), yoksa eklenir. İstenirse hepsi bir çalışana atanır. Şifreler günlüğe yazılmaz. */
+    ofisGerek(o); const g = await oku(req, 3e6), liste = Array.isArray(g.firmalar) ? g.firmalar.slice(0, 200) : [];
+    if (!liste.length) return cevap(res, 400, { hata: "Aktarılacak firma yok." });
+    const pid = String(g.personel || ""); if (pid) { try { depo.personelBul(pid); } catch (e) { return cevap(res, 400, { hata: "Seçilen çalışan bulunamadı." }); } }
+    const anahtar = (t) => String(t || "").toLocaleUpperCase("tr-TR").replace(/İ/g, "I").replace(/\s+/g, " ").trim();
+    const kayitli = new Map(); for (const id of depo.mukellefIdleri(o)) kayitli.set(anahtar(depo.mukellef(o, id).veri.ad), id);
+    const sonuc = [], idler = [];
+    const sgkTemiz = (x) => ({ ad: String(x.ad || "").slice(0, 40), kullanici: String(x.kullanici || "").replace(/\D/g, "").slice(0, 11), isyeriKod: String(x.isyeriKod || "").replace(/\D/g, "").slice(0, 4), sistemSifre: String(x.sistemSifre || "").slice(0, 20), isyeriSifre: String(x.isyeriSifre || "").slice(0, 20) });
+    for (let i = 0; i < liste.length; i++) {
+      const r = liste[i] || {}, ad = gib.temizMetin(r.ad, 150); if (!ad) { sonuc.push({ n: i + 1, ad: "(adsız)", durum: "hata", mesaj: "Firma adı boş." }); continue; }
+      try {
+        const gk = String(r.gibKullanici || "").slice(0, 60), gs = String(r.gibSifre || ""), sgk = (Array.isArray(r.sgk) ? r.sgk : []).map(sgkTemiz).filter((x) => x.kullanici && x.isyeriKod && x.sistemSifre && x.isyeriSifre).slice(0, 4);
+        let id = kayitli.get(anahtar(ad)), durum = "guncellendi";
+        if (!id) { id = await depo.mukellefEkle(o, { ad, vkn: "", kullanici: gk, gibSifre: gs, earsiv: r.earsiv !== false }); kayitli.set(anahtar(ad), id); durum = "eklendi"; }
+        const v = depo.mukellef(o, id).veri;
+        if (durum === "guncellendi") { if (gk) v.kullanici = gk; if (gs) v.gibSifre = gs; }
+        if (sgk.length) { v.sgk = sgk[0]; v.sgkEk = sgk.slice(1).map((x) => Object.assign({ id: crypto.randomBytes(4).toString("hex") }, x)); sgkBirak(id); }
+        depo.kaydet(id); idler.push(id);
+        gunluk(o, id, durum === "eklendi" ? "Mükellef firma listesinden eklendi" : "Mükellef bilgileri firma listesinden güncellendi");
+        sonuc.push({ n: i + 1, ad, durum, mesaj: (gk ? "GİB ✓ " : "GİB yok ") + "· SGK " + sgk.length + " işyeri" });
+      } catch (e) { sonuc.push({ n: i + 1, ad, durum: "hata", mesaj: e.message }); }
+    }
+    let atanan = 0; if (pid && idler.length) { const p = depo.personelListe(o).filter((x) => x.id === pid)[0]; depo.personelAta(o, pid, [...new Set([...(p ? p.atamalar : []), ...idler])]); atanan = idler.length; }
+    return cevap(res, 200, { sonuc, atanan, veri: temiz(o), personel: depo.personelListe(o) });
   }
   if (yol === "/api/mukellef/toplu" && req.method === "POST") {
     /* Excel/CSV'den toplu mükellef: her satır ayrı denenir, sonuç satır satır döner. Şifreler yalnız şifreli kasaya yazılır, günlüğe girmez. */

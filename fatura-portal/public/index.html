@@ -1975,6 +1975,83 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       '<div class="satir"><div><label>Giriş kullanıcı adı</label><input id="meHk" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div><label>Giriş şifresi (en az ' + mSifreMin + ')</label><input id="meHs" type="password" autocomplete="new-password"></div></div>' +
       '<button class="btn" type="button" id="mEkle">Mükellefi ekle</button><div class="durum" id="meDurum" role="status"></div></div></details>';
   }
+  /* ---- Firma listesinden toplu aktarım: SGK şifre listesi + GİB şifre listesi (VKN gerekmez); isteğe bağlı çalışana atama ---- */
+  var FL = [], FL_SON = "", FL_PERSONEL = null;
+  function firmaListeHtml(){
+    return '<details class="grup" data-ak="g:fl"' + ac("g:fl") + '><summary>Şifre listelerinden toplu aktar (SGK + GİB)</summary><div class="icerik">' +
+      '<p class="not" style="margin:0">Excel’deki <b>SGK listesini</b> (Şirket - İşyeri · Kullanıcı Adı · İşyeri Kodu · Sistem Şifresi · İşyeri Şifresi) ve <b>GİB listesini</b> (Şirket · Kullanıcı Adı · Parola · Şifre) satırlarıyla birlikte kopyalayıp aşağıya yapıştırın; ikisini art arda yapıştırabilirsiniz. Firmalar adıyla birleştirilir. “Parola” sütunu (maliye) kullanılmaz. VKN gerekmez; GİB’e ilk bağlanışta ya da profilden doldurulur.</p>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><label class="k" style="margin:0;cursor:pointer">Excel / CSV dosyası seç<input type="file" id="flDosya" accept=".xlsx,.csv,.txt,.tsv" hidden></label></div>' +
+      '<textarea id="flMetin" rows="6" placeholder="Excel’den kopyaladığınız satırları buraya yapıştırın" aria-label="Firma listesi" style="font-family:ui-monospace,Menlo,monospace;font-size:.78rem" autocomplete="off" spellcheck="false"></textarea>' +
+      '<button class="btn ikincil" type="button" id="flOnizle">Önizle</button><div id="flAlan" style="display:grid;gap:8px">' + FL_SON + '</div>' +
+      '<p class="not" style="margin:0;font-size:.78rem">Şifreler doğrudan şifreli kasaya yazılır; önizlemede gösterilmez ve günlüğe girmez.</p></div></details>';
+  }
+  function flNorm(t){ return String(t || "").toLocaleLowerCase("tr-TR").replace(/ı/g, "i").replace(/ş/g, "s").replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ö/g, "o").replace(/ç/g, "c"); }
+  function flAnah(t){ return String(t || "").toLocaleUpperCase("tr-TR").replace(/İ/g, "I").replace(/\s+/g, " ").trim(); }
+  function flCoz(metin){
+    var firmalar = {}, sira = [], mod = "", al = function(ad){ var k = flAnah(ad); if (!k) return null; if (!firmalar[k]) { firmalar[k] = { ad: String(ad).replace(/\s+/g, " ").trim(), gibKullanici: "", gibSifre: "", sgk: [] }; sira.push(k); } return firmalar[k]; };
+    var ATLA = { test: function(x){ return /^(yeni ivd|interaktif vergi dairesi|durum)$/.test(flNorm(x).trim()); } }, PAROLA = /^mali[ey]e?$/i, sayiMi = function(t){ return /^\d+$/.test(t); };
+    var sgkEkle = function(sirket, isyeri, v){ var f = al(sirket); if (f && v.length >= 4 && v[0] && v[1] !== "") f.sgk.push({ ad: String(isyeri || "").slice(0, 40), kullanici: String(v[0]).replace(/\D/g, ""), isyeriKod: String(v[1]).replace(/\D/g, ""), sistemSifre: v[2], isyeriSifre: v[3] }); };
+    var gibEkle = function(ad, v){ var f = al(ad); if (f && v.length >= 2) { f.gibKullanici = v[0]; f.gibSifre = v[v.length - 1]; } };
+    var cur = null, bit = function(){ if (!cur) return; if (cur.t === "sgk") sgkEkle(cur.ad, cur.isyeri, cur.v); else gibEkle(cur.ad, cur.v); cur = null; };
+    String(metin || "").replace(/\r/g, "").split("\n").forEach(function(l){
+      if (!l.trim()) return; var n = flNorm(l);
+      if (/isyeri kodu|sirket\s*-\s*isyeri/.test(n)) { bit(); mod = "sgk"; return; }
+      if (/parola/.test(n) && /(sirket|kullanici adi)/.test(n)) { bit(); mod = "gib"; return; }
+      var ay = l.indexOf("\t") >= 0 ? "\t" : (l.split(";").length > 4 ? ";" : ","), c = (ay === "," && l.indexOf("\t") < 0 && l.split(",").length < 3 ? [l] : l.split(ay)).map(function(x){ return x.trim().replace(/^"(.*)"$/, "$1"); }).filter(function(x){ return x !== ""; });
+      if (!c.length || c.every(function(x){ return ATLA.test(x); })) return;
+      c = c.filter(function(x){ return !ATLA.test(x); });
+      var sgkMi = mod === "sgk" || (!mod && / - /.test(c[0]) && !sayiMi(c[0]));
+      if (c.length > 1) { /* satır biçimi (Excel'den kopya) */
+        bit();
+        if (sgkMi) { var i = c[0].indexOf(" - "); sgkEkle(i > 0 ? c[0].slice(0, i) : c[0], i > 0 ? c[0].slice(i + 3) : "", c.slice(1)); }
+        else { var rest = c.slice(1).filter(function(x){ return !PAROLA.test(x); }); gibEkle(c[0], rest); }
+        return;
+      }
+      var t = c[0]; /* tek hücreli satır: dikey biçim (her hücre ayrı satırda) */
+      if (sgkMi) {
+        if (/ - /.test(t) && !sayiMi(t)) { bit(); var k = t.indexOf(" - "); al(t.slice(0, k)); cur = { t: "sgk", ad: t.slice(0, k), isyeri: t.slice(k + 3), v: [] }; }
+        else if (cur) cur.v.push(t);
+      } else {
+        if (PAROLA.test(t)) return;
+        if (!sayiMi(t.replace(/\s/g, "")) && /[A-Za-zÇĞİÖŞÜçğıöşü]/.test(t) && !/^\d/.test(t)) { bit(); al(t); cur = { t: "gib", ad: t, v: [] }; }
+        else if (cur) cur.v.push(t.replace(/\s/g, ""));
+      }
+    });
+    bit();
+    return sira.map(function(k){ return firmalar[k]; });
+  }
+  function flOnizle(){
+    FL = flCoz($("flMetin").value); var a = $("flAlan");
+    if (!FL.length) { a.innerHTML = '<div class="durum hata">Firma satırı bulunamadı. Excel’den başlık satırıyla birlikte kopyalayın.</div>'; return; }
+    var kay = {}; (V.mukellefler || []).forEach(function(m){ kay[flAnah(m.ad)] = 1; });
+    var yeni = FL.filter(function(f){ return !kay[flAnah(f.ad)]; }).length, sgkTop = FL.reduce(function(t, f){ return t + f.sgk.length; }, 0), gibTop = FL.filter(function(f){ return f.gibKullanici; }).length;
+    var tablo = FL.map(function(f, i){ return '<div class="a2-sat" style="padding:6px 0"><div><span style="font-size:.88rem">' + (i + 1) + '. ' + esc(f.ad) + '</span><small>' + (f.gibKullanici ? "GİB ✓" : "GİB yok") + ' · SGK ' + f.sgk.length + ' işyeri' + (kay[flAnah(f.ad)] ? ' · <b>kayıtlı: güncellenir</b>' : "") + '</small></div></div>'; }).join("");
+    a.innerHTML = '<div class="not" style="margin:0"><b>' + FL.length + '</b> firma (' + yeni + ' yeni, ' + (FL.length - yeni) + ' güncellenecek) · GİB bilgisi <b>' + gibTop + '</b> firmada · SGK <b>' + sgkTop + '</b> işyeri</div>' +
+      '<div style="max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px 10px">' + tablo + '</div>' +
+      '<div><label for="flPersonel">Hepsini şu çalışana ata (yalnız atananı görür)</label><select id="flPersonel"><option value="">— Atama yapma —</option></select></div>' +
+      '<button class="btn" type="button" id="flYukle">' + FL.length + ' firmayı aktar</button><div class="durum" id="flDurum" role="status"></div>';
+    var doldur = function(l){ var sel = $("flPersonel"); if (!sel) return; sel.innerHTML = '<option value="">— Atama yapma —</option>' + l.map(function(p){ return '<option value="' + p.id + '">' + esc(p.ad) + ' (' + esc(p.kullanici) + ')</option>'; }).join(""); var s0 = l.filter(function(p){ return /seyit/i.test(p.ad + " " + p.kullanici); })[0]; if (s0) sel.value = s0.id; };
+    if (FL_PERSONEL) doldur(FL_PERSONEL); else api("/api/personel").then(function(r){ FL_PERSONEL = r.personel || []; doldur(FL_PERSONEL); if (!FL_PERSONEL.length) { var d = $("flDurum"); if (d) { d.className = "durum"; d.textContent = "Henüz çalışan hesabı yok; önce Ayarlar → Çalışanlar’dan “seyit” hesabını açın, sonra bu listeyi yeniden aktarın (varsa güncellenir)."; } } }, function(){ FL_PERSONEL = []; });
+  }
+  $("ayarIc").addEventListener("click", function(e){
+    if (e.target.id === "flOnizle") { flOnizle(); return; }
+    if (e.target.id === "flYukle") {
+      var b = e.target, d = $("flDurum"), pid = $("flPersonel") ? $("flPersonel").value : ""; b.disabled = true; d.className = "durum"; d.textContent = "Aktarılıyor… (birkaç saniye sürebilir)";
+      api("/api/mukellef/firma-listesi", "POST", { firmalar: FL, personel: pid }).then(function(r){
+        V = r.veri; FL = []; FL_PERSONEL = r.personel || FL_PERSONEL; $("flMetin").value = "";
+        var say = function(t){ return r.sonuc.filter(function(x){ return x.durum === t; }).length; }, hata = r.sonuc.filter(function(x){ return x.durum === "hata"; });
+        FL_SON = '<div class="durum ok" style="display:block">' + say("eklendi") + ' firma eklendi, ' + say("guncellendi") + ' güncellendi' + (r.atanan ? ", " + r.atanan + " firma çalışana atandı" : "") + '.</div>' + hata.map(function(x){ return '<div class="kayit" style="padding:8px 10px"><b>' + x.n + '. ' + esc(x.ad) + '</b><div class="not" style="margin:2px 0 0;color:var(--danger)">' + esc(x.mesaj) + '</div></div>'; }).join("");
+        if (!mSec && V.mukellefler.length) mSec = V.mukellefler[0].id; ayarAcik["g:m"] = true; ayarAcik["g:fl"] = true; hepsi();
+      }, function(er){ if (oturumDustu(er)) return; d.className = "durum hata"; d.textContent = er.message; b.disabled = false; });
+    }
+  });
+  document.addEventListener("change", function(e){
+    if (e.target.id !== "flDosya" || !e.target.files[0]) return; var f = e.target.files[0], a = $("flAlan"); if (f.size > 3e6) { a.innerHTML = '<div class="durum hata">Dosya çok büyük.</div>'; return; }
+    if (/\.xlsx$/i.test(f.name)) {
+      var rd2 = new FileReader(); rd2.onload = function(){ a.innerHTML = '<div class="durum">Excel okunuyor…</div>'; api("/api/mukellef/xlsx-oku", "POST", { veri: rd2.result }).then(function(r){ $("flMetin").value = r.metin; flOnizle(); }, function(er){ if (oturumDustu(er)) return; a.innerHTML = '<div class="durum hata">' + esc(er.message) + '</div>'; }); }; rd2.readAsDataURL(f); return;
+    }
+    var rd = new FileReader(); rd.onload = function(){ $("flMetin").value = String(rd.result || "").replace(/^﻿/, ""); flOnizle(); }; rd.readAsText(f, "utf-8");
+  });
   /* ---- toplu mükellef yükleme (Excel/CSV) ---- */
   var TOPLU_SUTUN = ["ad", "vkn", "gibKullanici", "gibSifre", "sgkKullanici", "sgkIsyeriKod", "sgkSistemSifre", "sgkIsyeriSifre", "hesapKullanici", "hesapSifre", "earsiv"];
   var TOPLU_BASLIK = ["Unvan", "VKN/TCKN", "GİB kullanıcı kodu", "GİB şifre", "SGK kullanıcı (TCKN/VKN)", "SGK işyeri kodu", "SGK sistem şifresi", "SGK işyeri şifresi", "Giriş kullanıcı adı", "Giriş şifresi", "e-Arşiv (E/H)"];
@@ -2432,7 +2509,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   function cizAyar(){
     var ofis = ROL === "ofis", h = hesabimHtml();
     if (ofis && PERSONEL) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mAraHtml() + mAyarListe() + '</div></details>';
-    else if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + topluHtml() + mukerrerHtml() + iaTopluHtml() + mAraHtml() + mAyarListe() + '</div></details>' + personelHtml() + htHtml() + duyuruHtml() + yedekHtml();
+    else if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + firmaListeHtml() + topluHtml() + mukerrerHtml() + iaTopluHtml() + mAraHtml() + mAyarListe() + '</div></details>' + personelHtml() + htHtml() + duyuruHtml() + yedekHtml();
     else h += V.mukellefler.map(mukellefAyarHtml).join("");
     h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
     $("ayarIc").innerHTML = h; mAyAraUygula(); sifreleriHazirla($("ayarIc")); yedekYazi(); yansiYazi(); if (ROL === "ofis" && !PERSONEL) personelYukle();
