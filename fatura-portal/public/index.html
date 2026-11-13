@@ -4175,7 +4175,10 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
         return pr;
       };
       gorev.push(function(){ return bkBekle(1200).then(function(){ d.textContent = "Beyannameler alınıyor (" + ilk + "–" + son + ")…"; return btApi("/api/vd/beyanname", { tbas: bas, tbit: bit, ekle: BK.ilkB }).then(function(r){ BK.yillar[tabanYil].byn = r.beyannameler || []; BK.ilkB = true; }); }).then(null, function(er){ if (er && (er.girisGerek || er.oturum)) throw er; if (/istek\s*limit|limiti\s*a[şs]/i.test(er.message || "")) { BK.hatalar.push("Beyannameler: " + er.message); return; } return yilYil("beyanname", "byn", "", "ilkB"); }); });
-      gorev.push(function(){ return bkBekle(1500).then(function(){ d.textContent = "Tahakkuk fişleri alınıyor (" + ilk + "–" + son + ")…"; return btApi("/api/vd/tahakkuk", { tbas: bas, tbit: bit, ekle: BK.ilkT }); }).then(function(r){ BK.yillar[tabanYil].thk = r.kayitlar || []; BK.ilkT = true; }, function(er){ if (er && (er.girisGerek || er.oturum)) throw er; if (/istek\s*limit|limiti\s*a[şs]/i.test(er.message || "")) { BK.hatalar.push("Tahakkuk fişleri: " + er.message); return; } return yilYil("tahakkuk", "thk", "", "ilkT"); }); });
+      /* tahakkuk: GİB bir sorguda en çok 200 kayıt döndürür (en yeniden eskiye); geniş aralıkta eski yıllar kesilir. Bu yüzden yıl yıl */
+      eksik.slice().sort(function(a, b){ return b - a; }).forEach(function(y){
+        gorev.push(function(){ return bkBekle(1300).then(function(){ d.textContent = y + " tahakkukları alınıyor…"; return btApi("/api/vd/tahakkuk", { tbas: y + "-01", tbit: y === Y ? Y + "-" + AY : y + "-12", ekle: BK.ilkT, sade: BK.ilkT }); }).then(function(r){ BK.yillar[y].thk = r.kayitlar || []; BK.ilkT = true; }, hataYut(y + " tahakkukları")); });
+      });
     }
     b.disabled = true; d.className = "durum";
     (function sira(i){
@@ -4235,6 +4238,9 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       h += kart(y + " · " + (kurum ? "kurumlar vergisi" : "gelir vergisi"), ic);
     });
     if (mizanVar) { var yilsiz = mzT.filter(function(b){ return !/(20\d\d)/.test(b.ad || ""); }); if (yilsiz.length) h += kart("Diğer mizanlar", '<p class="not" style="margin:0 0 6px;font-size:.76rem">Dosya adında yıl olmayan mizanlar; yüklerken yıl seçilirse ilgili yılın altında görünür.</p>' + yilsiz.map(function(b){ return belSatir(b, "Mizan", "mizan"); }).join("")); }
+    if (thkEkle && tumB.length) { var tsiz = tumB.filter(function(b){ var g = bynGrup(b.tur); return (g === "KV" || g === "GV" || g === "GEC") && !btThkTek(b, tumT).length; }).length;
+      if (tsiz) { var satirlarT = tumT.slice().sort(function(a, b){ return String(b.vergiDonem).localeCompare(String(a.vergiDonem)); }).slice(0, 60).map(function(x){ return String(x.vergiDonem || "").slice(0, 10) + " | " + String(x.vergiKodu || "").slice(0, 30) + " | " + thkGrup(x) + " | kabul " + String(x.kabulTarihi || "").slice(0, 10); });
+        h += '<details class="alt2 teknik"><summary>Tahakkuk bulunamadıysa: GİB’den gelen kayıtlar (' + tumT.length + ')</summary><div class="icerik"><pre style="white-space:pre-wrap;word-break:break-all;font-size:.68rem;margin:0;max-height:240px;overflow:auto">Beyannameler: ' + esc(tumB.map(function(b){ return b.tur + " " + b.bas + ".." + b.bit; }).join("; ")) + "\n\nTahakkuklar (dönem | kod | grup | kabul):\n" + esc(satirlarT.join("\n") || "kayıt yok") + '</pre></div></details>'; } }
     if (BK.hatalar.length) h += '<div class="durum hata" style="display:block">' + BK.hatalar.map(esc).join("<br>") + '</div>';
     l.innerHTML = h; t.hidden = false; bkSecimSay();
   }
