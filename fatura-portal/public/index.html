@@ -367,12 +367,12 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     <button class="btn" type="submit" id="htGonder">Talebi ofise gönder</button>
     <div class="durum" id="htDurum" role="status"></div>
   </form>
-  <div class="imza"><b>Adem Yılmaz</b> · Serbest Muhasebeci Mali Müşavir<br><a href="https://smmmyilmaz.com" target="_blank" rel="noopener">smmmyilmaz.com</a></div>
+  <div class="imza"><b data-ofis="ad">Adem Yılmaz</b><span data-ofis="unvan-ay"> · Serbest Muhasebeci Mali Müşavir</span><br><a data-ofis="web" href="https://smmmyilmaz.com" target="_blank" rel="noopener">smmmyilmaz.com</a></div>
 </main>
 
 <div id="tanitimPerde" hidden role="dialog" aria-modal="true" aria-label="Mükellef Portalı tanıtım videosu">
   <div class="tp-kutu">
-    <video id="tanitimVideo" controls playsinline preload="none" poster="https://smmmyilmaz.com/programlar/mukellef-portali-tanitim-poster.jpg"></video>
+    <video id="tanitimVideo" controls playsinline preload="none" ></video>
     <p>Seslendirme yapay zekâ ile hazırlanmıştır. Görüntüler örnek verilerle hazırlanmıştır.</p>
     <button class="btn" type="button" id="tanitimKapat">Kapat</button>
   </div>
@@ -777,7 +777,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     <div class="kmetin">
       <p>Uygulamayı kullanmadan önce lütfen aşağıdaki metni okuyun ve onaylayın.</p>
       <h3>1. Veri sorumlusu ve hizmet</h3>
-      <p><b>Adem Yılmaz — Serbest Muhasebeci Mali Müşavir</b> (“Ofis”, smmmyilmaz.com), sizin adınıza Gelir İdaresi Başkanlığı (GİB) e-Arşiv Portalı üzerinden e-Arşiv fatura taslağı hazırlar, siz onaylayınca faturayı düzenler, görüntüler, iptal talebi açar ve geçmiş kayıtlarını tutar. Bu işlemleri bu uygulama üzerinden siz de kendi kullanıcı adı ve şifrenizle yapabilirsiniz.</p>
+      <p><b><span data-ofis="ad">Adem Yılmaz</span><span data-ofis="unvan-tire"> — Serbest Muhasebeci Mali Müşavir</span></b> (“Ofis”<span data-ofis="web-parantez">, smmmyilmaz.com</span>), sizin adınıza Gelir İdaresi Başkanlığı (GİB) e-Arşiv Portalı üzerinden e-Arşiv fatura taslağı hazırlar, siz onaylayınca faturayı düzenler, görüntüler, iptal talebi açar ve geçmiş kayıtlarını tutar. Bu işlemleri bu uygulama üzerinden siz de kendi kullanıcı adı ve şifrenizle yapabilirsiniz.</p>
       <h3>2. İşlenen veriler</h3>
       <ul><li>Kimlik ve iletişim: unvan / ad soyad, VKN / TCKN, vergi dairesi, adres, telefon, e-posta</li><li>GİB e-Arşiv Portalı kullanıcı kodu ve şifresi</li><li>Fatura verileri: alıcıların unvan / ad soyad, VKN / TCKN, adres bilgileri; hizmet, tutar ve vergi bilgileri</li><li>Kullanım kayıtları: hangi kullanıcının hangi işlemi ne zaman yaptığı</li></ul>
       <h3>3. Amaç ve hukuki sebep</h3>
@@ -890,8 +890,24 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   /* çalışan hesabı arayüzde "ofis" gibi davranır (seçili mükellefler adına işlem) ama yönetim bölümleri (mükellef ekle/sil, yedek, çalışanlar) kapalıdır */
   /* "musteri": birden çok firması olan mükellefin kısıtlı hesabı — arayüz mükellef gibi, ama üstte firma seçici vardır */
   function rolAta(r){ PERSONEL = r === "personel"; COKLU = r === "musteri"; ROL = PERSONEL ? "ofis" : COKLU ? "mukellef" : r; document.body.setAttribute("data-rol", ROL); }
+  /* Ofis kimliği sunucu ayarından gelir (OFIS_AD, OFIS_UNVAN, OFIS_WEB, OFIS_EPOSTA, TAKIP_LINK, TANITIM_VIDEO); gelene kadar eski varsayılanlar görünür */
+  var OFISK = { ad: "Adem Yılmaz", unvan: "Serbest Muhasebeci Mali Müşavir", web: "smmmyilmaz.com", eposta: "", takip: "https://smmmyilmaz.pythonanywhere.com/giris", video: "https://smmmyilmaz.com/programlar/mukellef-portali-tanitim.mp4", poster: "" };
+  function ofisUygula(o){
+    if (!o) return; for (var k in OFISK) if (typeof o[k] === "string") OFISK[k] = o[k];
+    if (typeof MARKA0 !== "undefined") { MARKA0.ad = OFISK.ad; MARKA0.unvan = OFISK.unvan; MARKA0.web = OFISK.web; }
+    var q = document.querySelectorAll("[data-ofis]"), i, e, t;
+    for (i = 0; i < q.length; i++) { e = q[i]; t = e.getAttribute("data-ofis");
+      if (t === "ad") e.textContent = OFISK.ad;
+      else if (t === "unvan-ay") e.textContent = OFISK.unvan ? " · " + OFISK.unvan : "";
+      else if (t === "unvan-tire") e.textContent = OFISK.unvan ? " — " + OFISK.unvan : "";
+      else if (t === "web-parantez") e.textContent = OFISK.web ? ", " + OFISK.web : "";
+      else if (t === "web") { e.textContent = OFISK.web; e.hidden = !OFISK.web; if (OFISK.web) e.href = "https://" + OFISK.web; }
+    }
+    if ($("tanitimBtn")) $("tanitimBtn").hidden = !OFISK.video;
+  }
   function acilis(){
     api("/api/durum").then(function(d){
+      ofisUygula(d.ofis);
       kurulu = d.kurulu; eskiKayit = !!d.eski; $("sahte").hidden = !d.sahte; $("surum").textContent = d.surum ? "sürüm " + d.surum : ""; $("girisSurum").textContent = d.surum ? "Sürüm " + d.surum + (ANA_EKRAN ? " · ana ekran kipi" : "") : ""; sifreMin = d.sifreMin || 8; mSifreMin = d.mSifreMin || 8;
       if (d.giris) { rolAta(d.rol); KULLANICI = d.kullanici; SIFRE_ONER = !!d.sifreOner; return basla(); }
       ROL = ""; KULLANICI = ""; $("uyg").hidden = true; $("giris").hidden = false; yedek = null; girisKipi();
@@ -2164,7 +2180,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     function kutu(ad, etiket, v){ return '<div><label>' + etiket + '</label><div class="resimkutu">' + (v ? '<img alt="" src="' + v + '">' : '<span class="not">Yok</span>') + '<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><label class="k" style="margin:0;cursor:pointer">Seç<input type="file" accept="image/png,image/jpeg,image/webp" data-resim="' + ad + '" hidden></label>' + (v ? '<button class="k" type="button" data-resim-sil="' + ad + '">Kaldır</button>' : "") + '</span></div></div>'; }
     var ak = "ku:" + m.id; ust = true;
     return '<details class="alt2" data-ak="' + ak + '"' + ac(ak) + '><summary>Logo ve imza</summary><div class="icerik">' +
-      '<p class="not">Logo uygulamanın üst köşesinde ve faturada, imza görseli faturanın altında görünür. Alttaki “Adem Yılmaz · SMMM · smmmyilmaz.com” satırı sabittir. GİB’deki resmî belgeye dokunulmaz; yalnız ekranda görünen ve yazdırılan kopya değişir.</p>' +
+      '<p class="not">Logo uygulamanın üst köşesinde ve faturada, imza görseli faturanın altında görünür. Alttaki “' + esc(OFISK.ad) + ' · SMMM' + (OFISK.web ? ' · ' + esc(OFISK.web) : '') + '” satırı sabittir. GİB’deki resmî belgeye dokunulmaz; yalnız ekranda görünen ve yazdırılan kopya değişir.</p>' +
       kutu("logo", "Logo (kare ya da yatay, PNG/JPG)", mr.logo || "") + kutu("imza", "İmza görseli (isteğe bağlı, şeffaf PNG önerilir)", mr.imza || "") + (ust ? '<div class="durum" data-md role="status"></div><button class="btn" type="button" data-logo-kaydet>Logo ve imzayı kaydet</button>' : "") + '</div></details>';
   }
   /* Profil bilgileri: unvan, vergi dairesi, adres, telefon, e-posta, web (yerel fatura kopyasında ve iletişimde kullanılır) */
@@ -2546,8 +2562,8 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   });
   /* Tanıtım videosu: giriş ekranında herkese açık; dosya smmmyilmaz.com'dan yalnız açılınca yüklenir */
   (function(){
-    var VID = "https://smmmyilmaz.com/programlar/mukellef-portali-tanitim.mp4", v = $("tanitimVideo"), pr = $("tanitimPerde");
-    function ac(){ if (!v.getAttribute("src")) v.src = VID; pr.hidden = false; try { var pz = v.play(); if (pz && pz.catch) pz.catch(function(){}); } catch (e) {} $("tanitimKapat").focus(); }
+    var v = $("tanitimVideo"), pr = $("tanitimPerde");
+    function ac(){ if (!OFISK.video) return; if (!v.getAttribute("src")) { if (OFISK.poster) v.poster = OFISK.poster; v.src = OFISK.video; } pr.hidden = false; try { var pz = v.play(); if (pz && pz.catch) pz.catch(function(){}); } catch (e) {} $("tanitimKapat").focus(); }
     function kapat(){ try { v.pause(); } catch (e) {} pr.hidden = true; if ($("tanitimBtn")) $("tanitimBtn").focus(); }
     $("tanitimBtn").addEventListener("click", ac); $("tanitimKapat").addEventListener("click", kapat);
     pr.addEventListener("click", function(e){ if (e.target === pr) kapat(); });
@@ -2557,7 +2573,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   $("smsNoGit").addEventListener("click", function(){ mSec = son.mid || mSec; VD.sek = "telefon"; sekme("vd"); window.scrollTo(0, 0); });
   $("ayarIc").addEventListener("click", function(e){ var b = e.target.closest("[data-smsgit]"); if (!b) return; mSec = b.getAttribute("data-smsgit"); VD.sek = "telefon"; sekme("vd"); window.scrollTo(0, 0); });
   /* ---------- marka: logo, imza (seçili mükellefe ait) ---------- */
-  var MARKA0 = { ad: "Adem Yılmaz", unvan: "Serbest Muhasebeci Mali Müşavir", web: "smmmyilmaz.com", logo: "", imza: "" };
+  var MARKA0 = { ad: OFISK.ad, unvan: OFISK.unvan, web: OFISK.web, logo: "", imza: "" };
   /* Logo/imza büyük olduğundan listeyle gelmez; seçilen mükellef için /api/marka’dan alınıp bellekte tutulur. Yalnız değişenler kaydedilirken gönderilir. */
   var MARKA = {}, MARKADEGISTI = {};
   function markaYukle(id){
@@ -3860,10 +3876,10 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var dg = $("vdYKurum").value === "Diger Kurum Kuruluşlara" || $("vdYKurum").value === "Diğer Kurum Kuruluşlara", kgf = $("vdYKurum").value === "Kredi Garanti Fonu";
     $("vdYDigerK").hidden = !dg; $("vdYNedenK").hidden = kgf; if (kgf) $("vdYNeden").value = "2";
     /* Cevap e-postası mükellef değişince yeniden belirlenir: profilde kayıtlıysa o, yoksa ofisin adresi */
-    if (YAZI_MID !== VD.mid || !$("vdYEposta").value) { YAZI_MID = VD.mid; var m = mBul(VD.mid) || {}, e = String((m.profil && m.profil.eposta) || "").trim() || YAZI_VARSAYILAN; $("vdYEposta").value = e; $("vdMEposta").value = e; }
+    if (YAZI_MID !== VD.mid || !$("vdYEposta").value) { YAZI_MID = VD.mid; var m = mBul(VD.mid) || {}, e = String((m.profil && m.profil.eposta) || "").trim() || OFISK.eposta || YAZI_VARSAYILAN; $("vdYEposta").value = e; $("vdMEposta").value = e; }
     if (!$("vdMEposta").value) $("vdMEposta").value = $("vdYEposta").value;
   }
-  var YAZI_MID = null, YAZI_VARSAYILAN = "adem@smmmyilmaz.com";
+  var YAZI_MID = null, YAZI_VARSAYILAN = "";
   $("vdMIste").addEventListener("click", function(){
     var d = $("vdDurum"), ep = $("vdMEposta").value.trim(), b = this;
     function hata(t){ d.className = "durum hata"; d.textContent = t; }
@@ -4119,7 +4135,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     var tl = yaklasanTarihler(), tsat = function(x){ var g = x.kalan === 0 ? "Bugün" : x.kalan === 1 ? "Yarın" : x.kalan + " gün"; return '<div class="a2-tar' + (x.kalan <= 3 ? " yakin" : x.kalan <= 7 ? " orta" : "") + '"><div style="min-width:0"><b>' + esc(x.ad) + '</b><small>' + x.d.getDate() + ' ' + AYLAR[x.d.getMonth()] + ' ' + GUNLER[x.d.getDay()] + (x.donem ? ' · ' + x.donem : '') + '</small></div><span class="gun">' + g + '</span></div>'; };
     if (tl.length) h += '<section class="a2-kart"><div class="a2-kbas"><b>Yaklaşan tarihler</b><small>Vergi ve SGK</small></div><div>' + tl.slice(0, 3).map(tsat).join("") + '</div>' + (tl.length > 3 ? '<details id="anaTarih" class="a2-not"' + (ANA_TARIH_ACIK ? " open" : "") + '><summary>Tümünü göster (' + tl.length + ')</summary><div style="margin-top:6px">' + tl.slice(3).map(tsat).join("") + '</div></details>' : '') + '</section>';
     if (KIRA) h += '<section class="a2-kart" style="gap:6px"><div class="a2-kbas"><b>Kira artış tavanı</b><small>' + esc(KIRA.ay) + '</small></div><div class="a2-sat" style="padding-top:0;border:0"><div><span>Konut</span></div><b>' + esc(KIRA.konut) + '</b></div><div class="a2-sat"><div><span>İşyeri</span></div><b>' + esc(KIRA.isyeri) + '</b></div></section>';
-    if (ofis) h += '<section class="a2-kart" style="gap:6px"><div class="a2-kbas"><div><b>Muhasebe ücreti takibi</b><small style="display:block">Portala taşınıyor · çalışma devam ediyor</small></div><a class="a2-lnk" style="text-decoration:none" href="https://smmmyilmaz.pythonanywhere.com/giris" target="_blank" rel="noopener">Programı aç ›</a></div></section>';
+    if (ofis && OFISK.takip) h += '<section class="a2-kart" style="gap:6px"><div class="a2-kbas"><div><b>Muhasebe ücreti takibi</b><small style="display:block">Portala taşınıyor · çalışma devam ediyor</small></div><a class="a2-lnk" style="text-decoration:none" href="' + esc(OFISK.takip) + '" target="_blank" rel="noopener">Programı aç ›</a></div></section>';
     h += '<div class="a2-alt"><button type="button" class="a2-lnk" data-ana-gorunum="klasik" style="color:var(--muted);font-weight:500">Klasik görünüme dön</button></div></div>';
     $("anaIc").innerHTML = h; guncGoster(son);
   }
@@ -4149,7 +4165,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       yaklasanTarihler().map(function(x){ var g = x.kalan === 0 ? "Bugün" : x.kalan === 1 ? "Yarın" : x.kalan + " gün"; return '<div class="tk' + (x.kalan <= 3 ? " yakin" : x.kalan <= 7 ? " orta" : "") + '"><div><b>' + esc(x.ad) + '</b><small>' + x.d.getDate() + ' ' + AYLAR[x.d.getMonth()] + ' ' + x.d.getFullYear() + ' · ' + GUNLER[x.d.getDay()] + (x.donem ? ' · ' + x.donem : '') + '</small></div><span class="gun">' + g + '</span></div>'; }).join("") +
       '</div><p class="not" style="margin:8px 2px 0;font-size:.78rem">Hafta sonu ve resmî tatiller sonraki iş gününe kayar.</p></details>';
     h += '<div class="card" style="gap:6px"><div class="abas" style="margin:0"><b>' + IKON.saat + 'Muhasebe ücreti ve tahsilat takibi</b><small>Yakında</small></div><p class="not" style="margin:0">Muhasebe ücretinizin ve ödemelerinizin takibi buradan yapılacak. <b>Çalışma devam ediyor.</b></p>' +
-      (ofis ? '<a class="btn ikincil" style="text-decoration:none;margin-top:6px" href="https://smmmyilmaz.pythonanywhere.com/giris" target="_blank" rel="noopener">Takip programını aç</a>' : "") + '</div>';
+      (ofis && OFISK.takip ? '<a class="btn ikincil" style="text-decoration:none;margin-top:6px" href="' + esc(OFISK.takip) + '" target="_blank" rel="noopener">Takip programını aç</a>' : "") + '</div>';
     h += '<div style="display:flex;justify-content:center"><button type="button" class="k" data-ana-gorunum="yeni">Yeni (sade) görünüme geç</button></div>';
     $("anaIc").innerHTML = h; guncGoster(son);
   }

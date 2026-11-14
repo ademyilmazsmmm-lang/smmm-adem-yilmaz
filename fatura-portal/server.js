@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-14-300";
+const SURUM = "2026-11-14-301";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -106,6 +106,16 @@ const BELGE_TIPLERI = [["pdf", "application/pdf", (b) => b.slice(0, 4).toString(
   ["doc", "application/msword", (b) => b.slice(0, 4).toString("hex") === "d0cf11e0"], ["xls", "application/vnd.ms-excel", (b) => b.slice(0, 4).toString("hex") === "d0cf11e0"]];
 const TALEP_TURLERI = ["Vergi levhası lazım", "Belge / yazı lazım", "Çalışan giriş-çıkış", "Fatura ile ilgili", "Beyanname sorusu", "Diğer"];
 const OFIS_EPOSTA = String(process.env.OFIS_EPOSTA || "").trim();
+/* Ofis kimliği (ekranlarda, faturada ve onay metninde görünen ad/unvan/site): her kurulum kendi ortam değişkenlerini verir.
+ * OFIS_AD verilmezse eski (Adem Yılmaz) kurulumun varsayılanları kullanılır; verilirse boş bırakılan alanlar gizlenir. */
+const _eski = !process.env.OFIS_AD, _e = (k, v) => { const x = process.env[k]; return x === undefined ? (_eski ? v : "") : String(x).trim(); };
+const OFIS = {
+  ad: _e("OFIS_AD", "Adem Yılmaz") || "Mali Müşavir", unvan: _e("OFIS_UNVAN", "Serbest Muhasebeci Mali Müşavir"), web: _e("OFIS_WEB", "smmmyilmaz.com").replace(/^https?:\/\//, "").replace(/\/+$/, ""),
+  eposta: OFIS_EPOSTA || (_eski ? "adem@smmmyilmaz.com" : ""), takip: _e("TAKIP_LINK", "https://smmmyilmaz.pythonanywhere.com/giris"),
+  video: _e("TANITIM_VIDEO", "https://smmmyilmaz.com/programlar/mukellef-portali-tanitim.mp4"), poster: _e("TANITIM_POSTER", "https://smmmyilmaz.com/programlar/mukellef-portali-tanitim-poster.jpg")
+};
+for (const k of ["takip", "video", "poster"]) if (OFIS[k] && !/^https:\/\/[^\s'"<>]+$/.test(OFIS[k])) OFIS[k] = ""; // yalnız https bağlantı
+const _kok = (u) => { try { return new URL(u).origin; } catch (e) { return ""; } };
 /* Giriş ekranından "kullanıcı adı ve şifre talep et": giriş yapmamış kişiler ofise ad + telefon bırakır (ofis Ayarlar'da görür; e-posta kuruluysa bildirim gider).
  * Kişisel veri içerdiğinden 60 günde silinir; ofis tek tek de silebilir. Kötüye kullanıma karşı IP başına saatte 3, toplam 100 talep sınırı ve gizli alan (bot tuzağı) vardır. */
 const HT_DOSYA = path.join(DIR, "hesap-talepleri.json"); let hesapTalepleri = [];
@@ -244,7 +254,7 @@ function oku(req, sinir) {
 }
 const GUV = {
   "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin",
-  "content-security-policy": "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://earsivportal.efatura.gov.tr https://smmmyilmaz.com; media-src https://smmmyilmaz.com; manifest-src 'self'; worker-src 'self'; font-src 'self' data:; connect-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+  "content-security-policy": "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://earsivportal.efatura.gov.tr " + (_kok(OFIS.poster) || "'self'") + "; media-src " + (_kok(OFIS.video) || "'self'") + "; manifest-src 'self'; worker-src 'self'; font-src 'self' data:; connect-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
   "permissions-policy": "camera=(), microphone=(), geolocation=()"
 };
 const cevap = (res, kod, nesne, baslik) => { res.writeHead(kod, Object.assign({ "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }, GUV, baslik)); res.end(JSON.stringify(nesne)); };
@@ -403,7 +413,7 @@ async function api(req, res, yol) {
     if (OFIS_EPOSTA && posta.hazir()) posta.gonder({ gonderenAd: "Mükellef Portalı", to: [OFIS_EPOSTA], cc: [], konu: "Portal giriş bilgisi talebi: " + ad, metin: "Giriş ekranından kullanıcı adı ve şifre talebi geldi.\n\nAd / unvan: " + ad + "\nTelefon: " + t.tel + (vkn ? "\nVKN/TCKN: " + vkn : "") + (t.not ? "\nNot: " + t.not : "") + "\n\nPortalda Ayarlar → Hesap talepleri bölümünden de görebilirsiniz." }, DIR).catch((e) => console.log("Hesap talebi bildirimi gönderilemedi: " + e.message));
     return cevap(res, 200, { tamam: true });
   }
-  if (yol === "/api/durum") return cevap(res, 200, { kurulu: depo.kurulu, eski: depo.eskiVar, giris: !!o, rol: rolAd(o), kullanici: o && o.kullanici, sahte: gib.MOCK, surum: SURUM, sifreMin, mSifreMin, sifreOner: !!o && mGibi(o) && depo.sifreOner(o) });
+  if (yol === "/api/durum") return cevap(res, 200, { kurulu: depo.kurulu, eski: depo.eskiVar, giris: !!o, rol: rolAd(o), kullanici: o && o.kullanici, sahte: gib.MOCK, surum: SURUM, ofis: OFIS, sifreMin, mSifreMin, sifreOner: !!o && mGibi(o) && depo.sifreOner(o) });
   if (yol === "/api/kabul" && req.method === "POST") {
     if (!mGibi(o)) return cevap(res, 403, { hata: "Bu işlem yalnız mükellef hesabı içindir." });
     if (o.musteri) { depo.personelKabul(o, KABUL_SURUM); gunluk(o, depo.mukellefIdleri(o)[0] || "", "Aydınlatma ve onay metni kabul edildi (müşteri hesabı)"); return cevap(res, 200, { ok: true }); }
