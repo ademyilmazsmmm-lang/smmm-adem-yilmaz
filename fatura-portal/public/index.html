@@ -1111,7 +1111,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       '<div class="satir3"><div><label>' + (mad ? "Gram" : "Miktar") + '</label><input data-kf="miktar" inputmode="decimal" value="' + esc(k.miktar) + '"></div>' +
       '<div><label>Birim</label><select data-kf="birim">' + bir + '</select></div>' +
       '<div><label>' + (mad ? "Gram fiyatı (otomatik)" : "Birim fiyat (" + PARASEM[F.para] + ")") + '</label><input data-kf="fiyat" inputmode="decimal" placeholder="0,00" value="' + esc(k.fiyat) + '"' + (mad ? " readonly" : "") + '></div></div>' +
-      '<div class="satir"><div><label>KDV %</label><input data-kf="kdv" inputmode="decimal" value="' + esc(k.kdv) + '"></div>' +
+      '<div class="satir"><div><label>KDV %</label><select data-kf="kdv">' + kdvOranSec(k.kdv) + '</select></div>' +
       (tev ? '<div><label>Tevkifat (x/10)</label><select data-kf="tev">' + tevSec + '</select></div>' : '<div></div>') + '</div>' +
       (F.tip === "SATIS" && k.konaklamaVar ? konaklamaSecHtml(k) : "") + (tev ? kodSecHtml(k) : "") + (F.tip === "ISTISNA" ? istisnaSecHtml(k) : "") + (F.tip === "OZELMATRAH" ? ozelSecHtml(k) : "") +
       '<div class="kt" data-kt="' + i + '"></div></div>';
@@ -2152,6 +2152,8 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     if (STD_SEKTOR.indexOf(x.id) < 0 || !HAZIRK) return false; var k = HAZIRK.filter(function(y){ return y.id === x.id; })[0]; if (!k) return false;
     return ["etiket", "ad", "kod", "istisna", "anah"].every(function(a){ return String(x[a] || "") === String(k[a] || ""); }) && Number(x.kdv) === Number(k.kdv) && Number(x.tev) === Number(k.tev);
   }
+  /* KDV oranı elle yazılmaz: yalnız geçerli oranlar seçilir (0, 1, 10, 20). Eski kayıtta başka bir oran (örn. 8, 18) varsa o da seçenek olarak korunur */
+  function kdvOranSec(v){ var n = Number(String(v == null ? "" : v).replace(",", ".")), L = [0, 1, 10, 20], o = ""; if (isFinite(n) && String(v).trim() !== "" && L.indexOf(n) < 0) { L.push(n); L.sort(function(a, b){ return a - b; }); } if (!isFinite(n) || String(v).trim() === "") n = 20; for (var i = 0; i < L.length; i++) o += '<option value="' + L[i] + '"' + (L[i] === n ? " selected" : "") + '>%' + L[i] + '</option>'; return o; }
   function tevOranSec(t){ var o = ""; for (var j = 0; j <= 9; j++) o += '<option value="' + j + '"' + (String(j) === String(t || 0) ? " selected" : "") + '>' + (j ? j + "/10" : "Yok (tevkifatsız)") + '</option>'; return o; }
   function tevKodBul(k){ k = String(k || "").trim(); return TEVKODLAR.filter(function(x){ return x[0] === k; })[0] || null; }
   function tevKodNot(k){ var b = tevKodBul(k); return b ? "✓ " + esc(b[0]) + " · " + esc(b[1]) + " → " + b[2] + "/10 tevkifat" : (String(k || "").trim().length >= 3 ? "Bu kod listede yok; oranı yukarıdan seçin." : ""); }
@@ -2161,7 +2163,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
       h += '<details class="kayit" data-hid="' + esc(x.id) + '" data-ak="hh:' + m.id + ':' + esc(x.id) + '"' + ac("hh:" + m.id + ":" + x.id) + '><summary><span data-ozet>' + esc(x.ad || "(adsız)") + '</span><small data-ozet2>' + hizmetOzet(x) + '</small></summary><div class="icerik">' +
         '<div><label>Listede görünen ad</label><input data-f="etiket" value="' + esc(x.etiket || x.ad) + '"></div>' +
         '<div><label>Faturaya yazılacak hizmet adı</label><input data-f="ad" value="' + esc(x.ad) + '"></div>' +
-        '<div class="satir"><div><label>KDV %</label><input data-f="kdv" inputmode="decimal" value="' + esc(x.kdv) + '"></div><div><label>Tevkifat oranı (x/10)</label><select data-f="tev">' + tevOranSec(x.tev) + '</select></div></div>' +
+        '<div class="satir"><div><label>KDV %</label><select data-f="kdv">' + kdvOranSec(x.kdv) + '</select></div><div><label>Tevkifat oranı (x/10)</label><select data-f="tev">' + tevOranSec(x.tev) + '</select></div></div>' +
         '<div><label>Konaklama vergisi (isteğe bağlı)</label><select data-f="konaklama"><option value=""' + (!(x.konaklama > 0) ? " selected" : "") + '>Yok</option><option value="1"' + (x.konaklama === 1 ? " selected" : "") + '>%1</option><option value="2"' + (x.konaklama === 2 ? " selected" : "") + '>%2</option></select><span class="not" style="margin:2px 0 0;font-size:.78rem">Seçilirse bu hizmet faturaya eklendiğinde konaklama vergisi alanı açılır. Yasal oran: 31.12.2026’ya kadar %1, uzatılmazsa 2027’den itibaren %2.</span></div>' +
         '<div><label>Tevkifat kodu (yazın ya da listeden seçin; oran kendiliğinden gelir)</label><input data-f="kod" inputmode="numeric" autocomplete="off" list="tevListe" placeholder="Örn: 624" value="' + esc(x.kod) + '"><span class="not" data-tevnot style="margin:2px 0 0;font-size:.8rem">' + tevKodNot(x.kod) + '</span></div>' +
         '<div><label>İstisna sebep kodu (istisna ise, örn. 302)</label><input data-f="istisna" inputmode="numeric" value="' + esc(x.istisna || "") + '"></div>' +
