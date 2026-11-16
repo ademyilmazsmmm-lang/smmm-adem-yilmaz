@@ -17,7 +17,9 @@ GEREKLI_ANAHTARLAR = ("uye_no", "kullanici_adi", "parola")
 PAKETLER = (("playwright", "Playwright (tarayıcı otomasyonu)", True),
             ("openpyxl", "openpyxl (Excel okuma/yazma)", True),
             ("pypdf", "pypdf (beyanname PDF'leri)", False),
-            ("pyotp", "pyotp (iki aşamalı doğrulama kodu)", False))
+            ("pyotp", "pyotp (iki aşamalı doğrulama kodu)", False),
+            ("fastapi", "fastapi (Beyanname Takip sekmesi)", False),
+            ("uvicorn", "uvicorn (Beyanname Takip sekmesi)", False))
 
 
 def sihirbaz_gerekli(ayarlar):
@@ -73,7 +75,7 @@ def kurulum_komutlari(python, kok, ortam=None):
     ortam = ortam if ortam is not None else ortam_kontrol(None)
     durum = {ad: d for ad, d, _ in ortam}
     komutlar = []
-    if any(d != "tamam" for ad, d in durum.items() if ad.split(" ")[0] in ("Playwright", "openpyxl", "pypdf", "pyotp")):
+    if any(d != "tamam" for ad, d in durum.items() if ad.split(" ")[0] in ("Playwright", "openpyxl", "pypdf", "pyotp", "fastapi", "uvicorn")):
         komutlar.append(("Python paketleri kuruluyor (pip install -r requirements.txt)",
                          [python, "-m", "pip", "install", "-r", str(Path(kok) / "requirements.txt")]))
     if durum.get("Chromium (tarayıcı)") != "tamam" or any(

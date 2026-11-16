@@ -225,6 +225,25 @@ Fatura İndirme, Kâr / Zarar ve Defter Beyan aynı anda çalışmaz. **Gerçek 
 *Yalnız kontrol*, sonra *Gönder* deneyin; sorun olursa `kar-zarar/cikti/<tarih>/tani/` klasöründeki dosyalar gerekir
 (komut satırı: `python defter_beyan.py --tarih 01/01/2026-30/09/2026 --firma "ALFA" --tani`).
 
+### Beyanname Takip sekmesi
+
+**Beyanname Takip** sekmesi, repodaki ayrı `beyanname-takip/` programını (Luca'daki mükellef listesini ve verilmiş beyannameleri
+karşılaştırır; KDV, MUHSGK, geçici vergi vb. son güne yaklaşırken **verilmemişleri** Telegram/e-posta ile bildirir) buradan yönetir.
+Program ayrı bir web uygulamasıdır; bu pencere kapansa da **arka planda çalışmaya devam eder** (uyarılar sürer).
+
+- **Başlat / Durdur:** ayarlar `beyanname-takip/yerel/ayarlar.env`'ye yazılır (bilinmeyen satırlara dokunulmaz), program başlatılır.
+  Sayfa şifresi ilk seferde üretilir; Luca girişi **Dijital Stajyer ayarlarından** alınır (`LUCA_OFIS_*`). Resend anahtarı boşsa
+  Dijital Stajyer'in SMTP ayarları e-posta için kullanılır. İkinci Luca hesabı (işletme) için `ayarlar.env`'ye `LUCA_HESAPLAR=ofis,isletme`
+  ve `LUCA_ISLETME_*` satırlarını elle ekleyin; sekme bunlara dokunmaz.
+- **Tablo:** programın kendi API'sinden okunur (mükellef, beyanname, dönem, son gün, kalan gün, durum); durum ve beyanname türüne göre
+  süzülür. Üstte son Luca verisi zamanı, bildirim kanalları ve CAPTCHA bekleme uyarısı görünür.
+- **Şimdi Luca'dan Çek:** veriyi hemen çektirir (Telegram'a mesaj atmaz). **Tarayıcıda Aç:** mükellef ayarları, "Verilmeyecek" işaretleme,
+  CAPTCHA cevabı, tanı ve önizleme gibi tam özellikler programın web sayfasındadır.
+- **Dikkat:** program zamanlanmış saatlerde (09:00, 13:00, 17:00, akşam 20:30-22:30) Luca'ya kendi tarayıcısıyla girer; **aynı Luca
+  kullanıcısıyla** Fatura İndirme / Kâr-Zarar / Defter Beyan çalışırken Luca oturumu düşebilir. Mümkünse programa ayrı bir Luca kullanıcısı verin.
+- **Gerekli paketler:** `fastapi`, `uvicorn` (Kurulum Sihirbazı / `pip install -r requirements.txt`).
+- Programın kendi ayrıntıları ve **henüz gerçek Luca'da denenmemiş** kısımları için `beyanname-takip/README.md`.
+
 İptal/itiraz edilen faturalar tutarlara dahil edilmez. Python'da pencere kütüphanesi (tkinter)
 yoksa `.bat` bunu söyler; python.org'dan kurarken "tcl/tk and IDLE" işaretli olmalı (varsayılan).
 
@@ -443,6 +462,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | `rapor.py`, `rapor_excel.py` | **Raporlama**: `rapor.json` / `rapor.csv` / `rapor.xlsx` |
 | `tablo_gorunumu.py` | Arayüzün ortak tablo bileşeni: arama, sütun filtresi, başlığa tıklayınca sıralama |
 | `kar_zarar_sekmesi.py`, `lucabot/kar_zarar_ozet.py` | Arayüzün Kâr / Zarar sekmesi; sonuç + indirilen faturalar ("faturalar dahil") hesabı |
+| `beyanname_sekmesi.py`, `lucabot/beyanname_takip.py` | Arayüzün Beyanname Takip sekmesi ve `beyanname-takip/` programını başlatma/durdurma/okuma mantığı |
 | `defter_beyan_sekmesi.py` | Arayüzün Defter Beyan sekmesi (2. sınıf gönderme/kontrol); `kar-zarar/defter_beyan.py` çalışır |
 | `gostergeler.py` | Arayüzün alt kutuları (tevkifat KDV, SMM, interaktif farkı, KDV ödemesi); arayüzün kendisi `luca_arayuz.py` |
 | `firma_tablosu.py` | `firmalar.xlsx` şablonu, arayüzdeki Firma / Ekran Seçimi tablosunun okunup yazılması, Luca listesiyle karşılaştırma/birleştirme |

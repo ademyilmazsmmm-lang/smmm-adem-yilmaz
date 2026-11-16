@@ -20,7 +20,7 @@ python setup/derle.py --lisans lisans-genel.json
 ## Müşteride kurulum ne yapar?
 (Windows 10/11 gerekir; Windows 7/8’de kurulum bir uyarıyla durur — Python 3.9+ ve Chromium bunlarda çalışmaz.)
 
-1. `%LOCALAPPDATA%\DijitalStajyer` altına kurar (yönetici hakkı gerekmez); `luca-bot\` ve `kar-zarar\` yan yana.
+1. `%LOCALAPPDATA%\DijitalStajyer` altına kurar (yönetici hakkı gerekmez); `luca-bot\`, `kar-zarar\` ve `beyanname-takip\` yan yana.
 2. Python 3.9+ (tkinter'lı) yoksa python.org'dan **3.12.10**'u indirir, imzasını (Python Software Foundation)
    doğrular, kullanıcı klasörüne sessiz kurar.
 3. `pip install -r requirements.txt` ve `playwright install chromium` (internet gerekir; ~150 MB).

@@ -1,0 +1,20 @@
+veri/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Gizli / müşteri verisi: asla depoya girmesin
+.env
+.env.*
+*.pem
+*.key
+firmalar.xlsx
+rapor.json
+rapor.xlsx
+*.log
+tani/
+
+# Yerel çalıştırma: şifreler ve veriler bilgisayarda kalır
+yerel/ayarlar.env
+yerel/veri/
+yerel/.venv/

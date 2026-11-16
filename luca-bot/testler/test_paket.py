@@ -19,12 +19,14 @@ class PaketTest(unittest.TestCase):
         dosyalar = {p.as_posix() for p in derle.izlenen_dosyalar()}
         for gerekli in ("luca-bot/luca_arayuz.py", "luca-bot/luca_bot.py", "luca-bot/lucabot/lisans.py",
                         "luca-bot/varliklar/logo.ico", "luca-bot/requirements.txt", "luca-bot/kurulum_sihirbazi.py",
-                        "kar-zarar/kar_zarar.py", "kar-zarar/karzarar/hesaplama.py"):
+                        "kar-zarar/kar_zarar.py", "kar-zarar/karzarar/hesaplama.py",
+                        "beyanname-takip/app/web.py", "beyanname-takip/yerel/baslat.py", "luca-bot/beyanname_sekmesi.py"):
             self.assertIn(gerekli, dosyalar)
         for istenmeyen in dosyalar:
             self.assertNotIn("/testler/", "/" + istenmeyen)
             self.assertNotIn("__pycache__", istenmeyen)
             self.assertNotIn(Path(istenmeyen).name, derle.HARIC_AD)
+        self.assertFalse(any(p.startswith("beyanname-takip/tests/") or p.endswith("ayarlar.env") for p in dosyalar))  # testler/sifreler girmesin
         self.assertNotIn("luca-bot/lisans_araci.py", dosyalar)  # lisans uretme araci musteriye gitmez
         self.assertFalse(any(p.endswith("ayarlar.json") for p in dosyalar))  # parolalar pakete girmesin
 

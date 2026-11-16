@@ -386,6 +386,44 @@ class RaporTestleri(unittest.TestCase):
             isler = rapor._aksiyon(kayitlar["A"])
             self.assertFalse(any("TEVKIFAT" in i for i in isler))
 
+    def test_beyanname_takip_env_yaz_korur_ve_gunceller(self):
+        from lucabot import beyanname_takip as bt
+        with tempfile.TemporaryDirectory() as d:
+            yol = Path(d) / "ayarlar.env"
+            yol.write_text("# yorum\nWEB_SIFRE=eski\nBILINMEYEN=kalsin\nTOPLAYICI=ornek\n", encoding="utf-8")
+            bt.env_yaz(yol, {"WEB_SIFRE": "yeni1234", "PORT": "9000"})
+            metin = yol.read_text(encoding="utf-8")
+            self.assertIn("# yorum", metin)
+            self.assertIn("BILINMEYEN=kalsin", metin)
+            self.assertEqual(bt.env_oku(yol), {"WEB_SIFRE": "yeni1234", "BILINMEYEN": "kalsin", "TOPLAYICI": "ornek", "PORT": "9000"})
+            self.assertEqual(bt.env_oku(Path(d) / "yok.env"), {})
+
+    def test_beyanname_takip_env_hazirla_luca_ve_smtp(self):
+        from lucabot import beyanname_takip as bt
+        with tempfile.TemporaryDirectory() as d:
+            k = Path(d)
+            ana = {"uye_no": "123", "kullanici_adi": "kul", "parola": "p&%!", "dogrulama_anahtari": "ABC",
+                   "smtp": {"sunucu": "smtp.x.com", "port": 465, "kullanici": "a@x.com", "sifre": "s", "gonderen": ""}}
+            form = {"WEB_SIFRE": "sifre12", "PORT": "8765", "LUCA_GIB_GUN": "31", "MAIL_ALICI": "m@x.com", "RESEND_API_KEY": "",
+                    "TELEGRAM_TOKEN": "", "TELEGRAM_CHAT_ID": "", "luca_ayarlardan": True}
+            bt.env_hazirla(k, form, ana)
+            e = bt.env_oku(bt.env_yolu(k))
+            self.assertEqual((e["LUCA_HESAPLAR"], e["LUCA_OFIS_KULLANICI"], e["LUCA_OFIS_PAROLA"], e["TOPLAYICI"]), ("ofis", "kul", "p&%!", "luca"))
+            self.assertEqual((e["SMTP_HOST"], e["SMTP_PORT"], e["SMTP_KULLANICI"], e["MAIL_GONDEREN"]), ("smtp.x.com", "465", "a@x.com", "a@x.com"))
+            self.assertEqual(len(e["WEB_GIZLI"]), 40)
+            gizli = e["WEB_GIZLI"]
+            form["RESEND_API_KEY"] = "re_abc"        # Resend varken smtp eklenmez; gizli anahtar sabit kalir; 2 hesap korunur
+            bt.env_yaz(bt.env_yolu(k), {"LUCA_HESAPLAR": "ofis,isletme", "SMTP_KULLANICI": ""})
+            bt.env_hazirla(k, form, ana)
+            e = bt.env_oku(bt.env_yolu(k))
+            self.assertEqual((e["WEB_GIZLI"], e["LUCA_HESAPLAR"], e["RESEND_API_KEY"]), (gizli, "ofis,isletme", "re_abc"))
+
+    def test_beyanname_takip_form_dogrulama(self):
+        from lucabot import beyanname_takip as bt
+        self.assertEqual(bt.dogrula({"WEB_SIFRE": "abcd", "PORT": "8765", "LUCA_GIB_GUN": "31"}), [])
+        self.assertEqual(len(bt.dogrula({"WEB_SIFRE": "ab", "PORT": "80", "LUCA_GIB_GUN": "40"})), 3)
+        self.assertEqual(len(bt.dogrula({"WEB_SIFRE": "abcd", "PORT": "x", "LUCA_GIB_GUN": ""})), 2)
+
     def test_eposta_gonder_ozel_ayarlari(self):
         """Fatura disi ozet (Defter Beyan) ayni mail ayarlarini kullanir; sebepler gunluge yazilir."""
         log = []

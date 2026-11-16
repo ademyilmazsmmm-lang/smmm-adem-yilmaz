@@ -1420,5 +1420,97 @@ class DefterBeyanSekmesiTestleri(ArayuzZemini):
         pencereler[0].destroy()
 
 
+@unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")
+class BeyannameSekmesiTestleri(ArayuzZemini):
+    """Beyanname Takip sekmesi: repodaki gercek beyanname-takip/ programi (ornek veri modunda) arka planda baslatilip durdurulur."""
+
+    def setUp(self):
+        import shutil
+        import socket
+        from lucabot import beyanname_takip as bt
+        kaynak = bt.klasor()
+        self.bt_klasor = Path(tempfile.mkdtemp(prefix="bt-test-")) / "beyanname-takip"
+        shutil.copytree(kaynak, self.bt_klasor, ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache", "veri", "ayarlar.env", "*.log"))
+        self._eski = bt.ADAYLAR
+        bt.ADAYLAR = (self.bt_klasor,)
+        with socket.socket() as so:
+            so.bind(("127.0.0.1", 0))
+            self.port = so.getsockname()[1]
+        super().setUp()
+        self.bt = self.app.bt
+
+    def tearDown(self):
+        from lucabot import beyanname_takip as bt
+        try:
+            bt.durdur(self.bt_klasor, bekleme_sn=3)
+        except Exception:
+            pass
+        bt.ADAYLAR = self._eski
+        super().tearDown()
+
+    def _kutular(self):
+        import defter_beyan_sekmesi
+        import beyanname_sekmesi
+        self.sorular = []
+        for mod in (beyanname_sekmesi,):
+            for ad, deger in (("askyesno", True),):
+                eski = getattr(mod.messagebox, ad)
+                setattr(mod.messagebox, ad, lambda *a, **k: self.sorular.append(a) or deger)
+                self.addCleanup(setattr, mod.messagebox, ad, eski)
+        self.hatalar = []
+        eski = beyanname_sekmesi.messagebox.showerror
+        beyanname_sekmesi.messagebox.showerror = lambda *a, **k: self.hatalar.append(a)
+        self.addCleanup(setattr, beyanname_sekmesi.messagebox, "showerror", eski)
+
+    def test_sekme_ve_ayarlar_kaydedilir(self):
+        from lucabot import beyanname_takip as bt
+        self._kutular()
+        self.app.sekme_sec("bt")
+        self.kok.update()
+        self.assertTrue(self.bt.govde.winfo_ismapped())
+        self.assertFalse(self.app.fatura_govde.winfo_ismapped())
+        self.assertEqual(self.bt.v["PORT"].get(), "8765")
+        self.assertGreaterEqual(len(self.bt.v["WEB_SIFRE"].get()), 8)        # sayfa sifresi uretilir
+        self.bt.v["MAIL_ALICI"].set("ben@x.com")
+        self.assertTrue(self.bt.kaydet())
+        e = bt.env_oku(bt.env_yolu(self.bt_klasor))
+        self.assertEqual((e["MAIL_ALICI"], e["LUCA_OFIS_KULLANICI"], e["LUCA_OFIS_PAROLA"]), ("ben@x.com", "deneme", "x"))
+        self.bt.v["PORT"].set("80")
+        self.assertFalse(self.bt.kaydet())                                    # gecersiz port: hata kutusu
+        self.assertTrue(self.hatalar)
+
+    def test_baslat_tablo_dolar_ve_durdur(self):
+        from lucabot import beyanname_takip as bt
+        self._kutular()
+        self.bt.v["PORT"].set(str(self.port))
+        self.bt.kaydet(sessiz=True)
+        bt.env_yaz(bt.env_yolu(self.bt_klasor), {"TOPLAYICI": "ornek", "ZAMANLAYICI": "0"})      # gercek Luca'ya girme: ornek veri
+        self.app.sekme_sec("bt")
+        self.bt.baslat()
+        self.assertTrue(self._bekle(lambda: self.bt.calisiyor_mu, 40))
+        self.assertEqual(str(self.bt.durdur_dugmesi.cget("state")), "normal")
+        self.assertIn("Çalışıyor", self.bt.durum_etiketi.cget("text"))
+        self.bt.simdi_cek()                                                   # ornek toplayici: veri hemen gelir
+        self.assertTrue(self._bekle(lambda: len(self.bt.tablo.satirlar) > 0, 30), self.bt.veri_etiketi.cget("text"))
+        self.assertIn("madde", self.bt.veri_etiketi.cget("text"))
+        satir = self.bt.tablo.satirlar[0]
+        self.assertEqual(len(satir), 7)
+        self.assertIn(satir[5], ("Verildi", "EKSİK", "Eksik (ayar onaysız)", "SGK e-Bildirge eksik", "Muaf"))
+        self.assertEqual(bt.kontrol_oku(self.bt_klasor)["port"], self.port)
+        self.assertTrue(bt.saglikli_mi(self.port))
+        self.bt.durdur()
+        self.assertTrue(self._bekle(lambda: not self.bt.calisiyor_mu, 30))
+        self.assertFalse(bt.saglikli_mi(self.port))
+        self.assertEqual(str(self.bt.baslat_dugmesi.cget("state")), "normal")
+
+    def test_satir_uretimi(self):
+        import beyanname_sekmesi as bs
+        s = bs.satir_uret({"ad": "ALFA", "tur_ad": "KDV", "etiket": "Eylül 2026", "son_gun": "2026-10-28", "kalan": -2,
+                           "durum": "eksik", "kapanis_donemi": True})
+        self.assertEqual(s[:6], ("ALFA", "KDV", "Eylül 2026", "28/10/2026", "2 gün geçti", "EKSİK"))
+        self.assertIn("kapanış", s[6])
+        self.assertEqual(bs.kalan_yazisi(0), "BUGÜN")
+
+
 if __name__ == "__main__":
     unittest.main()

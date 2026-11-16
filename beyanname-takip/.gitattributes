@@ -1,0 +1,3 @@
+# Windows betikleri CRLF olarak korunur
+*.bat -text
+*.vbs -text
