@@ -285,6 +285,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
 #gkap{flex:1;overflow:auto;background:#dfe5e2;-webkit-overflow-scrolling:touch}
 #gic{position:relative;margin:0 auto;width:calc(820px * var(--k,1));height:calc(var(--fh,1123px) * var(--k,1));background:#fff}
 #cerceve{position:absolute;left:0;top:0;width:820px;height:var(--fh,1123px);border:0;background:#fff;transform:scale(var(--k,1));transform-origin:0 0}
+.onayliyazi{display:inline-block;color:var(--danger)!important;font-weight:800;font-size:.74rem;letter-spacing:.06em;line-height:1.2;border:1.5px solid var(--danger);border-radius:6px;padding:4px 9px;margin-left:2px;vertical-align:middle}
 .kayit.iptal{border-color:var(--danger);background:var(--danger-soft)!important}
 .kayit.yeni-onay{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))!important;transition:box-shadow .6s,background .6s}
 .iptalyazi{display:inline-block;color:var(--danger);font-weight:800;letter-spacing:.06em;border:1.5px solid var(--danger);border-radius:6px;padding:0 7px;font-size:.78rem;line-height:20px;margin-right:6px;vertical-align:1px}
@@ -1863,7 +1864,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     $("gecmisListe").innerHTML = liste.length ? liste.slice(0, gSayfa).map(function(x){
       var k = x.k, i = x.i, t = (k.tarih || "").split("-").reverse().join("/");
       return satirHtml(esc(k.aliciUnvan) + " — " + fmt(k.hesap.odenecek) + " " + (PARASEM[k.para] || "₺"), esc(t) + " · " + esc(k.belgeNo || "") + " · " + esc(k.mukellef && k.mukellef.ad),
-        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-gz="' + i + '">XML+HTML</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (x.iptal ? ' <small class="iptalyazi" style="font-size:.68rem">TALEP GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</span>', x.iptal, tahBlok(k, i));
+        '<span><button class="k" type="button" data-gk="' + i + '">Görüntüle</button> <button class="k" type="button" data-gs="' + i + '">Paylaş</button> <button class="k" type="button" data-gz="' + i + '">XML+HTML</button> <button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' + (x.iptal ? ' <small class="iptalyazi" style="font-size:.68rem">TALEP GÖNDERİLDİ</small>' : ' <button class="k" type="button" data-gp="' + i + '">İptal</button> <span class="onayliyazi">ONAYLI</span>') + '</span>', x.iptal, tahBlok(k, i));
     }).join("") : '<p class="not">' + (gecmis.length ? "Filtreye uyan fatura yok." : "Bu programdan kesilen fatura henüz yok.") + '</p>';
     $("gDaha").hidden = liste.length <= gSayfa; $("gDaha").textContent = "Daha fazla göster (" + Math.max(0, liste.length - gSayfa) + " fatura daha)";
   }
