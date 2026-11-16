@@ -287,13 +287,19 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
 #cerceve{position:absolute;left:0;top:0;width:820px;height:var(--fh,1123px);border:0;background:#fff;transform:scale(var(--k,1));transform-origin:0 0}
 .gsatir{padding:0!important;gap:0!important}
 details.kayit.gsatir>summary{flex-direction:row;align-items:flex-start;justify-content:space-between;gap:8px;padding:9px 12px;font-weight:400;cursor:pointer}
-.gs-metin{display:flex;flex-direction:column;gap:2px;min-width:0}
-.gs-alt{display:flex;flex-wrap:wrap;align-items:center;gap:3px 8px}
-.gs-yan .onayliyazi,.gs-yan .iptalyazi{font-size:.64rem;padding:0 6px;line-height:18px;border-width:1.5px}
-.gs-ad{font-weight:600;font-size:.9rem;overflow-wrap:anywhere}
+.gs-metin{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.gs-alt{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.gs-alt .onayliyazi,.gs-alt .iptalyazi{font-size:.64rem;padding:0 6px;line-height:18px;border-width:1.5px}
+.gs-ad{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-weight:600;font-size:.9rem;min-width:0}
+.gs-isim{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs-tutar{flex:none;white-space:nowrap;font-size:min(.9rem,3.7vw)}
+.galtbar{position:fixed;left:0;right:0;bottom:calc(var(--nav-h) + var(--safe));z-index:25;background:var(--accent);color:var(--accent-fg);padding:7px 16px;display:flex;flex-direction:column;gap:1px;box-shadow:0 -2px 10px rgba(0,0,0,.12)}
+.galtbar #gOzetF{font-size:.95rem;font-weight:500}
+.galtbar small{font-size:.74rem;opacity:.9}
+#gecmisKart{padding-bottom:64px}
 .gs-yan{display:flex;align-items:center;gap:8px;flex:none;padding-top:1px}
-.gs-ok{width:9px;height:9px;border-right:2.5px solid currentColor;border-bottom:2.5px solid currentColor;transform:rotate(45deg);margin:0 4px 3px 0;transition:transform .2s}
-details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:3px 4px 0 0}
+.gs-ok{width:9px;height:9px;border-right:2.5px solid currentColor;border-bottom:2.5px solid currentColor;transform:rotate(45deg);margin:6px 4px 0 0;flex:none;transition:transform .2s}
+details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
 .gs-ic{display:flex;flex-direction:column;gap:8px;padding:8px 12px 10px;border-top:1px dashed var(--line)}
 .gs-dugme{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .onayliyazi{display:inline-block;color:var(--danger)!important;font-weight:800;font-size:.74rem;letter-spacing:.06em;line-height:1.2;border:1.5px solid var(--danger);border-radius:6px;padding:4px 9px;margin-left:2px;vertical-align:middle}
@@ -523,7 +529,8 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:3px 4px 0 0}
   <div class="card" id="gecmisKart">
     <div class="kartbas"><h2>Geçmiş faturalar</h2><small id="ozGecmis"></small></div>
     <div class="alt" id="gFiltre">
-      <input id="gAra" type="search" placeholder="Ara: alıcı, VKN/TCKN, fatura no" aria-label="Geçmişte ara" autocomplete="off">
+      <div style="display:flex;gap:8px;align-items:stretch"><input id="gAra" type="search" placeholder="Ara: alıcı / VKN / no" aria-label="Geçmişte ara: alıcı, VKN, fatura no" autocomplete="off" style="flex:1;min-width:0"><button class="k" type="button" id="gFiltreAc" aria-expanded="false" aria-controls="gFiltreKutu" style="flex:none;min-width:84px">Filtre ▾</button></div>
+      <div id="gFiltreKutu" hidden style="display:none;gap:8px">
       <div class="satir">
         <select id="gDurumF" aria-label="Durum"><option value="">Durum</option><option value="onayli">Onaylı</option><option value="iptal">İptal talebi</option></select>
         <select id="gTipF" aria-label="Fatura tipi"><option value="">Tip</option><option value="SATIS">Satış</option><option value="TEVKIFAT">Tevkifat</option><option value="ISTISNA">İstisna</option><option value="OZELMATRAH">Özel matrah</option><option value="IADE">İade</option></select>
@@ -533,13 +540,14 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:3px 4px 0 0}
         <select id="gMukF" aria-label="Mükellef" hidden></select>
       </div>
       <div class="satir" id="gOzel" hidden><div><label for="gF1">Başlangıç</label><input id="gF1" type="date"></div><div><label for="gF2">Bitiş</label><input id="gF2" type="date"></div></div>
-      <div class="not" id="gOzetF"></div>
-      <div id="gTah" style="display:grid;gap:10px"></div>
+      </div>
+      <div id="gTah" style="display:grid;gap:8px"></div>
     </div>
     <div id="gecmisListe"><p class="not">Bu programdan kesilen faturalar burada listelenir.</p></div>
     <button class="btn ikincil" type="button" id="gDaha" hidden>Daha fazla göster</button>
     <div class="durum" id="gDurum" role="status"></div>
   </div>
+  <div class="galtbar" id="gAltBar" hidden><div id="gOzetF"></div><small id="gOzetT"></small></div>
   <div class="card">
     <div class="kartbas"><h2>GİB’deki belgeler</h2></div>
     <div class="satir"><div><label for="gBas">Başlangıç</label><input id="gBas" type="date"></div><div><label for="gBit">Bitiş</label><input id="gBit" type="date"></div></div>
@@ -1824,12 +1832,20 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:3px 4px 0 0}
     else { var t0 = tarihAl(k.onayZamani || k.tarih), gun = t0 ? Math.max(0, Math.floor((Date.now() - t0.getTime()) / 864e5)) : null; m = "Tahsil bekliyor" + (gun ? " · " + gun + " gündür" : ""); renk = gun !== null && gun >= 30 ? "#c0392b" : "#d68910"; }
     return '<span style="align-self:flex-start;background:color-mix(in srgb,' + renk + ' 20%,transparent);border-radius:99px;padding:1px 9px;font-size:.72rem;font-weight:650">' + m + '</span>';
   }
+  /* Filtre düğmesi: açık süzgeç sayısını gösterir */
+  function gFiltreSay(){
+    var n = 0; ["gDurumF", "gTipF", "gTarihF", "gMukF"].forEach(function(i){ if ($(i) && $(i).value) n++; });
+    $("gFiltreAc").textContent = "Filtre" + (n ? " (" + n + ")" : "") + ($("gFiltreKutu").hidden ? " ▾" : " ▴");
+  }
+  $("gFiltreAc").addEventListener("click", function(){
+    var kutu = $("gFiltreKutu"), ac = kutu.hidden; kutu.hidden = !ac; kutu.style.display = ac ? "grid" : "none"; this.setAttribute("aria-expanded", ac ? "true" : "false"); gFiltreSay();
+  });
   function gecmisSatirHtml(x){
     var k = x.k, i = x.i, t = (k.tarih || "").split("-").reverse().join("/"), kel = String(k.aliciUnvan || "").trim().split(/\s+/), uzun = kel.length > 2;
-    var ad = esc(kel.slice(0, 2).join(" ")) + ' — <span style="white-space:nowrap">' + fmt(k.hesap.odenecek) + " " + (PARASEM[k.para] || "₺") + "</span>"; /* unvan: ilk iki kelime (tamamı açılınca görünür) */
+    var ad = '<span class="gs-isim"' + (x.iptal ? ' style="text-decoration:line-through"' : "") + '>' + esc(kel.slice(0, 2).join(" ")) + '</span><span class="gs-tutar">' + fmt(k.hesap.odenecek) + " " + (PARASEM[k.para] || "₺") + "</span>"; /* unvan: ilk iki kelime (tamamı açılınca görünür) */
     return '<details class="kayit gsatir' + (x.iptal ? " iptal" : "") + '" data-gid="' + esc(k.id) + '"' + (gAcik[k.id] ? " open" : "") + '><summary>' +
-      '<span class="gs-metin"><span class="gs-ad"' + (x.iptal ? ' style="text-decoration:line-through"' : "") + '>' + ad + '</span><span class="gs-alt"><small>' + esc(t) + " · " + esc(k.belgeNo || "") + '</small>' + tahOzet(k) + '</span></span>' +
-      '<span class="gs-yan">' + (x.iptal ? '<span class="iptalyazi" style="margin:0">İPTAL</span>' : '<span class="onayliyazi" style="margin:0">ONAYLI</span>') + '<i class="gs-ok" aria-hidden="true"></i></span></summary>' +
+      '<span class="gs-metin"><span class="gs-ad">' + ad + '</span><small>' + esc(t) + " · " + esc(k.belgeNo || "") + '</small><span class="gs-alt">' + (tahOzet(k) || "<span></span>") + (x.iptal ? '<span class="iptalyazi" style="margin:0">İPTAL</span>' : '<span class="onayliyazi" style="margin:0">ONAYLI</span>') + '</span></span>' +
+      '<i class="gs-ok" aria-hidden="true"></i></summary>' +
       '<div class="gs-ic">' + (uzun ? '<small style="color:var(--muted);overflow-wrap:anywhere">' + esc(k.aliciUnvan) + '</small>' : "") + '<div class="gs-dugme"><button class="k" type="button" data-gk="' + i + '">Görüntüle</button><button class="k" type="button" data-gs="' + i + '">Paylaş</button><button class="k" type="button" data-gz="' + i + '">XML+HTML</button><button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' +
       (x.iptal ? '<small class="iptalyazi" style="font-size:.68rem;margin:0">TALEP GÖNDERİLDİ</small>' : '<button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</div>' + tahBlok(k, i, true) + '</div></details>';
   }
@@ -1884,13 +1900,17 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:3px 4px 0 0}
     var topla = function(o){ var a = Object.keys(o).map(function(pb){ return fmt(o[pb]) + " " + (PARASEM[pb] || pb); }); return a.length ? a.join(" + ") : "0,00 ₺"; };
     var kutu = function(b, t, a, c){ return '<div style="flex:1 1 130px;border-left:5px solid ' + c + ';background:color-mix(in srgb,' + c + ' 12%,transparent);border-radius:10px;padding:9px 12px"><div class="not" style="margin:0;font-size:.78rem;font-weight:600">' + b + '</div><div style="font-size:1.02rem;font-weight:700;line-height:1.3">' + esc(t) + '</div><div class="not" style="margin:0;font-size:.76rem">' + a + '</div></div>'; };
     var cip = function(ad, n, a){ return '<button class="chip" type="button" data-gtah="' + a + '" aria-pressed="' + (gTahF === a) + '" style="min-height:34px;padding:5px 12px;font-size:.84rem">' + ad + " " + n + '</button>'; };
-    $("gTah").innerHTML = nUygun ? '<div style="display:flex;gap:8px;flex-wrap:wrap">' + kutu("Bekleyen tahsilat", topla(bek), nBek + " fatura", "#d68910") + kutu("Tahsil edilen", topla(tah), nTah + " fatura", "#2f7d6b") + '</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + cip("Tümü", liste.length, "hepsi") + cip("Bekleyen", nBek, "bekleyen") + cip("Tahsil edildi", nTah, "tahsil") + '</div>' : "";
+    $("gTah").innerHTML = nUygun ? '<div style="display:flex;gap:6px;flex-wrap:wrap">' + cip("Tümü", liste.length, "hepsi") + cip("Bekleyen", nBek, "bekleyen") + cip("Tahsil edildi", nTah, "tahsil") + '</div>' : "";
     $("gTah").insertAdjacentHTML("beforeend", alacakHtml(mk2));
     if (gTahF === "bekleyen") liste = liste.filter(function(x){ return x.td.uygun && x.td.kalan > 0; });
     else if (gTahF === "tahsil") liste = liste.filter(function(x){ return x.td.uygun && x.td.tam; });
     var top = {}; liste.forEach(function(x){ if (x.iptal) return; var pb = x.k.para || "TRY"; top[pb] = (top[pb] || 0) + (x.k.hesap && x.k.hesap.odenecek || 0); });
     var ipt = liste.filter(function(x){ return x.iptal; }).length;
-    $("gOzetF").textContent = liste.length ? liste.length + " fatura" + (Object.keys(top).length ? " · toplam " + Object.keys(top).map(function(pb){ return fmt(top[pb]) + " " + (PARASEM[pb] || pb); }).join(" + ") : "") + (ipt ? " (iptal talepli " + ipt + " fatura toplama dahil değil)" : "") : (gecmis.length ? "Filtreye uyan fatura yok." : "");
+    /* toplamlar altta sabit çubukta: "Toplam N adet : tutar" + bekleyen / tahsil edilen */
+    $("gAltBar").hidden = !liste.length;
+    $("gOzetF").innerHTML = "Toplam <b>" + liste.length + "</b> adet" + (Object.keys(top).length ? " : <b>" + Object.keys(top).map(function(pb){ return fmt(top[pb]) + " " + (PARASEM[pb] || pb); }).join(" + ") + "</b>" : "");
+    $("gOzetT").textContent = (nUygun ? "Bekleyen " + topla(bek) + " · Tahsil edilen " + topla(tah) : "") + (ipt ? (nUygun ? " · " : "") + ipt + " iptal talepli hariç" : "");
+    gFiltreSay();
     $("gecmisListe").innerHTML = liste.length ? liste.slice(0, gSayfa).map(function(x){
       return gecmisSatirHtml(x);
     }).join("") : '<p class="not">' + (gecmis.length ? "Filtreye uyan fatura yok." : "Bu programdan kesilen fatura henüz yok.") + '</p>';
