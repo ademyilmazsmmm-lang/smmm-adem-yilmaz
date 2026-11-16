@@ -286,6 +286,7 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
 #gic{position:relative;margin:0 auto;width:calc(820px * var(--k,1));height:calc(var(--fh,1123px) * var(--k,1));background:#fff}
 #cerceve{position:absolute;left:0;top:0;width:820px;height:var(--fh,1123px);border:0;background:#fff;transform:scale(var(--k,1));transform-origin:0 0}
 .kayit.iptal{border-color:var(--danger);background:var(--danger-soft)!important}
+.kayit.yeni-onay{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))!important;transition:box-shadow .6s,background .6s}
 .iptalyazi{display:inline-block;color:var(--danger);font-weight:800;letter-spacing:.06em;border:1.5px solid var(--danger);border-radius:6px;padding:0 7px;font-size:.78rem;line-height:20px;margin-right:6px;vertical-align:1px}
 .iptalbant{margin:0;padding:10px 14px;background:var(--danger-soft);color:var(--danger);font-weight:650;text-align:center}
 .kayit.yeni{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -1305,9 +1306,13 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
     api("/api/imzala", "POST", { mukellefId: son.mid || mSec, uuid: son.uuid, oid: son.oid, kod: $("kodGir").value.trim(), tarih: son.tarih }).then(function(r){
       var kayit = r.kayit || son.kayit, uuid = son.uuid, mid = son.mid;
       onayKapat(); son = { uuid: uuid, oid: null, hesap: null, imzali: true, kayit: kayit, mid: mid };
-      var d = $("tDurum"); d.className = "durum ok"; d.textContent = (r.mesaj || "Fatura onaylandı.") + " Fatura açıldı; “Yazdır / PDF” ile kaydedebilirsiniz.";
-      goster(uuid, "Onaylandı"); gecmisYukle(); tYuklendi = false; taslakGetir();
-      if (kayit && kayit.epostaGonder && kayit.aliciEposta) epostaGonder(kayit.mukellefId || mid, uuid, kayit.belgeNo, "tDurum", kayit.aliciEposta);
+      /* Onaylanan fatura açılmaz: Geçmiş sekmesine geçilir, süzgeçler sıfırlanır, fatura listede işaretlenip ekrana getirilir */
+      tYuklendi = false; taslakGetir();
+      ["gAra", "gDurumF", "gTipF", "gTarihF"].forEach(function(i){ $(i).value = ""; }); $("gOzel").hidden = true; gTahF = "hepsi"; gSayfa = 30;
+      sekme("gecmis"); window.scrollTo(0, 0);
+      var d = $("gDurum"); d.className = "durum ok"; d.textContent = (r.mesaj || "Fatura onaylandı.") + " Onaylanan fatura aşağıda işaretli; görüntülemek ya da paylaşmak için satırdaki düğmeleri kullanın.";
+      gecmisYukle(function(){ gecmisVurgula(uuid); });
+      if (kayit && kayit.epostaGonder && kayit.aliciEposta) epostaGonder(kayit.mukellefId || mid, uuid, kayit.belgeNo, "gDurum", kayit.aliciEposta);
     }, function(er){ if (!oturumDustu(er)) { od.className = "durum hata"; od.textContent = er.message; } }).then(function(){ b.disabled = false; });
   });
   $("temizle").addEventListener("click", function(){ formuTemizle(); sifirla(); durum("Form temizlendi.", ""); });
@@ -1864,13 +1869,20 @@ body[data-rol="mukellef"] #vdTani,body[data-rol="mukellef"] #vdHacizDerin,body[d
   }
   ["gAra", "gDurumF", "gTipF", "gTarihF", "gMukF", "gF1", "gF2"].forEach(function(i){ $(i).addEventListener("input", function(){ gSayfa = 30; if (i === "gTarihF") $("gOzel").hidden = $("gTarihF").value !== "ozel"; gecmisCiz(); }); $(i).addEventListener("change", function(){ gSayfa = 30; if (i === "gTarihF") $("gOzel").hidden = $("gTarihF").value !== "ozel"; gecmisCiz(); }); });
   $("gDaha").addEventListener("click", function(){ gSayfa += 30; gecmisCiz(); });
-  function gecmisYukle(){
+  /* Onaylanan faturayı Geçmiş listesinde işaretler ve ekrana getirir (süzgeç/sayfa dışında kalırsa sessizce geçer) */
+  function gecmisVurgula(uuid){
+    var i = -1; gecmis.forEach(function(k, n){ if (k.id === uuid) i = n; });
+    var b = i >= 0 ? $("gecmisListe").querySelector('[data-gk="' + i + '"]') : null, satir = b && b.closest(".kayit"); if (!satir) return;
+    satir.classList.add("yeni-onay"); satir.scrollIntoView({ block: "center" });
+    setTimeout(function(){ satir.classList.remove("yeni-onay"); }, 9000);
+  }
+  function gecmisYukle(sonra){
     api("/api/gecmis").then(function(r){
       gecmis = r.kayitlar || [];
       $("ozGecmis").textContent = gecmis.length ? gecmis.length + " kayıt" : "";
       var mk = V && V.mukellefler || [], sec = $("gMukF"), onceki = sec.value;
       sec.hidden = true; sec.innerHTML = '<option value="">Mükellef</option>' + mk.map(function(m){ return '<option value="' + esc(m.id) + '">' + esc(m.ad || "(adsız)") + '</option>'; }).join(""); sec.value = onceki;
-      gecmisCiz();
+      gecmisCiz(); if (typeof sonra === "function") sonra();
     }, function(er){ oturumDustu(er); });
   }
   function resmiGoster(mukellefId, uuid, kayit){
