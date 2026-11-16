@@ -47,8 +47,8 @@ class KurulumSihirbazi:
         w = self.w = tk.Toplevel(arayuz.kok, bg=u.ZEMIN)
         w.title("Kurulum Sihirbazı — Dijital Stajyer")
         w.transient(arayuz.kok)
-        w.geometry("680x560")
-        w.minsize(640, 520)
+        w.geometry("680x640")
+        w.minsize(640, 600)
         ust = tk.Frame(w, bg=u.BASLIK_ZEMIN, height=64)
         ust.pack(fill="x")
         ust.pack_propagate(False)
@@ -101,17 +101,18 @@ class KurulumSihirbazi:
         u = self.ui
         self._baslik("Hoş geldiniz", "Birkaç adımda programı bu bilgisayar ve bu Luca kullanıcısı için hazırlayacağız. "
                                      "Bilgiler yalnızca bu bilgisayardaki ayarlar.json dosyasına kaydedilir.")
-        self.ortam_alani = tk.Frame(self.icerik, bg=u.ZEMIN)
-        self.ortam_alani.pack(fill="x")
-        self.kur_bilgisi = tk.Label(self.icerik, text="", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w",
-                                    justify="left", wraplength=610)
+        # Kur dugmesi listenin USTUNDE: bilesen sayisi arttikca (satirlar uzayinca) alta tasip gorunmez olmasin
         satir = tk.Frame(self.icerik, bg=u.ZEMIN)
-        satir.pack(fill="x", pady=(10, 4))
+        satir.pack(fill="x", pady=(0, 6))
         self.kur_dugmesi = u.dugme(satir, "Eksik bileşenleri şimdi kur", self.eksikleri_kur)
         self.kur_dugmesi.pack(side="left")
         tk.Label(satir, text="(kurulum.bat'ın yaptığı iş; internet gerekir)", font=u.KUCUK, fg=u.SOLUK,
                  bg=u.ZEMIN).pack(side="left", padx=10)
-        self.kur_bilgisi.pack(fill="x")
+        self.kur_bilgisi = tk.Label(self.icerik, text="", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w",
+                                    justify="left", wraplength=610)
+        self.kur_bilgisi.pack(fill="x", pady=(0, 4))
+        self.ortam_alani = tk.Frame(self.icerik, bg=u.ZEMIN)
+        self.ortam_alani.pack(fill="x")
         self.kur_logu = tk.Text(self.icerik, height=8, bg=u.KONSOL, fg=u.KONSOL_FG, font=u.KONSOL_YAZI, relief="flat",
                                 wrap="word", state="disabled", highlightthickness=1, highlightbackground=u.KENAR)
         self.ortam_yenile()
@@ -125,7 +126,7 @@ class KurulumSihirbazi:
             c.destroy()
         for ad, durum, aciklama in self.ortam:
             satir = tk.Frame(self.ortam_alani, bg=u.ZEMIN)
-            satir.pack(fill="x", pady=2)
+            satir.pack(fill="x", pady=1)
             renk = {"tamam": u.YESIL_FG, "uyari": u.TURUNCU, "hata": u.KIRMIZI}[durum]
             tk.Label(satir, text=DURUM_SIMGE[durum], font=u.GOVDE_KALIN, fg=renk, bg=u.ZEMIN, width=2).pack(side="left")
             tk.Label(satir, text=ad, font=u.GOVDE_KALIN, fg=u.YAZI, bg=u.ZEMIN, width=30, anchor="w").pack(side="left")
