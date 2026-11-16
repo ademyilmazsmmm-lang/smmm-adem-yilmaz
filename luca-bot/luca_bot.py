@@ -21,7 +21,9 @@ import sys
 import traceback
 from datetime import date
 
-from lucabot import eposta, konsol, lisans
+from types import SimpleNamespace
+
+from lucabot import eposta, hesaplar, konsol, lisans
 from lucabot.calisma import (Calisma, etkin_firmalar, hatalilari_tekrarla, ozetle,
                              tekrar_listesini_oku, tekrar_secimi)
 from lucabot.firma_listesi import bugun_tamamlananlar, firmalari_suz
@@ -32,6 +34,7 @@ from lucabot.musteri_listesi import MUSTERI_LISTESI_DOSYASI, kaydet as musteri_l
 from lucabot.ortak import (AYAR, DURDUR_DOSYASI, ayarlari_oku, gunluge_yaz, icinde_bulunulan_ay,
                            indirme_koku, tarih_araliklari, tarih_cozumle, yaz)
 from lucabot.sabitler import BELGE_TIPLERI, TUM_BELGELER
+from lucabot.hesaplar import profil_eki as hesap_profil_eki
 from lucabot.tarayici import (kullanici_bekle, kullanici_metni_al,
                               profil_klasoru, tarayici_ac, tarayiciyi_kapat)
 
@@ -49,6 +52,8 @@ def arguman_ayristirici():
     p.add_argument("--karsilastir", action="store_true",
                    help="Iki e-arsiv ekranini da calistir (Akilli Entegrasyon + Interaktif V.D.)")
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
+    p.add_argument("--hesap", default="hepsi",
+                   help="Hangi Luca hesabi taransin: hepsi (varsayilan: once ofis, sonra etkinse isletme), ofis ya da isletme")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--tarayici-indirsin", action="store_true",
@@ -215,38 +220,60 @@ def sonucu_bildir(calisma, ozet, ayarlar, klasor, rapor_klasoru, log, ikinci_tur
 # --- firma listesi cekme -------------------------------------------------------
 
 def firma_listesini_cek(args, ayarlar):
-    """Luca > Yönetici > Müşteri Listesi'nden secilen yilin firmalarini indirilenler/luca-musteri-listesi.json'a yazar."""
+    """Luca > Yönetici > Müşteri Listesi'nden secilen yilin firmalarini indirilenler/luca-musteri-listesi.json'a yazar.
+    Etkin ikinci Luca hesabi (isletme) varsa her iki hesabin firmalari birlestirilir (ayni ad tekrar yazilmaz)."""
     ayarlari_uygula(args, ayarlar)
     yil = args.yil or date.today().year
     gece_modu = bool(args.bitince_kapat)
     klasor = calisma_klasoru(ayarlar)
     log = klasor / "calisma.log"
     konsol.bolum(f"LUCA MUSTERI LISTESI ({yil})", log)
-    profil = profil_klasoru(log)
+    try:
+        hesap_listesi = hesaplar.hesaplar(ayarlar, getattr(args, "hesap", "hepsi"))
+    except ValueError as e:
+        yaz(f"HATA: {e}", log)
+        return 1
 
     from playwright.sync_api import sync_playwright
+    kayitlar, gorulen, hesap_hatasi = [], set(), False
     with sync_playwright() as pw:
-        ctx = tarayici_ac(pw, profil, log, AYAR["chrome_gunlugu"])
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        page = luca_oturumu_ac(ctx, page, ayarlar, gece_modu, klasor / "tani", log)
-        if page is None:
-            tarayiciyi_kapat(ctx)
-            return 1
-        try:
-            firma_secici_bekle(page)  # uygulama tamamen yuklensin (menu ve firma listesi gelsin)
-            kayitlar = listeyi_oku(page, yil, klasor / "tani", log)
-        except LookupError as e:
-            yaz(f"HATA: {e}", log)
-            kayitlar = []
-        finally:
-            tarayiciyi_kapat(ctx)
+        for sira, (hesap_adi, ayar_h) in enumerate(hesap_listesi):
+            if len(hesap_listesi) > 1:
+                konsol.bolum(f"LUCA HESABI {sira + 1}/{len(hesap_listesi)}: {hesap_adi.upper()}", log)
+            ctx = tarayici_ac(pw, profil_klasoru(log, hesap_profil_eki(sira)), log, AYAR["chrome_gunlugu"])
+            page = ctx.pages[0] if ctx.pages else ctx.new_page()
+            page = luca_oturumu_ac(ctx, page, ayar_h, gece_modu, klasor / "tani", log)
+            if page is None:
+                tarayiciyi_kapat(ctx)
+                hesap_hatasi = True
+                continue
+            try:
+                firma_secici_bekle(page)  # uygulama tamamen yuklensin (menu ve firma listesi gelsin)
+                okunan = listeyi_oku(page, yil, klasor / "tani", log)
+                for k in okunan:
+                    ad = str(k.get("ad") or k.get("kisa_ad") or k)
+                    if ad in gorulen:
+                        continue
+                    gorulen.add(ad)
+                    if len(hesap_listesi) > 1:
+                        k["hesap"] = hesap_adi
+                    kayitlar.append(k)
+                if len(hesap_listesi) > 1:
+                    yaz(f"{hesap_adi}: {len(okunan)} firma okundu", log)
+            except LookupError as e:
+                yaz(f"HATA: {e}", log)
+                hesap_hatasi = True
+            finally:
+                tarayiciyi_kapat(ctx)
     if not kayitlar:
         yaz("Luca'dan firma okunamadi; tani dosyalari: " + str(klasor / "tani"), log)
         return 1
     yol = indirme_koku(ayarlar) / MUSTERI_LISTESI_DOSYASI
     musteri_listesini_kaydet(yol, yil, kayitlar)
     yaz(f"[OK] {yil} yilinda {len(kayitlar)} firma okundu: {yol}", log)
-    return 0
+    if hesap_hatasi:
+        yaz("UYARI: hesaplardan biri okunamadi; liste eksik olabilir", log)
+    return 1 if hesap_hatasi else 0
 
 
 BEYANNAME_LISTESI_DOSYASI = "luca-beyannameler.json"
@@ -308,6 +335,14 @@ def beyannameleri_cek(args, ayarlar, p):
 
 # --- ana akis --------------------------------------------------------------
 
+class HesapSonucu:
+    """Bir Luca hesabinin taramasinin sonucu: kod (0 tamam / 1 hata), calisma ve ozet (islenen firma yoksa None);
+    bos: islenecek firma olmama sebebi ('firma_yok' / 'tamam' = hepsi bugun tamamlanmis / 'liste' = yalniz listeleme)."""
+
+    def __init__(self, kod=0, calisma=None, ozet=None, ikinci_tur=None, bos=""):
+        self.kod, self.calisma, self.ozet, self.ikinci_tur, self.bos = kod, calisma, ozet, ikinci_tur, bos
+
+
 def calistir(args, ayarlar, p):
     belge_tipleri = belge_tiplerini_belirle(args, ayarlar)
     baslangic, bitis = tarih_araligini_belirle(args, ayarlar, p)
@@ -322,102 +357,149 @@ def calistir(args, ayarlar, p):
     log = klasor / "calisma.log"
     konsol.acilis("", f"{araliklar[0][0]} - {araliklar[-1][1]} ({len(araliklar)} sorgu/firma)",
                   belge_tipleri, klasor, gece_modu, log)
-    profil = profil_klasoru(log)
+    try:
+        hesap_listesi = hesaplar.hesaplar(ayarlar, getattr(args, "hesap", "hepsi"))
+    except ValueError as e:
+        yaz(f"HATA: {e}", log)
+        return 1
+    coklu = len(hesap_listesi) > 1
+    if coklu:
+        yaz("Taranacak Luca hesaplari (sirayla): " + " -> ".join(ad for ad, _ in hesap_listesi), log)
 
     from playwright.sync_api import sync_playwright
+    sonuclar, sonuclar_var, kod, durduruldu, sure, bosluklar = [], False, 0, "", 0.0, []
+    tekrar = {"denenen": 0, "duzelen": 0}
     with sync_playwright() as pw:
-        # 2. Luca giris
-        konsol.bolum("1/4  LUCA GIRIS", log)
-        ctx = tarayici_ac(pw, profil, log, AYAR["chrome_gunlugu"])
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        page = luca_oturumu_ac(ctx, page, ayarlar, gece_modu, klasor / "tani", log)
-        if page is None:
-            if not gece_modu:
-                kullanici_bekle(ctx, ">>> Kapatmak icin ENTER: ")
-            tarayiciyi_kapat(ctx)
-            return 1
+        for sira, (hesap_adi, ayar_h) in enumerate(hesap_listesi):
+            if coklu:
+                konsol.bolum(f"LUCA HESABI {sira + 1}/{len(hesap_listesi)}: {hesap_adi.upper()}", log)
+            r = _hesap_calistir(pw, args, ayar_h, hesap_adi, sira, coklu, sira == len(hesap_listesi) - 1, belge_tipleri,
+                                baslangic, araliklar, klasor, rapor_klasoru, log, azami_deneme, hata_siniri, gece_modu)
+            kod = max(kod, r.kod)
+            if r.bos:
+                bosluklar.append(r.bos)
+            if r.calisma is not None:
+                sonuclar_var = True
+                sonuclar += list(r.calisma.sonuclar)
+                sure += getattr(r.ozet, "sure", 0) or 0
+            if r.ikinci_tur:
+                tekrar = {k: tekrar[k] + r.ikinci_tur.get(k, 0) for k in tekrar}
+            if r.ozet is not None and r.ozet.durduruldu:
+                durduruldu = r.ozet.durduruldu
+                break   # kullanici durdurdu: sonraki hesaba gecilmez
+    if coklu:
+        if not sonuclar_var:   # hicbir hesapta islem yapilmadi: giris hatasi (kod) ya da hicbirinde firma bulunamadi ise hata
+            return kod or (1 if bosluklar and all(b == "firma_yok" for b in bosluklar) else 0)
+        ozet = ozetle(sonuclar, sure)
+        ozet.durduruldu = durduruldu
+        sonucu_bildir(SimpleNamespace(sonuclar=sonuclar), ozet, ayarlar, klasor, rapor_klasoru, log,
+                      tekrar if tekrar["denenen"] else None)   # tek e-posta: iki hesabin birlesik ozeti
+    return kod
 
-        # 3. firmalar
-        konsol.bolum("2/4  FIRMA LISTESI", log)
-        _, _, luca_firmalari = firma_secici_bekle(page)
-        yaz(f"Luca'da {len(luca_firmalari)} firma bulundu", log)
 
-        if args.listele:
-            for f in luca_firmalari:
-                print(" -", f)
-            dosya = klasor / "firmalar.txt"
-            dosya.write_text("\n".join(luca_firmalari), encoding="utf-8")
-            yaz(f"\nListe dosyaya da yazildi: {dosya}", log)
+def _hesap_calistir(pw, args, ayar_h, hesap_adi, sira, coklu, son_hesap, belge_tipleri, baslangic, araliklar, klasor,
+                    rapor_klasoru, log, azami_deneme, hata_siniri, gece_modu):
+    """Tek bir Luca hesabinda giris + firma secimi + fatura sorgulama/indirme (+ hatalilari tekrar). Coklu hesapta raporlama
+    ve e-posta cagirandadir (iki hesabin sonucu birlesik gonderilir); tek hesapta eskisi gibi burada yapilir."""
+    profil = profil_klasoru(log, hesap_profil_eki(sira))
+    son_bekle = (not coklu) or son_hesap     # ENTER beklemesi yalniz son hesapta (coklu) / her zaman (tek)
+
+    # 2. Luca giris
+    konsol.bolum("1/4  LUCA GIRIS", log)
+    ctx = tarayici_ac(pw, profil, log, AYAR["chrome_gunlugu"])
+    page = ctx.pages[0] if ctx.pages else ctx.new_page()
+    page = luca_oturumu_ac(ctx, page, ayar_h, gece_modu, klasor / "tani", log)
+    if page is None:
+        if not gece_modu and son_bekle:
             kullanici_bekle(ctx, ">>> Kapatmak icin ENTER: ")
-            tarayiciyi_kapat(ctx)
-            return 0
+        tarayiciyi_kapat(ctx)
+        return HesapSonucu(1)
 
-        secim = firmalari_suz(luca_firmalari, ayarlar, args.firma, args.limit, baslangic, log)
-        if args.tekrar_listesi and secim.firmalar:
-            # yalniz listedeki firmalar ve her birinde yalniz listedeki ekranlar yeniden sorgulanir
-            secim.firmalar, ek_atlanan = tekrar_secimi(
-                secim.firmalar, tekrar_listesini_oku(args.tekrar_listesi), belge_tipleri)
-            for f, tipler in ek_atlanan.items():
-                secim.atlanan_ekranlar.setdefault(f, set()).update(tipler)
-            secim.bos_sebep = "tekrar listesindeki firmalar Luca listesinde / firma listesinde bulunamadi"
-            yaz(f"Yeniden sorgulanacak: {len(secim.firmalar)} firma, {len(belge_tipleri)} ekran turu", log)
-        if not secim.firmalar:
-            yaz(f"\nIslenecek firma yok: {secim.bos_sebep}.", log)
-            if args.firma:
-                yaz("Listedeki ilk 30 kayit:", log)
-                for ad in luca_firmalari[:30]:
-                    yaz(f"  - {ad}", log)
-                yaz("\nNot: Luca adlari kisaltarak gosterebiliyor, adin bas kismini yazin.", log)
-            if not gece_modu:
-                kullanici_bekle(ctx, ">>> Kapatmak icin ENTER: ")
-            tarayiciyi_kapat(ctx)
-            return 1
+    # 3. firmalar
+    konsol.bolum("2/4  FIRMA LISTESI", log)
+    _, _, luca_firmalari = firma_secici_bekle(page)
+    yaz(f"Luca'da {len(luca_firmalari)} firma bulundu" + (f" ({hesap_adi})" if coklu else ""), log)
 
-        if args.bastan or args.tekrar_listesi:
-            yaz("Bugun tamamlanan ekranlar da yeniden taranacak"
-                + (" (yeniden sorgulama)" if args.tekrar_listesi else " (--bastan)"), log)
-            bugun_tamam = {}
-        else:
-            bugun_tamam = devam_mi_bastan_mi(ctx, rapor_klasoru, belge_tipleri, gece_modu, log)
-        etkin = etkin_firmalar(secim.firmalar, belge_tipleri, secim.atlanan_ekranlar, bugun_tamam)
-        if len(etkin) < len(secim.firmalar):
-            yaz(f"Tum ekranlari X isaretli ya da bugun tamamlanmis {len(secim.firmalar) - len(etkin)} firma"
-                " atlandi (Luca'da acilmayacak)", log)
-        secim.firmalar = etkin
-        if not etkin:
-            yaz("\nIslenecek firma yok: secili ekranlarin hepsi firmalar.xlsx'te X ya da bugun tamamlanmis.", log)
-            if not gece_modu:
-                kullanici_bekle(ctx, ">>> Kapatmak icin ENTER: ")
-            tarayiciyi_kapat(ctx)
-            return 0
-        yaz(f"Islenecek firma sayisi: {len(secim.firmalar)} | ekran: {len(belge_tipleri)}", log)
+    if args.listele:
+        for f in luca_firmalari:
+            print(" -", f)
+        dosya = klasor / (f"firmalar-{hesap_adi}.txt" if coklu else "firmalar.txt")
+        dosya.write_text("\n".join(luca_firmalari), encoding="utf-8")
+        yaz(f"\nListe dosyaya da yazildi: {dosya}", log)
+        if son_bekle:
+            kullanici_bekle(ctx, ">>> Kapatmak icin ENTER: ")
+        tarayiciyi_kapat(ctx)
+        return HesapSonucu(0, bos="liste")
 
-        # 4. islem
-        konsol.bolum("3/4  FATURA SORGULAMA VE INDIRME  (durdurmak icin Ctrl+C)", log)
-        calisma = Calisma(pw, ctx, page, profil, ayarlar, secim, belge_tipleri, araliklar,
-                          klasor, log, azami_deneme, hata_siniri, bugun_tamam, rapor_klasoru)
-        ozet = calisma.calistir()
+    secim = firmalari_suz(luca_firmalari, ayar_h, args.firma, args.limit, baslangic, log)
+    if args.tekrar_listesi and secim.firmalar:
+        # yalniz listedeki firmalar ve her birinde yalniz listedeki ekranlar yeniden sorgulanir
+        secim.firmalar, ek_atlanan = tekrar_secimi(
+            secim.firmalar, tekrar_listesini_oku(args.tekrar_listesi), belge_tipleri)
+        for f, tipler in ek_atlanan.items():
+            secim.atlanan_ekranlar.setdefault(f, set()).update(tipler)
+        secim.bos_sebep = "tekrar listesindeki firmalar Luca listesinde / firma listesinde bulunamadi"
+        yaz(f"Yeniden sorgulanacak: {len(secim.firmalar)} firma, {len(belge_tipleri)} ekran turu", log)
+    if not secim.firmalar:
+        yaz(f"\nIslenecek firma yok: {secim.bos_sebep}.", log)
+        if args.firma and not coklu:
+            yaz("Listedeki ilk 30 kayit:", log)
+            for ad in luca_firmalari[:30]:
+                yaz(f"  - {ad}", log)
+            yaz("\nNot: Luca adlari kisaltarak gosterebiliyor, adin bas kismini yazin.", log)
+        if not gece_modu and son_bekle:
+            kullanici_bekle(ctx, ">>> Kapatmak icin ENTER: ")
+        tarayiciyi_kapat(ctx)
+        return HesapSonucu(0 if coklu else 1, bos="firma_yok")   # coklu hesapta bir hesapta firma olmamasi hata degil
 
-        # 4b. hatali ekranlar: bir kez daha (ayni oturumda); sonuclar birinciyi gunceller
-        ikinci_tur = None
-        if (not ozet.durduruldu and not args.tekrar_listesi and not args.otomatik_tekrar_yok
-                and ayarlar.get("otomatik_tekrar", True)):
-            sonuc_tur = hatalilari_tekrarla(calisma, secim, belge_tipleri, araliklar, klasor, log,
-                                            azami_deneme, hata_siniri)
-            if sonuc_tur:
-                _, ozet2, ikinci_tur = sonuc_tur
-                durduruldu = ozet.durduruldu or ozet2.durduruldu
-                ozet = ozetle(calisma.sonuclar, calisma.ilerleme.gecen())  # son durumu gostersin
-                ozet.durduruldu = durduruldu
+    if args.bastan or args.tekrar_listesi:
+        yaz("Bugun tamamlanan ekranlar da yeniden taranacak"
+            + (" (yeniden sorgulama)" if args.tekrar_listesi else " (--bastan)"), log)
+        bugun_tamam = {}
+    else:
+        bugun_tamam = devam_mi_bastan_mi(ctx, rapor_klasoru, belge_tipleri, gece_modu, log)
+    etkin = etkin_firmalar(secim.firmalar, belge_tipleri, secim.atlanan_ekranlar, bugun_tamam)
+    if len(etkin) < len(secim.firmalar):
+        yaz(f"Tum ekranlari X isaretli ya da bugun tamamlanmis {len(secim.firmalar) - len(etkin)} firma"
+            " atlandi (Luca'da acilmayacak)", log)
+    secim.firmalar = etkin
+    if not etkin:
+        yaz("\nIslenecek firma yok: secili ekranlarin hepsi firmalar.xlsx'te X ya da bugun tamamlanmis.", log)
+        if not gece_modu and son_bekle:
+            kullanici_bekle(ctx, ">>> Kapatmak icin ENTER: ")
+        tarayiciyi_kapat(ctx)
+        return HesapSonucu(0, bos="tamam")
+    yaz(f"Islenecek firma sayisi: {len(secim.firmalar)} | ekran: {len(belge_tipleri)}", log)
 
-        # 5. raporlama
+    # 4. islem
+    konsol.bolum("3/4  FATURA SORGULAMA VE INDIRME  (durdurmak icin Ctrl+C)", log)
+    calisma = Calisma(pw, ctx, page, profil, ayar_h, secim, belge_tipleri, araliklar,
+                      klasor, log, azami_deneme, hata_siniri, bugun_tamam, rapor_klasoru)
+    ozet = calisma.calistir()
+
+    # 4b. hatali ekranlar: bir kez daha (ayni oturumda); sonuclar birinciyi gunceller
+    ikinci_tur = None
+    if (not ozet.durduruldu and not args.tekrar_listesi and not args.otomatik_tekrar_yok
+            and ayar_h.get("otomatik_tekrar", True)):
+        sonuc_tur = hatalilari_tekrarla(calisma, secim, belge_tipleri, araliklar, klasor, log,
+                                        azami_deneme, hata_siniri)
+        if sonuc_tur:
+            _, ozet2, ikinci_tur = sonuc_tur
+            durduruldu = ozet.durduruldu or ozet2.durduruldu
+            ozet = ozetle(calisma.sonuclar, calisma.ilerleme.gecen())  # son durumu gostersin
+            ozet.durduruldu = durduruldu
+
+    # 5. raporlama
+    if not coklu:
         konsol.bolum("4/4  RAPOR", log)  # rapor her firmadan sonra zaten guncellendi
-        sonucu_bildir(calisma, ozet, ayarlar, klasor, rapor_klasoru, log, ikinci_tur)
+        sonucu_bildir(calisma, ozet, ayar_h, klasor, rapor_klasoru, log, ikinci_tur)
+    else:
+        yaz(f"{hesap_adi}: {len(calisma.sonuclar)} ekran sonucu rapora islendi (birlesik ozet ve e-posta en sonda)", log)
 
-        if not gece_modu:
-            kullanici_bekle(calisma.ctx, ">>> Tarayiciyi kapatmak icin ENTER'a basin: ")
-        tarayiciyi_kapat(calisma.ctx)
-    return 0
+    if not gece_modu and son_bekle:
+        kullanici_bekle(calisma.ctx, ">>> Tarayiciyi kapatmak icin ENTER'a basin: ")
+    tarayiciyi_kapat(calisma.ctx)
+    return HesapSonucu(0, calisma, ozet, ikinci_tur)
 
 
 def _durdurma_sinyali(*_):

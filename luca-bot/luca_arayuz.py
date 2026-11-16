@@ -36,7 +36,7 @@ from kar_zarar_sekmesi import KarZararSekmesi  # noqa: E402
 from defter_beyan_sekmesi import DefterBeyanSekmesi  # noqa: E402
 from beyanname_sekmesi import BeyannameSekmesi  # noqa: E402
 from kurulum_sihirbazi import KurulumSihirbazi  # noqa: E402
-from lucabot import SURUM, SURUM_TARIHI, beyanname, firma_tablosu, gostergeler, lisans, musteri_listesi, rapor  # noqa: E402
+from lucabot import SURUM, SURUM_TARIHI, beyanname, firma_tablosu, gostergeler, hesaplar, lisans, musteri_listesi, rapor  # noqa: E402
 from tablo_gorunumu import SiralaFiltreTablosu  # noqa: E402
 from lucabot import kurulum as kurulum_mantigi  # noqa: E402
 from lucabot.firma_listesi import atlanan_ekranlar_haritasi, devreden_kdvleri  # noqa: E402
@@ -92,6 +92,7 @@ EKRAN_ADLARI = {tip: ad for ad, tip in EKRAN_SUTUNLARI.items()}
 BELGE_ADLARI = dict(BELGE_TIPLERI)
 UZUN_BEKLEME = 30  # "Şu an" satiri bu kadar saniye degismezse turuncu, 3 katinda kirmizi
 ILERLEME = re.compile(r"^\[(\d+)/(\d+)\]\s+(.+?)(?:\s+\|\s+tahmini kalan:\s*(.+))?$")
+HESAP_SECENEKLERI = (("Hepsi (ofis + işletme)", "hepsi"), ("Yalnız ofis", "ofis"), ("Yalnız işletme", "isletme"))
 AZAMI_SATIR = 4000  # log penceresinde tutulan satir (uzun gecelerde pencere sismesin)
 
 
@@ -771,6 +772,7 @@ class Arayuz:
         self.v_bit = tk.StringVar(value=a.get("bitis_tarihi") or vars_bit)
         self.v_liste = tk.StringVar(value=a.get("firma_listesi") or "")
         self.v_firma = tk.StringVar()
+        self.v_hesap = tk.StringVar(value=HESAP_SECENEKLERI[0][0])
         self.v_devam = tk.BooleanVar(value=True)
         self.v_belge_indir = tk.BooleanVar(value=self.ayarlar.get("arayuz_belge_indir", True))
         self.v_excel_indir = tk.BooleanVar(value=self.ayarlar.get("arayuz_excel_indir", True))
@@ -934,6 +936,10 @@ class Arayuz:
         tk.Label(p, text="Sadece bu firma (boş = listedeki hepsi)", font=KUCUK, fg=ETIKET,
                  bg=ZEMIN, anchor="w").pack(fill="x", pady=(10, 3))
         giris_kutusu(p, self.v_firma).pack(fill="x", ipady=4)
+        tk.Label(p, text="Luca hesabı (ofis / işletme)", font=KUCUK, fg=ETIKET, bg=ZEMIN, anchor="w").pack(fill="x", pady=(10, 3))
+        self.hesap_kutusu = ttk.Combobox(p, textvariable=self.v_hesap, values=[a for a, _ in HESAP_SECENEKLERI],
+                                         state="readonly", font=GOVDE)
+        self.hesap_kutusu.pack(fill="x", ipady=3)
 
         bolum_basligi(p, "Tarih Aralığı").pack(fill="x", pady=(10, 0))
         t = tk.Frame(p, bg=ZEMIN)
@@ -1168,7 +1174,10 @@ class Arayuz:
     def _giris_ozetini_yaz(self):
         a = self.ayarlar
         if a.get("uye_no") and a.get("kullanici_adi") and a.get("parola"):
-            self.giris_ozeti.configure(text=f"{a['kullanici_adi']}  (üye {a['uye_no']})", fg=YAZI)
+            metin = f"{a['kullanici_adi']}  (üye {a['uye_no']})"
+            if hesaplar.ikinci_hesap(a):
+                metin += f"  +  {hesaplar.ikinci_ad(a)}: {a['ikinci_hesap']['kullanici_adi']}"
+            self.giris_ozeti.configure(text=metin, fg=YAZI)
         else:
             self.giris_ozeti.configure(text="Giriş bilgisi girilmedi", fg=TURUNCU)
 
@@ -1185,12 +1194,28 @@ class Arayuz:
             tk.Label(w, text=ad, font=KUCUK, fg=ETIKET, bg=ZEMIN, anchor="w").pack(fill="x", pady=(8, 3))
             degerler[anahtar] = tk.StringVar(value=str(self.ayarlar.get(anahtar) or ""))
             giris_kutusu(w, degerler[anahtar], gizli=gizli, genislik=38).pack(fill="x", ipady=4)
+        # 2. Luca hesabi (isletme): Fatura Indirme her calismada once ofisi, sonra bunu tarar
+        h2 = self.ayarlar.get("ikinci_hesap") if isinstance(self.ayarlar.get("ikinci_hesap"), dict) else {}
+        etkin = tk.BooleanVar(value=bool(h2.get("etkin")))
+        tk.Frame(w, bg=CIZGI, height=1).pack(fill="x", pady=(16, 8))
+        tk.Checkbutton(w, text="İkinci Luca hesabını da tara (işletme) — Fatura İndirme önce ofisi, sonra bunu tarar",
+                       variable=etkin, font=KUCUK, **self._kutu_renk()).pack(anchor="w")
+        degerler2 = {}
+        for ad, anahtar, gizli in alanlar:
+            tk.Label(w, text="İşletme — " + ad, font=KUCUK, fg=ETIKET, bg=ZEMIN, anchor="w").pack(fill="x", pady=(6, 3))
+            degerler2[anahtar] = tk.StringVar(value=str(h2.get(anahtar) or ""))
+            giris_kutusu(w, degerler2[anahtar], gizli=gizli, genislik=38).pack(fill="x", ipady=4)
         tk.Label(w, text="Bilgiler bu bilgisayardaki ayarlar.json dosyasına kaydedilir.",
                  font=KUCUK, fg=SOLUK, bg=ZEMIN).pack(anchor="w", pady=(12, 0))
 
         def kaydet():
             for anahtar, v in degerler.items():
                 self.ayarlar[anahtar] = v.get().strip() if anahtar != "parola" else v.get()
+            self.ayarlar["ikinci_hesap"] = {"etkin": bool(etkin.get()), "ad": hesaplar.IKINCI_AD, **{
+                anahtar: (v.get().strip() if anahtar != "parola" else v.get()) for anahtar, v in degerler2.items()}}
+            if etkin.get() and not hesaplar.ikinci_hesap(self.ayarlar):
+                messagebox.showwarning("İkinci hesap eksik", "İkinci hesap işaretli ama Üye No, Kullanıcı Adı ve Parola "
+                                       "tam değil; bilgiler kaydedildi ama bu hesap taranmaz.", parent=w)
             ayarlari_kaydet(self.ayarlar)
             self._giris_ozetini_yaz()
             w.destroy()
@@ -1275,6 +1300,9 @@ class Arayuz:
                 komut += ["--belge-tipi", t]
         if self.v_firma.get().strip():
             komut += ["--firma", self.v_firma.get().strip()]
+        hesap = dict(HESAP_SECENEKLERI).get(self.v_hesap.get(), "hepsi")
+        if hesap != "hepsi":
+            komut += ["--hesap", hesap]
         if not self.v_devam.get():
             komut.append("--bastan")
         komut += self.indirme_secenekleri()
@@ -1402,6 +1430,9 @@ class Arayuz:
             return False
         a = self.ayarlar
         if a.get("uye_no") and a.get("kullanici_adi") and a.get("parola"):
+            if hesaplar.ikinci_hesap_eksik_mi(a):
+                messagebox.showwarning("İkinci hesap eksik", "İkinci Luca hesabı (işletme) işaretli ama giriş bilgileri eksik; "
+                                       "bu çalışmada yalnız ofis hesabı taranacak. Luca Giriş Bilgileri'nden tamamlayın.", parent=self.kok)
             return True
         messagebox.showwarning("Giriş bilgisi eksik",
                                "Program Luca'ya kendisi girer; önce Üye No, Kullanıcı Adı ve"

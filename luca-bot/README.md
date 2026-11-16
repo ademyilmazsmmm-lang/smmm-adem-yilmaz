@@ -163,6 +163,22 @@ Sağ panelde üç alt sekme vardır:
 Kâr / Zarar sekmesindeki tabloda da aynı arama, Kaynak filtresi ve sıralama vardır. Üçüncü sekme
 (**Luca Mükerrer / Eksik Fatura Tespiti**) şimdilik "Çalışma var" yer tutucusudur.
 
+### İki Luca hesabı (ofis + işletme)
+
+Fatura İndirme birden fazla Luca kullanıcısını tarayabilir. **Luca Giriş Bilgileri** penceresinde ofis hesabının altındaki
+**"İkinci Luca hesabını da tara (işletme)"** kutusunu işaretleyip işletme hesabının Üye No / Kullanıcı Adı / Parola / Doğrulama
+Anahtarı'nı girin (`ayarlar.json` içinde `ikinci_hesap`). Sonra **Çalıştır** her seferinde **önce ofis, sonra işletme** hesabını tarar:
+
+- Her hesap **kendi giriş bilgisiyle ve ayrı tarayıcı profiliyle** girer (oturumlar karışmaz; ofisin profili eskisi gibi kalır).
+- Firma listesi (`firmalar.xlsx`) ortaktır; her hesapta yalnız o hesapta Luca'nın gösterdiği firmalar taranır. Aynı adlı bir firma iki
+  hesapta da varsa rapor firma adına göre birleştiği için biri diğerinin satırının üzerine yazar; bu durumda adlarını ayırın.
+- Rapor (`rapor.xlsx`, `rapor.json`) ve e-posta özeti **tek ve birleşiktir**; iki hesabın sonucu birlikte gelir.
+- Sol paneldeki **Luca hesabı** kutusu: *Hepsi*, *Yalnız ofis*, *Yalnız işletme* (komut satırı: `--hesap ofis|isletme`). Tek bir firmayı
+  denerken `--firma` yalnız bir hesapta bulunabilir; diğer hesapta firma çıkmaması hata sayılmaz.
+- **Luca'dan Firma Listesini Çek** iki hesabın firmalarını birleştirir. Beyanname Takip sekmesi işletme hesabını da otomatik alır
+  (`LUCA_ISLETME_*`). Kâr/Zarar, Defter Beyan ve KDV Devri (beyanname PDF) yalnız ofis hesabıyla çalışır.
+- Kullanıcı Durdur'a basarsa sonraki hesaba geçilmez; bir hesabın girişi başarısız olursa diğeri yine denenir.
+
 ### Kâr / Zarar sekmesi
 
 Pencerenin üstündeki **Kâr / Zarar** sekmesi, repodaki ayrı `kar-zarar/` programını
@@ -462,6 +478,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | `rapor.py`, `rapor_excel.py` | **Raporlama**: `rapor.json` / `rapor.csv` / `rapor.xlsx` |
 | `tablo_gorunumu.py` | Arayüzün ortak tablo bileşeni: arama, sütun filtresi, başlığa tıklayınca sıralama |
 | `kar_zarar_sekmesi.py`, `lucabot/kar_zarar_ozet.py` | Arayüzün Kâr / Zarar sekmesi; sonuç + indirilen faturalar ("faturalar dahil") hesabı |
+| `lucabot/hesaplar.py` | İki Luca hesabı (ofis + işletme): giriş bilgileri, hesap seçimi, ayrı tarayıcı profili |
 | `beyanname_sekmesi.py`, `lucabot/beyanname_takip.py` | Arayüzün Beyanname Takip sekmesi ve `beyanname-takip/` programını başlatma/durdurma/okuma mantığı |
 | `defter_beyan_sekmesi.py` | Arayüzün Defter Beyan sekmesi (2. sınıf gönderme/kontrol); `kar-zarar/defter_beyan.py` çalışır |
 | `gostergeler.py` | Arayüzün alt kutuları (tevkifat KDV, SMM, interaktif farkı, KDV ödemesi); arayüzün kendisi `luca_arayuz.py` |

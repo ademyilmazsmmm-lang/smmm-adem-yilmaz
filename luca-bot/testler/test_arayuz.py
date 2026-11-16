@@ -208,6 +208,18 @@ class ArayuzTestleri(ArayuzZemini):
         self.kok.update()
         self.assertEqual(len(self.kok.winfo_children()), once + 1)
 
+    def test_luca_hesabi_secimi_komuta_girer_ve_ozet_iki_hesabi_gosterir(self):
+        self.assertNotIn("--hesap", self.app.komut())                        # varsayilan: hepsi
+        self.app.v_hesap.set("Yalnız işletme")
+        k = self.app.komut()
+        self.assertEqual(k[k.index("--hesap") + 1], "isletme")
+        self.app.v_hesap.set("Yalnız ofis")
+        k = self.app.komut()
+        self.assertEqual(k[k.index("--hesap") + 1], "ofis")
+        self.app.ayarlar["ikinci_hesap"] = {"etkin": True, "ad": "isletme", "uye_no": "2", "kullanici_adi": "isl", "parola": "q"}
+        self.app._giris_ozetini_yaz()
+        self.assertIn("isletme: isl", self.app.giris_ozeti.cget("text"))
+
     def test_komut(self):
         komut = self.app.komut()
         self.assertIn("--hepsi", komut)

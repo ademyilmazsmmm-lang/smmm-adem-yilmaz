@@ -418,6 +418,37 @@ class RaporTestleri(unittest.TestCase):
             e = bt.env_oku(bt.env_yolu(k))
             self.assertEqual((e["WEB_GIZLI"], e["LUCA_HESAPLAR"], e["RESEND_API_KEY"]), (gizli, "ofis,isletme", "re_abc"))
 
+    def test_hesaplar_ofis_ve_isletme(self):
+        from lucabot import hesaplar
+        a = {"uye_no": "1", "kullanici_adi": "o", "parola": "p", "dogrulama_anahtari": "ANA", "baska": 7,
+             "ikinci_hesap": {"etkin": True, "ad": "İşletme", "uye_no": "2", "kullanici_adi": "i", "parola": "q"}}
+        liste = hesaplar.hesaplar(a)
+        self.assertEqual([ad for ad, _ in liste], ["ofis", "isletme"])
+        ofis, isletme = liste[0][1], liste[1][1]
+        self.assertEqual((ofis["kullanici_adi"], ofis["dogrulama_anahtari"]), ("o", "ANA"))
+        self.assertEqual((isletme["kullanici_adi"], isletme["parola"], isletme["dogrulama_anahtari"], isletme["baska"]), ("i", "q", "", 7))
+        self.assertEqual([ad for ad, _ in hesaplar.hesaplar(a, "ofis")], ["ofis"])
+        self.assertEqual([ad for ad, _ in hesaplar.hesaplar(a, "İşletme")], ["isletme"])
+        self.assertEqual(a["kullanici_adi"], "o")                                  # ana ayar bozulmaz
+        kapali = dict(a, ikinci_hesap=dict(a["ikinci_hesap"], etkin=False))
+        self.assertEqual([ad for ad, _ in hesaplar.hesaplar(kapali)], ["ofis"])
+        with self.assertRaises(ValueError):
+            hesaplar.hesaplar(kapali, "isletme")
+        eksik = dict(a, ikinci_hesap={"etkin": True, "uye_no": "2"})
+        self.assertTrue(hesaplar.ikinci_hesap_eksik_mi(eksik))
+        self.assertEqual([ad for ad, _ in hesaplar.hesaplar(eksik)], ["ofis"])
+        self.assertEqual((hesaplar.profil_eki(0), hesaplar.profil_eki(1)), ("", "hesap2"))
+
+    def test_beyanname_takip_isletme_hesabi_aktarilir(self):
+        from lucabot import beyanname_takip as bt
+        with tempfile.TemporaryDirectory() as d:
+            ana = {"uye_no": "1", "kullanici_adi": "o", "parola": "p",
+                   "ikinci_hesap": {"etkin": True, "uye_no": "2", "kullanici_adi": "i", "parola": "q", "dogrulama_anahtari": "K2"}}
+            form = {"WEB_SIFRE": "sifre12", "PORT": "8765", "LUCA_GIB_GUN": "31", "luca_ayarlardan": True}
+            bt.env_hazirla(Path(d), form, ana)
+            e = bt.env_oku(bt.env_yolu(Path(d)))
+            self.assertEqual((e["LUCA_HESAPLAR"], e["LUCA_ISLETME_KULLANICI"], e["LUCA_ISLETME_DOGRULAMA_ANAHTARI"]), ("ofis,isletme", "i", "K2"))
+
     def test_beyanname_takip_form_dogrulama(self):
         from lucabot import beyanname_takip as bt
         self.assertEqual(bt.dogrula({"WEB_SIFRE": "abcd", "PORT": "8765", "LUCA_GIB_GUN": "31"}), [])

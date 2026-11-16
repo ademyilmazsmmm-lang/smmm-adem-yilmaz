@@ -20,6 +20,8 @@ from datetime import datetime
 from http.cookiejar import CookieJar
 from pathlib import Path
 
+from . import hesaplar
+
 KOK = Path(__file__).resolve().parent.parent          # luca-bot
 ADAYLAR = (KOK.parent / "beyanname-takip", KOK / "beyanname-takip")
 VARSAYILAN_PORT = 8765
@@ -156,6 +158,13 @@ def env_hazirla(k, form, ana_ayarlar):
         for ad, anahtar in (("UYE_NO", "uye_no"), ("KULLANICI", "kullanici_adi"), ("PAROLA", "parola"),
                             ("DOGRULAMA_ANAHTARI", "dogrulama_anahtari")):
             d[f"LUCA_OFIS_{ad}"] = str(ana_ayarlar.get(anahtar) or "")
+    ikinci = hesaplar.ikinci_hesap(ana_ayarlar) if form.get("luca_ayarlardan", True) else None
+    if ikinci is not None:    # Fatura Indirme'deki isletme hesabi Beyanname Takip'te de taranir (LUCA_ISLETME_*)
+        for ad, anahtar in (("UYE_NO", "uye_no"), ("KULLANICI", "kullanici_adi"), ("PAROLA", "parola"),
+                            ("DOGRULAMA_ANAHTARI", "dogrulama_anahtari")):
+            d[f"LUCA_ISLETME_{ad}"] = str(ikinci.get(anahtar) or "")
+        if mevcut.get("LUCA_HESAPLAR", "ofis") in ("", "ofis"):
+            d["LUCA_HESAPLAR"] = "ofis,isletme"
     smtp = ana_ayarlar.get("smtp") or {}
     if not d["RESEND_API_KEY"] and not mevcut.get("SMTP_KULLANICI") and smtp.get("kullanici") and smtp.get("sifre"):
         d.update({"SMTP_HOST": str(smtp.get("sunucu") or "smtp.office365.com"), "SMTP_PORT": str(smtp.get("port") or 587),
