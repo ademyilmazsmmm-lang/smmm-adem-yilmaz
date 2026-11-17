@@ -58,6 +58,14 @@ class SafMantik(unittest.TestCase):
                                         {"belge_numarasi": "ABC2026000000001", "entegrasyon_tur": "B"}])
         self.assertEqual(len(liste), 2)
 
+    def test_getir_penceresinin_sabit_ipucu_hata_sayilmaz(self):
+        pencere = ts.sadelestir("Tarih Aralığı Seçili entegrasyonlar sırayla sorgulanır. En fazla 1 aylık sorgulama yapılabilir. Getir")
+        self.assertNotIn(ts.TOPLU_AZAMI_UZUN, ts.ipucusuz(pencere))
+        gercek = ts.sadelestir("Uyarı: En fazla 1 aylık sorgulama yapılabilir Tamam")
+        self.assertIn(ts.TOPLU_AZAMI_UZUN, ts.ipucusuz(gercek))
+        ikisi = ts.ipucusuz(pencere + " " + gercek)          # pencere acikken gercek hata da gelirse yine yakalanir
+        self.assertIn(ts.TOPLU_AZAMI_UZUN, ikisi)
+
     def test_oran(self):
         self.assertAlmostEqual(ts._oran("9/10"), 0.9)
         self.assertAlmostEqual(ts._oran("%50"), 0.5)
@@ -198,6 +206,17 @@ class UctanUca(unittest.TestCase):
         self.assertEqual(kod, 0, cikti[-2000:])
         self.assertEqual(sahte_luca.SAYAC["toplu_getir"], 6)         # 3 parca x (alis + satis)
         self.assertNotIn("en fazla 1 aylik", cikti)
+
+    def test_bildirim_gelmezse_ekran_durunca_devam_eder(self):
+        sahte_luca.SAYAC["toplu_sessiz"] = True       # Luca faturasiz/sessiz sorguda hic bildirim gostermeyebiliyor
+        eski, ts.IDLE_SANIYE = ts.IDLE_SANIYE, 4
+        try:
+            kod, cikti, rapor = self._calistir("AKIN", tipler=("e-arsiv-alis", "gib-5000"))
+        finally:
+            ts.IDLE_SANIYE = eski
+        self.assertEqual(kod, 0, cikti[-1500:])
+        self.assertIn("sorgu bitmis sayilip devam ediliyor", cikti)
+        self.assertEqual(rapor["AKIN COBAN"]["durumlar"], {"e-arsiv-alis": "tamam", "gib-5000": "tamam"}, cikti[-1500:])
 
     def test_toplu_menu_yoksa_eski_ekranlara_dusulmez(self):
         from test_iki_hesap import _calistir

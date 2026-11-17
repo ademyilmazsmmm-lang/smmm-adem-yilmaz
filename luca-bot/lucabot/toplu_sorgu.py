@@ -24,7 +24,7 @@ from collections import OrderedDict
 from .bekleme import kosulu_bekle, sayfa_canli, sayfa_durulsun
 from .fatura_analiz import (BOS_DEGERLER, csv_yaz, excelden_tablo, matrah_kdv_sutunlari,
                             sutun_indeksi, sutun_tam_indeksi, tutar_cozumle)
-from .gib_sorgu import belge_ara
+from .gib_sorgu import belge_ara, islem_gunlugu, sorgu_bitti_mi
 from .indirme import dosya_indir
 from .liste_secim import ekrandaki_satirlar, hepsini_sec
 from .luca_ekran import (acik_pencere, acik_pencereleri_kapat, cerceveler, dugmeye_bas,
@@ -448,27 +448,65 @@ def _ekran_metni(page):
     return sadelestir(" ".join(parca))
 
 
-def _sonucu_bekle(page, log, azami_saniye):
-    """'Secili entegrasyonlarin sorgulanmasi tamamlandi' bildirimini bekler.
+IDLE_SANIYE = 30   # hicbir pencere/yazi degismeden bu kadar sure gecerse sorgu bitmis sayilir (5000/30000 bildirim gostermiyor)
+
+
+# Getir penceresinde HER ZAMAN duran aciklama; gercek hata iletisinden ayirt edilmeli
+SABIT_IPUCU = "SECILI ENTEGRASYONLAR SIRAYLA SORGULANIR. EN FAZLA 1 AYLIK SORGULAMA YAPILABILIR."
+
+
+def ipucusuz(metin):
+    """Ekran yazisindan Getir penceresinin sabit '...en fazla 1 aylik...' aciklamasini cikarir."""
+    return metin.replace(SABIT_IPUCU, " ")
+
+
+def _sonucu_bekle(page, log, azami_saniye, once=""):
+    """Toplu sorgunun bittigini bekler.
+
+    Bitis isaretleri: "sorgulanmasi tamamlandi" (ya da herhangi yeni bir "tamamlandi") bildirimi,
+    "bulunamadi" bildirimi, Islem Takip gunlugunun "sona erdi" ile bitmesi. Hicbiri gelmezse (Luca
+    faturasiz sorguda hic bildirim gostermeyebiliyor) ekran IDLE_SANIYE boyunca degismediyse devam edilir.
+    `once`: sorgu baslamadan onceki ekran yazisi (eski bildirimler bitis sayilmasin).
 
     Dondurur: 'tamam' | 'tamam_turmob_eksik' | 'turmob_eksik' | 'aralik' | 'zaman_asimi'.
     """
     basla = time.time()
     son_log = 0
+    son_degisim = time.time()
+    son_metin = None
+    once = ipucusuz(once)
     while time.time() - basla < azami_saniye:
-        m = _ekran_metni(page)
+        m = ipucusuz(_ekran_metni(page))
+        if m != son_metin:
+            son_metin, son_degisim = m, time.time()
         eksik = TOPLU_EKSIK_BILGI in m
         if TOPLU_AZAMI_UZUN in m:
             gunluge_yaz("    TANI: 1 aylik sinir iletisi: " + m[max(0, m.find(TOPLU_AZAMI_UZUN) - 80):][:200], log)
             return "aralik"
+        yeni_tamam = m.count("TAMAMLANDI") > once.count("TAMAMLANDI")
         if eksik and "TURMOB" in m:
-            return "tamam_turmob_eksik" if TOPLU_TAMAMLANDI in m else "turmob_eksik"
-        if TOPLU_TAMAMLANDI in m:
-            gunluge_yaz("    TANI: sonuc iletisi: " + m[max(0, m.find(TOPLU_TAMAMLANDI) - 40):][:220], log)
+            return "tamam_turmob_eksik" if (TOPLU_TAMAMLANDI in m or yeni_tamam) else "turmob_eksik"
+        if TOPLU_TAMAMLANDI in m or yeni_tamam:
+            i = m.find("TAMAMLANDI")
+            gunluge_yaz("    TANI: sonuc iletisi: " + m[max(0, i - 70):][:220], log)
+            return "tamam"
+        if m.count("BULUNAMADI") > once.count("BULUNAMADI"):
+            yaz("    Luca: fatura bulunamadi", log)
+            return "tamam"
+        gunluk = islem_gunlugu(page)
+        if gunluk and sorgu_bitti_mi(gunluk):
+            gunluge_yaz("    TANI: islem takip sonu: " + " | ".join(
+                " ".join(x.split()) for x in gunluk.splitlines()[-3:] if x.strip()), log)
+            return "tamam"
+        if not gunluk and time.time() - son_degisim >= IDLE_SANIYE and time.time() - basla >= IDLE_SANIYE:
+            yaz(f"    UYARI: {IDLE_SANIYE} sn boyunca ekranda degisiklik/bildirim yok; sorgu bitmis sayilip devam ediliyor", log)
+            gunluge_yaz("    TANI: ekran yazisi (son 200): " + m[-200:], log)
             return "tamam"
         if time.time() - son_log >= 15:
             son_log = time.time()
             yaz(f"    ... toplu sorgu bekleniyor ({int(time.time() - basla)} sn)", log)
+            gunluge_yaz("    TANI: " + (f"islem takip: {' '.join(gunluk.split())[-120:]}" if gunluk
+                                       else f"ekran yazisi sonu: {m[-120:]}"), log)
         sayfa_durulsun(page, azami_ms=800)
     return "zaman_asimi"
 
@@ -521,13 +559,14 @@ def toplu_getir(page, bas, bit, log):
     else:
         raise TopluBasarisiz(f"tarih kutulari istenen araligi tutmadi ({yazilan})")
     yaz(f"    Tarih araligi girildi: {yazilan}", log)
+    once = _ekran_metni(page)   # eski bildirimler bu sorgunun bitisi sayilmasin
     tik = pencerede_tikla(page, pencere, ["Getir", "Belgeleri Getir", "Sorgula"] if pencere is not None
                           else TOPLU_GETIR_ONAY, sure=5000) if pencere is not None else None
     tik = tik or varsa_tikla(page, TOPLU_GETIR_ONAY, sure=5000)
     if not tik:
         raise TopluBasarisiz("Toplu getir onay butonu bulunamadi")
     yaz(f"    '{tik}' tiklandi, sorgu basladi", log)
-    durum = _sonucu_bekle(page, log, AYAR["azami_saniye"])
+    durum = _sonucu_bekle(page, log, AYAR["azami_saniye"], once)
     if durum == "tamam":
         yaz("    Seçili entegrasyonların sorgulanması tamamlandı", log)
     _bildirimi_kapat(page)

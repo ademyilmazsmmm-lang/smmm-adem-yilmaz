@@ -69,7 +69,7 @@ AEN_EKRANLARI = {
 # sunucu tarafi durum: (firma, tip) -> {"sorgulandi": bool, "iptal": bool}
 DURUM = {}
 # urun seciminde uygulama penceresinin kac kez acildigi (cift tiklama testi icin)
-SAYAC = {"toplu": False, "toplu_yasak": 0, "toplu_getir": 0, "toplu_excel": 0, "toplu_zip": 0, "ara_menu": False, "sso": 0, "ilk_bos": False, "gib_hatasi": 0, "excel": 0, "excel_gecikme": 0,
+SAYAC = {"toplu_sessiz": False, "toplu": False, "toplu_yasak": 0, "toplu_getir": 0, "toplu_excel": 0, "toplu_zip": 0, "ara_menu": False, "sso": 0, "ilk_bos": False, "gib_hatasi": 0, "excel": 0, "excel_gecikme": 0,
         "zip_basarisiz": 0}
 
 # gercek Luca'da goruldu (26/09/2026); gecici, ayni sorgu tekrarlaninca geciyor
@@ -622,7 +622,7 @@ TOPLU_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Akıl
      ac('<span>Entegrasyon Seç</span>' + LISTE.map((a, i) => '<div class="sat"><label><input type="checkbox" data-ad="' + a
        + '"' + (sec.includes(a) ? ' checked' : '') + '> ' + a + '</label></div>').join('')
        + '<button id="kaydet">Kaydet</button>' + kapatDugmesi()); },
-   getir: () => sonra(300, () => ac('<span>Tarih Aralığı</span> <input type="text" name="baslangicTarihi" value="01/08/2026">'
+   getir: () => sonra(300, () => ac('<span>Tarih Aralığı</span> <small>Seçili entegrasyonlar sırayla sorgulanır. En fazla 1 aylık sorgulama yapılabilir.</small> <input type="text" name="baslangicTarihi" value="01/08/2026">'
        + ' <input type="text" name="bitisTarihi" value="31/08/2026"> <button id="getirOnay">Getir</button>' + kapatDugmesi())),
    ara: () => sonra(300, () => ac('<span>Tarih Aralığı</span> <input type="text" name="ilkTarih" value="01/08/2026">'
        + ' <input type="text" name="sonTarih" value="31/08/2026"><label><input type=checkbox>Muhasebeleşmiş</label>'
@@ -645,7 +645,7 @@ TOPLU_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Akıl
      const k = pencere.querySelectorAll('input[type=text]');
      const url = '/api/toplu-getir?' + q + '&bas=' + encodeURIComponent(k[0].value) + '&bit=' + encodeURIComponent(k[1].value);
      kapat(); sonra(300, async () => { const j = await (await fetch(url, {method: 'POST'})).json();
-       yukle(); sonra(1200, () => mesaj(j.mesaj)); }); }
+       yukle(); if (j.mesaj) sonra(1200, () => mesaj(j.mesaj)); }); }
    if (t.id === 'buraya') { e.preventDefault(); document.querySelectorAll('#liste tbody input').forEach(k => k.checked = true); }
    if (t.dataset && t.dataset.e) eylem[t.dataset.e]();
  });
@@ -810,7 +810,8 @@ class Isleyici(BaseHTTPRequestHandler):
                                                    " yapılmadı: TÜRMOB Entegratörlük Alış Faturaları Entegrasyon:"
                                                    " TÜRMOB entegratör kullanıcı bilgileri girilmemiş."}), "application/json")
                 d["sorgulandi"] = True
-                return self._yanit(json.dumps({"mesaj": "Seçili entegrasyonların sorgulanması tamamlandı."}),
+                return self._yanit(json.dumps({"mesaj": "" if SAYAC["toplu_sessiz"] else
+                                               "Seçili entegrasyonların sorgulanması tamamlandı."}),
                                    "application/json")
             # fatura_list.jq
             satirlar = [{"ettn": f["no"], "belge_numarasi": f["no"], "belge_tarihi": f["tarih"], "vkn": "1234567890",
@@ -847,7 +848,7 @@ def sifirla():
         DURUM.clear()
         TOPLU.clear()
         SAYAC.pop("toplu_zip_ent", None)
-        SAYAC.update(toplu=False, toplu_yasak=0, toplu_getir=0, toplu_excel=0, toplu_zip=0, ara_menu=False, sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
+        SAYAC.update(toplu_sessiz=False, toplu=False, toplu_yasak=0, toplu_getir=0, toplu_excel=0, toplu_zip=0, ara_menu=False, sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
 
 
 if __name__ == "__main__":
