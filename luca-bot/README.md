@@ -492,6 +492,22 @@ otomatik ikinci turda yeniden denenir). Seçimde yalnızca o çalışmada istene
 > Bu özellik gerçek Luca'da henüz denenmedi: ekran öğeleri yazılarına göre bulunur. İlk gerçek çalıştırmada
 > `calisma.log` içindeki `TANI: entegrasyon satirlari` satırı ve varsa hata iletisi, gerekirse ayar için yeterlidir.
 
+## E-posta yönlendirme (firma adına göre ayrı alıcı)
+
+Adı (Luca kısa adı) belirli bir önekle başlayan firmaların özeti ve **yalnızca onların raporu** ayrı bir
+kişiye gidebilir. Program klasöründeki `mail-yonlendirme.json` (ya da `ayarlar.json` içindeki `mail_yonlendirme`):
+
+```json
+[{"ad": "Ad Soyad", "firma_on_eki": "1", "alici": "ornek@ornek.com", "ana_maildan_cikar": true}]
+```
+
+* `firma_on_eki`: bu harf/rakamla başlayan firmalar (örn. `1ALİ ŞİM`, `1BAYBARS`). Birden fazla için liste: `["1", "2"]`.
+* `ana_maildan_cikar: true` (varsayılan): bu firmalar sizin ana özet e-postanızdan ve ekindeki rapordan çıkarılır;
+  `false` ise ana e-posta eskisi gibi hepsini içerir.
+* Bir çalışmada yalnızca bu firmalar işlendiyse ana e-posta gitmez, yalnızca ayrı alıcıya gider.
+* `rapor.xlsx` (kalıcı rapor) tüm firmaları içermeye devam eder; yalnızca e-postaya giden ek süzülür.
+* Adres git'e girmesin diye ayrı dosya (`mail-yonlendirme.json`) `.gitignore`'dadır.
+
 ## Sık karşılaşılan durumlar
 
 | Durum | Ne yapmalı |

@@ -476,6 +476,73 @@ class RaporTestleri(unittest.TestCase):
         finally:
             eposta._outlook_ile_gonder, eposta._smtp_ile_gonder = eski
 
+    def test_eposta_yonlendirme_1_ile_baslayan_firmalar_ayri_aliciya(self):
+        import tempfile
+        from pathlib import Path
+        from openpyxl import load_workbook
+        klasor = Path(tempfile.mkdtemp(prefix="mail-yon-"))
+        sonuclar = [self._sonuc("1ALI SIM", "e-arsiv-alis", durum="tamam", fatura_sayisi=2, tevkifat=1),
+                    self._sonuc("1 BAYBARS", "e-arsiv-alis", durum="hata: X", fatura_sayisi=0),
+                    self._sonuc("AKIN", "e-arsiv-alis", durum="tamam", fatura_sayisi=5)]
+        rapor.guncelle(klasor, sonuclar, [], "e-arsiv-alis")
+        gonderilen = []
+
+        def sahte(al, konu, govde, ek, gonder_mi, bildir):
+            firmalar = set()
+            if ek:
+                ws = load_workbook(str(ek))["Özet"] if "Özet" in load_workbook(str(ek)).sheetnames else load_workbook(str(ek)).worksheets[0]
+                firmalar = {str(r[0]) for r in ws.iter_rows(values_only=True) if r and r[0]}
+            gonderilen.append((al, konu, govde, firmalar))
+            return True
+        eski = eposta._outlook_ile_gonder
+        eposta._outlook_ile_gonder = sahte
+        ayar = {"mail_alici": "ben@x.com", "mail_yonlendirme": [
+            {"ad": "Ali", "firma_on_eki": "1", "alici": "ali@x.com"}]}
+        try:
+            self.assertTrue(eposta.gonder(ayar, klasor, sonuclar, lambda m: None, "01/10/2026-17/11/2026"))
+        finally:
+            eposta._outlook_ile_gonder = eski
+        self.assertEqual([g[0] for g in gonderilen], [["ali@x.com"], ["ben@x.com"]])
+        ali, ben = gonderilen
+        self.assertIn("1ALI SIM", ali[2]); self.assertIn("1 BAYBARS", ali[2]); self.assertNotIn("AKIN", ali[2])
+        self.assertIn("2 firma, 2 ekran", ali[2])
+        self.assertIn("1 firma, 1 ekran", ben[2]); self.assertNotIn("1ALI SIM", ben[2]); self.assertNotIn("1 BAYBARS", ben[2])
+        self.assertTrue(any("1ALI SIM" in f for f in ali[3]) and not any("AKIN" in f for f in ali[3]), ali[3])
+        self.assertTrue(any("AKIN" in f for f in ben[3]) and not any("1ALI" in f for f in ben[3]), ben[3])
+        # ana e-posta cikarilmayacaksa ikisi de tum firmalari alir
+        gonderilen.clear()
+        eposta._outlook_ile_gonder = sahte
+        try:
+            eposta.gonder(dict(ayar, mail_yonlendirme=[dict(ayar["mail_yonlendirme"][0], ana_maildan_cikar=False)]),
+                          klasor, sonuclar, lambda m: None)
+        finally:
+            eposta._outlook_ile_gonder = eski
+        self.assertIn("1ALI SIM", gonderilen[1][2])
+        # yalniz yonlendirilen firmalar calistiysa ana e-posta gitmez
+        gonderilen.clear()
+        eposta._outlook_ile_gonder = sahte
+        try:
+            eposta.gonder(ayar, klasor, sonuclar[:2], lambda m: None)
+        finally:
+            eposta._outlook_ile_gonder = eski
+        self.assertEqual([g[0] for g in gonderilen], [["ali@x.com"]])
+
+    def test_eposta_yonlendirme_dosyadan_okunur(self):
+        import os
+        import tempfile
+        from pathlib import Path
+        klasor = Path(tempfile.mkdtemp(prefix="mail-yon-d-"))
+        (klasor / "mail-yonlendirme.json").write_text(
+            '[{"ad": "A", "firma_on_eki": "1", "alici": "a@x.com;b@x.com", "ana_maildan_cikar": true}]', encoding="utf-8")
+        eski = os.environ.get("LUCA_BOT_AYAR")
+        os.environ["LUCA_BOT_AYAR"] = str(klasor / "ayarlar.json")
+        try:
+            kurallar = eposta.yonlendirmeler({})
+        finally:
+            os.environ.pop("LUCA_BOT_AYAR") if eski is None else os.environ.__setitem__("LUCA_BOT_AYAR", eski)
+        self.assertEqual(kurallar, [{"ad": "A", "on_ekler": ["1"], "alicilar": ["a@x.com", "b@x.com"], "ana_maildan_cikar": True}])
+        self.assertEqual(eposta.yonlendirmeler({"mail_yonlendirme": [{"firma_on_eki": "2", "alici": "z@x.com"}]})[0]["on_ekler"], ["2"])
+
     def test_eposta_firma_durumu_ve_hatali_liste(self):
         sonuclar = [self._sonuc("A", "e-arsiv-alis", durum="tamam", fatura_sayisi=3),
                     self._sonuc("A", "e-arsiv-satis", durum="fatura yok"),

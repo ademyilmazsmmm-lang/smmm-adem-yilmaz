@@ -15,15 +15,25 @@ Ayarlar (ayarlar.json):
     mail_alici           : "a@b.com"   - birden fazla icin virgulle ayirin; bos birakilirsa
                                          Outlook'taki kendi hesabiniza gonderilir
     mail_sadece_uyari    : true/false  - true ise uyari yoksa e-posta gitmez
+    mail_yonlendirme     : [{"ad": "Ad Soyad", "firma_on_eki": "1", "alici": "a@b.com",
+                             "ana_maildan_cikar": true}]
+        - firma adi (Luca kisa adi) firma_on_eki ile baslayan firmalarin ozeti ve yalniz onlarin raporu
+          ayrica `alici`ya gider; ana_maildan_cikar true ise (varsayilan) bu firmalar ana ozet e-postasindan
+          ve ekindeki rapordan cikarilir. Ayni liste "mail-yonlendirme.json" dosyasina da yazilabilir
+          (program klasorunde; ayarlar.json'daki mail_yonlendirme bossa o okunur)
     smtp.sunucu/port/ssl/kullanici/sifre/gonderen  - sadece mail_yontemi=smtp icin
 """
 
+import json
+import os
 import smtplib
 import ssl as ssl_modulu
 import time
 from email.message import EmailMessage
 from pathlib import Path
 
+from . import rapor
+from .ortak import KOK
 from .rapor import TEVKIFAT_EKRANLARI  # tevkifat uyarisi sadece alis ekranlarindan
 from .sabitler import BELGE_TIPLERI
 
@@ -48,6 +58,47 @@ def _ayar(ayarlar, yol, varsayilan=None):
 def _alicilar(ayarlar):
     ham = _ayar(ayarlar, "mail_alici") or _ayar(ayarlar, "smtp.gonderen") or ""
     return [a.strip() for a in str(ham).replace(";", ",").split(",") if a.strip()]
+
+
+YONLENDIRME_DOSYASI = "mail-yonlendirme.json"
+
+
+def _liste(deger):
+    if isinstance(deger, (list, tuple)):
+        ham = deger
+    else:
+        ham = str(deger or "").replace(";", ",").split(",")
+    return [str(x).strip() for x in ham if str(x).strip()]
+
+
+def yonlendirmeler(ayarlar):
+    """mail_yonlendirme kurallari: [{"ad", "on_ekler", "alicilar", "ana_maildan_cikar"}].
+
+    ayarlar.json'da yoksa program klasorundeki mail-yonlendirme.json okunur (adres git'e girmesin diye
+    ayri dosya)."""
+    ham = (ayarlar or {}).get("mail_yonlendirme")
+    if not ham:
+        klasor = Path(os.environ["LUCA_BOT_AYAR"]).parent if os.environ.get("LUCA_BOT_AYAR") else KOK
+        try:
+            with open(klasor / YONLENDIRME_DOSYASI, encoding="utf-8-sig") as f:
+                ham = json.load(f)
+        except (OSError, ValueError):
+            ham = []
+    kurallar = []
+    for k in ham if isinstance(ham, list) else []:
+        if not isinstance(k, dict):
+            continue
+        on_ekler = _liste(k.get("firma_on_eki") or k.get("firma_on_ekleri"))
+        alicilar = _liste(k.get("alici") or k.get("alicilar"))
+        if on_ekler and alicilar:
+            kurallar.append({"ad": str(k.get("ad") or ", ".join(alicilar)), "on_ekler": on_ekler,
+                             "alicilar": alicilar, "ana_maildan_cikar": bool(k.get("ana_maildan_cikar", True))})
+    return kurallar
+
+
+def _eslesir(firma, on_ekler):
+    ad = str(firma or "").strip().upper()
+    return any(ad.startswith(o.strip().upper()) for o in on_ekler)
 
 
 def _firma_basina(sonuclar, alan):
@@ -377,10 +428,47 @@ def gonder_ozel(ayarlar, konu, govde, ek_yolu=None, log_yaz=None):
     return _smtp_ile_gonder(ayarlar, alicilar, konu, govde, ek_yolu, bildir)
 
 
+def _rapor_eki(klasor, uygun, ad, bildir):
+    """Ek rapor: uygun None ise tum rapor.xlsx; verilirse yalniz uygun firmalarin raporu (gecici kopya)."""
+    rapor_yolu = Path(klasor) / "rapor.xlsx"
+    if uygun is None:
+        return rapor_yolu if rapor_yolu.exists() else None
+    try:
+        hedef = Path(klasor) / "_mail" / ad / "rapor.xlsx"
+        hedef.parent.mkdir(parents=True, exist_ok=True)
+        yol, sayi = rapor.alt_kume_yaz(Path(klasor), hedef, uygun)
+        return yol if (yol and sayi) else None
+    except Exception as e:
+        bildir(f"UYARI: ek rapor hazirlanamadi ({type(e).__name__}: {e}); e-posta eksiz gidecek")
+        return None
+
+
+def _bir_mail(ayarlar, yontem, alicilar, sonuclar, klasor, bildir, donem, ikinci_tur, uygun=None, ad="ana",
+              etiket=""):
+    """Bir alici grubuna ozet e-postasi + (varsayilan/suzulmus) rapor eki gonderir."""
+    govde, uyari_var = ozet_metni(sonuclar, donem, ikinci_tur)
+    if etiket:
+        govde = f"{etiket}\n\n{govde}"
+    if _ayar(ayarlar, "mail_sadece_uyari", False) and not uyari_var:
+        bildir("Tevkifatli/e-SMM kaydi yok, e-posta gonderilmedi (mail_sadece_uyari)")
+        return False
+    _, _, hatali_firma = firma_sayilari(sonuclar)
+    konu = (f"{'[' + str(hatali_firma) + ' firmada hata] ' if hatali_firma else '[Sorunsuz] '}"
+            f"Dijital Stajyer ozeti{' - ' + donem if donem else ''}{' (' + etiket + ')' if etiket else ''}")
+    ek_yolu = _rapor_eki(klasor, uygun, ad, bildir)
+    if yontem == "outlook":
+        # ayar hic yazilmamissa gonderilir; taslak icin acikca false yazilmali
+        gonder_mi = bool(_ayar(ayarlar, "mail_otomatik_gonder", True))
+        return _outlook_ile_gonder(alicilar, konu, govde, ek_yolu, gonder_mi, bildir)
+    return _smtp_ile_gonder(ayarlar, alicilar, konu, govde, ek_yolu, bildir)
+
+
 def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem="", ikinci_tur=None):
     """Ozet e-postasini gonderir. Gonderildiyse (ya da taslak acildiysa) True doner.
 
-    Hicbir hata calismayi durdurmaz; sebep gunluge yazilir.
+    mail_yonlendirme kurali varsa: adi kurala uyan firmalarin ozeti ve yalniz onlarin raporu o kuralin
+    alicisina ayrica gider; ana_maildan_cikar (varsayilan) ise bu firmalar ana e-postadan ve ekindeki
+    rapordan cikarilir. Hicbir hata calismayi durdurmaz; sebep gunluge yazilir.
     """
     def bildir(mesaj):
         if log_yaz:
@@ -391,19 +479,22 @@ def gonder(ayarlar, klasor, sonuclar, log_yaz=None, donem="", ikinci_tur=None):
         return False
     yontem, alicilar = hazir
 
-    govde, uyari_var = ozet_metni(sonuclar, donem, ikinci_tur)
-    if _ayar(ayarlar, "mail_sadece_uyari", False) and not uyari_var:
-        bildir("Tevkifatli/e-SMM kaydi yok, e-posta gonderilmedi (mail_sadece_uyari)")
-        return False
+    kurallar = yonlendirmeler(ayarlar)
+    cikarilan = [o for k in kurallar if k["ana_maildan_cikar"] for o in k["on_ekler"]]
+    gonderildi = False
+    for k in kurallar:
+        alt = [s for s in sonuclar if _eslesir(s.get("firma"), k["on_ekler"])]
+        if not alt:
+            continue
+        bildir(f"E-posta yonlendirme: '{', '.join(k['on_ekler'])}' ile baslayan {len({s.get('firma') for s in alt})}"
+               f" firma ayrica {k['ad']} adresine gonderiliyor")
+        gonderildi = _bir_mail(ayarlar, yontem, k["alicilar"], alt, klasor, bildir, donem, ikinci_tur,
+                               uygun=lambda f, o=k["on_ekler"]: _eslesir(f, o), ad=f"yonlendirme-{kurallar.index(k) + 1}",
+                               etiket=f"{', '.join(k['on_ekler'])} ile baslayan firmalar") or gonderildi
 
-    _, _, hatali_firma = firma_sayilari(sonuclar)
-    konu = (f"{'[' + str(hatali_firma) + ' firmada hata] ' if hatali_firma else '[Sorunsuz] '}"
-            f"Dijital Stajyer ozeti{' - ' + donem if donem else ''}")
-    rapor_yolu = Path(klasor) / "rapor.xlsx"
-    ek_yolu = rapor_yolu if rapor_yolu.exists() else None
-
-    if yontem == "outlook":
-        # ayar hic yazilmamissa gonderilir; taslak icin acikca false yazilmali
-        gonder_mi = bool(_ayar(ayarlar, "mail_otomatik_gonder", True))
-        return _outlook_ile_gonder(alicilar, konu, govde, ek_yolu, gonder_mi, bildir)
-    return _smtp_ile_gonder(ayarlar, alicilar, konu, govde, ek_yolu, bildir)
+    ana = [s for s in sonuclar if not (cikarilan and _eslesir(s.get("firma"), cikarilan))]
+    if kurallar and not ana:
+        bildir("Ana e-posta gonderilmedi: bu calismada yalniz yonlendirilen firmalar vardi")
+        return gonderildi
+    ana_uygun = (lambda f: not _eslesir(f, cikarilan)) if cikarilan else None
+    return _bir_mail(ayarlar, yontem, alicilar, ana, klasor, bildir, donem, ikinci_tur, uygun=ana_uygun) or gonderildi

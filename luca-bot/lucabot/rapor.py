@@ -546,6 +546,21 @@ def guncelle(klasor, sonuclar, bekleyenler, belge_tipi):
     return rapor_excel.yaz(klasor / "rapor.xlsx", kayitlar, satirlar)
 
 
+def alt_kume_yaz(klasor, yol, uygun):
+    """rapor.json'daki firmalardan uygun(firma) olanlarin raporunu `yol`a xlsx yazar: (yol|None, firma sayisi).
+
+    Ana e-postadan cikarilan / baska aliciya giden firmalarin ayri raporu icin; rapor.xlsx'e dokunmaz."""
+    kayitlar = {f: k for f, k in _oku(Path(klasor) / "rapor.json").items() if uygun(f)}
+    if not kayitlar:
+        return None, 0
+    for k in kayitlar.values():
+        _tamamla(k)
+    satirlar = [_satir(k) for k in kayitlar.values()]
+    satirlar.sort(key=lambda r: (not r[3], r[0]))
+    from . import rapor_excel
+    return rapor_excel.yaz(Path(yol), kayitlar, satirlar), len(kayitlar)
+
+
 def ozet_csv_yaz(ozet_yolu, kalan_yolu, sonuclar, bekleyenler, belge_tipi):
     """Ekran bazinda duz ozet; her firmadan sonra yeniden yazilir, islenmeyenler 'bekliyor'."""
     with open(ozet_yolu, "w", encoding="utf-8-sig", newline="") as f:

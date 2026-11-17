@@ -20,6 +20,7 @@
   "mail_otomatik_gonder": true,
   "mail_alici": "",
   "mail_sadece_uyari": false,
+  "mail_yonlendirme": [],
   "otomatik_tekrar": true,
   "smtp": {
     "sunucu": "smtp.office365.com",
