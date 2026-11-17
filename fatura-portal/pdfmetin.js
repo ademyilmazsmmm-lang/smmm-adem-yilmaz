@@ -181,7 +181,7 @@ function fisDevir(buf) {
 }
 
 /* ---- Geçici vergi beyannamesi: "Dönem Kârı / Dönem Zararı" (yıl başından o döneme kadar birikmiş tutar) ----
- * Gelir (1032) ve kurumlar geçici vergi beyannamesinde satır adı "Dönem Kârı" ya da "Dönem Zararı"dır; bulunamazsa "Kar Toplamı" / "Zarar Toplamı" satırlarından net hesaplanır.
+ * Kurumlar: "Ticari Bilanço Karı / Zararı". Gelir: ZARAR ve KAR sütunlarındaki "Zarar" ve "Kar" satırları. Olmazsa "Kar/Zarar Toplamı", son çare sıfırdan farklı "Dönem Kârı/Zararı".
  * Satırlar öğelerin dikey konumuyla kurulur (etiket solda, tutar sağ sütunda olsa da aynı satıra düşer). Bulunamazsa null döner: yanlış tutar göstermektense hiç göstermemek. */
 const buyukAscii = (s) => String(s || "").toLocaleUpperCase("tr-TR").replace(/İ/g, "I").replace(/Ö/g, "O").replace(/Ü/g, "U").replace(/Ş/g, "S").replace(/Ç/g, "C").replace(/Ğ/g, "G").replace(/[ÂÄ]/g, "A").replace(/Î/g, "I");
 const harfAralik = (w) => w.split("").map((c) => c + "\\s*").join("");
@@ -190,17 +190,28 @@ function satirMetinleri(ogeler) {
   for (const o of sirali) { const son = satirlar[satirlar.length - 1]; if (son && Math.abs(son.y - o.y) <= Math.max(2, (o.b || 8) * 0.5)) son.oge.push(o); else satirlar.push({ y: o.y, oge: [o] }); }
   return satirlar.map((r) => r.oge.sort((a, b) => a.x - b.x).map((o) => o.s).join(" "));
 }
-function geciciKarMetinden(satirlar) {
+function geciciKarMetinden(satirlar, tamMetin) {
   const TUT = "(-?\\d{1,3}(?:\\.\\d{3})*,\\d{2})";
+  /* satır başında etiket + tek tutar (Kar / Zarar gibi kısa etiketler başka etiketlerin içinde geçtiğinden yalnız tam satırda aranır) */
+  const tam = (etiket) => { const re = new RegExp("^\\s*" + harfAralik(etiket) + "\\s*" + TUT + "\\s*$"); for (const s of satirlar) { const m = re.exec(s); if (m) return sayiOku(m[1]); } return null; };
   const bul = (onEk, etiket) => { const re = new RegExp((onEk ? harfAralik(onEk) + "\\s*" : "") + harfAralik(etiket) + "[^0-9-]{0,40}?" + TUT); for (const s of satirlar) { const m = re.exec(s); if (m) return sayiOku(m[1]); } return null; };
-  let kar = bul("DONEM", "KARI"), zarar = bul("DONEM", "ZARARI"), etiket = "Dönem Kârı/Zararı";
-  if (kar == null && zarar == null) { kar = bul("KAR", "TOPLAMI"); zarar = bul("ZARAR", "TOPLAMI"); etiket = "Kâr/Zarar Toplamı"; }
-  if (kar == null && zarar == null) return null;
-  return { tutar: Math.round(((kar || 0) - (zarar || 0)) * 100) / 100, kar: kar || 0, zarar: zarar || 0, etiket };
+  const sonuc = (kar, zarar, etiket) => ({ tutar: Math.round(((kar || 0) - (zarar || 0)) * 100) / 100, kar: kar || 0, zarar: zarar || 0, etiket });
+  /* 1) kurumlar: "Ticari Bilanço Karı" / "Ticari Bilanço Zararı" (dönem içindeki ticari bilanço sonucu) */
+  let kar = bul("TICARI", "BILANCOKARI"), zarar = bul("TICARI", "BILANCOZARARI");
+  if (kar != null || zarar != null) return sonuc(kar, zarar, "Ticari Bilanço Kârı/Zararı");
+  /* 2) gelir: ZARAR / KAR sütunlarının "Zarar" ve "Kar" satırları */
+  if (!tamMetin) { kar = tam("KAR"); zarar = tam("ZARAR"); if (kar != null || zarar != null) return sonuc(kar, zarar, "Kâr / Zarar"); }
+  /* 3) "Kar Toplamı" / "Zarar Toplamı" */
+  kar = bul("KAR", "TOPLAMI"); zarar = bul("ZARAR", "TOPLAMI");
+  if (kar != null || zarar != null) return sonuc(kar, zarar, "Kâr/Zarar Toplamı");
+  /* 4) "Dönem Kârı" / "Dönem Zararı": formda kâr olsa bile "Dönem Zararı 0,00" satırı bulunur; yalnız sıfırdan farklıysa güvenilir */
+  kar = bul("DONEM", "KARI"); zarar = bul("DONEM", "ZARARI");
+  if ((kar || 0) !== 0 || (zarar || 0) !== 0) return sonuc(kar, zarar, "Dönem Kârı/Zararı");
+  return null;
 }
 function geciciKarOku(buf) {
   const ogeler = [], metin = pdfMetni(buf, ogeler), satirlar = satirMetinleri(ogeler).map(buyukAscii);
-  return geciciKarMetinden(satirlar) || geciciKarMetinden([buyukAscii(metin).replace(/\s+/g, " ")]);
+  return geciciKarMetinden(satirlar) || geciciKarMetinden([buyukAscii(metin).replace(/\s+/g, " ")], true);
 }
 
 module.exports = { fisDevir, tahakkukTablo, pdfMetni, devirBul, geciciKarOku, geciciKarMetinden, satirMetinleri, buyukAscii, _icerikMetni: icerikMetni, _cmap: cmap };
