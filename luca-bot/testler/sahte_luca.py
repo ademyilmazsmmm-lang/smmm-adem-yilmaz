@@ -645,7 +645,7 @@ TOPLU_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Akıl
      const k = pencere.querySelectorAll('input[type=text]');
      const url = '/api/toplu-getir?' + q + '&bas=' + encodeURIComponent(k[0].value) + '&bit=' + encodeURIComponent(k[1].value);
      kapat(); sonra(300, async () => { const j = await (await fetch(url, {method: 'POST'})).json();
-       sonra(1200, () => mesaj(j.mesaj)); }); }
+       yukle(); sonra(1200, () => mesaj(j.mesaj)); }); }
    if (t.id === 'buraya') { e.preventDefault(); document.querySelectorAll('#liste tbody input').forEach(k => k.checked = true); }
    if (t.dataset && t.dataset.e) eylem[t.dataset.e]();
  });

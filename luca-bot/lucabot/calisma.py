@@ -345,8 +345,9 @@ class Calisma:
     def _toplu_isle(self, firma, ekranlar, biten):
         """Hizli mod: Akilli Ent. Toplu Sorgulama (Alis, sonra Satis). (firma secili mi, sonuc veren ekran).
 
-        Basarisiz olan yon icin ekranlar `biten`e eklenmez; asagidaki eski ekran-ekran dongusu
-        onlari isler. Tarayici olurse hata yukari gider (cagiran toparlayip yeniden dener).
+        Basarisiz yon icin ekranlar hata olarak kaydedilir (eski ekranlara dusulmez); yalniz toplu
+        kapsami disindaki E-Arsiv Sorgulama (interaktif) eski yolla islenir. Tarayici olurse hata
+        yukari gider (cagiran toparlayip yeniden dener).
         """
         secildi, sonuc_veren = False, 0
         for yon in ("alis", "satis"):
@@ -364,9 +365,20 @@ class Calisma:
             except Exception as e:
                 if not sayfa_canli(self.page):
                     raise
-                yaz(f"    Toplu Sorgulama kullanilamadi ({type(e).__name__}: {str(e)[:160]});"
-                    " bu firmanin ekranlari tek tek sorgulanacak", self.log)
+                # Hizli modda bu ekranlar baska menuden (eski e-Arsiv/e-Fatura ekranlari) sorgulanmaz;
+                # hata kaydedilir, firma/ekran "tekrar" listesine duser (E-Arsiv Sorgulama eski yolla gider).
+                yaz(f"    HATA: Toplu Sorgulama kullanilamadi ({type(e).__name__}: {str(e)[:160]})", self.log)
                 gunluge_yaz("    " + traceback.format_exc().replace("\n", "\n    "), self.log)
+                for tip in tipler:
+                    hata = yeni_sonuc(firma, tip)
+                    hata["durum"] = f"hata: {type(e).__name__}"
+                    hata["not"] = f"Toplu Sorgulama: {str(e).splitlines()[0][:140] if str(e) else type(e).__name__}"
+                    if sayfa_canli(self.page):
+                        hata["ekran_goruntusu"] = hata_kaydet(self.page, self.klasor / "hatalar",
+                                                              f"{firma} - toplu-{yon}")
+                    biten.add(tip)
+                    self._sonuc_ekle(hata)
+                    konsol.ekran_sonucu(hata, self.log)
                 sayfayi_toparla(self.page)
                 secildi = False
                 continue

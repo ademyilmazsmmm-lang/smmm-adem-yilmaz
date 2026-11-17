@@ -199,14 +199,19 @@ class UctanUca(unittest.TestCase):
         self.assertEqual(sahte_luca.SAYAC["toplu_getir"], 6)         # 3 parca x (alis + satis)
         self.assertNotIn("en fazla 1 aylik", cikti)
 
-    def test_toplu_menu_yoksa_eski_yola_donulur(self):
+    def test_toplu_menu_yoksa_eski_ekranlara_dusulmez(self):
         from test_iki_hesap import _calistir
         sahte_luca.SAYAC.update(ara_menu=True, toplu=False)         # menude yalnizca grupsuz "Toplu Sorgulama"
         kod, cikti, _ = _calistir(self.klasor, self.adres, {}, ["--firma", "AKIN", "--bastan", "--toplu"])
-        self.assertEqual(kod, 0, cikti[-2000:])
-        self.assertIn("Toplu Sorgulama kullanilamadi", cikti)
         rapor = json.loads((self.klasor / "indirilenler" / "rapor.json").read_text(encoding="utf-8"))
-        self.assertEqual(rapor["AKIN COBAN"]["durumlar"], {"e-arsiv-alis": "tamam"}, cikti[-1500:])
+        self.assertTrue(rapor["AKIN COBAN"]["durumlar"]["e-arsiv-alis"].startswith("hata"), cikti[-1500:])
+        self.assertIn("Toplu Sorgulama kullanilamadi", cikti)
+        self.assertNotIn("GİB'den Getir aciliyor", cikti)            # eski e-Arsiv Alis ekrani acilmadi
+
+    def test_yalniz_istenen_entegrasyon_secilir_ve_liste_satirlari_karismaz(self):
+        self._calistir("AKIN", tipler=("e-arsiv-alis",))
+        sec = sahte_luca.TOPLU[("AKIN COBAN", "alis")]["secili"]
+        self.assertEqual(sec, ["GİB E-Arşiv Alış Faturaları Entegrasyon"])   # e-Fatura/TURMOB istenmedi: secilmez
 
 
 if __name__ == "__main__":

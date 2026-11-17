@@ -329,9 +329,49 @@ DURUM_JS = """(n) => { const k = document.querySelector('[data-lucabot-ent="' + 
   return /(^|\\s)(checked|jqx-checkbox-check-checked)(\\s|$)/.test(k.className || ''); }"""
 
 
+# Bir penceredeki belirli bir dugmeden (Kaydet / Getir) yukari cikarak pencerenin kendisini bulur:
+# icinde en az `min` adet `secici` ogesi olan ilk ata. Luca (jqx) pencereleri ayni DOM'u yeniden
+# gosterdigi icin "yeni beliren kutu" yontemi ikinci acilista yanlis kutulari buluyordu; ayrica
+# arkadaki listenin satirlari (onay kutulari) entegrasyon satiri sanilmasin.
+KAPSAYICI_JS = """(a) => {
+  const [metinler, min, secici] = a;
+  const gor = e => !!(e.offsetParent || e.getClientRects().length);
+  const sade = t => (t || '').trim().replace(/\\s+/g, ' ').toLocaleLowerCase('tr');
+  const hedef = metinler.map(sade);
+  document.querySelectorAll('[data-lucabot-kap]').forEach(e => e.removeAttribute('data-lucabot-kap'));
+  const dugmeler = Array.from(document.querySelectorAll(
+    'button, a, input[type=button], input[type=submit], [role=button], .jqx-button, span, div'))
+    .filter(e => gor(e) && hedef.includes(sade(e.tagName === 'INPUT' ? e.value : e.textContent)));
+  for (const d of dugmeler.reverse()) {
+    let ata = d.parentElement;
+    for (let i = 0; i < 10 && ata; i++, ata = ata.parentElement) {
+      if (Array.from(ata.querySelectorAll(secici)).filter(gor).length >= min) {
+        ata.setAttribute('data-lucabot-kap', '1'); return true; }
+    }
+  }
+  return false;
+}"""
+
+METIN_KUTUSU = "input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=button]):not([type=submit])"
+ONAY_KUTUSU = "input[type=checkbox], [role=checkbox], .jqx-checkbox"
+
+
+def _kapsayici(page, metinler, min_sayi, secici):
+    """(cerceve, pencere konumlayicisi); bulunamazsa (None, None)."""
+    for fr in cerceveler(page):
+        try:
+            if fr.evaluate(KAPSAYICI_JS, [list(metinler), min_sayi, secici]):
+                return fr, fr.locator('[data-lucabot-kap="1"]').first
+        except Exception:
+            continue
+    return None, None
+
+
 def _entegrasyon_satirlari(page):
     """(cerceve, pencere, [{ad, secili, n}]); satir bulunamazsa bos liste."""
-    fr, pencere = acik_pencere(page)
+    fr, pencere = _kapsayici(page, ["Kaydet"], 2, ONAY_KUTUSU)
+    if pencere is None:
+        fr, pencere = acik_pencere(page)
     adaylar = [(fr, pencere)] if pencere is not None else []
     adaylar += [(f, None) for f in cerceveler(page)]
     for f, p in adaylar:
@@ -345,7 +385,7 @@ def _entegrasyon_satirlari(page):
     return None, None, []
 
 
-def entegrasyonlari_sec(page, turmob_var, log):
+def entegrasyonlari_sec(page, turmob_var, log, yon=None, tipler=None):
     """Entegrasyon Sec penceresinde yalniz izinli olanlari isaretler, Kaydet'e basar.
 
     Dondurur: secilen entegrasyon adlari listesi. Pencere/satir bulunamazsa TopluBasarisiz.
@@ -359,10 +399,17 @@ def entegrasyonlari_sec(page, turmob_var, log):
         raise TopluBasarisiz("Entegrasyon Sec penceresinde satir/onay kutusu bulunamadi")
     gunluge_yaz("    TANI: entegrasyon satirlari: " + " | ".join(
         f"{'X' if s['secili'] else '-'} {s['ad'][:50]}" for s in satirlar), log)
-    satirlar = [s for s in satirlar if not re.match(r"(TUMUNU|HEPSINI|TUMU\b)", sadelestir(s["ad"]))]
+    # arkadaki fatura listesinin satirlari (numara/tarih iceren) entegrasyon sayilmaz
+    satirlar = [s for s in satirlar if not re.match(r"(TUMUNU|HEPSINI|TUMU\b)", sadelestir(s["ad"]))
+                and not re.search(r"\d{9,}|\d{2}[./]\d{2}[./]\d{4}", s["ad"])]
+
+    def istenen_mi(ad):   # izinli VE bu calismada istenen ekranlardan birine ait
+        if not entegrasyon_izinli(ad, turmob_var):
+            return False
+        return not (tipler and yon) or entegrasyon_tipi(ad, yon) in tipler
     secilen = []
     for s in satirlar:
-        istenen = entegrasyon_izinli(s["ad"], turmob_var)
+        istenen = istenen_mi(s["ad"])
         if istenen:
             secilen.append(s["ad"])
         if istenen != s["secili"]:
@@ -377,7 +424,7 @@ def entegrasyonlari_sec(page, turmob_var, log):
             simdi = fr.evaluate(DURUM_JS, s["n"])
         except Exception:
             simdi = None
-        if simdi is not None and bool(simdi) != entegrasyon_izinli(s["ad"], turmob_var):
+        if simdi is not None and bool(simdi) != istenen_mi(s["ad"]):
             yaz(f"    UYARI: '{s['ad'][:50]}' istenen durumda degil", log)
     if not secilen:
         raise TopluBasarisiz("secilebilecek entegrasyon bulunamadi")
@@ -412,10 +459,12 @@ def _sonucu_bekle(page, log, azami_saniye):
         m = _ekran_metni(page)
         eksik = TOPLU_EKSIK_BILGI in m
         if TOPLU_AZAMI_UZUN in m:
+            gunluge_yaz("    TANI: 1 aylik sinir iletisi: " + m[max(0, m.find(TOPLU_AZAMI_UZUN) - 80):][:200], log)
             return "aralik"
         if eksik and "TURMOB" in m:
             return "tamam_turmob_eksik" if TOPLU_TAMAMLANDI in m else "turmob_eksik"
         if TOPLU_TAMAMLANDI in m:
+            gunluge_yaz("    TANI: sonuc iletisi: " + m[max(0, m.find(TOPLU_TAMAMLANDI) - 40):][:220], log)
             return "tamam"
         if time.time() - son_log >= 15:
             son_log = time.time()
@@ -445,16 +494,36 @@ def toplu_getir(page, bas, bit, log):
     """Secili entegrasyonlardan tek bir (en fazla 1 aylik) aralik icin getirir; _sonucu_bekle durumu."""
     yaz(f"    Seçili Entegrasyonlardan Getir ({bas} - {bit})", log)
     acik_pencereleri_kapat(page, log)
-    eski_kutulari_isaretle(page)
     if not dugmeye_bas(page, TOPLU_GETIR, sure=6000):
         raise TopluBasarisiz(f"'{TOPLU_GETIR}' butonuna basilamadi")
-    pencere = _pencere_bekle(page, ["Başlangıç", "Bitiş", "Tarih Aralığı"])
-    kutular = tarih_kutulari(page, pencere)
+    pencere = None
+    kosulu_bekle(page, lambda: _kapsayici(page, ["Getir", "Belgeleri Getir", "Sorgula"], 2, METIN_KUTUSU)[1] is not None,
+                 5000, aralik_ms=250)
+    fr, pencere = _kapsayici(page, ["Getir", "Belgeleri Getir", "Sorgula"], 2, METIN_KUTUSU)
+    if pencere is None:   # eski yontem: yeni beliren tarih kutulari
+        eski_kutulari_isaretle(page)
+        pencere = _pencere_bekle(page, ["Başlangıç", "Bitiş", "Tarih Aralığı"])
+        kutular = tarih_kutulari(page, pencere)
+    else:
+        kutular = pencere.locator(METIN_KUTUSU)
+        kutular = [kutular.nth(i) for i in range(min(kutular.count(), 2))]
+        try:
+            gunluge_yaz("    TANI: getir penceresi: " + " ".join(pencere.inner_text(timeout=2000).split())[:160], log)
+        except Exception:
+            pass
     if len(kutular) < 2:
         raise TopluBasarisiz("Toplu getir tarih kutulari bulunamadi")
-    yaz(f"    Tarih araligi girildi: {tarih_araligi_yaz(kutular, bas, bit)}", log)
-    tik = (pencerede_tikla(page, pencere, TOPLU_GETIR_ONAY, sure=5000) if pencere is not None else None) \
-        or varsa_tikla(page, TOPLU_GETIR_ONAY, sure=5000)
+    for deneme in (1, 2):
+        yazilan = tarih_araligi_yaz(kutular, bas, bit)
+        if yazilan.replace(" ", "") == f"{bas}-{bit}":
+            break
+        yaz(f"    UYARI: tarih kutularinda '{yazilan}' gorunuyor, tekrar yaziliyor", log)
+    else:
+        raise TopluBasarisiz(f"tarih kutulari istenen araligi tutmadi ({yazilan})")
+    yaz(f"    Tarih araligi girildi: {yazilan}", log)
+    tik = pencerede_tikla(page, pencere, ["Getir", "Belgeleri Getir", "Sorgula"] if pencere is not None
+                          else TOPLU_GETIR_ONAY, sure=5000) if pencere is not None else None
+    tik = tik or varsa_tikla(page, TOPLU_GETIR_ONAY, sure=5000)
     if not tik:
         raise TopluBasarisiz("Toplu getir onay butonu bulunamadi")
     yaz(f"    '{tik}' tiklandi, sorgu basladi", log)
@@ -589,14 +658,21 @@ def toplu_isle(page, firma, yon, tipler, araliklar, cikti_kok, log, turmob_var=T
     fatura_yok_penceresini_kapat(page)
 
     turmob = turmob_var and firma not in TURMOB_YOK
-    entegrasyonlari_sec(page, turmob, log)
+    entegrasyonlari_sec(page, turmob, log, yon, tipler)
     for bas, bit in parcalar:
         durum = toplu_getir(page, bas, bit, log)
+        if durum == "aralik":   # Luca araligi 1 aydan uzun saydi: ikiye bolup tekrar dene
+            yari = tarih_cozumle(bas) + (tarih_cozumle(bit) - tarih_cozumle(bas)) // 2
+            yaz("    Luca araligi cok uzun saydi; ikiye bolunuyor", log)
+            for b2, e2 in ((bas, yari.strftime(TARIH_BICIMI)), (yari.strftime(TARIH_BICIMI), bit)):
+                durum = toplu_getir(page, b2, e2, log)
+                if durum not in ("tamam", "tamam_turmob_eksik"):
+                    break
         if durum in ("turmob_eksik", "tamam_turmob_eksik") and turmob:
             yaz("    TÜRMOB bilgisi girilmemis; TÜRMOB secilmeden devam ediliyor", log)
             TURMOB_YOK.add(firma)
             turmob = False
-            entegrasyonlari_sec(page, False, log)
+            entegrasyonlari_sec(page, False, log, yon, tipler)
             if durum == "turmob_eksik":
                 durum = toplu_getir(page, bas, bit, log)
         if durum == "aralik":

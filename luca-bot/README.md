@@ -483,8 +483,10 @@ Her firma için sırayla:
    e-posta ve "birleşik" fatura sayımı değişmez. Tevkifat KDV'si Excel'deki "Tevkifat Oranı"ndan (9/10 gibi) hesaplanır.
 
 **E-Arşiv Faturaları Sorgulama** (interaktif V.D.) menüdeki yerinde durur; hızlı modda da eski yolla çalışır.
-Toplu ekran açılamazsa, entegrasyon penceresi tanınmazsa ya da sorgu bitmezse program o firmanın ekranlarını
-**eski ekran-ekran yöntemle** tek tek sorgular (günlükte "Toplu Sorgulama kullanılamadı" yazar).
+Hızlı modda e-Arşiv/e-Fatura/5000-30000/TÜRMOB/e-SMM ekranları **yalnızca** Toplu Sorgulama'dan işlenir; eski
+tek tek ekranlara düşülmez. Toplu ekran açılamazsa o firmanın ilgili ekranları rapora `hata` olarak yazılır (ve
+otomatik ikinci turda yeniden denenir). Seçimde yalnızca o çalışmada istenen ekranların entegrasyonları işaretlenir
+(örn. listede e-Fatura X'liyse GİB e-Fatura entegrasyonu seçilmez).
 
 > Bu özellik gerçek Luca'da henüz denenmedi: ekran öğeleri yazılarına göre bulunur. İlk gerçek çalıştırmada
 > `calisma.log` içindeki `TANI: entegrasyon satirlari` satırı ve varsa hata iletisi, gerekirse ayar için yeterlidir.
