@@ -3435,6 +3435,15 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   function btAy(t){ var q = /^(\d{4})-?(\d{2})/.exec(String(t || "")); return q ? +q[1] * 12 + (+q[2]) : 0; }
   function btGrupB(t){ return /^DAMGA/i.test(String(t || "")) ? "DAM" : bynGrup(t); }
   /* aynı fiş / beyanname birden çok sorguda tekrar gelebilir: tekilleştir */
+  /* GİB, aynı yıl içinde her oluşturulan e-Vergi levhasını ayrı kayıt (onay kodu) olarak listeler: banka evrakında vergi türü + vergi dairesi başına yalnız en son oluşturulan gösterilir */
+  function levhaTekil(l){
+    var g = {}, sira = [];
+    (l || []).forEach(function(x, i){
+      var k = String(x.vergiDairesi || "") + "|" + String(x.vergiTuru || ""), t = tarihAl(x.onayZamani), v = t ? t.getTime() : -1, e = g[k];
+      if (!e) { g[k] = { x: x, v: v }; sira.push(k); } else if (v > e.v) g[k] = { x: x, v: v };
+    });
+    return sira.map(function(k){ return g[k].x; });
+  }
   function tekil(l, f){ var g = {}; return (l || []).filter(function(x){ var k = f(x); if (g[k]) return false; g[k] = 1; return true; }); }
   function thkAnah(t){ return t.fisNo || [t.vergiKodu, t.vergiDonem, t.kabulTarihi].join("|"); }
   function bynAnah(b){ return b.sira ? "oid:" + b.sira : [b.tur, b.bas, b.bit, b.aciklama].join("|"); }
@@ -4448,7 +4457,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     var satir = function(o){ return '<label class="a2-sat" style="cursor:pointer;align-items:center"><input type="checkbox" data-bkc data-tur="' + o.tur + '" data-n="' + (o.n == null ? "" : o.n) + '" data-id="' + esc(o.id || "") + '" data-dil="' + (o.dil || "") + '" data-ad="' + esc(o.ad) + '" data-baslik="' + esc(o.baslik) + '"' + (o.secili === false ? "" : " checked") + ' style="width:20px;height:20px;flex:none;margin:0"><div style="flex:1;min-width:0"><span>' + esc(o.baslik) + '</span>' + (o.alt ? '<small>' + esc(o.alt) + '</small>' : '') + '</div><a class="a2-lnk" href="' + o.url + '" target="_blank" rel="noopener">PDF</a></label>'; };
     var kart = function(baslik, ic){ return '<section class="a2-kart" style="gap:6px"><div class="a2-kbas"><b>' + baslik + '</b></div><div>' + ic + '</div></section>'; };
     var yok = function(m){ return '<p class="not" style="margin:0;color:var(--danger)">' + m + '</p>'; };
-    var lv = (BK.levha && BK.levha.levhalar) || [];
+    var lv = levhaTekil((BK.levha && BK.levha.levhalar) || []);
     h += kart("e-Vergi levhası (" + Y + ")", lv.length ? lv.map(function(x, i){ var ek = lv.length > 1 ? " " + (x.vergiTuru || String(i + 1)) : ""; return satir({ tur: "lev", n: x.n, dil: "tr", ad: dosyaAd(Y + " e-vergi levhasi" + ek), baslik: "e-Vergi levhası" + (ek ? " (" + ek.trim() + ")" : ""), alt: [tebAd(x.vergiDairesi || ""), "Türkçe"].filter(Boolean).join(" · "), url: belgeUrl("levtr", x.n, 0), secili: i === 0 }) + satir({ tur: "lev", n: x.n, dil: "en", ad: dosyaAd(Y + " e-vergi levhasi ingilizce" + ek), baslik: "e-Vergi levhası, İngilizce" + (ek ? " (" + ek.trim() + ")" : ""), url: belgeUrl("leven", x.n, 0), secili: false }); }).join("") : yok(BK.levha ? Y + " yılına ait e-Vergi levhası bulunamadı." : "e-Vergi levhası alınamadı."));
     var belT = function(t){ return (BK.bel || []).filter(function(b){ return b.tur === t; }); }, ofis = ROL === "ofis";
     /* Belgelerim'de yoksa: mükellef ofisten ister, ofis yükler */
