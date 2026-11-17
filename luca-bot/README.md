@@ -476,7 +476,9 @@ Her firma için sırayla:
    sorgulanması tamamlandı" bildirimi beklenir.
 4. **Belge Ara** ile liste yüklenir (hangi faturanın hangi entegrasyondan geldiği ve iptal/itiraz durumu için),
    **Excel** indirilir (tutarlar; aynı fatura Excel'de tekrar ediyorsa bir kez sayılır), alışta **Seçilenleri İndir**
-   ile XML/zip paketi alınır.
+   ile XML/zip paketi alınır — pakete **yalnızca GİB e-Arşiv alış** (Alış ekranı) ve **GİB e-Arşiv 5000/30000**
+   (Satış ekranı) faturaları girer; e-Fatura, TÜRMOB ve diğerleri işaretlenmez, indirilmez (satırlar işaretlenemezse
+   paket hiç indirilmez).
 5. Sonuçlar eski ekranlarla aynı sütunlara yazılır (e-Arşiv Alış, e-Fatura Alış, TÜRMOB Alış … ayrı ayrı); rapor,
    e-posta ve "birleşik" fatura sayımı değişmez. Tevkifat KDV'si Excel'deki "Tevkifat Oranı"ndan (9/10 gibi) hesaplanır.
 

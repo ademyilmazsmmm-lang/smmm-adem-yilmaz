@@ -507,6 +507,50 @@ def _liste_oku(page, yakalayici, log):
     return kayitlar
 
 
+# Listede yalniz GIB e-Arsiv satirlarini isaretler (digerlerinin isaretini kaldirir). Dondurur:
+# isaretlenen satir sayisi. Satir = kutusu olan tr / [role=row] / jqx satiri; baslik satiri atlanir.
+ARSIV_SEC_JS = """(mod) => {
+  const gor = e => !!(e.offsetParent || e.getClientRects().length);
+  const KUTU = 'input[type=checkbox], [role=checkbox], .jqx-checkbox';
+  const sade = t => (t || '').replace(/İ/g, 'I').replace(/ı/g, 'i').normalize('NFD')
+    .replace(/[\\u0300-\\u036f]/g, '').toUpperCase();
+  const durum = k => {
+    if (k.tagName === 'INPUT') return !!k.checked;
+    const a = k.getAttribute('aria-checked'); if (a === 'true') return true; if (a === 'false') return false;
+    return !!k.querySelector('.jqx-checkbox-check-checked, .jqx-checkbox-checked');
+  };
+  let secili = 0;
+  const satirlar = Array.from(document.querySelectorAll('tr, [role=row], .jqx-grid-row, .jqx-grid-cell-row'))
+    .filter(r => gor(r) && !r.closest('thead') && !r.querySelector('th, [role=columnheader]'));
+  for (const r of satirlar) {
+    const kutular = Array.from(r.querySelectorAll(KUTU)).filter(gor);
+    if (kutular.length !== 1 || satirlar.some(d => d !== r && r.contains(d) && d.querySelector(KUTU))) continue;
+    const metin = sade(r.textContent);
+    const ist = mod === 'satis' ? metin.includes('5000')
+      : metin.includes('ARSIV') && !metin.includes('5000') && !metin.includes('TURMOB') && !/E-?FATURA/.test(metin);
+    if (ist !== durum(kutular[0])) kutular[0].click();
+    if (ist) secili++;
+  }
+  return secili;
+}"""
+
+
+def arsiv_satirlarini_sec(page, log, yon="alis"):
+    """Listede XML indirilecek satirlari isaretler, digerlerinin isaretini kaldirir; sayiyi dondurur.
+
+    Alis: yalniz GIB e-Arsiv alis. Satis: yalniz GIB e-Arsiv (5000/30000).
+    """
+    sayi = 0
+    for fr in cerceveler(page):
+        try:
+            sayi += int(fr.evaluate(ARSIV_SEC_JS, yon) or 0)
+        except Exception:
+            continue
+    sayfa_durulsun(page, azami_ms=500)
+    yaz(f"    XML icin isaretlenen satir ({'GİB 5000/30000' if yon == 'satis' else 'GİB e-Arşiv alış'}): {sayi}", log)
+    return sayi
+
+
 def _firma_ve_donem(page, firma, bas, bit, log, firma_secili):
     acik_pencereleri_kapat(page, log)
     if not firma_secili:
@@ -589,13 +633,17 @@ def toplu_isle(page, firma, yon, tipler, araliklar, cikti_kok, log, turmob_var=T
         else:
             yaz("    UYARI: Excel inmedi; tutarlar bos kalacak", log)
     azami = AYAR.get("azami_fatura") or 0
-    if yon == "alis" and AYAR["belge_indir"] and "e-arsiv-alis" in tipler and kayitlar:
-        if azami and len(kayitlar) > azami:
-            yaz(f"    XML paketi atlandi: {len(kayitlar)} fatura (sinir {azami})", log)
+    # XML/zip: alista yalniz GIB e-Arsiv alis, satista yalniz GIB 5000/30000 (e-Fatura/TURMOB/e-Arsiv satis inmez)
+    xml_tipi = "e-arsiv-alis" if yon == "alis" else "gib-5000"
+    xml_kayit = [k for k in kayitlar if entegrasyon_tipi(k["entegrasyon"] or k["tur"], yon) == xml_tipi]
+    if AYAR["belge_indir"] and xml_tipi in tipler and xml_kayit:
+        if azami and len(xml_kayit) > azami:
+            yaz(f"    XML paketi atlandi: {len(xml_kayit)} fatura (sinir {azami})", log)
+        elif not arsiv_satirlarini_sec(page, log, yon):
+            yaz("    UYARI: XML satirlari isaretlenemedi; paket indirilmedi (baska entegrasyon inmesin diye)", log)
         else:
-            hepsini_sec(page, None, len(kayitlar))
             yol = dosya_indir(page, "Seçilenleri İndir", klasor, "belgeler", log,
-                              azami_saniye=AYAR["indirme_saniye"])
+                              azami_saniye=AYAR["indirme_saniye"], tumunu_sec=False)
             if yol:
                 dosyalar.append(yol.name)
             else:

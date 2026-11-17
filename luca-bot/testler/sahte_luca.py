@@ -568,12 +568,12 @@ def toplu_excel_bayt(firma, yon):
     return tampon.getvalue()
 
 
-def toplu_zip_bayt(firma, yon):
+def toplu_zip_bayt(firma, yon, ent=None):
     dis = io.BytesIO()
     with zipfile.ZipFile(dis, "w") as z:
         gorulen = set()
-        for _, f in toplu_satirlari(firma, yon):
-            if f["no"] in gorulen:
+        for ad, f in toplu_satirlari(firma, yon):
+            if f["no"] in gorulen or (ent is not None and ad not in ent):
                 continue
             gorulen.add(f["no"])
             ic = io.BytesIO()
@@ -633,7 +633,7 @@ TOPLU_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Akıl
        document.getElementById('uyari').textContent = 'Lütfen indirilecek faturaları seçiniz'; return; }
      sonra(300, () => ac('<span>İNDİR: tüm faturalar için <a href="#" id="buraya">buraya</a>, onaylanmış faturalar için'
        + ' <a href="#">buraya</a> tıklayınız</span> <button onclick="kapat(); location.href=\\'/indir/toplu-zip?' + q
-       + '\\'">Seçilenleri İndir</button>' + kapatDugmesi())); },
+       + '&ent=' + encodeURIComponent([...document.querySelectorAll('#liste tbody input:checked')].map(k => k.closest('tr').children[2].textContent).join('|')) + '\\'">Seçilenleri İndir</button>' + kapatDugmesi())); },
    iptal: () => mesaj('İptal/itiraz sorgusu'), bilgi: () => mesaj('Entegrasyon bilgileri'), sil: () => mesaj('Belge sil'),
  };
  document.addEventListener('click', async e => {
@@ -759,7 +759,10 @@ class Isleyici(BaseHTTPRequestHandler):
                 return self._yanit(toplu_excel_bayt(firma_adi(q), q.get("yon")),
                                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                    {"Content-Disposition": 'attachment; filename="faturalar.xlsx"'})
-            return self._yanit(toplu_zip_bayt(firma_adi(q), q.get("yon")), "application/zip",
+            ent = [a for a in q.get("ent", "").split("|") if a]
+            with KILIT:
+                SAYAC.setdefault("toplu_zip_ent", []).extend(ent)
+            return self._yanit(toplu_zip_bayt(firma_adi(q), q.get("yon"), ent), "application/zip",
                                {"Content-Disposition": 'attachment; filename="secili_faturalar.zip"'})
         if yol == "/excel-sayfa":  # yeni sekmede acilan ara sayfa, dosyayi kendisi indirir
             hedef = "/indir/excel?" + urlparse(self.path).query
@@ -843,6 +846,7 @@ def sifirla():
     with KILIT:
         DURUM.clear()
         TOPLU.clear()
+        SAYAC.pop("toplu_zip_ent", None)
         SAYAC.update(toplu=False, toplu_yasak=0, toplu_getir=0, toplu_excel=0, toplu_zip=0, ara_menu=False, sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
 
 

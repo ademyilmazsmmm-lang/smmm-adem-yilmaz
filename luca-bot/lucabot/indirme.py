@@ -299,7 +299,7 @@ def _hazirlanan_dosyayi_bekle(page, yakalayici, dugme_metni, log):
 
 
 def dosya_indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30,
-                pencere_acilir=True):
+                pencere_acilir=True, tumunu_sec=True):
     """Indirme akisi: arac cubugu butonu -> (pencerede 'tum faturalar' -> indir) -> dosya.
 
     Inen dosyanin yolunu dondurur; inmezse None (hata firlatmaz, sebebi
@@ -326,7 +326,7 @@ def dosya_indir(page, dugme_metni, hedef_klasor, on_ek, log, azami_saniye=30,
                        if pencere_acilir and not yakalayici.geldi() else None)
             onay = None
             if pencere is not None:
-                if diyalogda_tumunu_sec(page):
+                if tumunu_sec and diyalogda_tumunu_sec(page):
                     yaz("    Onay penceresinde 'tum faturalar' secildi", log)
                 onay = diyalogda_tikla(page, INDIRME_ONAY)
                 if onay:

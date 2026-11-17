@@ -172,7 +172,9 @@ class UctanUca(unittest.TestCase):
                              "e-arsiv-satis": "tamam", "gib-5000": "tamam"}, cikti[-2500:])
         S = sahte_luca.SAYAC
         self.assertEqual(S["toplu_yasak"], 0, "yasakli entegrasyon secildi")
-        self.assertEqual((S["toplu_getir"], S["toplu_excel"], S["toplu_zip"]), (2, 2, 1))   # alis + satis; XML yalniz alista
+        self.assertEqual((S["toplu_getir"], S["toplu_excel"], S["toplu_zip"]), (2, 2, 2))   # alis + satis; XML: alista e-Arsiv, satista 5000/30000
+        zip_ent = set(S.get("toplu_zip_ent", []))      # XML paketine yalniz GIB e-Arsiv alis girer
+        self.assertEqual(zip_ent, {"GİB E-Arşiv Alış Faturaları Entegrasyon", "GİB 5000/30000 Entegrasyon"}, zip_ent)
         self.assertNotIn("GİB'den Getir (", cikti)                     # eski ekran-ekran yola dusulmedi
         self.assertIn("Entegrasyonlar secildi", cikti)
         # tevkifat KDV2: alis ekranlarinda 1 fatura (400 KDV x 9/10)
