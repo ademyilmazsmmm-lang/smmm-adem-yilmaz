@@ -634,7 +634,11 @@ TOPLU_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Akıl
      sonra(300, () => ac('<span>İNDİR: tüm faturalar için <a href="#" id="buraya">buraya</a>, onaylanmış faturalar için'
        + ' <a href="#">buraya</a> tıklayınız</span> <button onclick="kapat(); location.href=\\'/indir/toplu-zip?' + q
        + '&ent=' + encodeURIComponent([...document.querySelectorAll('#liste tbody input:checked')].map(k => k.closest('tr').children[2].textContent).join('|')) + '\\'">Seçilenleri İndir</button>' + kapatDugmesi())); },
-   iptal: () => mesaj('İptal/itiraz sorgusu'), bilgi: () => mesaj('Entegrasyon bilgileri'), sil: () => mesaj('Belge sil'),
+   iptal: () => sonra(300, () => ac('<span>SEÇİLİ ENTEGRASYONLARDAN İPTAL/İTİRAZ SORGULA</span> <span>Tarih Aralığı</span> '
+       + '<input type="text" name="ibas" value="01/10/2026"> <input type="text" name="ibit" value="31/10/2026">'
+       + '<small>Seçili entegrasyonlar sırayla sorgulanır. En fazla 1 aylık sorgulama yapılabilir.</small> '
+       + '<button id="iptalOnay">İptal/İtiraz Sorgula</button>' + kapatDugmesi())),
+   bilgi: () => mesaj('Entegrasyon bilgileri'), sil: () => mesaj('Belge sil'),
  };
  document.addEventListener('click', async e => {
    const t = e.target;
@@ -646,6 +650,8 @@ TOPLU_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Akıl
      const url = '/api/toplu-getir?' + q + '&bas=' + encodeURIComponent(k[0].value) + '&bit=' + encodeURIComponent(k[1].value);
      kapat(); sonra(300, async () => { const j = await (await fetch(url, {method: 'POST'})).json();
        yukle(); if (j.mesaj) sonra(1200, () => mesaj(j.mesaj)); }); }
+   if (t.id === 'iptalOnay') { kapat(); sonra(300, async () => { await fetch('/api/toplu-iptal?' + q, {method: 'POST'});
+       sonra(800, () => mesaj('Seçili entegrasyonların sorgulanması tamamlandı.')); }); }
    if (t.id === 'buraya') { e.preventDefault(); document.querySelectorAll('#liste tbody input').forEach(k => k.checked = true); }
    if (t.dataset && t.dataset.e) eylem[t.dataset.e]();
  });
@@ -799,6 +805,10 @@ class Isleyici(BaseHTTPRequestHandler):
                 d["secili"] = json.loads(self.rfile.read(n).decode("utf-8")) if n else []
                 SAYAC["toplu_yasak"] += sum(1 for a in d["secili"] if any(y in a for y in TOPLU_YASAKLI))
                 return self._yanit("{}", "application/json")
+            if yol == "/api/toplu-iptal":
+                SAYAC["toplu_iptal"] = SAYAC.get("toplu_iptal", 0) + 1
+                d["iptal"] = True
+                return self._yanit("{}", "application/json")
             if yol == "/api/toplu-getir":
                 SAYAC["toplu_getir"] += 1
                 bas = datetime.strptime(q["bas"], "%d/%m/%Y")
@@ -815,14 +825,14 @@ class Isleyici(BaseHTTPRequestHandler):
                                    "application/json")
             # fatura_list.jq
             satirlar = [{"ettn": f["no"], "belge_numarasi": f["no"], "belge_tarihi": f["tarih"], "vkn": "1234567890",
-                         "unvan": f["unvan"], "onay_durumu": "İptal" if f["durum"] == "İPTAL" else "Onaylandı",
+                         "unvan": f["unvan"], "onay_durumu": "İptal" if (f["durum"] == "İPTAL" or (d.get("iptal") and f["no"].endswith("2"))) else "Onaylandı",
                          "belge_turu": "Fatura", "entegrasyon_tur": ad}
                         for ad, f in toplu_satirlari(*anahtar)]
         return self._yanit(json.dumps({"rows": satirlar, "total": len(satirlar)}), "application/json")
 
     def do_POST(self):
         yol, firma, tip = self._parametre()
-        if yol in ("/api/toplu-sec", "/api/toplu-getir", "/Luca/gib530/fatura_list.jq"):
+        if yol in ("/api/toplu-sec", "/api/toplu-getir", "/api/toplu-iptal", "/Luca/gib530/fatura_list.jq"):
             return self._toplu_post(yol)
         with KILIT:
             if yol == "/api/iptal" and SAYAC["gib_hatasi"] > 0:
@@ -848,6 +858,7 @@ def sifirla():
         DURUM.clear()
         TOPLU.clear()
         SAYAC.pop("toplu_zip_ent", None)
+        SAYAC.pop("toplu_iptal", None)
         SAYAC.update(toplu_sessiz=False, toplu=False, toplu_yasak=0, toplu_getir=0, toplu_excel=0, toplu_zip=0, ara_menu=False, sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
 
 

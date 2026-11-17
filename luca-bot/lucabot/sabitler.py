@@ -60,6 +60,7 @@ TOPLU_MENU = "Akıllı Ent. Toplu Sorgulama"
 TOPLU_EKRANLARI = {"alis": "Alış / Satış İade Faturaları", "satis": "Satış / Alış İade Faturaları"}
 TOPLU_ISARETI = "Entegrasyon Seç"       # ekranin acildigini gosteren arac cubugu dugmesi
 TOPLU_GETIR = "Seçili Entegrasyonlardan Getir"
+TOPLU_IPTAL = "İptal/İtiraz Sorgula"      # arac cubugu dugmesi ve penceresinin onay dugmesi
 TOPLU_AZAMI_GUN = 30                    # "En fazla 1 aylık sorgulama yapılabilir"
 # Toplu ekranin kapsadigi belge tipleri (e-Arsiv Sorgulama/interaktif kendi menusunde kalir)
 TOPLU_KAPSAM = {"alis": ["e-arsiv-alis", "e-fatura-alis", "turmob-alis", "esmm-alis"],

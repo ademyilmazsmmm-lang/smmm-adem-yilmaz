@@ -66,6 +66,15 @@ class SafMantik(unittest.TestCase):
         ikisi = ts.ipucusuz(pencere + " " + gercek)          # pencere acikken gercek hata da gelirse yine yakalanir
         self.assertIn(ts.TOPLU_AZAMI_UZUN, ikisi)
 
+    def test_entegrasyon_adli_alan_kod_ya_da_bos_olsa_da_bulunur(self):
+        k = ts.kayit_coz({"belge_numarasi": "ABC2026000000001", "entegrasyon_tur": "7", "unvan": "X",
+                          "ettn": "e-fatura-gibi", "url": "/x", "alan": "GİB E-Arşiv Entegrasyon (5000/30000)"})
+        self.assertEqual(ts.entegrasyon_tipi(k["entegrasyon"], "satis"), "gib-5000")
+        k = ts.kayit_coz(["", "Fatura", "GİB E-Arşiv", "ABC2026000000002", "ACME", "05/08/2026", "Onaylandı"])
+        self.assertEqual(ts.entegrasyon_tipi(k["entegrasyon"], "alis"), "e-arsiv-alis")
+        k = ts.kayit_coz({"belge_numarasi": "ABC2026000000003", "belge_turu": "Fatura", "entegrasyon_tur": "GIB_EFATURA"})
+        self.assertEqual(ts.entegrasyon_tipi(k["entegrasyon"], "alis"), "e-fatura-alis")      # "Fatura" tek basina e-Fatura sayilmaz
+
     def test_oran(self):
         self.assertAlmostEqual(ts._oran("9/10"), 0.9)
         self.assertAlmostEqual(ts._oran("%50"), 0.5)
@@ -181,6 +190,8 @@ class UctanUca(unittest.TestCase):
         S = sahte_luca.SAYAC
         self.assertEqual(S["toplu_yasak"], 0, "yasakli entegrasyon secildi")
         self.assertEqual((S["toplu_getir"], S["toplu_excel"], S["toplu_zip"]), (2, 2, 2))   # alis + satis; XML: alista e-Arsiv, satista 5000/30000
+        self.assertEqual(S.get("toplu_iptal"), 2)                      # iptal/itiraz sorgusu alista ve satista
+        self.assertEqual(rapor["AKIN COBAN"]["iptal"]["e-arsiv-alis"], 1)       # sahte Luca 2. faturayi iptal isaretler
         zip_ent = set(S.get("toplu_zip_ent", []))      # XML paketine yalniz GIB e-Arsiv alis girer
         self.assertEqual(zip_ent, {"GİB E-Arşiv Alış Faturaları Entegrasyon", "GİB 5000/30000 Entegrasyon"}, zip_ent)
         self.assertNotIn("GİB'den Getir (", cikti)                     # eski ekran-ekran yola dusulmedi

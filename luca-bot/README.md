@@ -474,6 +474,7 @@ Her firma için sırayla:
    o çalışmada bir daha TÜRMOB ile denenmez.
 3. **Seçili Entegrasyonlardan Getir**: tarih aralığı en fazla 1 aylık parçalara bölünür; "Seçili entegrasyonların
    sorgulanması tamamlandı" bildirimi beklenir.
+3b. **İptal/İtiraz Sorgula** (Alış ve Satış ekranlarında, aynı 1 aylık parçalarla; "iptal/itiraz sorgulama" ayarı kapalıysa atlanır).
 4. **Belge Ara** ile liste yüklenir (hangi faturanın hangi entegrasyondan geldiği ve iptal/itiraz durumu için),
    **Excel** indirilir (tutarlar; aynı fatura Excel'de tekrar ediyorsa bir kez sayılır), alışta **Seçilenleri İndir**
    ile XML/zip paketi alınır — pakete **yalnızca GİB e-Arşiv alış** (Alış ekranı) ve **GİB e-Arşiv 5000/30000**
