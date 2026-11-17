@@ -69,7 +69,7 @@ AEN_EKRANLARI = {
 # sunucu tarafi durum: (firma, tip) -> {"sorgulandi": bool, "iptal": bool}
 DURUM = {}
 # urun seciminde uygulama penceresinin kac kez acildigi (cift tiklama testi icin)
-SAYAC = {"toplu_sessiz": False, "toplu": False, "toplu_yasak": 0, "toplu_getir": 0, "toplu_excel": 0, "toplu_zip": 0, "ara_menu": False, "sso": 0, "ilk_bos": False, "gib_hatasi": 0, "excel": 0, "excel_gecikme": 0,
+SAYAC = {"toplu_gecikme": 0, "toplu_erken_iptal": 0, "toplu_sessiz": False, "toplu": False, "toplu_yasak": 0, "toplu_getir": 0, "toplu_excel": 0, "toplu_zip": 0, "ara_menu": False, "sso": 0, "ilk_bos": False, "gib_hatasi": 0, "excel": 0, "excel_gecikme": 0,
         "zip_basarisiz": 0}
 
 # gercek Luca'da goruldu (26/09/2026); gecici, ayni sorgu tekrarlaninca geciyor
@@ -649,7 +649,13 @@ TOPLU_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Akıl
      const k = pencere.querySelectorAll('input[type=text]');
      const url = '/api/toplu-getir?' + q + '&bas=' + encodeURIComponent(k[0].value) + '&bit=' + encodeURIComponent(k[1].value);
      kapat(); sonra(300, async () => { const j = await (await fetch(url, {method: 'POST'})).json();
-       yukle(); if (j.mesaj) sonra(1200, () => mesaj(j.mesaj)); }); }
+       yukle();
+       if (j.gecikme) {   // gercek Luca: sorgu surerken Islem Takip gunlugu gunluk satirlar (fatura bulunamadi, tamamlandi) yazar
+         ac('<b>İşlem Takip</b><div>(11/11/2026) Belgeler sorgulandı.</div><div style="color:red">(12/11/2026) Hata mesajı:'
+           + ' Belirtilen tarih aralığında fatura bulunamadı.</div><div>Gün işlemi tamamlandı.</div>'
+           + '<label><input type=checkbox checked>Otomatik aşağı kaydır</label><button onclick="kapat()">Kapat</button>');
+         sonra(j.gecikme, async () => { await fetch('/api/toplu-bitti?' + q, {method: 'POST'}); kapat(); mesaj(j.mesaj); });
+       } else if (j.mesaj) sonra(1200, () => mesaj(j.mesaj)); }); }
    if (t.id === 'iptalOnay') { kapat(); sonra(300, async () => { await fetch('/api/toplu-iptal?' + q, {method: 'POST'});
        sonra(800, () => mesaj('Seçili entegrasyonların sorgulanması tamamlandı.')); }); }
    if (t.id === 'buraya') { e.preventDefault(); document.querySelectorAll('#liste tbody input').forEach(k => k.checked = true); }
@@ -805,8 +811,13 @@ class Isleyici(BaseHTTPRequestHandler):
                 d["secili"] = json.loads(self.rfile.read(n).decode("utf-8")) if n else []
                 SAYAC["toplu_yasak"] += sum(1 for a in d["secili"] if any(y in a for y in TOPLU_YASAKLI))
                 return self._yanit("{}", "application/json")
+            if yol == "/api/toplu-bitti":
+                d["bitti"] = True
+                return self._yanit("{}", "application/json")
             if yol == "/api/toplu-iptal":
                 SAYAC["toplu_iptal"] = SAYAC.get("toplu_iptal", 0) + 1
+                if SAYAC["toplu_gecikme"] and not d.get("bitti"):
+                    SAYAC["toplu_erken_iptal"] += 1      # getir bitmeden iptal sorgusu baslatildi
                 d["iptal"] = True
                 return self._yanit("{}", "application/json")
             if yol == "/api/toplu-getir":
@@ -820,8 +831,10 @@ class Isleyici(BaseHTTPRequestHandler):
                                                    " yapılmadı: TÜRMOB Entegratörlük Alış Faturaları Entegrasyon:"
                                                    " TÜRMOB entegratör kullanıcı bilgileri girilmemiş."}), "application/json")
                 d["sorgulandi"] = True
+                d["bitti"] = not SAYAC["toplu_gecikme"]
                 return self._yanit(json.dumps({"mesaj": "" if SAYAC["toplu_sessiz"] else
-                                               "Seçili entegrasyonların sorgulanması tamamlandı."}),
+                                               "Seçili entegrasyonların sorgulanması tamamlandı.",
+                                               "gecikme": int(SAYAC["toplu_gecikme"] * 1000)}),
                                    "application/json")
             # fatura_list.jq
             satirlar = [{"ettn": f["no"], "belge_numarasi": f["no"], "belge_tarihi": f["tarih"], "vkn": "1234567890",
@@ -832,7 +845,7 @@ class Isleyici(BaseHTTPRequestHandler):
 
     def do_POST(self):
         yol, firma, tip = self._parametre()
-        if yol in ("/api/toplu-sec", "/api/toplu-getir", "/api/toplu-iptal", "/Luca/gib530/fatura_list.jq"):
+        if yol in ("/api/toplu-sec", "/api/toplu-getir", "/api/toplu-iptal", "/api/toplu-bitti", "/Luca/gib530/fatura_list.jq"):
             return self._toplu_post(yol)
         with KILIT:
             if yol == "/api/iptal" and SAYAC["gib_hatasi"] > 0:
@@ -859,7 +872,7 @@ def sifirla():
         TOPLU.clear()
         SAYAC.pop("toplu_zip_ent", None)
         SAYAC.pop("toplu_iptal", None)
-        SAYAC.update(toplu_sessiz=False, toplu=False, toplu_yasak=0, toplu_getir=0, toplu_excel=0, toplu_zip=0, ara_menu=False, sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
+        SAYAC.update(toplu_gecikme=0, toplu_erken_iptal=0, toplu_sessiz=False, toplu=False, toplu_yasak=0, toplu_getir=0, toplu_excel=0, toplu_zip=0, ara_menu=False, sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
 
 
 if __name__ == "__main__":

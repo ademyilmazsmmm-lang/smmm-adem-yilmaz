@@ -476,7 +476,7 @@ GOZLEMCI_JS = """() => {
         const e = d.nodeType === 1 ? d : d.parentElement;
         if (!e || /^(SCRIPT|STYLE|NOSCRIPT)$/.test(e.tagName) || e.closest('script,style')) continue;   // sayfa kodu degil, gorunen yazi
         const t = ((d.nodeType === 1 ? d.innerText : d.textContent) || '').trim();
-        if (t && t.length < 600 && /tamamland|bulunamad|eksik bilgi|en fazla 1/i.test(t)) window.__lbMsg.push(t);
+        if (t && t.length < 600 && /sorgulanmas\\S*\\s+tamamland|eksik bilgi|en fazla 1/i.test(t)) window.__lbMsg.push(t);
       }
     }
   });
@@ -502,6 +502,26 @@ def _gozlenen(page):
     return sadelestir(" ".join(parca))
 
 
+BITIS_BEKLEME = 8   # Islem Takip bitti/kapandi: kesin bildirim icin beklenecek sure
+def _gunluk_durulsun(page, log, sakin_saniye=2.5, azami_saniye=90):
+    """Islem Takip penceresi acikken yazisi sakin_saniye boyunca degismeyene (ya da "sona erdi"ye) kadar bekler."""
+    basla = son_degisim = time.time()
+    onceki = None
+    bildirildi = False
+    while time.time() - basla < azami_saniye:
+        g = islem_gunlugu(page)
+        if not g or sorgu_bitti_mi(g):
+            return
+        if g != onceki:
+            onceki, son_degisim = g, time.time()
+            if time.time() - basla > sakin_saniye and not bildirildi:
+                yaz("    Islem Takip hala akiyor, bekleniyor...", log)
+                bildirildi = True
+        elif time.time() - son_degisim >= sakin_saniye:
+            return
+        sayfa_durulsun(page, azami_ms=500)
+
+
 IDLE_SANIYE = 30   # hicbir pencere/yazi degismeden bu kadar sure gecerse sorgu bitmis sayilir (5000/30000 bildirim gostermiyor)
 
 
@@ -517,9 +537,10 @@ def ipucusuz(metin):
 def _sonucu_bekle(page, log, azami_saniye, once=""):
     """Toplu sorgunun bittigini bekler.
 
-    Bitis isaretleri: "sorgulanmasi tamamlandi" (ya da herhangi yeni bir "tamamlandi") bildirimi,
-    "bulunamadi" bildirimi, Islem Takip gunlugunun "sona erdi" ile bitmesi. Hicbiri gelmezse (Luca
-    faturasiz sorguda hic bildirim gostermeyebiliyor) ekran IDLE_SANIYE boyunca degismediyse devam edilir.
+    Kesin bitis: "Secili entegrasyonlarin sorgulanmasi tamamlandi" bildirimi. Bildirim gelmeyen sorgularda
+    (5000/30000) Islem Takip penceresi kapandi ya da "sona erdi" yazdiysa BITIS_BEKLEME sn sonra; hicbir
+    pencere/yazi yoksa ekran IDLE_SANIYE boyunca degismediyse devam edilir. Gunluk satirlari
+    ("fatura bulunamadi" vb.) sorgu surerken de yazildigi icin tek basina bitis sayilmaz.
     `once`: sorgu baslamadan onceki ekran yazisi (eski bildirimler bitis sayilmasin).
 
     Dondurur: 'tamam' | 'tamam_turmob_eksik' | 'turmob_eksik' | 'aralik' | 'zaman_asimi'.
@@ -530,6 +551,7 @@ def _sonucu_bekle(page, log, azami_saniye, once=""):
     son_metin = None
     gunluk_goruldu = False
     gunluk_yok = 0
+    aday = None
     once = ipucusuz(once)
     while time.time() - basla < azami_saniye:
         m = ipucusuz(_ekran_metni(page) + " " + _gozlenen(page))
@@ -540,29 +562,33 @@ def _sonucu_bekle(page, log, azami_saniye, once=""):
         if artti(TOPLU_AZAMI_UZUN):
             gunluge_yaz("    TANI: 1 aylik sinir iletisi: " + m[max(0, m.find(TOPLU_AZAMI_UZUN) - 80):][:200], log)
             return "aralik"
-        yeni_tamam = artti("TAMAMLANDI")
+        yeni_tamam = artti(TOPLU_TAMAMLANDI)   # kesin bildirim: "...sorgulanmasi tamamlandi"
         if eksik and "TURMOB" in m:
             return "tamam_turmob_eksik" if yeni_tamam else "turmob_eksik"
         if yeni_tamam:
-            i = m.find("TAMAMLANDI")
+            i = m.find(TOPLU_TAMAMLANDI)
             gunluge_yaz("    TANI: sonuc iletisi: " + m[max(0, i - 70):][:220], log)
+            _gunluk_durulsun(page, log)   # bildirimle birlikte Islem Takip hala akiyorsa bitmesi beklenir
             return "tamam"
-        if m.count("BULUNAMADI") > once.count("BULUNAMADI"):
-            yaz("    Luca: fatura bulunamadi", log)
-            return "tamam"
+        # NOT: gunluktaki "fatura bulunamadi"/"tamamlandi" gibi satirlar sorgu SURERKEN de yazilir;
+        # bitis sayilmaz. Islem Takip kapandiysa/"sona erdi" yazdiysa yalnizca ADAY sayilir ve
+        # kesin bildirim icin BITIS_BEKLEME sn beklenir (pencere yeniden acilirsa aday iptal olur).
         gunluk = islem_gunlugu(page)
+        simdi = time.time()
         if gunluk:
             gunluk_goruldu, gunluk_yok = True, 0
+            if sorgu_bitti_mi(gunluk):
+                aday = aday or simdi
+            else:
+                aday = None
         elif gunluk_goruldu:
             gunluk_yok += 1
-            if gunluk_yok >= 2:   # Islem Takip penceresi acildi sonra kapandi (5000/30000 bildirim gostermiyor)
-                yaz("    Islem Takip penceresi kapandi; sorgu tamamlandi sayiliyor", log)
-                return "tamam"
-        if gunluk and sorgu_bitti_mi(gunluk):
-            gunluge_yaz("    TANI: islem takip sonu: " + " | ".join(
-                " ".join(x.split()) for x in gunluk.splitlines()[-3:] if x.strip()), log)
+            if gunluk_yok >= 2:
+                aday = aday or simdi
+        if aday and simdi - aday >= BITIS_BEKLEME:
+            yaz("    Islem Takip bitti, kesin bildirim gelmedi; sorgu tamamlandi sayiliyor", log)
             return "tamam"
-        if not gunluk and time.time() - son_degisim >= IDLE_SANIYE and time.time() - basla >= IDLE_SANIYE:
+        if not gunluk and simdi - son_degisim >= IDLE_SANIYE and simdi - basla >= IDLE_SANIYE:
             yaz(f"    UYARI: {IDLE_SANIYE} sn boyunca ekranda degisiklik/bildirim yok; sorgu bitmis sayilip devam ediliyor", log)
             gunluge_yaz("    TANI: ekran yazisi (son 200): " + m[-200:], log)
             return "tamam"
@@ -592,6 +618,25 @@ def _pencere_bekle(page, capalar, azami_ms=4000):
     return pencere
 
 
+def _islem_bitsin(page, log, azami_saniye=None):
+    """Onceki sorgunun Islem Takip penceresi hala calisiyorsa bitmesini bekler.
+
+    acik_pencereleri_kapat suren bir sorguyu oldurebilir; bir sonraki adima (iptal/itiraz, sonraki
+    tarih parcasi) gecmeden once Luca'nin is bitirmesi gerekir.
+    """
+    sinir = azami_saniye or AYAR["azami_saniye"]
+    basla, bildirildi = time.time(), False
+    while time.time() - basla < sinir:
+        gunluk = islem_gunlugu(page)
+        if not gunluk or sorgu_bitti_mi(gunluk):
+            return
+        if not bildirildi:
+            yaz("    Onceki sorgu hala suruyor, bitmesi bekleniyor...", log)
+            bildirildi = True
+        sayfa_durulsun(page, azami_ms=1000)
+    yaz("    UYARI: onceki sorgu zaman asimina ugradi, devam ediliyor", log)
+
+
 def toplu_getir(page, bas, bit, log, iptal=False):
     """Secili entegrasyonlardan tek bir (en fazla 1 aylik) aralik icin getirir ya da (iptal=True)
     iptal/itiraz sorgular; _sonucu_bekle durumunu dondurur."""
@@ -599,6 +644,7 @@ def toplu_getir(page, bas, bit, log, iptal=False):
     dugme = TOPLU_IPTAL if iptal else TOPLU_GETIR
     onaylar = [TOPLU_IPTAL] if iptal else ["Getir", "Belgeleri Getir", "Sorgula"]
     yaz(f"    {ad} ({bas} - {bit})", log)
+    _islem_bitsin(page, log)
     acik_pencereleri_kapat(page, log)
     if not dugmeye_bas(page, dugme, sure=6000):
         raise TopluBasarisiz(f"'{dugme}' butonuna basilamadi")

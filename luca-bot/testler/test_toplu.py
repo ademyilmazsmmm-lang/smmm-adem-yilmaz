@@ -218,6 +218,15 @@ class UctanUca(unittest.TestCase):
         self.assertEqual(sahte_luca.SAYAC["toplu_getir"], 6)         # 3 parca x (alis + satis)
         self.assertNotIn("en fazla 1 aylik", cikti)
 
+    def test_suren_sorgu_iptal_sorgusuna_gecmez(self):
+        """Islem Takip gunlugu "fatura bulunamadi"/"tamamlandi" satirlari yazarken (sorgu surerken) sonraki adima gecilmez."""
+        sahte_luca.SAYAC["toplu_gecikme"] = 9
+        kod, cikti, rapor = self._calistir("AKIN", tipler=("e-arsiv-alis",))
+        self.assertEqual(kod, 0, cikti[-1500:])
+        self.assertEqual(sahte_luca.SAYAC["toplu_erken_iptal"], 0, "iptal sorgusu getir bitmeden baslatildi")
+        self.assertEqual(sahte_luca.SAYAC.get("toplu_iptal"), 1)
+        self.assertEqual(rapor["AKIN COBAN"]["durumlar"], {"e-arsiv-alis": "tamam"}, cikti[-1500:])
+
     def test_bildirim_gelmezse_ekran_durunca_devam_eder(self):
         sahte_luca.SAYAC["toplu_sessiz"] = True       # Luca faturasiz/sessiz sorguda hic bildirim gostermeyebiliyor
         eski, ts.IDLE_SANIYE = ts.IDLE_SANIYE, 4
