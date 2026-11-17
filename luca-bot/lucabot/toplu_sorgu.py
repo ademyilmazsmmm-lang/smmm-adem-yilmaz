@@ -21,7 +21,7 @@ import re
 import time
 from collections import OrderedDict
 
-from .bekleme import kosulu_bekle, sayfa_canli, sayfa_durulsun
+from .bekleme import geri_cekil, kosulu_bekle, sayfa_canli, sayfa_durulsun
 from .fatura_analiz import (BOS_DEGERLER, csv_yaz, excelden_tablo, matrah_kdv_sutunlari,
                             sutun_indeksi, sutun_tam_indeksi, tutar_cozumle)
 from .gib_sorgu import belge_ara, islem_gunlugu, sorgu_bitti_mi
@@ -116,7 +116,8 @@ def kayit_coz(ham):
     if isinstance(ham, dict):
         no = str(_anahtar(ham, "BELGENUMARASI", "FATURANO", "FATURANUMARASI") or "").strip()
         adli = str(_anahtar(ham, "ENTEGRASYONTUR", "ENTEGRASYONNOKTASI", "ENTEGRASYON") or "")
-        return {"no": no.upper(), "entegrasyon": _entegrasyon_bul(
+        return {"no": no.upper(), "tip": None, "imza": (str(_anahtar(ham, "BELGETURU") or ""), adli),
+                "entegrasyon": _entegrasyon_bul(
                     [v for k, v in ham.items() if sadelestir(str(k)) not in ("UNVAN", "URL", "ETTN")], adli),
                 "tur": str(_anahtar(ham, "BELGETURU") or ""), "onay": str(_anahtar(ham, "ONAYDURUMU") or ""),
                 "unvan": str(_anahtar(ham, "UNVAN", "UNVANADSOYAD") or ""),
@@ -134,7 +135,7 @@ def kayit_coz(ham):
     onay = next((h for h in hucreler if re.search(r"ONAY|IPTAL|ITIRAZ|RED|BEKLIYOR", sadelestir(h))), "")
     harfli = [h for h in hucreler if h.upper() != no and sum(c.isalpha() for c in h) >= 3
               and h not in (ent, onay)]
-    return {"no": no, "entegrasyon": ent, "tur": "", "onay": onay,
+    return {"no": no, "tip": None, "imza": None, "entegrasyon": ent, "tur": "", "onay": onay,
             "unvan": max(harfli, key=len) if harfli else "", "tarih": ""}
 
 
@@ -230,15 +231,18 @@ def sonuclari_hesapla(firma, yon, tipler, kayitlar, excel, klasor_fn, dosyalar=(
     """
     faturalar = excel["faturalar"] if excel else {}
     tip_no = {t: OrderedDict() for t in tipler}   # tip -> {no: kayit}
-    tanimsiz = 0
+    tanimsiz, dislanan = 0, set()
     for k in kayitlar:
-        t = entegrasyon_tipi(k["entegrasyon"] or k["tur"], yon)
-        if t not in tip_no:
+        t = k.get("tip") or entegrasyon_tipi(k["entegrasyon"] or k["tur"], yon)
+        if t is None:                     # entegrasyon anlasilamadi: birincil ekrana yazilir
             tanimsiz += 1
             t = BIRINCIL[yon] if BIRINCIL[yon] in tip_no else tipler[0]
+        elif t not in tip_no:             # taninan ama bu calismada istenmeyen entegrasyon (listede eski veri durur)
+            dislanan.add(k["no"])
+            continue
         tip_no[t].setdefault(k["no"], k)
     bilinen = {n for d in tip_no.values() for n in d}
-    eslesmeyen = [n for n in faturalar if n not in bilinen]
+    eslesmeyen = [n for n in faturalar if n not in bilinen and n not in dislanan]
     if eslesmeyen:   # Excel'de olup listede gorunmeyen (sayfalama/liste okunamadi)
         t = BIRINCIL[yon] if BIRINCIL[yon] in tip_no else tipler[0]
         for n in eslesmeyen:
@@ -290,7 +294,7 @@ def sonuclari_hesapla(firma, yon, tipler, kayitlar, excel, klasor_fn, dosyalar=(
         except OSError as e:
             yaz(f"    UYARI: csv yazilamadi ({e})", log)
         notlar = []
-        if tanimsiz:
+        if tanimsiz and len(tipler) > 1:   # birden fazla aday ekran varsa dagilim belirsiz
             notlar.append(f"{tanimsiz} fatura icin entegrasyon taninmadi")
         if eslesmeyen and kayitlar:
             notlar.append(f"{len(eslesmeyen)} fatura listeyle eslesmedi")
@@ -403,8 +407,9 @@ def entegrasyonlari_sec(page, turmob_var, log, yon=None, tipler=None):
 
     Dondurur: secilen entegrasyon adlari listesi. Pencere/satir bulunamazsa TopluBasarisiz.
     """
+    _islem_bitsin(page, log)
     acik_pencereleri_kapat(page, log)
-    if not dugmeye_bas(page, "Entegrasyon Seç", sure=6000):
+    if not _arac_dugmesine_bas(page, "Entegrasyon Seç", log):
         raise TopluBasarisiz("'Entegrasyon Seç' butonuna basilamadi")
     kosulu_bekle(page, lambda: bool(_entegrasyon_satirlari(page)[2]), 5000, aralik_ms=300)
     fr, pencere, satirlar = _entegrasyon_satirlari(page)
@@ -522,6 +527,7 @@ def _gunluk_durulsun(page, log, sakin_saniye=2.5, azami_saniye=90):
         sayfa_durulsun(page, azami_ms=500)
 
 
+IPTAL_AZAMI_SANIYE = 600   # iptal/itiraz sorgusu ikincildir; bir parca icin en cok bu kadar beklenir
 IDLE_SANIYE = 30   # hicbir pencere/yazi degismeden bu kadar sure gecerse sorgu bitmis sayilir (5000/30000 bildirim gostermiyor)
 
 
@@ -552,6 +558,7 @@ def _sonucu_bekle(page, log, azami_saniye, once=""):
     gunluk_goruldu = False
     gunluk_yok = 0
     aday = None
+    gunluk_onceki, gunluk_degisim = None, time.time()
     once = ipucusuz(once)
     while time.time() - basla < azami_saniye:
         m = ipucusuz(_ekran_metni(page) + " " + _gozlenen(page))
@@ -575,6 +582,11 @@ def _sonucu_bekle(page, log, azami_saniye, once=""):
         # kesin bildirim icin BITIS_BEKLEME sn beklenir (pencere yeniden acilirsa aday iptal olur).
         gunluk = islem_gunlugu(page)
         simdi = time.time()
+        if gunluk != gunluk_onceki:
+            gunluk_onceki, gunluk_degisim = gunluk, simdi
+        elif gunluk and simdi - gunluk_degisim >= AYAR["durgunluk_saniye"]:
+            yaz(f"    UYARI: Islem Takip {int(AYAR['durgunluk_saniye'])} sn ilerlemedi; sorgu takildi sayiliyor", log)
+            return "takildi"
         if gunluk:
             gunluk_goruldu, gunluk_yok = True, 0
             if sorgu_bitti_mi(gunluk):
@@ -601,6 +613,29 @@ def _sonucu_bekle(page, log, azami_saniye, once=""):
     return "zaman_asimi"
 
 
+def _modal_temizle(page, log=None):
+    """Arkadaki dugmeleri engelleyen acik pencere/bildirimi ("fatura bulunamadi", sonuc iletisi...) kapatir."""
+    fatura_yok_penceresini_kapat(page, bekle=False)
+    varsa_tikla(page, ["Tamam", "Kapat"], sure=800)
+    acik_pencereleri_kapat(page, log)
+    try:
+        page.keyboard.press("Escape")
+    except Exception:
+        pass
+    sayfa_durulsun(page, azami_ms=700)
+
+
+def _arac_dugmesine_bas(page, ad, log, deneme=4):
+    """Arac cubugu dugmesine basar; tiklama engellenirse (acik pencere/bildirim) temizleyip tekrar dener."""
+    for i in range(1, deneme + 1):
+        if dugmeye_bas(page, ad, sure=4000 if i == 1 else 3000):
+            return True
+        yaz(f"    '{ad}' tiklanamadi ({i}/{deneme}); acik pencere/bildirim temizleniyor", log)
+        _modal_temizle(page, log)
+        geri_cekil(page, 1.5)
+    return False
+
+
 def _bildirimi_kapat(page):
     varsa_tikla(page, ["Tamam", "Kapat"], sure=1500)
     kosulu_bekle(page, lambda: TOPLU_TAMAMLANDI not in _ekran_metni(page)
@@ -618,23 +653,27 @@ def _pencere_bekle(page, capalar, azami_ms=4000):
     return pencere
 
 
-def _islem_bitsin(page, log, azami_saniye=None):
-    """Onceki sorgunun Islem Takip penceresi hala calisiyorsa bitmesini bekler.
+def _islem_bitsin(page, log, azami_saniye=180, durgun_saniye=60):
+    """Onceki sorgunun Islem Takip penceresi hala calisiyorsa bitmesini bekler (en cok azami_saniye;
+    yazisi durgun_saniye boyunca degismezse takilmis sayilir ve pencere kapatilir).
 
-    acik_pencereleri_kapat suren bir sorguyu oldurebilir; bir sonraki adima (iptal/itiraz, sonraki
-    tarih parcasi) gecmeden once Luca'nin is bitirmesi gerekir.
+    acik_pencereleri_kapat suren bir sorguyu oldurebilir; bir sonraki adima gecmeden once Luca is bitirmeli.
     """
-    sinir = azami_saniye or AYAR["azami_saniye"]
-    basla, bildirildi = time.time(), False
-    while time.time() - basla < sinir:
+    basla = son_degisim = time.time()
+    onceki, bildirildi = None, False
+    while time.time() - basla < azami_saniye:
         gunluk = islem_gunlugu(page)
         if not gunluk or sorgu_bitti_mi(gunluk):
             return
+        if gunluk != onceki:
+            onceki, son_degisim = gunluk, time.time()
+        elif time.time() - son_degisim >= durgun_saniye:
+            break
         if not bildirildi:
             yaz("    Onceki sorgu hala suruyor, bitmesi bekleniyor...", log)
             bildirildi = True
         sayfa_durulsun(page, azami_ms=1000)
-    yaz("    UYARI: onceki sorgu zaman asimina ugradi, devam ediliyor", log)
+    yaz("    UYARI: onceki sorgu bitmedi/takildi; pencere kapatilip devam ediliyor", log)
 
 
 def toplu_getir(page, bas, bit, log, iptal=False):
@@ -646,7 +685,7 @@ def toplu_getir(page, bas, bit, log, iptal=False):
     yaz(f"    {ad} ({bas} - {bit})", log)
     _islem_bitsin(page, log)
     acik_pencereleri_kapat(page, log)
-    if not dugmeye_bas(page, dugme, sure=6000):
+    if not _arac_dugmesine_bas(page, dugme, log):
         raise TopluBasarisiz(f"'{dugme}' butonuna basilamadi")
     pencere = None
     kosulu_bekle(page, lambda: _kapsayici(page, onaylar, 2, METIN_KUTUSU)[1] is not None, 5000, aralik_ms=250)
@@ -679,7 +718,7 @@ def toplu_getir(page, bas, bit, log, iptal=False):
     if not tik:
         raise TopluBasarisiz("Toplu getir onay butonu bulunamadi")
     yaz(f"    '{tik}' tiklandi, sorgu basladi", log)
-    durum = _sonucu_bekle(page, log, AYAR["azami_saniye"], once)
+    durum = _sonucu_bekle(page, log, min(AYAR["azami_saniye"], IPTAL_AZAMI_SANIYE) if iptal else AYAR["azami_saniye"], once)
     if durum == "tamam":
         yaz("    Seçili entegrasyonların sorgulanması tamamlandı", log)
     _bildirimi_kapat(page)
@@ -698,7 +737,7 @@ def toplu_iptal_sorgula(page, parcalar, log):
             acik_pencereleri_kapat(page, log)
             break
         if durum not in ("tamam", "tamam_turmob_eksik"):
-            yaz(f"    UYARI: iptal/itiraz sorgusu sonucu: {durum}", log)
+            yaz(f"    UYARI: iptal/itiraz sorgusu sonucu: {durum}; kalan parcalar atlandi", log)
             break
         basarili += 1
     return basarili
@@ -734,29 +773,68 @@ class _ListeYakalayici:
             pass
 
 
-def _liste_oku(page, yakalayici, log):
+def _imza_ogren(page, kayitlar, yon, log):
+    """Agdan gelen kayitlarin entegrasyonu anlasilamiyorsa (kod/bos) ekrandaki satirlardan ogrenir.
+
+    Ekran satirlari entegrasyonu acik adiyla gosterir. Ayni fatura numarasi hem agda hem ekranda varsa
+    kaydin imzasi (belge turu + entegrasyon kodu) o tipe baglanir; ayni imzali tum kayitlara uygulanir.
+    """
+    belirsiz = [k for k in kayitlar if not k.get("tip")
+                and entegrasyon_tipi(k["entegrasyon"] or k["tur"], yon) is None]
+    if not belirsiz:
+        return
+    try:
+        satirlar, _ = ekrandaki_satirlar(page)
+    except Exception:
+        return
+    ekran = {}   # no -> {tipler}
+    for e in kayitlari_birlestir(satirlar):
+        t = entegrasyon_tipi(e["entegrasyon"], yon)
+        if t:
+            ekran.setdefault(e["no"], set()).add(t)
+    imzalar = {}   # imza -> {tipler}
+    for k in belirsiz:
+        adaylar = ekran.get(k["no"], set())
+        if len(adaylar) == 1 and k.get("imza") is not None:
+            imzalar.setdefault(k["imza"], set()).update(adaylar)
+    cozulen = {im: next(iter(ts)) for im, ts in imzalar.items() if len(ts) == 1}
+    for k in belirsiz:
+        if k.get("imza") in cozulen:
+            k["tip"] = cozulen[k["imza"]]
+    kalan = sum(1 for k in belirsiz if not k.get("tip"))
+    gunluge_yaz(f"    TANI: imza ogrenildi: {len(cozulen)} imza ({len(belirsiz) - kalan}/{len(belirsiz)} kayit cozuldu)", log)
+
+
+def _liste_oku(page, yakalayici, log, yon="alis"):
     """Yakalanan yanitlardan, yoksa ekrandan satirlari dondurur (kayit sozlukleri)."""
     kayitlar = kayitlari_birlestir(yakalayici.hamlar)
     if kayitlar:
-        _liste_tanisi(kayitlar, yakalayici.hamlar, "ag yaniti", log)
+        _imza_ogren(page, kayitlar, yon, log)
+        _liste_tanisi(kayitlar, yakalayici.hamlar, "ag yaniti", log, yon)
         return kayitlar
     satirlar, _ = ekrandaki_satirlar(page)
     kayitlar = kayitlari_birlestir(satirlar)
-    if not kayitlar:
-        yaz("    UYARI: fatura listesi (entegrasyon bilgisi) okunamadi", log)
-    else:
-        _liste_tanisi(kayitlar, satirlar, "ekran", log)
+    if kayitlar:
+        _liste_tanisi(kayitlar, satirlar, "ekran", log, yon)
     return kayitlar
 
 
-def _liste_tanisi(kayitlar, hamlar, kaynak, log):
-    """Gunluge: hangi entegrasyon metinleri kac kayitta (kisi/fatura bilgisi yazilmaz)."""
-    sayac = {}
+def _liste_tanisi(kayitlar, hamlar, kaynak, log, yon="alis"):
+    """Gunluge: hangi entegrasyon metinleri kac kayitta (kisi/fatura bilgisi yazilmaz).
+
+    Tanimlanamayan kayit kalirsa ekrana da kisa bir ozet yazilir (neyin taninmadigi anlasilsin)."""
+    sayac, bilinmeyen = {}, {}
     for k in kayitlar:
-        sayac[k["entegrasyon"][:60] or "(bos)"] = sayac.get(k["entegrasyon"][:60] or "(bos)", 0) + 1
+        ad = k["entegrasyon"][:50] or "(bos)"
+        sayac[ad] = sayac.get(ad, 0) + 1
+        if not k.get("tip") and entegrasyon_tipi(k["entegrasyon"] or k["tur"], yon) is None:
+            im = f"{k.get('imza') or ad}"[:70]
+            bilinmeyen[im] = bilinmeyen.get(im, 0) + 1
     ilk = hamlar[0] if hamlar else None
     gunluge_yaz(f"    TANI: liste kaynagi={kaynak}; entegrasyonlar={sayac}"
                 + (f"; alanlar={sorted(ilk)[:14]}" if isinstance(ilk, dict) else ""), log)
+    if bilinmeyen:
+        yaz(f"    UYARI: entegrasyonu anlasilamayan kayitlar (birincil ekrana yazilir): {dict(list(bilinmeyen.items())[:4])}", log)
 
 
 # Listede yalniz GIB e-Arsiv satirlarini isaretler (digerlerinin isaretini kaldirir). Dondurur:
@@ -840,6 +918,7 @@ def toplu_isle(page, firma, yon, tipler, araliklar, cikti_kok, log, turmob_var=T
         raise TopluBasarisiz("Toplu Sorgulama ekrani acilamadi (menu degismis ya da modul yok)")
     fatura_yok_penceresini_kapat(page)
 
+    sorgu_notlari = []
     turmob = turmob_var and firma not in TURMOB_YOK
     entegrasyonlari_sec(page, turmob, log, yon, tipler)
     for bas, bit in parcalar:
@@ -862,6 +941,9 @@ def toplu_isle(page, firma, yon, tipler, araliklar, cikti_kok, log, turmob_var=T
             raise TopluBasarisiz("Luca 'en fazla 1 aylik sorgu' dedi; aralik kisaltilmali")
         if durum == "zaman_asimi":
             raise TopluBasarisiz(f"toplu sorgu {AYAR['azami_saniye']} sn icinde bitmedi")
+        if durum == "takildi":   # Luca ilerlemedi: eldeki veriyle devam, rapora not dusulur
+            sorgu_notlari.append("sorgu takildi, veriler eksik olabilir")
+            durum = "tamam"
         if durum not in ("tamam", "tamam_turmob_eksik"):
             raise TopluBasarisiz(f"toplu sorgu sonucu: {durum}")
 
@@ -869,19 +951,26 @@ def toplu_isle(page, firma, yon, tipler, araliklar, cikti_kok, log, turmob_var=T
     if AYAR["iptal_itiraz"]:   # Excel/liste guncel iptal-itiraz durumunu tasisin diye Excel'den once
         if not toplu_iptal_sorgula(page, parcalar, log):
             iptal_notu = "iptal/itiraz sorgulanamadi"
+    _islem_bitsin(page, log)
+    _modal_temizle(page, log)
 
     klasor = cikti_kok / dosya_adi_yap(firma) / f"toplu-{yon}"
     klasor.mkdir(parents=True, exist_ok=True)
     with _ListeYakalayici(page) as yakalayici:
-        belge_ara(page, istenen_bas.strftime(TARIH_BICIMI), istenen_bit.strftime(TARIH_BICIMI), log,
-                  acik_pencere_once=True)
+        for deneme in (1, 2, 3):
+            if belge_ara(page, istenen_bas.strftime(TARIH_BICIMI), istenen_bit.strftime(TARIH_BICIMI), log,
+                         acik_pencere_once=True):
+                break
+            _modal_temizle(page, log)   # Belge Ara dugmesi/penceresi acik bir pencere yuzunden tutmadi
+        else:
+            raise TopluBasarisiz("Belge Ara yapilamadi (liste yenilenemedi)")
         sayfa_durulsun(page, azami_ms=2000)
-        kayitlar = _liste_oku(page, yakalayici, log)
-    yaz(f"    Listede {len(kayitlar)} kayit", log)
+        kayitlar = _liste_oku(page, yakalayici, log, yon)
+    yaz(f"    Listede {len(kayitlar)} kayit" if kayitlar else "    Listede fatura yok", log)
 
     dosyalar = []
     excel = None
-    if AYAR["excel_indir"]:
+    if AYAR["excel_indir"] and kayitlar:
         # Luca "Lutfen excel cikti icin faturalari seciniz" diyor: once hepsi isaretlenir
         hepsini_sec(page, None, len(kayitlar))
         yol = dosya_indir(page, "Excel", klasor, "toplu", log,
@@ -896,14 +985,16 @@ def toplu_isle(page, firma, yon, tipler, araliklar, cikti_kok, log, turmob_var=T
         else:
             yaz("    UYARI: Excel inmedi; tutarlar bos kalacak", log)
     azami = AYAR.get("azami_fatura") or 0
-    # XML/zip: alista yalniz GIB e-Arsiv alis, satista yalniz GIB 5000/30000 (e-Fatura/TURMOB/e-Arsiv satis inmez)
+    # XML/zip: alista yalniz GIB e-Arsiv alis, satista yalniz GIB 5000/30000 (e-Fatura/TURMOB/e-Arsiv satis inmez).
+    # Satirlar ekrandaki yazilara gore isaretlenir; agdan gelen kayitlarin entegrasyonu taninmasa da calisir.
     xml_tipi = "e-arsiv-alis" if yon == "alis" else "gib-5000"
-    xml_kayit = [k for k in kayitlar if entegrasyon_tipi(k["entegrasyon"] or k["tur"], yon) == xml_tipi]
-    if AYAR["belge_indir"] and xml_tipi in tipler and xml_kayit:
-        if azami and len(xml_kayit) > azami:
-            yaz(f"    XML paketi atlandi: {len(xml_kayit)} fatura (sinir {azami})", log)
-        elif not arsiv_satirlarini_sec(page, log, yon):
-            yaz("    UYARI: XML satirlari isaretlenemedi; paket indirilmedi (baska entegrasyon inmesin diye)", log)
+    if AYAR["belge_indir"] and xml_tipi in tipler and kayitlar:
+        secilen = arsiv_satirlarini_sec(page, log, yon)
+        azami = AYAR.get("azami_fatura") or 0
+        if not secilen:
+            yaz("    XML icin uygun satir yok / isaretlenemedi; paket indirilmedi", log)
+        elif azami and secilen > azami:
+            yaz(f"    XML paketi atlandi: {secilen} fatura (sinir {azami})", log)
         else:
             yol = dosya_indir(page, "Seçilenleri İndir", klasor, "belgeler", log,
                               azami_saniye=AYAR["indirme_saniye"], tumunu_sec=False)
@@ -916,10 +1007,10 @@ def toplu_isle(page, firma, yon, tipler, araliklar, cikti_kok, log, turmob_var=T
 
     sonuclar = sonuclari_hesapla(firma, yon, tipler, kayitlar, excel,
                                  lambda t: cikti_kok / dosya_adi_yap(firma) / t, dosyalar, log)
-    if iptal_notu:
+    for ek in ([iptal_notu] if iptal_notu else []) + sorgu_notlari:
         for s in sonuclar.values():
-            s["not"] = (s["not"] + "; " if s["not"] else "") + "Toplu Sorgulama: " + iptal_notu
-    if AYAR["excel_indir"] and excel is None:
+            s["not"] = (s["not"] + "; " if s["not"] else "") + "Toplu Sorgulama: " + ek
+    if AYAR["excel_indir"] and excel is None and kayitlar:
         for s in sonuclar.values():
             if s["durum"] == "tamam":
                 s["durum"] = "excel inmedi"

@@ -75,6 +75,18 @@ class SafMantik(unittest.TestCase):
         k = ts.kayit_coz({"belge_numarasi": "ABC2026000000003", "belge_turu": "Fatura", "entegrasyon_tur": "GIB_EFATURA"})
         self.assertEqual(ts.entegrasyon_tipi(k["entegrasyon"], "alis"), "e-fatura-alis")      # "Fatura" tek basina e-Fatura sayilmaz
 
+    def test_taninan_ama_istenmeyen_entegrasyon_sayilmaz(self):
+        excel = ts.toplu_excel_oku(self._excel())
+        nolar = list(excel["faturalar"])
+        kayitlar = ts.kayitlari_birlestir(
+            [{"belge_numarasi": nolar[0], "entegrasyon_tur": "GİB E-Arşiv Alış Faturaları Entegrasyon"},
+             {"belge_numarasi": nolar[1], "entegrasyon_tur": "GİB E-Fatura Alış Faturaları Entegrasyon"},   # istenmiyor
+             {"belge_numarasi": nolar[2], "entegrasyon_tur": "GİB E-Fatura Alış Faturaları Entegrasyon"}])
+        klasor = Path(tempfile.mkdtemp(prefix="toplu-d-"))
+        sonuc = ts.sonuclari_hesapla("AKIN COBAN", "alis", ["e-arsiv-alis"], kayitlar, excel, lambda t: klasor / t)
+        self.assertEqual(sonuc["e-arsiv-alis"]["fatura_sayisi"], 1)          # e-Fatura satirlari e-Arsiv'e yazilmaz
+        self.assertEqual(sonuc["e-arsiv-alis"]["not"], "")
+
     def test_oran(self):
         self.assertAlmostEqual(ts._oran("9/10"), 0.9)
         self.assertAlmostEqual(ts._oran("%50"), 0.5)
@@ -217,6 +229,15 @@ class UctanUca(unittest.TestCase):
         self.assertEqual(kod, 0, cikti[-2000:])
         self.assertEqual(sahte_luca.SAYAC["toplu_getir"], 6)         # 3 parca x (alis + satis)
         self.assertNotIn("en fazla 1 aylik", cikti)
+
+    def test_entegrasyon_kodla_gelirse_ekrandan_ogrenilir_ve_xml_yine_yalniz_earsiv(self):
+        sahte_luca.SAYAC["toplu_kod"] = True      # ag yanitinda entegrasyon "K0/K1" gibi kod; ekranda acik ad
+        kod, cikti, rapor = self._calistir("AKIN", tipler=("e-arsiv-alis", "e-fatura-alis"))
+        self.assertEqual(kod, 0, cikti[-1500:])
+        k = rapor["AKIN COBAN"]
+        self.assertEqual(k["durumlar"], {"e-arsiv-alis": "tamam", "e-fatura-alis": "tamam"}, cikti[-1500:])
+        self.assertEqual((k["sayilar"]["e-arsiv-alis"], k["sayilar"]["e-fatura-alis"]), (3, 3))     # dagilim dogru
+        self.assertEqual(set(sahte_luca.SAYAC.get("toplu_zip_ent", [])), {"GİB E-Arşiv Alış Faturaları Entegrasyon"})
 
     def test_suren_sorgu_iptal_sorgusuna_gecmez(self):
         """Islem Takip gunlugu "fatura bulunamadi"/"tamamlandi" satirlari yazarken (sorgu surerken) sonraki adima gecilmez."""

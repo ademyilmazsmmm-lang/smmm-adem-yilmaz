@@ -69,7 +69,7 @@ AEN_EKRANLARI = {
 # sunucu tarafi durum: (firma, tip) -> {"sorgulandi": bool, "iptal": bool}
 DURUM = {}
 # urun seciminde uygulama penceresinin kac kez acildigi (cift tiklama testi icin)
-SAYAC = {"toplu_gecikme": 0, "toplu_erken_iptal": 0, "toplu_sessiz": False, "toplu": False, "toplu_yasak": 0, "toplu_getir": 0, "toplu_excel": 0, "toplu_zip": 0, "ara_menu": False, "sso": 0, "ilk_bos": False, "gib_hatasi": 0, "excel": 0, "excel_gecikme": 0,
+SAYAC = {"toplu_kod": False, "toplu_gecikme": 0, "toplu_erken_iptal": 0, "toplu_sessiz": False, "toplu": False, "toplu_yasak": 0, "toplu_getir": 0, "toplu_excel": 0, "toplu_zip": 0, "ara_menu": False, "sso": 0, "ilk_bos": False, "gib_hatasi": 0, "excel": 0, "excel_gecikme": 0,
         "zip_basarisiz": 0}
 
 # gercek Luca'da goruldu (26/09/2026); gecici, ayni sorgu tekrarlaninca geciyor
@@ -544,7 +544,10 @@ def toplu_satirlari(firma, yon):
     for ad in d.get("secili", []):
         tip = toplu_tip(ad, yon)
         if tip:
-            satirlar += [(ad, f) for f in faturalar(firma, tip)]
+            for f in faturalar(firma, tip):
+                if SAYAC["toplu_kod"]:   # her entegrasyonun faturasi ayri numarali (gercekte oyle)
+                    f = dict(f, no=chr(ord("A") + TOPLU_ENTEGRASYONLAR[yon].index(ad)) + f["no"][1:])
+                satirlar.append((ad, f))
     return satirlar
 
 
@@ -610,7 +613,7 @@ TOPLU_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Akıl
    const tb = document.querySelector('#liste tbody'); tb.innerHTML = '';
    for (const f of j.rows) {
      const tr = document.createElement('tr');
-     tr.innerHTML = '<td><input type="checkbox"></td><td>' + f.belge_turu + '</td><td>' + f.entegrasyon_tur + '</td><td>'
+     tr.innerHTML = '<td><input type="checkbox"></td><td>' + f.belge_turu + '</td><td>' + (f.entegrasyon_adi || f.entegrasyon_tur) + '</td><td>'
        + f.belge_numarasi + '</td><td>' + f.vkn + '</td><td>' + f.unvan + '</td><td>' + f.belge_tarihi + '</td><td>'
        + f.onay_durumu + '</td><td></td>';
      tb.appendChild(tr);
@@ -839,7 +842,8 @@ class Isleyici(BaseHTTPRequestHandler):
             # fatura_list.jq
             satirlar = [{"ettn": f["no"], "belge_numarasi": f["no"], "belge_tarihi": f["tarih"], "vkn": "1234567890",
                          "unvan": f["unvan"], "onay_durumu": "İptal" if (f["durum"] == "İPTAL" or (d.get("iptal") and f["no"].endswith("2"))) else "Onaylandı",
-                         "belge_turu": "Fatura", "entegrasyon_tur": ad}
+                         "belge_turu": "Fatura", "entegrasyon_adi": ad,
+                         "entegrasyon_tur": ("K%d" % TOPLU_ENTEGRASYONLAR[anahtar[1]].index(ad)) if SAYAC["toplu_kod"] else ad}
                         for ad, f in toplu_satirlari(*anahtar)]
         return self._yanit(json.dumps({"rows": satirlar, "total": len(satirlar)}), "application/json")
 
@@ -872,7 +876,7 @@ def sifirla():
         TOPLU.clear()
         SAYAC.pop("toplu_zip_ent", None)
         SAYAC.pop("toplu_iptal", None)
-        SAYAC.update(toplu_gecikme=0, toplu_erken_iptal=0, toplu_sessiz=False, toplu=False, toplu_yasak=0, toplu_getir=0, toplu_excel=0, toplu_zip=0, ara_menu=False, sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
+        SAYAC.update(toplu_kod=False, toplu_gecikme=0, toplu_erken_iptal=0, toplu_sessiz=False, toplu=False, toplu_yasak=0, toplu_getir=0, toplu_excel=0, toplu_zip=0, ara_menu=False, sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
 
 
 if __name__ == "__main__":
