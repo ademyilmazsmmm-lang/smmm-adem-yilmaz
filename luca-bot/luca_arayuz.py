@@ -777,6 +777,7 @@ class Arayuz:
         self.v_devam = tk.BooleanVar(value=True)
         self.v_belge_indir = tk.BooleanVar(value=self.ayarlar.get("arayuz_belge_indir", True))
         self.v_excel_indir = tk.BooleanVar(value=self.ayarlar.get("arayuz_excel_indir", True))
+        self.v_toplu = tk.BooleanVar(value=self.ayarlar.get("arayuz_toplu_sorgu", False))   # Akıllı Ent. Toplu Sorgulama
         self.v_aylik = tk.BooleanVar(value=self.ayarlar.get("arayuz_aylik_sorgu", False))   # GIB sorgusu 30 gunluk parcalarla
         secili = set(a.get("arayuz_ekranlar") or TUM_BELGELER)
         self.v_ekran = {t: tk.BooleanVar(value=t in secili) for t in TUM_BELGELER}
@@ -976,7 +977,8 @@ class Arayuz:
                        font=KUCUK, **self._kutu_renk()).grid(row=0, column=1, sticky="w", padx=(10, 0))
         tk.Checkbutton(ind, text="GİB sorgusunu aylık yap (7 gün sınırı yoksa)", variable=self.v_aylik,
                        font=KUCUK, **self._kutu_renk()).grid(row=1, column=0, columnspan=2, sticky="w")
-
+        tk.Checkbutton(ind, text="Hızlı mod: Akıllı Ent. Toplu Sorgulama (1 aylık, deneysel)", variable=self.v_toplu,
+                       font=KUCUK, **self._kutu_renk()).grid(row=2, column=0, columnspan=2, sticky="w")
 
     def _sol_tekerlek(self, e):
         """Fare tekerlegi: yalnizca imlec sol panelin ustundeyken ve panel kaydirilabiliyorsa panel kayar."""
@@ -1318,7 +1320,8 @@ class Arayuz:
         if not belge and not excel:
             raise ValueError("Fatura (XML) ve Excel indirmenin ikisi de kapalı; en az birini seçin.")
         return ((["--belge-indirme-yok"] if not belge else []) + (["--excel-indirme-yok"] if not excel else [])
-                + (["--parca-gun", "30"] if self.v_aylik.get() else []))
+                + (["--parca-gun", "30"] if self.v_aylik.get() else [])
+                + (["--toplu"] if self.v_toplu.get() else []))
 
     def calistir(self):
         if self.surec:
@@ -1336,6 +1339,7 @@ class Arayuz:
         a["arayuz_ekranlar"] = [t for t in TUM_BELGELER if self.v_ekran[t].get()]
         a["arayuz_belge_indir"], a["arayuz_excel_indir"] = self.v_belge_indir.get(), self.v_excel_indir.get()
         a["arayuz_aylik_sorgu"] = self.v_aylik.get()
+        a["arayuz_toplu_sorgu"] = self.v_toplu.get()
         ayarlari_kaydet(a)
 
         self._baslat(komut, "Luca'ya giriş yapılıyor…")

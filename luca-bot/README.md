@@ -459,6 +459,34 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 | İptal/İtiraz, Tevkifatlı Alış, İnmeyen | adetler (tevkifat yalnızca alış ekranlarından, KDV2 için) |
 | Alış/Satış Matrah ve KDV | iptal/itiraz hariç toplamlar; aynı faturalar iki kez sayılmaz: TÜRMOB Alış = e-Fatura Alış, İnteraktif V.D. = e-Arşiv Alış, GİB 5000/30000 = e-Arşiv Satış, TÜRMOB Satış = e-Arşiv Satış + e-Fatura Satış (TÜRMOB ekranı açılmayan firmada iki parça toplanır) |
 
+## Hızlı mod: Akıllı Ent. Toplu Sorgulama (deneysel)
+
+Luca'nın yeni **Akıllı Ent. Toplu Sorgulama** ekranı (Alış / Satış İade Faturaları ve Satış / Alış İade
+Faturaları) tüm entegrasyonları tek seferde, **1 aya kadar** sorguluyor. Arayüzde "Hızlı mod" kutusunu
+işaretleyin (komut satırında `--toplu`, `ayarlar.json`'da `"toplu_sorgu": true`).
+
+Her firma için sırayla:
+
+1. Akıllı Entegrasyon Noktası › Akıllı Ent. Toplu Sorgulama › **Alış** (sonra **Satış**) ekranı açılır.
+2. **Entegrasyon Seç**: yalnızca GİB e-Arşiv / e-Fatura / 5000-30000 / e-SMM işaretlenir. **İşnet, QR ile Yüklenmiş,
+   NetteCAP (Gider/Gelir), TreeWin ve BelgeApp hiç seçilmez.** TÜRMOB yalnızca o firmada TÜRMOB ekranı istenmişse
+   seçilir; Luca "eksik bilgi" derse (TÜRMOB kullanıcı bilgisi yok) TÜRMOB çıkarılıp sorgu tekrarlanır ve firma
+   o çalışmada bir daha TÜRMOB ile denenmez.
+3. **Seçili Entegrasyonlardan Getir**: tarih aralığı en fazla 1 aylık parçalara bölünür; "Seçili entegrasyonların
+   sorgulanması tamamlandı" bildirimi beklenir.
+4. **Belge Ara** ile liste yüklenir (hangi faturanın hangi entegrasyondan geldiği ve iptal/itiraz durumu için),
+   **Excel** indirilir (tutarlar; aynı fatura Excel'de tekrar ediyorsa bir kez sayılır), alışta **Seçilenleri İndir**
+   ile XML/zip paketi alınır.
+5. Sonuçlar eski ekranlarla aynı sütunlara yazılır (e-Arşiv Alış, e-Fatura Alış, TÜRMOB Alış … ayrı ayrı); rapor,
+   e-posta ve "birleşik" fatura sayımı değişmez. Tevkifat KDV'si Excel'deki "Tevkifat Oranı"ndan (9/10 gibi) hesaplanır.
+
+**E-Arşiv Faturaları Sorgulama** (interaktif V.D.) menüdeki yerinde durur; hızlı modda da eski yolla çalışır.
+Toplu ekran açılamazsa, entegrasyon penceresi tanınmazsa ya da sorgu bitmezse program o firmanın ekranlarını
+**eski ekran-ekran yöntemle** tek tek sorgular (günlükte "Toplu Sorgulama kullanılamadı" yazar).
+
+> Bu özellik gerçek Luca'da henüz denenmedi: ekran öğeleri yazılarına göre bulunur. İlk gerçek çalıştırmada
+> `calisma.log` içindeki `TANI: entegrasyon satirlari` satırı ve varsa hata iletisi, gerekirse ayar için yeterlidir.
+
 ## Sık karşılaşılan durumlar
 
 | Durum | Ne yapmalı |

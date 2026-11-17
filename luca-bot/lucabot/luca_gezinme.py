@@ -11,7 +11,7 @@ from .luca_ekran import (acik_pencereleri_kapat, cerceveler, gorunur_mu,
 from .ortak import AYAR, karsilastir, sadelestir, tarih_cozumle, yaz
 from .sabitler import (ARA_MENU, BELGE_TIPLERI, DONEM_DESENI, GETIR_DUGMELERI, IKI_KADEMELI,
                        INTERAKTIF_LISTELE, KAPAT_METINLERI, MENU_KELIMELERI,
-                       MODUL_ADAYLARI, UST_MENU)
+                       MODUL_ADAYLARI, TOPLU_EKRANLARI, TOPLU_ISARETI, TOPLU_MENU, UST_MENU)
 
 
 # --- firma listesi ------------------------------------------------------------
@@ -409,3 +409,35 @@ def menuye_git(page, belge_tipi):
     if alt is None:
         raise LookupError(f"'{hedef}' menu maddesi bulunamadi. Gorunen menuler: {menu_metinleri(page)}")
     return _ekrana_gec(page, alt, isaret, azami=6000)
+
+
+def toplu_menuye_git(page, yon):
+    """Akilli Entegrasyon Noktasi > Akilli Ent. Toplu Sorgulama > (Alis | Satis) ekranini acar.
+
+    Ekranin kendi dugmesi ("Entegrasyon Sec") gorunduyse True. Toplu Sorgulama maddesi dogrudan
+    ekran ya da alt grup olabilir; ikisi de denenir.
+    """
+    hedef = TOPLU_EKRANLARI[yon]
+    ust_gorunur = lambda: gorunur_mu(page, UST_MENU, sure=1200)
+    hedef_gorunur = lambda: gorunur_mu(page, hedef, sure=1200)
+    grup_gorunur = lambda: gorunur_mu(page, TOPLU_MENU, sure=1200)
+    alt = None
+    for deneme in range(3):
+        if not ust_gorunur():
+            if not modul_menusunu_ac(page, ust_gorunur):
+                if deneme == 2:
+                    raise LookupError(
+                        f"'{UST_MENU}' menusu acilamadi. Sayfada gorunen menuler: {menu_metinleri(page)}")
+                sayfa_durulsun(page, azami_ms=1000)
+                continue
+        menu_ogesini_ac(page, UST_MENU, sure=6000, dogrula=lambda: hedef_gorunur() or grup_gorunur())
+        if not hedef_gorunur():
+            menu_ogesini_ac(page, TOPLU_MENU, sure=4000, dogrula=hedef_gorunur)
+        try:
+            _, alt = metinle_bul(page, hedef, sure=4000)
+            break
+        except LookupError:
+            sayfa_durulsun(page, azami_ms=1000)
+    if alt is None:
+        raise LookupError(f"'{hedef}' menu maddesi bulunamadi. Gorunen menuler: {menu_metinleri(page)}")
+    return _ekrana_gec(page, alt, TOPLU_ISARETI, azami=8000)

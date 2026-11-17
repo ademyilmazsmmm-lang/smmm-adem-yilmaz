@@ -41,6 +41,7 @@ AYAR = {
     "giris_adresi": None,       # yalnizca test icin (sahte Luca); bos ise gercek Luca
     "tarayici_yolu": None,      # Playwright Chromium yerine belirli bir chrome.exe (istege bagli)
     "tarayici_sandbox": True,   # yalnizca test ortami (Linux/root) icin kapatilir
+    "toplu_sorgu": False,       # Akilli Ent. Toplu Sorgulama ile hizli mod (eski ekranlar yedek)
     "excel_azami_saniye": 600,  # Luca buyuk Excel'i hazirlarken en fazla bu kadar beklenir
 }
 

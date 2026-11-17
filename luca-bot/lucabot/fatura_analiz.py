@@ -72,6 +72,22 @@ def fatura_kimlikleri(satirlar):
     return [k for k in (fatura_kimligi(s) for s in satirlar) if k]
 
 
+def _zip_icerikleri(z, derinlik=0):
+    """(ad, bayt) uretir; Toplu Sorgulama paketi fatura basina ic ice zip icerir."""
+    for ad in z.namelist():
+        alt = ad.lower()
+        try:
+            if alt.endswith(".zip") and derinlik < 2:
+                import io
+                with zipfile.ZipFile(io.BytesIO(z.read(ad))) as ic:
+                    for kayit in _zip_icerikleri(ic, derinlik + 1):
+                        yield (f"{ad}/{kayit[0]}", kayit[1])
+            elif alt.endswith((".xml", ".html", ".htm")):
+                yield ad, z.read(ad)
+        except Exception:
+            continue
+
+
 def zipten_tevkifatlilar(zip_yolu):
     """Inen belge paketindeki XML'lerde tevkifat arar; fatura numaralarini dondurur.
 
@@ -81,13 +97,8 @@ def zipten_tevkifatlilar(zip_yolu):
     bulunan = set()
     try:
         with zipfile.ZipFile(zip_yolu) as z:
-            for ad in z.namelist():
-                if not ad.lower().endswith((".xml", ".html", ".htm")):
-                    continue
-                try:
-                    icerik = z.read(ad).decode("utf-8", "ignore").lower()
-                except Exception:
-                    continue
+            for ad, ham in _zip_icerikleri(z):
+                icerik = ham.decode("utf-8", "ignore").lower()
                 if any(isaret in icerik for isaret in XML_TEVKIFAT):
                     eslesme = FATURA_NO_DESENI.search(ad.replace(" ", ""))
                     bulunan.add(eslesme.group(1).upper() if eslesme else ad)

@@ -328,7 +328,7 @@ def listeyi_yenile(page, log, ek=""):
         listenin_yuklenmesini_bekle(page, baslangic)
 
 
-def belge_ara(page, bas, bit, log):
+def belge_ara(page, bas, bit, log, acik_pencere_once=False):
     """Listeyi istenen tarih araligina getirir (indirme ay geneli olsun diye).
 
     Sorgular 7 gunluk parcalarla yapildigi icin ekranda son parcanin filtresi
@@ -338,7 +338,12 @@ def belge_ara(page, bas, bit, log):
     if not dugmeye_bas(page, "Belge Ara", sure=5000):
         yaz("    UYARI: 'Belge Ara' butonu bulunamadi, liste oldugu gibi kullanilacak", log)
         return False
-    _, pencere = diyalog_bekle(page, BELGE_ARA_CAPALARI, azami_ms=3000)
+    pencere = None
+    if acik_pencere_once:   # Toplu Sorgulama: listenin "Belge Numarasi" basligi yazi aramasini yaniltir
+        kosulu_bekle(page, lambda: acik_pencere(page)[1] is not None, 3000, aralik_ms=200)
+        _, pencere = acik_pencere(page)
+    if pencere is None:
+        _, pencere = diyalog_bekle(page, BELGE_ARA_CAPALARI, azami_ms=3000)
     kutular = tarih_kutulari(page, pencere)
     if len(kutular) < 2:
         yaz("    UYARI: 'Belge Ara' tarih kutulari bulunamadi", log)

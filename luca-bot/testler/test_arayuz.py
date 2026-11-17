@@ -214,6 +214,11 @@ class ArayuzTestleri(ArayuzZemini):
         k = self.app.komut()
         self.assertEqual(k[k.index("--parca-gun") + 1], "30")
 
+    def test_hizli_mod_toplu_sorgu_komuta_girer(self):
+        self.assertNotIn("--toplu", self.app.komut())
+        self.app.v_toplu.set(True)
+        self.assertIn("--toplu", self.app.komut())
+
     def test_luca_hesabi_secimi_komuta_girer_ve_ozet_iki_hesabi_gosterir(self):
         self.assertNotIn("--hesap", self.app.komut())                        # varsayilan: hepsi
         self.app.v_hesap.set("Yalnız işletme")

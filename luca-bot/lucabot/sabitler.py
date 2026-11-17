@@ -54,6 +54,26 @@ ARA_MENU = {"e-arsiv-alis": "GİB e-Belge", "e-arsiv-satis": "GİB e-Belge", "e-
             "e-fatura-satis": "GİB e-Belge", "gib-5000": "GİB e-Belge", "esmm-alis": "GİB e-Belge",
             "esmm-satis": "GİB e-Belge", "turmob-alis": "TÜRMOB e-Belge", "turmob-satis": "TÜRMOB e-Belge"}
 
+# --- Akilli Ent. Toplu Sorgulama (Kasim 2026) -----------------------------------------------------
+# Tek ekranda tum entegrasyonlari bir arada sorgular; 1 aya kadar tek sorgu kabul eder.
+TOPLU_MENU = "Akıllı Ent. Toplu Sorgulama"
+TOPLU_EKRANLARI = {"alis": "Alış / Satış İade Faturaları", "satis": "Satış / Alış İade Faturaları"}
+TOPLU_ISARETI = "Entegrasyon Seç"       # ekranin acildigini gosteren arac cubugu dugmesi
+TOPLU_GETIR = "Seçili Entegrasyonlardan Getir"
+TOPLU_AZAMI_GUN = 30                    # "En fazla 1 aylık sorgulama yapılabilir"
+# Toplu ekranin kapsadigi belge tipleri (e-Arsiv Sorgulama/interaktif kendi menusunde kalir)
+TOPLU_KAPSAM = {"alis": ["e-arsiv-alis", "e-fatura-alis", "turmob-alis", "esmm-alis"],
+                "satis": ["e-arsiv-satis", "e-fatura-satis", "gib-5000", "turmob-satis", "esmm-satis"]}
+# Entegrasyon Sec'te ASLA secilmeyenler (sadelestir ile karsilastirilir)
+TOPLU_YASAK = ("ISNET", "QR ILE", "NETTECAP", "TREEWIN", "BELGEAPP")
+# secilebilecek entegrasyonlarin adinda gecen kelimeler (TURMOB ayrica: yalniz kullanan firmada)
+TOPLU_IZINLI = ("GIB", "ARSIV", "E-FATURA", "EFATURA", "5000", "SMM")
+TOPLU_TAMAMLANDI = "SORGULANMASI TAMAMLANDI"
+TOPLU_EKSIK_BILGI = "EKSIK BILGI"
+TOPLU_AZAMI_UZUN = "EN FAZLA 1 AYLIK"
+TOPLU_GETIR_ONAY = ["Getir", "Sorgula", "Belgeleri Getir", "Tamam", "Uygula"]
+TOPLU_KAYDET = ["Kaydet", "Tamam", "Uygula"]
+
 # menusu iki kademeli olan (Akilli Entegrasyon Noktasi araciligi olmayan) ekranlar
 IKI_KADEMELI = {"e-arsiv-interaktif"}
 

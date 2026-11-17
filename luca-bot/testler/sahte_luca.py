@@ -12,6 +12,7 @@ yoksa acilista cikan uyari) bilerek taklit edilir.
 """
 
 import io
+from datetime import datetime
 import json
 import sys
 import threading
@@ -68,7 +69,7 @@ AEN_EKRANLARI = {
 # sunucu tarafi durum: (firma, tip) -> {"sorgulandi": bool, "iptal": bool}
 DURUM = {}
 # urun seciminde uygulama penceresinin kac kez acildigi (cift tiklama testi icin)
-SAYAC = {"ara_menu": False, "sso": 0, "ilk_bos": False, "gib_hatasi": 0, "excel": 0, "excel_gecikme": 0,
+SAYAC = {"toplu": False, "toplu_yasak": 0, "toplu_getir": 0, "toplu_excel": 0, "toplu_zip": 0, "ara_menu": False, "sso": 0, "ilk_bos": False, "gib_hatasi": 0, "excel": 0, "excel_gecikme": 0,
         "zip_basarisiz": 0}
 
 # gercek Luca'da goruldu (26/09/2026); gecici, ayni sorgu tekrarlaninca geciyor
@@ -241,6 +242,11 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
  document.querySelectorAll('.grup').forEach(g => g.onmouseenter = g.onclick = () => {
    document.querySelectorAll('.altgrup').forEach(d => d.classList.add('gizli'));
    sonra(150, () => g.nextElementSibling.classList.remove('gizli')); });
+ document.querySelectorAll('[data-toplu]').forEach(a => a.onclick = () => {
+   document.getElementById('modulMenu').classList.add('gizli');
+   document.getElementById('aenMenu').classList.add('gizli');
+   sonra(300, () => sekmeAc('/toplu?yon=' + a.dataset.toplu + '&firma=' + encodeURIComponent(seciliFirma) + '&t=' + Date.now()));
+ });
  document.querySelectorAll('[data-tip]').forEach(a => a.onclick = () => {
    document.getElementById('modulMenu').classList.add('gizli');
    document.getElementById('aenMenu').classList.add('gizli');
@@ -500,6 +506,156 @@ Bitiş <input type="text" name="sonTarih" value="31/08/2026">
 <div style="color:red">** Uyarı: Lütfen faturalarınızla ekrandaki tutarları kontrol ediniz.</div>"""
 
 
+# --- Akilli Ent. Toplu Sorgulama (Kasim 2026) ---------------------------------------------------
+TOPLU = {}   # (firma, yon) -> {"secili": [adlar], "sorgulandi": bool}
+TURMOBSUZ = {"KEREM TICARET"}   # bu firmada TURMOB bilgisi girilmemis
+TOPLU_ENTEGRASYONLAR = {
+    "alis": ["GİB E-Arşiv Alış Faturaları Entegrasyon", "GİB E-Fatura Alış Faturaları Entegrasyon",
+             "TÜRMOB Entegratörlük Alış Faturaları Entegrasyon", "İşnet Alış Faturaları Entegrasyon",
+             "QR ile Yüklenmiş Alış Faturaları", "NetteCAP Gider Entegrasyon", "TreeWin Entegrasyon",
+             "BelgeApp Entegrasyon"],
+    "satis": ["GİB E-Arşiv Satış Faturaları Entegrasyon", "GİB E-Fatura Satış Faturaları Entegrasyon",
+              "GİB 5000/30000 Entegrasyon", "TÜRMOB Entegratörlük Satış Faturaları Entegrasyon",
+              "İşnet Satış Faturaları Entegrasyon", "QR ile Yüklenmiş Satış Faturaları",
+              "NetteCAP Gelir Entegrasyon", "BelgeApp Entegrasyon"],
+}
+TOPLU_YASAKLI = ("İşnet", "QR ile", "NetteCAP", "TreeWin", "BelgeApp")
+
+
+def toplu_tip(ad, yon):
+    ek = "alis" if yon == "alis" else "satis"
+    if "TÜRMOB" in ad:
+        return f"turmob-{ek}"
+    if "5000" in ad:
+        return "gib-5000"
+    if "E-Arşiv" in ad:
+        return f"e-arsiv-{ek}"
+    if "E-Fatura" in ad:
+        return f"e-fatura-{ek}"
+    return None
+
+
+def toplu_satirlari(firma, yon):
+    """Secili (ve sorgulanmis) entegrasyonlarin faturalari: [(entegrasyon adi, fatura)]."""
+    d = TOPLU.get((firma, yon), {})
+    if not d.get("sorgulandi"):
+        return []
+    satirlar = []
+    for ad in d.get("secili", []):
+        tip = toplu_tip(ad, yon)
+        if tip:
+            satirlar += [(ad, f) for f in faturalar(firma, tip)]
+    return satirlar
+
+
+def toplu_excel_bayt(firma, yon):
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "FATURALAR"
+    ws.append(["Fatura\nTarihi", "Fatura \nNumarası", "Fatura\nTürü", "VKN\nTCKN", "Açıklama", "Tevkifat\nOranı",
+               "Özel\nMatrah", "%1'lik\nKDV", "%8'lik\nKDV", "%10'lik\nKDV", "%18'lik\nKDV", "%20'lik\nKDV",
+               "%1'lik\nMatrah", "%8'lik\nMatrah", "%10'lik\nMatrah", "%18'lik\nMatrah", "%20'lik\nMatrah", "Toplam"])
+    gorulen = set()
+    for _, f in toplu_satirlari(firma, yon):   # ayni fatura her entegrasyonda gelir: Excel'de BIREBIR tekrarlanir
+        tevk = f["tip"] == "TEVKIFAT"
+        satir = [f["tarih"], f["no"], f["tip"], "1234567890", "", "9/10" if tevk else "", 0, 0, 0, 0, 0, f["kdv"],
+                 0, 0, 0, 0, f["matrah"], f["matrah"] + f["kdv"]]
+        ws.append(satir)
+        gorulen.add(f["no"])
+    tampon = io.BytesIO()
+    wb.save(tampon)
+    return tampon.getvalue()
+
+
+def toplu_zip_bayt(firma, yon):
+    dis = io.BytesIO()
+    with zipfile.ZipFile(dis, "w") as z:
+        gorulen = set()
+        for _, f in toplu_satirlari(firma, yon):
+            if f["no"] in gorulen:
+                continue
+            gorulen.add(f["no"])
+            ic = io.BytesIO()
+            with zipfile.ZipFile(ic, "w") as zi:
+                zi.writestr(f"{f['no']}.xml", f"<Invoice><cbc:ID>{f['no']}</cbc:ID></Invoice>")
+                zi.writestr(f"{f['no']}.html", "<html></html>")
+            z.writestr(f"{f['no']}.zip", ic.getvalue())
+    return dis.getvalue()
+
+
+TOPLU_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Akıllı Ent. Toplu Sorgulama</title>
+""" + ORTAK_STIL + """</head><body>
+<h3>__BASLIK__</h3>
+<div id="arac"><button data-e="ara">Belge Ara</button><button data-e="sec">Entegrasyon Seç</button>
+<button data-e="getir">Seçili Entegrasyonlardan Getir</button><button data-e="iptal">İptal/İtiraz Sorgula</button>
+<button data-e="bilgi">Entegrasyon Bilgileri</button><button data-e="indir">Seçilenleri İndir</button>
+<button data-e="yenile">Yenile</button><button data-e="excel">Excel</button><button data-e="sil">Belge Sil</button></div>
+<div><b>Belgeler</b> | Taslak Gider (Gelir) Kayıtları</div>
+<table id="liste"><thead><tr><th></th><th>Belge Türü</th><th>Entegrasyon Noktası</th><th>Belge Numarası</th>
+<th>VKN/TCKN</th><th>Unvan/Ad Soyad</th><th>Belge Tarihi</th><th>Onay Durumu</th><th>Gelir/Gider Evrak No</th></tr></thead>
+<tbody></tbody></table>
+<div id="uyari"></div><div id="perde" class="perde gizli"></div>
+<div id="pencere" class="luca-open-window gizli"></div>
+<script>
+ const YON = '__YON__', FIRMA = '__FIRMA__', LISTE = __ENTEGRASYONLAR__;
+ const q = 'yon=' + YON + '&firma=' + encodeURIComponent(FIRMA);
+ const pencere = document.getElementById('pencere'), perde = document.getElementById('perde');
+ function sonra(ms, f){ setTimeout(f, ms); }
+ function ac(html){ pencere.innerHTML = html; pencere.classList.remove('gizli'); perde.classList.remove('gizli'); }
+ function kapat(){ pencere.classList.add('gizli'); perde.classList.add('gizli'); pencere.innerHTML=''; }
+ function kapatDugmesi(){ return '<button onclick="kapat()">Kapat</button>'; }
+ async function yukle(){
+   const r = await fetch('/Luca/gib530/fatura_list.jq?' + q, {method:'POST'}); const j = await r.json();
+   const tb = document.querySelector('#liste tbody'); tb.innerHTML = '';
+   for (const f of j.rows) {
+     const tr = document.createElement('tr');
+     tr.innerHTML = '<td><input type="checkbox"></td><td>' + f.belge_turu + '</td><td>' + f.entegrasyon_tur + '</td><td>'
+       + f.belge_numarasi + '</td><td>' + f.vkn + '</td><td>' + f.unvan + '</td><td>' + f.belge_tarihi + '</td><td>'
+       + f.onay_durumu + '</td><td></td>';
+     tb.appendChild(tr);
+   }
+ }
+ function mesaj(m){ ac('<span>' + m + '</span><br><button onclick="kapat()">Tamam</button>'); }
+ const eylem = {
+   sec: async () => { const sec = await (await fetch('/api/toplu-secili?' + q)).json();
+     ac('<span>Entegrasyon Seç</span>' + LISTE.map((a, i) => '<div class="sat"><label><input type="checkbox" data-ad="' + a
+       + '"' + (sec.includes(a) ? ' checked' : '') + '> ' + a + '</label></div>').join('')
+       + '<button id="kaydet">Kaydet</button>' + kapatDugmesi()); },
+   getir: () => sonra(300, () => ac('<span>Tarih Aralığı</span> <input type="text" name="baslangicTarihi" value="01/08/2026">'
+       + ' <input type="text" name="bitisTarihi" value="31/08/2026"> <button id="getirOnay">Getir</button>' + kapatDugmesi())),
+   ara: () => sonra(300, () => ac('<span>Tarih Aralığı</span> <input type="text" name="ilkTarih" value="01/08/2026">'
+       + ' <input type="text" name="sonTarih" value="31/08/2026"><label><input type=checkbox>Muhasebeleşmiş</label>'
+       + '<button onclick="kapat(); sonra(500, yukle)">Belge Ara</button>' + kapatDugmesi())),
+   yenile: () => sonra(400, yukle),
+   excel: () => { location.href = '/indir/toplu-excel?' + q; },
+   indir: () => { if (!document.querySelector('#liste tbody input:checked')) {
+       document.getElementById('uyari').textContent = 'Lütfen indirilecek faturaları seçiniz'; return; }
+     sonra(300, () => ac('<span>İNDİR: tüm faturalar için <a href="#" id="buraya">buraya</a>, onaylanmış faturalar için'
+       + ' <a href="#">buraya</a> tıklayınız</span> <button onclick="kapat(); location.href=\\'/indir/toplu-zip?' + q
+       + '\\'">Seçilenleri İndir</button>' + kapatDugmesi())); },
+   iptal: () => mesaj('İptal/itiraz sorgusu'), bilgi: () => mesaj('Entegrasyon bilgileri'), sil: () => mesaj('Belge sil'),
+ };
+ document.addEventListener('click', async e => {
+   const t = e.target;
+   if (t.id === 'kaydet') {
+     const adlar = [...document.querySelectorAll('input[data-ad]:checked')].map(k => k.dataset.ad);
+     await fetch('/api/toplu-sec?' + q, {method: 'POST', body: JSON.stringify(adlar)}); kapat(); }
+   if (t.id === 'getirOnay') {
+     const k = pencere.querySelectorAll('input[type=text]');
+     const url = '/api/toplu-getir?' + q + '&bas=' + encodeURIComponent(k[0].value) + '&bit=' + encodeURIComponent(k[1].value);
+     kapat(); sonra(300, async () => { const j = await (await fetch(url, {method: 'POST'})).json();
+       sonra(1200, () => mesaj(j.mesaj)); }); }
+   if (t.id === 'buraya') { e.preventDefault(); document.querySelectorAll('#liste tbody input').forEach(k => k.checked = true); }
+   if (t.dataset && t.dataset.e) eylem[t.dataset.e]();
+ });
+</script></body></html>"""
+
+
+def firma_adi(q):
+    return q.get("firma", "")
+
+
 class Isleyici(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -536,7 +692,11 @@ class Isleyici(BaseHTTPRequestHandler):
             if SAYAC["ara_menu"]:   # gercek Luca (Kasim 2026): AEN > GİB e-Belge / TÜRMOB e-Belge > madde (3 kademe)
                 def _ogeler(filtre):
                     return "".join(f'<a data-tip="{t}">{ad}</a>' for ad, t in AEN_EKRANLARI.items() if filtre(t))
-                aen = ('<a class="ara">Akıllı Ent. Toplu Sorgulama</a><a class="grup">TÜRMOB e-Belge</a>'
+                toplu = ('<a class="grup">Akıllı Ent. Toplu Sorgulama</a><div class="altgrup gizli" style="margin-left:14px">'
+                         '<a data-toplu="alis">Alış / Satış İade Faturaları</a>'
+                         '<a data-toplu="satis">Satış / Alış İade Faturaları</a></div>') if SAYAC["toplu"] \
+                    else '<a class="ara">Akıllı Ent. Toplu Sorgulama</a>'
+                aen = (toplu + '<a class="grup">TÜRMOB e-Belge</a>'
                        '<div class="altgrup gizli" style="margin-left:14px">' + _ogeler(lambda t: t.startswith("turmob")) + '</div>'
                        '<a class="grup">GİB e-Belge</a><div class="altgrup gizli" style="margin-left:14px">'
                        + _ogeler(lambda t: not t.startswith("turmob")) + '</div><a class="ara">NetteCap</a>')
@@ -579,6 +739,28 @@ class Isleyici(BaseHTTPRequestHandler):
                     .replace("__TIP__", tip).replace("__FIRMA__", firma)
                     .replace("__FATURASIZ__", FATURASIZ))
             return self._yanit(html)
+        if yol == "/toplu":
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+            yon = q.get("yon", "alis")
+            baslik = "Alış / Satış İade Faturaları" if yon == "alis" else "Satış / Alış İade Faturaları"
+            return self._yanit(TOPLU_SAYFASI.replace("__BASLIK__", baslik).replace("__YON__", yon)
+                               .replace("__FIRMA__", firma_adi(q)).replace(
+                                   "__ENTEGRASYONLAR__", json.dumps(TOPLU_ENTEGRASYONLAR[yon])))
+        if yol == "/api/toplu-secili":
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+            ilk = TOPLU_ENTEGRASYONLAR[q.get("yon", "alis")]   # ilk acilista hepsi (yasaklilar dahil) isaretli
+            return self._yanit(json.dumps(TOPLU.get((firma_adi(q), q.get("yon")), {}).get("secili", ilk)),
+                               "application/json")
+        if yol in ("/indir/toplu-excel", "/indir/toplu-zip"):
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+            with KILIT:
+                SAYAC["toplu_excel" if yol.endswith("excel") else "toplu_zip"] += 1
+            if yol.endswith("excel"):
+                return self._yanit(toplu_excel_bayt(firma_adi(q), q.get("yon")),
+                                   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                   {"Content-Disposition": 'attachment; filename="faturalar.xlsx"'})
+            return self._yanit(toplu_zip_bayt(firma_adi(q), q.get("yon")), "application/zip",
+                               {"Content-Disposition": 'attachment; filename="secili_faturalar.zip"'})
         if yol == "/excel-sayfa":  # yeni sekmede acilan ara sayfa, dosyayi kendisi indirir
             hedef = "/indir/excel?" + urlparse(self.path).query
             return self._yanit(f"<html><body>Excel hazirlaniyor...<script>"
@@ -604,8 +786,40 @@ class Isleyici(BaseHTTPRequestHandler):
                                {"Content-Disposition": 'attachment; filename="belgeler.zip"'})
         self._yanit("yok", durum=404)
 
+    def _toplu_post(self, yol):
+        q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+        anahtar = (firma_adi(q), q.get("yon", "alis"))
+        with KILIT:
+            d = TOPLU.setdefault(anahtar, {"secili": [], "sorgulandi": False})
+            if yol == "/api/toplu-sec":
+                n = int(self.headers.get("Content-Length") or 0)
+                d["secili"] = json.loads(self.rfile.read(n).decode("utf-8")) if n else []
+                SAYAC["toplu_yasak"] += sum(1 for a in d["secili"] if any(y in a for y in TOPLU_YASAKLI))
+                return self._yanit("{}", "application/json")
+            if yol == "/api/toplu-getir":
+                SAYAC["toplu_getir"] += 1
+                bas = datetime.strptime(q["bas"], "%d/%m/%Y")
+                bit = datetime.strptime(q["bit"], "%d/%m/%Y")
+                if (bit - bas).days > 31:
+                    return self._yanit(json.dumps({"mesaj": "En fazla 1 aylık sorgulama yapılabilir"}), "application/json")
+                if anahtar[0] in TURMOBSUZ and any("TÜRMOB" in a for a in d["secili"]):
+                    return self._yanit(json.dumps({"mesaj": "Aşağıdaki entegrasyonlar için eksik bilgi olduğundan sorgulama"
+                                                   " yapılmadı: TÜRMOB Entegratörlük Alış Faturaları Entegrasyon:"
+                                                   " TÜRMOB entegratör kullanıcı bilgileri girilmemiş."}), "application/json")
+                d["sorgulandi"] = True
+                return self._yanit(json.dumps({"mesaj": "Seçili entegrasyonların sorgulanması tamamlandı."}),
+                                   "application/json")
+            # fatura_list.jq
+            satirlar = [{"ettn": f["no"], "belge_numarasi": f["no"], "belge_tarihi": f["tarih"], "vkn": "1234567890",
+                         "unvan": f["unvan"], "onay_durumu": "İptal" if f["durum"] == "İPTAL" else "Onaylandı",
+                         "belge_turu": "Fatura", "entegrasyon_tur": ad}
+                        for ad, f in toplu_satirlari(*anahtar)]
+        return self._yanit(json.dumps({"rows": satirlar, "total": len(satirlar)}), "application/json")
+
     def do_POST(self):
         yol, firma, tip = self._parametre()
+        if yol in ("/api/toplu-sec", "/api/toplu-getir", "/Luca/gib530/fatura_list.jq"):
+            return self._toplu_post(yol)
         with KILIT:
             if yol == "/api/iptal" and SAYAC["gib_hatasi"] > 0:
                 SAYAC["gib_hatasi"] -= 1
@@ -628,7 +842,8 @@ def baslat(port=0):
 def sifirla():
     with KILIT:
         DURUM.clear()
-        SAYAC.update(ara_menu=False, sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
+        TOPLU.clear()
+        SAYAC.update(toplu=False, toplu_yasak=0, toplu_getir=0, toplu_excel=0, toplu_zip=0, ara_menu=False, sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
 
 
 if __name__ == "__main__":

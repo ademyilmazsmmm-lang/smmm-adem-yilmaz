@@ -24,8 +24,9 @@ from .bekleme import sayfa_canli
 from .ekran_isleyici import FirmaSecilemedi, firma_isle
 from .giris import giris_bilgileri, luca_oturumu_ac, oturumu_yenile
 from .luca_ekran import hata_kaydet, sayfayi_toparla
-from .ortak import gunluge_yaz, karsilastir, yaz, yeni_sonuc
-from .sabitler import BELGE_TIPLERI, COKME_DENEMESI
+from .ortak import AYAR, gunluge_yaz, karsilastir, yaz, yeni_sonuc
+from .sabitler import BELGE_TIPLERI, COKME_DENEMESI, TOPLU_KAPSAM
+from .toplu_sorgu import toplu_isle
 from .tarayici import sayfayi_kurtar, tarayiciyi_yeniden_baslat
 
 EKRAN_HATA_SINIRI = 2  # ayni firmada ust uste bu kadar ekran hata verirse firma birakilir
@@ -305,6 +306,8 @@ class Calisma:
         secildi = False
         ust_uste_hata = 0
         sonuc_veren = 0
+        if AYAR.get("toplu_sorgu"):
+            secildi, sonuc_veren = self._toplu_isle(firma, ekranlar, biten)
         for tip in ekranlar:
             if tip in biten:  # cokmeden once bu turda tamamlanmisti
                 continue
@@ -338,6 +341,41 @@ class Calisma:
                 yaz("    Bu firmanin kalan ekranlari atlandi", self.log)
                 break
         return sonuc_veren > 0 or not ekranlar
+
+    def _toplu_isle(self, firma, ekranlar, biten):
+        """Hizli mod: Akilli Ent. Toplu Sorgulama (Alis, sonra Satis). (firma secili mi, sonuc veren ekran).
+
+        Basarisiz olan yon icin ekranlar `biten`e eklenmez; asagidaki eski ekran-ekran dongusu
+        onlari isler. Tarayici olurse hata yukari gider (cagiran toparlayip yeniden dener).
+        """
+        secildi, sonuc_veren = False, 0
+        for yon in ("alis", "satis"):
+            tipler = [t for t in ekranlar if t in TOPLU_KAPSAM[yon] and t not in biten]
+            if not tipler:
+                continue
+            turmob_var = f"turmob-{yon}" in tipler   # istenmeyen/X'li TURMOB ekrani varsa secilmez
+            yaz(f"  -- Toplu Sorgulama: {'Alış' if yon == 'alis' else 'Satış'} "
+                f"({', '.join(BELGE_TIPLERI[t] for t in tipler)})", self.log)
+            if secildi:
+                sayfayi_toparla(self.page)
+            try:
+                sonuclar, secildi = toplu_isle(self.page, firma, yon, tipler, self.araliklar, self.klasor,
+                                               self.log, turmob_var, secildi)
+            except Exception as e:
+                if not sayfa_canli(self.page):
+                    raise
+                yaz(f"    Toplu Sorgulama kullanilamadi ({type(e).__name__}: {str(e)[:160]});"
+                    " bu firmanin ekranlari tek tek sorgulanacak", self.log)
+                gunluge_yaz("    " + traceback.format_exc().replace("\n", "\n    "), self.log)
+                sayfayi_toparla(self.page)
+                secildi = False
+                continue
+            for tip, sonuc in sonuclar.items():
+                biten.add(tip)
+                sonuc_veren += 1
+                self._sonuc_ekle(sonuc)
+                konsol.ekran_sonucu(sonuc, self.log)
+        return secildi, sonuc_veren
 
     def _firmayi_isle(self, firma):
         """Firmayi isler; tarayici cokerse toparlayip yeniden dener. Basariliysa True."""
