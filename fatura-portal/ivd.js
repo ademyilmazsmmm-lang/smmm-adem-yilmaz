@@ -310,21 +310,24 @@ class Ivd {
   }  /* Güncel kira: en son verilen muhtasar beyannamesinin (MUHSGK) 041 kira satırından net kira = gayrisafi - stopaj. 3 aylık beyannamede aylığa bölünür.
    * 041 satırı olmayan dönem (o dönem kira ödenmemiş) atlanıp bir önceki beyannameye bakılır (en çok 3 PDF). */
   async guncelKira(vkn) {
-    const buYil = +trTarih().slice(0, 4); let bakilan = 0;
+    const buYil = +trTarih().slice(0, 4); let bakilan = 0, tani = "";
+    const ayFark = (bas, bit) => { const a = /^(\d{4})-(\d{2})$/.exec(bas || ""), c = /^(\d{4})-(\d{2})$/.exec(bit || ""); return a && c ? Math.max(1, Math.min(12, (+c[1] - +a[1]) * 12 + (+c[2] - +a[2]) + 1)) : 1; };
     for (const y of [buYil, buYil - 1]) {
       const l = await this.beyannameListe(y + "-01", y + "-12", vkn, true);
       const donemler = [...new Set(l.beyannameler.filter((b) => /^MUHSGK/i.test(b.tur) && /^\d{4}-\d{2}$/.test(b.bit)).map((b) => b.bit))].sort().reverse();
       for (const bit of donemler) {
-        if (bakilan >= 3) return { yok: true };
+        if (bakilan >= 3) return tani ? { belirsiz: true, tani } : { yok: true };
         const aday = l.beyannameler.filter((b) => /^MUHSGK/i.test(b.tur) && b.bit === bit); let secim = aday[aday.length - 1];
         if (aday.length > 1) { let en = ""; for (const b of aday) { let z = ""; try { z = (await this.beyannameTarih(b.n)).zaman || ""; } catch (e) { if (e && e.oturum) throw e; } if (z >= en) { en = z; secim = b; } } }
         bakilan++; if (bakilan > 1) await this.arala(900);
         const d = await this.beyannameIndir(secim.n); let r = null; try { r = muhtasarKiraOku(d.veri); } catch (e) { /* metin çıkarılamadı */ }
-        if (r) return { bas: secim.bas, bit: secim.bit, ay: r.ay, brut: r.brut, stopaj: r.stopaj, net: r.net, tutar: r.aylik, n: secim.n };
+        if (r && r.net != null) { const ay = ayFark(secim.bas, secim.bit); return { bas: secim.bas, bit: secim.bit, ay, brut: r.brut, stopaj: r.stopaj, net: r.net, tutar: Math.round((r.net / ay) * 100) / 100, n: secim.n }; }
+        if (r && r.belirsiz) tani = r.tani || "okunamadı"; /* tablo güvenle okunamadı: yanlış tutar göstermek yerine geriye bakılır, bulunamazsa belirsiz döner */
       }
     }
-    return { yok: true };
+    return tani ? { belirsiz: true, tani } : { yok: true };
   }
+
 
 
   /* ---- Dilekçelerim (Gönderilen Dilekçeler): liste, durum, ilgili evrak (üst yazı / ek) ve evrak PDF'i ----
@@ -947,7 +950,7 @@ class SahteIvd {
   async beyannameListe(bas, bit, vkn, ekle) { const taban0 = ekle ? (this.beyannameler || []).length : 0, eski = ekle ? (this.beyannameler || []) : []; const yeniB = [{ oid: "B1", tur: "KDV1_45", bas: "2026-09", bit: "2026-09", aciklama: "", kaynak: "internet" }, { oid: "B2", tur: "MUHSGK_21", bas: "2026-09", bit: "2026-09", aciklama: "", kaynak: "internet" }, { oid: "B3", tur: "KDV1_45", bas: "2026-03", bit: "2026-03", aciklama: "SEHVEN BİLDİRİLMİŞTİR.", kaynak: "internet" }, { oid: "B4", tur: "GGECICI_24", bas: "2026-04", bit: "2026-06", aciklama: "", kaynak: "internet" }, { oid: "B4b", tur: "GGECICI_24", bas: "2026-04", bit: "2026-06", aciklama: "", kaynak: "internet" }, { oid: "B5", tur: "GELIR_1", bas: "2025-01", bit: "2025-12", aciklama: "", kaynak: "internet" }, { oid: "B6", tur: "GELIR_1", bas: "2024-01", bit: "2024-12", aciklama: "", kaynak: "internet" }].filter((b) => b.bas >= bas.slice(0, 7) && b.bit <= bit.slice(0, 7)); this.beyannameler = eski.concat(yeniB); return { beyannameler: yeniB.map((b, i) => Object.assign({ n: taban0 + i, sira: b.oid }, b)), sekil: "" }; }
   async beyannameIndir(n) { const b = (this.beyannameler || [])[n]; if (!b) throw new Error("Beyanname bulunamadı; listeyi yenileyin."); const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 10 Tf 20 60 Td (ORNEK BEYANNAME ONAY ZAMANI : " + (n % 2 ? "15.08.2026 10:00:00" : "10.08.2026 09:00:00") + " VERILEN EK : " + (b.oid === "B6" ? "Hesap Ozeti" : "Bilanco") + (/^GGECICI/.test(b.tur) ? " Zarar Toplami 0,00 Kar Toplami 15.432,10 Donem Kari 15.432,10" : "") + (/^MUHSGK/.test(b.tur) ? " DONEM TIPI Aylik MATRAH VE VERGI BILDIRIMI 022 2.290,00 458,00 041 18.750,00 3.750,00 Toplam 21.040,00 4.208,00" : "") + ") Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF"; return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "beyanname-" + b.tur + ".pdf" }; }
   async geciciKar(yil, vkn) { await this.beyannameListe("2026-01", "2026-12", vkn, true); const l = (this.beyannameler || []).map((b, n) => Object.assign({ n }, b)).filter((b) => /^GGECICI/.test(b.tur)), b = l[l.length - 1]; if (!b) return { yok: true }; const d = await this.beyannameIndir(b.n), r = geciciKarOku(d.veri); return { yil: 2026, tur: "GGECICI", bas: b.bas, bit: b.bit, tutar: r ? r.tutar : null, etiket: r ? r.etiket : "", n: b.n, hata: r ? "" : "Beyanname PDF'inde dönem kârı/zararı satırı okunamadı." }; }
-  async guncelKira(vkn) { await this.beyannameListe("2026-01", "2026-12", vkn, true); const b = (this.beyannameler || []).map((x, n) => Object.assign({ n }, x)).filter((x) => /^MUHSGK/.test(x.tur)).pop(); if (!b) return { yok: true }; const d = await this.beyannameIndir(b.n), r = muhtasarKiraOku(d.veri); return r ? { bas: b.bas, bit: b.bit, ay: r.ay, brut: r.brut, stopaj: r.stopaj, net: r.net, tutar: r.aylik, n: b.n } : { yok: true }; }
+  async guncelKira(vkn) { await this.beyannameListe("2026-01", "2026-12", vkn, true); const b = (this.beyannameler || []).map((x, n) => Object.assign({ n }, x)).filter((x) => /^MUHSGK/.test(x.tur)).pop(); if (!b) return { yok: true }; const d = await this.beyannameIndir(b.n), r = muhtasarKiraOku(d.veri); if (!r || r.net == null) return r && r.belirsiz ? { belirsiz: true, tani: r.tani } : { yok: true }; const ay = Math.max(1, (+b.bit.slice(0, 4) - +b.bas.slice(0, 4)) * 12 + (+b.bit.slice(5) - +b.bas.slice(5)) + 1); return { bas: b.bas, bit: b.bit, ay, brut: r.brut, stopaj: r.stopaj, net: r.net, tutar: Math.round((r.net / ay) * 100) / 100, n: b.n }; }
   async dilekceHazirla() { this.dilekceHazir = { adres: "ÖRNEK MAH. DENEME SK. NO:1 ÜMRANİYE/İSTANBUL", adresNo: "1", vdler: [{ kod: "034255", ad: "Ümraniye Vergi Dairesi" }, { kod: "034001", ad: "Kadıköy Vergi Dairesi" }] }; return { adres: this.dilekceHazir.adres, vdler: this.dilekceHazir.vdler }; }
   async dilekceSmsGonder() { return { tamam: true, mesaj: "Doğrulama kodu telefona gönderildi." }; }
   async genelDilekceKaydet(p) { if (!this.dilekceHazir) throw new Error("Önce dilekçe formunu açın."); if (p.smsKod !== "123456") throw new Error("Dilekçe kaydedilmedi: SMS kodu hatalı."); this.dilekceler = this.dilekceler || []; this.dilekceler.unshift({ oid: "D" + Date.now(), secureId: "s", konu: "Genel Amaçlı Dilekçe", sayi: 1, zaman: new Date().toISOString().slice(0, 19).replace("T", " "), birim: (this.dilekceHazir.vdler.find((d) => d.kod === p.vdKodu) || {}).ad || "" }); this.sonDilekce = p; return { tamam: true, evrakOid: "E1", mesaj: "Dilekçeniz kaydedildi." }; }

@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-17-312";
+const SURUM = "2026-11-17-313";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -991,7 +991,7 @@ async function api(req, res, yol) {
       if (ay(h.bas) && ay(h.bit) && Number.isFinite(kr)) { (m.son = m.son || {}).geciciKar = { tur: h.tur === "KGECICI" ? "KGECICI" : "GGECICI", bas: ay(h.bas), bit: ay(h.bit), tutar: Math.max(-1e13, Math.min(1e13, Math.round(kr * 100) / 100)), zaman: new Date().toISOString() }; depo.kaydet(mid); } }
     if (g.guncelKira && typeof g.guncelKira === "object") { const h = g.guncelKira, ay = (v) => (/^\d{4}-(0[1-9]|1[0-2])$/.test(String(v || "")) ? String(v) : ""), kr = (v) => (Number.isFinite(Number(v)) ? Math.max(0, Math.min(1e12, Math.round(Number(v) * 100) / 100)) : null);
       if (h.yok === true) { (m.son = m.son || {}).guncelKira = { yok: true, zaman: new Date().toISOString() }; depo.kaydet(mid); }
-      else if (ay(h.bas) && ay(h.bit) && kr(h.tutar) != null) { (m.son = m.son || {}).guncelKira = { bas: ay(h.bas), bit: ay(h.bit), ay: Math.max(1, Math.min(12, parseInt(h.ay, 10) || 1)), net: kr(h.net), tutar: kr(h.tutar), zaman: new Date().toISOString() }; depo.kaydet(mid); } }
+      else if (ay(h.bas) && ay(h.bit) && kr(h.tutar) != null) { (m.son = m.son || {}).guncelKira = { v: 2, bas: ay(h.bas), bit: ay(h.bit), ay: Math.max(1, Math.min(12, parseInt(h.ay, 10) || 1)), net: kr(h.net), tutar: kr(h.tutar), zaman: new Date().toISOString() }; depo.kaydet(mid); } }
     return cevap(res, 200, { tamam: true });
   }
   if (yol.startsWith("/api/vd/")) {

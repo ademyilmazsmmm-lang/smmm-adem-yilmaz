@@ -215,17 +215,52 @@ function geciciKarOku(buf) {
 }
 
 /* ---- Muhtasar ve Prim Hizmet Beyannamesi (1003A): "Matrah ve Vergi Bildirimi" tablosundaki 041 (kira) satırı ----
- * Satır: tür kodu 041 | ödemelerin gayrisafi tutarı | vergi kesinti tutarı. Net kira = gayrisafi - kesinti. Dönem tipi "3 Aylık" ise tutar üç aylık toplamdır. */
+ * Tablo: tür kodu | ödemelerin gayrisafi tutarı | vergi kesinti tutarı; en altta "Toplam". Net kira = gayrisafi - kesinti.
+ * Güvenlik: tutar yalnız kod satırlarının toplamı "Toplam" satırına eşitse kabul edilir (yanlış satırı okumak yerine hiç göstermemek). Aylık/3 aylık ayrımı PDF yazısından değil beyanname listesindeki dönemden yapılır. */
+const MH_TUT = /^\d{1,3}(?:\.\d{3})*,\d{2}$/, MH_YUV = (x) => Math.round(x * 100) / 100;
+function muhtasarKiraTablodan(ogeler, metin) {
+  const jetonlar = (s) => buyukAscii(s).split(/\s+/).filter(Boolean);
+  /* satırlar: yazı boyutundan bağımsız küçük sabit dikey tolerans (aksi halde komşu satırlar birleşebilir) */
+  const sirali = (ogeler || []).filter((o) => String(o.s).trim()).sort((a, b) => b.y - a.y || a.x - b.x), gruplar = [];
+  for (const o of sirali) { const son = gruplar[gruplar.length - 1]; if (son && Math.abs(son.y - o.y) <= 2.5) son.oge.push(o); else gruplar.push({ y: o.y, oge: [o] }); }
+  const satirlar = gruplar.map((g) => g.oge.sort((a, b) => a.x - b.x).flatMap((o) => jetonlar(o.s)));
+  const kodSatiri = (t) => (t.length === 3 && /^\d{3}$/.test(t[0]) && MH_TUT.test(t[1]) && MH_TUT.test(t[2]) ? { kod: t[0], brut: sayiOku(t[1]), stopaj: sayiOku(t[2]) } : null);
+  const toplamSatiri = (t) => (t.length === 3 && t[0] === "TOPLAM" && MH_TUT.test(t[1]) && MH_TUT.test(t[2]) ? { brut: sayiOku(t[1]), stopaj: sayiOku(t[2]) } : null);
+  const tara = (dizi) => { /* satır satır: kod satırları, ardından Toplam */
+    const kodlar = []; let top = null;
+    for (const t of dizi) { const k = kodSatiri(t); if (k) { kodlar.push(k); continue; } const tp = toplamSatiri(t); if (tp && kodlar.length) { top = tp; break; } }
+    return { kodlar, top };
+  };
+  let { kodlar, top } = tara(satirlar);
+  if (!kodlar.length || !top) { /* tek parça metin / okuma sırası satır satır: jeton akışında [kod, tutar, tutar]... Toplam tutar tutar */
+    const akis = satirlar.flat(), kd = [], n = akis.length; let tp = null;
+    for (let i = 0; i < n && !tp; i++) if (akis[i] === "TOPLAM" && MH_TUT.test(akis[i + 1] || "") && MH_TUT.test(akis[i + 2] || "")) {
+      tp = { brut: sayiOku(akis[i + 1]), stopaj: sayiOku(akis[i + 2]) };
+      for (let j = i - 3; j >= 0 && /^\d{3}$/.test(akis[j]) && MH_TUT.test(akis[j + 1]) && MH_TUT.test(akis[j + 2]); j -= 3) kd.unshift({ kod: akis[j], brut: sayiOku(akis[j + 1]), stopaj: sayiOku(akis[j + 2]) });
+    }
+    if (kd.length && tp) { kodlar = kd; top = tp; }
+  }
+  if (!kodlar.length || !top) { /* tablo sütun sütun okunmuşsa: kodlar ve tutarlar ayrı gruplarda; yalnız toplamları tutan tek bir yorum varsa kabul edilir */
+    const akis = satirlar.flat(), bas = akis.findIndex((x, i) => x === "MATRAH" && akis[i + 1] === "VE" && akis[i + 2] === "VERGI" && akis[i + 3] === "BILDIRIMI"), son = akis.findIndex((x, i) => x === "TAHAKKUKA"), aralik = akis.slice(bas >= 0 ? bas + 4 : 0, son > bas ? son : akis.length);
+    const kd = aralik.filter((x) => /^\d{3}$/.test(x)), tt = aralik.filter((x) => MH_TUT.test(x)).map(sayiOku), k = kd.length;
+    if (k >= 1 && tt.length === 2 * (k + 1) && aralik.filter((x) => !/^\d{3}$/.test(x) && !MH_TUT.test(x) && x !== "TOPLAM").length === 0) {
+      const yorumA = tt.map((_, i) => i).filter((i) => i % 2 === 0).map((i) => [tt[i], tt[i + 1]]), yorumB = tt.slice(0, k + 1).map((g, i) => [g, tt[k + 1 + i]]), dogru = (y) => { const t = y[k]; return Math.abs(MH_YUV(y.slice(0, k).reduce((c, r) => c + r[0], 0)) - t[0]) < 0.015 && Math.abs(MH_YUV(y.slice(0, k).reduce((c, r) => c + r[1], 0)) - t[1]) < 0.015; };
+      const A = dogru(yorumA), B = dogru(yorumB);
+      if (A !== B) { const y = A ? yorumA : yorumB; kodlar = kd.map((kod, i) => ({ kod, brut: y[i][0], stopaj: y[i][1] })); top = { brut: y[k][0], stopaj: y[k][1] }; }
+    }
+  }
+  const tani = () => { const b = satirlar.findIndex((t) => t.includes("BILDIRIMI") && t.includes("MATRAH")), a = b >= 0 ? b : 0; return satirlar.slice(a, a + 8).map((t) => t.join(" ")).join(" | ").slice(0, 300); };
+  if (!kodlar.length || !top) return { belirsiz: true, tani: tani() };
+  const sb = MH_YUV(kodlar.reduce((t, k) => t + k.brut, 0)), ss = MH_YUV(kodlar.reduce((t, k) => t + k.stopaj, 0));
+  if (Math.abs(sb - top.brut) > 0.015 || Math.abs(ss - top.stopaj) > 0.015) return { belirsiz: true, tani: tani() };
+  const k = kodlar.filter((x) => x.kod === "041").reduce((t, x) => ({ kod: "041", brut: MH_YUV(t.brut + x.brut), stopaj: MH_YUV(t.stopaj + x.stopaj) }), { kod: "041", brut: 0, stopaj: 0 });
+  if (!kodlar.some((x) => x.kod === "041")) return { yok: true };
+  return { brut: k.brut, stopaj: k.stopaj, net: MH_YUV(k.brut - k.stopaj) };
+}
+/* PDF'ten: { brut, stopaj, net } | { yok: true } (041 satırı yok) | { belirsiz: true, tani } (tablo güvenle okunamadı) */
 function muhtasarKiraOku(buf) {
-  const ogeler = [], metin = pdfMetni(buf, ogeler), satirlar = satirMetinleri(ogeler).map(buyukAscii), tum = buyukAscii(metin).replace(/\s+/g, " ");
-  const TUT = "(\\d{1,3}(?:\\.\\d{3})*,\\d{2})", ay = /(^|[^0-9])3\s*AYLIK/.test(tum) ? 3 : 1;
-  const sat = new RegExp("^\\s*0\\s*4\\s*1\\s+" + TUT + "\\s+" + TUT + "\\s*$"), tamMetin = new RegExp("(?:^|\\s)041\\s+" + TUT + "\\s+" + TUT + "(?=\\s|$)");
-  let m = null; for (const s of satirlar) { m = sat.exec(s); if (m) break; }
-  if (!m) m = tamMetin.exec(tum);
-  if (!m) return null;
-  const brut = sayiOku(m[1]), stopaj = sayiOku(m[2]); if (brut == null || stopaj == null) return null;
-  const net = Math.round((brut - stopaj) * 100) / 100;
-  return { brut, stopaj, net, ay, aylik: Math.round((net / ay) * 100) / 100 };
+  const ogeler = [], metin = pdfMetni(buf, ogeler);
+  return muhtasarKiraTablodan(ogeler, metin);
 }
 
-module.exports = { fisDevir, tahakkukTablo, pdfMetni, devirBul, geciciKarOku, muhtasarKiraOku, geciciKarMetinden, satirMetinleri, buyukAscii, _icerikMetni: icerikMetni, _cmap: cmap };
+module.exports = { fisDevir, tahakkukTablo, pdfMetni, devirBul, geciciKarOku, muhtasarKiraOku, muhtasarKiraTablodan, geciciKarMetinden, satirMetinleri, buyukAscii, _icerikMetni: icerikMetni, _cmap: cmap };
