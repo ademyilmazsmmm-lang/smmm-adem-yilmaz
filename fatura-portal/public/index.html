@@ -4113,13 +4113,13 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   function geciciKarSatir(son){
     var g = son.geciciKar;
     if (!g || g.tutar == null) return '<div class="a2-sat"><div><span>Kâr / zarar</span><small>Güncelleyince son geçici beyannameden gelir</small></div><b style="color:var(--muted)">—</b></div>';
-    var e = new Date(g.bit + "-01T00:00:00"), kar = g.tutar >= 0, no = Math.max(1, Math.min(4, Math.round((e.getMonth() + 1) / 3)));
-    return '<div class="a2-sat"><div><span>' + (kar ? "Kâr" : "Zarar") + ' · ' + AYLAR_UZUN[0] + '–' + AYLAR_UZUN[e.getMonth()] + ' ' + e.getFullYear() + '</span><small>' + no + '. dönem geçici beyannamesine göre · ' + anaZaman(g.zaman) + ' alındı</small></div><b style="color:' + (kar ? "var(--accent)" : "var(--danger)") + '">' + anaTl(Math.abs(g.tutar)) + '</b></div>';
+    var e = new Date(g.bit + "-01T00:00:00"), kar = g.tutar >= 0;
+    return '<div class="a2-sat"><div><span>' + (kar ? "Kâr" : "Zarar") + ' · Son dönem geçici</span><small>' + AYLAR_UZUN[e.getMonth()] + ' ' + e.getFullYear() + ' dönemi · ' + anaZaman(g.zaman) + ' alındı</small></div><b style="color:' + (kar ? "var(--accent)" : "var(--danger)") + '">' + anaTl(Math.abs(g.tutar)) + '</b></div>';
   }
   /* Kâr durumu: son alınan Defter-Beyan hesap özeti (yalnız Defter-Beyan kullanan mükellefte) */
   function karHtml(son, m){
     if (m && !m.defterBeyan) { var g = son.geciciKar; if (!g || g.tutar == null) return ""; var e = new Date(g.bit + "-01T00:00:00"), kar = g.tutar >= 0;
-      return '<div class="kayit" style="display:grid;gap:4px;border-left:5px solid ' + (kar ? "var(--accent)" : "var(--danger)") + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>' + AYLAR_UZUN[0] + "–" + AYLAR_UZUN[e.getMonth()] + " " + e.getFullYear() + " " + (kar ? "kâr" : "zarar") + '</b><b style="font-size:1.25rem;color:' + (kar ? "var(--accent)" : "var(--danger)") + '">' + anaTl(Math.abs(g.tutar)) + '</b></div><span class="not" style="margin:0">Son geçici vergi beyannamesindeki dönem ' + (kar ? "kârı" : "zararı") + ' (yıl başından birikmiş) · ' + anaZaman(g.zaman) + ' alındı</span></div>'; }
+      return '<div class="kayit" style="display:grid;gap:4px;border-left:5px solid ' + (kar ? "var(--accent)" : "var(--danger)") + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>Son dönem geçici ' + (kar ? "kâr" : "zarar") + '</b><b style="font-size:1.25rem;color:' + (kar ? "var(--accent)" : "var(--danger)") + '">' + anaTl(Math.abs(g.tutar)) + '</b></div><span class="not" style="margin:0">' + AYLAR_UZUN[e.getMonth()] + ' ' + e.getFullYear() + ' dönemi (yıl başından birikmiş) · ' + anaZaman(g.zaman) + ' alındı</span></div>'; }
     if (!m || !m.defterBeyan) return ""; var h = son.hesapOzeti;
     if (!h) return '<div class="kayit" style="display:grid;gap:4px"><b>Kâr / zarar durumu</b><span class="not" style="margin:0">Doğrulama kodunu girip bilgileri güncelleyince son verilen beyana kadarki kâr/zarar kendiliğinden burada görünür.</span></div>';
     var b = new Date(h.bas + "T00:00:00"), e = new Date(h.bit + "T00:00:00"), kar = h.kar || 0, sonra = AYLAR_UZUN[(e.getMonth() + 1) % 12];
