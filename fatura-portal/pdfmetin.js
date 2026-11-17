@@ -180,4 +180,27 @@ function fisDevir(buf) {
   return { yontem: "", tutar: null, satirlar: [], adaylar, metin };
 }
 
-module.exports = { fisDevir, tahakkukTablo, pdfMetni, devirBul, _icerikMetni: icerikMetni, _cmap: cmap };
+/* ---- Geçici vergi beyannamesi: "Dönem Kârı / Dönem Zararı" (yıl başından o döneme kadar birikmiş tutar) ----
+ * Gelir (1032) ve kurumlar geçici vergi beyannamesinde satır adı "Dönem Kârı" ya da "Dönem Zararı"dır; bulunamazsa "Kar Toplamı" / "Zarar Toplamı" satırlarından net hesaplanır.
+ * Satırlar öğelerin dikey konumuyla kurulur (etiket solda, tutar sağ sütunda olsa da aynı satıra düşer). Bulunamazsa null döner: yanlış tutar göstermektense hiç göstermemek. */
+const buyukAscii = (s) => String(s || "").toLocaleUpperCase("tr-TR").replace(/İ/g, "I").replace(/Ö/g, "O").replace(/Ü/g, "U").replace(/Ş/g, "S").replace(/Ç/g, "C").replace(/Ğ/g, "G").replace(/[ÂÄ]/g, "A").replace(/Î/g, "I");
+const harfAralik = (w) => w.split("").map((c) => c + "\\s*").join("");
+function satirMetinleri(ogeler) {
+  const sirali = (ogeler || []).filter((o) => String(o.s).trim()).sort((a, b) => b.y - a.y || a.x - b.x), satirlar = [];
+  for (const o of sirali) { const son = satirlar[satirlar.length - 1]; if (son && Math.abs(son.y - o.y) <= Math.max(2, (o.b || 8) * 0.5)) son.oge.push(o); else satirlar.push({ y: o.y, oge: [o] }); }
+  return satirlar.map((r) => r.oge.sort((a, b) => a.x - b.x).map((o) => o.s).join(" "));
+}
+function geciciKarMetinden(satirlar) {
+  const TUT = "(-?\\d{1,3}(?:\\.\\d{3})*,\\d{2})";
+  const bul = (onEk, etiket) => { const re = new RegExp((onEk ? harfAralik(onEk) + "\\s*" : "") + harfAralik(etiket) + "[^0-9-]{0,40}?" + TUT); for (const s of satirlar) { const m = re.exec(s); if (m) return sayiOku(m[1]); } return null; };
+  let kar = bul("DONEM", "KARI"), zarar = bul("DONEM", "ZARARI"), etiket = "Dönem Kârı/Zararı";
+  if (kar == null && zarar == null) { kar = bul("KAR", "TOPLAMI"); zarar = bul("ZARAR", "TOPLAMI"); etiket = "Kâr/Zarar Toplamı"; }
+  if (kar == null && zarar == null) return null;
+  return { tutar: Math.round(((kar || 0) - (zarar || 0)) * 100) / 100, kar: kar || 0, zarar: zarar || 0, etiket };
+}
+function geciciKarOku(buf) {
+  const ogeler = [], metin = pdfMetni(buf, ogeler), satirlar = satirMetinleri(ogeler).map(buyukAscii);
+  return geciciKarMetinden(satirlar) || geciciKarMetinden([buyukAscii(metin).replace(/\s+/g, " ")]);
+}
+
+module.exports = { fisDevir, tahakkukTablo, pdfMetni, devirBul, geciciKarOku, geciciKarMetinden, satirMetinleri, buyukAscii, _icerikMetni: icerikMetni, _cmap: cmap };

@@ -6,7 +6,7 @@
 "use strict";
 const crypto = require("crypto");
 const sgkYardim = require("./sgk.js");
-const { fisDevir, pdfMetni } = require("./pdfmetin.js");
+const { fisDevir, pdfMetni, geciciKarOku } = require("./pdfmetin.js");
 
 const MOCK = process.env.GIB_MOCK === "1";
 const GW = "https://dijital.gib.gov.tr/apigateway";
@@ -293,7 +293,22 @@ class Ivd {
     this.bynTarih = this.bynTarih || new Map(); if (this.bynTarih.has(b.oid)) return this.bynTarih.get(b.oid);
     const d = await this.beyannameIndir(n); let r = { zaman: "", kaynak: "", ek: "" }; try { const mt = pdfMetni(d.veri); r = Object.assign(bynVerilis(mt), { ek: bynEk(mt) }); } catch (e) { /* metin çıkarılamadı */ }
     this.bynTarih.set(b.oid, r); return r;
+  }  /* 1. sınıf (bilanço esaslı) mükellef: en son verilen geçici vergi beyannamesinin PDF'inden "Dönem Kârı / Zararı" (yıl başından o döneme kadar birikmiş).
+   * Önce bu yıl, hiç geçici beyanname yoksa (yıl başı) geçen yıl bakılır. Aynı dönemde düzeltme varsa onay zamanı en geç olan okunur. */
+  async geciciKar(yil, vkn) {
+    const buYil = +trTarih().slice(0, 4), yillar = /^20\d{2}$/.test(String(yil || "")) ? [+yil] : [buYil, buYil - 1];
+    for (const y of yillar) {
+      const l = await this.beyannameListe(y + "-01", y + "-12", vkn, true);
+      const gec = l.beyannameler.filter((b) => /^[GK]GECICI/i.test(b.tur) && /^\d{4}-\d{2}$/.test(b.bit));
+      if (!gec.length) continue;
+      const enSon = gec.map((b) => b.bit).sort().pop(), aday = gec.filter((b) => b.bit === enSon); let secim = aday[aday.length - 1];
+      if (aday.length > 1) { let en = ""; for (const b of aday) { let z = ""; try { z = (await this.beyannameTarih(b.n)).zaman || ""; } catch (e) { if (e && e.oturum) throw e; } if (z >= en) { en = z; secim = b; } } }
+      const d = await this.beyannameIndir(secim.n); let r = null; try { r = geciciKarOku(d.veri); } catch (e) { /* metin çıkarılamadı */ }
+      return { yil: y, tur: /^K/i.test(secim.tur) ? "KGECICI" : "GGECICI", bas: secim.bas, bit: secim.bit, tutar: r ? r.tutar : null, etiket: r ? r.etiket : "", n: secim.n, hata: r ? "" : "Beyanname PDF'inde dönem kârı/zararı satırı okunamadı." };
+    }
+    return { yok: true };
   }
+
   /* ---- Dilekçelerim (Gönderilen Dilekçeler): liste, durum, ilgili evrak (üst yazı / ek) ve evrak PDF'i ----
    * Portalın kendi çağrıları: /dilekcelerim/dilekcelerimListele, dilekceDurumSorgula, dilekceIlgiliEvrakUstyaziEkListe, dilekceGoruntule. bas/bit "YYYYMMDD" */
   async dilekcelerimListe(bas, bit) {
@@ -912,7 +927,8 @@ class SahteIvd {
   async tebligatIletisimKodIste(n, tel) { if (!(this.tebIletisim || [])[n]) throw new Error("Kayıt bulunamadı."); if (!/^05\d{9}$/.test(String(tel))) throw new Error("Cep telefonunu 05XX XXX XX XX biçiminde yazın."); this.bekleyenTebTel = tel; return { tamam: true, mesaj: "Onay kodu yeni numaraya gönderildi.", sekil: "" }; }
   async tebligatIletisimGuncelle(n, p) { const k = (this.tebIletisim || [])[n]; if (!k) throw new Error("Kayıt bulunamadı."); if (p.kod !== "123456") throw new Error("Bilgiler güncellenmedi: SMS kodu hatalı."); Object.assign(k, { cep1: p.cep1, cep2: p.cep2 || "", ep1: p.ep1, ep2: p.ep2 || "" }); return { tamam: true, mesaj: "e-Tebligat bildirim bilgileriniz güncellendi.", sekil: "" }; }
   async beyannameListe(bas, bit, vkn, ekle) { const taban0 = ekle ? (this.beyannameler || []).length : 0, eski = ekle ? (this.beyannameler || []) : []; const yeniB = [{ oid: "B1", tur: "KDV1_45", bas: "2026-09", bit: "2026-09", aciklama: "", kaynak: "internet" }, { oid: "B2", tur: "MUHSGK_21", bas: "2026-09", bit: "2026-09", aciklama: "", kaynak: "internet" }, { oid: "B3", tur: "KDV1_45", bas: "2026-03", bit: "2026-03", aciklama: "SEHVEN BİLDİRİLMİŞTİR.", kaynak: "internet" }, { oid: "B4", tur: "GGECICI_24", bas: "2026-04", bit: "2026-06", aciklama: "", kaynak: "internet" }, { oid: "B4b", tur: "GGECICI_24", bas: "2026-04", bit: "2026-06", aciklama: "", kaynak: "internet" }, { oid: "B5", tur: "GELIR_1", bas: "2025-01", bit: "2025-12", aciklama: "", kaynak: "internet" }, { oid: "B6", tur: "GELIR_1", bas: "2024-01", bit: "2024-12", aciklama: "", kaynak: "internet" }].filter((b) => b.bas >= bas.slice(0, 7) && b.bit <= bit.slice(0, 7)); this.beyannameler = eski.concat(yeniB); return { beyannameler: yeniB.map((b, i) => Object.assign({ n: taban0 + i, sira: b.oid }, b)), sekil: "" }; }
-  async beyannameIndir(n) { const b = (this.beyannameler || [])[n]; if (!b) throw new Error("Beyanname bulunamadı; listeyi yenileyin."); const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 10 Tf 20 60 Td (ORNEK BEYANNAME ONAY ZAMANI : " + (n % 2 ? "15.08.2026 10:00:00" : "10.08.2026 09:00:00") + " VERILEN EK : " + (b.oid === "B6" ? "Hesap Ozeti" : "Bilanco") + ") Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF"; return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "beyanname-" + b.tur + ".pdf" }; }
+  async beyannameIndir(n) { const b = (this.beyannameler || [])[n]; if (!b) throw new Error("Beyanname bulunamadı; listeyi yenileyin."); const pdf = "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 10 Tf 20 60 Td (ORNEK BEYANNAME ONAY ZAMANI : " + (n % 2 ? "15.08.2026 10:00:00" : "10.08.2026 09:00:00") + " VERILEN EK : " + (b.oid === "B6" ? "Hesap Ozeti" : "Bilanco") + (/^GGECICI/.test(b.tur) ? " Zarar Toplami 0,00 Kar Toplami 15.432,10 Donem Kari 15.432,10" : "") + ") Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF"; return { veri: Buffer.from(pdf), tur: "application/pdf", satir: true, ad: "beyanname-" + b.tur + ".pdf" }; }
+  async geciciKar(yil, vkn) { await this.beyannameListe("2026-01", "2026-12", vkn, true); const l = (this.beyannameler || []).map((b, n) => Object.assign({ n }, b)).filter((b) => /^GGECICI/.test(b.tur)), b = l[l.length - 1]; if (!b) return { yok: true }; const d = await this.beyannameIndir(b.n), r = geciciKarOku(d.veri); return { yil: 2026, tur: "GGECICI", bas: b.bas, bit: b.bit, tutar: r ? r.tutar : null, etiket: r ? r.etiket : "", n: b.n, hata: r ? "" : "Beyanname PDF'inde dönem kârı/zararı satırı okunamadı." }; }
   async dilekceHazirla() { this.dilekceHazir = { adres: "ÖRNEK MAH. DENEME SK. NO:1 ÜMRANİYE/İSTANBUL", adresNo: "1", vdler: [{ kod: "034255", ad: "Ümraniye Vergi Dairesi" }, { kod: "034001", ad: "Kadıköy Vergi Dairesi" }] }; return { adres: this.dilekceHazir.adres, vdler: this.dilekceHazir.vdler }; }
   async dilekceSmsGonder() { return { tamam: true, mesaj: "Doğrulama kodu telefona gönderildi." }; }
   async genelDilekceKaydet(p) { if (!this.dilekceHazir) throw new Error("Önce dilekçe formunu açın."); if (p.smsKod !== "123456") throw new Error("Dilekçe kaydedilmedi: SMS kodu hatalı."); this.dilekceler = this.dilekceler || []; this.dilekceler.unshift({ oid: "D" + Date.now(), secureId: "s", konu: "Genel Amaçlı Dilekçe", sayi: 1, zaman: new Date().toISOString().slice(0, 19).replace("T", " "), birim: (this.dilekceHazir.vdler.find((d) => d.kod === p.vdKodu) || {}).ad || "" }); this.sonDilekce = p; return { tamam: true, evrakOid: "E1", mesaj: "Dilekçeniz kaydedildi." }; }
