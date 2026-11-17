@@ -19,7 +19,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-17-310";
+const SURUM = "2026-11-17-311";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -989,6 +989,9 @@ async function api(req, res, yol) {
       if (tarih(h.bas) && tarih(h.bit)) (m.son = m.son || {}).hesapOzeti = { bas: tarih(h.bas), bit: tarih(h.bit), gelir: kr(h.gelir), gider: kr(h.gider), kar: kr(h.kar), zaman: new Date().toISOString() }; depo.kaydet(mid); }
     if (g.geciciKar && typeof g.geciciKar === "object") { const h = g.geciciKar, ay = (v) => (/^\d{4}-(0[1-9]|1[0-2])$/.test(String(v || "")) ? String(v) : ""), kr = Number(h.tutar);
       if (ay(h.bas) && ay(h.bit) && Number.isFinite(kr)) { (m.son = m.son || {}).geciciKar = { tur: h.tur === "KGECICI" ? "KGECICI" : "GGECICI", bas: ay(h.bas), bit: ay(h.bit), tutar: Math.max(-1e13, Math.min(1e13, Math.round(kr * 100) / 100)), zaman: new Date().toISOString() }; depo.kaydet(mid); } }
+    if (g.guncelKira && typeof g.guncelKira === "object") { const h = g.guncelKira, ay = (v) => (/^\d{4}-(0[1-9]|1[0-2])$/.test(String(v || "")) ? String(v) : ""), kr = (v) => (Number.isFinite(Number(v)) ? Math.max(0, Math.min(1e12, Math.round(Number(v) * 100) / 100)) : null);
+      if (h.yok === true) { (m.son = m.son || {}).guncelKira = { yok: true, zaman: new Date().toISOString() }; depo.kaydet(mid); }
+      else if (ay(h.bas) && ay(h.bit) && kr(h.tutar) != null) { (m.son = m.son || {}).guncelKira = { bas: ay(h.bas), bit: ay(h.bit), ay: Math.max(1, Math.min(12, parseInt(h.ay, 10) || 1)), net: kr(h.net), tutar: kr(h.tutar), zaman: new Date().toISOString() }; depo.kaydet(mid); } }
     return cevap(res, 200, { tamam: true });
   }
   if (yol.startsWith("/api/vd/")) {
@@ -1064,6 +1067,7 @@ async function api(req, res, yol) {
         const l = (Array.isArray(g.n) ? g.n : []).slice(0, 10).map(Number).filter((n) => Number.isInteger(n) && n >= 0);
         return cevap(res, 200, await vdSorgu(m, async (x) => { const t = {}; for (const n of l) { try { t[n] = await x.beyannameTarih(n); } catch (e) { if (e && e.oturum) throw e; t[n] = { zaman: "", hata: String(e.message || e).slice(0, 120) }; } } return { tarihler: t }; }));
       }
+      if (ne === "guncel-kira") return cevap(res, 200, await vdSorgu(m, (x) => x.guncelKira(String(m.vkn || "")))); /* son muhtasar beyannamesinin 041 kira satırından net kira */
       if (ne === "gecici-kar") return cevap(res, 200, await vdSorgu(m, (x) => x.geciciKar(g.yil, String(m.vkn || "")))); /* 1. sınıf: son geçici beyannameden dönem kârı/zararı */
       if (ne === "beyanname") return cevap(res, 200, await vdSorgu(m, (x) => x.beyannameListe(String(g.tbas || ""), String(g.tbit || ""), String(m.vkn || ""), g.ekle === true))); /* İnternet VD · Mükellef Dosyası → Beyannameler */
       if (ne === "dilekce-hazirla") return cevap(res, 200, await vdSorgu(m, (x) => x.dilekceHazirla()));

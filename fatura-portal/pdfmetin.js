@@ -214,4 +214,18 @@ function geciciKarOku(buf) {
   return geciciKarMetinden(satirlar) || geciciKarMetinden([buyukAscii(metin).replace(/\s+/g, " ")], true);
 }
 
-module.exports = { fisDevir, tahakkukTablo, pdfMetni, devirBul, geciciKarOku, geciciKarMetinden, satirMetinleri, buyukAscii, _icerikMetni: icerikMetni, _cmap: cmap };
+/* ---- Muhtasar ve Prim Hizmet Beyannamesi (1003A): "Matrah ve Vergi Bildirimi" tablosundaki 041 (kira) satırı ----
+ * Satır: tür kodu 041 | ödemelerin gayrisafi tutarı | vergi kesinti tutarı. Net kira = gayrisafi - kesinti. Dönem tipi "3 Aylık" ise tutar üç aylık toplamdır. */
+function muhtasarKiraOku(buf) {
+  const ogeler = [], metin = pdfMetni(buf, ogeler), satirlar = satirMetinleri(ogeler).map(buyukAscii), tum = buyukAscii(metin).replace(/\s+/g, " ");
+  const TUT = "(\\d{1,3}(?:\\.\\d{3})*,\\d{2})", ay = /(^|[^0-9])3\s*AYLIK/.test(tum) ? 3 : 1;
+  const sat = new RegExp("^\\s*0\\s*4\\s*1\\s+" + TUT + "\\s+" + TUT + "\\s*$"), tamMetin = new RegExp("(?:^|\\s)041\\s+" + TUT + "\\s+" + TUT + "(?=\\s|$)");
+  let m = null; for (const s of satirlar) { m = sat.exec(s); if (m) break; }
+  if (!m) m = tamMetin.exec(tum);
+  if (!m) return null;
+  const brut = sayiOku(m[1]), stopaj = sayiOku(m[2]); if (brut == null || stopaj == null) return null;
+  const net = Math.round((brut - stopaj) * 100) / 100;
+  return { brut, stopaj, net, ay, aylik: Math.round((net / ay) * 100) / 100 };
+}
+
+module.exports = { fisDevir, tahakkukTablo, pdfMetni, devirBul, geciciKarOku, muhtasarKiraOku, geciciKarMetinden, satirMetinleri, buyukAscii, _icerikMetni: icerikMetni, _cmap: cmap };

@@ -882,7 +882,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   var YEDEKSIZ = /^\/api\/(hesapla|sorgu|gorunum|liste|cikis|giris|kurulum|geriyukle|durum|kasa|gecmis|veri|belge|belge-sil)$/;
   /* Yalnız okuma (sorgu) isteklerinde: bağlantı kopar ya da sunucu geç uyanırsa program kendisi 2 kez yeniden dener; olmazsa "tekrar sorgulayın" der.
    * Yazma işlemleri (taslak, onay, SMS, giriş vb.) kendiliğinden tekrarlanmaz: çift kayıt oluşmasın. */
-  var TEKRARLI = /^\/api\/(liste|sorgu|hesapla|son|gecmis|vd\/(borc|tebligat|yazilar|haciz|kdvdevir|zrapor|yoklama|hesapozeti|gecici-kar|sicil|tahakkuk|arac|pos|gelen|beyanname|dilekce|dilekce-durum|dilekce-evrak)|sgk\/(tesvik|sayfa|bildirge-donemler|bildirge-liste))(\?|$)/;
+  var TEKRARLI = /^\/api\/(liste|sorgu|hesapla|son|gecmis|vd\/(borc|tebligat|yazilar|haciz|kdvdevir|zrapor|yoklama|hesapozeti|gecici-kar|guncel-kira|sicil|tahakkuk|arac|pos|gelen|beyanname|dilekce|dilekce-durum|dilekce-evrak)|sgk\/(tesvik|sayfa|bildirge-donemler|bildirge-liste))(\?|$)/;
   function bekle(ms){ return new Promise(function(ok){ setTimeout(ok, ms); }); }
   function api(yol, yontem, govde){
     if (govde && yol.indexOf("/api/sgk/") === 0 && govde.ix === undefined && typeof VD !== "undefined" && VD.sgkIx) govde.ix = VD.sgkIx; /* mükellefin seçili SGK işyeri dosyası */
@@ -3123,6 +3123,8 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   function hoOtoSon(){ var d = new Date(), geri = d.getDate() >= 28 ? 0 : -1; return new Date(d.getFullYear(), d.getMonth() + geri, 0); }
   /* Ana ekrandaki "Kâr durumu" için son alınan hesap özeti saklanır (yalnız toplamlar) */
   /* 1. sınıf: son geçici beyannameden okunan dönem kârı/zararı (yıl başından birikmiş) Ana ekran için kaydedilir */
+  /* Güncel kira: son muhtasar beyannamesinin 041 satırından net kira (3 aylıkta aylığa bölünmüş); bulunamazsa yok:true saklanır */
+  function guncelKiraGonder(mid, r){ try { var o = r.yok ? { yok: true } : { bas: r.bas, bit: r.bit, ay: r.ay, net: r.net, tutar: r.tutar }; return api("/api/son", "POST", { mukellefId: mid, guncelKira: o }).then(function(){ if (OZET && OZET.mid === mid) { OZET.son = OZET.son || {}; OZET.son.guncelKira = Object.assign({}, o, { zaman: new Date().toISOString() }); } }, function(){}); } catch (e) { return Promise.resolve(); } }
   function geciciKarGonder(mid, r){ try { var o = { tur: r.tur, bas: r.bas, bit: r.bit, tutar: r.tutar }; return api("/api/son", "POST", { mukellefId: mid, geciciKar: o }).then(function(){ if (OZET && OZET.mid === mid) { OZET.son = OZET.son || {}; OZET.son.geciciKar = Object.assign({}, o, { zaman: new Date().toISOString() }); } }, function(){}); } catch (e) { return Promise.resolve(); } }
   function hesapOzetiGonder(mid, r){ try { var o = { bas: r.bas, bit: r.bit, gelir: r.toplamGelir, gider: r.toplamGider, kar: r.kar }; return api("/api/son", "POST", { mukellefId: mid, hesapOzeti: o }).then(function(){ if (OZET && OZET.mid === mid) { OZET.son = OZET.son || {}; OZET.son.hesapOzeti = Object.assign({}, o, { zaman: new Date().toISOString() }); } }, function(){}); } catch (e) { return Promise.resolve(); } }
   $("hoHizli").addEventListener("click", function(e){ var b = e.target.closest("[data-ho]"); if (b) hoAyarla(b.getAttribute("data-ho")); });
@@ -4082,8 +4084,24 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   function duyuruKapali(){ try { return JSON.parse(localStorage.getItem("duyuruKapali") || "[]"); } catch (e) { return []; } }
   function duyuruYukle(){ api("/api/duyuru").then(function(r){ DUYURU = r.duyurular || []; if (aktifSekme === "ana") anaCiz(OZET || {}); }, function(){}); }
   var OZET = null, KIRA = null, KIRA_ZAMAN = 0, ANA_TARIH_ACIK = false; try { ANA_TARIH_ACIK = localStorage.getItem("anaTarihAcik") === "1"; } catch (e) { /* kayıt yok */ }
+  /* Kira kartı: güncel kira (son muhtasardan net) + kira artış oranı (konut ve işyeri aynı olduğundan tek satır) */
+  function kiraOrani(k){ return k.konut === k.isyeri ? k.konut : "Konut " + k.konut + " · İşyeri " + k.isyeri; }
+  function guncelKiraSatir(son, ilk){
+    var g = son && son.guncelKira, st = ilk ? ' style="padding-top:0;border:0"' : "";
+    if (g && !g.yok && g.tutar != null) {
+      var ayAd = function(b){ return AYLAR_UZUN[new Date(b + "-01T00:00:00").getMonth()]; }, yil = new Date(g.bit + "-01T00:00:00").getFullYear();
+      var alt = (g.ay > 1 ? ayAd(g.bas) + "–" + ayAd(g.bit) : ayAd(g.bit)) + " " + yil + " muhtasarı" + (g.ay > 1 ? " · " + g.ay + " aylık net " + anaTl(g.net) + " ÷ " + g.ay : "");
+      return '<div class="a2-sat"' + st + '><div><span>Güncel kira</span><small>' + esc(alt) + '</small></div><b>' + anaTl(g.tutar) + '</b></div>';
+    }
+    if (!g) return '<div class="a2-sat"' + st + '><div><span>Güncel kira</span><small>Güncelleyince son muhtasardan gelir</small></div><b style="color:var(--muted)">—</b></div>';
+    return "";
+  }
+  function kiraKartHtml(son){
+    var gk = guncelKiraSatir(son, true);
+    return '<section class="a2-kart" style="gap:6px"><div class="a2-kbas"><b>Kira</b><small>' + esc(KIRA.ay) + '</small></div>' + gk + '<div class="a2-sat"' + (gk ? "" : ' style="padding-top:0;border:0"') + '><div><span>Kira artış oranı</span></div><b>' + esc(kiraOrani(KIRA)) + '</b></div></section>';
+  }
   function kiraHtml(k){
-    return '<div><div class="abas"><b>' + IKON.durum + 'Güncel kira artış oranı</b><small>' + esc(k.ay) + '</small></div><div class="ozet"><div class="kiraoran"><span>Konut (ev) kirası</span><b>' + esc(k.konut) + '</b></div><div class="kiraoran"><span>İşyeri kirası</span><b>' + esc(k.isyeri) + '</b></div></div><p class="not" style="margin:8px 2px 0;font-size:.78rem">TÜFE 12 aylık ortalama · yasal kira artış tavanı. Her ay güncellenir.</p></div>';
+    return '<div><div class="abas"><b>' + IKON.durum + 'Kira artış oranı</b><small>' + esc(k.ay) + '</small></div><div class="ozet"><div class="kiraoran"><span>Kira artış oranı</span><b>' + esc(kiraOrani(k)) + '</b></div></div><p class="not" style="margin:8px 2px 0;font-size:.78rem">TÜFE 12 aylık ortalama · yasal kira artış tavanı. Her ay güncellenir.</p></div>';
   }
   var IKON = {
     vd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/></svg>',
@@ -4210,7 +4228,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     /* yaklaşan tarihler: ilk 3 görünür, gerisi açılır */
     var tl = yaklasanTarihler(), tsat = function(x){ var g = x.kalan === 0 ? "Bugün" : x.kalan === 1 ? "Yarın" : x.kalan + " gün"; return '<div class="a2-tar' + (x.kalan <= 3 ? " yakin" : x.kalan <= 7 ? " orta" : "") + '"><div style="min-width:0"><b>' + esc(x.ad) + '</b><small>' + x.d.getDate() + ' ' + AYLAR[x.d.getMonth()] + ' ' + GUNLER[x.d.getDay()] + (x.donem ? ' · ' + x.donem : '') + '</small></div><span class="gun">' + g + '</span></div>'; };
     if (tl.length) h += '<section class="a2-kart"><div class="a2-kbas"><b>Yaklaşan tarihler</b><small>Vergi ve SGK</small></div><div>' + tl.slice(0, 3).map(tsat).join("") + '</div>' + (tl.length > 3 ? '<details id="anaTarih" class="a2-not"' + (ANA_TARIH_ACIK ? " open" : "") + '><summary>Tümünü göster (' + tl.length + ')</summary><div style="margin-top:6px">' + tl.slice(3).map(tsat).join("") + '</div></details>' : '') + '</section>';
-    if (KIRA) h += '<section class="a2-kart" style="gap:6px"><div class="a2-kbas"><b>Kira artış tavanı</b><small>' + esc(KIRA.ay) + '</small></div><div class="a2-sat" style="padding-top:0;border:0"><div><span>Konut</span></div><b>' + esc(KIRA.konut) + '</b></div><div class="a2-sat"><div><span>İşyeri</span></div><b>' + esc(KIRA.isyeri) + '</b></div></section>';
+    if (KIRA) h += kiraKartHtml(son);
     if (ofis && OFISK.takip) h += '<section class="a2-kart" style="gap:6px"><div class="a2-kbas"><div><b>Muhasebe ücreti takibi</b><small style="display:block">Portala taşınıyor · çalışma devam ediyor</small></div><a class="a2-lnk" style="text-decoration:none" href="' + esc(OFISK.takip) + '" target="_blank" rel="noopener">Programı aç ›</a></div></section>';
     h += '<div class="a2-alt"><button type="button" class="a2-lnk" data-ana-gorunum="klasik" style="color:var(--muted);font-weight:500">Klasik görünüme dön</button></div></div>';
     $("anaIc").innerHTML = h; guncGoster(son);
@@ -4298,6 +4316,9 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
       }).then(function(){
         adim("KDV devri (tahakkuk fişi)…");
         return kdvDevirTahakkuk(m, devirAnahtar()).then(function(x){ if (x && x.tutar != null) sonuc.push("KDV devri"); }, function(er){ if (oturumDustu(er)) return; hata.push("KDV devri: " + er.message); });
+      }).then(function(){
+        adim("güncel kira (son muhtasar)…");
+        return api("/api/vd/guncel-kira", "POST", { mukellefId: m.id }).then(function(r){ if (r && r.tutar != null) { sonuc.push("güncel kira"); return guncelKiraGonder(m.id, r); } if (r && r.yok) return guncelKiraGonder(m.id, { yok: true }); }, function(er){ if (oturumDustu(er)) return; hata.push("Güncel kira: " + er.message); });
       }).then(function(){
         if (m.earsiv === false || VD.mid !== m.id) return;
         return kdvOto(function(t){ d.className = "durum"; d.textContent = "⏳ Veriler çekiliyor — fatura özeti: " + t; }).then(function(h){ if (h) hata.push("Fatura özeti: " + h); else sonuc.push("fatura özeti"); return new Promise(function(r){ setTimeout(r, 700); }); });
