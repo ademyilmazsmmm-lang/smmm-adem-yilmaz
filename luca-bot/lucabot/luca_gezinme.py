@@ -9,7 +9,7 @@ from .luca_ekran import (acik_pencereleri_kapat, cerceveler, gorunur_mu,
                          menu_metinleri, metinle_bul, sayfayi_toparla,
                          varsa_tikla)
 from .ortak import AYAR, karsilastir, sadelestir, tarih_cozumle, yaz
-from .sabitler import (BELGE_TIPLERI, DONEM_DESENI, GETIR_DUGMELERI, IKI_KADEMELI,
+from .sabitler import (ARA_MENU, BELGE_TIPLERI, DONEM_DESENI, GETIR_DUGMELERI, IKI_KADEMELI,
                        INTERAKTIF_LISTELE, KAPAT_METINLERI, MENU_KELIMELERI,
                        MODUL_ADAYLARI, UST_MENU)
 
@@ -394,7 +394,12 @@ def menuye_git(page, belge_tipi):
         # ust menu her seferinde acilir: ekran basligi da hedef metni icerebildigi
         # icin "zaten gorunuyor" kontrolune guvenip menuyu atlamak yanlis ekrana
         # tiklamaya yol aciyor
-        menu_ogesini_ac(page, UST_MENU, sure=6000, dogrula=hedef_gorunur)
+        grup = ARA_MENU.get(belge_tipi)
+        # hedef dogrudan gorunmuyorsa ara grup ("GİB e-Belge" gibi) gorunmesi de menunun acildigini gosterir
+        menu_ogesini_ac(page, UST_MENU, sure=6000,
+                        dogrula=(lambda: hedef_gorunur() or gorunur_mu(page, grup, sure=1200)) if grup else hedef_gorunur)
+        if grup and not hedef_gorunur():
+            menu_ogesini_ac(page, grup, sure=4000, dogrula=hedef_gorunur)   # yeni yapi: UST_MENU > grup > madde
         try:
             _, alt = metinle_bul(page, hedef, sure=4000)
             break

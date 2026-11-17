@@ -68,7 +68,7 @@ AEN_EKRANLARI = {
 # sunucu tarafi durum: (firma, tip) -> {"sorgulandi": bool, "iptal": bool}
 DURUM = {}
 # urun seciminde uygulama penceresinin kac kez acildigi (cift tiklama testi icin)
-SAYAC = {"sso": 0, "ilk_bos": False, "gib_hatasi": 0, "excel": 0, "excel_gecikme": 0,
+SAYAC = {"ara_menu": False, "sso": 0, "ilk_bos": False, "gib_hatasi": 0, "excel": 0, "excel_gecikme": 0,
         "zip_basarisiz": 0}
 
 # gercek Luca'da goruldu (26/09/2026); gecici, ayni sorgu tekrarlaninca geciyor
@@ -238,6 +238,9 @@ ANA_SAYFA = """<!doctype html><html><head><meta charset="utf-8"><title>AKIN COBA
  const aen = document.getElementById('aen');
  aen.onmouseenter = aen.onclick = () =>
    sonra(150, () => document.getElementById('aenMenu').classList.remove('gizli'));
+ document.querySelectorAll('.grup').forEach(g => g.onmouseenter = g.onclick = () => {
+   document.querySelectorAll('.altgrup').forEach(d => d.classList.add('gizli'));
+   sonra(150, () => g.nextElementSibling.classList.remove('gizli')); });
  document.querySelectorAll('[data-tip]').forEach(a => a.onclick = () => {
    document.getElementById('modulMenu').classList.add('gizli');
    document.getElementById('aenMenu').classList.add('gizli');
@@ -530,7 +533,15 @@ class Isleyici(BaseHTTPRequestHandler):
             return self._yanit("<!doctype html><html><body></body></html>" if bos else SSO_SAYFASI)
         if yol in ("/", "/Luca/uygulama"):
             secenek = "".join(f"<option>{f}</option>" for f in FIRMALAR)
-            aen = "".join(f'<a data-tip="{t}">{ad}</a>' for ad, t in AEN_EKRANLARI.items())
+            if SAYAC["ara_menu"]:   # gercek Luca (Kasim 2026): AEN > GİB e-Belge / TÜRMOB e-Belge > madde (3 kademe)
+                def _ogeler(filtre):
+                    return "".join(f'<a data-tip="{t}">{ad}</a>' for ad, t in AEN_EKRANLARI.items() if filtre(t))
+                aen = ('<a class="ara">Akıllı Ent. Toplu Sorgulama</a><a class="grup">TÜRMOB e-Belge</a>'
+                       '<div class="altgrup gizli" style="margin-left:14px">' + _ogeler(lambda t: t.startswith("turmob")) + '</div>'
+                       '<a class="grup">GİB e-Belge</a><div class="altgrup gizli" style="margin-left:14px">'
+                       + _ogeler(lambda t: not t.startswith("turmob")) + '</div><a class="ara">NetteCap</a>')
+            else:
+                aen = "".join(f'<a data-tip="{t}">{ad}</a>' for ad, t in AEN_EKRANLARI.items())
             html = (ANA_SAYFA.replace("__FIRMALAR__", secenek).replace("__AEN__", aen)
                     .replace("__ESKI__", ESKI_DONEMLI)
                     .replace("__ISLETME__", json.dumps(sorted(ISLETME_FIRMALARI))))
@@ -617,7 +628,7 @@ def baslat(port=0):
 def sifirla():
     with KILIT:
         DURUM.clear()
-        SAYAC.update(sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
+        SAYAC.update(ara_menu=False, sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
 
 
 if __name__ == "__main__":

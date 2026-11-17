@@ -94,6 +94,14 @@ class IkiHesap(unittest.TestCase):
         self.assertEqual(list(rapor), ["AKIN COBAN"])                                                     # firma adina gore birlesik rapor
         self.assertEqual(rapor["AKIN COBAN"]["durumlar"], {"e-arsiv-alis": "tamam"})
 
+    def test_ic_ice_menu_gib_e_belge_grubu(self):
+        """Luca (Kasim 2026) maddeleri alt gruplara tasidi: Akıllı Entegrasyon Noktası > GİB e-Belge > e-Arşiv Alış Faturaları."""
+        sahte_luca.SAYAC["ara_menu"] = True
+        kod, cikti, cagrilar = _calistir(self.klasor, self.adres, {}, ["--firma", "AKIN", "--bastan"])
+        self.assertEqual(kod, 0, cikti[-1500:])
+        rapor = json.loads((self.klasor / "indirilenler" / "rapor.json").read_text(encoding="utf-8"))
+        self.assertEqual(rapor["AKIN COBAN"]["durumlar"], {"e-arsiv-alis": "tamam"}, cikti[-1200:])
+
     def test_yalniz_isletme(self):
         kod, cikti, cagrilar = _calistir(self.klasor, self.adres, IKI, ["--firma", "AKIN", "--hesap", "isletme"])
         self.assertEqual(kod, 0, cikti[-1500:])

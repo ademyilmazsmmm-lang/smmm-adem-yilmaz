@@ -208,6 +208,12 @@ class ArayuzTestleri(ArayuzZemini):
         self.kok.update()
         self.assertEqual(len(self.kok.winfo_children()), once + 1)
 
+    def test_aylik_gib_sorgusu_komuta_girer(self):
+        self.assertNotIn("--parca-gun", self.app.komut())
+        self.app.v_aylik.set(True)
+        k = self.app.komut()
+        self.assertEqual(k[k.index("--parca-gun") + 1], "30")
+
     def test_luca_hesabi_secimi_komuta_girer_ve_ozet_iki_hesabi_gosterir(self):
         self.assertNotIn("--hesap", self.app.komut())                        # varsayilan: hepsi
         self.app.v_hesap.set("Yalnız işletme")

@@ -740,6 +740,7 @@ class Arayuz:
         a["firma_listesi"] = self.v_liste.get()
         a["arayuz_ekranlar"] = [t for t in TUM_BELGELER if self.v_ekran[t].get()]
         a["arayuz_belge_indir"], a["arayuz_excel_indir"] = self.v_belge_indir.get(), self.v_excel_indir.get()
+        a["arayuz_aylik_sorgu"] = self.v_aylik.get()
         try:
             ayarlari_kaydet(a)
         except OSError:
@@ -776,6 +777,7 @@ class Arayuz:
         self.v_devam = tk.BooleanVar(value=True)
         self.v_belge_indir = tk.BooleanVar(value=self.ayarlar.get("arayuz_belge_indir", True))
         self.v_excel_indir = tk.BooleanVar(value=self.ayarlar.get("arayuz_excel_indir", True))
+        self.v_aylik = tk.BooleanVar(value=self.ayarlar.get("arayuz_aylik_sorgu", False))   # GIB sorgusu 30 gunluk parcalarla
         secili = set(a.get("arayuz_ekranlar") or TUM_BELGELER)
         self.v_ekran = {t: tk.BooleanVar(value=t in secili) for t in TUM_BELGELER}
         self.v_hepsi = tk.BooleanVar(value=all(v.get() for v in self.v_ekran.values()))
@@ -972,6 +974,8 @@ class Arayuz:
                        font=KUCUK, **self._kutu_renk()).grid(row=0, column=0, sticky="w")
         tk.Checkbutton(ind, text="Excel listesi indir", variable=self.v_excel_indir,
                        font=KUCUK, **self._kutu_renk()).grid(row=0, column=1, sticky="w", padx=(10, 0))
+        tk.Checkbutton(ind, text="GİB sorgusunu aylık yap (7 gün sınırı yoksa)", variable=self.v_aylik,
+                       font=KUCUK, **self._kutu_renk()).grid(row=1, column=0, columnspan=2, sticky="w")
 
 
     def _sol_tekerlek(self, e):
@@ -1313,7 +1317,8 @@ class Arayuz:
         belge, excel = self.v_belge_indir.get(), self.v_excel_indir.get()
         if not belge and not excel:
             raise ValueError("Fatura (XML) ve Excel indirmenin ikisi de kapalı; en az birini seçin.")
-        return (["--belge-indirme-yok"] if not belge else []) + (["--excel-indirme-yok"] if not excel else [])
+        return ((["--belge-indirme-yok"] if not belge else []) + (["--excel-indirme-yok"] if not excel else [])
+                + (["--parca-gun", "30"] if self.v_aylik.get() else []))
 
     def calistir(self):
         if self.surec:
@@ -1330,6 +1335,7 @@ class Arayuz:
         a["firma_listesi"] = self.v_liste.get()
         a["arayuz_ekranlar"] = [t for t in TUM_BELGELER if self.v_ekran[t].get()]
         a["arayuz_belge_indir"], a["arayuz_excel_indir"] = self.v_belge_indir.get(), self.v_excel_indir.get()
+        a["arayuz_aylik_sorgu"] = self.v_aylik.get()
         ayarlari_kaydet(a)
 
         self._baslat(komut, "Luca'ya giriş yapılıyor…")

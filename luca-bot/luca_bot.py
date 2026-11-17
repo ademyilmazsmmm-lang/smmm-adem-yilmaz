@@ -31,7 +31,7 @@ from lucabot.giris import luca_oturumu_ac
 from lucabot.luca_beyanname import ekrandan_al
 from lucabot.luca_gezinme import firma_secici_bekle
 from lucabot.musteri_listesi import MUSTERI_LISTESI_DOSYASI, kaydet as musteri_listesini_kaydet, listeyi_oku
-from lucabot.ortak import (AYAR, DURDUR_DOSYASI, ayarlari_oku, gunluge_yaz, icinde_bulunulan_ay,
+from lucabot.ortak import (AYAR, AZAMI_GUN, DURDUR_DOSYASI, ayarlari_oku, gunluge_yaz, icinde_bulunulan_ay,
                            indirme_koku, tarih_araliklari, tarih_cozumle, yaz)
 from lucabot.sabitler import BELGE_TIPLERI, TUM_BELGELER
 from lucabot.hesaplar import profil_eki as hesap_profil_eki
@@ -52,6 +52,9 @@ def arguman_ayristirici():
     p.add_argument("--karsilastir", action="store_true",
                    help="Iki e-arsiv ekranini da calistir (Akilli Entegrasyon + Interaktif V.D.)")
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
+    p.add_argument("--parca-gun", type=int,
+                   help="GIB sorgusu tek seferde kac gunluk parcalarla yapilsin (varsayilan 7; Luca ekrani aylik sorguyu kabul ediyorsa 30; "
+                        "ayarlar.json: gib_parca_gun)")
     p.add_argument("--hesap", default="hepsi",
                    help="Hangi Luca hesabi taransin: hepsi (varsayilan: once ofis, sonra etkinse isletme), ofis ya da isletme")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
@@ -346,7 +349,8 @@ class HesapSonucu:
 def calistir(args, ayarlar, p):
     belge_tipleri = belge_tiplerini_belirle(args, ayarlar)
     baslangic, bitis = tarih_araligini_belirle(args, ayarlar, p)
-    araliklar = tarih_araliklari(baslangic, bitis)
+    parca_gun = args.parca_gun or int(_sayi_ayari(ayarlar, "gib_parca_gun", AZAMI_GUN))
+    araliklar = tarih_araliklari(baslangic, bitis, max(1, min(31, parca_gun)))
     ayarlari_uygula(args, ayarlar)
     azami_deneme = max(1, int(_sayi_ayari(ayarlar, "tekrar_deneme", 3)))
     hata_siniri = max(1, int(_sayi_ayari(ayarlar, "ardisik_hata_siniri", 5)))

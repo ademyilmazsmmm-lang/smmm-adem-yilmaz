@@ -47,6 +47,13 @@ BELGE_TIPLERI = {
     "e-arsiv-interaktif": "E-Arşiv Faturaları Sorgulama",
 }
 
+# Luca (Kasim 2026) maddeleri "Akıllı Entegrasyon Noktası"nin hemen altindan ALT GRUPLARA tasidi:
+#   Akıllı Entegrasyon Noktası > GİB e-Belge > e-Arşiv Alış Faturaları ...   (TÜRMOB maddeleri: TÜRMOB e-Belge altinda)
+# Hedef madde ust menude dogrudan gorunmuyorsa bu grup acilir; eski duz yapi da calismaya devam eder.
+ARA_MENU = {"e-arsiv-alis": "GİB e-Belge", "e-arsiv-satis": "GİB e-Belge", "e-fatura-alis": "GİB e-Belge",
+            "e-fatura-satis": "GİB e-Belge", "gib-5000": "GİB e-Belge", "esmm-alis": "GİB e-Belge",
+            "esmm-satis": "GİB e-Belge", "turmob-alis": "TÜRMOB e-Belge", "turmob-satis": "TÜRMOB e-Belge"}
+
 # menusu iki kademeli olan (Akilli Entegrasyon Noktasi araciligi olmayan) ekranlar
 IKI_KADEMELI = {"e-arsiv-interaktif"}
 

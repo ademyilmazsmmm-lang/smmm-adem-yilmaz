@@ -163,6 +163,15 @@ Sağ panelde üç alt sekme vardır:
 Kâr / Zarar sekmesindeki tabloda da aynı arama, Kaynak filtresi ve sıralama vardır. Üçüncü sekme
 (**Luca Mükerrer / Eksik Fatura Tespiti**) şimdilik "Çalışma var" yer tutucusudur.
 
+### Luca menü değişikliği (Kasım 2026) ve aylık GİB sorgusu
+
+- **Menü:** Luca, e-Belge maddelerini *Akıllı Entegrasyon Noktası*'nın hemen altından alt gruplara taşıdı
+  (*Akıllı Entegrasyon Noktası › GİB e-Belge › e-Arşiv Alış Faturaları*, TÜRMOB maddeleri *TÜRMOB e-Belge* altında). Bot hedef madde
+  doğrudan görünmüyorsa ilgili grubu da açar (`ARA_MENU`, `lucabot/sabitler.py`); eski düz menü de çalışmaya devam eder.
+- **Aylık sorgu:** Luca artık tek seferde 1 aya kadar sorguya izin veriyor. Sol paneldeki **"GİB sorgusunu aylık yap"** kutusu sorguyu 7 gün
+  yerine 30 günlük parçalarla yapar (komut satırı `--parca-gun 30`, `ayarlar.json`: `gib_parca_gun`). Varsayılan 7 gündür.
+- **Toplu Sorgulama** (*Akıllı Ent. Toplu Sorgulama › Alış / Satış İade Faturaları*) ekranı henüz bota bağlı değildir.
+
 ### İki Luca hesabı (ofis + işletme)
 
 Fatura İndirme birden fazla Luca kullanıcısını tarayabilir. **Luca Giriş Bilgileri** penceresinde ofis hesabının altındaki
