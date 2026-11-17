@@ -4093,12 +4093,11 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
       var alt = (g.ay > 1 ? ayAd(g.bas) + "–" + ayAd(g.bit) : ayAd(g.bit)) + " " + yil + " muhtasarı" + (g.ay > 1 ? " · " + g.ay + " aylık net " + anaTl(g.net) + " ÷ " + g.ay : "");
       return '<div class="a2-sat"' + st + '><div><span>Güncel kira</span><small>' + esc(alt) + '</small></div><b>' + anaTl(g.tutar) + '</b></div>';
     }
-    if (!g) return '<div class="a2-sat"' + st + '><div><span>Güncel kira</span><small>Güncelleyince son muhtasardan gelir</small></div><b style="color:var(--muted)">—</b></div>';
-    return "";
+    return ""; /* muhtasarda 041 kira satırı yoksa ya da henüz okunmadıysa yalnız artış oranı görünür */
   }
   function kiraKartHtml(son){
     var gk = guncelKiraSatir(son, true);
-    return '<section class="a2-kart" style="gap:6px"><div class="a2-kbas"><b>Kira</b><small>' + esc(KIRA.ay) + '</small></div>' + gk + '<div class="a2-sat"' + (gk ? "" : ' style="padding-top:0;border:0"') + '><div><span>Kira artış oranı</span></div><b>' + esc(kiraOrani(KIRA)) + '</b></div></section>';
+    return '<section class="a2-kart" style="gap:6px"><div class="a2-kbas"><b>Kira</b><small>' + esc(KIRA.ay) + '</small></div>' + gk + '<div class="a2-sat"' + (gk ? "" : ' style="padding-top:0;border:0"') + '><div><span>Artış oranı</span></div><b>' + esc(kiraOrani(KIRA)) + '</b></div></section>';
   }
   function kiraHtml(k){
     return '<div><div class="abas"><b>' + IKON.durum + 'Kira artış oranı</b><small>' + esc(k.ay) + '</small></div><div class="ozet"><div class="kiraoran"><span>Kira artış oranı</span><b>' + esc(kiraOrani(k)) + '</b></div></div><p class="not" style="margin:8px 2px 0;font-size:.78rem">TÜFE 12 aylık ortalama · yasal kira artış tavanı. Her ay güncellenir.</p></div>';
@@ -4225,10 +4224,10 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
       satirlar += '<div class="a2-sat"><div><span>' + (d ? esc(d.ad) : (i ? "Bu ay" : "Geçen ay")) + ' faturaları</span><small>' + (d ? (d.bitti ? "" : "Ay sürüyor · ") + anaZaman(d.zaman) : "Rapor hazırlanmadı") + '</small></div><div class="a2-iki"><i>gelir</i><i>gider</i><b style="color:var(--accent);font-size:.86rem">' + (d ? kt(d.gelir) : "—") + '</b><b style="color:var(--danger);font-size:.86rem">' + (d ? kt(d.gider) : "—") + '</b></div></div>';
     });
     if (satirlar) h += '<section class="a2-kart"><div class="a2-kbas"><b>Mali özet</b>' + (!m || m.earsiv !== false ? '<button type="button" class="a2-lnk" data-git="vd" data-vdsek="kdv">KDV raporu ›</button>' : '') + '</div><div>' + satirlar + '</div>' + (notlar.length ? '<details class="a2-not"><summary>ⓘ Açıklama</summary>' + notlar.map(function(t){ return '<p>' + esc(t) + '</p>'; }).join("") + '<p>Fatura tutarları KDV dahildir.</p></details>' : '') + '</section>';
+    if (KIRA) h += kiraKartHtml(son); /* Kira: Yaklaşan tarihlerin üstünde */
     /* yaklaşan tarihler: ilk 3 görünür, gerisi açılır */
     var tl = yaklasanTarihler(), tsat = function(x){ var g = x.kalan === 0 ? "Bugün" : x.kalan === 1 ? "Yarın" : x.kalan + " gün"; return '<div class="a2-tar' + (x.kalan <= 3 ? " yakin" : x.kalan <= 7 ? " orta" : "") + '"><div style="min-width:0"><b>' + esc(x.ad) + '</b><small>' + x.d.getDate() + ' ' + AYLAR[x.d.getMonth()] + ' ' + GUNLER[x.d.getDay()] + (x.donem ? ' · ' + x.donem : '') + '</small></div><span class="gun">' + g + '</span></div>'; };
     if (tl.length) h += '<section class="a2-kart"><div class="a2-kbas"><b>Yaklaşan tarihler</b><small>Vergi ve SGK</small></div><div>' + tl.slice(0, 3).map(tsat).join("") + '</div>' + (tl.length > 3 ? '<details id="anaTarih" class="a2-not"' + (ANA_TARIH_ACIK ? " open" : "") + '><summary>Tümünü göster (' + tl.length + ')</summary><div style="margin-top:6px">' + tl.slice(3).map(tsat).join("") + '</div></details>' : '') + '</section>';
-    if (KIRA) h += kiraKartHtml(son);
     if (ofis && OFISK.takip) h += '<section class="a2-kart" style="gap:6px"><div class="a2-kbas"><div><b>Muhasebe ücreti takibi</b><small style="display:block">Portala taşınıyor · çalışma devam ediyor</small></div><a class="a2-lnk" style="text-decoration:none" href="' + esc(OFISK.takip) + '" target="_blank" rel="noopener">Programı aç ›</a></div></section>';
     h += '<div class="a2-alt"><button type="button" class="a2-lnk" data-ana-gorunum="klasik" style="color:var(--muted);font-weight:500">Klasik görünüme dön</button></div></div>';
     $("anaIc").innerHTML = h; guncGoster(son);
