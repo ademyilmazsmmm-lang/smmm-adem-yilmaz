@@ -536,7 +536,7 @@ class KarZararSekmesi:
                 "Tabloda sonucu alınamamış (hatalı) satır görünmüyor." if not sadece_secili else
                 "Önce tabloda sorgulanacak satırları seçin (Ctrl / Shift ile birden çok).", parent=self.a.kok)
             return
-        if self.a.surec or self.a.db.calisiyor():
+        if self.a.surec or self.a.db.calisiyor() or self.a.mv.calisiyor():
             messagebox.showinfo("Başka çalışma sürüyor", "Fatura indirme/liste çekme çalışıyor; bitince başlatın "
                                 "(ikisi aynı anda Luca'ya girmemeli).", parent=self.a.kok)
             return
@@ -560,7 +560,7 @@ class KarZararSekmesi:
         self._baslat(komut)
 
     def calistir(self):
-        if self.a.surec or self.a.db.calisiyor():
+        if self.a.surec or self.a.db.calisiyor() or self.a.mv.calisiyor():
             messagebox.showinfo("Başka çalışma sürüyor", "Fatura indirme/liste çekme çalışıyor; bitince başlatın "
                                 "(ikisi aynı anda Luca'ya girmemeli).", parent=self.a.kok)
             return

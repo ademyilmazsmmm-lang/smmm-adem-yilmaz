@@ -246,7 +246,31 @@ sayfalarını yazar (sabit kıymetler sarı). **Seçilenleri Yeniden Çalıştı
 listelenir; konu `[Sorunsuz]` ya da `[N firmada sorun]` ile başlar. Fatura özetiyle aynı mail ayarları kullanılır
 (`mail_yontemi` outlook/smtp, `mail_alici`, `mail_gonder`, `mail_otomatik_gonder`, `smtp.*`).
 
-Fatura İndirme, Kâr / Zarar ve Defter Beyan aynı anda çalışmaz. **Gerçek Luca'da henüz denenmemiştir**: önce tek bir firmayla
+### Muavin sekmesi (fatura no + genel toplam kontrolü)
+
+**Muavin** sekmesi şunu yanıtlar: *Fatura İndirme'nin indirdiği faturaların numarası ve genel toplam (KDV dahil) tutarı Luca
+kayıtlarıyla uyuşuyor mu?* İkisi de uyuyorsa sorun yoktur. Altta `kar-zarar/muavin.py` çalışır; faturaların kaynağı
+`indirilenler/rapor.json` ve ekran klasörlerindeki `liste.csv` dosyalarıdır (önce o dönemin faturalarını Fatura İndirme'den indirin).
+
+- **1. sınıf (genel muhasebe)** firmalar: Luca'da **Muhasebe > Raporlar > Genel Raporlar > Defterler > Tüm Yazıcılar > Muavin Defter**
+  tüm hesaplarla Excel indirilir (Rapor Türü *Excel Liste (xlsx)*, hesap kodu alanları boş). Alış faturaları **191**'de, satış faturaları
+  **391**'de aranır. Genel toplam, numaralı satırın fişinde **100-102-309-320-120-108-321-121** hesaplarından birinde ya da
+  **191/391 KDV + fişteki matrah** toplamı olarak bulunmalıdır.
+- **2. sınıf (işletme / serbest meslek defteri)** firmalar: **İşletme Defteri > Raporlar > Genel Raporlar > İşletme Defteri Dökümü**
+  (Tarih İlk / Tarih Son, Excel xlsx). Faturanın numarası **Giderler** (alış) ya da **Gelirler** (satış) tablosunun *Evrak No* sütununda,
+  *Toplam* sütunu da fatura toplamıyla aynı olmalıdır.
+- Sorun iki türlüdür: **numara yok** (inen fatura listesinde var, muavinde / işletme defterinde yok) ve **tutar uyuşmuyor** (numara var, genel
+  toplam farklı). Her biri **tarih – fatura no – ünvan/isim – KDV – KDV dahil tutar** sırasıyla gösterilir: günlükte, **Sorunlu faturalar**
+  penceresinde (seçim yoksa tüm firmalar; Panoya kopyala var) ve **Excel olarak indir**deki *Eksik (muavinde yok)* / *Tutar uyuşmuyor* sayfalarında.
+- İptal/itiraz edilmiş ve KDV'si 0 olan faturalar sayılmaz (sayıları *Not* sütununda); tevkifatlı faturalarda yalnız numara kontrol edilir.
+  Tolerans 0,05 TL.
+- Luca'da hiçbir şey değiştirilmez; yalnız rapor Excel'i indirilir. Sonuç `kar-zarar/cikti/muavin.json` ve `muavin.xlsx`'e yazılır.
+- Komut satırı: `python muavin.py --tarih 01/10/2026-31/10/2026 --firma-tam "ALFA" --tani` (`--sinif 1|2|hepsi`).
+- Form alanları ve menü yolları kullanıcının ekran görüntülerinden alındı, Excel yapıları gerçek örnek dosyalarla denendi
+  (muavin ve işletme defteri dökümü ayrıştırıcıları); **Luca'da uçtan uca henüz denenmemiştir**. İlk çalıştırmada günlükteki
+  *Muavin formu (tanı)* satırı ve `tani/` klasörü sorun halinde gerekir.
+
+Fatura İndirme, Kâr / Zarar, Defter Beyan ve Muavin aynı anda çalışmaz. **Defter Beyan Gerçek Luca'da henüz denenmemiştir**: önce tek bir firmayla
 *Yalnız kontrol*, sonra *Gönder* deneyin; sorun olursa `kar-zarar/cikti/<tarih>/tani/` klasöründeki dosyalar gerekir
 (komut satırı: `python defter_beyan.py --tarih 01/01/2026-30/09/2026 --firma "ALFA" --tani`).
 
@@ -539,6 +563,7 @@ kişiye gidebilir. Program klasöründeki `mail-yonlendirme.json` (ya da `ayarla
 | `lucabot/hesaplar.py` | İki Luca hesabı (ofis + işletme): giriş bilgileri, hesap seçimi, ayrı tarayıcı profili |
 | `beyanname_sekmesi.py`, `lucabot/beyanname_takip.py` | Arayüzün Beyanname Takip sekmesi ve `beyanname-takip/` programını başlatma/durdurma/okuma mantığı |
 | `defter_beyan_sekmesi.py` | Arayüzün Defter Beyan sekmesi (2. sınıf gönderme/kontrol); `kar-zarar/defter_beyan.py` çalışır |
+| `muavin_sekmesi.py` | Arayüzün Muavin sekmesi (faturası olup muavinde olmayanlar); `kar-zarar/muavin.py` çalışır |
 | `gostergeler.py` | Arayüzün alt kutuları (tevkifat KDV, SMM, interaktif farkı, KDV ödemesi); arayüzün kendisi `luca_arayuz.py` |
 | `firma_tablosu.py` | `firmalar.xlsx` şablonu, arayüzdeki Firma / Ekran Seçimi tablosunun okunup yazılması, Luca listesiyle karşılaştırma/birleştirme |
 | `luca_beyanname.py` | Luca'nın GİB Beyanname Takip ekranından KDV1 PDF'lerini toplu indirme |

@@ -134,6 +134,34 @@ SAHTE_DEFTER_BEYAN = textwrap.dedent('''
 ''')
 
 
+SAHTE_MUAVIN = textwrap.dedent('''
+    import json, sys
+    from pathlib import Path
+    print("ARGS " + " ".join(sys.argv[1:]), flush=True)
+    donem = sys.argv[sys.argv.index("--tarih") + 1]
+    bos = lambda: {"fatura": 0, "eslesen": 0, "satir": 0, "eksik": [], "tutar_farki": [], "iptal": 0, "kdvsiz": 0}
+    f = lambda no, tarih, toplam, kdv, unvan="SATICI A.S.": {"no": no, "tarih": tarih, "unvan": unvan, "toplam": toplam, "kdv": kdv}
+    firmalar = [
+        {"firma": "ALFA", "donem": donem, "hata": "", "durum": "tamam", "kaynak": "isletme",
+         "yon": {"alis": dict(bos(), fatura=3, eslesen=3), "satis": dict(bos(), fatura=1, eslesen=1)}},
+        {"firma": "BETA", "donem": donem, "hata": "", "durum": "fark var", "kaynak": "muavin",
+         "yon": {"alis": dict(bos(), fatura=4, eslesen=1, iptal=1,
+                              eksik=[f("AAA2026000000002", "06/10/2026", 1234.5, 205.75),
+                                     f("AAA2026000000009", "08/10/2026", 600.0, 100.0, "DIGER LTD")],
+                              tutar_farki=[dict(f("AAA2026000000007", "09/10/2026", 1200.0, 200.0, "UCUNCU A.S."),
+                                                kayit=[900.0], fis="44")]),
+                 "satis": dict(bos(), fatura=2, eslesen=2)}},
+        {"firma": "GAMA", "donem": donem, "hata": "Muavin Defter menüsü açılamadı", "durum": "hata", "yon": {}},
+    ]
+    cikti = Path(__file__).resolve().parent / "cikti"
+    cikti.mkdir(exist_ok=True)
+    for i, fk in enumerate(firmalar, 1):
+        print(f"[{i}/{len(firmalar)}] {fk['firma']}  (Luca muavin 191/391)", flush=True)
+        (cikti / "muavin.json").write_text(json.dumps({"donem": donem, "firmalar": firmalar[:i]}), encoding="utf-8")
+    print("[OK] 3 firma", flush=True)
+''')
+
+
 class ArayuzZemini(unittest.TestCase):
     """Ortak kurulum (sahte ayarlar, rapor.json, sahte bot); kendi testi yok."""
 
@@ -1139,7 +1167,7 @@ class TablolarVeSekmelerTestleri(ArayuzZemini):
         self.app._hatalilari_sorgula(False)
         self.assertEqual(len(istekler[1]), 2)
 
-    def test_alt_sekmeler_ve_yer_tutucu(self):
+    def test_alt_sekmeler_ve_muavin_sekmesi_acilir(self):
         for ad in ("durum", "hata", "surec"):
             self.app.alt_sekme_sec(ad)
             self.kok.update()
@@ -1148,9 +1176,7 @@ class TablolarVeSekmelerTestleri(ArayuzZemini):
                              [self.app.alt_cerceveler[ad]])
         self.app.sekme_sec("muavin")
         self.kok.update()
-        self.assertTrue(self.app.muavin_govde.winfo_ismapped())
-        yazilar = [w.cget("text") for w in self.app.muavin_govde.winfo_children()[0].winfo_children()]
-        self.assertIn("Çalışma var", yazilar)
+        self.assertTrue(self.app.mv.govde.winfo_ismapped())
         self.assertFalse(self.app.fatura_govde.winfo_ismapped())
 
 
@@ -1441,6 +1467,133 @@ class DefterBeyanSekmesiTestleri(ArayuzZemini):
         self.assertIn("SABİT KIYMET", metin)
         self.assertIn("Bilgisayar", metin)
         pencereler[0].destroy()
+
+
+@unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")
+class MuavinSekmesiTestleri(ArayuzZemini):
+    """Muavin sekmesi: kar-zarar/muavin.py yerine sahte program calisir."""
+
+    def setUp(self):
+        import kar_zarar_sekmesi
+        self.kz_klasor = Path(tempfile.mkdtemp(prefix="mv-test-"))
+        (self.kz_klasor / "kar_zarar.py").write_text("print('x')", encoding="utf-8")
+        (self.kz_klasor / "muavin.py").write_text(SAHTE_MUAVIN, encoding="utf-8")
+        self._eski = kar_zarar_sekmesi.ADAYLAR
+        kar_zarar_sekmesi.ADAYLAR = (self.kz_klasor,)
+        super().setUp()
+        self.mv = self.app.mv
+
+    def tearDown(self):
+        import kar_zarar_sekmesi
+        if self.mv.surec:
+            self.mv.surec.kill()
+            self.mv.surec.wait()
+            self.mv.surec.stdout.close()
+        kar_zarar_sekmesi.ADAYLAR = self._eski
+        super().tearDown()
+
+    def _bilgi_yakala(self):
+        import muavin_sekmesi
+        self.bilgiler = []
+        eski = muavin_sekmesi.messagebox.showinfo
+        muavin_sekmesi.messagebox.showinfo = lambda *a, **k: self.bilgiler.append(a)
+        self.addCleanup(setattr, muavin_sekmesi.messagebox, "showinfo", eski)
+
+    def _calistir(self):
+        self.mv.v_bas.set("01/10/2026")
+        self.mv.v_bit.set("31/10/2026")
+        self.mv.calistir()
+        self.assertIsNotNone(self.mv.surec)
+        self.assertTrue(self._bekle(lambda: self.mv.surec is None))
+
+    def test_sekme_ve_varsayilan_donem(self):
+        self.app.sekme_sec("muavin")
+        self.kok.update()
+        self.assertTrue(self.mv.govde.winfo_ismapped())
+        self.assertFalse(self.app.fatura_govde.winfo_ismapped())
+        self.assertRegex(self.mv.v_bas.get(), r"^01/\d{2}/\d{4}$")          # gecen ayin ilk gunu
+
+    def test_komut_tarih_fatura_klasoru_ve_firma(self):
+        self.mv.v_bas.set("01/10/2026")
+        self.mv.v_bit.set("31/10/2026")
+        self.mv.v_firma.set("ALFA")
+        komut = self.mv.komut()
+        self.assertEqual(Path(komut[komut.index("-u") + 1]).name, "muavin.py")
+        self.assertEqual(komut[komut.index("--tarih") + 1], "01/10/2026-31/10/2026")
+        self.assertEqual(Path(komut[komut.index("--fatura-klasoru") + 1]), self.mod.indirme_koku(self.app.ayarlar))
+        self.assertEqual(komut[komut.index("--firma") + 1], "ALFA")
+        self.assertEqual(self.mv.komut(["A", "B"]).count("--firma-tam"), 2)
+        self.mv.v_bit.set("01/09/2026")
+        with self.assertRaises(ValueError):
+            self.mv.komut()
+
+    def test_calisir_tablo_ve_eksik_faturalar_no_ve_tutarla_gorunur(self):
+        self._calistir()
+        log = self.mv.log_metni()
+        self.assertIn("--tarih 01/10/2026-31/10/2026", log)
+        satirlar = {self.mv.agac.item(i)["values"][0]: [str(x) for x in self.mv.agac.item(i)["values"]]
+                    for i in self.mv.agac.get_children()}
+        self.assertEqual(satirlar["ALFA"][8], "Fatura no ve toplam uyuşuyor")
+        self.assertEqual(satirlar["ALFA"][2], "İşletme defteri")
+        self.assertEqual(satirlar["BETA"][8], "SORUNLU FATURA VAR")
+        self.assertEqual(satirlar["BETA"][4], "3")                       # alis sorun: 2 eksik + 1 tutar uyusmuyor
+        self.assertIn("3.034,50 TL", satirlar["BETA"][7])                # sorunlu tutar toplami (KDV dahil)
+        self.assertIn("2 numara yok; 1 tutar uyuşmuyor", satirlar["BETA"][9])
+        self.assertEqual(satirlar["GAMA"][8], "Hata")
+        self.assertIn("menüsü açılamadı", satirlar["GAMA"][9])
+        self.assertIn("1 firmada 3 sorunlu fatura var", self.mv.ozet_etiketi.cget("text"))
+        self.assertIn("1 firmada hata", self.mv.ozet_etiketi.cget("text"))
+
+    def test_ayrinti_secim_yoksa_tum_eksikleri_listeler(self):
+        self._calistir()
+        pencereler = []
+        eski = tk.Toplevel
+        self.addCleanup(setattr, tk, "Toplevel", eski)
+        tk.Toplevel = lambda *a, **k: pencereler.append(eski(*a, **k)) or pencereler[-1]
+        self.mv.ayrinti()
+        metin = [w for w in pencereler[0].winfo_children() if isinstance(w, tk.Text)][0].get("1.0", "end")
+        for parca in ("BETA", "AAA2026000000002", "06/10/2026", "1.234,50 TL", "205,75 TL", "AAA2026000000009", "600,00 TL",
+                      "DIGER LTD", "AAA2026000000007", "UCUNCU A.S.", "(kayıtta: 900,00 TL; fiş 44)",
+                      "Fatura no var ama genel toplam tutarı uyuşmuyor", "Toplam: 3 sorunlu fatura (3.034,50 TL)",
+                      "Muavin Defter menüsü açılamadı"):
+            self.assertIn(parca, metin)
+        pencereler[0].destroy()
+
+    def test_excel_eksik_sayfasinda_no_ve_tutar(self):
+        self._calistir()
+        from openpyxl import load_workbook
+        yol = self.d / "mv.xlsx"
+        self.mv._excel_yaz_mv(str(yol))
+        wb = load_workbook(yol)
+        self.assertEqual(wb.sheetnames, ["Özet", "Eksik (muavinde yok)", "Tutar uyuşmuyor"])
+        eksik = [[h.value for h in r] for r in wb["Eksik (muavinde yok)"].iter_rows(min_row=2)]
+        self.assertEqual([(r[0], r[1], r[2], r[3], r[5], r[6]) for r in eksik],        # tarih - fatura no - unvan - KDV - tutar
+                         [("BETA", "Alış", "06/10/2026", "AAA2026000000002", 205.75, 1234.5),
+                          ("BETA", "Alış", "08/10/2026", "AAA2026000000009", 100.0, 600.0)])
+        fark = [[h.value for h in r] for r in wb["Tutar uyuşmuyor"].iter_rows(min_row=2)]
+        self.assertEqual([(r[3], r[6], r[7], r[8]) for r in fark], [("AAA2026000000007", 1200.0, "900.00", "44")])
+        ozet = [[h.value for h in r] for r in wb["Özet"].iter_rows(min_row=4)]
+        self.assertEqual([r[0] for r in ozet], ["ALFA", "BETA", "GAMA"])
+
+    def test_baska_calisma_varken_baslamaz(self):
+        self._bilgi_yakala()
+        self.app.surec = mock.MagicMock()
+        self.addCleanup(setattr, self.app, "surec", None)
+        self.assertTrue(self.mv._baska_calisiyor())
+        self.assertTrue(self.bilgiler)
+
+    def test_muavin_calisirken_fatura_kar_zarar_ve_defter_beyan_baslamaz(self):
+        self._bilgi_yakala()
+        import defter_beyan_sekmesi
+        db_bilgi = []
+        eski = defter_beyan_sekmesi.messagebox.showinfo
+        defter_beyan_sekmesi.messagebox.showinfo = lambda *a, **k: db_bilgi.append(a)
+        self.addCleanup(setattr, defter_beyan_sekmesi.messagebox, "showinfo", eski)
+        self.mv.surec = mock.MagicMock()
+        self.addCleanup(setattr, self.mv, "surec", None)
+        self.assertTrue(self.app.db._baska_calisiyor())
+        self.assertTrue(db_bilgi)
+        self.assertTrue(self.mv.calisiyor())
 
 
 @unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")

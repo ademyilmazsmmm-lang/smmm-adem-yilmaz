@@ -215,8 +215,10 @@ sahte_luca.ANA_SAYFA = sahte_luca.ANA_SAYFA.replace(
 
 # Mizan: gercek Luca'daki gibi menuItems/aktar() ile acilir; form etiketleri gercektekiyle ayni, 'Rapor' Excel indirir
 MIZAN_MENU_JS = """
- var menuItems = [["Muhasebe", ""], ["|||Mizan", "raporMizanHazirla.do?c_musteri_id=1"]];
- function aktar(link) { sekmeAc('/mizan?firma=' + encodeURIComponent(seciliFirma) + '&t=' + Date.now()); }
+ var menuItems = [["Muhasebe", ""], ["|||Mizan", "raporMizanHazirla.do?c_musteri_id=1"],
+                  ["||||Muavin Defter", "raporMuavinDefterHazirla.do?c_musteri_id=1"],
+                  ["||||İşletme Defteri Dökümü", "raporIsletmeDefteriHazirla.do?c_musteri_id=1"]];
+ function aktar(link) { sekmeAc((link.indexOf('Muavin') >= 0 ? '/muavin' : link.indexOf('Isletme') >= 0 ? '/isletme' : '/mizan') + '?firma=' + encodeURIComponent(seciliFirma) + '&t=' + Date.now()); }
 """
 sahte_luca.ANA_SAYFA = sahte_luca.ANA_SAYFA.replace("</script></body></html>", MIZAN_MENU_JS + "</script></body></html>", 1)
 
@@ -254,6 +256,109 @@ MIZAN_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Mizan
    setTimeout(() => { try { window.close(); } catch (e) {} }, 700);
  };
 </script></body></html>"""
+
+
+# --- Luca > Muhasebe > Raporlar > Genel Raporlar > Defterler > Muavin Defter (varsayimsal form; gercegiyle birebir olmayabilir) ---
+# MUAVIN_VERI[(firma, hesap)] = [(tarih, fis no, aciklama, borc, alacak)]; testler doldurur. MUAVIN_AYAR: hesap_alani=False ise form
+# hesap kodu alani icermez (dokum tum hesaplari getirir); excel_adi: Rapor Turu seceneginin adi.
+MUAVIN_VERI = {}
+MUAVIN_AYAR = {"hesap_alani": True, "excel_adi": "Excel (xlsx)", "istekler": []}
+MUAVIN_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Muavin Defter</title>
+""" + ORTAK_STIL + """</head><body>
+<div class="yeni-rapor-paremetreleri"><table class="form_table">
+<tr><th>Başlangıç Fiş Tarihi</th><td><input type="text" id="tarih_ilk"></td><th>Bitiş Fiş Tarihi</th><td><input type="text" id="tarih_son"></td></tr>
+__HESAP__
+<tr><th>Rapor Türü</th><td colspan="3"><select id="report_type"><option value="PDF">PDF</option><option value="LIST">__EXCEL__</option></select></td></tr>
+</table></div>
+<div><button type="button" class="green bold" onclick="gonder()">Rapor</button></div>
+<script>
+ function gonder() {
+   const v = id => { const e = document.getElementById(id); return encodeURIComponent(e ? e.value : ''); };
+   if (document.getElementById('report_type').value !== 'LIST') return;
+   const w = window.open('/muavin.xlsx?firma=__FIRMA__&bas=' + v('tarih_ilk') + '&bit=' + v('tarih_son')
+                         + '&h1=' + v('hesap_ilk') + '&h2=' + v('hesap_son'), '_blank');
+   setTimeout(() => { try { w.close(); } catch (e) {} }, 500);
+ }
+</script></body></html>"""
+MUAVIN_HESAP_SATIRI = ('<tr><th>Başlangıç Hesap Kodu</th><td><input type="text" id="hesap_ilk"></td>'
+                       '<th>Bitiş Hesap Kodu</th><td><input type="text" id="hesap_son"></td></tr>')
+MUAVIN_ADLARI = {"191": "İNDİRİLECEK KDV", "391": "HESAPLANAN KDV", "320": "SATICILAR", "120": "ALICILAR", "770": "GENEL YÖNETİM GİDERLERİ", "600": "YURTİÇİ SATIŞLAR"}
+
+
+# --- Luca > Isletme Defteri > Raporlar > Genel Raporlar > Isletme Defteri Dokumu (ekran goruntusundeki form: Tarih Ilk/Son, Rapor Turu) ---
+# ISLETME_VERI[firma] = {"gider": [(kayit no, evrak no, tarih, aciklama, kdv, toplam)], "gelir": [...]}
+ISLETME_VERI = {}
+ISLETME_AYAR = {"istekler": []}
+ISLETME_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>İşletme Defteri Dökümü</title>
+""" + ORTAK_STIL + """</head><body>
+<div class="yeni-rapor-paremetreleri"><table class="form_table">
+<tr><th>Tarih İlk</th><td><input type="text" id="tarih_ilk"></td><th>Tarih Son</th><td><input type="text" id="tarih_son"></td></tr>
+<tr><th>Kağıt/Printer</th><td colspan="3"><select id="kagit"><option>A4</option></select></td></tr>
+<tr><th>Rapor Türü</th><td colspan="3"><select id="report_type"><option value="PDF">PDF</option><option value="LIST">Excel (xlsx)</option></select></td></tr>
+</table></div>
+<div><button type="button" class="green bold" onclick="gonder()">Rapor</button></div>
+<script>
+ function gonder() {
+   const v = id => encodeURIComponent(document.getElementById(id).value);
+   if (document.getElementById('report_type').value !== 'LIST') return;
+   const w = window.open('/isletme.xlsx?firma=__FIRMA__&bas=' + v('tarih_ilk') + '&bit=' + v('tarih_son'), '_blank');
+   setTimeout(() => { try { w.close(); } catch (e) {} }, 500);
+ }
+</script></body></html>"""
+
+
+def isletme_xlsx(firma):
+    """Gercek dokumun yapisi: B 'Kayit No', C 'Evrak No', F 'Tarih', G 'Aciklama'; tutar basliklari bir ust satirda."""
+    import io
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "isletme_defteri"
+    ws.append([None, "İŞLETME HESABI DEFTERİ"])
+    ws.append([])
+    ws.append([None, "İşyerinin Unvanı", None, ":", firma])
+    ws.append([])
+    veri = ISLETME_VERI.get(firma, {})
+    for bolum, baslik, kalem, kdv_adi in (("gider", "GİDERLER", "Alınan Emtia", "İndirilecek K.D.V."),
+                                          ("gelir", "GELİRLER", "Satılan Emtia", "Hesaplanan K.D.V.")):
+        ws.append([None, baslik])
+        ws.append([])
+        ws.append([None, None, None, None, None, None, None, bolum.capitalize(), kalem, kdv_adi, None, "Toplam"])
+        ws.append([None, "Kayıt No", "Evrak No", None, None, "Tarih", "Açıklama"])
+        for kayit, evrak, tarih, aciklama, kdv, toplam in veri.get(bolum, []):
+            ws.append([None, kayit, evrak, None, None, tarih, aciklama, 0.0, toplam - kdv, kdv, None, toplam])
+        ws.append([None, "Toplam :"])
+        ws.append([])
+    cikti = io.BytesIO()
+    wb.save(cikti)
+    return cikti.getvalue()
+
+
+def muavin_xlsx(firma, bas, bit, h1, h2):
+    """Gercek dokumun yapisi: 'HESAP ADI | TL' bolum satiri, TARIH/TIP/FIS NO/ACIKLAMA/BORC/ALACAK/BAKIYE/B/A basligi,
+    datetime tarihler, 'Nakli Yekun Haric' / 'Genel Toplam' satirlari. Hesap araligi bos ise TUM hesaplar gelir."""
+    import io
+    from datetime import datetime
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "-"
+    ws.append(["MUAVİN DEFTER"])
+    ws.append([firma])
+    ws.append(["Dönem :", "01/01/2026-31/12/2026"])
+    ws.append(["Tarih Aralığı :", f"{bas}-{bit}"])
+    hesaplar = sorted(h for (f, h) in MUAVIN_VERI if f == firma and (not h1 or h >= h1) and (not h2 or h <= h2))
+    for h in hesaplar:
+        ws.append([f"{h} {MUAVIN_ADLARI.get(h[:3], 'HESAP')}", None, None, None, "TL"])
+        ws.append(["TARİH", "TİP", "FİŞ NO", "AÇIKLAMA", "BORÇ", "ALACAK", "BAKİYE", "B/A"])
+        for tarih, fis, aciklama, borc, alacak in MUAVIN_VERI[(firma, h)]:
+            ws.append([datetime.strptime(tarih, "%d/%m/%Y"), "Mahsup", fis, aciklama, borc, alacak, 0.0, 0.0])
+        ws.append(["Nakli Yekün Hariç :", None, None, None, 0.0, 0.0, 0.0, 0.0])
+        ws.append(["Genel Toplam :", None, None, None, 0.0, 0.0, 0.0, 0.0])
+        ws.append([])
+    cikti = io.BytesIO()
+    wb.save(cikti)
+    return cikti.getvalue()
 
 
 def mizan_xlsx(firma, bas, bit):
@@ -511,6 +616,26 @@ class Isleyici(sahte_luca.Isleyici):
             time.sleep(DB_AYAR["yavas"])
             return self._yanit(json.dumps(db_liste(DB_SEC["firma"], q["tur"], q["bas"], q["bit"], q["durum"]),
                                           ensure_ascii=False), "application/json")
+        if yol == "/muavin":
+            sayfa = (MUAVIN_SAYFASI.replace("__FIRMA__", firma).replace("__EXCEL__", MUAVIN_AYAR["excel_adi"])
+                     .replace("__HESAP__", MUAVIN_HESAP_SATIRI if MUAVIN_AYAR["hesap_alani"] else ""))
+            return self._yanit(sayfa)
+        if yol == "/muavin.xlsx":
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
+            with KILIT:
+                MUAVIN_AYAR["istekler"].append(q)
+            return self._yanit(muavin_xlsx(q.get("firma", ""), q.get("bas", ""), q.get("bit", ""), q.get("h1", ""), q.get("h2", "")),
+                               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                               {"Content-Disposition": 'attachment; filename="muavin.xlsx"'})
+        if yol == "/isletme":
+            return self._yanit(ISLETME_SAYFASI.replace("__FIRMA__", firma))
+        if yol == "/isletme.xlsx":
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
+            with KILIT:
+                ISLETME_AYAR["istekler"].append(q)
+            return self._yanit(isletme_xlsx(q.get("firma", "")),
+                               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                               {"Content-Disposition": 'attachment; filename="isletme_defteri.xlsx"'})
         if yol == "/mizan":
             return self._yanit(MIZAN_SAYFASI.replace("__FIRMA__", firma))
         if yol == "/mizan.xlsx":
@@ -601,3 +726,7 @@ def sifirla():
     DB_GONDERILDI.clear()
     DB_AYAR.update(gonderim_hatasi=False, api_bos=False, satir_hatasi=False, sabit_hatasi=False, jqx=False, cari_yok=False, secim_calismaz=False, tarih_bozuk=False, filtre_yok=False, yavas=0.0)
     DB_OLAYLAR.clear()
+    MUAVIN_VERI.clear()
+    ISLETME_VERI.clear()
+    ISLETME_AYAR["istekler"] = []
+    MUAVIN_AYAR.update(hesap_alani=True, excel_adi="Excel (xlsx)", istekler=[])

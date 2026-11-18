@@ -34,6 +34,7 @@ sys.path.insert(0, str(KOK))
 
 from kar_zarar_sekmesi import KarZararSekmesi  # noqa: E402
 from defter_beyan_sekmesi import DefterBeyanSekmesi  # noqa: E402
+from muavin_sekmesi import MuavinSekmesi  # noqa: E402
 from beyanname_sekmesi import BeyannameSekmesi  # noqa: E402
 from kurulum_sihirbazi import KurulumSihirbazi  # noqa: E402
 from lucabot import SURUM, SURUM_TARIHI, beyanname, firma_tablosu, gostergeler, hesaplar, lisans, musteri_listesi, rapor  # noqa: E402
@@ -711,7 +712,7 @@ class Arayuz:
         self.kz = KarZararSekmesi(self, kok, sys.modules[__name__])
         self.db = DefterBeyanSekmesi(self, kok, sys.modules[__name__])
         self.bt = BeyannameSekmesi(self, kok, sys.modules[__name__])
-        self.muavin_govde = self._muavin_taslagi(kok)
+        self.mv = MuavinSekmesi(self, kok, sys.modules[__name__])
         self.sekme_sec("fatura")
         self._giris_ozetini_yaz()
         self.alt_sekme_sec("surec")
@@ -731,7 +732,7 @@ class Arayuz:
 
     def tema_degistir(self):
         """Acik <-> koyu: ayar kaydedilir, arayuz ayni pencerede yeniden kurulur (calisma sirasinda yapilmaz)."""
-        if self.surec or self.kz.calisiyor() or self.db.calisiyor():
+        if self.surec or self.kz.calisiyor() or self.db.calisiyor() or self.mv.calisiyor():
             messagebox.showinfo("Çalışma sürüyor", "Tema, çalışma bitince değiştirilebilir.", parent=self.kok)
             return
         a = self.ayarlar
@@ -855,26 +856,14 @@ class Arayuz:
                 "Yeni bir lisans dosyası (lisans.json) yüklemek ister misiniz?", parent=self.kok):
             self.lisans_yukle()
 
-    def _muavin_taslagi(self, kok):
-        """Henuz yapilmadi: Luca muavin dokumu ile gelen/giden faturalari karsilastirma ekrani icin yer tutucu."""
-        g = tk.Frame(kok, bg=ZEMIN)
-        orta = tk.Frame(g, bg=ZEMIN)
-        orta.place(relx=0.5, rely=0.42, anchor="center")
-        tk.Label(orta, text="🛠", font=("Segoe UI Emoji", 40), fg=ALTIN_FG, bg=ZEMIN).pack()
-        tk.Label(orta, text="Çalışma var", font=SERIF, fg=BASLIK_FG, bg=ZEMIN).pack(pady=(8, 4))
-        tk.Label(orta, text="Luca mükerrer / eksik fatura tespiti ekranı yapım aşamasında.\n"
-                 "Gelen/giden faturalar Luca muavin dökümüyle karşılaştırılacak.", font=GOVDE, fg=SOLUK,
-                 bg=ZEMIN, justify="center").pack()
-        return g
-
     def sekme_sec(self, anahtar):
         self.fatura_govde.pack_forget()
         self.kz.govde.pack_forget()
         self.db.govde.pack_forget()
         self.bt.govde.pack_forget()
-        self.muavin_govde.pack_forget()
+        self.mv.govde.pack_forget()
         {"fatura": self.fatura_govde, "kz": self.kz.govde, "db": self.db.govde, "bt": self.bt.govde,
-         "muavin": self.muavin_govde}[anahtar].pack(
+         "muavin": self.mv.govde}[anahtar].pack(
             fill="both", expand=True)
         for k, d in self.sekme_dugmeleri.items():
             d.configure(fg=ALTIN_FG if k == anahtar else ETIKET)
@@ -1451,8 +1440,8 @@ class Arayuz:
         return False
 
     def _baslat(self, komut, ilk_etiket, mod="calisma"):
-        if self.kz.calisiyor() or self.db.calisiyor():
-            messagebox.showinfo("Başka çalışma sürüyor", "Kâr / Zarar ya da Defter Beyan çalışıyor; bitince başlatın "
+        if self.kz.calisiyor() or self.db.calisiyor() or self.mv.calisiyor():
+            messagebox.showinfo("Başka çalışma sürüyor", "Kâr / Zarar, Defter Beyan ya da Muavin çalışıyor; bitince başlatın "
                                 "(ikisi aynı anda Luca'ya girmemeli).", parent=self.kok)
             return
         ortam = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
@@ -1536,6 +1525,7 @@ class Arayuz:
         self._son_islemi_goster()
         self.kz.tikla()
         self.db.tikla()
+        self.mv.tikla()
         self.bt.tikla()
         self.dongu_id = self.kok.after(150, self._dongu)
 
@@ -1984,12 +1974,13 @@ class Arayuz:
         dosya_ac(indirme_koku(self.ayarlar))
 
     def kapat(self):
-        if self.kz.calisiyor() or self.db.calisiyor():
-            if not messagebox.askyesno("Çalışma sürüyor", "Kâr / Zarar ya da Defter Beyan çalışıyor. Durdurup çıkılsın mı?",
+        if self.kz.calisiyor() or self.db.calisiyor() or self.mv.calisiyor():
+            if not messagebox.askyesno("Çalışma sürüyor", "Kâr / Zarar, Defter Beyan ya da Muavin çalışıyor. Durdurup çıkılsın mı?",
                                        parent=self.kok):
                 return
             self.kz.kapat()
             self.db.kapat()
+            self.mv.kapat()
         if self.surec:
             if not messagebox.askyesno("Çalışma sürüyor", "Program çalışıyor. Durdurup çıkılsın mı?",
                                        parent=self.kok):

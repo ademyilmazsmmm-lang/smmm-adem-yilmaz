@@ -239,14 +239,15 @@ def formu_doldur(page, bas, bit):
     raise LookupError("Mizan formu bulunamadı" + (f" ({'; '.join(hatalar)})" if hatalar else ""))
 
 
-def _rapor_dugmesi(page):
-    for kurucu in (lambda f: f.get_by_role("button", name="Rapor", exact=True),
-                   lambda f: f.get_by_text("Rapor", exact=True)):
-        try:
-            return bul(page, kurucu, sure=8000)[1]
-        except LookupError:
-            continue
-    raise LookupError("Mizan formunda 'Rapor' düğmesi bulunamadı")
+def _rapor_dugmesi(page, adlar=("Rapor",), rapor_adi="Mizan"):
+    for ad in adlar:
+        for kurucu in (lambda f, ad=ad: f.get_by_role("button", name=ad, exact=True),
+                       lambda f, ad=ad: f.get_by_text(ad, exact=True)):
+            try:
+                return bul(page, kurucu, sure=8000 if ad == adlar[0] else 3000)[1]
+            except LookupError:
+                continue
+    raise LookupError(f"{rapor_adi} formunda {' / '.join(repr(a) for a in adlar)} düğmesi bulunamadı")
 
 
 # Luca raporu yeni pencerede acip pencereyi kisa sure sonra kendisi kapatabilir (gercek kullanimda tum Chrome
@@ -308,12 +309,12 @@ def _istegi_tekrarla(kayit, cerez, yol, log=None, sure=60):
     return True
 
 
-def indir(page, klasor, ad, sure_ms=120000, log=None):
+def indir(page, klasor, ad, sure_ms=120000, log=None, dugme_adlari=("Rapor",), rapor_adi="Mizan"):
     """'Rapor' dugmesine basip inen dosyayi klasor/ad olarak kaydeder (pencere/sekme acilsa da yakalanir).
 
     Tarayici indirme sirasinda kapanirsa (gercek Luca'da bazi firmalarda oluyor) rapor istegi tarayicidan
     bagimsiz tekrarlanir; ayrica tani icin istekler, cokme ve kapanma olaylari loga yazilir."""
-    dugme = _rapor_dugmesi(page)
+    dugme = _rapor_dugmesi(page, dugme_adlari, rapor_adi)
     ctx = page.context
     klasor.mkdir(parents=True, exist_ok=True)
     yol = klasor / ad
@@ -415,7 +416,7 @@ def indir(page, klasor, ad, sure_ms=120000, log=None):
         if _istegi_tekrarla(kayit, _cerez_basligi(cerezler, kayit["url"]), yol, log):
             alinan["yol"] = yol
     if "yol" not in alinan:
-        raise LookupError("Mizan indirilemedi (" + ("; ".join(olaylar) if olaylar else "Rapor'a basıldı ama dosya inmedi") + ")")
+        raise LookupError(f"{rapor_adi} indirilemedi (" + ("; ".join(olaylar) if olaylar else "Rapor'a basıldı ama dosya inmedi") + ")")
     return alinan["yol"]
 
 

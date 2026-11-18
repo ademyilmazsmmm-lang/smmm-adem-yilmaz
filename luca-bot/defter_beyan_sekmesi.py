@@ -405,8 +405,8 @@ class DefterBeyanSekmesi(KarZararSekmesi):
         return komut
 
     def _baska_calisiyor(self):
-        if self.a.surec or self.a.kz.calisiyor():
-            messagebox.showinfo("Başka çalışma sürüyor", "Fatura indirme / Kâr-Zarar çalışıyor; bitince başlatın "
+        if self.a.surec or self.a.kz.calisiyor() or self.a.mv.calisiyor():
+            messagebox.showinfo("Başka çalışma sürüyor", "Fatura indirme / Kâr-Zarar / Muavin çalışıyor; bitince başlatın "
                                 "(ikisi aynı anda Luca'ya girmemeli).", parent=self.a.kok)
             return True
         if self.surec:

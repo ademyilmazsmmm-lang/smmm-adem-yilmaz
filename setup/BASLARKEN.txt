@@ -16,7 +16,9 @@ DİJİTAL STAJYER — BAŞLARKEN
    - Fatura İndirme : e-Arşiv / e-Fatura / GİB 5000 / TÜRMOB / e-SMM faturalarını toplu indirir,
                       Süreç, Firma Durumu ve Hatalı/İnmeyen alt sekmeleri vardır.
    - Kâr / Zarar    : Luca Mizan'dan dönem kâr/zarar tahmini; "Taranan Faturaları Dahil Et" ile fatura farkı.
-   - Muavin         : yapım aşamasında.
+   - Muavin         : indirilen faturaların numarası ve genel toplamı Luca muavini (1. sınıf) / işletme defteri
+                      dökümü (2. sınıf) ile karşılaştırılır; uyuşmayanlar tarih, fatura no, ünvan, KDV ve
+                      KDV dahil tutarla listelenir.
 
 Lisans
 ------

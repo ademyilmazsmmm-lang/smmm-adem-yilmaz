@@ -110,6 +110,24 @@ satır hataları (`hatalar`, `hata_ozeti`) ve **sabit kıymet** sayısı. Durum:
 Gönderme penceresinin metni şöyle okunur: `N. satır için.` satırının altındaki her ek satır o satırın hatasıdır;
 sondaki `gönderim tamamlandı. (N)` hatasız giden kayıt sayısıdır.
 
+## Muavin kontrolü (`muavin.py`)
+
+İndirilen gelen/giden faturaların **fatura numarası ve genel toplam (KDV dahil) tutarı** Luca kayıtlarıyla uyuşuyor mu diye bakar
+(arayüzde **Muavin** sekmesi). İkisi de uyuyorsa sorun yoktur.
+
+```
+python muavin.py --tarih 01/10/2026-31/10/2026 --fatura-klasoru "C:\\...\\luca-bot\\indirilenler"
+python muavin.py --tarih 01/10/2026-31/10/2026 --firma-tam "ALFA" --tani        # --sinif 1|2|hepsi
+```
+
+- **1. sınıf:** *Muhasebe > Raporlar > Genel Raporlar > Defterler > Tüm Yazıcılar > Muavin Defter* (tüm hesaplar, Excel Liste). Alış → 191, satış → 391
+  satırlarında fatura no aranır; genel toplam fişteki 100/102/309/320/120/108/321/121 satırlarından biri ya da 191/391 KDV + matrah olmalıdır
+  (`karzarar/luca_muavin.py`, mantık `karzarar/muavin_karsilastir.py`).
+- **2. sınıf:** *İşletme Defteri > Raporlar > Genel Raporlar > İşletme Defteri Dökümü* (Tarih İlk/Son, Excel xlsx): Giderler (alış) / Gelirler (satış)
+  tablosunda Evrak No ve Toplam karşılaştırılır (`karzarar/luca_isletme.py`).
+- Sorunlu faturalar **tarih – fatura no – ünvan – KDV – KDV dahil tutar** ile günlüğe, `cikti/muavin.json`a ve `cikti/muavin.xlsx`'e
+  (*Özet*, *Eksik (muavinde yok)*, *Tutar uyuşmuyor*) yazılır. İptal/itiraz, KDV'si 0 ve (tutar için) tevkifatlı faturalar sorun sayılmaz.
+
 ## Testler
 
 Sahte Luca + sahte Defter Beyan ile (hepsi bu klasörde):
@@ -119,10 +137,13 @@ python -m unittest discover -s testler -p "test_birim.py"
 xvfb-run -a python -m unittest testler.test_portal      (Linux; ekran gerekir)
 xvfb-run -a python testler/uctan_uca.py                 (bastan sona)
 LUCA_TEST_CHROMIUM=... xvfb-run -a python testler/test_defter_beyan.py   (Defter Beyan: mantik + sahte Luca sayfasi)
+LUCA_TEST_CHROMIUM=... xvfb-run -a python -m unittest testler.test_muavin  (Muavin: mantik + sahte Luca Muavin Defter ekrani)
 ```
 
 ## Henüz gerçek portalda denenmemiş / bilinmeyenler
 
+- Muavin Defter / İşletme Defteri Dökümü formları ve menü yolları ekran görüntülerinden, Excel yapıları örnek dosyalardan alındı;
+  Luca'da uçtan uca denenmedi. Sorun olursa günlükteki *Muavin formu (tanı)* satırı ve `tani\` klasörü gerekir.
 - Defter Beyan'ın mükellef seçim kutusu (`select2` varsayıldı), tarih kutularının yazım biçimi ve
   "Hızlı Geçiş Yap" sonrası sayfa davranışı; sorun olursa log ve ekran görüntüsü gerekir.
 - Luca Hesap Planı Listesi'nde Borç/Alacak sütunlarının seçilen tarih aralığına göre hesaplanıp
