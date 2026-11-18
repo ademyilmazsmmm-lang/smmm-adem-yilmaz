@@ -291,6 +291,9 @@ def kayit_tutarlari(yon, satirlar_f, fis_indeksi):
                  taraflarinin (alis borc, satis alacak) KARSI olmayan tum satirlarinin toplami (tek faturalik fis).
     Isletme defterinde satirin 'Toplam' sutunu dogrudan genel toplamdir."""
     karsi, hesaplanan = [], []
+    isletme = [s for s in satirlar_f if s.get("toplam") is not None]
+    if len(isletme) > 1:    # isletme defterinde fatura kalem kalem birden cok satira bolunur: ayni numarali satirlarin toplami
+        hesaplanan.append(round(sum(s["toplam"] for s in isletme), 2))
     for s in satirlar_f:
         if s.get("toplam") is not None:
             karsi.append(s["toplam"])
@@ -349,7 +352,8 @@ def karsilastir(yon, faturalar, satirlar, tol=TOLERANS):
             sonuc["eslesen"].append(f)
         else:
             gorunen = sorted({round(t, 2) for t in (karsi or hesaplanan)}, reverse=True)[:4]
-            sonuc["tutar_farki"].append(dict(f, kayit=gorunen, fis=", ".join(sorted({s["fis"] for s in satirlar_f if s["fis"]}))))
+            toplam_kayit = round(sum(s["toplam"] for s in satirlar_f if s.get("toplam") is not None), 2) if len(satirlar_f) > 1 else None
+            sonuc["tutar_farki"].append(dict(f, kayit=gorunen, kayit_toplam=toplam_kayit, fis=", ".join(sorted({s["fis"] for s in satirlar_f if s["fis"]}))))
     return sonuc
 
 
@@ -379,6 +383,8 @@ def _f(f):
          "toplam": f.get("toplam", 0.0), "kdv": f.get("kdv")}
     if "kayit" in f:
         d["kayit"], d["fis"] = f["kayit"], f.get("fis", "")
+        if f.get("kayit_toplam") is not None:
+            d["kayit_toplam"] = f["kayit_toplam"]
     return d
 
 
@@ -395,7 +401,9 @@ def eksik_satiri(yon, f):
     satir = (f"{YON_ADI[yon]:5} {f['tarih'] or '-':10}  {f['no']}  {f.get('unvan') or '-'}  "
              f"KDV {tl(f['kdv'])} TL  KDV dahil {tl(f['toplam'])} TL")
     if f.get("kayit") is not None:
-        satir += f"  (kayıtta: {', '.join(tl(t) for t in f['kayit']) or 'tutar yok'}; fiş {f.get('fis') or '?'})"
+        satir += (f"  (kayıtta: {', '.join(tl(t) for t in f['kayit']) or 'tutar yok'}"
+                  + (f"; satırların toplamı {tl(f['kayit_toplam'])}" if f.get("kayit_toplam") is not None else "")
+                  + f"; fiş {f.get('fis') or '?'})")
     return satir
 
 

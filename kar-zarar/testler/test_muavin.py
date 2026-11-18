@@ -194,6 +194,27 @@ class MuavinMantigi(unittest.TestCase):
                          "255 DEMIRBAS": [("05/10/2026", "1", "x", None, 1200.0)]})
         self.assertEqual(len(mk.karsilastir("alis", f, mk.muavin_satirlari(yol))["tutar_farki"]), 1)
 
+    def test_isletme_defterinde_kalem_kalem_bolunen_fatura_satir_toplamiyla_karsilastirilir(self):
+        """Gercek dokumde bir fatura kalem kalem birden cok satirda yer alir (ayni evrak no); satir toplamlari fatura toplamina esit olmali."""
+        def satir(tarih, fis, no, toplam):
+            return {"hesap": "191", "tarih": date(2026, 10, tarih), "fis": fis, "tip": "", "aciklama": "", "belge": no, "borc": 0.0,
+                    "alacak": 0.0, "metin": "", "toplam": toplam, "nolar": [no]}
+        satirlar = [satir(5, "11", "AAA2026000000001", 3600.0), satir(5, "12", "AAA2026000000001", 2250.0),
+                    satir(5, "13", "AAA2026000000001", 699.996), satir(5, "14", "AAA2026000000001", 500.004),   # toplam 7.050
+                    satir(9, "19", "AAA2026000000002", 554.64)]                                                 # tek satir, fatura 581,61
+        f = [{"no": "AAA2026000000001", "tarih": date(2026, 10, 5), "unvan": "A", "toplam": 7050.0, "kdv": 1175.0, "tip": "x"},
+             {"no": "AAA2026000000002", "tarih": date(2026, 10, 9), "unvan": "B", "toplam": 581.61, "kdv": 92.44, "tip": "x"},
+             {"no": "AAA2026000000003", "tarih": date(2026, 10, 9), "unvan": "C", "toplam": 1000.0, "kdv": 166.67, "tip": "x"}]
+        k = mk.karsilastir("alis", f, satirlar)
+        self.assertEqual(([x["no"][-1] for x in k["eslesen"]], [x["no"][-1] for x in k["tutar_farki"]], [x["no"][-1] for x in k["eksik"]]),
+                         (["1"], ["2"], ["3"]))
+        self.assertIn("kayıtta: 554,64", mk.eksik_satiri("alis", mk._f(k["tutar_farki"][0])))
+        # parcali satirlar tutmuyorsa satir toplami da gosterilir
+        satirlar[3]["toplam"] = 400.0
+        k2 = mk.karsilastir("alis", f[:1], satirlar[:4])
+        self.assertEqual(len(k2["tutar_farki"]), 1)
+        self.assertIn("satırların toplamı 6.950,00", mk.eksik_satiri("alis", mk._f(k2["tutar_farki"][0])))
+
     def test_isletme_dokumunde_toplam_okunamazsa_yalniz_numara_kontrol_edilir(self):
         satirlar = [{"hesap": "191", "tarih": date(2026, 10, 1), "fis": "1", "tip": "", "aciklama": "", "belge": "AAA2026000000001",
                      "borc": 0.0, "alacak": 0.0, "metin": "", "toplam": 0.0, "nolar": ["AAA2026000000001"]}]

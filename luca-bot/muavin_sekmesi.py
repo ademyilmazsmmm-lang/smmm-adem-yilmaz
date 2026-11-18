@@ -47,7 +47,9 @@ def eksik_satiri(yon, f):
     satir = (f"{YON_ADI[yon]:5} {f.get('tarih') or '-':10}  {f['no']:18}  {(f.get('unvan') or '-')[:38]:38}  "
              f"KDV {kdv:>14}  KDV dahil {tl(f.get('toplam') or 0.0):>16}")
     if f.get("kayit") is not None:
-        satir += f"   (kayıtta: {', '.join(tl(t) for t in f['kayit']) or 'tutar yok'}; fiş {f.get('fis') or '?'})"
+        satir += (f"   (kayıtta: {', '.join(tl(t) for t in f['kayit']) or 'tutar yok'}"
+                  + (f"; satırların toplamı {tl(f['kayit_toplam'])}" if f.get("kayit_toplam") is not None else "")
+                  + f"; fiş {f.get('fis') or '?'})")
     return satir
 
 
