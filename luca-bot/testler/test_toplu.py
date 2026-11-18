@@ -6,6 +6,7 @@ test_iki_hesap._calistir yardimcisini kullanir.
 """
 
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -165,6 +166,47 @@ class SafMantik(unittest.TestCase):
             excel = ts.toplu_excel_oku(yol)
             if excel["basliklar"] and len(excel["basliklar"]) == 18:
                 self.assertTrue(excel["faturalar"], yol)
+
+
+
+@unittest.skipUnless(os.environ.get("LUCA_TEST_CHROMIUM"), "LUCA_TEST_CHROMIUM yok")
+class XmlSecimiDonemi(unittest.TestCase):
+    """XML icin yalniz GIB e-Arsiv (alis) / GIB 5000-30000 (satis) satirlari ve yalniz hedef ayin Belge Tarihi isaretlenir."""
+    HTML = """<table>
+      <tr><th><input type=checkbox></th><th>Belge Turu</th><th>Entegrasyon</th><th>Belge Tarihi</th></tr>
+      <tr><td><input type=checkbox></td><td>SATIS</td><td>GİB E-Arşiv Entegrasyonu Alış Faturaları</td><td>02/10/2026</td></tr>
+      <tr><td><input type=checkbox></td><td>SATIS</td><td>GİB E-Arşiv Entegrasyonu Alış Faturaları</td><td>31/10/2026</td></tr>
+      <tr><td><input type=checkbox></td><td>SATIS</td><td>GİB E-Arşiv Entegrasyonu Alış Faturaları</td><td>03/11/2026</td></tr>
+      <tr><td><input type=checkbox></td><td>SATIS</td><td>TÜRMOB Entegratörlük Alış Faturaları Entegrasyon</td><td>05/10/2026</td></tr>
+      <tr><td><input type=checkbox></td><td>SATIS</td><td>GİB E-Arşiv Entegrasyon (5000/30000)</td><td>10/10/2026</td></tr>
+      <tr><td><input type=checkbox></td><td>SATIS</td><td>GİB E-Arşiv Entegrasyon (5000/30000)</td><td>12/11/2026</td></tr></table>"""
+
+    def _sec(self, mod, donem):
+        from datetime import date
+        from playwright.sync_api import sync_playwright
+        from lucabot import toplu_sorgu
+        with sync_playwright() as pw:
+            b = pw.chromium.launch(executable_path=os.environ["LUCA_TEST_CHROMIUM"], args=["--no-sandbox"])
+            sayfa = b.new_page()
+            sayfa.set_content(self.HTML)
+            sayi = toplu_sorgu.arsiv_satirlarini_sec(sayfa, None, mod, donem)
+            isaretli = sayfa.evaluate("() => Array.from(document.querySelectorAll('tr')).slice(1).map(r => r.querySelector('input').checked)")
+            b.close()
+        return sayi, isaretli
+
+    def test_alis_yalniz_gib_earsiv_ve_hedef_ay(self):
+        from datetime import date
+        sayi, isaretli = self._sec("alis", (date(2026, 10, 1), date(2026, 10, 31)))
+        self.assertEqual((sayi, isaretli), (2, [True, True, False, False, False, False]))   # kasim ve TURMOB isaretlenmez
+
+    def test_satis_yalniz_5000_30000_ve_hedef_ay(self):
+        from datetime import date
+        sayi, isaretli = self._sec("satis", (date(2026, 10, 1), date(2026, 10, 31)))
+        self.assertEqual((sayi, isaretli), (1, [False, False, False, False, True, False]))
+
+    def test_donem_verilmezse_eski_davranis(self):
+        sayi, isaretli = self._sec("alis", None)
+        self.assertEqual((sayi, isaretli), (3, [True, True, True, False, False, False]))
 
 
 class UctanUca(unittest.TestCase):

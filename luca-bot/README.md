@@ -467,6 +467,8 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 ama rapora, KDV'ye ve KDV2'ye yalnız **fatura tarihi hedef ayda (başlangıç tarihinin ayında) olan** faturalar girer. Sonraki ayın faturaları atılır
 ve günlükte "dönem dışı" olarak yazılır. Ekrandaki *Eksik/Fazla* sütununda yalnız "İnteraktif'te var, e-Arşiv'de yok" faturaları, tutarı
 2.000 TL'yi aşmayanlar gösterilir (`rapor.GOSTERIM_TUTAR_USTU`).
+Toplu Sorgulama'da XML yalnız **alışta GİB E-Arşiv Entegrasyonu Alış Faturaları**, **satışta GİB E-Arşiv Entegrasyon (5000/30000)** satırları için ve yalnız
+*Belge Tarihi* hedef ayda olanlar için indirilir (sonraki ayın satırları işaretlenmez).
 
 | Sayfa | İçerik |
 | --- | --- |

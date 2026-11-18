@@ -844,7 +844,10 @@ def _liste_tanisi(kayitlar, hamlar, kaynak, log, yon="alis"):
 
 # Listede yalniz GIB e-Arsiv satirlarini isaretler (digerlerinin isaretini kaldirir). Dondurur:
 # isaretlenen satir sayisi. Satir = kutusu olan tr / [role=row] / jqx satiri; baslik satiri atlanir.
-ARSIV_SEC_JS = """(mod) => {
+ARSIV_SEC_JS = """(arg) => {
+  const mod = arg.mod;
+  // donem (yyyymmdd): satirdaki ilk GG/AA/YYYY (Belge Tarihi) bunun disindaysa isaretlenmez; tarihi okunamayan isaretlenir
+  const gun = t => { const m = /(\\d{2})\\/(\\d{2})\\/(\\d{4})/.exec(t || ''); return m ? +(m[3] + m[2] + m[1]) : null; };
   const gor = e => !!(e.offsetParent || e.getClientRects().length);
   const KUTU = 'input[type=checkbox], [role=checkbox], .jqx-checkbox';
   const sade = t => (t || '').replace(/İ/g, 'I').replace(/ı/g, 'i').normalize('NFD')
@@ -861,8 +864,11 @@ ARSIV_SEC_JS = """(mod) => {
     const kutular = Array.from(r.querySelectorAll(KUTU)).filter(gor);
     if (kutular.length !== 1 || satirlar.some(d => d !== r && r.contains(d) && d.querySelector(KUTU))) continue;
     const metin = sade(r.textContent);
-    const ist = mod === 'satis' ? metin.includes('5000')
+    const tur = mod === 'satis' ? metin.includes('5000')
       : metin.includes('ARSIV') && !metin.includes('5000') && !metin.includes('TURMOB') && !/E-?FATURA/.test(metin);
+    const g = gun(r.textContent);
+    const donemde = !arg.bas || g === null || (g >= arg.bas && g <= arg.bit);
+    const ist = tur && donemde;
     if (ist !== durum(kutular[0])) kutular[0].click();
     if (ist) secili++;
   }
@@ -870,19 +876,22 @@ ARSIV_SEC_JS = """(mod) => {
 }"""
 
 
-def arsiv_satirlarini_sec(page, log, yon="alis"):
+def arsiv_satirlarini_sec(page, log, yon="alis", donem=None):
     """Listede XML indirilecek satirlari isaretler, digerlerinin isaretini kaldirir; sayiyi dondurur.
 
-    Alis: yalniz GIB e-Arsiv alis. Satis: yalniz GIB e-Arsiv (5000/30000).
+    Alis: yalniz GIB e-Arsiv Entegrasyonu Alis Faturalari. Satis: yalniz GIB e-Arsiv Entegrasyon (5000/30000).
+    donem (bas, bit) verilirse yalniz Belge Tarihi bu aralikta olanlar (sorgu sonraki aya uzatilsa da yalniz hedef ay).
     """
     sayi = 0
+    arg = {"mod": yon, "bas": int(f"{donem[0]:%Y%m%d}") if donem else 0, "bit": int(f"{donem[1]:%Y%m%d}") if donem else 0}
     for fr in cerceveler(page):
         try:
-            sayi += int(fr.evaluate(ARSIV_SEC_JS, yon) or 0)
+            sayi += int(fr.evaluate(ARSIV_SEC_JS, arg) or 0)
         except Exception:
             continue
     sayfa_durulsun(page, azami_ms=500)
-    yaz(f"    XML icin isaretlenen satir ({'GİB 5000/30000' if yon == 'satis' else 'GİB e-Arşiv alış'}): {sayi}", log)
+    yaz(f"    XML icin isaretlenen satir ({'GİB 5000/30000' if yon == 'satis' else 'GİB e-Arşiv alış'}"
+        f"{f', yalniz {donem[0]:%d/%m/%Y}-{donem[1]:%d/%m/%Y}' if donem else ''}): {sayi}", log)
     return sayi
 
 
@@ -995,7 +1004,7 @@ def toplu_isle(page, firma, yon, tipler, araliklar, cikti_kok, log, turmob_var=T
     # Satirlar ekrandaki yazilara gore isaretlenir; agdan gelen kayitlarin entegrasyonu taninmasa da calisir.
     xml_tipi = "e-arsiv-alis" if yon == "alis" else "gib-5000"
     if AYAR["belge_indir"] and xml_tipi in tipler and kayitlar:
-        secilen = arsiv_satirlarini_sec(page, log, yon)
+        secilen = arsiv_satirlarini_sec(page, log, yon, hedef_donem)
         azami = AYAR.get("azami_fatura") or 0
         if not secilen:
             yaz("    XML icin uygun satir yok / isaretlenemedi; paket indirilmedi", log)
