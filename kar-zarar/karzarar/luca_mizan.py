@@ -84,7 +84,7 @@ FORMU_DOLDUR_JS = r"""alanlar => {
   for (let i = 0; i < alanlar.length; i++) {
     const kimlik = alanlar[i][0], etiket = alanlar[i][1], metin = alanlar[i][2], deger = alanlar[i][3];
     const kutu = bulKutu(kimlik, etiket);
-    if (!kutu) { sonuc[etiket] = null; continue; }
+    if (!kutu) { if (!(etiket in sonuc)) sonuc[etiket] = null; continue; }   // ayni etiketle denenen baska aday doldurduysa silinmez
     if (kutu.tagName === 'SELECT') { sonuc[etiket] = secimYap(kutu, metin, deger); continue; }
     kutu.focus();
     kutu.value = metin;

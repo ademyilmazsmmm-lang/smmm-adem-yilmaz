@@ -393,6 +393,15 @@ class UctanUca(unittest.TestCase):
         self.assertEqual((istekler[0]["h1"], istekler[0]["h2"], istekler[0]["bas"]), ("", "", "01/10/2026"))   # hesap araligi bos: tum hesaplar
         self.assertTrue((calistir.klasor / "cikti" / "muavin.xlsx").exists())
 
+    def test_nokta_vurusulu_muavin_formu_atlanir_tum_yazicilar_secilir(self):
+        """Menude 'Muavin Defter' iki kez: ilki Nokta Vurusulu (Rapor Turu IBM/EPSON, Excel yok); Excel'li olan kullanilir."""
+        kod, sonuc, cikti, istekler = calistir(self.klasor, self.veri)
+        self.assertEqual(kod, 0, cikti[-2500:])
+        self.assertIn("Bu Muavin Defter formunda Excel yok (Nokta Vuruşlu Yazıcılar olabilir)", cikti)
+        self.assertIn("Muavin Defter açıldı (Excel seçenekli form", cikti)
+        self._dogrula(sonuc, cikti)
+        self.assertEqual(len(istekler), 1)
+
     def test_rapor_turu_excel_liste_xlsx_adiyla_da_secilir(self):
         kod, sonuc, cikti, istekler = calistir(self.klasor, self.veri, {"excel_adi": "Excel Liste (xlsx)"})
         self.assertEqual(kod, 0, cikti[-2500:])

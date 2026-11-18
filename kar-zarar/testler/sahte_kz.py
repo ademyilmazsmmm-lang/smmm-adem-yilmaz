@@ -216,9 +216,10 @@ sahte_luca.ANA_SAYFA = sahte_luca.ANA_SAYFA.replace(
 # Mizan: gercek Luca'daki gibi menuItems/aktar() ile acilir; form etiketleri gercektekiyle ayni, 'Rapor' Excel indirir
 MIZAN_MENU_JS = """
  var menuItems = [["Muhasebe", ""], ["|||Mizan", "raporMizanHazirla.do?c_musteri_id=1"],
-                  ["||||Muavin Defter", "raporMuavinDefterHazirla.do?c_musteri_id=1"],
+                  ["||||Muavin Defter", "raporMuavinDefterNoktaVurusluHazirla.do?c_musteri_id=1"],   // Nokta Vurusulu: Excel YOK (once gelir)
+                  ["|||||Muavin Defter", "raporMuavinDefterHazirla.do?c_musteri_id=1"],
                   ["||||İşletme Defteri Dökümü", "raporIsletmeDefteriHazirla.do?c_musteri_id=1"]];
- function aktar(link) { sekmeAc((link.indexOf('Muavin') >= 0 ? '/muavin' : link.indexOf('Isletme') >= 0 ? '/isletme' : '/mizan') + '?firma=' + encodeURIComponent(seciliFirma) + '&t=' + Date.now()); }
+ function aktar(link) { sekmeAc((link.indexOf('Nokta') >= 0 ? '/muavin-nokta' : link.indexOf('Muavin') >= 0 ? '/muavin' : link.indexOf('Isletme') >= 0 ? '/isletme' : '/mizan') + '?firma=' + encodeURIComponent(seciliFirma) + '&t=' + Date.now()); }
 """
 sahte_luca.ANA_SAYFA = sahte_luca.ANA_SAYFA.replace("</script></body></html>", MIZAN_MENU_JS + "</script></body></html>", 1)
 
@@ -266,7 +267,7 @@ MUAVIN_AYAR = {"hesap_alani": True, "excel_adi": "Excel (xlsx)", "istekler": []}
 MUAVIN_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Muavin Defter</title>
 """ + ORTAK_STIL + """</head><body>
 <div class="yeni-rapor-paremetreleri"><table class="form_table">
-<tr><th>Başlangıç Fiş Tarihi</th><td><input type="text" id="tarih_ilk"></td><th>Bitiş Fiş Tarihi</th><td><input type="text" id="tarih_son"></td></tr>
+<tr><th>Başlangıç Fiş Tarihi</th><td><input type="text" id="p_fis_tarihi_ilk_1"></td><th>Bitiş Fiş Tarihi</th><td><input type="text" id="p_fis_tarihi_son_1"></td></tr>
 __HESAP__
 <tr><th>Rapor Türü</th><td colspan="3"><select id="report_type"><option value="PDF">PDF</option><option value="LIST">__EXCEL__</option></select></td></tr>
 </table></div>
@@ -275,11 +276,17 @@ __HESAP__
  function gonder() {
    const v = id => { const e = document.getElementById(id); return encodeURIComponent(e ? e.value : ''); };
    if (document.getElementById('report_type').value !== 'LIST') return;
-   const w = window.open('/muavin.xlsx?firma=__FIRMA__&bas=' + v('tarih_ilk') + '&bit=' + v('tarih_son')
+   const w = window.open('/muavin.xlsx?firma=__FIRMA__&bas=' + v('p_fis_tarihi_ilk_1') + '&bit=' + v('p_fis_tarihi_son_1')
                          + '&h1=' + v('hesap_ilk') + '&h2=' + v('hesap_son'), '_blank');
    setTimeout(() => { try { w.close(); } catch (e) {} }, 500);
  }
 </script></body></html>"""
+MUAVIN_NOKTA_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Muavin Defter (Nokta Vuruşlu)</title>
+""" + ORTAK_STIL + """</head><body>
+<div class="yeni-rapor-paremetreleri"><table class="form_table">
+<tr><th>Başlangıç Fiş Tarihi</th><td><input type="text" id="p_fis_tarihi_ilk_1"></td><th>Bitiş Fiş Tarihi</th><td><input type="text" id="p_fis_tarihi_son_1"></td></tr>
+<tr><th>Rapor Türü</th><td colspan="3"><select id="p_printer_type_0"><option>IBM Tabanlı Yazıcı</option><option>EPSON Tabanlı Yazıcı</option></select></td></tr>
+</table></div><div><button type="button" class="green bold">Rapor</button></div></body></html>"""
 MUAVIN_HESAP_SATIRI = ('<tr><th>Başlangıç Hesap Kodu</th><td><input type="text" id="hesap_ilk"></td>'
                        '<th>Bitiş Hesap Kodu</th><td><input type="text" id="hesap_son"></td></tr>')
 MUAVIN_ADLARI = {"191": "İNDİRİLECEK KDV", "391": "HESAPLANAN KDV", "320": "SATICILAR", "120": "ALICILAR", "770": "GENEL YÖNETİM GİDERLERİ", "600": "YURTİÇİ SATIŞLAR"}
@@ -616,6 +623,11 @@ class Isleyici(sahte_luca.Isleyici):
             time.sleep(DB_AYAR["yavas"])
             return self._yanit(json.dumps(db_liste(DB_SEC["firma"], q["tur"], q["bas"], q["bit"], q["durum"]),
                                           ensure_ascii=False), "application/json")
+        if yol == "/muavin-nokta":
+            with KILIT:
+                MUAVIN_AYAR.setdefault("nokta_acildi", 0)
+                MUAVIN_AYAR["nokta_acildi"] += 1
+            return self._yanit(MUAVIN_NOKTA_SAYFASI)
         if yol == "/muavin":
             sayfa = (MUAVIN_SAYFASI.replace("__FIRMA__", firma).replace("__EXCEL__", MUAVIN_AYAR["excel_adi"])
                      .replace("__HESAP__", MUAVIN_HESAP_SATIRI if MUAVIN_AYAR["hesap_alani"] else ""))
@@ -729,4 +741,4 @@ def sifirla():
     MUAVIN_VERI.clear()
     ISLETME_VERI.clear()
     ISLETME_AYAR["istekler"] = []
-    MUAVIN_AYAR.update(hesap_alani=True, excel_adi="Excel (xlsx)", istekler=[])
+    MUAVIN_AYAR.update(hesap_alani=True, excel_adi="Excel (xlsx)", istekler=[], nokta_acildi=0)

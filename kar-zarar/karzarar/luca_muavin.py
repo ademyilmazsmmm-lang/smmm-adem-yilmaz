@@ -21,7 +21,7 @@ from lucabot.musteri_listesi import tani_kaydet
 from lucabot.ortak import dosya_adi_yap, yaz
 
 from . import luca_mizan
-from .luca_hesap_plani import SON_MENU_TANISI, _yuklenmeyi_bekle, menuden_dogrudan_ac
+from .luca_hesap_plani import SON_MENU_TANISI, _yuklenmeyi_bekle
 from .muavin_karsilastir import muavin_satirlari
 
 MENU_ETIKETI = "||||Muavin Defter"
@@ -31,7 +31,9 @@ RAPOR_TURU_ADAYLARI = ("Excel Liste (xlsx)", "Excel (xlsx)", "Excel", "xlsx")
 DUGME_ADAYLARI = ("Rapor", "Raporu Al", "Excel", "Listele")
 
 # (kimlik, etiket) adaylari; ilk bulunan doldurulur. Tarihler zorunludur, hesap alanlari degil.
-TARIH_ALANLARI = (("tarih_ilk", "Başlangıç Fiş Tarihi"), ("tarih_son", "Bitiş Fiş Tarihi"))
+# Gercek formda tarih kutularinin etiketi kutunun yaninda degil: kimlikle bulunur (p_fis_tarihi_ilk_1 / p_fis_tarihi_son_1).
+TARIH_ALANLARI = (("p_fis_tarihi_ilk_1", "Başlangıç Fiş Tarihi"), ("tarih_ilk", "Başlangıç Fiş Tarihi"),
+                  ("p_fis_tarihi_son_1", "Bitiş Fiş Tarihi"), ("tarih_son", "Bitiş Fiş Tarihi"))
 TARIH_YEDEK_ALANLARI = (("tarih_ilk", "Tarih İlk"), ("tarih_son", "Tarih Son"),
                         ("tarih_ilk", "Başlangıç Tarihi"), ("tarih_son", "Bitiş Tarihi"),
                         ("tarih1", "Başlangıç Tarihi"), ("tarih2", "Bitiş Tarihi"))
@@ -79,18 +81,117 @@ def _form_hazir(page, desen=MUAVIN_FORM):
     return False
 
 
-def ekrani_ac(page):
-    acik_pencereleri_kapat(page)
-    if menuden_dogrudan_ac(page, MENU_ETIKETI, MENU_ADI, None):
-        if not kosulu_bekle(page, lambda: _form_hazir(page), 120000, aralik_ms=500):
-            raise LookupError("Muavin Defter formu açılmadı")
-    else:
-        neden = SON_MENU_TANISI["metin"]
+# Luca menusunde "Muavin Defter" IKI kez gecer: Nokta Vurusulu Yazicilar (Rapor Turu: IBM/EPSON, Excel YOK) ve Tum Yazicilar
+# (Rapor Turu: Excel Liste (xlsx)). Excel yalniz ikincisinde var: ayni adli tum menu baglantilari sirayla acilip Rapor Turu'nde
+# Excel secenegi olan form kullanilir.
+MENU_BAGLANTILARI_JS = r"""ad => {
+  if (typeof menuItems === 'undefined' || typeof aktar !== 'function') return null;
+  const temiz = t => (t || '').replace(/<[^>]*>/g, '').replace(/^\|+/, '').replace(/&[a-z]+;/g, '').trim().toLocaleLowerCase('tr');
+  const h = ad.toLocaleLowerCase('tr'), cikti = [];
+  for (let i = 0; i < menuItems.length; i++) {
+    const x = menuItems[i];
+    if (x && x[1] && temiz(x[0]) === h) cikti.push([x[0], x[1]]);
+  }
+  return cikti;
+}"""
+MENU_AC_JS = r"""l => { if (typeof aktar !== 'function') return false;
+  try { window.__lbEski = true; aktar(l); return true; } catch (e) { return false; } }"""
+YENI_FORM_VE_EXCEL_JS = r"""desen => {
+  if (window.__lbEski) return null;                       // eski (degismemis) sayfa
+  const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
+  const d = new RegExp('^(?:' + desen + ')', 'i');
+  const l = document.querySelectorAll('th, td, label, span, div, b');
+  let form = false;
+  for (let i = 0; i < l.length && !form; i++) if (!l[i].children.length && g(l[i]) && d.test((l[i].textContent || '').trim())) form = true;
+  if (!form) return null;
+  const secimler = document.querySelectorAll('select');
+  for (let i = 0; i < secimler.length; i++) {
+    const s = secimler[i];
+    if (!g(s)) continue;
+    const ops = Array.from(s.options).map(o => (o.text || '').trim());
+    if (ops.some(t => /xlsx|excel/i.test(t))) return {excel: true, secenekler: ops};
+  }
+  const tum = Array.from(document.querySelectorAll('select')).filter(g).map(s => Array.from(s.options).map(o => (o.text || '').trim()).slice(0, 4).join('/'));
+  return {excel: false, secenekler: tum};
+}"""
+
+
+def menu_baglantilari(page, ad=MENU_ADI):
+    """Menu verisindeki ayni adli tum girisler: [(etiket, baglanti)] (menu cercevesi yoksa [])."""
+    for fr in page.frames:
         try:
-            menu_yolunu_ac(page, MENU_YOLU, lambda: _form_hazir(page))
-        except LookupError as e:
-            raise LookupError(f"Muavin Defter menüsü açılamadı (menü verisi: {neden}; ekran menüsü: {e})")
-    _yuklenmeyi_bekle(page)
+            m = fr.evaluate(MENU_BAGLANTILARI_JS, ad)
+        except Exception:
+            continue
+        if m is not None:
+            return [tuple(x) for x in m]
+    return []
+
+
+def _baglantiyi_ac(page, baglanti):
+    for fr in page.frames:
+        try:
+            if fr.evaluate(MENU_AC_JS, baglanti):
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _yeni_form(page, desen=MUAVIN_FORM):
+    """(excel_var_mi, secenekler) - yeni acilan formun Rapor Turu secenekleri; form henuz yuklenmediyse None."""
+    for fr in page.frames:
+        try:
+            r = fr.evaluate(YENI_FORM_VE_EXCEL_JS, desen)
+        except Exception:
+            continue
+        if r:
+            return r["excel"], r["secenekler"]
+    return None
+
+
+def ekrani_ac(page, log=None):
+    """Muavin Defter formunu (Tum Yazicilar; Rapor Turu'nde Excel olan) acar."""
+    acik_pencereleri_kapat(page)
+    denenen = []
+    for etiket, baglanti in menu_baglantilari(page):
+        if not _baglantiyi_ac(page, baglanti):
+            continue
+        sonuc = {}
+        if not kosulu_bekle(page, lambda: sonuc.update(r=_yeni_form(page)) or sonuc["r"] is not None, 120000, aralik_ms=500):
+            denenen.append(f"{baglanti}: form açılmadı")
+            continue
+        excel, secenekler = sonuc["r"]
+        _yuklenmeyi_bekle(page)
+        if excel:
+            yaz(f"    Muavin Defter açıldı (Excel seçenekli form: {baglanti})", log)
+            return
+        denenen.append(f"{baglanti}: Rapor Türü {secenekler}")
+        yaz(f"    Bu Muavin Defter formunda Excel yok (Nokta Vuruşlu Yazıcılar olabilir): {baglanti}; diğer giriş deneniyor", log)
+    # menu verisi yok / hicbiri Excel'li degil: ekran menusunden Tum Yazicilar > Muavin Defter
+    try:
+        menu_yolunu_ac(page, MENU_YOLU, lambda: _form_hazir(page))
+        _yuklenmeyi_bekle(page)
+        if _yeni_form_var_excel(page):
+            return
+        denenen.append("ekran menüsü: Excel seçeneği yok")
+    except LookupError as e:
+        denenen.append(f"ekran menüsü: {e}")
+    raise LookupError("Excel seçenekli Muavin Defter formu açılamadı (Tüm Yazıcılar altındaki giriş gerekir). Denenen: "
+                      + "; ".join(denenen)[:600] + (f" | menü verisi: {SON_MENU_TANISI['metin']}" if SON_MENU_TANISI["metin"] else ""))
+
+
+def _yeni_form_var_excel(page):
+    r = _yeni_form(page)
+    if r is None:                       # __lbEski isaretli degilse (ekran menusu yolu) dogrudan bak
+        for fr in page.frames:
+            try:
+                if fr.evaluate("""() => Array.from(document.querySelectorAll('select')).some(s => Array.from(s.options).some(o => /xlsx|excel/i.test(o.text)))"""):
+                    return True
+            except Exception:
+                continue
+        return False
+    return r[0]
 
 
 def form_tanisi(page):
@@ -163,7 +264,7 @@ def muavin_cek(page, firma, bas, bit, indirme_klasoru, tani_klasoru, log=None, t
     """Acik firmanin Muavin Defter'ini (tum hesaplar) Excel olarak indirir; muavin_satirlari bicimli satir listesi."""
     adim = (lambda ek: tani_kaydet(page, tani_klasoru, log, ek, "muavin")) if tani_hep else (lambda ek: None)
     try:
-        ekrani_ac(page)
+        ekrani_ac(page, log)
         adim("-1-form")
         yaz(f"    Muavin formu (tanı): {form_tanisi(page)}", log)
         alanlar = formu_doldur(page, bas, bit, log)
