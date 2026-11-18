@@ -208,7 +208,7 @@ def devam_mi_bastan_mi(ctx, rapor_klasoru, belge_tipleri, gece_modu, log):
 def sonucu_bildir(calisma, ozet, ayarlar, klasor, rapor_klasoru, log, ikinci_tur=None):
     konsol.son_ozet(ozet, log)
     yaz(f"  Rapor    : {rapor_klasoru / 'rapor.xlsx'}  (surekli - her calismada guncellenir)", log)
-    yaz("             (Özet | Firma Durumu | İndirilen Faturalar | Dosyalar | Hatalar ve Uyarılar)", log)
+    yaz("             (Özet | Firma Durumu | KDV Sonucu | KDV Ödemesi | KDV2 | SMM | İnteraktif var, e-Arşiv yok | İndirilen Faturalar | Dosyalar | Hatalar ve Uyarılar)", log)
     yaz(f"  Dosyalar : {klasor}", log)
     yaz(f"  Gunluk   : {log}", log)
     if ozet.durduruldu:

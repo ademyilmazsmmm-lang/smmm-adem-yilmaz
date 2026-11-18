@@ -436,7 +436,7 @@ adımda ne zamandır beklediğini gösterir; 30 sn değişmezse turuncu, 90 sn'd
 
 ```
 indirilenler/
-  rapor.xlsx                   → TEK ve SÜREKLİ TOPLU RAPOR: Özet, Firma Durumu, KDV Sonucu, İndirilen
+  rapor.xlsx                   → TEK ve SÜREKLİ TOPLU RAPOR: Özet, Firma Durumu, KDV Sonucu, KDV Ödemesi, KDV2, SMM, İnteraktif var e-Arşiv yok, İndirilen
                                   Faturalar, Dosyalar, Hatalar (her çalışmada güncellenir)
   rapor.csv                    → aynı raporun CSV hâli
   rapor.json                   → raporun ara/ham verisi (elle düzenlenmez)
@@ -463,11 +463,20 @@ Bir ekranda hata olursa bot durmaz; hatayı rapora yazıp sıradaki ekrana/firma
 sonra kaydedilir**. İndirilen dosyaların kendisi (Excel/zip) yine günün klasöründe kalır;
 sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 
+**Dönem kuralı:** Sorgu aralığı ay sonundan sonrasına uzatılabilir (ayın faturaları sisteme geç düşebildiği için, örn. 01/10/2026-17/11/2026);
+ama rapora, KDV'ye ve KDV2'ye yalnız **fatura tarihi hedef ayda (başlangıç tarihinin ayında) olan** faturalar girer. Sonraki ayın faturaları atılır
+ve günlükte "dönem dışı" olarak yazılır. Ekrandaki *Eksik/Fazla* sütununda yalnız "İnteraktif'te var, e-Arşiv'de yok" faturaları, tutarı
+2.000 TL'yi aşmayanlar gösterilir (`rapor.GOSTERIM_TUTAR_USTU`).
+
 | Sayfa | İçerik |
 | --- | --- |
 | **Özet** | Genel tablo: firma sayısı, fatura inen / boş / atlanan / sorunlu / bekleyen ekran, toplam fatura (aynı fatura iki ekranda iki kez sayılmaz), tevkifatlı alış, iptal/itiraz, alış–satış matrahı ve KDV'si; altında **ekran bazında** dağılım |
 | **Firma Durumu** | Her firma tek satır; aksiyon gerekenler en üstte ve renkli (kırmızı: hata, sarı: kontrol) |
 | **KDV Sonucu** | Her firmanın satış KDV − alış KDV − önceki dönem devreden KDV sonucu: **Ödenecek KDV** (pozitifse) ya da **Sonraki Döneme Devreden KDV** (negatifse); altında süzmeye duyarlı toplam. Önceki dönem devreden KDV `firmalar.xlsx`'teki "Devreden KDV" sütunundan gelir (girilmemişse 0 sayılır ve Not sütununda yazar). Aynı sütunlar arayüzde Firma Durumu tablosunda da vardır |
+| **KDV Ödemesi** | Yalnız **ödeme çıkan** firmalar: satış KDV, alış KDV, devreden KDV, ödenecek KDV |
+| **KDV2** | Tevkifatlı alış faturası olan firmalar: adet, tevkifat KDV tutarı (oran okunamadıysa "tahmini") ve fatura numaraları |
+| **SMM** | e-SMM alış makbuzu olan firmalar: adet ve tutar |
+| **İnteraktif var, e-Arşiv yok** | İnteraktif V.D.'de olup Luca e-Arşiv alışında olmayan faturalar (firma, ünvan, no, tutar; ekrandaki 2.000 TL sınırı burada yok). Tersi ("e-Arşiv'de var, İnteraktif'te yok") yazılmaz |
 | **İndirilen Faturalar** | Her fatura tek satır: firma, ekran, alış/satış, karşı taraf, fatura no, tutar ve **Mutabakat** sütunu — e-Arşiv Alış ile İnteraktif V.D. listeleri fatura numarasıyla eşleştirilir (`iki ekranda da var` / `e-Arşiv'de YOK` / `İnteraktif'te YOK`) |
 | **Dosyalar** | İnen her dosya; klasör sütununa tıklayınca klasör açılır |
 | **Hatalar ve Uyarılar** | Sorunlu ve bekleyen ekranlar: sebebi, **ne yapmanız gerektiği** ve hata anının ekran görüntüsü (tıklayınca açılır) |

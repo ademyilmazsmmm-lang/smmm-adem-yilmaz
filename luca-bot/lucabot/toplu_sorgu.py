@@ -22,7 +22,7 @@ import time
 from collections import OrderedDict
 
 from .bekleme import geri_cekil, kosulu_bekle, sayfa_canli, sayfa_durulsun
-from .fatura_analiz import (BOS_DEGERLER, csv_yaz, excelden_tablo, matrah_kdv_sutunlari,
+from .fatura_analiz import (BOS_DEGERLER, csv_yaz, donem_satirlari, fatura_tarihi, excelden_tablo, matrah_kdv_sutunlari,
                             sutun_indeksi, sutun_tam_indeksi, tutar_cozumle)
 from .gib_sorgu import belge_ara, islem_gunlugu, sorgu_bitti_mi
 from .indirme import dosya_indir
@@ -32,7 +32,7 @@ from .luca_ekran import (acik_pencere, acik_pencereleri_kapat, cerceveler, dugme
                          tarih_araligi_yaz, tarih_kutulari, varsa_tikla, eski_kutulari_isaretle,
                          diyalog_bekle)
 from .luca_gezinme import donem_ayarla, firma_sec, toplu_menuye_git
-from .ortak import (AYAR, TARIH_BICIMI, dosya_adi_yap, gunluge_yaz, sadelestir, tarih_araliklari,
+from .ortak import (AYAR, TARIH_BICIMI, dosya_adi_yap, gunluge_yaz, hedef_ay_araligi, sadelestir, tarih_araliklari,
                     tarih_cozumle, yaz, yeni_sonuc)
 from . import rapor
 from .sabitler import (FATURA_NO_DESENI, TOPLU_AZAMI_GUN, TOPLU_AZAMI_UZUN, TOPLU_EKSIK_BILGI,
@@ -169,13 +169,15 @@ def _oran(metin):
     return None
 
 
-def toplu_excel_oku(yol, log=None):
+def toplu_excel_oku(yol, log=None, donem=None):
     """Toplu Sorgulama Excel'i (sayfa FATURALAR, 18 sutun) -> {"faturalar": {...}, "tekrar": n, ...}.
 
     Ayni fatura birden cok kez gelebiliyor (birebir ayni satir); tekrarlar atilir. Fatura basina:
     matrah, kdv, toplam, tur, oran, tevkifat_kdv.
+    `donem` (bas, bit): fatura tarihi disinda kalan (sonraki aya sarkan sorgu) satirlar atilir.
     """
     basliklar, satirlar = excelden_tablo(yol, log)
+    satirlar, _ = donem_satirlari(basliklar, satirlar, donem, log)
     sonuc = {"basliklar": basliklar, "satirlar": [], "faturalar": OrderedDict(), "tekrar": 0}
     if not satirlar:
         return sonuc
@@ -222,7 +224,7 @@ def toplu_excel_oku(yol, log=None):
 
 # --- sonuclar (saf) -----------------------------------------------------------------------------
 
-def sonuclari_hesapla(firma, yon, tipler, kayitlar, excel, klasor_fn, dosyalar=(), log=None):
+def sonuclari_hesapla(firma, yon, tipler, kayitlar, excel, klasor_fn, dosyalar=(), log=None, donem=None):
     """Liste kayitlari + Excel -> {belge tipi: sonuc sozlugu} (yalniz `tipler` icin).
 
     kayitlar: kayitlari_birlestir() ciktisi (entegrasyon bilgisi). Bos ise (ya da hic eslesmezse)
@@ -230,6 +232,9 @@ def sonuclari_hesapla(firma, yon, tipler, kayitlar, excel, klasor_fn, dosyalar=(
     klasor_fn(tip) -> o ekranin csv klasoru (Path).
     """
     faturalar = excel["faturalar"] if excel else {}
+    if donem:   # liste kayitlari da yalniz hedef ayin faturalarini icersin (tarihi okunamayan korunur)
+        kayitlar = [k for k in kayitlar if fatura_tarihi([], [k.get("tarih") or ""]) is None
+                    or donem[0] <= fatura_tarihi([], [k.get("tarih") or ""]) <= donem[1]]
     tip_no = {t: OrderedDict() for t in tipler}   # tip -> {no: kayit}
     tanimsiz, dislanan = 0, set()
     for k in kayitlar:
@@ -912,6 +917,7 @@ def toplu_isle(page, firma, yon, tipler, araliklar, cikti_kok, log, turmob_var=T
         return {}, firma_secili
     parcalar = _parcalar(araliklar)
     istenen_bas, istenen_bit = tarih_cozumle(parcalar[0][0]), tarih_cozumle(parcalar[-1][1])
+    hedef_donem = hedef_ay_araligi(istenen_bas, istenen_bit)   # sorgu 17/11'e uzasa da rapor yalniz hedef ayi (10. ay) icerir
     firma_secili = _firma_ve_donem(page, firma, istenen_bas, istenen_bit, log, firma_secili)
     yaz(f"    Toplu Sorgulama ({'Alış' if yon == 'alis' else 'Satış'}) açılıyor", log)
     if not toplu_menuye_git(page, yon):
@@ -978,7 +984,7 @@ def toplu_isle(page, firma, yon, tipler, araliklar, cikti_kok, log, turmob_var=T
                           pencere_acilir=False)
         if yol:
             dosyalar.append(yol.name)
-            excel = toplu_excel_oku(yol, log)
+            excel = toplu_excel_oku(yol, log, hedef_donem)
             if excel["tekrar"]:
                 yaz(f"    Excel'de {excel['tekrar']} tekrarlanan satir atildi", log)
             yaz(f"    Excel'den {len(excel['faturalar'])} fatura okundu", log)
@@ -1006,7 +1012,7 @@ def toplu_isle(page, firma, yon, tipler, araliklar, cikti_kok, log, turmob_var=T
         raise TopluBasarisiz("tarayici kapandi")
 
     sonuclar = sonuclari_hesapla(firma, yon, tipler, kayitlar, excel,
-                                 lambda t: cikti_kok / dosya_adi_yap(firma) / t, dosyalar, log)
+                                 lambda t: cikti_kok / dosya_adi_yap(firma) / t, dosyalar, log, hedef_donem)
     for ek in ([iptal_notu] if iptal_notu else []) + sorgu_notlari:
         for s in sonuclar.values():
             s["not"] = (s["not"] + "; " if s["not"] else "") + "Toplu Sorgulama: " + ek

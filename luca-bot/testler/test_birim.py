@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from lucabot import eposta, rapor  # noqa: E402
+from lucabot import eposta, rapor, rapor_excel  # noqa: E402
 from lucabot.calisma import ozetle  # noqa: E402
 from lucabot.fatura_analiz import (excelden_sonuca_isle, excelden_tablo,  # noqa: E402
                                    fatura_kimligi, tevkifatli_satirlar,
@@ -114,6 +114,37 @@ class TutarVeFaturaTestleri(unittest.TestCase):
             self.assertEqual(sonuc["faturalar"][0], ["TURKCELL", "AAA2026000000001", 1200.0])
             self.assertTrue((klasor / "iptal-itiraz.csv").exists())
 
+    def test_sonraki_aya_sarkan_sorgu_rapora_kdv_ve_kdv2ye_girmez(self):
+        """Sorgu 17/11'e uzatilir (10. ay faturalari gec dusebilir); 11. ay faturalari 10. ayin raporuna girmez."""
+        with tempfile.TemporaryDirectory() as d:
+            klasor = Path(d)
+            yol = _xlsx(klasor / "liste.xlsx", [
+                ["Fatura No", "Unvan", "Tarih", "Tip", "Matrah", "KDV Tutarı", "KDV Oranı", "Genel Toplam", "Durum"],
+                ["AAA2026000000001", "TURKCELL", "05/10/2026", "SATIS", 1000, 200, 20, 1200, "ONAY"],
+                ["AAA2026000000002", "VODAFONE", "31/10/2026", "SATIS", 500, 100, 20, 600, "ONAY"],
+                ["AAA2026000000003", "TRUGO", "02/11/2026", "TEVKIFAT", 2000, 400, 20, 2400, "ONAY"],
+                ["AAA2026000000004", "BAYRAM", "10/11/2026", "SATIS", 9000, 1800, 20, 10800, "İPTAL"],
+            ])
+            sonuc = yeni_sonuc("F", "e-arsiv-alis")
+            satirlar = excelden_sonuca_isle(sonuc, yol, klasor, None, donem=(date(2026, 10, 1), date(2026, 10, 31)))
+            self.assertEqual([s[0] for s in satirlar], ["AAA2026000000001", "AAA2026000000002"])
+            self.assertEqual((sonuc["fatura_sayisi"], sonuc["matrah"], sonuc["kdv"]), (2, 1500, 300))
+            self.assertEqual((sonuc["tevkifat"], sonuc["iptal_itiraz"]), (0, 0))       # kasim tevkifati / iptali sayilmaz
+            self.assertEqual([f[1] for f in sonuc["faturalar"]], ["AAA2026000000001", "AAA2026000000002"])
+            self.assertFalse((klasor / "iptal-itiraz.csv").exists())
+            # donem verilmezse (eski davranis) hepsi okunur
+            sonuc2 = yeni_sonuc("F", "e-arsiv-alis")
+            self.assertEqual(len(excelden_sonuca_isle(sonuc2, yol, klasor, None)), 4)
+
+    def test_fatura_tarihi_sutunlari_ve_donem_satirlari(self):
+        from lucabot.fatura_analiz import donem_satirlari, fatura_tarihi
+        self.assertEqual(fatura_tarihi(["Fatura Tarihi", "Kayıt Tarihi"], ["05/10/2026", "03/11/2026"]), date(2026, 10, 5))
+        self.assertEqual(fatura_tarihi([], ["x", "2026-10-07 00:00:00"]), date(2026, 10, 7))
+        self.assertIsNone(fatura_tarihi(["Tarih"], ["bilinmiyor"]))
+        kalan, atilan = donem_satirlari(["Tarih"], [["05/10/2026"], ["bilinmiyor"], ["01/11/2026"]],
+                                        (date(2026, 10, 1), date(2026, 10, 31)))
+        self.assertEqual((kalan, atilan), ([["05/10/2026"], ["bilinmiyor"]], 1))   # tarihi okunamayan korunur
+
     def test_ekranda_iptal_gorunen_fatura_excelde_durum_yoksa_da_toplama_girmez(self):
         """Iptal/itiraz sorgusu durumu ekrandaki listeye yaziyor; Excel'de durum
         sutunu olmayabilir. O fatura yine de matrah/KDV toplamindan dusulmeli."""
@@ -154,6 +185,31 @@ class TutarVeFaturaTestleri(unittest.TestCase):
             yol = Path(d) / "bozuk.xlsx"
             yol.write_bytes(b"bu bir excel degil")
             self.assertEqual(excelden_tablo(yol), ([], []))
+
+
+class EksikFarkGosterimTestleri(unittest.TestCase):
+    def _kayit(self, interaktif, earsiv):
+        return {"firma": "F", "donem": "01/10/2026-31/10/2026", "durumlar": {}, "sayilar": {"e-arsiv-interaktif": len(interaktif),
+                "e-arsiv-alis": len(earsiv)}, "iptal": {}, "tevkifat": {}, "inmeyen": {},
+                "faturalar": {"e-arsiv-interaktif": interaktif, "e-arsiv-alis": earsiv}}
+
+    def test_yalniz_interaktifte_olanlar_ve_2000_tl_ustu_gosterilmez(self):
+        ortak = ["ORTAK", "AAA2026000000001", 100.0]
+        k = self._kayit([ortak, ["KUCUK", "AAA2026000000002", 1500.0], ["BUYUK", "AAA2026000000003", 53000.0]],
+                        [ortak, ["FAZLAEARSIV", "AAA2026000000009", 70.0]])
+        metin = rapor._eksik_faturalar(k)
+        self.assertIn("İnteraktif'te var, e-Arşiv'de yok: KUCUK AAA..002 (1.500,00 TL)", metin)
+        self.assertNotIn("BUYUK", metin)                      # 2000 TL ustu gosterilmez
+        self.assertNotIn("e-Arşiv'de var, İnteraktif'te yok", metin)
+        self.assertNotIn("FAZLAEARSIV", metin)
+        aksiyon = rapor._aksiyon(rapor._tamamla(k))
+        self.assertIn("EKSIK - İnteraktif'te olup e-Arşiv'de olmayan 1 fatura", aksiyon)
+        self.assertNotIn("FAZLA", aksiyon)
+        self.assertNotIn("BUYUK", aksiyon)
+
+    def test_hepsi_buyukse_bos_ve_sayi_farki_yazilmaz(self):
+        k = self._kayit([["BUYUK", "AAA2026000000003", 53000.0]], [])
+        self.assertEqual(rapor._eksik_faturalar(k), "")
 
 
 class FirmaListesiTestleri(unittest.TestCase):
@@ -298,8 +354,9 @@ class RaporTestleri(unittest.TestCase):
             ]
             rapor.guncelle(klasor, sonuclar, ["C"], "e-arsiv-alis")
             wb = load_workbook(klasor / "rapor.xlsx")
-            self.assertEqual(wb.sheetnames, ["Özet", "Firma Durumu", "KDV Sonucu", "İndirilen Faturalar",
-                                             "Dosyalar", "Hatalar ve Uyarılar"])
+            self.assertEqual(wb.sheetnames, ["Özet", "Firma Durumu", "KDV Sonucu", "KDV Ödemesi", "KDV2", "SMM",
+                                             rapor_excel.ARSIV_FARK_SEKMESI, "İndirilen Faturalar", "Dosyalar",
+                                             "Hatalar ve Uyarılar"])
             mutabakat = {(r[0].value, r[1].value, r[4].value): r[6].value
                          for r in wb["İndirilen Faturalar"].iter_rows(min_row=2)}
             self.assertEqual(mutabakat[("A", "İnteraktif V.D.", "AAA2026000000004")],
@@ -343,6 +400,38 @@ class RaporTestleri(unittest.TestCase):
             self.assertEqual(satir["BOS AS"][2:7], [None] * 5)                         # KDV okunamadi
             self.assertIn("okunamadı", satir["BOS AS"][7])
             self.assertTrue(str(ws.cell(row=6, column=6).value).startswith("=SUBTOTAL(109,F2:F5"))
+
+    def test_rapor_xlsx_ayri_sekmeler_kdv_odemesi_kdv2_smm_interaktif_var_earsiv_yok(self):
+        from openpyxl import load_workbook
+        d0 = tempfile.mkdtemp(prefix="sekme-")
+        tev = Path(d0) / "tev"
+        tev.mkdir()
+        (tev / "tevkifatli.csv").write_text("Fatura Tarihi,Fatura Numarası\n05/10/2026,TEV2026000000001\n", encoding="utf-8")
+        ortak = ["ORTAK", "AAA2026000000001", 100.0]
+        kayit = rapor._tamamla({
+            "firma": "ODEYEN LTD", "donem": "01/10/2026-31/10/2026",
+            "durumlar": {"e-arsiv-alis": "tamam", "e-arsiv-interaktif": "tamam", "esmm-alis": "tamam"},
+            "sayilar": {"e-arsiv-alis": 1, "e-arsiv-interaktif": 3, "esmm-alis": 2},
+            "kdv": {"e-arsiv-satis": 5000, "e-arsiv-alis": 1000}, "matrah": {"esmm-alis": 800},
+            "tevkifat": {"e-arsiv-alis": 1}, "tevkifat_kdv": {"e-arsiv-alis": 150}, "klasorler": {"e-arsiv-alis": str(tev)},
+            "faturalar": {"e-arsiv-alis": [ortak],
+                          "e-arsiv-interaktif": [ortak, ["KUCUK", "AAA2026000000002", 1500.0], ["BUYUK", "AAA2026000000003", 53000.0]]}})
+        sakin = rapor._tamamla({"firma": "SAKIN AS", "donem": "01/10/2026-31/10/2026", "durumlar": {"e-arsiv-alis": "tamam"},
+                                "sayilar": {"e-arsiv-alis": 1}, "kdv": {"e-arsiv-satis": 100, "e-arsiv-alis": 900}})
+        kayitlar = {"ODEYEN LTD": kayit, "SAKIN AS": sakin}
+        yol = Path(d0) / "rapor.xlsx"
+        rapor_excel.yaz(yol, kayitlar, [rapor._satir(k) for k in kayitlar.values()], devreden={})
+        wb = load_workbook(yol)
+        self.assertEqual(wb.sheetnames[:7], ["Özet", "Firma Durumu", "KDV Sonucu", "KDV Ödemesi", "KDV2", "SMM",
+                                              "İnteraktif var, e-Arşiv yok"])
+        satirlar = lambda ad: [[c.value for c in r] for r in wb[ad].iter_rows(min_row=2)]
+        self.assertEqual(satirlar("KDV Ödemesi"), [["ODEYEN LTD", "01/10/2026-31/10/2026", 5000, 1000, None, 4000]])   # SAKIN AS odeme cikmaz
+        kdv2 = satirlar("KDV2")
+        self.assertEqual((kdv2[0][0], kdv2[0][2], kdv2[0][3]), ("ODEYEN LTD", 1, 150))
+        self.assertIn("TEV2026000000001", kdv2[0][5])
+        self.assertEqual([(r[0], r[2], r[3]) for r in satirlar("SMM")], [("ODEYEN LTD", 2, 800)])
+        fark = satirlar("İnteraktif var, e-Arşiv yok")
+        self.assertEqual(sorted(r[4] for r in fark), ["AAA2026000000002", "AAA2026000000003"])    # Excel'de tutar siniri yok
 
     def test_excel_indirilmediyse_onceki_tutarlar_korunur(self):
         """15/10'da Excel'li sorgu, 24/10'da yalniz XML: matrah/KDV/tevkifat sifirlanmaz; adetler guncellenir."""

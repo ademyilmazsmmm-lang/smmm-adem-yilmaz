@@ -197,6 +197,52 @@ def sutun_indeksi(basliklar, *anahtarlar):
     return None
 
 
+def _tarih_oku(metin):
+    """Metindeki ilk tarih (GG/AA/YYYY, GG.AA.YYYY, YYYY-AA-GG [saat]) -> date; yoksa None."""
+    m = TARIH_DESENI.search(str(metin or ""))
+    if not m:
+        return None
+    t = m.group(0).replace(".", "/").replace("-", "/")
+    try:
+        if re.match(r"\d{4}/", t):
+            y, a, g = t.split("/")
+            return date(int(y), int(a), int(g))
+        g, a, y = t.split("/")
+        return date(int(y), int(a), int(g))
+    except ValueError:
+        return None
+
+
+def fatura_tarihi(basliklar, satir):
+    """Satirin fatura tarihi: 'Fatura Tarihi' (yoksa 'Duzenleme' / 'Tarih' iceren ilk) sutunundan; sutun yoksa satirdaki
+    ilk tarih. Okunamazsa None."""
+    for anahtarlar in (("FATURA TARIHI",), ("DUZENLEME",), ("TARIH",)):
+        i = sutun_indeksi(basliklar, *anahtarlar) if basliklar else None
+        if i is not None and i < len(satir):
+            return _tarih_oku(satir[i])
+    return next((t for t in (_tarih_oku(h) for h in satir) if t), None)
+
+
+def donem_satirlari(basliklar, satirlar, donem, log=None):
+    """Fatura tarihi donem=(bas, bit) disinda kalan satirlar atilir: (kalan satirlar, atilan adet).
+
+    Sorgu araligi ay sonundan sonrasina uzatilir (ayin faturalari sisteme gec dusebilir); sonraki ayin faturalari rapora,
+    KDV/KDV2 toplamlarina girmemelidir. Tarihi okunamayan satir korunur. donem None ise hicbir sey atilmaz."""
+    if not donem:
+        return satirlar, 0
+    bas, bit = donem
+    kalan = []
+    for s in satirlar:
+        t = fatura_tarihi(basliklar, s)
+        if t is None or bas <= t <= bit:
+            kalan.append(s)
+    atilan = len(satirlar) - len(kalan)
+    if atilan:
+        yaz(f"    {atilan} satir donem disi (fatura tarihi {bas:%d/%m/%Y}-{bit:%d/%m/%Y} disinda): rapora, KDV ve KDV2'ye dahil edilmedi",
+            log)
+    return kalan, atilan
+
+
 def sutun_tam_indeksi(basliklar, ad):
     """Basligi birebir eslesen sutun (e-Arsiv Alis ile Satis karismasin diye)."""
     aranan = sadelestir(ad)
@@ -335,11 +381,12 @@ def _iki_kaynaktan(sutundan, metinden, sutun_adi):
     return birlesik, f"{sutun_adi} + satir metni" if sutundan else "satir metni"
 
 
-def excelden_sonuca_isle(sonuc, yol, klasor, log, iptal_nolari=()):
+def excelden_sonuca_isle(sonuc, yol, klasor, log, iptal_nolari=(), donem=None):
     """Inen Excel'i asil kaynak alir: satirlar, tevkifat, iptal/itiraz, matrah/KDV.
 
     Ekran kazimaya gore guvenilir, cunku sutun basliklari belli. Okunan
     satirlari dondurur (okunamazsa bos liste; sonuc degistirilmez).
+    `donem`: (bas, bit) -- fatura tarihi bunun disindaki satirlar (sonraki aya sarkan sorgu) atilir.
     `iptal_nolari`: ekrandaki listede iptal/itiraz gorunen fatura numaralari;
     Excel'de durum sutunu olmasa da bu faturalar tutar toplamina girmez.
     """
@@ -347,6 +394,9 @@ def excelden_sonuca_isle(sonuc, yol, klasor, log, iptal_nolari=()):
     if not satirlar:
         return []
     yaz(f"    Excel'den {len(satirlar)} satir okundu", log)
+    satirlar, _ = donem_satirlari(basliklar, satirlar, donem, log)
+    if not satirlar:
+        return []
     sonuc["fatura_sayisi"] = len(satirlar)
     sonuc["faturalar"] = [list(k) for k in fatura_kimlikleri_tutarli(basliklar, satirlar)]
     csv_yaz(klasor / "liste.csv", [basliklar] + satirlar)

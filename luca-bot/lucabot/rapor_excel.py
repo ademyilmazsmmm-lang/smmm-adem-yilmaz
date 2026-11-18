@@ -26,6 +26,7 @@ UYARI_RENGI = "FFF2CC"
 HATA_RENGI = "F8CBAD"
 IYI_RENGI = "E2EFDA"
 PARA_BICIMI = '#,##0.00'
+ARSIV_FARK_SEKMESI = "İnteraktif var, e-Arşiv yok"   # Excel sayfa adi en fazla 31 karakter
 
 # Firma Durumu sayfasinda sayiya cevrilecek (TL) sutunlar
 PARA_SUTUNLARI = {"Alış Matrah", "Alış KDV", "Satış Matrah", "Satış KDV"}
@@ -298,6 +299,74 @@ def _kdv_sayfasi(ws, kayitlar, devreden, stil):
     aciklama.font = stil["kalin"].__class__(italic=True, color="595959")
 
 
+def _tevkifatli_nolar(kayit):
+    """Firmanin tevkifatli alis faturalarinin numaralari (ekran klasorlerindeki tevkifatli.csv'den)."""
+    import csv
+    from .fatura_analiz import fatura_kimligi
+    nolar = []
+    for tip in rapor.TEVKIFAT_EKRANLARI:
+        klasor = (kayit.get("klasorler") or {}).get(tip)
+        if not klasor:
+            continue
+        try:
+            with open(Path(klasor) / "tevkifatli.csv", encoding="utf-8-sig", newline="") as f:
+                for satir in csv.reader(f):
+                    k = fatura_kimligi(satir)
+                    if k and k[1] not in nolar:
+                        nolar.append(k[1])
+        except OSError:
+            continue
+    return nolar
+
+
+def _ayri_sekmeler(wb, kayitlar, devreden, stil):
+    """Ayri sekmeler: KDV Ödemesi (odeme cikanlar), KDV2 (tevkifatli alis), SMM (e-SMM alis) ve
+    "Interaktif'te var, e-Arsiv'de yok" faturalari (e-Arsiv'de var Interaktif'te yok tarafi yazilmaz)."""
+    g = gostergeler.hesapla(kayitlar, devreden)
+    donem = lambda f: (kayitlar.get(f) or {}).get("donem", "")
+
+    ws = wb.create_sheet("KDV Ödemesi")
+    satirlar = [(x["firma"], donem(x["firma"]), x["satis"], x["alis"], x["devreden"], x["odeme"]) for x in g["kdv"]]
+    _tablo(ws, ["Firma", "Dönem", "Satış KDV", "Alış KDV", "Önceki Dönem Devreden KDV", "Ödenecek KDV"], satirlar,
+           [26, 22, 16, 16, 24, 16], stil)
+    for i in range(2, len(satirlar) + 2):
+        for j in range(3, 7):
+            ws.cell(row=i, column=j).number_format = PARA_BICIMI
+        ws.cell(row=i, column=6).fill = stil["uyari"]
+    if not satirlar:
+        ws.cell(row=2, column=1, value="Ödeme çıkan firma yok.").fill = stil["iyi"]
+
+    ws = wb.create_sheet("KDV2")
+    satirlar = [(x["firma"], donem(x["firma"]), x["adet"], x["tutar"], "Evet (oran okunamadı)" if x["tahmini"] else "",
+                 ", ".join(_tevkifatli_nolar(kayitlar.get(x["firma"]) or {}))) for x in g["tevkifat"]]
+    _tablo(ws, ["Firma", "Dönem", "Tevkifatlı alış faturası", "Tevkifat KDV (KDV2)", "Tahmini mi", "Fatura numaraları"],
+           satirlar, [26, 22, 14, 18, 20, 80], stil)
+    for i in range(2, len(satirlar) + 2):
+        ws.cell(row=i, column=4).number_format = PARA_BICIMI
+    if not satirlar:
+        ws.cell(row=2, column=1, value="Tevkifatlı alış faturası yok.").fill = stil["iyi"]
+
+    ws = wb.create_sheet("SMM")
+    satirlar = [(x["firma"], donem(x["firma"]), x["adet"], x["tutar"]) for x in g["smm"]]
+    _tablo(ws, ["Firma", "Dönem", "e-SMM alış makbuzu", "Tutar"], satirlar, [26, 22, 18, 16], stil)
+    for i in range(2, len(satirlar) + 2):
+        ws.cell(row=i, column=4).number_format = PARA_BICIMI
+    if not satirlar:
+        ws.cell(row=2, column=1, value="e-SMM alış makbuzu yok.").fill = stil["iyi"]
+
+    ws = wb.create_sheet(ARSIV_FARK_SEKMESI)
+    satirlar = []
+    for r in gostergeler.fark_satirlari(g["fark"]):
+        if r["durum"] == gostergeler.EKSIK or (r["durum"] == gostergeler.ESLESMEDI and r["kaynak"] == gostergeler.INTERAKTIF) \
+                or r["durum"] == gostergeler.BELIRSIZ:
+            satirlar.append((r["firma"], donem(r["firma"]), r["durum"], r["unvan"], r["no"], r["tutar"]))
+    _tablo(ws, ["Firma", "Dönem", "Durum", "Ünvan", "Fatura No", "Tutar"], satirlar, [26, 22, 32, 30, 22, 16], stil)
+    for i in range(2, len(satirlar) + 2):
+        ws.cell(row=i, column=6).number_format = PARA_BICIMI
+    if not satirlar:
+        ws.cell(row=2, column=1, value="İnteraktif'te olup e-Arşiv'de olmayan fatura yok.").fill = stil["iyi"]
+
+
 def _mutabakat_durumlari(kayit):
     """e-Arsiv Alis ile Interaktif V.D. listelerini fatura numarasiyla eslestirir."""
     eksik, fazla = rapor.fatura_farklari(kayit)
@@ -410,7 +479,9 @@ def yaz(yol, kayitlar, satirlar, devreden=None):
     wb = Workbook()
     _ozet_sayfasi(wb.active, kayitlar, satirlar, stil)
     _firma_durumu_sayfasi(wb.create_sheet(), satirlar, stil)
-    _kdv_sayfasi(wb.create_sheet(), kayitlar, _firmalar_devreden() if devreden is None else devreden, stil)
+    devreden = _firmalar_devreden() if devreden is None else devreden
+    _kdv_sayfasi(wb.create_sheet(), kayitlar, devreden, stil)
+    _ayri_sekmeler(wb, kayitlar, devreden, stil)
     _fatura_sayfasi(wb.create_sheet(), kayitlar, stil)
     _dosya_sayfasi(wb.create_sheet(), kayitlar, stil)
     _hata_sayfasi(wb.create_sheet(), kayitlar, stil)

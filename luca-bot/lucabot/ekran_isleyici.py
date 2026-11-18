@@ -301,7 +301,8 @@ class EkranIsleyici:
             return
         self.excel_alindi = True
         self.sonuc["dosyalar"].append(yol.name)
-        self.satirlar = excelden_sonuca_isle(self.sonuc, yol, self.klasor, self.log)
+        self.satirlar = excelden_sonuca_isle(self.sonuc, yol, self.klasor, self.log,
+                                             donem=(self.indirme_bas, self.indirme_bit))
         if not self.satirlar:
             self._yaz("    Excel'de de satir bulunamadi")
 
@@ -463,7 +464,8 @@ class EkranIsleyici:
             # Excel iptal/itiraz ve tevkifat sutunlarini icerdigi icin her iki
             # ekranda da asil kaynak odur; ekran kazima yalnizca yedek
             excel_satirlari = excelden_sonuca_isle(self.sonuc, yol, self.klasor, self.log,
-                                                   iptal_nolari=self.iptal_nolari)
+                                                   iptal_nolari=self.iptal_nolari,
+                                                   donem=(self.indirme_bas, self.indirme_bit))
             if excel_satirlari:
                 self.satirlar = excel_satirlari
 

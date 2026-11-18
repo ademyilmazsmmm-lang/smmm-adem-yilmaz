@@ -266,6 +266,16 @@ def kisa_fatura_no(no):
     return f"{no[:3]}..{no[-3:]}" if len(no) > 6 else no
 
 
+# Ekranda yalniz KUCUK farklar listelenir: iki liste arasindaki "Interaktif'te var, e-Arsiv'de yok" faturalarindan bu tutarin
+# USTUNDEKILER gosterilmez ve "e-Arsiv'de var, Interaktif'te yok" tarafi hic yazilmaz (Excel'deki fatura durumlari etkilenmez).
+GOSTERIM_TUTAR_USTU = 2000.0
+
+
+def goruntulenecek_eksikler(eksik):
+    """Ekranda gosterilecek eksik faturalar: tutari GOSTERIM_TUTAR_USTU'nu asmayanlar (tutari bilinmeyen gosterilir)."""
+    return [s for s in (eksik or []) if not _tutar(s) or abs(_tutar(s)) <= GOSTERIM_TUTAR_USTU]
+
+
 def _fatura_listesi(kayitlar, sinir):
     """Cikti: "Unvanin ilk kelimesi + kisa fatura no (GIB..756) (tutar)"."""
     parcalar = []
@@ -297,11 +307,10 @@ def _eksik_faturalar(kayit, sinir=10):
         # hicbir numara tutmuyorsa listeler farkli bicimde numaralanmis demektir
         return "listeler eslesmedi (fatura numaralari farkli bicimde)"
     parcalar = []
-    if eksik:
-        parcalar.append("İnteraktif'te var, e-Arşiv'de yok: " + _fatura_listesi(eksik, sinir))
-    if fazla:
-        parcalar.append("e-Arşiv'de var, İnteraktif'te yok: " + _fatura_listesi(fazla, sinir))
-    if not parcalar and _fark(kayit):
+    gosterilecek = goruntulenecek_eksikler(eksik)
+    if gosterilecek:
+        parcalar.append("İnteraktif'te var, e-Arşiv'de yok: " + _fatura_listesi(gosterilecek, sinir))
+    if not eksik and not fazla and _fark(kayit):
         # sayilar tutmuyor ama numaralar ortusuyor: ayni fatura iki kez listelenmis
         parcalar.append("sayilar farkli, fatura numaralari ayni")
     return " | ".join(parcalar)
@@ -402,12 +411,10 @@ def _aksiyon(kayit):
     if eksik and fazla and not _ortak_fatura_var(kayit):
         eksik = fazla = []
         isler.append("KARSILASTIRILAMADI - iki listenin fatura numaralari tutmuyor")
-    if eksik:
-        isler.append(f"EKSIK - İnteraktif'te olup e-Arşiv'de olmayan {len(eksik)} fatura:"
-                     f" {_fatura_listesi(eksik, 4)}")
-    if fazla:
-        isler.append(f"FAZLA - e-Arşiv'de olup İnteraktif'te olmayan {len(fazla)} fatura:"
-                     f" {_fatura_listesi(fazla, 4)}")
+    gosterilecek = goruntulenecek_eksikler(eksik)
+    if gosterilecek:
+        isler.append(f"EKSIK - İnteraktif'te olup e-Arşiv'de olmayan {len(gosterilecek)} fatura:"
+                     f" {_fatura_listesi(gosterilecek, 4)}")
     if not eksik and not fazla and isinstance(fark, int) and fark:
         isler.append(f"SAYI FARKI - {abs(fark)} fatura, numaralar ortusuyor")
     if _en_yuksek(kayit["iptal"]):
