@@ -322,7 +322,8 @@ def karsilastir(yon, faturalar, satirlar, tol=TOLERANS):
     for s in satirlar:
         if _fis_anahtari(s):
             fis_indeksi.setdefault(_fis_anahtari(s), []).append(s)
-    sonuc = {"eslesen": [], "eksik": [], "tutar_farki": [], "iptal": [], "kdvsiz": [], "satir": len(kdv_satirlari)}
+    sonuc = {"eslesen": [], "eksik": [], "tutar_farki": [], "iptal": [], "kdvsiz": [], "tutar_okunamadi": [],
+             "satir": len(kdv_satirlari)}
     for f in faturalar:
         if f.get("iptal"):
             sonuc["iptal"].append(f)
@@ -337,6 +338,11 @@ def karsilastir(yon, faturalar, satirlar, tol=TOLERANS):
         toplam = f.get("toplam")
         if not toplam or f.get("tevkifat"):
             sonuc["eslesen"].append(f)    # tutar bilinmiyor / tevkifatli: yalniz numara kontrol edilir
+            continue
+        if all(s.get("toplam") is not None and not s["toplam"] for s in satirlar_f):
+            # isletme defteri dokumunde 'Toplam' sutunu okunamadi (hepsi 0): tutar karsilastirilamaz, yalniz numara kontrol edilir
+            sonuc["tutar_okunamadi"].append(f)
+            sonuc["eslesen"].append(f)
             continue
         karsi, hesaplanan = kayit_tutarlari(yon, satirlar_f, fis_indeksi)
         if any(abs(t - toplam) <= tol for t in karsi + hesaplanan):
@@ -362,7 +368,7 @@ def firma_sonucu(firma, donem, faturalar, muavin_satirlari_, hata="", kaynak="mu
         k = karsilastir(yon, faturalar.get(yon, []), muavin_satirlari_)
         sonuc["yon"][yon] = {"fatura": len(faturalar.get(yon, [])), "eslesen": len(k["eslesen"]), "satir": k["satir"],
                              "eksik": [_f(f) for f in k["eksik"]], "tutar_farki": [_f(f) for f in k["tutar_farki"]],
-                             "iptal": len(k["iptal"]), "kdvsiz": len(k["kdvsiz"])}
+                             "iptal": len(k["iptal"]), "kdvsiz": len(k["kdvsiz"]), "tutar_okunamadi": len(k["tutar_okunamadi"])}
         sorun += len(k["eksik"]) + len(k["tutar_farki"])
     sonuc["durum"] = "fark var" if sorun else "tamam"
     return sonuc

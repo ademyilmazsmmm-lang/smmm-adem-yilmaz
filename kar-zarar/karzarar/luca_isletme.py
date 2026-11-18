@@ -64,8 +64,9 @@ def isletme_cek(page, firma, bas, bit, indirme_klasoru, tani_klasoru, log=None, 
         ekrani_ac(page, log)
         adim("-1-form")
         yaz(f"    İşletme defteri formu (tanı): {luca_muavin.form_tanisi(page)}", log)
+        # "Excel (xlsx)" (biçimli dokum: GIDERLER/GELIRLER tablolari) secilir; "Excel Liste (xlsx)" (value=LIST) farkli duzendedir
         alanlar = luca_muavin.tarih_ve_rapor_turu(page, bas, bit, TARIH_ALANLARI, FORM, RAPOR_TURU_ADAYLARI,
-                                                  "İşletme defteri")
+                                                  "İşletme defteri", deger_ipucu=None)
         yaz(f"    İşletme defteri formu: {', '.join(f'{k}={v}' for k, v in alanlar.items())}", log)
         adim("-2-form-doldu")
         yol = luca_mizan.indir(page, indirme_klasoru, f"isletme_defteri_{dosya_adi_yap(firma)}.xlsx", log=log,

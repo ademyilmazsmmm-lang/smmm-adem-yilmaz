@@ -234,6 +234,10 @@ def hesabi_isle(pw, sira, hesap_adi, ayar_h, args, ayarlar, log, tani, indirme, 
                 ardisik = 0
                 a, t = sonuc["yon"]["alis"], sonuc["yon"]["satis"]
                 yer = "muavinde" if sinif == 1 else "defterde"
+                okunamayan = a.get("tutar_okunamadi", 0) + t.get("tutar_okunamadi", 0)
+                if okunamayan:
+                    yaz(f"    UYARI: {okunamayan} faturanın tutarı dökümde okunamadı (Toplam sütunu bulunamadı); yalnız fatura numarası "
+                        "kontrol edildi. Gerekirse döküm dosyasını gönderin: " + str(indirme / "dosyalar"), log)
                 yaz(f"    Alış {a['fatura']} fatura ({a['eslesen']} tamam, {len(a['eksik'])} {yer} yok, "
                     f"{len(a['tutar_farki'])} tutar uyuşmuyor) | Satış {t['fatura']} fatura ({t['eslesen']} tamam, "
                     f"{len(t['eksik'])} {yer} yok, {len(t['tutar_farki'])} tutar uyuşmuyor)", log)

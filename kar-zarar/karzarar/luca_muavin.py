@@ -202,17 +202,28 @@ def ekrani_ac(page, log=None):
             return
         denenen.append(f"{baglanti}: Rapor Türü {secenekler}")
         yaz(f"    Bu Muavin Defter formunda Excel yok (Nokta Vuruşlu Yazıcılar olabilir): {baglanti}; diğer giriş deneniyor", log)
-    # menu verisi yok / hicbiri Excel'li degil: ekran menusunden Tum Yazicilar > Muavin Defter
+    # menu verisi yok / hicbiri Excel'li degil: ekran menusunden Tum Yazicilar > Muavin Defter (kullanicinin tikladigi yol).
+    # Eski form hala ekrandayken yeni formun gelmesi beklenir: once tum cerceveler "eski" isaretlenir.
+    for fr in page.frames:
+        try:
+            fr.evaluate(ESKI_ISARETLE_JS)
+        except Exception:
+            continue
+    son = {}
     try:
-        menu_yolunu_ac(page, MENU_YOLU, lambda: _form_hazir(page))
+        menu_yolunu_ac(page, MENU_YOLU, lambda: son.update(r=_yeni_form(page)) or son["r"] is not None)
         _yuklenmeyi_bekle(page)
-        if _yeni_form_var_excel(page):
+        r = _yeni_form(page) or son.get("r")
+        if r and r[0]:
+            yaz("    Muavin Defter açıldı (ekran menüsü: Tüm Yazıcılar > Muavin Defter)", log)
             return
-        denenen.append("ekran menüsü: Excel seçeneği yok")
+        denenen.append(f"ekran menüsü: Rapor Türü {r[1] if r else '?'}")
     except LookupError as e:
         denenen.append(f"ekran menüsü: {e}")
+    benzer = menu_benzerleri(page, ("muavin",))
     raise LookupError("Excel seçenekli Muavin Defter formu açılamadı (Tüm Yazıcılar altındaki giriş gerekir). Denenen: "
-                      + "; ".join(denenen)[:600] + (f" | menü verisi: {SON_MENU_TANISI['metin']}" if SON_MENU_TANISI["metin"] else ""))
+                      + "; ".join(denenen)[:900] + (f" | menüdeki Muavin girişleri: {benzer}" if benzer else "")
+                      + (f" | menü verisi: {SON_MENU_TANISI['metin']}" if SON_MENU_TANISI["metin"] else ""))
 
 
 def _yeni_form_var_excel(page):
@@ -262,8 +273,10 @@ def _doldur(page, alanlar, desen=MUAVIN_FORM):
     raise LookupError("Form bulunamadı" + (f" ({'; '.join(hatalar)})" if hatalar else ""))
 
 
-def tarih_ve_rapor_turu(page, bas, bit, tarih_alanlari, desen, rapor_turu_adaylari=RAPOR_TURU_ADAYLARI, ad="Muavin"):
+def tarih_ve_rapor_turu(page, bas, bit, tarih_alanlari, desen, rapor_turu_adaylari=RAPOR_TURU_ADAYLARI, ad="Muavin",
+                        deger_ipucu="LIST"):
     """Tarih araligini yazar (geri okuyup dogrular) ve Excel rapor turunu secer: {etiket: deger}.
+    deger_ipucu: secenegin value'su (Muavin: 'LIST' = 'Excel Liste (xlsx)'); None ise yalniz metne gore secilir (adaylar sirayla).
     Tarihler ya da Excel rapor turu ayarlanamazsa LookupError."""
     t_ilk, t_son = f"{bas:%d/%m/%Y}", f"{bit:%d/%m/%Y}"
     ilk_mi = lambda k, e: "ilk" in k.lower() or k.endswith("1") or "Başlangıç" in e or "İlk" in e
@@ -277,7 +290,7 @@ def tarih_ve_rapor_turu(page, bas, bit, tarih_alanlari, desen, rapor_turu_adayla
                           f"{'; yazılan değer geri okundu: ' + str(uyusmayan) if uyusmayan else ''})")
     rapor_turu = None
     for aday in rapor_turu_adaylari:
-        r = _doldur(page, [("report_type", "Rapor Türü", aday, "LIST")], desen)
+        r = _doldur(page, [("report_type", "Rapor Türü", aday, deger_ipucu)], desen)
         deger = r.get("Rapor Türü")
         if deger is not None and not str(deger).startswith("SEÇENEK YOK"):
             rapor_turu = deger

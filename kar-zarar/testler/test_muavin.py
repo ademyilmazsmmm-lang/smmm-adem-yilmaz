@@ -194,6 +194,17 @@ class MuavinMantigi(unittest.TestCase):
                          "255 DEMIRBAS": [("05/10/2026", "1", "x", None, 1200.0)]})
         self.assertEqual(len(mk.karsilastir("alis", f, mk.muavin_satirlari(yol))["tutar_farki"]), 1)
 
+    def test_isletme_dokumunde_toplam_okunamazsa_yalniz_numara_kontrol_edilir(self):
+        satirlar = [{"hesap": "191", "tarih": date(2026, 10, 1), "fis": "1", "tip": "", "aciklama": "", "belge": "AAA2026000000001",
+                     "borc": 0.0, "alacak": 0.0, "metin": "", "toplam": 0.0, "nolar": ["AAA2026000000001"]}]
+        f = [{"no": "AAA2026000000001", "tarih": date(2026, 10, 1), "unvan": "A", "toplam": 1200.0, "kdv": 200.0, "tip": "x"},
+             {"no": "AAA2026000000002", "tarih": date(2026, 10, 2), "unvan": "B", "toplam": 600.0, "kdv": 100.0, "tip": "x"}]
+        k = mk.karsilastir("alis", f, satirlar)
+        self.assertEqual(([x["no"][-1] for x in k["eslesen"]], [x["no"][-1] for x in k["tutar_okunamadi"]],
+                          [x["no"][-1] for x in k["eksik"]], k["tutar_farki"]), (["1"], ["1"], ["2"], []))
+        s = mk.firma_sonucu("X", "d", {"alis": f, "satis": []}, satirlar, kaynak="isletme")
+        self.assertEqual(s["yon"]["alis"]["tutar_okunamadi"], 1)
+
     def test_satis_391_ve_alis_191_ayri_aranir(self):
         faturalar = [{"no": "BBB2026000000001", "tarih": date(2026, 10, 5), "unvan": "M", "toplam": 2400.0, "kdv": 400.0, "tip": "x"}]
         yol = self.klasor / "m391.xlsx"
