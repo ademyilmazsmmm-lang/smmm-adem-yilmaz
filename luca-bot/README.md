@@ -494,11 +494,12 @@ Toplu Sorgulama'da XML yalnız **alışta GİB E-Arşiv Entegrasyonu Alış Fatu
 | İptal/İtiraz, Tevkifatlı Alış, İnmeyen | adetler (tevkifat yalnızca alış ekranlarından, KDV2 için) |
 | Alış/Satış Matrah ve KDV | iptal/itiraz hariç toplamlar; aynı faturalar iki kez sayılmaz: TÜRMOB Alış = e-Fatura Alış, İnteraktif V.D. = e-Arşiv Alış, GİB 5000/30000 = e-Arşiv Satış, TÜRMOB Satış = e-Arşiv Satış + e-Fatura Satış (TÜRMOB ekranı açılmayan firmada iki parça toplanır) |
 
-## Hızlı mod: Akıllı Ent. Toplu Sorgulama (deneysel)
+## Hızlı mod: Akıllı Ent. Toplu Sorgulama (varsayılan ve tek yol)
 
-Luca'nın yeni **Akıllı Ent. Toplu Sorgulama** ekranı (Alış / Satış İade Faturaları ve Satış / Alış İade
-Faturaları) tüm entegrasyonları tek seferde, **1 aya kadar** sorguluyor. Arayüzde "Hızlı mod" kutusunu
-işaretleyin (komut satırında `--toplu`, `ayarlar.json`'da `"toplu_sorgu": true`).
+Luca'nın **Akıllı Ent. Toplu Sorgulama** ekranı (Alış / Satış İade Faturaları ve Satış / Alış İade
+Faturaları) tüm entegrasyonları tek seferde, **1 aya kadar** sorguluyor. Fatura indirme artık hep bu yolla yapılır; arayüzde ayrı bir kutu yoktur.
+Yalnız hızlı modun kapsamadığı **E-Arşiv Sorgulama (İnteraktif V.D.)** ekranı kendi menüsünden sorgulanır. Eski "ekran ekran" yol yalnız test/teşhis içindir
+(`luca_bot.py --eski-ekranlar` ya da `ayarlar.json`'da `"toplu_sorgu": false`).
 
 Her firma için sırayla:
 

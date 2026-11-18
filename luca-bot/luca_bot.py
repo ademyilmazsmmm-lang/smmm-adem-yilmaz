@@ -56,8 +56,10 @@ def arguman_ayristirici():
                    help="GIB sorgusu tek seferde kac gunluk parcalarla yapilsin (varsayilan 7; Luca ekrani aylik sorguyu kabul ediyorsa 30; "
                         "ayarlar.json: gib_parca_gun)")
     p.add_argument("--toplu", action="store_true",
-                   help="hizli mod: Akilli Ent. Toplu Sorgulama (1 aylik tek sorgu); basarisiz olursa "
-                        "ekranlar tek tek sorgulanir (ayarlar.json: toplu_sorgu)")
+                   help="(eski bat dosyalari icin; artik varsayilan) hizli mod: Akilli Ent. Toplu Sorgulama")
+    p.add_argument("--eski-ekranlar", action="store_true", dest="eski_ekranlar",
+                   help="YALNIZ TEST/TESHIS: hizli modu kapatir, ekranlar tek tek (eski yol) sorgulanir "
+                        "(ayarlar.json: toplu_sorgu=false ile de olur)")
     p.add_argument("--hesap", default="hepsi",
                    help="Hangi Luca hesabi taransin: hepsi (varsayilan: once ofis, sonra etkinse isletme), ofis ya da isletme")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
@@ -153,7 +155,8 @@ def ayarlari_uygula(args, ayarlar):
     AYAR["belge_indir"] = bool(ayarlar.get("belge_indir", True)) and not args.belge_indirme_yok
     AYAR["excel_indir"] = bool(ayarlar.get("excel_indir", True)) and not args.excel_indirme_yok
     AYAR["donem_degistir"] = bool(ayarlar.get("donem_degistir", True)) and not args.donem_degistirme
-    AYAR["toplu_sorgu"] = bool(args.toplu) or bool(ayarlar.get("toplu_sorgu", False))
+    # Hizli mod (Akilli Ent. Toplu Sorgulama) varsayilan ve tek yoldur; E-Arsiv Sorgulama (interaktif) kendi ekraninda kalir
+    AYAR["toplu_sorgu"] = not args.eski_ekranlar and bool(ayarlar.get("toplu_sorgu", True))
     AYAR["chrome_gunlugu"] = bool(args.chrome_gunlugu)
     AYAR["profil_yerel"] = bool(args.profil_yerel) or bool(ayarlar.get("profil_yerel", False))
     AYAR["indirmeyi_yakala"] = (bool(ayarlar.get("indirmeyi_yakala", True))

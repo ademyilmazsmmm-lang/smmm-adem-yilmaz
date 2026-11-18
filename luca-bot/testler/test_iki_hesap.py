@@ -44,7 +44,7 @@ def _calistir(klasor, adres, ayar_ek, argumanlar):
     os.environ.update(ortam)
     luca_bot.luca_oturumu_ac = sarmal
     eski_argv = sys.argv
-    sys.argv = ["luca_bot.py", "--baslangic", "01/08/2026", "--bitis", "10/08/2026", "--bitince-kapat", "--belge-tipi", "e-arsiv-alis",
+    sys.argv = ["luca_bot.py", "--eski-ekranlar", "--baslangic", "01/08/2026", "--bitis", "10/08/2026", "--bitince-kapat", "--belge-tipi", "e-arsiv-alis",
                 *argumanlar]
     cikti = io.StringIO()
     try:

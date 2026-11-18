@@ -242,10 +242,12 @@ class ArayuzTestleri(ArayuzZemini):
         k = self.app.komut()
         self.assertEqual(k[k.index("--parca-gun") + 1], "30")
 
-    def test_hizli_mod_toplu_sorgu_komuta_girer(self):
-        self.assertNotIn("--toplu", self.app.komut())
-        self.app.v_toplu.set(True)
-        self.assertIn("--toplu", self.app.komut())
+    def test_hizli_mod_tek_yol_secenek_yok(self):
+        """Hizli mod varsayilan ve tek yol: arayuzde kutu ve komutta --toplu / --eski-ekranlar yok."""
+        self.assertFalse(hasattr(self.app, "v_toplu"))
+        komut = self.app.komut()
+        self.assertNotIn("--toplu", komut)
+        self.assertNotIn("--eski-ekranlar", komut)
 
     def test_luca_hesabi_secimi_komuta_girer_ve_ozet_iki_hesabi_gosterir(self):
         self.assertNotIn("--hesap", self.app.komut())                        # varsayilan: hepsi

@@ -60,7 +60,7 @@ def main():
     ortam = dict(os.environ, LUCA_TEST_LISANS_ATLA="1", LUCA_BOT_AYAR=str(ayar_yolu),
                  LOCALAPPDATA=str(klasor / "yerel"),
                  PYTHONIOENCODING="utf-8")
-    komut = [sys.executable, str(KOK / "luca_bot.py"), "--karsilastir",
+    komut = [sys.executable, str(KOK / "luca_bot.py"), "--karsilastir", "--eski-ekranlar",
              "--baslangic", "01/08/2026", "--bitis", "10/08/2026", "--bitince-kapat"]
     print("Calistiriliyor:", " ".join(komut))
     sonuc = subprocess.run(komut, env=ortam, cwd=str(KOK))
@@ -102,7 +102,7 @@ def main():
     # ikinci tur: yalniz AKIN COBAN / e-Arsiv Alis tekrar sorgulanir (arayuzdeki "Tekrar Sorgula")
     tekrar = klasor / "tekrar.json"
     tekrar.write_text(json.dumps({"AKIN COBAN": ["e-arsiv-alis"]}), encoding="utf-8")
-    komut2 = [sys.executable, str(KOK / "luca_bot.py"), "--tekrar-listesi", str(tekrar),
+    komut2 = [sys.executable, str(KOK / "luca_bot.py"), "--tekrar-listesi", str(tekrar), "--eski-ekranlar",
               "--baslangic", "01/08/2026", "--bitis", "10/08/2026", "--bitince-kapat"]
     print("\nTekrar sorgu:", " ".join(komut2))
     sonuc2 = subprocess.run(komut2, env=ortam, cwd=str(KOK), capture_output=True, text=True,
