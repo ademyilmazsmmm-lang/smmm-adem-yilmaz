@@ -94,6 +94,28 @@ class MuavinMantigi(unittest.TestCase):
         (self.klasor / "rapor.json").write_text(json.dumps({firma: {"klasorler": klasorler}}), encoding="utf-8")
         return firma
 
+    def test_sinifi_bilinmeyen_firma_once_muavin_sonra_isletme_denenir(self):
+        import muavin
+        cagri = []
+
+        def birinci_yok():
+            cagri.append("muavin")
+            raise LookupError("Muavin Defter menüsü açılamadı")
+
+        def ikinci_var():
+            cagri.append("isletme")
+            return ["satir"]
+        self.assertEqual(muavin.otomatik_cek(birinci_yok, ikinci_var), (["satir"], 2))
+        self.assertEqual(cagri, ["muavin", "isletme"])
+        self.assertEqual(muavin.otomatik_cek(lambda: ["m"], ikinci_var), (["m"], 1))     # muavin acilirsa isletmeye bakilmaz
+
+        def ikinci_yok():
+            raise LookupError("menü yok")
+        with self.assertRaises(LookupError) as h:
+            muavin.otomatik_cek(birinci_yok, ikinci_yok)
+        self.assertIn("Muavin Defter", str(h.exception))
+        self.assertIn("İşletme Defteri Dökümü", str(h.exception))
+
     def test_hesap_sahibi_adlari_dosyadan_okunur_yoksa_varsayilan(self):
         from lucabot import hesaplar
         eski = hesaplar._adlar_dosyasi
@@ -409,6 +431,13 @@ class UctanUca(unittest.TestCase):
         kod, sonuc, cikti, _ = calistir(self.klasor, self.veri, ek=["--hesap", "isletme"])
         self.assertNotEqual(kod, 0)
         self.assertIn("ikinci Luca hesabı kapalı", cikti)
+
+    def test_sinif_otomatik_muavin_ekrani_aciliyorsa_1_sinif_sayilir(self):
+        kod, sonuc, cikti, _ = calistir(self.klasor, self.veri, ek=["--sinif", "otomatik"])
+        self.assertEqual(kod, 0, cikti[-2500:])
+        self.assertIn("(sınıf otomatik", cikti)
+        self.assertIn("Sınıf belirlendi: 1. sınıf (muavin)", cikti)
+        self.assertEqual(sonuc["ALFA ISLETME"]["kaynak"], "muavin")
 
     def test_faturasi_olmayan_firma_atlanir_ve_rapor_yoksa_hata(self):
         kod, sonuc, cikti, istekler = calistir(self.klasor, self.veri, ek=["--tum-firmalar"], firma="ALFA ISLETME")
