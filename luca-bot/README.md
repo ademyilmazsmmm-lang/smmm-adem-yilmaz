@@ -108,9 +108,14 @@ komut satırında karşılığı `--belge-indirme-yok` ve `--excel-indirme-yok`.
      sunucudan inmeyen firma/ekranlar (neden ve inmeyen fatura sayısıyla). **Bunları Tekrar Sorgula**
      yalnızca bu firma ve ekranları, ana penceredeki tarih aralığı için yeniden çalıştırır
      (komut satırı: `--tekrar-listesi dosya.json`, içeriği `{"firma": ["e-arsiv-alis", ...]}`).
-   - **KDV Ödemesi**: Satış KDV − Alış KDV − Devreden KDV > 0 olan firmalar. Devreden
-     KDV'yi `firmalar.xlsx`'e **"Devreden KDV"** adlı bir sütun açıp elle yazın; boşsa 0 sayılır.
-     Tahmindir (diğer beyan kalemleri girmez).
+   - **KDV Ödemesi**: Satış KDV − Alış KDV (KDV2 hariç) − Devreden KDV > 0 olan firmalar; yanında
+     **KDV2 dahil** ödeme de gösterilir. Devreden KDV'yi `firmalar.xlsx`'e **"Devreden KDV"** adlı bir
+     sütun açıp elle yazın; boşsa 0 sayılır. Tahmindir (diğer beyan kalemleri girmez).
+   - **KDV2 (tevkif edilen KDV)** ayrı sütundadır ve alış KDV'ye karıştırılmaz. Tevkifatlı faturada
+     KDV 100 TL, tevkifat 3/10 ise 70 TL hemen indirilir, 30 TL KDV2'dir; KDV2 ödendiğinde indirim
+     konusu olduğundan (ödenip ödenmeyeceği bilinemez) iki sonuç verilir: **KDV2 hariç** (yalnız 70
+     TL indirilir) ve **KDV2 dahil** (100 TL indirilir). Excel'deki KDV sütunu faturadaki **tam KDV**
+     kabul edilir; tevkifat oranı okunamazsa KDV'nin tamamı KDV2 sayılır ve "tahmini" yazar.
 
 ### Görünüm (açık / koyu tema), logo, sürüm
 
@@ -482,8 +487,8 @@ Toplu Sorgulama'da XML yalnız **alışta GİB E-Arşiv Entegrasyonu Alış Fatu
 | --- | --- |
 | **Özet** | Genel tablo: firma sayısı, fatura inen / boş / atlanan / sorunlu / bekleyen ekran, toplam fatura (aynı fatura iki ekranda iki kez sayılmaz), tevkifatlı alış, iptal/itiraz, alış–satış matrahı ve KDV'si; altında **ekran bazında** dağılım |
 | **Firma Durumu** | Her firma tek satır; aksiyon gerekenler en üstte ve renkli (kırmızı: hata, sarı: kontrol) |
-| **KDV Sonucu** | Her firmanın satış KDV − alış KDV − önceki dönem devreden KDV sonucu: **Ödenecek KDV** (pozitifse) ya da **Sonraki Döneme Devreden KDV** (negatifse); altında süzmeye duyarlı toplam. Önceki dönem devreden KDV `firmalar.xlsx`'teki "Devreden KDV" sütunundan gelir (girilmemişse 0 sayılır ve Not sütununda yazar). Aynı sütunlar arayüzde Firma Durumu tablosunda da vardır |
-| **KDV Ödemesi** | Yalnız **ödeme çıkan** firmalar: satış KDV, alış KDV, devreden KDV, ödenecek KDV |
+| **KDV Sonucu** | Her firmanın satış KDV − alış KDV − önceki dönem devreden KDV sonucu, **KDV2 ayrı sütunda** ve iki sonuçla: **Alış KDV (KDV2 hariç)**, **KDV2 (Tevkif Edilen KDV)**, **Ödenecek KDV (KDV2 hariç)** / **Sonraki Döneme Devreden KDV (KDV2 hariç)** ve aynıları **KDV2 dahil** (KDV2 de indirilirse). Altında süzmeye duyarlı toplam. Önceki dönem devreden KDV `firmalar.xlsx`'teki "Devreden KDV" sütunundan gelir (girilmemişse 0 sayılır ve Not sütununda yazar). Aynı sütunlar arayüzde Firma Durumu tablosunda da vardır |
+| **KDV Ödemesi** | Yalnız **ödeme çıkan** (KDV2 hariç hesapta) firmalar: satış KDV, alış KDV (KDV2 hariç), KDV2, devreden KDV, ödenecek KDV (KDV2 hariç) ve (KDV2 dahil) |
 | **KDV2** | Tevkifatlı alış faturası olan firmalar: adet, tevkifat KDV tutarı (oran okunamadıysa "tahmini") ve fatura numaraları |
 | **SMM** | e-SMM alış makbuzu olan firmalar: adet ve tutar |
 | **İnteraktif var, e-Arşiv yok** | İnteraktif V.D.'de olup Luca e-Arşiv alışında olmayan faturalar (firma, ünvan, no, tutar; ekrandaki 2.000 TL sınırı burada yok). Tersi ("e-Arşiv'de var, İnteraktif'te yok") yazılmaz |

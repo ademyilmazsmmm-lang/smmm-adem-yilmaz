@@ -390,16 +390,51 @@ class RaporTestleri(unittest.TestCase):
                             devreden={"BIRLIK TICARET": 200, "YILDIZ OTOMOTIV": 5000})
             ws = load_workbook(yol)["KDV Sonucu"]
             basliklar = [c.value for c in ws[1]]
-            self.assertEqual(basliklar[2:7], ["Satış KDV", "Alış KDV", "Önceki Dönem Devreden KDV",
-                                              "Ödenecek KDV", "Sonraki Döneme Devreden KDV"])
+            self.assertEqual(basliklar[2:10], [
+                "Satış KDV", "Alış KDV (KDV2 hariç)", "KDV2 (Tevkif Edilen KDV)", "Önceki Dönem Devreden KDV",
+                "Ödenecek KDV (KDV2 hariç)", "Sonraki Döneme Devreden KDV (KDV2 hariç)",
+                "Ödenecek KDV (KDV2 dahil)", "Sonraki Döneme Devreden KDV (KDV2 dahil)"])
             satir = {r[0].value: [c.value for c in r] for r in ws.iter_rows(min_row=2, max_row=5)}
-            self.assertEqual(satir["BIRLIK TIC"][2:7], [1000, 300, 200, 500, 0])       # 1000-300-200 odenecek
-            self.assertEqual(satir["YILDIZ OTO"][2:7], [1620, 5400, 5000, 0, 8780])     # sonraki doneme devreden
-            self.assertEqual(satir["ZEYTIN LTD"][2:7], [800, 200, None, 600, 0])       # devreden girilmemis: 0 sayildi
-            self.assertIn("girilmemiş", satir["ZEYTIN LTD"][7])
-            self.assertEqual(satir["BOS AS"][2:7], [None] * 5)                         # KDV okunamadi
-            self.assertIn("okunamadı", satir["BOS AS"][7])
-            self.assertTrue(str(ws.cell(row=6, column=6).value).startswith("=SUBTOTAL(109,F2:F5"))
+            # tevkifat yoksa KDV2 haric ve dahil sonuclar aynidir
+            self.assertEqual(satir["BIRLIK TIC"][2:10], [1000, 300, 0, 200, 500, 0, 500, 0])    # 1000-300-200 odenecek
+            self.assertEqual(satir["YILDIZ OTO"][2:10], [1620, 5400, 0, 5000, 0, 8780, 0, 8780])  # sonraki doneme devreden
+            self.assertEqual(satir["ZEYTIN LTD"][2:10], [800, 200, 0, None, 600, 0, 600, 0])    # devreden girilmemis: 0 sayildi
+            self.assertIn("girilmemiş", satir["ZEYTIN LTD"][10])
+            self.assertEqual(satir["BOS AS"][2:10], [None] * 8)                                  # KDV okunamadi
+            self.assertIn("okunamadı", satir["BOS AS"][10])
+            self.assertTrue(str(ws.cell(row=6, column=7).value).startswith("=SUBTOTAL(109,G2:G5"))
+
+    def test_rapor_xlsx_kdv_sonucu_kdv2_ayri_sutunda_iki_sonuc(self):
+        """Tevkifatli fatura KDV'si 100: 70 hemen indirilir, 30 KDV2. KDV2 ayri sutunda, odenecek iki sekilde."""
+        from openpyxl import load_workbook
+        from lucabot import rapor_excel
+        donem = "01/10/2026-31/10/2026"
+        tam = rapor._tamamla({"firma": "TEVK AS", "donem": donem, "durumlar": {"e-arsiv-alis": "tamam"},
+                              "sayilar": {"e-arsiv-alis": 2}, "kdv": {"e-arsiv-satis": 500, "e-arsiv-alis": 100},
+                              "tevkifat": {"e-arsiv-alis": 1}, "tevkifat_kdv": {"e-arsiv-alis": 30}})
+        tahmini = rapor._tamamla({"firma": "ORAN YOK", "donem": donem, "durumlar": {"e-arsiv-alis": "tamam"},
+                                  "sayilar": {"e-arsiv-alis": 1}, "kdv": {"e-arsiv-satis": 50, "e-arsiv-alis": 100},
+                                  "tevkifat": {"e-arsiv-alis": 1}, "tevkifat_kdv": {"e-arsiv-alis": 100},
+                                  "tevkifat_kdv_tahmini": {"e-arsiv-alis": True}})
+        buyuk = rapor._tamamla({"firma": "TUTARSIZ", "donem": donem, "durumlar": {"e-arsiv-alis": "tamam"},
+                                "sayilar": {"e-arsiv-alis": 1}, "kdv": {"e-arsiv-satis": 500, "e-arsiv-alis": 100},
+                                "tevkifat": {"e-arsiv-alis": 1}, "tevkifat_kdv": {"e-arsiv-alis": 120}})
+        kayitlar = {"TEVK AS": tam, "ORAN YOK": tahmini, "TUTARSIZ": buyuk}
+        with tempfile.TemporaryDirectory() as d:
+            yol = Path(d) / "rapor.xlsx"
+            rapor_excel.yaz(yol, kayitlar, [rapor._satir(k) for k in kayitlar.values()], devreden={"TEVK AS": 20})
+            ws = load_workbook(yol)["KDV Sonucu"]
+            satir = {r[0].value: [c.value for c in r] for r in ws.iter_rows(min_row=2, max_row=4)}
+            # satis 500, alis 100 (70 + KDV2 30), devreden 20: KDV2 haric 500-70-20 = 410, dahil 500-100-20 = 380
+            self.assertEqual(satir["TEVK AS"][2:10], [500, 70, 30, 20, 410, 0, 380, 0])
+            self.assertEqual(satir["TEVK AS"][10] or "", "")
+            # oran okunamadi: KDV'nin tamami KDV2 sayilir (tahmini, notta yazar); satis 50 - 0 = 50 / 50 - 100 = -50
+            self.assertEqual(satir["ORAN YOK"][2:10], [50, 0, 100, None, 50, 0, 0, 50])
+            self.assertIn("KDV2 tahmini", satir["ORAN YOK"][10])
+            # KDV2 alis KDV'sinden buyukse alis KDV'sini asmaz ve uyarilir
+            self.assertEqual(satir["TUTARSIZ"][2:10], [500, 0, 120, None, 500, 0, 400, 0])
+            self.assertIn("kontrol edin", satir["TUTARSIZ"][10])
+            self.assertTrue(str(ws.cell(row=5, column=5).value).startswith("=SUBTOTAL(109,E2:E4"))
 
     def test_rapor_xlsx_ayri_sekmeler_kdv_odemesi_kdv2_smm_interaktif_var_earsiv_yok(self):
         from openpyxl import load_workbook
@@ -425,7 +460,9 @@ class RaporTestleri(unittest.TestCase):
         self.assertEqual(wb.sheetnames[:7], ["Özet", "Firma Durumu", "KDV Sonucu", "KDV Ödemesi", "KDV2", "SMM",
                                               "İnteraktif var, e-Arşiv yok"])
         satirlar = lambda ad: [[c.value for c in r] for r in wb[ad].iter_rows(min_row=2)]
-        self.assertEqual(satirlar("KDV Ödemesi"), [["ODEYEN LTD", "01/10/2026-31/10/2026", 5000, 1000, None, 4000]])   # SAKIN AS odeme cikmaz
+        # KDV 1000, tevkif edilen (KDV2) 150: hemen indirilen 850; odeme KDV2 haric 5000-850 = 4150, dahil 5000-1000 = 4000
+        self.assertEqual(satirlar("KDV Ödemesi"),
+                         [["ODEYEN LTD", "01/10/2026-31/10/2026", 5000, 850, 150, None, 4150, 4000]])   # SAKIN AS odeme cikmaz
         kdv2 = satirlar("KDV2")
         self.assertEqual((kdv2[0][0], kdv2[0][2], kdv2[0][3]), ("ODEYEN LTD", 1, 150))
         self.assertIn("TEV2026000000001", kdv2[0][5])
@@ -882,7 +919,7 @@ class ArayuzOzetTestleri(unittest.TestCase):
                            "tevkifat": {"e-fatura-alis": 2}, "tevkifat_kdv": {"e-fatura-alis": 700},
                            "tevkifat_kdv_tahmini": {"e-fatura-alis": True},
                            "matrah": {"esmm-alis": 3000},
-                           "kdv": {"e-arsiv-satis": 1000, "e-fatura-satis": 500, "e-arsiv-alis": 600}},
+                           "kdv": {"e-arsiv-satis": 1000, "e-fatura-satis": 500, "e-arsiv-alis": 1000}},
             "YILDIZ OTO": {"donem": donem, "sayilar": {}, "kdv": {"turmob-satis": 300}},
             "AZ ALIS": {"donem": donem, "kdv": {"e-fatura-satis": 100, "e-fatura-alis": 400}},
             "ESKI AY": {"donem": "01/08/2026-31/08/2026", "kdv": {"e-fatura-satis": 999}},
@@ -894,10 +931,13 @@ class ArayuzOzetTestleri(unittest.TestCase):
         self.assertEqual(g["fark"], [{"firma": "BIRLIK TIC", "interaktif": 5, "earsiv": 3, "fark": 2,
                                       "eslesmedi": False, "eksik": [], "fazla": [],
                                       "interaktif_liste": [["X", "AAA2026000000001", 1.0]], "earsiv_liste": []}])
-        # satis 1500 - alis 600 - devreden 200 = 700; Luca'da kisaltilmis ad listedeki tam adla eslesir
+        # alis KDV 1000 = 300 hemen indirilen + 700 KDV2 (tevkif edilen); Luca'da kisaltilmis ad listedeki tam adla eslesir
+        # KDV2 haric: satis 1500 - alis 300 - devreden 200 = 1000; KDV2 dahil: 1500 - 1000 - 200 = 300
         self.assertEqual(g["kdv"], [
-            {"firma": "BIRLIK TIC", "satis": 1500, "alis": 600, "devreden": 200, "odeme": 700},
-            {"firma": "YILDIZ OTO", "satis": 300, "alis": 0, "devreden": None, "odeme": 300}])
+            {"firma": "BIRLIK TIC", "satis": 1500, "alis": 300, "kdv2": 700, "devreden": 200, "odeme": 1000,
+             "odeme_kdv2": 300},
+            {"firma": "YILDIZ OTO", "satis": 300, "alis": 0, "kdv2": 0, "devreden": None, "odeme": 300,
+             "odeme_kdv2": 300}])
         t = gostergeler.toplamlar(g)
         self.assertEqual((t["tevkifat"], t["smm"], t["fark"], t["kdv_firma"]), (700, 3000, 2, 2))
         self.assertEqual(gostergeler.tl(1234.5), "1.234,50 TL")

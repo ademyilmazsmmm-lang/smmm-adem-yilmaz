@@ -179,7 +179,7 @@ class ArayuzZemini(unittest.TestCase):
         (self.d / "indir" / "rapor.json").write_text(json.dumps({
             "BIRLIK TIC": {"donem": donem, "sayilar": {"esmm-alis": 1}, "matrah": {"esmm-alis": 1500},
                            "tevkifat": {"e-fatura-alis": 2}, "tevkifat_kdv": {"e-fatura-alis": 700},
-                           "kdv": {"e-fatura-satis": 1000, "e-fatura-alis": 300}},
+                           "kdv": {"e-fatura-satis": 1000, "e-fatura-alis": 1000}},
         }), encoding="utf-8")
         self.ayar = self.d / "ayarlar.json"
         self.ayar.write_text(json.dumps({
@@ -227,8 +227,9 @@ class ArayuzTestleri(ArayuzZemini):
         self.assertEqual(k["tevkifat"].deger.cget("text"), "700,00 TL")
         self.assertEqual(k["smm"].deger.cget("text"), "1.500,00 TL")
         self.assertEqual(k["fark"].deger.cget("text"), "0 firma")
-        self.assertEqual(k["kdv"].deger.cget("text"), "1 firma")  # 1000 - 300 - 200 devreden
-        self.assertEqual(self.app.gostergeler["kdv"][0]["odeme"], 500)
+        self.assertEqual(k["kdv"].deger.cget("text"), "1 firma")  # 1000 - 300 - 200 devreden (alis KDV 1000 = 300 + 700 KDV2)
+        kdv = self.app.gostergeler["kdv"][0]
+        self.assertEqual((kdv["alis"], kdv["kdv2"], kdv["odeme"], kdv["odeme_kdv2"]), (300, 700, 500, 0))
 
     def test_detay_penceresi_acilir(self):
         once = len(self.kok.winfo_children())
@@ -1101,11 +1102,12 @@ class TablolarVeSekmelerTestleri(ArayuzZemini):
     def test_firma_durumunda_kdv_sonucu_sutunlari(self):
         t = self.app.durum_tablosu
         i = t.sutunlar.index("Satış KDV")
-        self.assertEqual(t.sutunlar[i + 1:i + 4], ["Önceki Dönem Devreden KDV", "Ödenecek KDV",
-                                                   "Sonraki Döneme Devreden KDV"])
+        self.assertEqual(t.sutunlar[i + 1:i + 7], [
+            "Önceki Dönem Devreden KDV", "Ödenecek KDV (KDV2 hariç)", "Sonraki Döneme Devreden KDV (KDV2 hariç)",
+            "KDV2 (Tevkif Edilen KDV)", "Ödenecek KDV (KDV2 dahil)", "Sonraki Döneme Devreden KDV (KDV2 dahil)"])
         satir = {s[0]: s for s in t.satirlar}["BIRLIK TIC"]
-        # satis KDV 1.000 - alis KDV 300 - firmalar.xlsx'teki devreden 200 = 500 odenecek
-        self.assertEqual(satir[i + 1:i + 4], ("200,00", "500,00", ""))
+        # satis KDV 1.000 - alis KDV 300 - firmalar.xlsx'teki devreden 200 = 500 odenecek (tevkifat yok: KDV2 bos, iki sonuc ayni)
+        self.assertEqual(satir[i + 1:i + 7], ("200,00", "500,00", "", "", "500,00", ""))
         # devreden KDV'si listede olmayan firma: tutar yildizli (0 sayildi), okunamayan firmada bos
         zeytin = {s[0]: s for s in t.satirlar}["ZEYTIN LTD"]
         self.assertEqual(zeytin[i + 1], "")
@@ -1117,6 +1119,11 @@ class TablolarVeSekmelerTestleri(ArayuzZemini):
         self.assertEqual(s2[i + 1:i + 4], ["1.500,00", "", "800,00"])
         s3 = self.mod.durum_satiri(k, {})
         self.assertEqual(s3[i + 1:i + 4], ["", "700,00 *", ""])
+        # tevkifatli fatura: alis KDV 300 = 200 hemen indirilen + 100 KDV2 (ayri sutun); KDV2 haric 1.000-200 = 800,
+        # KDV2 dahil 1.000-300 = 700
+        tevk = dict(k, tevkifat_kdv={"e-arsiv-alis": 100}, tevkifat_kdv_tahmini={"e-arsiv-alis": True})
+        s4 = self.mod.durum_satiri(tevk, {})
+        self.assertEqual(s4[i + 1:i + 7], ["", "800,00 *", "", "100,00 (tahmini)", "700,00 *", ""])
 
     def test_firma_sutunu_sabit_secim_ve_kaydirma_birlikte(self):
         t = self.app.durum_tablosu

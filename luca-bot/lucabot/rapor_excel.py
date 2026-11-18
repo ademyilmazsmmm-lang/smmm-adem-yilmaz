@@ -245,8 +245,9 @@ def _firma_durumu_sayfasi(ws, satirlar, stil):
             ws.cell(row=i, column=j + 1).number_format = PARA_BICIMI
 
 
-KDV_BASLIKLARI = ["Firma", "Dönem", "Satış KDV", "Alış KDV", "Önceki Dönem Devreden KDV", "Ödenecek KDV",
-                  "Sonraki Döneme Devreden KDV", "Not"]
+KDV_BASLIKLARI = ["Firma", "Dönem", "Satış KDV", "Alış KDV (KDV2 hariç)", "KDV2 (Tevkif Edilen KDV)",
+                  "Önceki Dönem Devreden KDV", "Ödenecek KDV (KDV2 hariç)", "Sonraki Döneme Devreden KDV (KDV2 hariç)",
+                  "Ödenecek KDV (KDV2 dahil)", "Sonraki Döneme Devreden KDV (KDV2 dahil)", "Not"]
 
 
 def _firmalar_devreden():
@@ -260,43 +261,60 @@ def _firmalar_devreden():
 
 
 def _kdv_satirlari(kayitlar, devreden):
-    """[(firma, donem, satis, alis, onceki, odenecek, devreden, not)] (KDV'si okunamayanlarda tutarlar None)."""
+    """[(firma, donem, satis, alis, kdv2, onceki, odenecek, devreden, odenecek_kdv2, devreden_kdv2, not)]
+    (KDV'si okunamayanlarda tutarlar None). Alis ve ilk iki sonuc KDV2 haric, son iki sonuc KDV2 dahildir."""
     satirlar = []
     for firma in sorted(kayitlar):
         k = kayitlar[firma]
         kdv = gostergeler.kdv_sonucu(k, firma, devreden)
         if not kdv["veri"]:
-            satirlar.append((firma, k.get("donem", ""), None, None, kdv["onceki"], None, None,
+            satirlar.append((firma, k.get("donem", ""), None, None, None, kdv["onceki"], None, None, None, None,
                              "KDV tutarı okunamadı (Excel inmemiş ya da fatura yok)"))
             continue
         notlar = [] if kdv["onceki"] is not None else ["Önceki dönem devreden KDV girilmemiş (0 sayıldı)"]
-        satirlar.append((firma, k.get("donem", ""), kdv["satis"], kdv["alis"], kdv["onceki"],
-                         kdv["odenecek"], kdv["devreden"], "; ".join(notlar)))
+        if kdv["kdv2_tahmini"]:
+            notlar.append("KDV2 tahmini: tevkifat oranı okunamadı (tevkifatlı faturaların KDV'sinin tamamı sayıldı)")
+        if kdv["kdv2_tutarsiz"]:
+            notlar.append("KDV2 alış KDV'sinden büyük çıktı; kontrol edin")
+        satirlar.append((firma, k.get("donem", ""), kdv["satis"], kdv["alis"], kdv["kdv2"], kdv["onceki"],
+                         kdv["odenecek"], kdv["devreden"], kdv["odenecek_kdv2"], kdv["devreden_kdv2"],
+                         "; ".join(notlar)))
     return satirlar
 
 
 def _kdv_sayfasi(ws, kayitlar, devreden, stil):
     ws.title = "KDV Sonucu"
     satirlar = _kdv_satirlari(kayitlar, devreden)
-    _tablo(ws, KDV_BASLIKLARI, satirlar, [26, 22, 16, 16, 20, 16, 22, 52], stil)
+    _tablo(ws, KDV_BASLIKLARI, satirlar, [26, 22, 16, 18, 18, 20, 18, 22, 18, 22, 52], stil)
     for i, satir in enumerate(satirlar, 2):
-        for j in range(3, 8):
+        for j in range(3, 11):
             ws.cell(row=i, column=j).number_format = PARA_BICIMI
-        if satir[5]:  # odenecek KDV var
-            ws.cell(row=i, column=6).fill = stil["uyari"]
-        if satir[6]:  # sonraki doneme devreden KDV var
-            ws.cell(row=i, column=7).fill = stil["iyi"]
+        if satir[6]:  # odenecek KDV (KDV2 haric) var
+            ws.cell(row=i, column=7).fill = stil["uyari"]
+        if satir[7]:  # sonraki doneme devreden KDV (KDV2 haric) var
+            ws.cell(row=i, column=8).fill = stil["iyi"]
+        if satir[8]:  # odenecek KDV (KDV2 dahil) var
+            ws.cell(row=i, column=9).fill = stil["uyari"]
+        if satir[9]:
+            ws.cell(row=i, column=10).fill = stil["iyi"]
     son = len(satirlar) + 1
     toplam = son + 1
     ws.cell(row=toplam, column=1, value="TOPLAM (süzülen satırlar)").font = stil["kalin"]
-    for j, harf in ((3, "C"), (4, "D"), (5, "E"), (6, "F"), (7, "G")):
+    for j, harf in ((3, "C"), (4, "D"), (5, "E"), (6, "F"), (7, "G"), (8, "H"), (9, "I"), (10, "J")):
         h = ws.cell(row=toplam, column=j, value=f"=SUBTOTAL(109,{harf}2:{harf}{max(son, 2)})")
         h.font = stil["kalin"]
         h.number_format = PARA_BICIMI
-    aciklama = ws.cell(row=toplam + 2, column=1, value=(
-        "Ödenecek KDV = satış KDV - alış KDV - önceki dönem devreden KDV (pozitifse); negatifse sonraki döneme "
-        "devreden KDV olarak gösterilir. Önceki dönem devreden KDV firmalar.xlsx'teki \"Devreden KDV\" sütunundan gelir."))
-    aciklama.font = stil["kalin"].__class__(italic=True, color="595959")
+    italik = stil["kalin"].__class__(italic=True, color="595959")
+    for sira, metin in enumerate((
+            "Ödenecek KDV (KDV2 hariç) = satış KDV - alış KDV (KDV2 hariç) - önceki dönem devreden KDV (pozitifse); "
+            "negatifse sonraki döneme devreden KDV olarak gösterilir. Önceki dönem devreden KDV firmalar.xlsx'teki "
+            "\"Devreden KDV\" sütunundan gelir.",
+            "KDV2 (tevkif edilen KDV): tevkifatlı faturada KDV'nin tevkifat oranı kadarı (örn. KDV 100 TL, tevkifat "
+            "3/10 ise 30 TL). Excel'deki KDV sütunu faturadaki tam KDV kabul edilir; alıcı yalnız kalanı (70 TL) hemen "
+            "indirir. KDV2 ödendiğinde indirim konusu olur; ödenip ödenmeyeceği bilinemediği için iki sonuç verilir.",
+            "Ödenecek KDV (KDV2 dahil) = satış KDV - (alış KDV + KDV2) - önceki dönem devreden KDV: KDV2'nin de "
+            "indirildiği durumdaki sonuç."), start=2):
+        ws.cell(row=toplam + sira, column=1, value=metin).font = italik
 
 
 def _tevkifatli_nolar(kayit):
@@ -326,13 +344,15 @@ def _ayri_sekmeler(wb, kayitlar, devreden, stil):
     donem = lambda f: (kayitlar.get(f) or {}).get("donem", "")
 
     ws = wb.create_sheet("KDV Ödemesi")
-    satirlar = [(x["firma"], donem(x["firma"]), x["satis"], x["alis"], x["devreden"], x["odeme"]) for x in g["kdv"]]
-    _tablo(ws, ["Firma", "Dönem", "Satış KDV", "Alış KDV", "Önceki Dönem Devreden KDV", "Ödenecek KDV"], satirlar,
-           [26, 22, 16, 16, 24, 16], stil)
+    satirlar = [(x["firma"], donem(x["firma"]), x["satis"], x["alis"], x["kdv2"], x["devreden"], x["odeme"],
+                 x["odeme_kdv2"]) for x in g["kdv"]]
+    _tablo(ws, ["Firma", "Dönem", "Satış KDV", "Alış KDV (KDV2 hariç)", "KDV2 (Tevkif Edilen KDV)",
+                "Önceki Dönem Devreden KDV", "Ödenecek KDV (KDV2 hariç)", "Ödenecek KDV (KDV2 dahil)"], satirlar,
+           [26, 22, 16, 18, 18, 24, 18, 18], stil)
     for i in range(2, len(satirlar) + 2):
-        for j in range(3, 7):
+        for j in range(3, 9):
             ws.cell(row=i, column=j).number_format = PARA_BICIMI
-        ws.cell(row=i, column=6).fill = stil["uyari"]
+        ws.cell(row=i, column=7).fill = stil["uyari"]
     if not satirlar:
         ws.cell(row=2, column=1, value="Ödeme çıkan firma yok.").fill = stil["iyi"]
 

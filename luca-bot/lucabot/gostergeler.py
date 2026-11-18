@@ -4,7 +4,8 @@
     Alis Tevkifat KDV      tevkifatli alis faturasi olan firmalar (KDV2)
     Alis SMM               e-SMM alis makbuzu olan firmalar
     Interaktif - e-Arsiv   iki ekranin fatura sayisi tutmayan firmalar
-    KDV odemesi cikabilir  satis KDV - alis KDV - devreden KDV > 0 olan firmalar
+    KDV odemesi cikabilir  satis KDV - alis KDV - devreden KDV > 0 olan firmalar (KDV2 haric; KDV2 dahil
+                           sonuc ayri sutunda: bkz. kdv_sonucu)
 
 Tutarlarda iptal/itiraz edilen faturalar yoktur; ayni faturayi gosteren
 ekranlar bir kez sayilir (bkz. rapor.ALIS_BIRLESIMI / SATIS_BIRLESIMI).
@@ -17,17 +18,33 @@ from .firma_listesi import listede_bul
 
 
 def kdv_sonucu(k, firma, devreden):
-    """Firmanin KDV durumu: satis KDV - alis KDV - onceki donemden devreden KDV.
+    """Firmanin KDV durumu, tevkif edilen KDV'nin (KDV2) iki ayri sekilde sayildigi iki sonucla.
 
-    fark > 0: odenecek KDV; fark < 0: sonraki doneme devreden KDV. onceki: firmalar.xlsx'te girilmemisse None
+    Excel'deki KDV sutunu faturadaki TAM KDV kabul edilir (tevkifatli faturada 100 TL). Bunun tevkif edilen
+    kismi (orn. 30 TL) KDV2'dir; satici yalniz kalan 70 TL'yi tahsil eder.
+      alis        KDV2 haric alis KDV: hemen indirilen kisim (70)
+      kdv2        tevkif edilen KDV: ayri sutun (30); odendiginde indirim konusu olur, odenip odenmeyecegi bilinemez
+      alis_tam    alis + kdv2 (Excel'deki toplam alis KDV)
+      fark/odenecek/devreden                KDV2 HARIC:  satis - alis - onceki
+      fark_kdv2/odenecek_kdv2/devreden_kdv2 KDV2 DAHIL:  satis - alis_tam - onceki
+    fark > 0 odenecek KDV, fark < 0 sonraki doneme devreden KDV. onceki: firmalar.xlsx'te girilmemisse None
     (hesapta 0 sayilir). veri: satis ya da alis KDV'si hic okunmamissa False (sonuc anlamsiz)."""
     satis = rapor._grup_toplami(k, "kdv", rapor.SATIS_EKRANLARI)
-    alis = rapor._grup_toplami(k, "kdv", rapor.ALIS_EKRANLARI)
+    alis_tam = rapor._grup_toplami(k, "kdv", rapor.ALIS_EKRANLARI)
+    kdv2 = round(max(rapor.tevkifat_kdv(k) or 0, 0), 2)
+    kdv2_dusulen = min(kdv2, alis_tam) if alis_tam > 0 else 0   # alis KDV'sinden fazla olamaz
+    alis = round(alis_tam - kdv2_dusulen, 2)
     liste_adi = listede_bul(firma, devreden)
     onceki = devreden.get(liste_adi) if liste_adi else None
     fark = round(satis - alis - (onceki or 0), 2)
-    return {"satis": satis, "alis": alis, "onceki": onceki, "fark": fark, "veri": bool(satis or alis),
-            "odenecek": max(fark, 0), "devreden": max(-fark, 0)}
+    fark_kdv2 = round(satis - alis_tam - (onceki or 0), 2)
+    return {"satis": satis, "alis": alis, "alis_tam": alis_tam, "kdv2": kdv2,
+            "kdv2_tahmini": bool(kdv2) and any((k.get("tevkifat_kdv_tahmini") or {}).get(t)
+                                               for t in rapor.TEVKIFAT_EKRANLARI),
+            "kdv2_tutarsiz": kdv2 > alis_tam + 0.01,
+            "onceki": onceki, "veri": bool(satis or alis_tam),
+            "fark": fark, "odenecek": max(fark, 0), "devreden": max(-fark, 0),
+            "fark_kdv2": fark_kdv2, "odenecek_kdv2": max(fark_kdv2, 0), "devreden_kdv2": max(-fark_kdv2, 0)}
 
 
 def hesapla(kayitlar, devreden=None, donem=None):
@@ -73,9 +90,10 @@ def hesapla(kayitlar, devreden=None, donem=None):
             sonuc["hata"].append({"firma": firma, **h})
 
         kdv = kdv_sonucu(k, firma, devreden)
-        if kdv["odenecek"] > 0:
-            sonuc["kdv"].append({"firma": firma, "satis": kdv["satis"], "alis": kdv["alis"],
-                                 "devreden": kdv["onceki"], "odeme": kdv["odenecek"]})
+        if kdv["odenecek"] > 0:   # KDV2 haric hesapta odeme cikiyorsa (KDV2 dahil hesap daha dusuk olabilir)
+            sonuc["kdv"].append({"firma": firma, "satis": kdv["satis"], "alis": kdv["alis"], "kdv2": kdv["kdv2"],
+                                 "devreden": kdv["onceki"], "odeme": kdv["odenecek"],
+                                 "odeme_kdv2": kdv["odenecek_kdv2"]})
     return sonuc
 
 

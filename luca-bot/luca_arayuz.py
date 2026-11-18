@@ -249,7 +249,8 @@ def dugme(ebeveyn, metin, komut, ana=False, **kw):
 
 
 VARLIKLAR = KOK / "varliklar"
-KDV_SUTUNLARI = ("Önceki Dönem Devreden KDV", "Ödenecek KDV", "Sonraki Döneme Devreden KDV")
+KDV_SUTUNLARI = ("Önceki Dönem Devreden KDV", "Ödenecek KDV (KDV2 hariç)", "Sonraki Döneme Devreden KDV (KDV2 hariç)",
+                 "KDV2 (Tevkif Edilen KDV)", "Ödenecek KDV (KDV2 dahil)", "Sonraki Döneme Devreden KDV (KDV2 dahil)")
 # Firma Durumu tablosu: rapor.xlsx sutunlari + "Satış KDV"den sonra KDV sonucu
 DURUM_SUTUNLARI = list(rapor.BASLIKLAR)
 _i = DURUM_SUTUNLARI.index("Satış KDV") + 1
@@ -257,13 +258,18 @@ DURUM_SUTUNLARI[_i:_i] = KDV_SUTUNLARI
 
 
 def durum_satiri(kayit, devreden):
-    """rapor.xlsx satiri + KDV sonucu: onceki donem devreden, odenecek, sonraki doneme devreden (TL metni)."""
+    """rapor.xlsx satiri + KDV sonucu (TL metni): onceki donem devreden, KDV2 haric odenecek / sonraki doneme
+    devreden, tevkif edilen KDV (KDV2) ve KDV2 dahil odenecek / sonraki doneme devreden."""
     satir = rapor._satir(kayit)
     kdv = gostergeler.kdv_sonucu(kayit, kayit["firma"], devreden)
     yildiz = "" if kdv["onceki"] is not None else " *"  # onceki devreden girilmemis: 0 sayildi
+
+    def tutar(deger):
+        return (rapor._tutar_yaz(deger) + yildiz) if kdv["veri"] and deger else ""
     ekle = [rapor._tutar_yaz(kdv["onceki"]) if kdv["onceki"] is not None else "",
-            (rapor._tutar_yaz(kdv["odenecek"]) + yildiz) if kdv["veri"] and kdv["odenecek"] else "",
-            (rapor._tutar_yaz(kdv["devreden"]) + yildiz) if kdv["veri"] and kdv["devreden"] else ""]
+            tutar(kdv["odenecek"]), tutar(kdv["devreden"]),
+            (rapor._tutar_yaz(kdv["kdv2"]) + (" (tahmini)" if kdv["kdv2_tahmini"] else "")) if kdv["kdv2"] else "",
+            tutar(kdv["odenecek_kdv2"]), tutar(kdv["devreden_kdv2"])]
     i = rapor.BASLIKLAR.index("Satış KDV") + 1
     return satir[:i] + ekle + satir[i:]
 
@@ -1774,13 +1780,17 @@ class Arayuz:
                 ek_dugme=("Bunları Tekrar Sorgula", lambda w, g=g: self.tekrar_sorgula(g, w)) if g else None)
         else:
             baslik = "KDV ödemesi çıkabilecek firmalar"
-            sutunlar = ("Firma", "Satış KDV", "Alış KDV", "Devreden", "Tahmini Ödeme")
-            satirlar = [(x["firma"], tl(x["satis"]), tl(x["alis"]),
+            sutunlar = ("Firma", "Satış KDV", "Alış KDV (KDV2 hariç)", "KDV2 (Tevkif Edilen)", "Devreden",
+                        "Ödeme (KDV2 hariç)", "Ödeme (KDV2 dahil)")
+            satirlar = [(x["firma"], tl(x["satis"]), tl(x["alis"]), tl(x["kdv2"]),
                          tl(x["devreden"]) if x["devreden"] is not None else "girilmedi",
-                         tl(x["odeme"])) for x in g]
-            toplam = ("Toplam", "", "", "", tl(sum(x["odeme"] for x in g)))
+                         tl(x["odeme"]), tl(x["odeme_kdv2"])) for x in g]
+            toplam = ("Toplam", "", "", "", "", tl(sum(x["odeme"] for x in g)),
+                      tl(sum(x["odeme_kdv2"] for x in g)))
             notlar = ["Tahmini: Satış KDV − Alış KDV − Devreden KDV (iptaller hariç). Diğer beyan"
                       " kalemleri hesaba girmez; kesin tutar değil, uyarıdır.",
+                      "KDV2 (tevkif edilen KDV) ayrı sütundadır: Alış KDV'ye dahil değildir. KDV2 ödendiğinde indirim"
+                      " konusu olduğundan iki sonuç gösterilir: KDV2 hariç (yalnız hemen indirilen kısım) ve KDV2 dahil.",
                       "Devreden KDV, firma listesindeki \"Devreden KDV\" sütunundan okunur;"
                       " boşsa 0 sayılır."]
         self._detay_penceresi(baslik, sutunlar, satirlar, toplam, notlar)
