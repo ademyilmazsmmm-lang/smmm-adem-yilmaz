@@ -304,7 +304,7 @@ class UctanUca(unittest.TestCase):
     def test_toplu_menu_yoksa_eski_ekranlara_dusulmez(self):
         from test_iki_hesap import _calistir
         sahte_luca.SAYAC.update(ara_menu=True, toplu=False)         # menude yalnizca grupsuz "Toplu Sorgulama"
-        kod, cikti, _ = _calistir(self.klasor, self.adres, {}, ["--firma", "AKIN", "--bastan", "--toplu"])
+        kod, cikti, _ = _calistir(self.klasor, self.adres, {}, ["--firma", "AKIN", "--bastan", "--toplu"], hizli=True)
         rapor = json.loads((self.klasor / "indirilenler" / "rapor.json").read_text(encoding="utf-8"))
         self.assertTrue(rapor["AKIN COBAN"]["durumlar"]["e-arsiv-alis"].startswith("hata"), cikti[-1500:])
         self.assertIn("Toplu Sorgulama kullanilamadi", cikti)
