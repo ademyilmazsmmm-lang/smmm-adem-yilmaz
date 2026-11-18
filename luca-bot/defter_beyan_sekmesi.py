@@ -140,6 +140,7 @@ class DefterBeyanSekmesi(KarZararSekmesi):
         tk.Label(p, text="Sadece bu firma (boş = tüm 2. sınıf)", font=u.KUCUK, fg=u.ETIKET, bg=u.ZEMIN,
                  anchor="w").pack(fill="x", pady=(14, 3))
         u.giris_kutusu(p, self.v_firma).pack(fill="x", ipady=4)
+        self._hesap_secici(p)
 
         u.bolum_basligi(p, "İşlem").pack(fill="x", pady=(16, 0))
         for yazi, deger in ISLEMLER:
@@ -393,7 +394,7 @@ class DefterBeyanSekmesi(KarZararSekmesi):
             raise ValueError("Tarihleri GG/AA/YYYY biçiminde yazın (örnek 01/01/2026).")
         ayar_hazirla(self.klasor, self.a.ayarlar, {})
         komut = [self.ui.python_komutu(), "-u", str(self.klasor / "defter_beyan.py"), "--bitince-kapat",
-                 "--tarih", f"{bas}-{bit}", "--islem", self._islem()]
+                 "--tarih", f"{bas}-{bit}", "--islem", self._islem()] + self._hesap_arg()
         if tam_firmalar:
             for f in tam_firmalar:
                 komut += ["--firma-tam", f]

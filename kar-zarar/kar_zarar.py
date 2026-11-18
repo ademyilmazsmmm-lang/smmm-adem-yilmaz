@@ -23,7 +23,7 @@ KOK = Path(__file__).resolve().parent
 sys.path.insert(0, str(KOK))
 
 from karzarar import defterbeyan, hesaplama, rapor  # noqa: E402
-from lucabot import konsol  # noqa: E402
+from lucabot import hesaplar, konsol  # noqa: E402
 from lucabot.firma_listesi import firmalari_suz  # noqa: E402
 from lucabot.firma_tablosu import luca_kaydi_bul  # noqa: E402
 from lucabot.giris import luca_oturumu_ac  # noqa: E402
@@ -32,6 +32,7 @@ from lucabot.luca_gezinme import firma_secici_bekle  # noqa: E402
 from lucabot.musteri_listesi import listeyi_oku as musteri_listesini_oku  # noqa: E402
 from lucabot.ortak import (AYAR, DURDUR_DOSYASI, ayarlari_oku, gunluge_yaz,  # noqa: E402
                            tarih_cozumle, yaz)
+from lucabot.hesaplar import gorunen_ad, profil_eki as hesap_profil_eki  # noqa: E402
 from lucabot.tarayici import profil_klasoru, tarayici_ac, tarayiciyi_kapat  # noqa: E402
 
 # Luca Musteri Listesi filtresi: yalniz isletme defteri firmalari (bilanco firmalari Defter Beyan'a sorulmaz)
@@ -49,6 +50,9 @@ def arguman_ayristirici():
                                    " ayarlar.json'daki degerleri ezer)")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
+    p.add_argument("--hesap", default="hepsi",
+                   help="Hangi Luca hesabi: hepsi (once ofis, sonra etkinse isletme), ofis ya da isletme "
+                        "(ayarlar.json: ikinci_hesap)")
     p.add_argument("--firma", action="append",
                    help="Sadece bu firma(lar); virgulle ayirarak birden fazla yazilabilir")
     p.add_argument("--firma-tam", action="append", dest="firma_tam",
@@ -160,6 +164,12 @@ def _kaydet(kayit_yolu, bas, bit, sonuclar):
 ONBELLEK = "musteri-listeleri.json"  # cikti/ altinda: {"yil", "alinma", "siniflar": {sinif: [kayit]}}
 
 
+def hesap_onbellek_yolu(cikti, sira=0):
+    """Musteri listesi onbellegi; her Luca hesabinin (ofis / isletme) firmalari ve siniflari farklidir: ikinci hesap ayri dosya."""
+    yol = cikti / ONBELLEK
+    return yol if not sira else yol.with_name(f"{yol.stem}-hesap{sira + 1}{yol.suffix}")
+
+
 def onbellek_oku(yol, yil):
     """Ayni yilin kayitli Musteri Listesi'ni {sinif: [kayit]} dondurur; yok/eski/bozuksa {}."""
     try:
@@ -229,69 +239,87 @@ def kar_zarar_cek(args, ayarlar, p):
     log = klasor / "calisma.log"
     kayit_yolu = CIKTI / hesaplama.DOSYA
     konsol.bolum(f"KAR / ZARAR TAHMINI  {bas:%d/%m/%Y} - {bit:%d/%m/%Y}", log)
-    profil = profil_klasoru(log)
+
+    try:
+        hesap_listesi = hesaplar.hesaplar(ayarlar, args.hesap)
+    except ValueError as e:
+        yaz(f"HATA: {e}", log)
+        return 1
+    coklu = len(hesap_listesi) > 1
+    if coklu:
+        yaz("Luca hesapları (sırayla): " + " -> ".join(gorunen_ad(ad) for ad, _ in hesap_listesi), log)
+    sonuclar = {}
 
     from playwright.sync_api import sync_playwright
     with sync_playwright() as pw:
-        ctx = tarayici_ac(pw, profil, log, AYAR["chrome_gunlugu"])
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        page = luca_oturumu_ac(ctx, page, ayarlar, gece_modu, klasor / "tani", log)
-        if page is None:
-            tarayiciyi_kapat(ctx)
-            return 1
-        sonuclar = {}
-        try:
-            _, _, luca_firmalari = firma_secici_bekle(page)
-            secim = firmalari_suz(luca_firmalari, ayarlar, args.firma, args.limit, bas, log, tam_adlar=args.firma_tam)
-            if not secim.firmalar:
-                yaz(f"Islenecek firma yok: {secim.bos_sebep}.", log)
-                return 1
-            if args.sadece_luca:
-                # tek firma denemesi: Musteri Listesi / Defter Beyan atlanir, firma dogrudan Luca hesap planindan okunur
-                yaz("--sadece-luca: Müşteri Listesi ve Defter Beyan atlanıyor; her adımdan sonra tanı dosyası kaydedilir", log)
-                firmalar, vkn_map, vkn_hepsi = list(secim.firmalar), {}, {}
-                kaydet_fn = lambda: _kaydet(kayit_yolu, bas, bit, sonuclar)
-                luca_gidecek = list(firmalar)
-            else:
-                # VKN/TC ve kapanis tarihleri: Luca > Yonetici > Musteri Listesi (donem yili)
-                # 1) Sinif=Isletme Defteri: Defter Beyan'a sorulacak firmalar; 2) Sinif=1.Sinif: Luca hesap plani firmalari
-                musteriler = []
-                onbellek_yolu = CIKTI / ONBELLEK
-                onbellek = {} if args.listeyi_yenile else onbellek_oku(onbellek_yolu, bit.year)
-                siniflar = ayarlar.get("musteri_sinifi", MUSTERI_SINIFI)
-                for sira, sinif in enumerate([siniflar] if isinstance(siniflar, str) else siniflar):
-                    musteriler += _musteri_listesi(page, bit.year, klasor / (f"tani-{sira}" if sira else "tani"),
-                                                   sinif, log, onbellek, onbellek_yolu) or []
-                luca_sinifi = "" if args.sadece_defterbeyan else ayarlar.get("luca_sinifi", LUCA_SINIFI)
-                birinci = (_musteri_listesi(page, bit.year, klasor / "tani-1sinif", luca_sinifi, log,
-                                            onbellek, onbellek_yolu) if luca_sinifi else None)
-                acik_pencereleri_kapat(page)
-                kayitlar = musteriler + (birinci or [])
-                firmalar = kapanmislari_ele(secim.firmalar, kayitlar, bas, log)
-                vkn_map = hesaplama.vkn_haritasi(firmalar, musteriler)
-                hesaplama.vkn_tamamla(vkn_map, firmalar, ayarlar, log)
-                vkn_hepsi = {**hesaplama.vkn_haritasi(firmalar, kayitlar), **vkn_map}
-                yaz(f"{len(firmalar)} firma, {len(vkn_map)} tanesinin VKN'si biliniyor", log)
-                kaydet_fn = lambda: _kaydet(kayit_yolu, bas, bit, sonuclar)
-                db_sayfa = ctx.new_page()
-                luca_gidecek = hesaplama.defter_beyan_asamasi(
-                    db_sayfa, ayarlar, firmalar, vkn_map, bas, bit, sonuclar, kaydet_fn, log, klasor / "tani",
-                    tani_hep=bool(args.sadece_defterbeyan))
-                try:
-                    db_sayfa.close()
-                except Exception:
-                    pass
-                if args.sadece_defterbeyan:
-                    luca_gidecek = []  # tek firma denemesi: Luca hesap plani atlanir
+        for sira, (hesap_adi, ayar_h) in enumerate(hesap_listesi):
+            if coklu:
+                konsol.bolum(f"LUCA HESABI {sira + 1}/{len(hesap_listesi)}: {gorunen_ad(hesap_adi).upper()}", log)
+            once = set(sonuclar)
+            ctx = tarayici_ac(pw, profil_klasoru(log, hesap_profil_eki(sira)), log, AYAR["chrome_gunlugu"])
+            page = ctx.pages[0] if ctx.pages else ctx.new_page()
+            page = luca_oturumu_ac(ctx, page, ayar_h, gece_modu, klasor / "tani", log)
+            if page is None:
+                tarayiciyi_kapat(ctx)
+                continue
+            try:
+                _, _, luca_firmalari = firma_secici_bekle(page)
+                secim = firmalari_suz(luca_firmalari, ayar_h, args.firma, args.limit, bas, log, tam_adlar=args.firma_tam)
+                if not secim.firmalar:
+                    yaz(f"Islenecek firma yok: {secim.bos_sebep}.", log)
+                    continue
+                uygun = [f for f in secim.firmalar if f not in sonuclar]   # iki hesapta da gorunen firma ilkinde islenir
+                if not uygun:
+                    continue
+                if args.sadece_luca:
+                    # tek firma denemesi: Musteri Listesi / Defter Beyan atlanir, firma dogrudan Luca hesap planindan okunur
+                    yaz("--sadece-luca: Müşteri Listesi ve Defter Beyan atlanıyor; her adımdan sonra tanı dosyası kaydedilir", log)
+                    firmalar, vkn_map, vkn_hepsi = list(uygun), {}, {}
+                    kaydet_fn = lambda: _kaydet(kayit_yolu, bas, bit, sonuclar)
+                    luca_gidecek = list(firmalar)
                 else:
-                    luca_gidecek = _luca_firmalari(luca_gidecek, birinci, luca_sinifi, bit.year, log)
-            page.bring_to_front()
-            hesaplama.luca_asamasi(page, luca_gidecek, bas, bit, sonuclar, vkn_hepsi,
-                                   klasor / "tani", kaydet_fn, log, tani_hep=bool(args.sadece_luca),
-                                   kaynak=args.luca_kaynagi or ayarlar.get("luca_kaynagi", LUCA_KAYNAGI),
-                                   yedek_hesap_plani=bool(ayarlar.get("mizan_yedek_hesap_plani", False)))
-        finally:
-            tarayiciyi_kapat(ctx)
+                    # VKN/TC ve kapanis tarihleri: Luca > Yonetici > Musteri Listesi (donem yili)
+                    # 1) Sinif=Isletme Defteri: Defter Beyan'a sorulacak firmalar; 2) Sinif=1.Sinif: Luca hesap plani firmalari
+                    musteriler = []
+                    onbellek_yolu = hesap_onbellek_yolu(CIKTI, sira)
+                    onbellek = {} if args.listeyi_yenile else onbellek_oku(onbellek_yolu, bit.year)
+                    siniflar = ayarlar.get("musteri_sinifi", MUSTERI_SINIFI)
+                    for sira, sinif in enumerate([siniflar] if isinstance(siniflar, str) else siniflar):
+                        musteriler += _musteri_listesi(page, bit.year, klasor / (f"tani-{sira}" if sira else "tani"),
+                                                       sinif, log, onbellek, onbellek_yolu) or []
+                    luca_sinifi = "" if args.sadece_defterbeyan else ayarlar.get("luca_sinifi", LUCA_SINIFI)
+                    birinci = (_musteri_listesi(page, bit.year, klasor / "tani-1sinif", luca_sinifi, log,
+                                                onbellek, onbellek_yolu) if luca_sinifi else None)
+                    acik_pencereleri_kapat(page)
+                    kayitlar = musteriler + (birinci or [])
+                    firmalar = kapanmislari_ele(uygun, kayitlar, bas, log)
+                    vkn_map = hesaplama.vkn_haritasi(firmalar, musteriler)
+                    hesaplama.vkn_tamamla(vkn_map, firmalar, ayarlar, log)
+                    vkn_hepsi = {**hesaplama.vkn_haritasi(firmalar, kayitlar), **vkn_map}
+                    yaz(f"{len(firmalar)} firma, {len(vkn_map)} tanesinin VKN'si biliniyor", log)
+                    kaydet_fn = lambda: _kaydet(kayit_yolu, bas, bit, sonuclar)
+                    db_sayfa = ctx.new_page()
+                    luca_gidecek = hesaplama.defter_beyan_asamasi(
+                        db_sayfa, ayarlar, firmalar, vkn_map, bas, bit, sonuclar, kaydet_fn, log, klasor / "tani",
+                        tani_hep=bool(args.sadece_defterbeyan))
+                    try:
+                        db_sayfa.close()
+                    except Exception:
+                        pass
+                    if args.sadece_defterbeyan:
+                        luca_gidecek = []  # tek firma denemesi: Luca hesap plani atlanir
+                    else:
+                        luca_gidecek = _luca_firmalari(luca_gidecek, birinci, luca_sinifi, bit.year, log)
+                page.bring_to_front()
+                hesaplama.luca_asamasi(page, luca_gidecek, bas, bit, sonuclar, vkn_hepsi,
+                                       klasor / "tani", kaydet_fn, log, tani_hep=bool(args.sadece_luca),
+                                       kaynak=args.luca_kaynagi or ayarlar.get("luca_kaynagi", LUCA_KAYNAGI),
+                                       yedek_hesap_plani=bool(ayarlar.get("mizan_yedek_hesap_plani", False)))
+            finally:
+                tarayiciyi_kapat(ctx)
+            for f in set(sonuclar) - once:
+                if coklu:
+                    sonuclar[f]["hesap"] = gorunen_ad(hesap_adi)
     tamam = sum(1 for s in sonuclar.values() if s["kar"] is not None)
     excel = _kaydet(kayit_yolu, bas, bit, sonuclar)
     yaz(f"EXCEL RAPOR: {excel}", log)

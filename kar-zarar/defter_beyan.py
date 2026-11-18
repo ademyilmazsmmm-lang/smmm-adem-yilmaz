@@ -24,13 +24,14 @@ sys.path.insert(0, str(KOK))
 
 import kar_zarar as kz  # noqa: E402  (ortak: giris, musteri listesi onbellegi, ayarlar)
 from karzarar import db_sonuc, defterbeyan_luca  # noqa: E402
-from lucabot import konsol  # noqa: E402
+from lucabot import hesaplar, konsol  # noqa: E402
 from lucabot.firma_listesi import firmalari_suz  # noqa: E402
 from lucabot.firma_tablosu import luca_kaydi_bul  # noqa: E402
 from lucabot.giris import luca_oturumu_ac  # noqa: E402
 from lucabot.luca_ekran import acik_pencereleri_kapat  # noqa: E402
 from lucabot.luca_gezinme import donem_ayarla, firma_sec, firma_secici_bekle  # noqa: E402
 from lucabot.ortak import AYAR, DURDUR_DOSYASI, ayarlari_oku, gunluge_yaz, yaz  # noqa: E402
+from lucabot.hesaplar import gorunen_ad, profil_eki as hesap_profil_eki  # noqa: E402
 from lucabot.tarayici import profil_klasoru, tarayici_ac, tarayiciyi_kapat  # noqa: E402
 
 CIKTI = kz.CIKTI
@@ -46,6 +47,9 @@ def arguman_ayristirici():
     p.add_argument("--bitis", help="GG/AA/YYYY")
     p.add_argument("--islem", choices=["kontrol", "gonder"], default="kontrol",
                    help="kontrol: yalniz say (varsayilan, hicbir sey gonderilmez); gonder: gonderilmemisleri Defter Beyan'a gonder")
+    p.add_argument("--hesap", default="hepsi",
+                   help="Hangi Luca hesabi: hepsi (once ofis, sonra etkinse isletme), ofis ya da isletme "
+                        "(ayarlar.json: ikinci_hesap)")
     p.add_argument("--firma", action="append", help="Sadece bu firma(lar) (parca eslesir, virgulle ayrilir)")
     p.add_argument("--firma-tam", action="append", dest="firma_tam",
                    help="Sadece bu firma(lar), Luca'daki adla TAM eslesen; birden fazla kez verilebilir")
@@ -61,9 +65,9 @@ def arguman_ayristirici():
     return p
 
 
-def ikinci_sinif_firmalari(page, adaylar, bit, ayarlar, log, yenile=False):
+def ikinci_sinif_firmalari(page, adaylar, bit, ayarlar, log, yenile=False, sira=0):
     """Luca'daki firmalardan Musteri Listesi'nde 2. sinif (isletme/serbest meslek defteri) olanlar."""
-    onbellek_yolu = CIKTI / kz.ONBELLEK
+    onbellek_yolu = kz.hesap_onbellek_yolu(CIKTI, sira)   # her Luca hesabinin musteri listesi ayri onbellekte
     onbellek = {} if yenile else kz.onbellek_oku(onbellek_yolu, bit.year)
     siniflar = ayarlar.get("musteri_sinifi", IKINCI_SINIF)
     kayitlar = []
@@ -89,71 +93,83 @@ def defter_beyan_cek(args, ayarlar, p):
     log = klasor / "calisma.log"
     kayit_yolu = CIKTI / db_sonuc.DOSYA
     konsol.bolum(f"DEFTER BEYAN {args.islem.upper()}  {bas_m} - {bit_m}", log)
-    profil = profil_klasoru(log)
     tani = klasor / "tani"
     sonuclar = {}
 
+    try:
+        hesap_listesi = hesaplar.hesaplar(ayarlar, args.hesap)
+    except ValueError as e:
+        yaz(f"HATA: {e}", log)
+        return 1
+    coklu = len(hesap_listesi) > 1
+    if coklu:
+        yaz("Luca hesapları (sırayla): " + " -> ".join(gorunen_ad(ad) for ad, _ in hesap_listesi), log)
     from playwright.sync_api import sync_playwright
     with sync_playwright() as pw:
-        ctx = tarayici_ac(pw, profil, log, AYAR["chrome_gunlugu"])
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        page = luca_oturumu_ac(ctx, page, ayarlar, gece_modu, tani, log)
-        if page is None:
-            tarayiciyi_kapat(ctx)
-            return 1
-        try:
-            _, _, luca_firmalari = firma_secici_bekle(page)
-            secim = firmalari_suz(luca_firmalari, ayarlar, args.firma, args.limit, bit, log, tam_adlar=args.firma_tam)
-            if not secim.firmalar:
-                yaz(f"Işlenecek firma yok: {secim.bos_sebep}.", log)
-                return 1
-            firmalar = list(secim.firmalar)
-            if not args.tum_firmalar:
-                firmalar = ikinci_sinif_firmalari(page, firmalar, bit, ayarlar, log, args.listeyi_yenile)
-            if not firmalar:
-                yaz("Işlenecek 2. sınıf firma yok.", log)
-                return 1
-            ardisik = 0
-            for i, firma in enumerate(firmalar, 1):
-                if page.is_closed():
-                    yaz("UYARI: Luca ana penceresi kapandı; kalan firmalar atlandı", log)
-                    break
-                yaz(f"[{i}/{len(firmalar)}] {firma}  (Defter Beyan {args.islem})", log)
-                db = None
-                try:
-                    acik_pencereleri_kapat(page)
-                    firma_sec(page, firma, log)
-                    if not donem_ayarla(page, firma, bas, bit, log):
-                        raise LookupError("firmanın bu döneme uygun çalışma dönemi yok")
-                    db = defterbeyan_luca.sayfayi_ac(ctx, page, log)
-                    sonuc = defterbeyan_luca.firma_isle(db, firma, bas_m, bit_m, args.islem, log, tani,
-                                                        tani_hep=args.tani)
-                    ardisik = 0 if not sonuc["hata"] else ardisik + 1
-                except LookupError as e:
-                    ardisik += 1
-                    yaz(f"    HATA: {e}", log)
-                    sonuc = db_sonuc.bos_sonuc(firma, f"{bas_m}-{bit_m}", args.islem)
-                    sonuc["hata"], sonuc["durum"] = str(e)[:200], "hata"
-                except Exception as e:
+        for sira, (hesap_adi, ayar_h) in enumerate(hesap_listesi):
+            if coklu:
+                konsol.bolum(f"LUCA HESABI {sira + 1}/{len(hesap_listesi)}: {gorunen_ad(hesap_adi).upper()}", log)
+            ctx = tarayici_ac(pw, profil_klasoru(log, hesap_profil_eki(sira)), log, AYAR["chrome_gunlugu"])
+            page = ctx.pages[0] if ctx.pages else ctx.new_page()
+            page = luca_oturumu_ac(ctx, page, ayar_h, gece_modu, tani, log)
+            if page is None:
+                tarayiciyi_kapat(ctx)
+                continue
+            try:
+                _, _, luca_firmalari = firma_secici_bekle(page)
+                secim = firmalari_suz(luca_firmalari, ayar_h, args.firma, args.limit, bit, log, tam_adlar=args.firma_tam)
+                if not secim.firmalar:
+                    yaz(f"Işlenecek firma yok: {secim.bos_sebep}.", log)
+                    continue
+                firmalar = [f for f in secim.firmalar if f not in sonuclar]   # iki hesapta da gorunen firma ilkinde islenir
+                if not args.tum_firmalar:
+                    firmalar = ikinci_sinif_firmalari(page, firmalar, bit, ayar_h, log, args.listeyi_yenile, sira)
+                if not firmalar:
+                    yaz("Işlenecek 2. sınıf firma yok.", log)
+                    continue
+                ardisik = 0
+                for i, firma in enumerate(firmalar, 1):
                     if page.is_closed():
-                        raise
-                    ardisik += 1
-                    yaz(f"    HATA: {type(e).__name__}: {str(e)[:150]}", log)
-                    sonuc = db_sonuc.bos_sonuc(firma, f"{bas_m}-{bit_m}", args.islem)
-                    sonuc["hata"], sonuc["durum"] = type(e).__name__, "hata"
-                finally:
-                    if db is not None:
-                        try:
-                            db.close()
-                        except Exception:
-                            pass
-                sonuclar[firma] = sonuc
-                db_sonuc.kaydet(kayit_yolu, f"{bas_m}-{bit_m}", {firma: sonuc})
-                if ardisik >= ARDISIK_HATA_SINIRI:
-                    yaz(f"UYARI: Art arda {ardisik} hata; kalan firmalar atlandı", log)
-                    break
-        finally:
-            tarayiciyi_kapat(ctx)
+                        yaz("UYARI: Luca ana penceresi kapandı; kalan firmalar atlandı", log)
+                        break
+                    yaz(f"[{i}/{len(firmalar)}] {firma}  (Defter Beyan {args.islem})" + (f"  [{gorunen_ad(hesap_adi)}]" if coklu else ""), log)
+                    db = None
+                    try:
+                        acik_pencereleri_kapat(page)
+                        firma_sec(page, firma, log)
+                        if not donem_ayarla(page, firma, bas, bit, log):
+                            raise LookupError("firmanın bu döneme uygun çalışma dönemi yok")
+                        db = defterbeyan_luca.sayfayi_ac(ctx, page, log)
+                        sonuc = defterbeyan_luca.firma_isle(db, firma, bas_m, bit_m, args.islem, log, tani,
+                                                            tani_hep=args.tani)
+                        ardisik = 0 if not sonuc["hata"] else ardisik + 1
+                    except LookupError as e:
+                        ardisik += 1
+                        yaz(f"    HATA: {e}", log)
+                        sonuc = db_sonuc.bos_sonuc(firma, f"{bas_m}-{bit_m}", args.islem)
+                        sonuc["hata"], sonuc["durum"] = str(e)[:200], "hata"
+                    except Exception as e:
+                        if page.is_closed():
+                            raise
+                        ardisik += 1
+                        yaz(f"    HATA: {type(e).__name__}: {str(e)[:150]}", log)
+                        sonuc = db_sonuc.bos_sonuc(firma, f"{bas_m}-{bit_m}", args.islem)
+                        sonuc["hata"], sonuc["durum"] = type(e).__name__, "hata"
+                    finally:
+                        if db is not None:
+                            try:
+                                db.close()
+                            except Exception:
+                                pass
+                    if coklu:
+                        sonuc["hesap"] = gorunen_ad(hesap_adi)
+                    sonuclar[firma] = sonuc
+                    db_sonuc.kaydet(kayit_yolu, f"{bas_m}-{bit_m}", {firma: sonuc})
+                    if ardisik >= ARDISIK_HATA_SINIRI:
+                        yaz(f"UYARI: Art arda {ardisik} hata; kalan firmalar atlandı", log)
+                        break
+            finally:
+                tarayiciyi_kapat(ctx)
     tamam = sum(1 for s in sonuclar.values() if s["durum"] == "tamam")
     bekleyen = sum(1 for s in sonuclar.values() if s["durum"] == "gönderilmemiş var")
     hatali = sum(1 for s in sonuclar.values() if s["durum"] == "hata")

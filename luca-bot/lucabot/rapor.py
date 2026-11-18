@@ -266,14 +266,14 @@ def kisa_fatura_no(no):
     return f"{no[:3]}..{no[-3:]}" if len(no) > 6 else no
 
 
-# Ekranda yalniz KUCUK farklar listelenir: iki liste arasindaki "Interaktif'te var, e-Arsiv'de yok" faturalarindan bu tutarin
-# USTUNDEKILER gosterilmez ve "e-Arsiv'de var, Interaktif'te yok" tarafi hic yazilmaz (Excel'deki fatura durumlari etkilenmez).
-GOSTERIM_TUTAR_USTU = 2000.0
+# Ekranda yalniz "Interaktif'te var, e-Arsiv'de yok" faturalari listelenir ("e-Arsiv'de var, Interaktif'te yok" tarafi hic yazilmaz) ve
+# bunlardan yalniz tutari GOSTERIM_TUTAR_ALTI ve ustu olanlar gosterilir (kucuk farklar gurultu). Excel'deki fatura durumlari etkilenmez.
+GOSTERIM_TUTAR_ALTI = 2000.0
 
 
 def goruntulenecek_eksikler(eksik):
-    """Ekranda gosterilecek eksik faturalar: tutari GOSTERIM_TUTAR_USTU'nu asmayanlar (tutari bilinmeyen gosterilir)."""
-    return [s for s in (eksik or []) if not _tutar(s) or abs(_tutar(s)) <= GOSTERIM_TUTAR_USTU]
+    """Ekranda gosterilecek eksik faturalar: tutari GOSTERIM_TUTAR_ALTI ve ustu olanlar (tutari bilinmeyen gosterilir)."""
+    return [s for s in (eksik or []) if not _tutar(s) or abs(_tutar(s)) >= GOSTERIM_TUTAR_ALTI]
 
 
 def _fatura_listesi(kayitlar, sinir):

@@ -96,7 +96,9 @@ def _donem(metin, dosya_adi):
 def cozumle(metin, dosya_adi=""):
     """Beyanname metninden Beyanname; KDV1 degilse BeyannameDegil."""
     duz = sadelestir(metin)
-    if "KATMA DEGER VERGISI BEYANNAMESI" not in duz or "SORUMLU SIFATIYLA" in duz:
+    # KDV2 (sorumlu sifatiyla) baslikta belirtilir; KDV1'in govdesinde de "Sorumlu Sifatiyla Beyan Edilerek Odenen KDV" satiri
+    # (indirim turu) bulunabilir, bu yuzden yalniz baslik bolgesine bakilir.
+    if "KATMA DEGER VERGISI BEYANNAMESI" not in duz or "SORUMLU SIFATIYLA" in duz[:duz.find("KATMA DEGER VERGISI BEYANNAMESI") + 400]:
         raise BeyannameDegil("KDV1 beyannamesi değil")
     bas, bit = _donem(metin, dosya_adi)
     vkn = re.search(r"Vergi Kimlik Numarası \(TC Kimlik No\)\s+(\d{10,11})", metin)

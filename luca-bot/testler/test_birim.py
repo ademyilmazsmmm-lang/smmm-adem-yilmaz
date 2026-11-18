@@ -193,22 +193,22 @@ class EksikFarkGosterimTestleri(unittest.TestCase):
                 "e-arsiv-alis": len(earsiv)}, "iptal": {}, "tevkifat": {}, "inmeyen": {},
                 "faturalar": {"e-arsiv-interaktif": interaktif, "e-arsiv-alis": earsiv}}
 
-    def test_yalniz_interaktifte_olanlar_ve_2000_tl_ustu_gosterilmez(self):
+    def test_yalniz_interaktifte_olanlar_ve_2000_tl_alti_gosterilmez(self):
         ortak = ["ORTAK", "AAA2026000000001", 100.0]
         k = self._kayit([ortak, ["KUCUK", "AAA2026000000002", 1500.0], ["BUYUK", "AAA2026000000003", 53000.0]],
                         [ortak, ["FAZLAEARSIV", "AAA2026000000009", 70.0]])
         metin = rapor._eksik_faturalar(k)
-        self.assertIn("İnteraktif'te var, e-Arşiv'de yok: KUCUK AAA..002 (1.500,00 TL)", metin)
-        self.assertNotIn("BUYUK", metin)                      # 2000 TL ustu gosterilmez
+        self.assertIn("İnteraktif'te var, e-Arşiv'de yok: BUYUK AAA..003 (53.000,00 TL)", metin)
+        self.assertNotIn("KUCUK", metin)                      # 2000 TL altı gosterilmez
         self.assertNotIn("e-Arşiv'de var, İnteraktif'te yok", metin)
         self.assertNotIn("FAZLAEARSIV", metin)
         aksiyon = rapor._aksiyon(rapor._tamamla(k))
         self.assertIn("EKSIK - İnteraktif'te olup e-Arşiv'de olmayan 1 fatura", aksiyon)
         self.assertNotIn("FAZLA", aksiyon)
-        self.assertNotIn("BUYUK", aksiyon)
+        self.assertNotIn("KUCUK", aksiyon)
 
-    def test_hepsi_buyukse_bos_ve_sayi_farki_yazilmaz(self):
-        k = self._kayit([["BUYUK", "AAA2026000000003", 53000.0]], [])
+    def test_hepsi_kucukse_bos_ve_sayi_farki_yazilmaz(self):
+        k = self._kayit([["KUCUK", "AAA2026000000003", 150.0]], [])
         self.assertEqual(rapor._eksik_faturalar(k), "")
 
 
@@ -937,11 +937,12 @@ class ArayuzOzetTestleri(unittest.TestCase):
                           ("IGDAS", 17.0, gostergeler.EKSIK, "İnteraktif V.D."),
                           ("UZUN", 6879.32, gostergeler.EKSIK, "İnteraktif V.D.")})
         akin = [r for r in satirlar if r["firma"] == "AKIN COBAN"]
-        self.assertEqual(len(akin), 3)  # iki listenin tamami
-        self.assertTrue(all(r["durum"] == gostergeler.ESLESMEDI for r in akin))
+        self.assertEqual([r["unvan"] for r in akin], ["C"])  # yalniz Interaktif listesi (e-Arsiv tarafi yazilmaz)
+        self.assertTrue(all(r["durum"] == gostergeler.ESLESMEDI and r["kaynak"] == gostergeler.INTERAKTIF for r in akin))
+        self.assertFalse(any(r["durum"] == gostergeler.FAZLA for r in satirlar))
         # 1000 TL alti elenir
         kalan = gostergeler.esik_uygula(satirlar, 1000)
-        self.assertEqual(sorted(r["unvan"] for r in kalan), ["B", "IAR", "UZUN"])
+        self.assertEqual(sorted(r["unvan"] for r in kalan), ["IAR", "UZUN"])
         self.assertEqual(len(gostergeler.esik_uygula(satirlar, 0)), len(satirlar))
         for yazi, beklenen in (("1000", 1000), ("1.000", 1000), ("1.000,50", 1000.5), ("1000 TL", 1000),
                                ("2,5", 2.5), ("", 0), ("abc", 0), ("-5", 0)):
@@ -1312,6 +1313,16 @@ class BeyannameTestleri(unittest.TestCase):
         self.assertIsNone(b.onceki_devreden)
         sonuc, _, _ = self.bm.devirleri_bul([b], ["CAGRI DENEMEOGLU"], date(2026, 8, 1))
         self.assertIsNone(sonuc[0]["tutar"])
+
+    def test_kdv1_govdesinde_sorumlu_sifatiyla_odenen_kdv_satiri_kdv2_sayilmaz(self):
+        """KDV1'de 'Sorumlu Sifatiyla Beyan Edilerek Odenen KDV' indirim satiri olabilir; bu beyanname reddedilmemeli."""
+        metin = ORNEK_BEYANNAME + "\nSorumlu Sıfatıyla Beyan Edilerek Ödenen KDV                    67.789,98\n"
+        self.assertEqual(self.bm.cozumle(metin, "x.pdf").onceki_devreden, 27972.22)
+        # KDV2: baslik bolgesinde belirtilir -> reddedilir
+        kdv2 = metin.replace("KATMA DEĞER VERGİSİ BEYANNAMESİ", "KATMA DEĞER VERGİSİ BEYANNAMESİ (Sorumlu Sıfatıyla)", 1)
+        if kdv2 != metin:
+            with self.assertRaises(self.bm.BeyannameDegil):
+                self.bm.cozumle(kdv2, "x.pdf")
 
     def test_kdv2_ve_duzeltme(self):
         with self.assertRaises(self.bm.BeyannameDegil):

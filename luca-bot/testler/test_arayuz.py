@@ -242,6 +242,23 @@ class ArayuzTestleri(ArayuzZemini):
         k = self.app.komut()
         self.assertEqual(k[k.index("--parca-gun") + 1], "30")
 
+    def test_hesap_secenekleri_sahip_adlariyla_ve_her_sekmede_komuta_girer(self):
+        """Luca hesabi kutusu hesap sahibi adlariyla gelir; Kar/Zarar, Defter Beyan ve Muavin komutuna --hesap girer."""
+        secenekler = dict(self.mod.HESAP_SECENEKLERI)
+        o, i = self.mod.hesaplar.gorunen_ad("ofis"), self.mod.hesaplar.gorunen_ad("isletme")
+        self.assertEqual(set(secenekler.values()), {"hepsi", "ofis", "isletme"})
+        self.assertIn(o, "".join(secenekler))
+        self.assertIn(i, "".join(secenekler))
+        for sekme in (self.app.kz, self.app.db, self.app.mv):
+            if sekme.klasor is None:
+                continue
+            self.assertEqual(sekme._hesap_arg(), ["--hesap", "hepsi"])
+            sekme.v_hesap.set([a for a, d in self.mod.HESAP_SECENEKLERI if d == "isletme"][0])
+            self.assertEqual(sekme._hesap_arg(), ["--hesap", "isletme"])
+        k = self.app.mv.komut() if self.app.mv.klasor else []
+        if k:
+            self.assertEqual(k[k.index("--hesap") + 1], "isletme")
+
     def test_hizli_mod_tek_yol_secenek_yok(self):
         """Hizli mod varsayilan ve tek yol: arayuzde kutu ve komutta --toplu / --eski-ekranlar yok."""
         self.assertFalse(hasattr(self.app, "v_toplu"))
@@ -250,16 +267,17 @@ class ArayuzTestleri(ArayuzZemini):
         self.assertNotIn("--eski-ekranlar", komut)
 
     def test_luca_hesabi_secimi_komuta_girer_ve_ozet_iki_hesabi_gosterir(self):
+        etiket = {d: a for a, d in self.mod.HESAP_SECENEKLERI}
         self.assertNotIn("--hesap", self.app.komut())                        # varsayilan: hepsi
-        self.app.v_hesap.set("Yalnız işletme")
+        self.app.v_hesap.set(etiket["isletme"])
         k = self.app.komut()
         self.assertEqual(k[k.index("--hesap") + 1], "isletme")
-        self.app.v_hesap.set("Yalnız ofis")
+        self.app.v_hesap.set(etiket["ofis"])
         k = self.app.komut()
         self.assertEqual(k[k.index("--hesap") + 1], "ofis")
         self.app.ayarlar["ikinci_hesap"] = {"etkin": True, "ad": "isletme", "uye_no": "2", "kullanici_adi": "isl", "parola": "q"}
         self.app._giris_ozetini_yaz()
-        self.assertIn("isletme: isl", self.app.giris_ozeti.cget("text"))
+        self.assertIn(f"{self.mod.hesaplar.gorunen_ad('isletme')}: isl", self.app.giris_ozeti.cget("text"))
 
     def test_komut(self):
         komut = self.app.komut()
@@ -471,7 +489,7 @@ class ArayuzTestleri(ArayuzZemini):
             "faturalar": {
                 "e-arsiv-alis": [["TURKCELL", "AAA2026000000001", 100.0], ["SHELL", "AAA2026000000002", 50.0]],
                 "e-arsiv-interaktif": [["TURKCELL", "AAA2026000000001", 100.0], ["SHELL", "AAA2026000000002", 50.0],
-                                       ["VODAFONE", "AAA2026000000007", 1200.5]]}}})
+                                       ["VODAFONE", "AAA2026000000007", 3200.5]]}}})
         w = self.app.detay("fark")
         self.kok.update()
         agac = self._agac(w)
@@ -479,7 +497,7 @@ class ArayuzTestleri(ArayuzZemini):
         self.assertEqual(satirlar[0][0], "ALEV SEZEN")
         self.assertIn("VODAFONE", satirlar[1][0])
         self.assertIn("AAA..007", satirlar[1][0])
-        self.assertEqual(satirlar[1][1], "1.200,50 TL")  # tutar kendi sutununda
+        self.assertEqual(satirlar[1][1], "3.200,50 TL")  # tutar kendi sutununda
         self.assertIn("eksik", satirlar[1][4])
         # sutunlar sigacak genislikte (sayi sutunu kesilmesin)
         self.assertGreaterEqual(int(agac.column("İnteraktif", "width")), 90)
@@ -502,10 +520,14 @@ class ArayuzTestleri(ArayuzZemini):
 
         def metinler():
             return [agac.item(i, "values")[0] for i in agac.get_children()]
-        self.assertTrue(any("IGDAS" in m for m in metinler()))
         ust = [c for c in w.winfo_children() if isinstance(c, tk.Frame)][0]
         giris = [c for c in ust.winfo_children() if isinstance(c, tk.Entry)]
         ara, esik = giris[0], giris[1]
+        self.assertEqual(esik.get(), "2000")            # varsayilan: 2.000 TL ve ustu
+        self.assertFalse(any("IGDAS" in m for m in metinler()))
+        esik.delete(0, "end")
+        self.kok.update()
+        self.assertTrue(any("IGDAS" in m for m in metinler()))
         esik.insert(0, "1000")  # 1000 TL altini gizle
         self.kok.update()
         m = metinler()

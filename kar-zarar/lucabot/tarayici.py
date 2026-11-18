@@ -69,7 +69,13 @@ def duraklamalari_engelle(ctx, page):
         pass
 
 
-def profil_klasoru(log=None):
+def profil_klasoru(log=None, ek=""):
+    """Tarayici profilinin yeri; ek verilirse (ikinci Luca hesabi) ayni yerin yanindaki ayri bir profil."""
+    taban = _profil_klasoru(log)
+    return taban.with_name(taban.name + "-" + ek) if ek else taban
+
+
+def _profil_klasoru(log=None):
     """Tarayici profilinin yeri.
 
     Varsayilan program klasorudur. OneDrive disina almak icin --profil-yerel

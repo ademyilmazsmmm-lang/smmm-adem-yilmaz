@@ -62,6 +62,8 @@ IKI = {"uye_no": "1", "kullanici_adi": "ofis-kul", "parola": "p1",
        "ikinci_hesap": {"etkin": True, "ad": "isletme", "uye_no": "2", "kullanici_adi": "isl-kul", "parola": "p2"}}
 
 
+from lucabot import hesaplar  # noqa: E402
+
 class IkiHesap(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -83,8 +85,8 @@ class IkiHesap(unittest.TestCase):
         kod, cikti, cagrilar = _calistir(self.klasor, self.adres, IKI, ["--firma", "AKIN", "--bastan"])
         self.assertEqual(kod, 0, cikti[-1500:])
         self.assertEqual(cagrilar, [("ofis-kul", "p1", "ofis"), ("isl-kul", "p2", "isletme")])
-        self.assertIn("LUCA HESABI 1/2: OFIS", cikti)
-        self.assertIn("LUCA HESABI 2/2: ISLETME", cikti)
+        self.assertIn(f"LUCA HESABI 1/2: {hesaplar.gorunen_ad('ofis').upper()}", cikti)
+        self.assertIn(f"LUCA HESABI 2/2: {hesaplar.gorunen_ad('isletme').upper()}", cikti)
         self.assertEqual(cikti.count("Islenecek firma sayisi"), 2)
         profiller = {p.name for p in (self.klasor / "yerel" / "luca-bot").iterdir()}     # tarayici kanali eki (-chromium) olabilir
         self.assertTrue(any(p.startswith("tarayici-profili") and "hesap2" not in p for p in profiller), profiller)   # ofis: eski profil

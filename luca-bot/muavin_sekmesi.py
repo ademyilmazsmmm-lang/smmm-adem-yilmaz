@@ -91,6 +91,7 @@ class MuavinSekmesi(KarZararSekmesi):
         tk.Label(p, text="Sadece bu firma (boş = tüm 1. ve 2. sınıf)", font=u.KUCUK, fg=u.ETIKET, bg=u.ZEMIN,
                  anchor="w").pack(fill="x", pady=(14, 3))
         u.giris_kutusu(p, self.v_firma).pack(fill="x", ipady=4)
+        self._hesap_secici(p)
 
         tk.Label(p, text="Fatura İndirme sekmesinin indirdiği alış / satış faturalarının numarası ve genel toplam (KDV dahil) "
                  "tutarı kontrol edilir; ikisi de uyuyorsa sorun yoktur.\n\n1. sınıf firmalar: Luca Muavin Defter "
@@ -348,7 +349,7 @@ class MuavinSekmesi(KarZararSekmesi):
             raise ValueError("Tarihleri GG/AA/YYYY biçiminde yazın (örnek 01/10/2026).")
         ayar_hazirla(self.klasor, self.a.ayarlar, {})
         komut = [self.ui.python_komutu(), "-u", str(self.klasor / "muavin.py"), "--bitince-kapat",
-                 "--tarih", f"{bas}-{bit}", "--fatura-klasoru", str(indirme_koku(self.a.ayarlar))]
+                 "--tarih", f"{bas}-{bit}", "--fatura-klasoru", str(indirme_koku(self.a.ayarlar))] + self._hesap_arg()
         if tam_firmalar:
             for f in tam_firmalar:
                 komut += ["--firma-tam", f]

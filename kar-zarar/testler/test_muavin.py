@@ -94,6 +94,20 @@ class MuavinMantigi(unittest.TestCase):
         (self.klasor / "rapor.json").write_text(json.dumps({firma: {"klasorler": klasorler}}), encoding="utf-8")
         return firma
 
+    def test_hesap_sahibi_adlari_dosyadan_okunur_yoksa_varsayilan(self):
+        from lucabot import hesaplar
+        eski = hesaplar._adlar_dosyasi
+        try:
+            hesaplar._adlar_dosyasi = lambda: None
+            self.assertEqual((hesaplar.gorunen_ad("ofis"), hesaplar.gorunen_ad("isletme")), ("Ofis", "İşletme"))
+            dosya = self.klasor / "hesap-adlari.json"
+            dosya.write_text(json.dumps({"ofis": "Ad Bir", "isletme": "Ad Iki"}), encoding="utf-8")
+            hesaplar._adlar_dosyasi = lambda: dosya
+            self.assertEqual((hesaplar.gorunen_ad("ofis"), hesaplar.gorunen_ad("isletme"), hesaplar.gorunen_ad("hesap2")),
+                             ("Ad Bir", "Ad Iki", "Ad Iki"))
+        finally:
+            hesaplar._adlar_dosyasi = eski
+
     def test_fatura_no_bulma(self):
         self.assertEqual(mk.fatura_no_bul("ABC2026000000123 nolu fatura"), ["ABC2026000000123"])
         self.assertEqual(mk.fatura_no_bul("x ABC-2026000000124"), ["ABC2026000000124"])
@@ -289,7 +303,7 @@ class MuavinMantigi(unittest.TestCase):
         self.assertEqual((fark[1][3], fark[1][6], fark[1][7], fark[1][8]), ("AAA2026000000003", 1200.0, "900.00", "3"))
 
 
-def calistir(tmp, veri, ayar_degisiklik=None, ek=(), tarih="01/10/2026-31/10/2026", firma="ALFA ISLETME", onceden=None):
+def calistir(tmp, veri, ayar_degisiklik=None, ek=(), tarih="01/10/2026-31/10/2026", firma="ALFA ISLETME", onceden=None, ayar_ek=None):
     """Sahte Luca + muavin.py: (cikis kodu, sonuc sozlugu {firma: sonuc}, cikti, sahte sunucuya giden istekler)."""
     import sahte_kz
     sahte_kz.sifirla()
@@ -300,7 +314,7 @@ def calistir(tmp, veri, ayar_degisiklik=None, ek=(), tarih="01/10/2026-31/10/202
     klasor = Path(tempfile.mkdtemp(prefix="muavin-uu-"))
     sunucu, adres = sahte_kz.baslat()
     ayar = {"giris_adresi": adres, "tarayici": "chromium", "tarayici_yolu": os.environ.get("LUCA_TEST_CHROMIUM", ""),
-            "tarayici_sandbox": os.name == "nt", "profil_yerel": True}
+            "tarayici_sandbox": os.name == "nt", "profil_yerel": True, **(ayar_ek or {})}
     (klasor / "ayarlar.json").write_text(json.dumps(ayar), encoding="utf-8")
     ortam = dict(os.environ, LUCA_BOT_AYAR=str(klasor / "ayarlar.json"), LOCALAPPDATA=str(klasor / "yerel"),
                  KARZARAR_CIKTI=str(klasor / "cikti"), PYTHONIOENCODING="utf-8")
@@ -379,6 +393,22 @@ class UctanUca(unittest.TestCase):
         self.assertIn("EKSİK  Alış  06/10/2026  AAA2026000000002", cikti)
         self.assertIn("TUTAR  Alış  07/10/2026  AAA2026000000003", cikti)
         self.assertIn("İşletme defteri formu: Tarih İlk=01/10/2026, Tarih Son=31/10/2026", cikti)
+
+    def test_iki_luca_hesabi_ofis_ve_isletme_sirayla_acilir_firma_bir_kez_islenir(self):
+        ikinci = {"ikinci_hesap": {"etkin": True, "ad": "isletme", "uye_no": "222", "kullanici_adi": "isletme-kullanici",
+                                   "parola": "x"}}
+        kod, sonuc, cikti, _ = calistir(self.klasor, self.veri, ayar_ek=ikinci)
+        self.assertEqual(kod, 0, cikti[-2500:])
+        self.assertIn("LUCA HESABI 1/2", cikti)
+        self.assertIn("LUCA HESABI 2/2", cikti)
+        self.assertEqual(cikti.count("[1/1] ALFA ISLETME"), 1, cikti[-2500:])      # iki hesapta da gorunur: ilkinde islenir
+        self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "fark var")
+        self.assertTrue(sonuc["ALFA ISLETME"]["hesap"])                            # hesabin sahibinin adi
+
+    def test_hesap_isletme_ikinci_hesap_yoksa_hata(self):
+        kod, sonuc, cikti, _ = calistir(self.klasor, self.veri, ek=["--hesap", "isletme"])
+        self.assertNotEqual(kod, 0)
+        self.assertIn("ikinci Luca hesabı kapalı", cikti)
 
     def test_faturasi_olmayan_firma_atlanir_ve_rapor_yoksa_hata(self):
         kod, sonuc, cikti, istekler = calistir(self.klasor, self.veri, ek=["--tum-firmalar"], firma="ALFA ISLETME")

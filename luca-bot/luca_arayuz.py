@@ -93,7 +93,13 @@ EKRAN_ADLARI = {tip: ad for ad, tip in EKRAN_SUTUNLARI.items()}
 BELGE_ADLARI = dict(BELGE_TIPLERI)
 UZUN_BEKLEME = 30  # "Şu an" satiri bu kadar saniye degismezse turuncu, 3 katinda kirmizi
 ILERLEME = re.compile(r"^\[(\d+)/(\d+)\]\s+(.+?)(?:\s+\|\s+tahmini kalan:\s*(.+))?$")
-HESAP_SECENEKLERI = (("Hepsi (ofis + işletme)", "hepsi"), ("Yalnız ofis", "ofis"), ("Yalnız işletme", "isletme"))
+def _hesap_secenekleri():
+    """Luca hesabi kutusu: hesaplarin sahiplerinin adlariyla (hesap-adlari.json), ornegin 'Yalnız Adem Yılmaz (ofis)'."""
+    o, i = hesaplar.gorunen_ad("ofis"), hesaplar.gorunen_ad("isletme")
+    return ((f"Hepsi ({o} + {i})", "hepsi"), (f"Yalnız {o} (ofis)", "ofis"), (f"Yalnız {i} (işletme)", "isletme"))
+
+
+HESAP_SECENEKLERI = _hesap_secenekleri()
 AZAMI_SATIR = 4000  # log penceresinde tutulan satir (uzun gecelerde pencere sismesin)
 
 
@@ -927,7 +933,7 @@ class Arayuz:
         tk.Label(p, text="Sadece bu firma (boş = listedeki hepsi)", font=KUCUK, fg=ETIKET,
                  bg=ZEMIN, anchor="w").pack(fill="x", pady=(10, 3))
         giris_kutusu(p, self.v_firma).pack(fill="x", ipady=4)
-        tk.Label(p, text="Luca hesabı (ofis / işletme)", font=KUCUK, fg=ETIKET, bg=ZEMIN, anchor="w").pack(fill="x", pady=(10, 3))
+        tk.Label(p, text="Luca hesabı", font=KUCUK, fg=ETIKET, bg=ZEMIN, anchor="w").pack(fill="x", pady=(10, 3))
         self.hesap_kutusu = ttk.Combobox(p, textvariable=self.v_hesap, values=[a for a, _ in HESAP_SECENEKLERI],
                                          state="readonly", font=GOVDE)
         self.hesap_kutusu.pack(fill="x", ipady=3)
@@ -1168,7 +1174,7 @@ class Arayuz:
         if a.get("uye_no") and a.get("kullanici_adi") and a.get("parola"):
             metin = f"{a['kullanici_adi']}  (üye {a['uye_no']})"
             if hesaplar.ikinci_hesap(a):
-                metin += f"  +  {hesaplar.ikinci_ad(a)}: {a['ikinci_hesap']['kullanici_adi']}"
+                metin += f"  +  {hesaplar.gorunen_ad(hesaplar.ikinci_ad(a))}: {a['ikinci_hesap']['kullanici_adi']}"
             self.giris_ozeti.configure(text=metin, fg=YAZI)
         else:
             self.giris_ozeti.configure(text="Giriş bilgisi girilmedi", fg=TURUNCU)
@@ -1797,7 +1803,7 @@ class Arayuz:
         ust = tk.Frame(w, bg=ZEMIN)
         ust.pack(fill="x", pady=(0, 8))
         tk.Label(ust, text="Firma ara:", font=KUCUK, fg=ETIKET, bg=ZEMIN).pack(side="left")
-        v_ara, v_esik = tk.StringVar(), tk.StringVar()
+        v_ara, v_esik = tk.StringVar(), tk.StringVar(value="2000")   # varsayilan: 2.000 TL ve ustu
         giris_kutusu(ust, v_ara, genislik=16).pack(side="left", padx=(6, 18), ipady=3)
         tk.Label(ust, text="Tutarı şundan küçük faturaları gizle (TL):", font=KUCUK, fg=ETIKET, bg=ZEMIN
                  ).pack(side="left")
@@ -1840,10 +1846,10 @@ class Arayuz:
                 if aranan and aranan not in sadelestir(x["firma"]):
                     continue
                 faturalar = [r for r in satirlar if r["firma"] == x["firma"]]
-                if esik() and not faturalar:
-                    continue  # firmada eşik üstü fatura yok
+                if not faturalar:
+                    continue  # firmada eşik üstü (ya da hiç eksik) fatura yok: yalnız İnteraktif'te olup e-Arşiv'de olmayanlar
                 firma_sayisi += 1
-                yon = "e-Arşiv'de eksik" if x["fark"] > 0 else "e-Arşiv'de fazla"
+                yon = "e-Arşiv'de eksik"
                 agac.insert("", "end", values=(x["firma"], "", x["interaktif"], x["earsiv"],
                                                f"{x['fark']:+d}  ({yon})"))
                 for r in faturalar:

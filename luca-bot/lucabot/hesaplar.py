@@ -9,6 +9,9 @@ kullanir (oturumlar birbirine karismaz); ilk hesabin profili eskisi gibi kalir, 
 Rapor ortaktir (firma adina gore birlesir).
 """
 
+import json
+from pathlib import Path
+
 ILK_AD = "ofis"
 IKINCI_AD = "isletme"
 KIMLIK_ANAHTARLARI = ("uye_no", "kullanici_adi", "parola", "dogrulama_anahtari")
@@ -69,3 +72,40 @@ def hesaplar(ayarlar, secim="hepsi"):
 def profil_eki(sira):
     """Ilk hesap eski profili kullanir (ek yok); sonrakiler 'hesap2' gibi eki alir."""
     return "" if sira == 0 else f"hesap{sira + 1}"
+
+
+# --- gorunen adlar -----------------------------------------------------------------------------------------------
+# Hesap anahtarlari ("ofis", "isletme") dahili; ekranda/gunlukte/raporda hesabin SAHIBININ adi gosterilir. Adlar kisisel oldugu icin
+# depoda degil, program klasorundeki hesap-adlari.json'dadir (git'e girmez): {"ofis": "Ad Soyad", "isletme": "Ad Soyad"}.
+ADLAR_DOSYASI = "hesap-adlari.json"
+VARSAYILAN_ADLAR = {"ofis": "Ofis", "isletme": "İşletme"}
+
+
+def _adlar_dosyasi():
+    taban = Path(__file__).resolve().parent.parent
+    for klasor in (taban, taban.parent / "luca-bot", taban.parent / "kar-zarar"):
+        yol = klasor / ADLAR_DOSYASI
+        if yol.exists():
+            return yol
+    return None
+
+
+def adlari_oku():
+    """{"ofis": ..., "isletme": ...}: dosyadaki adlar, eksikler varsayilanla tamamlanir."""
+    adlar = dict(VARSAYILAN_ADLAR)
+    yol = _adlar_dosyasi()
+    if yol:
+        try:
+            for k, v in json.loads(yol.read_text(encoding="utf-8-sig")).items():
+                if isinstance(v, str) and v.strip() and _sade(k) in ("ofis", "isletme"):
+                    adlar[_sade(k)] = v.strip()
+        except (OSError, ValueError, AttributeError):
+            pass
+    return adlar
+
+
+def gorunen_ad(hesap_adi):
+    """'ofis' -> 'Adem Yılmaz' (dosyadan); bilinmeyen hesap adi oldugu gibi doner."""
+    anahtar = _sade(hesap_adi)
+    anahtar = "isletme" if anahtar not in ("ofis",) and anahtar else anahtar
+    return adlari_oku().get(anahtar, str(hesap_adi))

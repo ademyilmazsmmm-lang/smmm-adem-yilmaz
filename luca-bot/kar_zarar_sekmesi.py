@@ -34,7 +34,7 @@ ADAYLAR = (KOK.parent / "kar-zarar", KOK / "kar-zarar")
 # Luca girisi icin luca-bot ayarlarindan her calismada kar-zarar/ayarlar.json'a aktarilan anahtarlar
 ORTAK_ANAHTARLAR = ("uye_no", "kullanici_adi", "parola", "dogrulama_anahtari", "dogrulama_bekleme_dakika",
                     "tarayici", "tarayici_yolu", "tarayici_sandbox", "profil_yerel", "giris_adresi",
-                    "donem_degistir")
+                    "donem_degistir", "ikinci_hesap")
 KAYNAKLAR = (("Mizan (Excel)", "mizan"), ("Hesap Planı Listesi", "hesap-plani"))
 ILERLEME = re.compile(r"^\[(\d+)/(\d+)\]\s+(.+)$")
 UZUN_BEKLEME = 30
@@ -110,6 +110,20 @@ class KarZararSekmesi:
 
     # -- kurulum ---------------------------------------------------------------
 
+    def _hesap_secici(self, p):
+        """Luca hesabi kutusu (Hepsi / ofis sahibi / isletme sahibi); secim komuta --hesap olarak girer."""
+        from tkinter import ttk
+        u = self.ui
+        if not hasattr(self, "v_hesap"):
+            self.v_hesap = tk.StringVar(value=u.HESAP_SECENEKLERI[0][0])
+        tk.Label(p, text="Luca hesabı", font=u.KUCUK, fg=u.ETIKET, bg=u.ZEMIN, anchor="w").pack(fill="x", pady=(10, 3))
+        ttk.Combobox(p, textvariable=self.v_hesap, values=[a for a, _ in u.HESAP_SECENEKLERI], state="readonly",
+                     font=u.GOVDE).pack(fill="x", ipady=3)
+
+    def _hesap_arg(self):
+        secim = dict(self.ui.HESAP_SECENEKLERI).get(getattr(self, "v_hesap", None) and self.v_hesap.get(), "hepsi")
+        return ["--hesap", secim]
+
     def _kz_ayar(self):
         try:
             return json.loads((self.klasor / "ayarlar.json").read_text(encoding="utf-8-sig"))
@@ -153,6 +167,7 @@ class KarZararSekmesi:
         tk.Label(p, text="Sadece bu firma (boş = hepsi)", font=u.KUCUK, fg=u.ETIKET, bg=u.ZEMIN,
                  anchor="w").pack(fill="x", pady=(14, 3))
         u.giris_kutusu(p, self.v_firma).pack(fill="x", ipady=4)
+        self._hesap_secici(p)
 
         tk.Checkbutton(p, text="Firma listesini Luca'dan yeniden çek", variable=self.v_yenile,
                        command=self.liste_bilgisi_yaz, font=u.KUCUK, **self.a._kutu_renk()).pack(anchor="w", pady=(8, 0))
@@ -510,7 +525,7 @@ class KarZararSekmesi:
             "defterbeyan_kullanici": self.v_db_kod.get().strip(),
             "defterbeyan_sifre": self.v_db_sifre.get()})
         komut = [self.ui.python_komutu(), "-u", str(self.klasor / "kar_zarar.py"), "--bitince-kapat",
-                 "--tarih", f"{bas}-{bit}"]
+                 "--tarih", f"{bas}-{bit}"] + self._hesap_arg()
         if tam_firmalar:
             for f in tam_firmalar:
                 komut += ["--firma-tam", f]

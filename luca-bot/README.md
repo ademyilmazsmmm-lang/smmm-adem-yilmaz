@@ -246,6 +246,14 @@ sayfalarını yazar (sabit kıymetler sarı). **Seçilenleri Yeniden Çalıştı
 listelenir; konu `[Sorunsuz]` ya da `[N firmada sorun]` ile başlar. Fatura özetiyle aynı mail ayarları kullanılır
 (`mail_yontemi` outlook/smtp, `mail_alici`, `mail_gonder`, `mail_otomatik_gonder`, `smtp.*`).
 
+### İki Luca hesabı: ofis ve işletme (her sekmede)
+
+Fatura İndirme, **Kâr / Zarar**, **Defter Beyan** ve **Muavin** sekmelerinin hepsinde sol paneldeki **Luca hesabı** kutusuyla *Hepsi*, yalnız ofis ya da yalnız
+işletme hesabı seçilir (komut satırında `--hesap hepsi|ofis|isletme`). *Hepsi*'nde önce ofis, sonra (Luca Giriş Bilgileri > İkinci hesap etkinse) işletme
+hesabı kendi girişi ve tarayıcı profiliyle açılır; her hesabın firma listesi/sınıfları ayrı (Müşteri Listesi önbelleği `musteri-listeleri-hesap2.json`).
+İki hesapta da görünen firma ilkinde işlenir. Sonuçlarda `hesap` alanı hesabın sahibinin adını taşır.
+Ekranda hesapların sahiplerinin adı görünür: program klasöründeki `hesap-adlari.json` (git'e girmez) — `{"ofis": "Ad Soyad", "isletme": "Ad Soyad"}`; yoksa "Ofis" / "İşletme".
+
 ### Muavin sekmesi (fatura no + genel toplam kontrolü)
 
 **Muavin** sekmesi şunu yanıtlar: *Fatura İndirme'nin indirdiği faturaların numarası ve genel toplam (KDV dahil) tutarı Luca
@@ -466,7 +474,7 @@ sadece özet/rapor tektir. E-postaya da bu dosya eklenir. Sayfaları:
 **Dönem kuralı:** Sorgu aralığı ay sonundan sonrasına uzatılabilir (ayın faturaları sisteme geç düşebildiği için, örn. 01/10/2026-17/11/2026);
 ama rapora, KDV'ye ve KDV2'ye yalnız **fatura tarihi hedef ayda (başlangıç tarihinin ayında) olan** faturalar girer. Sonraki ayın faturaları atılır
 ve günlükte "dönem dışı" olarak yazılır. Ekrandaki *Eksik/Fazla* sütununda yalnız "İnteraktif'te var, e-Arşiv'de yok" faturaları, tutarı
-2.000 TL'yi aşmayanlar gösterilir (`rapor.GOSTERIM_TUTAR_USTU`).
+2.000 TL ve üzeri olanlar gösterilir (`rapor.GOSTERIM_TUTAR_ALTI`). İnteraktif V.D. − e-Arşiv farkı penceresi/Excel'i de yalnız "İnteraktif'te var, e-Arşiv'de yok" faturalarını içerir (tutar kutusu varsayılan 2000).
 Toplu Sorgulama'da XML yalnız **alışta GİB E-Arşiv Entegrasyonu Alış Faturaları**, **satışta GİB E-Arşiv Entegrasyon (5000/30000)** satırları için ve yalnız
 *Belge Tarihi* hedef ayda olanlar için indirilir (sonraki ayın satırları işaretlenmez).
 

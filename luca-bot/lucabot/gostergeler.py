@@ -87,8 +87,8 @@ INTERAKTIF, EARSIV = "İnteraktif V.D.", "e-Arşiv Alış"
 def fark_satirlari(fark):
     """hesapla()["fark"] -> duz fatura listesi: [{firma, durum, kaynak, unvan, no, tutar}] (tutar bilinmiyorsa None).
 
-    Eksik: GIB'de (Interaktif) olup Luca'da (e-Arsiv Alis) olmayan; fazla: tersi. Iki listenin numaralari hic tutmuyorsa
-    (eslesmedi) her iki listenin tamami yazilir; sayi farki var ama fatura belirlenemiyorsa firma tek satirla gelir."""
+    Yalniz Interaktif'te olup e-Arsiv'de olmayan (eksik) faturalar; tersi (fazla) yazilmaz. Iki listenin numaralari hic tutmuyorsa
+    (eslesmedi) Interaktif listesinin tamami yazilir; sayi farki var ama fatura belirlenemiyorsa firma tek satirla gelir."""
     def satir(firma, durum, kaynak, f):
         tutar = f[2] if len(f) > 2 and f[2] not in (None, "") else None
         return {"firma": firma, "durum": durum, "kaynak": kaynak, "unvan": f[0] if f else "",
@@ -98,11 +98,10 @@ def fark_satirlari(fark):
         f = x["firma"]
         if x["eslesmedi"]:
             sonuc += [satir(f, ESLESMEDI, INTERAKTIF, y) for y in x.get("interaktif_liste") or []]
-            sonuc += [satir(f, ESLESMEDI, EARSIV, y) for y in x.get("earsiv_liste") or []]
         else:
             sonuc += [satir(f, EKSIK, INTERAKTIF, y) for y in x["eksik"]]
-            sonuc += [satir(f, FAZLA, EARSIV, y) for y in x["fazla"]]
-        if not any(r["firma"] == f for r in sonuc):
+            # "e-Arsiv'de var, Interaktif'te yok" (fazla) taraf raporlanmaz: yalniz Interaktif'te olup e-Arsiv'de olmayanlar
+        if not any(r["firma"] == f for r in sonuc) and not x["fazla"]:
             sonuc.append({"firma": f, "durum": BELIRSIZ, "kaynak": "", "unvan": "", "no": "", "tutar": None})
     return sonuc
 

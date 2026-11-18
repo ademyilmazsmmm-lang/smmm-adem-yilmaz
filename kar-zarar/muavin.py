@@ -26,13 +26,14 @@ sys.path.insert(0, str(KOK))
 
 import kar_zarar as kz  # noqa: E402  (ortak: giris, musteri listesi onbellegi, ayarlar, tarih cozumleme)
 from karzarar import luca_isletme, luca_muavin, muavin_karsilastir as mk  # noqa: E402
-from lucabot import konsol  # noqa: E402
+from lucabot import hesaplar, konsol  # noqa: E402
 from lucabot.firma_listesi import firmalari_suz  # noqa: E402
 from lucabot.firma_tablosu import luca_kaydi_bul  # noqa: E402
 from lucabot.giris import luca_oturumu_ac  # noqa: E402
 from lucabot.luca_ekran import acik_pencereleri_kapat  # noqa: E402
 from lucabot.luca_gezinme import donem_ayarla, firma_sec, firma_secici_bekle  # noqa: E402
 from lucabot.ortak import AYAR, DURDUR_DOSYASI, ayarlari_oku, gunluge_yaz, yaz  # noqa: E402
+from lucabot.hesaplar import gorunen_ad, profil_eki as hesap_profil_eki  # noqa: E402
 from lucabot.tarayici import profil_klasoru, tarayici_ac, tarayiciyi_kapat  # noqa: E402
 
 CIKTI = kz.CIKTI
@@ -55,6 +56,9 @@ def arguman_ayristirici():
     p.add_argument("--limit", type=int, help="Ilk N firma ile sinirla")
     p.add_argument("--listeyi-yenile", action="store_true", help="Luca Musteri Listesi'ni yeniden oku")
     p.add_argument("--tani", action="store_true", help="Her adimdan sonra ekran goruntusu + sayfa kaydi (tani/) sakla")
+    p.add_argument("--hesap", default="hepsi",
+                   help="Hangi Luca hesabi: hepsi (once ofis, sonra etkinse isletme), ofis ya da isletme "
+                        "(ayarlar.json: ikinci_hesap)")
     p.add_argument("--sinif", choices=["1", "2", "hepsi"], default="hepsi",
                    help="Hangi sinif: 1 (muavin 191/391), 2 (isletme defteri dokumu), hepsi. --tum-firmalar ile secilen "
                         "firmalarin hepsi bu sinifta sayilir (hepsi -> 1)")
@@ -75,14 +79,20 @@ def fatura_klasorunu_bul(args, ayarlar):
     return Path(adaylar[0] or adaylar[1] or adaylar[2])
 
 
-def birinci_sinif_firmalari(page, adaylar, bit, ayarlar, log, yenile=False):
+def onbellek_yolu(sira=0):
+    """Musteri listesi onbellegi: her Luca hesabinin firmalari/siniflari farklidir (ikinci hesap ayri dosya)."""
+    yol = CIKTI / kz.ONBELLEK
+    return yol if not sira else yol.with_name(f"{yol.stem}-hesap{sira + 1}{yol.suffix}")
+
+
+def birinci_sinif_firmalari(page, adaylar, bit, ayarlar, log, yenile=False, sira=0):
     """Luca'daki firmalardan Musteri Listesi'nde 1. sinif (genel muhasebe) olanlar; liste alinamazsa hepsi."""
     sinif = ayarlar.get("luca_sinifi", kz.LUCA_SINIFI)
     if not sinif:
         return list(adaylar)
-    onbellek_yolu = CIKTI / kz.ONBELLEK
-    onbellek = {} if yenile else kz.onbellek_oku(onbellek_yolu, bit.year)
-    kayitlar = kz._musteri_listesi(page, bit.year, CIKTI / "tani-liste", sinif, log, onbellek, onbellek_yolu)
+    yol = onbellek_yolu(sira)
+    onbellek = {} if yenile else kz.onbellek_oku(yol, bit.year)
+    kayitlar = kz._musteri_listesi(page, bit.year, CIKTI / "tani-liste", sinif, log, onbellek, yol)
     acik_pencereleri_kapat(page)
     if not kayitlar:
         yaz(f"UYARI: {sinif} firma listesi alınamadı; muhasebe modülü olmayan firmalar hata verip atlanabilir", log)
@@ -93,14 +103,14 @@ def birinci_sinif_firmalari(page, adaylar, bit, ayarlar, log, yenile=False):
     return uygun
 
 
-def ikinci_sinif_firmalari(page, adaylar, bit, ayarlar, log, yenile=False):
+def ikinci_sinif_firmalari(page, adaylar, bit, ayarlar, log, yenile=False, sira=0):
     """Luca'daki firmalardan Musteri Listesi'nde 2. sinif (isletme / serbest meslek defteri) olanlar."""
-    onbellek_yolu = CIKTI / kz.ONBELLEK
-    onbellek = {} if yenile else kz.onbellek_oku(onbellek_yolu, bit.year)
+    yol = onbellek_yolu(sira)
+    onbellek = {} if yenile else kz.onbellek_oku(yol, bit.year)
     siniflar = ayarlar.get("musteri_sinifi", IKINCI_SINIF)
     kayitlar = []
     for sinif in ([siniflar] if isinstance(siniflar, str) else siniflar):
-        kayitlar += kz._musteri_listesi(page, bit.year, CIKTI / "tani-liste", sinif, log, onbellek, onbellek_yolu) or []
+        kayitlar += kz._musteri_listesi(page, bit.year, CIKTI / "tani-liste", sinif, log, onbellek, yol) or []
     acik_pencereleri_kapat(page)
     if not kayitlar:
         yaz("UYARI: 2. sınıf firma listesi alınamadı (Müşteri Listesi okunamadı)", log)
@@ -110,15 +120,15 @@ def ikinci_sinif_firmalari(page, adaylar, bit, ayarlar, log, yenile=False):
     return uygun
 
 
-def firma_siniflari(page, firmalar, bit, ayarlar, log, secim, yenile=False):
+def firma_siniflari(page, firmalar, bit, ayarlar, log, secim, yenile=False, sira=0):
     """{firma: 1 ya da 2}: 1 = genel muhasebe (muavin 191/391), 2 = isletme/serbest meslek defteri (gider/gelir dokumu).
     Iki listede de olmayan firmalar atlanir; secim '1'/'2' ise yalniz o sinif."""
     siniflar = {}
     if secim in ("1", "hepsi"):
-        for f in birinci_sinif_firmalari(page, firmalar, bit, ayarlar, log, yenile):
+        for f in birinci_sinif_firmalari(page, firmalar, bit, ayarlar, log, yenile, sira):
             siniflar[f] = 1
     if secim in ("2", "hepsi"):
-        for f in ikinci_sinif_firmalari(page, [f for f in firmalar if f not in siniflar], bit, ayarlar, log, yenile):
+        for f in ikinci_sinif_firmalari(page, [f for f in firmalar if f not in siniflar], bit, ayarlar, log, yenile, sira):
             siniflar[f] = 2
     return {f: siniflar[f] for f in firmalar if f in siniflar}
 
@@ -133,6 +143,93 @@ def faturasi_indirilmis_firmalar(firmalar, fatura_klasoru, bas, bit, log):
     atlanan = len(firmalar) - len(var)
     yaz(f"{len(var)} firmada dönemde indirilmiş fatura var" + (f"; {atlanan} firmada yok (atlandı)" if atlanan else ""), log)
     return var
+
+
+def hesabi_isle(pw, sira, hesap_adi, ayar_h, args, ayarlar, log, tani, indirme, fatura_klasoru, bas, bit, donem, gece_modu,
+                kayit_yolu, islenen, coklu):
+    """Bir Luca hesabinin (ofis / isletme) firmalarini isler; {firma: sonuc}. Hesap kendi tarayici profili ve girisiyle acilir."""
+    sonuclar = {}
+    ctx = tarayici_ac(pw, profil_klasoru(log, hesap_profil_eki(sira)), log, AYAR["chrome_gunlugu"])
+    page = ctx.pages[0] if ctx.pages else ctx.new_page()
+    page = luca_oturumu_ac(ctx, page, ayar_h, gece_modu, tani, log)
+    if page is None:
+        tarayiciyi_kapat(ctx)
+        return sonuclar
+    try:
+        _, _, luca_firmalari = firma_secici_bekle(page)
+        secim = firmalari_suz(luca_firmalari, ayar_h, args.firma, args.limit, bit, log, tam_adlar=args.firma_tam)
+        if not secim.firmalar:
+            yaz(f"Işlenecek firma yok: {secim.bos_sebep}.", log)
+            return sonuclar
+        firmalar = [f for f in secim.firmalar if f not in islenen]
+        if args.tum_firmalar:
+            siniflar = {f: 2 if args.sinif == "2" else 1 for f in firmalar}
+            faturalar = {f: mk.faturalari_oku(fatura_klasoru, f, bas, bit) for f in firmalar}
+        else:
+            siniflar = firma_siniflari(page, firmalar, bit, ayar_h, log, args.sinif, args.listeyi_yenile, sira)
+            firmalar = [f for f in firmalar if f in siniflar]
+            faturalar = faturasi_indirilmis_firmalar(firmalar, fatura_klasoru, bas, bit, log)
+            firmalar = [f for f in firmalar if f in faturalar]
+        if not firmalar:
+            yaz("Işlenecek firma yok: seçilen dönemde faturası indirilmiş (1. / 2. sınıf) firma bulunamadı.", log)
+            return sonuclar
+        ardisik = 0
+        for i, firma in enumerate(firmalar, 1):
+            if page.is_closed():
+                yaz("UYARI: Luca ana penceresi kapandı; kalan firmalar atlandı", log)
+                break
+            sinif = siniflar[firma]
+            yaz(f"[{i}/{len(firmalar)}] {firma}  " + (f"[{gorunen_ad(hesap_adi)}] " if coklu else "") + ("(Luca muavin 191/391)" if sinif == 1 else
+                                                      "(Luca işletme defteri dökümü: gider/gelir)"), log)
+            try:
+                acik_pencereleri_kapat(page)
+                firma_sec(page, firma, log)
+                if not donem_ayarla(page, firma, bas, bit, log):
+                    raise LookupError("firmanın bu döneme uygun çalışma dönemi yok")
+                if sinif == 1:
+                    satirlar = luca_muavin.muavin_cek(page, firma, bas, bit, indirme / "dosyalar", tani, log,
+                                                      tani_hep=args.tani)
+                else:
+                    satirlar = luca_isletme.isletme_cek(page, firma, bas, bit, indirme / "dosyalar", tani, log,
+                                                        tani_hep=args.tani)
+                sonuc = mk.firma_sonucu(firma, donem, faturalar[firma], satirlar, kaynak="muavin" if sinif == 1 else "isletme")
+                ardisik = 0
+                a, t = sonuc["yon"]["alis"], sonuc["yon"]["satis"]
+                yer = "muavinde" if sinif == 1 else "defterde"
+                yaz(f"    Alış {a['fatura']} fatura ({a['eslesen']} tamam, {len(a['eksik'])} {yer} yok, "
+                    f"{len(a['tutar_farki'])} tutar uyuşmuyor) | Satış {t['fatura']} fatura ({t['eslesen']} tamam, "
+                    f"{len(t['eksik'])} {yer} yok, {len(t['tutar_farki'])} tutar uyuşmuyor)", log)
+                sorunlar = [("EKSİK", y, f) for y, d in (("alis", a), ("satis", t)) for f in d["eksik"]] + \
+                           [("TUTAR", y, f) for y, d in (("alis", a), ("satis", t)) for f in d["tutar_farki"]]
+                for etiket, y, f in sorunlar[:EKSIK_GUNLUK_SINIRI]:
+                    yaz(f"    {etiket}  {mk.eksik_satiri(y, f)}", log)
+                if len(sorunlar) > EKSIK_GUNLUK_SINIRI:
+                    yaz(f"    … ve {len(sorunlar) - EKSIK_GUNLUK_SINIRI} fatura daha (hepsi Excel raporunda)", log)
+                yaz(f"  [!!] {firma}: {len(sorunlar)} faturada sorun (fatura no / genel toplam {yer} uyuşmuyor)"
+                    if sorunlar else f"  [OK] {firma}: tüm faturalar {yer} var, fatura no ve genel toplam uyuşuyor", log)
+            except LookupError as e:
+                ardisik += 1
+                yaz(f"    HATA: {e}", log)
+                sonuc = mk.firma_sonucu(firma, donem, {}, [], hata=str(e)[:300], kaynak="muavin" if sinif == 1 else "isletme")
+            except Exception as e:
+                if page.is_closed():
+                    raise
+                ardisik += 1
+                yaz(f"    HATA: {type(e).__name__}: {str(e)[:150]}", log)
+                gunluge_yaz("    " + traceback.format_exc().replace("\n", "\n    "), log)
+                sonuc = mk.firma_sonucu(firma, donem, {}, [], hata=type(e).__name__, kaynak="muavin" if sinif == 1 else "isletme")
+            islenen.add(firma)
+            if coklu:
+                sonuc["hesap"] = gorunen_ad(hesap_adi)
+            sonuclar[firma] = sonuc
+            mk.kaydet(kayit_yolu, donem, {firma: sonuc})
+            if ardisik >= ARDISIK_HATA_SINIRI:
+                yaz(f"UYARI: Art arda {ardisik} hata; kalan firmalar atlandı", log)
+                break
+    finally:
+        tarayiciyi_kapat(ctx)
+    return sonuclar
+
 
 
 def muavin_cek(args, ayarlar, p):
@@ -152,89 +249,27 @@ def muavin_cek(args, ayarlar, p):
             "faturaları indirin ya da --fatura-klasoru verin.", log)
         return 1
     yaz(f"Fatura klasörü: {fatura_klasoru}", log)
-    profil = profil_klasoru(log)
+    try:
+        hesap_listesi = hesaplar.hesaplar(ayarlar, args.hesap)
+    except ValueError as e:
+        yaz(f"HATA: {e}", log)
+        return 1
+    coklu = len(hesap_listesi) > 1
+    if coklu:
+        yaz("Luca hesapları (sırayla): " + " -> ".join(gorunen_ad(ad) for ad, _ in hesap_listesi), log)
     tani = klasor / "tani"
     indirme = klasor / "muavin"
     sonuclar = {}
+    islenen = set()          # bir firma iki hesapta da gorunurse ilk hesapta islenir
 
     from playwright.sync_api import sync_playwright
     with sync_playwright() as pw:
-        ctx = tarayici_ac(pw, profil, log, AYAR["chrome_gunlugu"])
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        page = luca_oturumu_ac(ctx, page, ayarlar, gece_modu, tani, log)
-        if page is None:
-            tarayiciyi_kapat(ctx)
-            return 1
-        try:
-            _, _, luca_firmalari = firma_secici_bekle(page)
-            secim = firmalari_suz(luca_firmalari, ayarlar, args.firma, args.limit, bit, log, tam_adlar=args.firma_tam)
-            if not secim.firmalar:
-                yaz(f"Işlenecek firma yok: {secim.bos_sebep}.", log)
-                return 1
-            firmalar = list(secim.firmalar)
-            if args.tum_firmalar:
-                siniflar = {f: 2 if args.sinif == "2" else 1 for f in firmalar}
-                faturalar = {f: mk.faturalari_oku(fatura_klasoru, f, bas, bit) for f in firmalar}
-            else:
-                siniflar = firma_siniflari(page, firmalar, bit, ayarlar, log, args.sinif, args.listeyi_yenile)
-                firmalar = [f for f in firmalar if f in siniflar]
-                faturalar = faturasi_indirilmis_firmalar(firmalar, fatura_klasoru, bas, bit, log)
-                firmalar = [f for f in firmalar if f in faturalar]
-            if not firmalar:
-                yaz("Işlenecek firma yok: seçilen dönemde faturası indirilmiş (1. / 2. sınıf) firma bulunamadı.", log)
-                return 1
-            ardisik = 0
-            for i, firma in enumerate(firmalar, 1):
-                if page.is_closed():
-                    yaz("UYARI: Luca ana penceresi kapandı; kalan firmalar atlandı", log)
-                    break
-                sinif = siniflar[firma]
-                yaz(f"[{i}/{len(firmalar)}] {firma}  " + ("(Luca muavin 191/391)" if sinif == 1 else
-                                                          "(Luca işletme defteri dökümü: gider/gelir)"), log)
-                try:
-                    acik_pencereleri_kapat(page)
-                    firma_sec(page, firma, log)
-                    if not donem_ayarla(page, firma, bas, bit, log):
-                        raise LookupError("firmanın bu döneme uygun çalışma dönemi yok")
-                    if sinif == 1:
-                        satirlar = luca_muavin.muavin_cek(page, firma, bas, bit, indirme / "dosyalar", tani, log,
-                                                          tani_hep=args.tani)
-                    else:
-                        satirlar = luca_isletme.isletme_cek(page, firma, bas, bit, indirme / "dosyalar", tani, log,
-                                                            tani_hep=args.tani)
-                    sonuc = mk.firma_sonucu(firma, donem, faturalar[firma], satirlar, kaynak="muavin" if sinif == 1 else "isletme")
-                    ardisik = 0
-                    a, t = sonuc["yon"]["alis"], sonuc["yon"]["satis"]
-                    yer = "muavinde" if sinif == 1 else "defterde"
-                    yaz(f"    Alış {a['fatura']} fatura ({a['eslesen']} tamam, {len(a['eksik'])} {yer} yok, "
-                        f"{len(a['tutar_farki'])} tutar uyuşmuyor) | Satış {t['fatura']} fatura ({t['eslesen']} tamam, "
-                        f"{len(t['eksik'])} {yer} yok, {len(t['tutar_farki'])} tutar uyuşmuyor)", log)
-                    sorunlar = [("EKSİK", y, f) for y, d in (("alis", a), ("satis", t)) for f in d["eksik"]] + \
-                               [("TUTAR", y, f) for y, d in (("alis", a), ("satis", t)) for f in d["tutar_farki"]]
-                    for etiket, y, f in sorunlar[:EKSIK_GUNLUK_SINIRI]:
-                        yaz(f"    {etiket}  {mk.eksik_satiri(y, f)}", log)
-                    if len(sorunlar) > EKSIK_GUNLUK_SINIRI:
-                        yaz(f"    … ve {len(sorunlar) - EKSIK_GUNLUK_SINIRI} fatura daha (hepsi Excel raporunda)", log)
-                    yaz(f"  [!!] {firma}: {len(sorunlar)} faturada sorun (fatura no / genel toplam {yer} uyuşmuyor)"
-                        if sorunlar else f"  [OK] {firma}: tüm faturalar {yer} var, fatura no ve genel toplam uyuşuyor", log)
-                except LookupError as e:
-                    ardisik += 1
-                    yaz(f"    HATA: {e}", log)
-                    sonuc = mk.firma_sonucu(firma, donem, {}, [], hata=str(e)[:300], kaynak="muavin" if sinif == 1 else "isletme")
-                except Exception as e:
-                    if page.is_closed():
-                        raise
-                    ardisik += 1
-                    yaz(f"    HATA: {type(e).__name__}: {str(e)[:150]}", log)
-                    gunluge_yaz("    " + traceback.format_exc().replace("\n", "\n    "), log)
-                    sonuc = mk.firma_sonucu(firma, donem, {}, [], hata=type(e).__name__, kaynak="muavin" if sinif == 1 else "isletme")
-                sonuclar[firma] = sonuc
-                mk.kaydet(kayit_yolu, donem, {firma: sonuc})
-                if ardisik >= ARDISIK_HATA_SINIRI:
-                    yaz(f"UYARI: Art arda {ardisik} hata; kalan firmalar atlandı", log)
-                    break
-        finally:
-            tarayiciyi_kapat(ctx)
+        for sira, (hesap_adi, ayar_h) in enumerate(hesap_listesi):
+            if coklu:
+                konsol.bolum(f"LUCA HESABI {sira + 1}/{len(hesap_listesi)}: {gorunen_ad(hesap_adi).upper()}", log)
+            sonuc_hesap = hesabi_isle(pw, sira, hesap_adi, ayar_h, args, ayarlar, log, tani, indirme, fatura_klasoru, bas, bit,
+                                      donem, gece_modu, kayit_yolu, islenen, coklu)
+            sonuclar.update(sonuc_hesap)
     try:   # Excel, onceki sorgulari da icerir (json birlesik)
         import json
         tum = json.loads(kayit_yolu.read_text(encoding="utf-8")).get("firmalar") or []

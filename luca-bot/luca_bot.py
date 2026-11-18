@@ -249,7 +249,7 @@ def firma_listesini_cek(args, ayarlar):
     with sync_playwright() as pw:
         for sira, (hesap_adi, ayar_h) in enumerate(hesap_listesi):
             if len(hesap_listesi) > 1:
-                konsol.bolum(f"LUCA HESABI {sira + 1}/{len(hesap_listesi)}: {hesap_adi.upper()}", log)
+                konsol.bolum(f"LUCA HESABI {sira + 1}/{len(hesap_listesi)}: {hesaplar.gorunen_ad(hesap_adi).upper()}", log)
             ctx = tarayici_ac(pw, profil_klasoru(log, hesap_profil_eki(sira)), log, AYAR["chrome_gunlugu"])
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
             page = luca_oturumu_ac(ctx, page, ayar_h, gece_modu, klasor / "tani", log)
@@ -269,7 +269,7 @@ def firma_listesini_cek(args, ayarlar):
                         k["hesap"] = hesap_adi
                     kayitlar.append(k)
                 if len(hesap_listesi) > 1:
-                    yaz(f"{hesap_adi}: {len(okunan)} firma okundu", log)
+                    yaz(f"{hesaplar.gorunen_ad(hesap_adi)}: {len(okunan)} firma okundu", log)
             except LookupError as e:
                 yaz(f"HATA: {e}", log)
                 hesap_hatasi = True
@@ -375,7 +375,7 @@ def calistir(args, ayarlar, p):
         return 1
     coklu = len(hesap_listesi) > 1
     if coklu:
-        yaz("Taranacak Luca hesaplari (sirayla): " + " -> ".join(ad for ad, _ in hesap_listesi), log)
+        yaz("Taranacak Luca hesaplari (sirayla): " + " -> ".join(hesaplar.gorunen_ad(ad) for ad, _ in hesap_listesi), log)
 
     from playwright.sync_api import sync_playwright
     sonuclar, sonuclar_var, kod, durduruldu, sure, bosluklar = [], False, 0, "", 0.0, []
@@ -383,7 +383,7 @@ def calistir(args, ayarlar, p):
     with sync_playwright() as pw:
         for sira, (hesap_adi, ayar_h) in enumerate(hesap_listesi):
             if coklu:
-                konsol.bolum(f"LUCA HESABI {sira + 1}/{len(hesap_listesi)}: {hesap_adi.upper()}", log)
+                konsol.bolum(f"LUCA HESABI {sira + 1}/{len(hesap_listesi)}: {hesaplar.gorunen_ad(hesap_adi).upper()}", log)
             r = _hesap_calistir(pw, args, ayar_h, hesap_adi, sira, coklu, sira == len(hesap_listesi) - 1, belge_tipleri,
                                 baslangic, araliklar, klasor, rapor_klasoru, log, azami_deneme, hata_siniri, gece_modu)
             kod = max(kod, r.kod)
@@ -429,7 +429,7 @@ def _hesap_calistir(pw, args, ayar_h, hesap_adi, sira, coklu, son_hesap, belge_t
     # 3. firmalar
     konsol.bolum("2/4  FIRMA LISTESI", log)
     _, _, luca_firmalari = firma_secici_bekle(page)
-    yaz(f"Luca'da {len(luca_firmalari)} firma bulundu" + (f" ({hesap_adi})" if coklu else ""), log)
+    yaz(f"Luca'da {len(luca_firmalari)} firma bulundu" + (f" ({hesaplar.gorunen_ad(hesap_adi)})" if coklu else ""), log)
 
     if args.listele:
         for f in luca_firmalari:
@@ -505,7 +505,7 @@ def _hesap_calistir(pw, args, ayar_h, hesap_adi, sira, coklu, son_hesap, belge_t
         konsol.bolum("4/4  RAPOR", log)  # rapor her firmadan sonra zaten guncellendi
         sonucu_bildir(calisma, ozet, ayar_h, klasor, rapor_klasoru, log, ikinci_tur)
     else:
-        yaz(f"{hesap_adi}: {len(calisma.sonuclar)} ekran sonucu rapora islendi (birlesik ozet ve e-posta en sonda)", log)
+        yaz(f"{hesaplar.gorunen_ad(hesap_adi)}: {len(calisma.sonuclar)} ekran sonucu rapora islendi (birlesik ozet ve e-posta en sonda)", log)
 
     if not gece_modu and son_bekle:
         kullanici_bekle(calisma.ctx, ">>> Tarayiciyi kapatmak icin ENTER'a basin: ")
