@@ -4098,9 +4098,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   function guncelKiraSatir(son, ilk){
     var g = son && son.guncelKira, st = ilk ? ' style="padding-top:0;border:0"' : "";
     if (g && g.v === 2 && !g.yok && g.tutar != null) { /* v2: doğrulanmış okuma; eski sürümün kaydı gösterilmez */
-      var ayAd = function(b){ return AYLAR_UZUN[new Date(b + "-01T00:00:00").getMonth()]; }, yil = new Date(g.bit + "-01T00:00:00").getFullYear();
-      var alt = (g.ay > 1 ? ayAd(g.bas) + "–" + ayAd(g.bit) : ayAd(g.bit)) + " " + yil + " muhtasarı" + (g.ay > 1 ? " · " + g.ay + " aylık net " + anaTl(g.net) + " ÷ " + g.ay : "");
-      return '<div class="a2-sat"' + st + '><div><span>Güncel kira</span><small>' + esc(alt) + '</small></div><b>' + anaTl(g.tutar) + '</b></div>';
+      return '<div class="a2-sat"' + st + '><div><span>Güncel kira</span></div><b>' + anaTl(g.tutar) + '</b></div>';
     }
     return ""; /* muhtasarda 041 kira satırı yoksa ya da henüz okunmadıysa yalnız artış oranı görünür */
   }
