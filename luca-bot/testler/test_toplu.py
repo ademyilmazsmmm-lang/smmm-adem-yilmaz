@@ -231,7 +231,7 @@ class UctanUca(unittest.TestCase):
         from test_iki_hesap import _calistir
         sahte_luca.SAYAC.update(ara_menu=True, toplu=True)
         arg = ["--firma", firma, "--bastan", "--toplu"] + [x for t in tipler for x in ("--belge-tipi", t)] + list(ek)
-        kod, cikti, _ = _calistir(self.klasor, self.adres, {}, arg)
+        kod, cikti, _ = _calistir(self.klasor, self.adres, {}, arg, hizli=True)
         rapor = json.loads((self.klasor / "indirilenler" / "rapor.json").read_text(encoding="utf-8"))
         return kod, cikti, rapor
 

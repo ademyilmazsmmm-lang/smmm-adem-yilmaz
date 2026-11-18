@@ -21,8 +21,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sahte_luca  # noqa: E402
 
 
-def _calistir(klasor, adres, ayar_ek, argumanlar):
-    """luca_bot.main()'i bu surecte calistirir; (cikis kodu, stdout, giris cagrilari [(kullanici, parola)])."""
+def _calistir(klasor, adres, ayar_ek, argumanlar, hizli=False):
+    """luca_bot.main()'i bu surecte calistirir; (cikis kodu, stdout, giris cagrilari [(kullanici, parola)]).
+
+    hizli=False: eski ekranlar (--eski-ekranlar); hizli=True: varsayilan hizli mod (Toplu Sorgulama)."""
     import luca_bot
     from lucabot import ortak
     ayar = {"giris_adresi": adres, "tarayici": "chromium", "tarayici_yolu": os.environ.get("LUCA_TEST_CHROMIUM", ""),
@@ -44,7 +46,7 @@ def _calistir(klasor, adres, ayar_ek, argumanlar):
     os.environ.update(ortam)
     luca_bot.luca_oturumu_ac = sarmal
     eski_argv = sys.argv
-    sys.argv = ["luca_bot.py", "--eski-ekranlar", "--baslangic", "01/08/2026", "--bitis", "10/08/2026", "--bitince-kapat", "--belge-tipi", "e-arsiv-alis",
+    sys.argv = ["luca_bot.py", *([] if hizli else ["--eski-ekranlar"]), "--baslangic", "01/08/2026", "--bitis", "10/08/2026", "--bitince-kapat", "--belge-tipi", "e-arsiv-alis",
                 *argumanlar]
     cikti = io.StringIO()
     try:
