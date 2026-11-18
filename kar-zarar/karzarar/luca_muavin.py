@@ -86,7 +86,8 @@ def _form_hazir(page, desen=MUAVIN_FORM):
 # Excel secenegi olan form kullanilir.
 MENU_BAGLANTILARI_JS = r"""ad => {
   if (typeof menuItems === 'undefined' || typeof aktar !== 'function') return null;
-  const temiz = t => (t || '').replace(/<[^>]*>/g, '').replace(/^\|+/, '').replace(/&[a-z]+;/g, '').trim().toLocaleLowerCase('tr');
+  const ta = document.createElement('textarea');
+  const temiz = t => { ta.innerHTML = (t || '').replace(/<[^>]*>/g, ''); return ta.value.replace(/^\|+/, '').trim().toLocaleLowerCase('tr'); };
   const h = ad.toLocaleLowerCase('tr'), cikti = [];
   for (let i = 0; i < menuItems.length; i++) {
     const x = menuItems[i];
@@ -94,8 +95,9 @@ MENU_BAGLANTILARI_JS = r"""ad => {
   }
   return cikti;
 }"""
+ESKI_ISARETLE_JS = "() => { window.__lbEski = true; return true; }"   # icerik cercevesi aktar() ile degisince isaret kaybolur
 MENU_AC_JS = r"""l => { if (typeof aktar !== 'function') return false;
-  try { window.__lbEski = true; aktar(l); return true; } catch (e) { return false; } }"""
+  try { aktar(l); return true; } catch (e) { return false; } }"""
 YENI_FORM_VE_EXCEL_JS = r"""desen => {
   if (window.__lbEski) return null;                       // eski (degismemis) sayfa
   const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
@@ -128,7 +130,39 @@ def menu_baglantilari(page, ad=MENU_ADI):
     return []
 
 
+MENU_BENZER_JS = r"""anahtarlar => {
+  if (typeof menuItems === 'undefined') return null;
+  const ta = document.createElement('textarea');
+  const temiz = t => { ta.innerHTML = (t || '').replace(/<[^>]*>/g, ''); return ta.value.replace(/^\|+/, '').trim(); };
+  const cikti = [];
+  for (let i = 0; i < menuItems.length && cikti.length < 12; i++) {
+    const x = menuItems[i];
+    if (!x || !x[1]) continue;
+    const t = temiz(x[0]), k = t.toLocaleLowerCase('tr');
+    if (anahtarlar.some(a => k.includes(a))) cikti.push(t + ' -> ' + x[1]);
+  }
+  return cikti;
+}"""
+
+
+def menu_benzerleri(page, anahtarlar=("döküm", "dokum", "muavin", "gelir/gider", "defter")):
+    """Tani: menu verisinde bu kelimeleri iceren girisler ('Etiket -> baglanti')."""
+    for fr in page.frames:
+        try:
+            m = fr.evaluate(MENU_BENZER_JS, list(anahtarlar))
+        except Exception:
+            continue
+        if m is not None:
+            return m
+    return []
+
+
 def _baglantiyi_ac(page, baglanti):
+    for fr in page.frames:        # once TUM cerceveler "eski" isaretlenir: yeni acilan form isaretsiz gelir
+        try:
+            fr.evaluate(ESKI_ISARETLE_JS)
+        except Exception:
+            continue
     for fr in page.frames:
         try:
             if fr.evaluate(MENU_AC_JS, baglanti):

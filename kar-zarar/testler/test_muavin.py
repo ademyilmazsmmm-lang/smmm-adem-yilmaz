@@ -448,6 +448,36 @@ class UctanUca(unittest.TestCase):
         self.assertIn("Sınıf belirlendi: 1. sınıf (muavin)", cikti)
         self.assertEqual(sonuc["ALFA ISLETME"]["kaynak"], "muavin")
 
+    def test_menu_baglantilari_html_varlikli_adlar_ve_cerceveler_arasi_eski_isareti(self):
+        """Menu verisinde adlar HTML varligi olabilir; ayni adli tum girisler bulunur. Icerik baska cercevedeyse eski form ayirt edilir."""
+        from playwright.sync_api import sync_playwright
+        from karzarar import luca_muavin
+        html = """<script>
+          var menuItems = [["||||Serbest Meslek D&ouml;k&uuml;m&uuml;", "raporSerbest.do?x=1"], ["||||Muavin Defter", "raporMuavinKarakter.do"],
+                           ["|||||Muavin Defter", "raporMuavinDefterHazirla.do"], ["x", ""]];
+          function aktar(l) { document.getElementById('ic').srcdoc = '<table><tr><th>Başlangıç Fiş Tarihi</th><td><input></td></tr>'
+            + '<tr><th>Rapor Türü</th><td><select>' + (l.indexOf('Karakter') >= 0 ? '<option>IBM Tabanlı Yazıcı</option>'
+            : '<option>PDF</option><option>Excel Liste (xlsx)</option>') + '</select></td></tr></table>'; }
+        </script><iframe id="ic"></iframe>"""
+        with sync_playwright() as pw:
+            b = pw.chromium.launch(executable_path=os.environ["LUCA_TEST_CHROMIUM"], args=["--no-sandbox"])
+            sayfa = b.new_page()
+            sayfa.set_content(html)
+            self.assertEqual([l for _, l in luca_muavin.menu_baglantilari(sayfa, "Serbest Meslek Dökümü")], ["raporSerbest.do?x=1"])
+            baglantilar = [l for _, l in luca_muavin.menu_baglantilari(sayfa, "Muavin Defter")]
+            self.assertEqual(baglantilar, ["raporMuavinKarakter.do", "raporMuavinDefterHazirla.do"])
+            sonuclar = []
+            for l in baglantilar:
+                self.assertTrue(luca_muavin._baglantiyi_ac(sayfa, l))
+                for _ in range(40):                      # yeni form yuklenene kadar (eski isaret kaybolur)
+                    r = luca_muavin._yeni_form(sayfa)
+                    if r:
+                        break
+                    sayfa.wait_for_timeout(100)
+                sonuclar.append(r[0])
+            b.close()
+        self.assertEqual(sonuclar, [False, True])       # Nokta Vurusulu: Excel yok; ikinci: var
+
     def test_faturasi_olmayan_firma_atlanir_ve_rapor_yoksa_hata(self):
         kod, sonuc, cikti, istekler = calistir(self.klasor, self.veri, ek=["--tum-firmalar"], firma="ALFA ISLETME")
         self.assertEqual(kod, 0, cikti[-1500:])

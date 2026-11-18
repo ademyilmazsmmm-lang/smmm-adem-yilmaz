@@ -261,10 +261,10 @@ kayıtlarıyla uyuşuyor mu?* İkisi de uyuyorsa sorun yoktur. Altta `kar-zarar/
 `indirilenler/rapor.json` ve ekran klasörlerindeki `liste.csv` dosyalarıdır (önce o dönemin faturalarını Fatura İndirme'den indirin).
 
 - **1. sınıf (genel muhasebe)** firmalar: Luca'da **Muhasebe > Raporlar > Genel Raporlar > Defterler > Tüm Yazıcılar > Muavin Defter**
-  tüm hesaplarla Excel indirilir (Rapor Türü *Excel Liste (xlsx)*, hesap kodu alanları boş). Alış faturaları **191**'de, satış faturaları
+  tüm hesaplarla Excel indirilir (Rapor Türü *Excel Liste (xlsx)*, hesap kodu alanları boş). Menüde "Muavin Defter" iki kez geçer (*Nokta Vuruşlu Yazıcılar*: yalnız IBM/EPSON, Excel yok; *Tüm Yazıcılar*: Excel); program Rapor Türü'nde Excel olanı seçer. Alış faturaları **191**'de, satış faturaları
   **391**'de aranır. Genel toplam, numaralı satırın fişinde **100-102-309-320-120-108-321-121** hesaplarından birinde ya da
   **191/391 KDV + fişteki matrah** toplamı olarak bulunmalıdır.
-- **2. sınıf (işletme / serbest meslek defteri)** firmalar: **İşletme Defteri > Raporlar > Genel Raporlar > İşletme Defteri Dökümü**
+- **2. sınıf (işletme / serbest meslek defteri)** firmalar: **Raporlar > Genel Raporlar > İşletme Defteri Dökümü** (Serbest Meslek Defteri modülünde aynı yerde **Serbest Meslek Dökümü**)
   (Tarih İlk / Tarih Son, Excel xlsx). Faturanın numarası **Giderler** (alış) ya da **Gelirler** (satış) tablosunun *Evrak No* sütununda,
   *Toplam* sütunu da fatura toplamıyla aynı olmalıdır.
 - Sorun iki türlüdür: **numara yok** (inen fatura listesinde var, muavinde / işletme defterinde yok) ve **tutar uyuşmuyor** (numara var, genel
