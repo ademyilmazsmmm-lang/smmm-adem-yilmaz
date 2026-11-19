@@ -1,6 +1,6 @@
 /* Güvenlik bildirimleri ve yedek sağlığı (bağımlılıksız).
- *  - Ofis ve çalışan hesabıyla YENİ CİHAZDAN girişte, ve herhangi bir hesaba art arda BAŞARISIZ denemede ofise e-posta gider (OFIS_EPOSTA + e-posta servisi gerekir).
- *  - Giriş olayları son 100 kayıt olarak tutulur (ofis Ayarlar'dan görür); e-posta kapalıysa da kayıt tutulur.
+ *  - Herhangi bir hesaba art arda BAŞARISIZ denemede ofise e-posta gider (OFIS_EPOSTA + e-posta servisi gerekir). Başarılı girişler için e-posta GİTMEZ.
+ *  - Giriş olayları (yeni cihaz işaretiyle) son 100 kayıt olarak tutulur (ofis Ayarlar'dan görür); e-posta kapalıysa da kayıt tutulur.
  *  - Cihaz tanıma: tarayıcıya rastgele bir "cihaz" çerezi verilir; sunucuda yalnız (kullanıcı + çerez) özeti (SHA-256) saklanır. Çerez tek başına hiçbir yetki vermez.
  *    Cihaz özetleri GitHub yansısına da yazılır (sunucu yeniden kurulursa herkesin cihazı "yeni" sayılıp e-posta yağmaz); IP ve tarayıcı bilgisi ise yalnız yerelde, kayıt dosyasında kalır.
  *  - Yedek sağlığı: GitHub yansısının son sağlam zamanı, elle şifreli yedek alma zamanı; Ana ekranda uyarı için değerlendirir. */
@@ -60,16 +60,13 @@ function kur(s) {
     const yeniCerez = !cerez; if (yeniCerez) cerez = crypto.randomBytes(24).toString("base64url");
     const h = ozetle(ad, cerez), liste = cihazlar[ad] = cihazlar[ad] || {}, t = simdi();
     const onceki = basarisiz.get(ad), sonDeneme = onceki ? onceki.zamanlar.filter((z) => t - z < 30 * 60e3).length : 0;
-    if (liste[h]) { liste[h].son = new Date(t).toISOString(); cihazlariKaydet(); kayitEkle({ tur: "giris", kullanici: ad, rol, ip, ua: ozet }); }
+    const oncesi = sonDeneme ? "öncesinde " + sonDeneme + " başarısız deneme" : undefined;
+    if (liste[h]) { liste[h].son = new Date(t).toISOString(); cihazlariKaydet(); kayitEkle({ tur: "giris", kullanici: ad, rol, ip, ua: ozet, not: oncesi }); }
     else {
       const ilk = Object.keys(liste).length === 0; liste[h] = { ilk: new Date(t).toISOString(), son: new Date(t).toISOString() };
       if (Object.keys(liste).length > 30) { const eski = Object.keys(liste).sort((a, b) => String(liste[a].son).localeCompare(String(liste[b].son)))[0]; delete liste[eski]; }
       cihazlariKaydet();
-      const gonderildi = bildir("Portal güvenliği: yeni cihazdan giriş (" + ad + ")",
-        "Portala yeni bir cihazdan giriş yapıldı.\n\nHesap: " + ad + (rol === "personel" ? " (çalışan)" : " (ofis)") + "\nZaman: " + zamanTr(t) + "\nCihaz: " + ozet + "\nIP adresi: " + kacisYok(ip) + (ilk ? "\n\nBu hesap için kayıtlı ilk cihaz bu (bildirimler yeni açıldıysa ya da cihaz bilgisi sıfırlandıysa bu normaldir)." : "") +
-        (sonDeneme ? "\n\nDİKKAT: Bu girişten önceki 30 dakikada bu hesaba " + sonDeneme + " başarısız giriş denemesi yapılmıştı." : "") +
-        "\n\nBu giriş size aitse bir şey yapmanız gerekmez. Size ait değilse portalda Ayarlar bölümünden şifrenizi hemen değiştirin ve yedeğinizi kontrol edin.");
-      kayitEkle({ tur: "yeni-cihaz", kullanici: ad, rol, ip, ua: ozet, eposta: gonderildi ? "gönderildi" : (epostaAcik() ? "sınır" : "e-posta kapalı") });
+      kayitEkle({ tur: "yeni-cihaz", kullanici: ad, rol, ip, ua: ozet, not: [ilk ? "bu hesap için kayıtlı ilk cihaz" : "", oncesi || ""].filter(Boolean).join(" · ") || undefined });
     }
     basarisiz.delete(ad);
     if (yeniCerez) ek.push("cihaz=" + cerez + "; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000" + (s.https && s.https(req) ? "; Secure" : ""));

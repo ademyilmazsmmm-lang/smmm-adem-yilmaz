@@ -2581,7 +2581,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     var l = $("gkListe"); if (!l) return;
     api("/api/guvenlik").then(function(r){
       var e = $("gkEposta"), tr = { "giris": "Giriş", "yeni-cihaz": "Yeni cihaz", "basarisiz": "Başarısız deneme", "uyari": "Uyarı gönderildi" };
-      if (e) { e.className = "not"; e.innerHTML = r.epostaAcik ? "Yeni cihazdan giriş ve art arda başarısız denemelerde <b>" + esc(r.epostaAdres || "ofis e-postası") + "</b> adresine e-posta gider." : '<span style="color:var(--danger)">E-posta bildirimi kapalı:</span> sunucu ayarlarında OFIS_EPOSTA ve e-posta servisi (MAIL_*) kurulursa yeni cihaz ve başarısız deneme bildirimi e-postayla gelir. Kayıtlar yine de aşağıda tutulur.'; }
+      if (e) { e.className = "not"; e.innerHTML = r.epostaAcik ? "Art arda başarısız denemelerde <b>" + esc(r.epostaAdres || "ofis e-postası") + "</b> adresine e-posta gider. Girişler için e-posta gitmez, yalnız aşağıdaki kayda yazılır." : '<span style="color:var(--danger)">E-posta bildirimi kapalı:</span> sunucu ayarlarında OFIS_EPOSTA ve e-posta servisi (MAIL_*) kurulursa art arda başarısız denemelerde e-posta gelir. Girişler yine de aşağıda kayıtlıdır.'; }
       var k = r.kayitlar || [];
       l.innerHTML = k.length ? k.map(function(x){
         var z = new Date(x.z), ton = x.tur === "yeni-cihaz" || x.tur === "uyari" ? "var(--danger)" : x.tur === "basarisiz" ? "var(--warn)" : "var(--muted)";
