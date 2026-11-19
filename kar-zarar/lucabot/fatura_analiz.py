@@ -283,13 +283,19 @@ def satir_toplam_tutari(basliklar, satir):
     """Bir faturanin genel toplam tutari (fatura listesi ve eksik/fazla listesinde gosterilir).
 
     Once "Genel Toplam / Odenecek Tutar" gibi bir sutun aranir ("Mal Hizmet
-    Toplam Tutari" matrahtir, sayilmaz). Luca'nin Excel'inde boyle bir sutun
-    yoksa tutar matrah + KDV olarak hesaplanir.
+    Toplam Tutari" matrahtir, sayilmaz). Toplu Sorgulama Excel'inde bu sutun
+    yalniz "Toplam" adini tasir ve faturadaki genel toplamdir: matrah + KDV'ye
+    ozel iletisim vergisi, KDV'siz (%0) matrah gibi kalemler de dahildir
+    (ornek: matrah 13.360,48 + KDV 2.627,22 = 15.987,70; Toplam 18.515,60).
+    Hicbiri yoksa tutar matrah + KDV olarak hesaplanir.
     """
     for anahtar in TOPLAM_ANAHTARLARI:
         for i in _tutar_sutunlari(basliklar, (anahtar,), haric=("MAL HIZMET", "MATRAH", "KDV")):
             if i < len(satir) and tutar_cozumle(satir[i]):
                 return tutar_cozumle(satir[i])
+    i = sutun_tam_indeksi(basliklar, "Toplam")
+    if i is not None and i < len(satir) and tutar_cozumle(satir[i]):
+        return tutar_cozumle(satir[i])
     matrah, kdv = matrah_kdv_sutunlari(basliklar)
     return round(_satirlarin_tutari([satir], matrah) + _satirlarin_tutari([satir], kdv), 2)
 

@@ -170,6 +170,10 @@ class TutarVeFaturaTestleri(unittest.TestCase):
         # genel toplam sutunu varsa o kullanilir
         basliklar = ["Fatura No", "Matrah", "KDV", "Ödenecek Tutar"]
         self.assertEqual(satir_toplam_tutari(basliklar, ["X", "1000", "200", "1150,5"]), 1150.5)
+        # Toplu Sorgulama Excel'i: "Toplam" genel toplamdir (ozel iletisim vergisi vb. dahil), matrah+KDV'den buyuk olabilir
+        basliklar = ["Fatura\nNumarası", "Özel\nMatrah", "%20'lik\nKDV", "%20'lik\nMatrah", "Toplam"]
+        self.assertEqual(satir_toplam_tutari(basliklar, ["X", "224,40", "2.627,22", "13.136,08", "18.515,60"]), 18515.60)
+        self.assertEqual(satir_toplam_tutari(basliklar, ["X", "224,40", "2.627,22", "13.136,08", ""]), 15987.70)   # Toplam bos: matrah+KDV
 
     def test_gib_hata_mesaji_taninir(self):
         from lucabot.gib_sorgu import gib_hatasi, hata_satiri, yetki_hatasi

@@ -307,6 +307,39 @@ class MuavinMantigi(unittest.TestCase):
         self.assertEqual(len(mk.karsilastir("satis", [dict(faturalar[0], no="BBB2026000000001", toplam=2400.0, kdv=400.0)], s)["eslesen"]), 1)
         self.assertEqual(mk.firma_sonucu("X", "d", {"alis": faturalar, "satis": []}, s, kaynak="isletme")["kaynak"], "isletme")
 
+    def test_toplam_sutunu_genel_toplamdir_ozel_iletisim_vergisi_olan_fatura_320_ile_tutar(self):
+        """Gercek Luca ornegi (telekom faturasi): matrah+KDV 15.987,70 ama Excel'in "Toplam" sutunu ve 320 satiri 18.515,60
+        (ozel iletisim vergisi 1.313,61 ve KDV'siz 1.214,29 dahil). Genel toplam "Toplam" sutunundan okunur."""
+        k = Path(self.klasor) / "TELKO" / "e-fatura-alis"
+        k.mkdir(parents=True)
+        baslik = ["Fatura Tarihi", "Fatura Numarası", "Fatura Türü", "VKN/TCKN", "Açıklama", "Tevkifat Oranı", "Özel Matrah",
+                  "%1'lik KDV", "%8'lik KDV", "%10'lik KDV", "%18'lik KDV", "%20'lik KDV", "%1'lik Matrah", "%8'lik Matrah",
+                  "%10'lik Matrah", "%18'lik Matrah", "%20'lik Matrah", "Toplam"]
+        satir = ["25/10/2026", "0012026238928997", "SATIS", "123", "Turkcell", "", 224.40, "", "", "", "", 2627.22,
+                 "", "", "", "", 13136.08, 18515.60]
+        for ad, toplam in (("liste.csv", 18515.60),):
+            with open(k / ad, "w", encoding="utf-8-sig", newline="") as f:
+                w = csv.writer(f)
+                w.writerow(baslik)
+                w.writerow(satir[:-1] + [toplam])
+        (self.klasor / "rapor.json").write_text(json.dumps({"TELKO": {"klasorler": {"e-fatura-alis": str(k)}}}), encoding="utf-8")
+        fat = mk.faturalari_oku(self.klasor, "TELKO", *DONEM)["alis"]
+        self.assertEqual((fat[0]["toplam"], fat[0]["kdv"]), (18515.60, 2627.22))
+        yol = self.klasor / "telko.xlsx"
+        muavin_cok(yol, {
+            "191 İNDİRİLECEK KDV": [("25/10/2026", "332", "0012026238928997", 2627.22, None)],
+            "320 SATICILAR": [("25/10/2026", "332", "TURKCELL", None, 18515.60)],
+            "689 ÖZEL İLETİŞİM VERGİSİ": [("25/10/2026", "332", "TURKCELL", 1313.61, None)],
+            "770 GENEL YÖNETİM GİDERLERİ": [("25/10/2026", "332", "TURKCELL", 14574.77, None)]})
+        sonuc = mk.karsilastir("alis", fat, mk.muavin_satirlari(yol))
+        self.assertEqual((len(sonuc["eslesen"]), len(sonuc["tutar_farki"]), len(sonuc["eksik"])), (1, 0, 0))
+        # "Toplam" sutunu bos/yoksa eski davranis: matrah (Ozel Matrah dahil) + KDV
+        with open(k / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(baslik[:-1])
+            w.writerow(satir[:-1])
+        self.assertEqual(mk.faturalari_oku(self.klasor, "TELKO", *DONEM)["alis"][0]["toplam"], 15987.70)
+
     def test_faturalar_rapor_json_ve_csvden_okunur_mukerrer_ekran_tek_sayilir(self):
         firma = self._rapor([("AAA2026000000001", "05/10/2026", 1000.0, 200.0),
                              ("AAA2026000000002", "20/09/2026", 500.0, 100.0)],        # donem disi
