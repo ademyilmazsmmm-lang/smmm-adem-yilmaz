@@ -64,6 +64,8 @@ def arguman_ayristirici():
                         "firmalarin hepsi bu sinifta sayilir (hepsi -> 1; otomatik -> ekrandan belirlenir)")
     p.add_argument("--tum-firmalar", action="store_true",
                    help="Sinif suzgecini ve 'faturasi indirilmis firma' suzgecini kapat (yalniz deneme icin)")
+    p.add_argument("--tutar-esigi", type=float, default=mk.TUTAR_FARKI_ESIGI, dest="tutar_esigi",
+                   help="Bu TL'den kucuk genel toplam farklari dikkate alinmaz (varsayilan 2000; 0: her fark gosterilir)")
     p.add_argument("--tarayici", choices=["chrome", "edge", "chromium"])
     p.add_argument("--profil-yerel", action="store_true")
     p.add_argument("--chrome-gunlugu", action="store_true")
@@ -230,7 +232,8 @@ def hesabi_isle(pw, sira, hesap_adi, ayar_h, args, ayarlar, log, tani, indirme, 
                 else:
                     satirlar, sinif = otomatik_cek(muavin_fn, isletme_fn, log)
                     yaz(f"    Sınıf belirlendi: {'1. sınıf (muavin)' if sinif == 1 else '2. sınıf (işletme defteri)'}", log)
-                sonuc = mk.firma_sonucu(firma, donem, faturalar[firma], satirlar, kaynak="muavin" if sinif == 1 else "isletme")
+                sonuc = mk.firma_sonucu(firma, donem, faturalar[firma], satirlar, kaynak="muavin" if sinif == 1 else "isletme",
+                                        esik=args.tutar_esigi)
                 ardisik = 0
                 a, t = sonuc["yon"]["alis"], sonuc["yon"]["satis"]
                 yer = "muavinde" if sinif == 1 else "defterde"
@@ -238,6 +241,9 @@ def hesabi_isle(pw, sira, hesap_adi, ayar_h, args, ayarlar, log, tani, indirme, 
                 if okunamayan:
                     yaz(f"    UYARI: {okunamayan} faturanın tutarı dökümde okunamadı (Toplam sütunu bulunamadı); yalnız fatura numarası "
                         "kontrol edildi. Gerekirse döküm dosyasını gönderin: " + str(indirme / "dosyalar"), log)
+                kucuk = a.get("kucuk_fark", 0) + t.get("kucuk_fark", 0)
+                if kucuk:
+                    yaz(f"    Not: {kucuk} faturada {args.tutar_esigi:,.0f} TL altı tutar farkı dikkate alınmadı", log)
                 yaz(f"    Alış {a['fatura']} fatura ({a['eslesen']} tamam, {len(a['eksik'])} {yer} yok, "
                     f"{len(a['tutar_farki'])} tutar uyuşmuyor) | Satış {t['fatura']} fatura ({t['eslesen']} tamam, "
                     f"{len(t['eksik'])} {yer} yok, {len(t['tutar_farki'])} tutar uyuşmuyor)", log)

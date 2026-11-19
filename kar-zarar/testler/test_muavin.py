@@ -23,6 +23,15 @@ from karzarar import muavin_karsilastir as mk  # noqa: E402
 DONEM = (date(2026, 10, 1), date(2026, 10, 31))
 
 
+def karsilastir0(*a, **k):
+    """Esiksiz (her tutar farki gorunur) karsilastirma: mevcut testlerin kucuk tutarli ornekleri icin."""
+    return mk.karsilastir(*a, esik=0, **k)
+
+
+def firma_sonucu0(*a, **k):
+    return mk.firma_sonucu(*a, esik=0, **k)
+
+
 def muavin_excel(yol, satirlar, bolum="191 İNDİRİLECEK KDV"):
     """Sentetik Luca muavin Excel'i: ust bilgi, hesap bolum satiri, baslik, kayitlar, toplam satiri."""
     from openpyxl import Workbook
@@ -172,7 +181,7 @@ class MuavinMantigi(unittest.TestCase):
                               ("08/10/2026", "3", "alis", None, 1200.0), ("08/10/2026", "4", "alis", None, 900.0)],
             "102 BANKALAR": [("11/10/2026", "8", "odeme", None, 1180.0)],
             "770 GENEL YÖNETİM GİDERLERİ": [("10/10/2026", "6", "matrah", 500.0, None)]})
-        k = mk.karsilastir("alis", faturalar, mk.muavin_satirlari(yol))
+        k = karsilastir0("alis", faturalar, mk.muavin_satirlari(yol))
         no = lambda liste: [f["no"][-2:] for f in liste]
         self.assertEqual(no(k["eslesen"]), ["01", "03", "09", "10", "11"])
         self.assertEqual(no(k["eksik"]), ["02", "05", "08"])
@@ -188,11 +197,11 @@ class MuavinMantigi(unittest.TestCase):
             yol = self.klasor / f"k{karsi}.xlsx"
             muavin_cok(yol, {"191 KDV": [("05/10/2026", "1", "AAA2026000000001", 200.0, None)],
                              f"{karsi} KARSI": [("05/10/2026", "1", "x", None, 1200.0)]})
-            self.assertEqual(len(mk.karsilastir("alis", f, mk.muavin_satirlari(yol))["eslesen"]), 1, karsi)
+            self.assertEqual(len(karsilastir0("alis", f, mk.muavin_satirlari(yol))["eslesen"]), 1, karsi)
         yol = self.klasor / "karsiz.xlsx"                       # 600 gibi karsi olmayan hesaptaki esit tutar sayilmaz
         muavin_cok(yol, {"191 KDV": [("05/10/2026", "1", "AAA2026000000001", 200.0, None)],
                          "255 DEMIRBAS": [("05/10/2026", "1", "x", None, 1200.0)]})
-        self.assertEqual(len(mk.karsilastir("alis", f, mk.muavin_satirlari(yol))["tutar_farki"]), 1)
+        self.assertEqual(len(karsilastir0("alis", f, mk.muavin_satirlari(yol))["tutar_farki"]), 1)
 
     def test_isletme_defterinde_kalem_kalem_bolunen_fatura_satir_toplamiyla_karsilastirilir(self):
         """Gercek dokumde bir fatura kalem kalem birden cok satirda yer alir (ayni evrak no); satir toplamlari fatura toplamina esit olmali."""
@@ -205,13 +214,13 @@ class MuavinMantigi(unittest.TestCase):
         f = [{"no": "AAA2026000000001", "tarih": date(2026, 10, 5), "unvan": "A", "toplam": 7050.0, "kdv": 1175.0, "tip": "x"},
              {"no": "AAA2026000000002", "tarih": date(2026, 10, 9), "unvan": "B", "toplam": 581.61, "kdv": 92.44, "tip": "x"},
              {"no": "AAA2026000000003", "tarih": date(2026, 10, 9), "unvan": "C", "toplam": 1000.0, "kdv": 166.67, "tip": "x"}]
-        k = mk.karsilastir("alis", f, satirlar)
+        k = karsilastir0("alis", f, satirlar)
         self.assertEqual(([x["no"][-1] for x in k["eslesen"]], [x["no"][-1] for x in k["tutar_farki"]], [x["no"][-1] for x in k["eksik"]]),
                          (["1"], ["2"], ["3"]))
         self.assertIn("kayıtta: 554,64", mk.eksik_satiri("alis", mk._f(k["tutar_farki"][0])))
         # parcali satirlar tutmuyorsa satir toplami da gosterilir
         satirlar[3]["toplam"] = 400.0
-        k2 = mk.karsilastir("alis", f[:1], satirlar[:4])
+        k2 = karsilastir0("alis", f[:1], satirlar[:4])
         self.assertEqual(len(k2["tutar_farki"]), 1)
         self.assertIn("satırların toplamı 6.950,00", mk.eksik_satiri("alis", mk._f(k2["tutar_farki"][0])))
 
@@ -220,10 +229,10 @@ class MuavinMantigi(unittest.TestCase):
                      "borc": 0.0, "alacak": 0.0, "metin": "", "toplam": 0.0, "nolar": ["AAA2026000000001"]}]
         f = [{"no": "AAA2026000000001", "tarih": date(2026, 10, 1), "unvan": "A", "toplam": 1200.0, "kdv": 200.0, "tip": "x"},
              {"no": "AAA2026000000002", "tarih": date(2026, 10, 2), "unvan": "B", "toplam": 600.0, "kdv": 100.0, "tip": "x"}]
-        k = mk.karsilastir("alis", f, satirlar)
+        k = karsilastir0("alis", f, satirlar)
         self.assertEqual(([x["no"][-1] for x in k["eslesen"]], [x["no"][-1] for x in k["tutar_okunamadi"]],
                           [x["no"][-1] for x in k["eksik"]], k["tutar_farki"]), (["1"], ["1"], ["2"], []))
-        s = mk.firma_sonucu("X", "d", {"alis": f, "satis": []}, satirlar, kaynak="isletme")
+        s = firma_sonucu0("X", "d", {"alis": f, "satis": []}, satirlar, kaynak="isletme")
         self.assertEqual(s["yon"]["alis"]["tutar_okunamadi"], 1)
 
     def test_satis_391_ve_alis_191_ayri_aranir(self):
@@ -233,8 +242,8 @@ class MuavinMantigi(unittest.TestCase):
                          "120 ALICILAR": [("05/10/2026", "1", "satis", 2400.0, None)]})
         satirlar = mk.muavin_satirlari(yol)
         self.assertEqual(satirlar[0]["hesap"], "391")
-        self.assertEqual(len(mk.karsilastir("satis", faturalar, satirlar)["eslesen"]), 1)
-        self.assertEqual(len(mk.karsilastir("alis", faturalar, satirlar)["eksik"]), 1)      # 391 satiri alis (191) icin sayilmaz
+        self.assertEqual(len(karsilastir0("satis", faturalar, satirlar)["eslesen"]), 1)
+        self.assertEqual(len(karsilastir0("alis", faturalar, satirlar)["eksik"]), 1)      # 391 satiri alis (191) icin sayilmaz
 
     def test_eksik_satiri_no_ve_tutari_gosterir(self):
         f = {"no": "AAA2026000000002", "tarih": "06/10/2026", "unvan": "B LTD", "toplam": 1234.5, "kdv": 205.75}
@@ -300,12 +309,38 @@ class MuavinMantigi(unittest.TestCase):
         faturalar = [{"no": "AAA2026000000001", "tarih": date(2026, 1, 7), "unvan": "A", "toplam": 1200.0, "kdv": 200.0, "tip": "x"},
                      {"no": "AAA2026000000009", "tarih": date(2026, 1, 9), "unvan": "Z", "toplam": 360.0, "kdv": 60.0, "tip": "x"},
                      {"no": "AAA2026000000002", "tarih": date(2026, 1, 17), "unvan": "B", "toplam": 700.0, "kdv": 100.0, "tip": "x"}]
-        k = mk.karsilastir("alis", faturalar, s)
+        k = karsilastir0("alis", faturalar, s)
         self.assertEqual(([f["no"] for f in k["eslesen"]], [f["no"] for f in k["eksik"]], [f["no"] for f in k["tutar_farki"]]),
                          (["AAA2026000000001"], ["AAA2026000000009"], ["AAA2026000000002"]))    # defterde 600, fatura 700
         self.assertEqual(k["tutar_farki"][0]["kayit"], [600.0])
-        self.assertEqual(len(mk.karsilastir("satis", [dict(faturalar[0], no="BBB2026000000001", toplam=2400.0, kdv=400.0)], s)["eslesen"]), 1)
-        self.assertEqual(mk.firma_sonucu("X", "d", {"alis": faturalar, "satis": []}, s, kaynak="isletme")["kaynak"], "isletme")
+        self.assertEqual(len(karsilastir0("satis", [dict(faturalar[0], no="BBB2026000000001", toplam=2400.0, kdv=400.0)], s)["eslesen"]), 1)
+        self.assertEqual(firma_sonucu0("X", "d", {"alis": faturalar, "satis": []}, s, kaynak="isletme")["kaynak"], "isletme")
+
+    def test_2000_tl_alti_tutar_farki_dikkate_alinmaz(self):
+        """Telefon/elektrik faturalarindaki kucuk farklar (OIV, telsiz ucreti) tabloya girmez; 2.000 TL ve ustu girer."""
+        F = lambda n, toplam: {"no": f"AAA20260000000{n:02d}", "tarih": date(2026, 10, 5), "unvan": f"S{n}",
+                               "toplam": toplam, "kdv": 100.0, "tip": "x"}
+        yol = self.klasor / "esik.xlsx"
+        satirlar = {"191 İNDİRİLECEK KDV": [("05/10/2026", str(n), f"AAA20260000000{n:02d}", 100.0, None) for n in (1, 2, 3, 4, 5)],
+                    "320 SATICILAR": [("05/10/2026", "1", "x", None, 554.64), ("05/10/2026", "2", "x", None, 1000.0),
+                                      ("05/10/2026", "3", "x", None, 3000.0), ("05/10/2026", "4", "x", None, 1000.0),
+                                      ("05/10/2026", "5", "x", None, 1000.0)]}
+        muavin_cok(yol, satirlar)
+        satir = mk.muavin_satirlari(yol)
+        faturalar = [F(1, 712.32),       # fark 157,68 (telefon): dikkate alinmaz
+                     F(2, 1000.0),       # tam esit
+                     F(3, 4999.0),       # fark 1.999: dikkate alinmaz
+                     F(4, 3000.0),       # fark 2.000 (sinirda): gosterilir
+                     F(5, 9000.0)]       # fark 8.000: gosterilir
+        k = mk.karsilastir("alis", faturalar, satir)               # varsayilan esik 2.000
+        no = lambda liste: [f["no"][-2:] for f in liste]
+        self.assertEqual(no(k["tutar_farki"]), ["04", "05"])
+        self.assertEqual(no(k["kucuk_fark"]), ["01", "03"])
+        self.assertEqual(no(k["eslesen"]), ["01", "02", "03"])     # kucuk fark eslesen sayilir
+        # esik 0: her fark gorunur
+        self.assertEqual(no(mk.karsilastir("alis", faturalar, satir, esik=0)["tutar_farki"]), ["01", "03", "04", "05"])
+        s = mk.firma_sonucu("X", "d", {"alis": faturalar[:3], "satis": []}, satir)
+        self.assertEqual((s["durum"], s["yon"]["alis"]["kucuk_fark"], s["yon"]["alis"]["tutar_farki"]), ("tamam", 2, []))
 
     def test_toplam_sutunu_genel_toplamdir_ozel_iletisim_vergisi_olan_fatura_320_ile_tutar(self):
         """Gercek Luca ornegi (telekom faturasi): matrah+KDV 15.987,70 ama Excel'in "Toplam" sutunu ve 320 satiri 18.515,60
@@ -331,7 +366,7 @@ class MuavinMantigi(unittest.TestCase):
             "320 SATICILAR": [("25/10/2026", "332", "TURKCELL", None, 18515.60)],
             "689 ÖZEL İLETİŞİM VERGİSİ": [("25/10/2026", "332", "TURKCELL", 1313.61, None)],
             "770 GENEL YÖNETİM GİDERLERİ": [("25/10/2026", "332", "TURKCELL", 14574.77, None)]})
-        sonuc = mk.karsilastir("alis", fat, mk.muavin_satirlari(yol))
+        sonuc = karsilastir0("alis", fat, mk.muavin_satirlari(yol))
         self.assertEqual((len(sonuc["eslesen"]), len(sonuc["tutar_farki"]), len(sonuc["eksik"])), (1, 0, 0))
         # "Toplam" sutunu bos/yoksa eski davranis: matrah (Ozel Matrah dahil) + KDV
         with open(k / "liste.csv", "w", encoding="utf-8-sig", newline="") as f:
@@ -361,7 +396,7 @@ class MuavinMantigi(unittest.TestCase):
                        "320 SATICILAR": [("05/10/2026", "1", "x", None, 1200.0), ("07/10/2026", "3", "x", None, 900.0)],
                        "391 HESAPLANAN KDV": [("10/10/2026", "9", "BBB2026000000001", None, 400.0)],
                        "120 ALICILAR": [("10/10/2026", "9", "x", 2400.0, None)]})
-        s = mk.firma_sonucu(firma, "01/10/2026-31/10/2026", f, mk.muavin_satirlari(m))
+        s = firma_sonucu0(firma, "01/10/2026-31/10/2026", f, mk.muavin_satirlari(m))
         self.assertEqual(s["durum"], "fark var")
         a, t = s["yon"]["alis"], s["yon"]["satis"]
         self.assertEqual((a["eslesen"], len(a["eksik"]), len(a["tutar_farki"]), t["eslesen"], len(t["eksik"]), len(t["tutar_farki"])),
@@ -370,7 +405,7 @@ class MuavinMantigi(unittest.TestCase):
                          ("AAA2026000000002", "06/10/2026", 600.0, 100.0))
         self.assertEqual((a["tutar_farki"][0]["no"], a["tutar_farki"][0]["toplam"], a["tutar_farki"][0]["kayit"], a["tutar_farki"][0]["fis"]),
                          ("AAA2026000000003", 1200.0, [900.0], "3"))
-        hata = mk.firma_sonucu("HATALI", "01/10/2026-31/10/2026", {}, [], hata="Muavin menüsü açılamadı")
+        hata = firma_sonucu0("HATALI", "01/10/2026-31/10/2026", {}, [], hata="Muavin menüsü açılamadı")
         self.assertEqual(hata["durum"], "hata")
         yol = self.klasor / "muavin.json"
         mk.kaydet(yol, "01/10/2026-31/10/2026", {firma: s, "HATALI": hata})
@@ -406,7 +441,7 @@ def calistir(tmp, veri, ayar_degisiklik=None, ek=(), tarih="01/10/2026-31/10/202
     ortam = dict(os.environ, LUCA_BOT_AYAR=str(klasor / "ayarlar.json"), LOCALAPPDATA=str(klasor / "yerel"),
                  KARZARAR_CIKTI=str(klasor / "cikti"), PYTHONIOENCODING="utf-8")
     komut = [sys.executable, str(KOK / "muavin.py"), "--tarih", tarih, "--fatura-klasoru", str(tmp), "--firma-tam", firma,
-             "--tum-firmalar", "--bitince-kapat", *ek]
+             "--tum-firmalar", "--bitince-kapat", "--tutar-esigi", "0", *ek]
     r = subprocess.run(komut, env=ortam, cwd=str(KOK), capture_output=True, text=True, encoding="utf-8")
     sunucu.shutdown()
     try:
@@ -457,6 +492,13 @@ class UctanUca(unittest.TestCase):
         self.assertEqual(len(istekler), 1, istekler)                                  # tek dokum
         self.assertEqual((istekler[0]["h1"], istekler[0]["h2"], istekler[0]["bas"]), ("", "", "01/10/2026"))   # hesap araligi bos: tum hesaplar
         self.assertTrue((calistir.klasor / "cikti" / "muavin.xlsx").exists())
+
+    def test_2000_tl_esigi_komut_satirinda_kucuk_tutar_farklarini_gizler(self):
+        kod, sonuc, cikti, _ = calistir(self.klasor, self.veri, ek=["--tutar-esigi", "2000"])
+        self.assertEqual(kod, 0, cikti[-2500:])
+        self.assertTrue(all(not d["tutar_farki"] for f in sonuc.values() for d in f.get("yon", {}).values()), sonuc)
+        self.assertIn("2.000 TL altı tutar farkı dikkate alınmadı", cikti.replace("2,000", "2.000"))
+        self.assertNotIn("TUTAR  ", cikti)
 
     def test_nokta_vurusulu_muavin_formu_atlanir_tum_yazicilar_secilir(self):
         """Menude 'Muavin Defter' iki kez: ilki Nokta Vurusulu (Rapor Turu IBM/EPSON, Excel yok); Excel'li olan kullanilir."""

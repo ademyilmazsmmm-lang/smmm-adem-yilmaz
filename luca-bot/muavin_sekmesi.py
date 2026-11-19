@@ -96,7 +96,8 @@ class MuavinSekmesi(KarZararSekmesi):
         self._hesap_secici(p)
 
         tk.Label(p, text="Fatura İndirme sekmesinin indirdiği alış / satış faturalarının numarası ve genel toplam (KDV dahil) "
-                 "tutarı kontrol edilir; ikisi de uyuyorsa sorun yoktur.\n\n1. sınıf firmalar: Luca Muavin Defter "
+                 "tutarı kontrol edilir; ikisi de uyuyorsa sorun yoktur. 2.000 TL'den küçük tutar farkları (telefon, elektrik "
+                 "vb.) dikkate alınmaz.\n\n1. sınıf firmalar: Luca Muavin Defter "
                  "(191 / 391 ve karşı hesaplar).\n2. sınıf firmalar: İşletme Defteri Dökümü (gider / gelir).\n\n"
                  "Önce o dönemin faturalarını Fatura İndirme sekmesinden indirin. Luca'da hiçbir şey değiştirilmez; "
                  "yalnız rapor Excel'i indirilir.",

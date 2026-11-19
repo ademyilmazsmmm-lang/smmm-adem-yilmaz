@@ -35,6 +35,7 @@ from lucabot.ortak import sadelestir, tarih_cozumle
 from lucabot.sabitler import TARIH_DESENI
 
 TOLERANS = 0.05          # TL; yuvarlama farklari
+TUTAR_FARKI_ESIGI = 2000.0   # TL; bundan kucuk tutar farki (telefon/elektrik: OIV, telsiz ucreti vb.) dikkate alinmaz
 YON_HESAP = {"alis": "191", "satis": "391"}
 YON_ADI = {"alis": "Alış", "satis": "Satış"}
 HESAP_DESENI = re.compile(r"^(\d{3})(?:[.\s-]\d+)*\b")
@@ -310,11 +311,13 @@ def kayit_tutarlari(yon, satirlar_f, fis_indeksi):
     return [t for t in karsi if t], [t for t in hesaplanan if t]
 
 
-def karsilastir(yon, faturalar, satirlar, tol=TOLERANS):
+def karsilastir(yon, faturalar, satirlar, tol=TOLERANS, esik=TUTAR_FARKI_ESIGI):
     """Tek yon (alis/satis): {"eslesen", "eksik", "tutar_farki", "iptal", "kdvsiz", "satir"}; listeler fatura sozlukleri tasir.
 
     KDV hesabi (alis 191, satis 391) satirlarinda fatura numarasi aranir; bulunursa genel toplam tutari fisin satirlariyla
-    karsilastirilir. satirlar tum hesaplari icerebilir (muavin); hesabi bilinmeyen satirlar da KDV satiri sayilir."""
+    karsilastirilir. satirlar tum hesaplari icerebilir (muavin); hesabi bilinmeyen satirlar da KDV satiri sayilir.
+    Genel toplam kayittaki tutarlara en yakin olandan `esik` TL'den az farkliysa (orn. telefon/elektrik faturasindaki
+    ozel iletisim vergisi) eslesen sayilir ve "kucuk_fark" listesine yazilir; tabloda gosterilmez."""
     hesap = YON_HESAP[yon]
     kdv_satirlari = [s for s in satirlar if not s["hesap"] or s["hesap"] == hesap]
     indeks = {}
@@ -326,7 +329,7 @@ def karsilastir(yon, faturalar, satirlar, tol=TOLERANS):
         if _fis_anahtari(s):
             fis_indeksi.setdefault(_fis_anahtari(s), []).append(s)
     sonuc = {"eslesen": [], "eksik": [], "tutar_farki": [], "iptal": [], "kdvsiz": [], "tutar_okunamadi": [],
-             "satir": len(kdv_satirlari)}
+             "kucuk_fark": [], "satir": len(kdv_satirlari)}
     for f in faturalar:
         if f.get("iptal"):
             sonuc["iptal"].append(f)
@@ -348,7 +351,11 @@ def karsilastir(yon, faturalar, satirlar, tol=TOLERANS):
             sonuc["eslesen"].append(f)
             continue
         karsi, hesaplanan = kayit_tutarlari(yon, satirlar_f, fis_indeksi)
-        if any(abs(t - toplam) <= tol for t in karsi + hesaplanan):
+        adaylar = karsi + hesaplanan
+        if any(abs(t - toplam) <= tol for t in adaylar):
+            sonuc["eslesen"].append(f)
+        elif esik and (min(abs(t - toplam) for t in adaylar) if adaylar else abs(toplam)) < esik:
+            sonuc["kucuk_fark"].append(f)     # kucuk fark: dikkate alinmaz
             sonuc["eslesen"].append(f)
         else:
             gorunen = sorted({round(t, 2) for t in (karsi or hesaplanan)}, reverse=True)[:4]
@@ -360,7 +367,7 @@ def karsilastir(yon, faturalar, satirlar, tol=TOLERANS):
 KAYNAK_ADI = {"muavin": "Muavin (191/391)", "isletme": "İşletme defteri (gider/gelir)"}
 
 
-def firma_sonucu(firma, donem, faturalar, muavin_satirlari_, hata="", kaynak="muavin"):
+def firma_sonucu(firma, donem, faturalar, muavin_satirlari_, hata="", kaynak="muavin", esik=TUTAR_FARKI_ESIGI):
     """Bir firmanin iki yonlu sonucu; JSON'a yazilabilir (tarihler metne cevrilir).
 
     kaynak: "muavin" (1. sinif, 191/391) ya da "isletme" (2. sinif, isletme defteri gider/gelir dokumu)."""
@@ -369,8 +376,9 @@ def firma_sonucu(firma, donem, faturalar, muavin_satirlari_, hata="", kaynak="mu
         return sonuc
     sorun = 0
     for yon in ("alis", "satis"):
-        k = karsilastir(yon, faturalar.get(yon, []), muavin_satirlari_)
+        k = karsilastir(yon, faturalar.get(yon, []), muavin_satirlari_, esik=esik)
         sonuc["yon"][yon] = {"fatura": len(faturalar.get(yon, [])), "eslesen": len(k["eslesen"]), "satir": k["satir"],
+                             "kucuk_fark": len(k["kucuk_fark"]),
                              "eksik": [_f(f) for f in k["eksik"]], "tutar_farki": [_f(f) for f in k["tutar_farki"]],
                              "iptal": len(k["iptal"]), "kdvsiz": len(k["kdvsiz"]), "tutar_okunamadi": len(k["tutar_okunamadi"])}
         sorun += len(k["eksik"]) + len(k["tutar_farki"])
