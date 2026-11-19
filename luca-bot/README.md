@@ -114,8 +114,11 @@ komut satırında karşılığı `--belge-indirme-yok` ve `--excel-indirme-yok`.
    - **KDV2 (tevkif edilen KDV)** ayrı sütundadır ve alış KDV'ye karıştırılmaz. Tevkifatlı faturada
      KDV 100 TL, tevkifat 3/10 ise 70 TL hemen indirilir, 30 TL KDV2'dir; KDV2 ödendiğinde indirim
      konusu olduğundan (ödenip ödenmeyeceği bilinemez) iki sonuç verilir: **KDV2 hariç** (yalnız 70
-     TL indirilir) ve **KDV2 dahil** (100 TL indirilir). Excel'deki KDV sütunu faturadaki **tam KDV**
-     kabul edilir; tevkifat oranı okunamazsa KDV'nin tamamı KDV2 sayılır ve "tahmini" yazar.
+     TL indirilir) ve **KDV2 dahil** (100 TL indirilir). Luca'nın Toplu Sorgulama Excel'inde tevkifatlı
+     faturanın KDV sütunu yalnız **satıcıya ödenen kısmı** gösterir (matrah 73.150, KDV sütunu 7.315,
+     oran 5/10); **tam KDV matrah × KDV oranından** (14.630) bulunur, KDV2 = tam KDV × tevkifat oranı
+     (7.315). Tevkifat oranı okunamazsa (örn. boşsa) KDV'nin tamamı KDV2 sayılır ve "tahmini" yazar.
+     Gerçek bir Luca dosyasında Luca muavin (191.109 / 360.04) ile kuruşuna kadar doğrulandı.
 
 ### Görünüm (açık / koyu tema), logo, sürüm
 

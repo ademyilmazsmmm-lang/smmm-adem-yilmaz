@@ -20,8 +20,9 @@ from .firma_listesi import listede_bul
 def kdv_sonucu(k, firma, devreden):
     """Firmanin KDV durumu, tevkif edilen KDV'nin (KDV2) iki ayri sekilde sayildigi iki sonucla.
 
-    Excel'deki KDV sutunu faturadaki TAM KDV kabul edilir (tevkifatli faturada 100 TL). Bunun tevkif edilen
-    kismi (orn. 30 TL) KDV2'dir; satici yalniz kalan 70 TL'yi tahsil eder.
+    Burada alis KDV'si TAM KDV'dir (tevkifatli faturada 100 TL; toplu_sorgu.toplu_excel_oku Luca'nin "kalan kisim"
+    KDV sutununu matrah x KDV oranindan tamamlar). Bunun tevkif edilen kismi (orn. 30 TL) KDV2'dir; satici yalniz
+    kalan 70 TL'yi tahsil eder.
       alis        KDV2 haric alis KDV: hemen indirilen kisim (70)
       kdv2        tevkif edilen KDV: ayri sutun (30); odendiginde indirim konusu olur, odenip odenmeyecegi bilinemez
       alis_tam    alis + kdv2 (Excel'deki toplam alis KDV)

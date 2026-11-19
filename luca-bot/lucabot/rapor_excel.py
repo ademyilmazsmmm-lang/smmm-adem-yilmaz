@@ -310,8 +310,9 @@ def _kdv_sayfasi(ws, kayitlar, devreden, stil):
             "negatifse sonraki döneme devreden KDV olarak gösterilir. Önceki dönem devreden KDV firmalar.xlsx'teki "
             "\"Devreden KDV\" sütunundan gelir.",
             "KDV2 (tevkif edilen KDV): tevkifatlı faturada KDV'nin tevkifat oranı kadarı (örn. KDV 100 TL, tevkifat "
-            "3/10 ise 30 TL). Excel'deki KDV sütunu faturadaki tam KDV kabul edilir; alıcı yalnız kalanı (70 TL) hemen "
-            "indirir. KDV2 ödendiğinde indirim konusu olur; ödenip ödenmeyeceği bilinemediği için iki sonuç verilir.",
+            "3/10 ise 30 TL). Luca Excel'inde tevkifatlı faturanın KDV sütunu yalnız satıcıya ödenen kısmı gösterir; tam KDV "
+            "matrah x KDV oranından bulunur. Alıcı yalnız satıcıya ödenen kısmı (70 TL) hemen indirir. KDV2 ödendiğinde "
+            "indirim konusu olur; ödenip ödenmeyeceği bilinemediği için iki sonuç verilir.",
             "Ödenecek KDV (KDV2 dahil) = satış KDV - (alış KDV + KDV2) - önceki dönem devreden KDV: KDV2'nin de "
             "indirildiği durumdaki sonuç."), start=2):
         ws.cell(row=toplam + sira, column=1, value=metin).font = italik

@@ -562,8 +562,9 @@ def toplu_excel_bayt(firma, yon):
     gorulen = set()
     for _, f in toplu_satirlari(firma, yon):   # ayni fatura her entegrasyonda gelir: Excel'de BIREBIR tekrarlanir
         tevk = f["tip"] == "TEVKIFAT"
-        satir = [f["tarih"], f["no"], f["tip"], "1234567890", "", "9/10" if tevk else "", 0, 0, 0, 0, 0, f["kdv"],
-                 0, 0, 0, 0, f["matrah"], f["matrah"] + f["kdv"]]
+        kdv = round(f["kdv"] * 0.1, 2) if tevk else f["kdv"]   # gercek Luca: tevkifatli faturada KDV sutunu 1/10 kalan kisim (oran 9/10)
+        satir = [f["tarih"], f["no"], f["tip"], "1234567890", "", "9/10" if tevk else "", 0, 0, 0, 0, 0, kdv,
+                 0, 0, 0, 0, f["matrah"], f["matrah"] + kdv]
         ws.append(satir)
         gorulen.add(f["no"])
     tampon = io.BytesIO()

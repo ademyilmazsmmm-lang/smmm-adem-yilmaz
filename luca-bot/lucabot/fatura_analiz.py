@@ -309,6 +309,22 @@ def matrah_kdv_sutunlari(basliklar):
     return matrah, kdv
 
 
+def oranli_matrah_sutunlari(basliklar):
+    """[(KDV orani %, sutun sirasi)]: "%20'lik Matrah" gibi KDV orani basina ayri matrah sutunlari (Toplu Sorgulama Excel'i)."""
+    sonuc = []
+    for i, baslik in enumerate(basliklar):
+        duz = sadelestir(baslik)
+        m = re.search(r"%\s*(\d+(?:[.,]\d+)?)", duz)
+        if m and "MATRAH" in duz:
+            sonuc.append((float(m.group(1).replace(",", ".")), i))
+    return sonuc
+
+
+def brut_kdv_tutari(satir, oranli):
+    """Satirdaki matrah x KDV orani toplami: faturanin TAM KDV'si (tevkifattan onceki). oranli: oranli_matrah_sutunlari()."""
+    return round(sum(tutar_cozumle(satir[i]) * yuzde / 100.0 for yuzde, i in oranli if i < len(satir)), 2)
+
+
 TEVKIFAT_HARIC = ("ORAN", "KOD", "TUR", "TIP", "NEDEN", "ACIKLAMA")
 
 

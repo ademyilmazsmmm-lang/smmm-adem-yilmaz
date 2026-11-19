@@ -113,6 +113,45 @@ class SafMantik(unittest.TestCase):
         self.assertAlmostEqual(tevk[0]["tevkifat_kdv"], 360.0)       # 400 KDV x 9/10
         self.assertFalse(tevk[0]["tahmini"])
 
+    def _excel_satirlari(self, satirlar):
+        from openpyxl import Workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "FATURALAR"
+        ws.append(["Fatura\nTarihi", "Fatura \nNumarası", "Fatura\nTürü", "VKN\nTCKN", "Açıklama", "Tevkifat\nOranı",
+                   "Özel\nMatrah", "%1'lik\nKDV", "%8'lik\nKDV", "%10'lik\nKDV", "%18'lik\nKDV", "%20'lik\nKDV",
+                   "%1'lik\nMatrah", "%8'lik\nMatrah", "%10'lik\nMatrah", "%18'lik\nMatrah", "%20'lik\nMatrah", "Toplam"])
+        for no, tur, oran, kdv20, matrah20, toplam in satirlar:
+            ws.append(["05/10/2026", no, tur, "1234567890", "", oran, None, None, None, None, None, kdv20,
+                       None, None, None, None, matrah20, toplam])
+        yol = Path(tempfile.mkdtemp(prefix="toplu-t-")) / "faturalar.xlsx"
+        wb.save(yol)
+        return yol
+
+    def test_tevkifatli_faturada_kdv_sutunu_kalan_kisimdir_tam_kdv_matrahtan_bulunur(self):
+        """Gercek Luca Excel'i: matrah 73.150, KDV sutunu 7.315, Toplam 80.465, oran 5/10 -> tam KDV 14.630, KDV2 7.315."""
+        excel = ts.toplu_excel_oku(self._excel_satirlari([
+            ("AAA2026000000001", "SATIS", "", 1000.0, 5000.0, 6000.0),                      # tevkifatsiz: KDV sutunu tam KDV
+            ("AAA2026000000002", "TEVKIFAT", "5/10", 7315.0, 73150.0, 80465.0),
+            ("AAA2026000000003", "TEVKIFAT", "7/10", 600.0, 10000.0, 10600.0),               # tam 2.000: 1.400 KDV2, 600 direkt
+        ]))
+        f = excel["faturalar"]
+        self.assertEqual((f["AAA2026000000001"]["kdv"], f["AAA2026000000001"]["tevkifat_kdv"]), (1000.0, 0.0))
+        t = f["AAA2026000000002"]
+        self.assertEqual((t["kdv"], t["tevkifat_kdv"], t["toplam"], t["tahmini"]), (14630.0, 7315.0, 80465.0, False))
+        t = f["AAA2026000000003"]
+        self.assertEqual((t["kdv"], t["tevkifat_kdv"], t["toplam"], t["tahmini"]), (2000.0, 1400.0, 10600.0, False))
+
+    def test_tevkifat_matrah_sutunu_yoksa_kalan_kisimdan_tam_kdv_bulunur_oran_okunamazsa_tahmini(self):
+        # 10/10 (KDV sutunu 0) matrah varsa bulunur: tam 2.000, hepsi KDV2
+        excel = ts.toplu_excel_oku(self._excel_satirlari([("AAA2026000000004", "TEVKIFAT", "10/10", 0.0, 10000.0, 10000.0)]))
+        t = excel["faturalar"]["AAA2026000000004"]
+        self.assertEqual((t["kdv"], t["tevkifat_kdv"], t["tahmini"]), (2000.0, 2000.0, False))
+        # oran yazilmamis: tam KDV bulunur ama KDV2 (tamami sayilir) tahmini isaretlenir
+        excel = ts.toplu_excel_oku(self._excel_satirlari([("AAA2026000000005", "TEVKIFAT", "", 600.0, 10000.0, 10600.0)]))
+        t = excel["faturalar"]["AAA2026000000005"]
+        self.assertEqual((t["kdv"], t["tevkifat_kdv"], t["tahmini"]), (2000.0, 2000.0, True))
+
     def test_sonuclar_entegrasyona_gore_dagilir(self):
         excel = ts.toplu_excel_oku(self._excel())
         kayitlar = ts.kayitlari_birlestir([

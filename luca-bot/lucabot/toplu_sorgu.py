@@ -22,8 +22,9 @@ import time
 from collections import OrderedDict
 
 from .bekleme import geri_cekil, kosulu_bekle, sayfa_canli, sayfa_durulsun
-from .fatura_analiz import (BOS_DEGERLER, csv_yaz, donem_satirlari, fatura_tarihi, excelden_tablo, matrah_kdv_sutunlari,
-                            sutun_indeksi, sutun_tam_indeksi, tutar_cozumle)
+from .fatura_analiz import (BOS_DEGERLER, brut_kdv_tutari, csv_yaz, donem_satirlari, fatura_tarihi, excelden_tablo,
+                            matrah_kdv_sutunlari, oranli_matrah_sutunlari, sutun_indeksi, sutun_tam_indeksi,
+                            tutar_cozumle)
 from .gib_sorgu import belge_ara, islem_gunlugu, sorgu_bitti_mi
 from .indirme import dosya_indir
 from .liste_secim import ekrandaki_satirlar, hepsini_sec
@@ -174,6 +175,10 @@ def toplu_excel_oku(yol, log=None, donem=None):
 
     Ayni fatura birden cok kez gelebiliyor (birebir ayni satir); tekrarlar atilir. Fatura basina:
     matrah, kdv, toplam, tur, oran, tevkifat_kdv.
+
+    Tevkifatli faturada Luca'nin KDV sutunu yalniz saticiya odenen (tevkifattan sonra kalan) KDV'yi gosterir, Toplam sutunu da
+    matrah + bu KDV'dir (ornek: matrah 73.150, KDV sutunu 7.315, oran 5/10). Tam KDV, matrah x KDV orani sutunlarindan bulunur
+    (14.630); tevkif edilen KDV2 = tam KDV x tevkifat orani (7.315). `kdv` tevkifatli faturada TAM KDV'dir.
     `donem` (bas, bit): fatura tarihi disinda kalan (sonraki aya sarkan sorgu) satirlar atilir.
     """
     basliklar, satirlar = excelden_tablo(yol, log)
@@ -187,6 +192,7 @@ def toplu_excel_oku(yol, log=None, donem=None):
     i_toplam = sutun_tam_indeksi(basliklar, "Toplam")
     i_tarih = sutun_indeksi(basliklar, "FATURA TARIHI")
     matrah_s, kdv_s = matrah_kdv_sutunlari(basliklar)
+    oranli = oranli_matrah_sutunlari(basliklar)
     if i_no is None:
         yaz("    UYARI: Toplu Excel'de 'Fatura Numarasi' sutunu bulunamadi", log)
         return sonuc
@@ -207,6 +213,17 @@ def toplu_excel_oku(yol, log=None, donem=None):
         oran_metni = s[i_oran] if i_oran is not None and i_oran < len(s) else ""
         tevkifatli = "TEVKIFAT" in tur or sadelestir(oran_metni) not in BOS_DEGERLER
         oran = _oran(oran_metni) if tevkifatli else None
+        kdv_sutunu, kdv2, belirsiz = kdv, 0.0, False   # kdv_sutunu: Excel'deki (tevkifatli faturada saticiya odenen) KDV
+        if tevkifatli:
+            brut = brut_kdv_tutari(s, oranli)                 # matrah x KDV orani: tevkifattan onceki tam KDV
+            if oran is not None and 0 < oran < 1 and brut <= 0:
+                brut = kdv / (1 - oran)                       # matrah sutunu yok: KDV sutunu kalan (1 - oran) kismidir
+            brut = max(brut, kdv)
+            if oran is None:                                  # oran okunamadi: KDV'nin tamami KDV2 sayilir (tahmini)
+                kdv2, belirsiz = brut, True
+            else:
+                kdv2, belirsiz = brut * oran, brut <= 0 and oran >= 1
+            kdv = brut
         f = sonuc["faturalar"].setdefault(no, {
             "no": no, "tarih": s[i_tarih] if i_tarih is not None and i_tarih < len(s) else "",
             "matrah": 0.0, "kdv": 0.0, "toplam": 0.0, "tevkifat": False, "tevkifat_kdv": 0.0,
@@ -214,11 +231,11 @@ def toplu_excel_oku(yol, log=None, donem=None):
         f["matrah"] += matrah
         f["kdv"] += kdv
         f["toplam"] += (tutar_cozumle(s[i_toplam]) if i_toplam is not None and i_toplam < len(s)
-                        else matrah + kdv)
+                        else matrah + kdv_sutunu)
         if tevkifatli:
             f["tevkifat"] = True
-            f["tevkifat_kdv"] += kdv * oran if oran is not None else kdv
-            f["tahmini"] = f["tahmini"] or oran is None
+            f["tevkifat_kdv"] += kdv2
+            f["tahmini"] = f["tahmini"] or belirsiz
     return sonuc
 
 
