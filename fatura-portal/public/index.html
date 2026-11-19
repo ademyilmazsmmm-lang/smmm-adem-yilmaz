@@ -2573,6 +2573,22 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     if (e.target.closest("#yedekIndir") && $("yedekOtoMail") && $("yedekOtoMail").checked) yedekMailGonder(); /* indirme kendi akışında sürer */
   });
   $("ayarIc").addEventListener("change", function(e){ if (e.target.id === "yedekOtoMail") { try { localStorage.setItem("yedekOtoMail", e.target.checked ? "1" : "0"); } catch (x) {} } });
+  /* Giriş kayıtları: yeni cihaz, başarısız deneme ve girişler (sunucuda son 100; ofis son 40'ı görür) */
+  function girisKayitHtml(){
+    return '<details class="grup" data-ak="g:gk"' + ac("g:gk") + '><summary>Giriş kayıtları <small>güvenlik</small></summary><div class="icerik"><p class="not" id="gkEposta" style="margin:0">Yükleniyor…</p><div id="gkListe" style="display:grid;gap:6px"></div></div></details>';
+  }
+  function girisKayitYukle(){
+    var l = $("gkListe"); if (!l) return;
+    api("/api/guvenlik").then(function(r){
+      var e = $("gkEposta"), tr = { "giris": "Giriş", "yeni-cihaz": "Yeni cihaz", "basarisiz": "Başarısız deneme", "uyari": "Uyarı gönderildi" };
+      if (e) { e.className = "not"; e.innerHTML = r.epostaAcik ? "Yeni cihazdan giriş ve art arda başarısız denemelerde <b>" + esc(r.epostaAdres || "ofis e-postası") + "</b> adresine e-posta gider." : '<span style="color:var(--danger)">E-posta bildirimi kapalı:</span> sunucu ayarlarında OFIS_EPOSTA ve e-posta servisi (MAIL_*) kurulursa yeni cihaz ve başarısız deneme bildirimi e-postayla gelir. Kayıtlar yine de aşağıda tutulur.'; }
+      var k = r.kayitlar || [];
+      l.innerHTML = k.length ? k.map(function(x){
+        var z = new Date(x.z), ton = x.tur === "yeni-cihaz" || x.tur === "uyari" ? "var(--danger)" : x.tur === "basarisiz" ? "var(--warn)" : "var(--muted)";
+        return '<div class="a2-sat" style="padding:6px 0"><div style="min-width:0"><span><b style="color:' + ton + '">' + esc(tr[x.tur] || x.tur) + '</b> · ' + esc(x.kullanici || "") + '</span><small>' + esc(z.toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) + " · " + (x.ua || "") + " · " + (x.ip || "") + (x.not ? " · " + x.not : "") + (x.eposta ? " · e-posta " + x.eposta : "")) + '</small></div></div>';
+      }).join("") : '<p class="not" style="margin:0">Henüz kayıt yok.</p>';
+    }, function(er){ if (!oturumDustu(er)) l.innerHTML = '<p class="not" style="color:var(--danger)">' + esc(er.message) + '</p>'; });
+  }
   function yedekHtml(){
     return '<details class="grup" data-ak="g:yd"' + ac("g:yd") + '><summary>Yedek</summary><div class="icerik">' +
       '<a href="/api/yedek" download id="yedekIndir" class="btn ikincil" style="text-decoration:none;text-align:center">Tam yedeği indir (tüm mükellefler)</a>' +
@@ -2611,10 +2627,10 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   function cizAyar(){
     var ofis = ROL === "ofis", h = hesabimHtml();
     if (ofis && PERSONEL) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mAraHtml() + mAyarListe() + '</div></details>';
-    else if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + firmaListeHtml() + topluHtml() + mukerrerHtml() + iaTopluHtml() + mAraHtml() + mAyarListe() + '</div></details>' + personelHtml() + htHtml() + duyuruHtml() + yedekHtml();
+    else if (ofis) h += '<details class="grup" data-ak="g:m"' + ac("g:m") + '><summary>Mükellefler <small>' + V.mukellefler.length + '</small></summary><div class="icerik">' + mukellefEkleHtml() + firmaListeHtml() + topluHtml() + mukerrerHtml() + iaTopluHtml() + mAraHtml() + mAyarListe() + '</div></details>' + personelHtml() + htHtml() + duyuruHtml() + yedekHtml() + girisKayitHtml();
     else h += V.mukellefler.map(mukellefAyarHtml).join("");
     h += '<button class="btn" type="button" id="ayarKaydet">Ayarları kaydet</button><div class="durum" id="ayarDurum" role="status"></div>';
-    $("ayarIc").innerHTML = h; mAyAraUygula(); sifreleriHazirla($("ayarIc")); yedekYazi(); yansiYazi(); if (ROL === "ofis" && !PERSONEL) personelYukle();
+    $("ayarIc").innerHTML = h; mAyAraUygula(); sifreleriHazirla($("ayarIc")); yedekYazi(); yansiYazi(); if (ROL === "ofis" && !PERSONEL) { personelYukle(); girisKayitYukle(); }
   }
   /* Giriş ekranından kullanıcı adı / şifre talebi (giriş yapmamış mükellef ofise ad + telefon bırakır) */
   $("htAc").addEventListener("click", function(){ var f = $("htForm"); f.hidden = !f.hidden; if (!f.hidden) { $("htDurum").textContent = ""; f.scrollIntoView({ behavior: "smooth", block: "center" }); odakla($("htAd")); } });
@@ -4198,7 +4214,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     var zam = [vb, sgkVar ? sb : null, tb].filter(Boolean).map(function(x){ return new Date(x.zaman).getTime(); }).filter(Boolean), enEski = zam.length ? Math.min.apply(null, zam) : 0, enYeni = zam.length ? Math.max.apply(null, zam) : 0;
     if (enEski && Date.now() - enEski > 7 * 864e5) yuk("uyari");
     var gen = seviye >= 3 ? ["Dikkat gerekiyor", "kotu"] : seviye === 2 ? ["Kontrol edin", "uyari"] : seviye === 1 ? ["Güncelleme bekliyor", "yok"] : ["Her şey yolunda", "iyi"];
-    var h = '<div class="a2">';
+    var h = '<div class="a2">' + yedekUyariHtml();
     var kapali = duyuruKapali(); (DUYURU || []).filter(function(d){ return kapali.indexOf(d.id) < 0; }).forEach(function(d){
       h += '<div class="kayit" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start;border-left:4px solid var(--warn);background:var(--warn-soft)"><div><b style="font-size:.85rem">Ofisten duyuru</b><div style="overflow-wrap:anywhere;margin-top:2px">' + esc(d.metin) + '</div>' + (d.bitis ? '<small class="not">Son gün: ' + esc(d.bitis.split("-").reverse().join(".")) + '</small>' : "") + '</div><button class="k" type="button" data-dy-kapat="' + esc(d.id) + '" aria-label="Duyuruyu kapat" style="min-height:34px;padding:2px 10px">✕</button></div>';
     });
@@ -4269,7 +4285,27 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     h += '<div style="display:flex;justify-content:center"><button type="button" class="k" data-ana-gorunum="yeni">Yeni (sade) görünüme geç</button></div>';
     $("anaIc").innerHTML = h; guncGoster(son);
   }
+  /* Yedek sağlığı (yalnız ofis): GitHub yansısı 2 günden uzun süredir çalışmıyorsa KIRMIZI; kapalı / elle yedek hatırlatması SARI (7 gün ertelenebilir) */
+  var YEDEK_S = null, YEDEK_ZAMAN = 0;
+  function yedekSustur(kod){ try { var t = +localStorage.getItem("yedekSustur_" + kod) || 0; return Date.now() < t; } catch (e) { return false; } }
+  function yedekUyariHtml(){
+    if (ROL !== "ofis" || PERSONEL || !YEDEK_S || !YEDEK_S.ogeler || !YEDEK_S.ogeler.length) return "";
+    var o = YEDEK_S.ogeler.filter(function(x){ return x.seviye === "kirmizi" || !yedekSustur(x.kod); }); if (!o.length) return "";
+    var kirmizi = o.some(function(x){ return x.seviye === "kirmizi"; }), renk = kirmizi ? "var(--danger)" : "var(--warn)", zemin = kirmizi ? "var(--danger-soft)" : "var(--warn-soft)";
+    return '<section class="a2-kart" role="alert" style="gap:6px;border-left:5px solid ' + renk + ';background:' + zemin + '"><div class="a2-kbas"><b style="color:' + renk + '">' + (kirmizi ? "⚠ Yedek uyarısı" : "Yedek hatırlatması") + '</b></div>' +
+      o.map(function(x){ return '<div style="font-size:.9rem;display:grid;gap:4px"><span style="' + (x.seviye === "kirmizi" ? "font-weight:650;color:var(--danger)" : "") + '">' + esc(x.mesaj) + '</span>' + (x.seviye === "kirmizi" ? "" : '<button type="button" class="a2-lnk" data-yedek-sustur="' + esc(x.kod) + '" style="justify-self:start;padding:0;font-size:.78rem;color:var(--muted)">7 gün sonra hatırlat</button>') + '</div>'; }).join("") +
+      '<button type="button" class="a2-lnk" data-yedek-git="1" style="justify-self:start;padding:0">Yedek ayarlarına git ›</button></section>';
+  }
+  function yedekSaglikYukle(){
+    if (ROL !== "ofis" || PERSONEL || Date.now() - YEDEK_ZAMAN < 5 * 60e3) return; YEDEK_ZAMAN = Date.now();
+    api("/api/yedek-saglik").then(function(r){ YEDEK_S = r; if (aktifSekme === "ana") anaCiz(OZET || {}); }, function(){ YEDEK_ZAMAN = 0; });
+  }
+  document.addEventListener("click", function(e){
+    var su = e.target.closest("[data-yedek-sustur]"); if (su) { try { localStorage.setItem("yedekSustur_" + su.getAttribute("data-yedek-sustur"), String(Date.now() + 7 * 864e5)); } catch (x) {} anaCiz(OZET || {}); return; }
+    if (e.target.closest("[data-yedek-git]")) { ayarAcik["g:yd"] = true; sekme("ayar"); window.scrollTo(0, 0); }
+  });
   function anaAc(){
+    yedekSaglikYukle();
     if (Date.now() - KIRA_ZAMAN > 30 * 60e3) { KIRA_ZAMAN = Date.now(); api("/api/kira-orani").then(function(r){ if (r.oran) { KIRA = r.oran; if (aktifSekme === "ana") anaCiz(OZET || {}); } }, function(){}); }
     duyuruYukle(); var m = mk(); anaCiz(OZET && OZET.mid === (m && m.id) ? OZET : {});
     if (!m && ROL !== "ofis") return;

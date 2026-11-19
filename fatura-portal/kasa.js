@@ -74,6 +74,14 @@ class Depo {
     const o = this.sistem.ofis, KEK = await kdf(sifre, Buffer.from(o.tuz, "base64"), o.iter);
     return { rol: "ofis", M: ac(KEK, o.wrap), kullanici: o.kullanici };
   }
+  /* kullanıcı adının hesap türü (yok ise null): güvenlik bildirimleri yalnız var olan hesaplar için */
+  hesapRolu(kullanici) {
+    if (!this.sistem) return null; const ad = adTemiz(kullanici);
+    if (this.sistem.ofis && ad === this.sistem.ofis.kullanici) return "ofis";
+    if ((this.sistem.hesaplar || []).some((x) => x.kullanici === ad)) return "mukellef";
+    const p = (this.sistem.personel || []).filter((x) => x.kullanici === ad)[0];
+    return p ? (p.musteri === true ? "musteri" : "personel") : null;
+  }
   async giris(kullanici, sifre) {
     if (!this.sistem) throw new Error("Kurulu değil.");
     const ad = adTemiz(kullanici);

@@ -11,6 +11,7 @@ const { Depo, adTemiz, adGecerli } = require("./kasa");
 const { Yansi } = require("./yansi");
 const ivd = require("./ivd");
 const posta = require("./mail");
+const guvenlikKur = require("./guvenlik");
 const sgk = require("./sgk");
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -19,7 +20,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-18-315";
+const SURUM = "2026-11-19-316";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -116,6 +117,13 @@ const OFIS = {
 };
 for (const k of ["takip", "video", "poster"]) if (OFIS[k] && !/^https:\/\/[^\s'"<>]+$/.test(OFIS[k])) OFIS[k] = ""; // yalnız https bağlantı
 const _kok = (u) => { try { return new URL(u).origin; } catch (e) { return ""; } };
+/* Güvenlik bildirimleri (yeni cihazdan giriş, art arda başarısız deneme) ve yedek sağlığı: guvenlik.js */
+const guv = guvenlikKur.kur({ dir: DIR, posta, ofisEposta: OFIS.eposta, yansi, hesapRolu: (ad) => depo.hesapRolu(ad), https: (req) => GUVENLI || (PROXY && req.headers["x-forwarded-proto"] === "https") });
+if (yansi) { /* GitHub yansısı: açılışta ve 6 saatte bir sağlık denetimi (veri yazılmayan günlerde de çalıştığını gösterir) */
+  yansi.hazirSoz.then(() => yansi.kontrolEt()).catch(() => {});
+  setInterval(() => { yansi.kontrolEt().catch(() => {}); }, 6 * 3600e3).unref();
+}
+setInterval(() => { try { guv.yedekDegerlendir(); } catch (e) { /* değerlendirme hatası uygulamayı durdurmaz */ } }, 30 * 60e3).unref();
 /* Giriş ekranından "kullanıcı adı ve şifre talep et": giriş yapmamış kişiler ofise ad + telefon bırakır (ofis Ayarlar'da görür; e-posta kuruluysa bildirim gider).
  * Kişisel veri içerdiğinden 60 günde silinir; ofis tek tek de silebilir. Kötüye kullanıma karşı IP başına saatte 3, toplam 100 talep sınırı ve gizli alan (bot tuzağı) vardır. */
 const HT_DOSYA = path.join(DIR, "hesap-talepleri.json"); let hesapTalepleri = [];
@@ -387,7 +395,9 @@ const personelOlur = (o) => { if (!o || mGibi(o)) throw new Error("Bu işlem iç
 async function oturumBaslat(req, res, o, ip, ad) {
   kisitTemizle(ip, ad);
   if (o.rol === "mukellef") { const e = depo.mukellef(o, o.mid); e.veri.sonGiris = new Date().toISOString(); depo.kaydet(o.mid); }
-  return cevap(res, 200, { ok: true }, oturumAc(req, o));
+  const basliklar = oturumAc(req, o);
+  try { const ek = guv.girisBasarili(req, o, ip); if (ek.length) basliklar["set-cookie"] = [basliklar["set-cookie"]].concat(ek); } catch (e) { console.log("Giriş kaydı yazılamadı: " + e.message); }
+  return cevap(res, 200, { ok: true }, basliklar);
 }
 
 async function api(req, res, yol) {
@@ -422,6 +432,8 @@ async function api(req, res, yol) {
     return cevap(res, 200, { ok: true });
   }
   if (yol === "/api/yansi") { ofisGerek(o); return cevap(res, 200, yansi ? yansi.durum : { acik: false }); }
+  if (yol === "/api/yedek-saglik") { ofisGerek(o); return cevap(res, 200, guv.yedekDegerlendir()); } /* Ana ekran uyarısı */
+  if (yol === "/api/guvenlik") { ofisGerek(o); return cevap(res, 200, { kayitlar: guv.kayitListe(40), epostaAcik: guv.epostaAcik(), epostaAdres: OFIS.eposta ? OFIS.eposta.replace(/^(.).*(@.*)$/, "$1***$2") : "" }); }
   if (yol === "/api/kurulum" && req.method === "POST") {
     if (depo.kurulu || depo.eskiVar) return cevap(res, 409, { hata: "Zaten kurulu." });
     const { kullanici, sifre } = await oku(req), ad = adTemiz(kullanici);
@@ -450,7 +462,7 @@ async function api(req, res, yol) {
     try {
       const yeni = depo.eskiVar ? await depo.eskiyiTasi(ad, String(sifre || "")) : await depo.giris(ad, String(sifre || ""));
       return oturumBaslat(req, res, yeni, ip, ad);
-    } catch (e) { if (/3-32/.test(e.message)) return cevap(res, 400, { hata: e.message }); kisitHata(ip, ad); return cevap(res, 401, { hata: SIFRE_HATA }); }
+    } catch (e) { if (/3-32/.test(e.message)) return cevap(res, 400, { hata: e.message }); kisitHata(ip, ad); try { guv.girisBasarisiz(req, ip, ad); } catch (x) { /* kayıt hatası girişi etkilemez */ } return cevap(res, 401, { hata: SIFRE_HATA }); }
   }
   if (!o) return cevap(res, 401, { hata: "Giriş gerekli." });
   if (yol === "/api/cikis") {
@@ -465,6 +477,7 @@ async function api(req, res, yol) {
   if (yol === "/api/yedek" && req.method === "GET") {
     ofisGerek(o);
     res.writeHead(200, Object.assign({ "content-type": "application/json", "content-disposition": "attachment; filename=fatura-yedek-" + new Date().toISOString().slice(0, 10) + ".json", "cache-control": "no-store" }, GUV));
+    guv.elleYedekYapildi();
     return res.end(JSON.stringify(depo.paket(o)));
   }
   if (yol === "/api/yedek/mail" && req.method === "POST") {
@@ -476,7 +489,7 @@ async function api(req, res, yol) {
     const veri = Buffer.from(JSON.stringify(depo.paket(o))), gun = new Date().toISOString().slice(0, 10);
     if (veri.length > 12e6) return cevap(res, 413, { hata: "Yedek e-posta için çok büyük (" + Math.round(veri.length / 1e6) + " MB); “Tam yedeği indir” ile alın." });
     await posta.gonder({ gonderenAd: "Fatura portalı yedeği", to: [to], cc: [], yanit: "", konu: "Fatura portalı yedeği — " + gun, metin: "Fatura portalının şifreli yedeği ektedir (" + gun + ").\n\nDosya ofis şifrenizle açılır; içinde düz metin parola ya da GİB şifresi yoktur. Yeni bir sunucuya taşımak için kurulum ekranındaki “yedekten geri yükle” seçeneğiyle kullanılır.\nBu dosyayı güvenli bir yerde saklayın.", ek: { ad: "fatura-yedek-" + gun + ".json", tur: "application/json", veri } }, DIR);
-    sinir.push(Date.now()); postaSayac.set(o.kullanici, sinir);
+    sinir.push(Date.now()); postaSayac.set(o.kullanici, sinir); guv.elleYedekYapildi();
     return cevap(res, 200, { tamam: true, to, boyut: veri.length });
   }
   if (yol === "/api/mail/durum" && req.method === "GET") return cevap(res, 200, { hazir: posta.hazir(), saglayici: posta.durum().saglayici, gonderen: o.rol === "ofis" ? posta.durum().gonderen : undefined });

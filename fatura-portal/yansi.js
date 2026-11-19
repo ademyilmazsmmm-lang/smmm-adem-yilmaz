@@ -121,7 +121,20 @@ class Yansi {
     const bitis = Date.now() + (sure || 20000);
     while ((this.bekleyen.size || this.calisiyor) && Date.now() < bitis) { if (!this.calisiyor) await this.bosalt(); else await GEC(100); if (this.hata && this.bekleyen.size && !this.calisiyor) break; }
   }
-  get durum() { return { acik: true, hazir: this.hazir, bekleyen: this.bekleyen.size, hata: this.hata, sonBasari: this.sonBasari }; }
+  /* sağlık denetimi: depoya erişim ve (görünüyorsa) yazma izni; yazma olmayan günlerde de yedeğin çalıştığını gösterir */
+  async kontrolEt() {
+    try {
+      const r = await this.istek("GET", "/repos/" + this.repo);
+      if (r.status === 401 || r.status === 403) throw new Error("GitHub anahtarı geçersiz ya da süresi dolmuş (HTTP " + r.status + ")");
+      if (r.status === 404) throw new Error("GitHub deposu bulunamadı ya da anahtarın bu depoya izni yok");
+      if (!r.ok) throw new Error("GitHub erişim hatası (HTTP " + r.status + ")");
+      const j = await r.json();
+      if (j && j.permissions && j.permissions.push === false) throw new Error("GitHub anahtarında yazma izni (Contents: Read and write) yok");
+      this.sonKontrol = new Date().toISOString(); this.kontrolHata = "";
+    } catch (e) { this.kontrolHata = String((e && e.message) || e).slice(0, 160); }
+    return this.durum;
+  }
+  get durum() { return { acik: true, hazir: this.hazir, bekleyen: this.bekleyen.size, hata: this.hata, sonBasari: this.sonBasari, sonKontrol: this.sonKontrol || null, kontrolHata: this.kontrolHata || "" }; }
 }
 
 module.exports = { Yansi };
