@@ -241,7 +241,16 @@ function ublCoz(xml) {
     };
   }).filter((k) => k.ad);
   if (!kalemler.length) throw new Error("XML’de fatura satırı yok");
-  return { kaynak: "xml", alici: { unvan, vkn, vd, adres }, kalemler };
+  const para = ublMetin(xml, "DocumentCurrencyCode"), tarih = ublMetin(xml, "IssueDate"), kur = sayiOku(ublMetin(ublBlok(xml, "PricingExchangeRate")[0] || "", "CalculationRate"));
+  return { kaynak: "xml", alici: { unvan, vkn, vd, adres }, kalemler, para: /^[A-Z]{3}$/.test(para) ? para : "TRY", kur: kur > 0 ? kur : 0, tarih: /^\d{4}-\d{2}-\d{2}$/.test(tarih) ? tarih : "" };
+}
+/* GİB'den okunan taslak verisini (faturaVerisi çıktısı) Yeni fatura formunun biçimine çevirir: programdan açılmamış taslağın düzenlenmesi için.
+ * XML'de olmayan alanlar (açıklama, not, özel matrah nedeni, alıcı e-postası/ülkesi) boş gelir; ekran bunu uyarı olarak söyler. */
+function taslakFormu(v) {
+  const kalemler = (v.kalemler || []).map((k) => ({ ad: k.ad, aciklama: "", miktar: k.miktar || 1, birim: k.birim || "C62", fiyat: k.fiyat || 0, kdv: k.kdv, tev: k.tev || 0, kod: k.kod || "", istisna: k.istisna || "", ozelNeden: k.ozelNeden || "", ozelTutar: k.ozelTutar || 0, konaklama: 0 }));
+  const tip = kalemler.some((k) => k.ozelNeden) ? "OZELMATRAH" : kalemler.some((k) => k.istisna) ? "ISTISNA" : kalemler.some((k) => k.tev > 0) ? "TEVKIFAT" : "SATIS";
+  const a = v.alici || {}, para = /^[A-Z]{3}$/.test(v.para || "") ? v.para : "TRY";
+  return { alici: { unvan: a.unvan || "", vkn: a.vkn || "", vd: a.vd || "", adres: a.adres || "", ulke: "", eposta: "" }, tip, para, kur: para === "TRY" ? 0 : (v.kur || 0), dahil: false, kalemler, notEk: "", notIrsaliye: true };
 }
 /* XML yoksa: GİB’in HTML görünümünden satır tablosu (başlıklarına göre) ve alıcı VKN’si; en iyi çaba */
 function htmlCoz(html) {
@@ -603,7 +612,7 @@ class SahteGib {
     const g = (SahteGib.t && SahteGib.t.get(uuid)) || (SahteGib.o && SahteGib.o.get(uuid)) || (SahteGib.i && SahteGib.i.get(uuid));
     if (!g) throw new Error("Fatura bulunamadı.");
     return { kaynak: "xml", alici: { unvan: g.aliciUnvan || (g.aliciAdi + " " + g.aliciSoyadi).trim(), vkn: g.vknTckn, vd: g.vergiDairesi || "", adres: g.bulvarcaddesokak || "" },
-      kalemler: g.malHizmetTable.map((k) => ({ ad: k.malHizmet, miktar: k.miktar, birim: k.birim, fiyat: Number(k.birimFiyat), kdv: Number(k.kdvOrani), tev: k.V9015Orani ? Math.round(k.V9015Orani / 10) : 0, kod: k.tevkifatKodu || "", istisna: k.istisnaKodu || "", ozelNeden: k.ozelMatrahNedeni || "", ozelTutar: Number(k.ozelMatrahTutari) || 0 })) };
+      kalemler: g.malHizmetTable.map((k) => ({ ad: k.malHizmet, miktar: k.miktar, birim: k.birim, fiyat: Number(k.birimFiyat), kdv: Number(k.kdvOrani), tev: k.V9015Orani ? Math.round(k.V9015Orani / 10) : 0, kod: k.tevkifatKodu || "", istisna: k.istisnaKodu || "", ozelNeden: k.ozelMatrahNedeni || "", ozelTutar: Number(k.ozelMatrahTutari) || 0 })), para: g.paraBirimi || "TRY", kur: Number(g.dovzTLkur) || 0, tarih: (/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(g.faturaTarihi || "") || []).slice(1).reverse().join("-") };
   }
   async faturaHtml(uuid) {
     const g = (SahteGib.t && SahteGib.t.get(uuid)) || (SahteGib.o && SahteGib.o.get(uuid));
@@ -618,4 +627,4 @@ class SahteGib {
   }
 }
 
-module.exports = { ublCoz, htmlCoz, faturaVeriCikar, trBugunStr, zipDosyalari, zipYaz, faturaDosyaCikar, htmlCikar, hesaplaFatura, notUret, tutarYazi, temizMetin, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };
+module.exports = { taslakFormu, ublCoz, htmlCoz, faturaVeriCikar, trBugunStr, zipDosyalari, zipYaz, faturaDosyaCikar, htmlCikar, hesaplaFatura, notUret, tutarYazi, temizMetin, faturaGovdesi, istemci: (k, s) => (MOCK ? new SahteGib(k) : new Gib(k, s)), MOCK };

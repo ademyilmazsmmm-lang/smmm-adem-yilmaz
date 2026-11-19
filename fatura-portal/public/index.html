@@ -432,6 +432,12 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   <section data-sayfa="yeni" class="izgara">
   <div class="sol">
   <p class="not" id="mYok" hidden>Önce Ayarlar bölümünden mükellef ekleyin.</p>
+  <div class="card" id="duzenleBant" hidden role="status" style="gap:8px;border-left:4px solid var(--warn);background:var(--warn-soft);scroll-margin-top:150px">
+    <b>✏️ Taslak düzenleniyor <span id="duzenleAd"></span></b>
+    <p class="not" style="margin:0">Değişiklikleri yapıp <b>Taslağı güncelle</b>ye basın: değiştirilmiş yeni taslak oluşturulur, eski taslak silinir (belge numarası değişir). Vazgeçerseniz eski taslak olduğu gibi kalır.</p>
+    <p class="not" id="duzenleUyari" hidden style="margin:0;color:var(--warn)"></p>
+    <button class="k" type="button" id="duzenleVazgec" style="justify-self:start">Düzenlemeden vazgeç</button>
+  </div>
   <div class="card" id="iaBanner" hidden style="gap:8px;border-left:4px solid var(--accent)">
     <b>Alıcı (cari) ve hizmet listesi boş</b>
     <p class="not" style="margin:0">Bu mükellefin son 6 aydaki GİB faturalarından alıcıları ve hizmetleri otomatik oluşturabilirim. Sonra her faturada listeden tek dokunuşla seçersiniz. Mevcut kayıtlara dokunulmaz.</p>
@@ -1269,8 +1275,24 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   function formuTemizle(){
     F.alici = ""; F.dahil = false; F.para = "TRY"; F.kur = ""; F.kurElle = false; F.kalemler = [ilkKalem()]; F.tip = tipKalemden(F.kalemler[0]); if (F.tip === "OZELMATRAH") F.dahil = false;
     $("ekNot").value = ""; $("notIrs").checked = true; $("tarih").value = bugunStr(); $("sorguDurum").textContent = ""; $("iadeNo").value = ""; $("iadeTarih").value = "";
+    F.duzenle = null; duzenleBant();
     cizAlici(); cizKalemler(); formDoldur(); $("ozet").innerHTML = ""; $("ozetHata").textContent = ""; $("notOnizleme").textContent = ""; sonHesap = null; kontrolBtn();
   }
+  /* Taslak düzenleme: uyarı bandı ve düğme yazısı (F.duzenle = { uuid, belgeNo, tarih, mid }) */
+  function duzenleBant(uyari){
+    var dz = F.duzenle; $("duzenleBant").hidden = !dz; $("duzenleAd").textContent = dz && dz.belgeNo ? "(" + dz.belgeNo + ")" : "";
+    var u = $("duzenleUyari"); u.hidden = !(dz && uyari); u.textContent = uyari || "";
+    $("devam").textContent = dz ? "Taslağı güncelle" : "Taslak oluştur";
+  }
+  function tarihIso(t){ var p = String(t || "").split(/[-/]/); return p.length === 3 ? (p[0].length === 4 ? p.join("-") : p[2] + "-" + p[1] + "-" + p[0]) : ""; }
+  function taslakDuzenle(i){
+    var x = taslaklar[i]; if (!x) return; var d = $("tDurum"), tm = mSec; d.className = "durum"; d.textContent = "Taslak içeriği alınıyor…";
+    api("/api/taslak-duzenle", "POST", { mukellefId: tm, uuid: x.ettn }).then(function(r){
+      d.textContent = ""; var tr = tarihIso(r.tarih) || tarihIso(x.tarih);
+      tekrarla({ form: r.form, mukellefId: tm, tarih: tr, belgeNo: x.belgeNo }, false, { uuid: x.ettn, belgeNo: x.belgeNo || "", tarih: tarihIso(x.tarih), mid: tm, epostaGonder: !!r.epostaGonder, uyari: r.uyari || "" });
+    }, function(er){ if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = "Taslak içeriği alınamadı: " + er.message; } });
+  }
+  $("duzenleVazgec").addEventListener("click", function(){ formuTemizle(); sifirla(); durum("Düzenlemeden vazgeçildi; taslak olduğu gibi duruyor.", "ok"); sekme("taslak"); window.scrollTo(0, 0); });
 
   /* ---------- mesajdan doldurma ---------- */
   /* Hazır hizmetteki kodlara göre fatura tipi: özel matrah nedeni varsa Özel matrah, istisna kodu varsa İstisna, tevkifat varsa Tevkifat, yoksa Satış */
@@ -1289,10 +1311,15 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   }
   var vurgula = null, tMesaj = "";
   function taslakOlustur(){
-    var g = girdi(), t = sonHesap && sonHesap.toplam;
-    if (!confirm("GİB’de taslak oluşturulsun mu?\n\n" + g.aliciUnvan + " (" + g.aliciVkn + ")\n" + g.kalemler.length + " satır" + (t ? " — ödenecek " + fmt(t.odenecek) + " " + PARASEM[g.para] : ""))) return;
-    yurut($("devam"), function(){ durum("Taslak oluşturuluyor…"); return api("/api/taslak", "POST", g); }, function(r){
-      durum("", ""); vurgula = r.uuid; tMesaj = (r.mesaj || "Taslak oluşturuldu.") + " Aşağıdan görüntüleyip onaylayabilirsiniz.";
+    var g = girdi(), t = sonHesap && sonHesap.toplam, dz = F.duzenle;
+    if (dz && dz.mid !== mSec) { alert("Düzenlenen taslak başka bir mükellefe ait. “Düzenlemeden vazgeç”e basın ya da ilgili mükellefi seçin."); return; }
+    var ozet = g.aliciUnvan + " (" + g.aliciVkn + ")\n" + g.kalemler.length + " satır" + (t ? " — ödenecek " + fmt(t.odenecek) + " " + PARASEM[g.para] : "");
+    if (!confirm(dz ? "Taslak güncellensin mi?\n\n" + ozet + "\n\nYeni taslak oluşturulacak ve eski taslak" + (dz.belgeNo ? " (" + dz.belgeNo + ")" : "") + " silinecek." : "GİB’de taslak oluşturulsun mu?\n\n" + ozet)) return;
+    yurut($("devam"), function(){ durum(dz ? "Taslak güncelleniyor…" : "Taslak oluşturuluyor…"); return api("/api/taslak", "POST", g).then(function(r){
+      if (!dz) return r; /* düzenleme: önce yeni taslak oluştu; eskisi şimdi silinir (yeni oluşmadan eskiyi silmeyiz: hata olursa hiçbir şey kaybolmaz) */
+      return api("/api/sil", "POST", { mukellefId: dz.mid, uuid: dz.uuid, neden: "Taslak düzenlendi (yeni taslak oluşturuldu)", tarih: dz.tarih || "" }).then(function(){ r._duzenle = "Taslak güncellendi: eski taslak silindi."; return r; }, function(er){ r._duzenle = "UYARI: Yeni taslak oluştu ama eski taslak SİLİNEMEDİ (" + er.message + "). Aşağıdaki listeden eski taslağı (" + (dz.belgeNo || "eski") + ") silin."; return r; });
+    }); }, function(r){
+      durum("", ""); vurgula = r.uuid; tMesaj = (r._duzenle ? r._duzenle + " " : "") + (r.mesaj || "Taslak oluşturuldu.") + " Aşağıdan görüntüleyip onaylayabilirsiniz.";
       formuTemizle(); sifirla(); tYuklendi = false; sekme("taslak"); window.scrollTo(0, 0); /* sekme() listeyi kendisi getirir */
     });
   }
@@ -1597,7 +1624,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
       $("tRozet").hidden = !taslaklar.length; $("tRozet").textContent = taslaklar.length;
       $("tListe").innerHTML = taslaklar.map(function(x, i){
         return '<div class="kayit' + (x.ettn === vurgula ? " yeni" : "") + '"><div class="ust2"><span>' + esc(x.alici) + " — " + esc(x.vkn) + '<br><small>' + esc(x.tarih) + " · " + esc(x.belgeNo) + (x.tutar ? " · " + fmt(x.tutar) + " ₺" : "") + '</small></span></div>' +
-          '<div class="satir"><button class="k" type="button" data-tg="' + i + '">Görüntüle</button><button class="k" type="button" data-tp="' + i + '">Paylaş</button></div>' +
+          '<div class="satir3"><button class="k" type="button" data-tg="' + i + '">Görüntüle</button><button class="k" type="button" data-td="' + i + '">Düzenle</button><button class="k" type="button" data-tp="' + i + '">Paylaş</button></div>' +
           '<div class="satir"><button class="btn" type="button" data-to="' + i + '" style="min-height:42px;padding:6px">Onayla</button><button class="btn tehlike" type="button" data-ts="' + i + '" style="min-height:42px;padding:6px">Taslağı sil</button></div></div>';
       }).join("");
       if (tMesaj) { d.className = "durum ok"; d.textContent = tMesaj + "\n" + d.textContent; tMesaj = ""; }
@@ -1785,7 +1812,8 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
       .catch(function(er){ clearInterval(sayac); if (er && er.name === "AbortError") return; if (!oturumDustu(er)) { d.className = "durum hata"; d.textContent = "PDF oluşturulamadı: " + (er.message || er) + (alinanHtml ? ". Fatura açıldı; “Yazdır / PDF” ile kaydedebilirsiniz." : "."); if (alinanHtml) gorunumAc(alinanHtml, true, mid); } });
   }
   $("tListe").addEventListener("click", function(e){
-    var g = e.target.getAttribute("data-tg"), o = e.target.getAttribute("data-to"), sl = e.target.getAttribute("data-ts"), tp = e.target.getAttribute("data-tp"), x;
+    var g = e.target.getAttribute("data-tg"), o = e.target.getAttribute("data-to"), sl = e.target.getAttribute("data-ts"), tp = e.target.getAttribute("data-tp"), td = e.target.getAttribute("data-td"), x;
+    if (td != null) return taslakDuzenle(+td);
     if (sl != null) { var xs = taslaklar[+sl]; return belgeIslemi("sil", xs.ettn, xs.tarih, (xs.belgeNo || "Taslak") + " — " + xs.alici); }
     if (tp != null) { var xp = taslaklar[+tp]; return paylas(mSec, xp.ettn, "Onaylanmadı", xp.belgeNo, "tDurum", xp.alici); }
     if (o != null) return onayBaslat(taslaklar[+o]);
@@ -1997,21 +2025,24 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     return { alici: { unvan: k.aliciUnvan, vkn: k.aliciVkn, adres: k.aliciAdres || "", vd: k.vergiDairesi || "" }, tip: k.tevkifat ? "TEVKIFAT" : "SATIS", para: "TRY", kur: 0, dahil: false,
       kalemler: [{ ad: k.hizmetAd, aciklama: k.aciklama || "", miktar: 1, birim: "C62", fiyat: (h.matrah || 0) / 100, kdv: k.kdvOrani, tev: k.tevkifat || 0, kod: k.tevkifatKodu || "" }], notEk: "", notIrsaliye: true };
   }
-  function tekrarla(k, iade){
+  function tekrarla(k, iade, duzenle){
     if (!k) return;
     var f = formdan(k);
     if (k.mukellefId && V.mukellefler.some(function(m){ return m.id === k.mukellefId; })) mSec = k.mukellefId;
     cizM();
-    F.tip = iade ? "IADE" : f.tip; F.para = f.para || "TRY"; F.kur = f.kur ? String(f.kur).replace(".", ",") : ""; F.kurElle = !!f.kur; F.dahil = !!f.dahil;
+    F.tip = iade ? "IADE" : f.tip; F.para = f.para && PARASEM[f.para] ? f.para : "TRY"; F.kur = f.kur ? String(f.kur).replace(".", ",") : ""; F.kurElle = !!f.kur; F.dahil = !!f.dahil;
     F.kalemler = f.kalemler.map(function(x){ return { preset: "", ad: x.ad, aciklama: x.aciklama || "", miktar: String(x.miktar), birim: x.birim || "C62", fiyat: String(x.fiyat).replace(".", ","), kdv: String(x.kdv), tev: String(x.tev || 0), kod: x.kod || "", istisna: x.istisna || "", ozelNeden: x.ozelNeden || "", ozelTutar: x.ozelTutar ? String(x.ozelTutar).replace(".", ",") : "", konaklama: x.konaklama > 0 ? String(x.konaklama) : "", konaklamaVar: x.konaklama > 0 }; });
     var m = mk(), ydk = f.alici.vkn === "2222222222", kay = m && m.aliciler.filter(function(a){ return a.vkn === f.alici.vkn && (!ydk || String(a.ad || "").toLocaleLowerCase("tr-TR") === String(f.alici.unvan || "").toLocaleLowerCase("tr-TR")); })[0];
     if (kay) F.alici = kay.id;
     else { F.alici = ydk ? "__yd" : "__yeni"; $("yAd").value = f.alici.unvan || ""; $("yVkn").value = f.alici.vkn || ""; $("yAdres").value = f.alici.adres || ""; $("yVd").value = f.alici.vd || ""; $("yEposta").value = f.alici.eposta || ""; $("yUlke").value = f.alici.ulke || ""; }
-    $("tarih").value = bugunStr(); $("ekNot").value = f.notEk || ""; $("notIrs").checked = f.notIrsaliye !== false; $("sorguDurum").textContent = "";
+    $("tarih").value = duzenle && /^\d{4}-\d{2}-\d{2}$/.test(k.tarih || "") ? k.tarih : bugunStr(); $("ekNot").value = f.notEk || ""; $("notIrs").checked = f.notIrsaliye !== false; $("sorguDurum").textContent = "";
     $("iadeNo").value = iade ? (k.belgeNo || "") : ""; $("iadeTarih").value = iade ? (k.tarih || "") : "";
     cizAlici(); cizKalemler(); formDoldur(); onizle();
+    F.duzenle = duzenle ? { uuid: duzenle.uuid, belgeNo: duzenle.belgeNo, tarih: duzenle.tarih, mid: duzenle.mid } : null; duzenleBant(duzenle && duzenle.uyari);
+    if (duzenle && $("yEpostaGonder")) $("yEpostaGonder").checked = !!duzenle.epostaGonder;
     ["aliciKart", "bilgiKart", "malKart"].forEach(function(i){ $(i).open = true; });
-    sekme("yeni"); $("aliciKart").scrollIntoView({ behavior: "smooth" });
+    sekme("yeni"); (duzenle ? $("duzenleBant") : $("aliciKart")).scrollIntoView({ behavior: "smooth" });
+    if (duzenle) { durum("Taslak düzenleniyor" + (duzenle.belgeNo ? " (" + duzenle.belgeNo + ")" : "") + ". Alıcıyı, satırları ve tutarları değiştirebilirsiniz.", "ok"); return; }
     durum(iade ? "İade faturası hazırlandı: " + (k.belgeNo || "seçilen fatura") + " numaralı faturaya bağlandı." + (f.tip === "TEVKIFAT" ? " Not: tevkifatlı faturanın iadesi için GİB ayrı bir tip kullanabilir; taslağı portalda kontrol edin." : "") + " Satırları kontrol edip taslak kaydedin."
       : "Fatura geçmişten kopyalandı (tarih bugüne alındı). Tutarları ve açıklamaları kontrol edip taslak kaydedin.", "ok");
   }

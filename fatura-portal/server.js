@@ -20,7 +20,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-19-317";
+const SURUM = "2026-11-19-318";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -1142,6 +1142,13 @@ async function api(req, res, yol) {
     const liste = await istemci(m).listeAralik(t(g.bas), t(g.bit));
     for (const b of liste) { const k = bekleyen.get(b.ettn) || (m.gecmis || []).filter((x) => x.id === b.ettn)[0]; if (k && k.hesap && k.mukellefId === m.id) b.tutar = k.hesap.odenecek; } // tutar GİB listesinde yok; bu programdan açılanlar için bilinir
     return cevap(res, 200, { belgeler: liste });
+  }
+  if (yol === "/api/taslak-duzenle") { /* taslağı Yeni fatura formunda düzenlemek için içeriği: bu programdan açıldıysa kayıtlı form, değilse GİB'in XML'i */
+    const uuid = String(g.uuid || ""); if (!/^[A-Za-z0-9:_=.-]{8,4000}$/.test(uuid)) return cevap(res, 400, { hata: "Taslak seçilmedi." });
+    const k = bekleyen.get(uuid);
+    if (k && k.mukellefId === m.id && k.form) return cevap(res, 200, { kaynak: "program", form: k.form, tarih: k.tarih || "", belgeNo: k.belgeNo || "", epostaGonder: !!k.epostaGonder });
+    const v = await istemci(m).faturaVerisi(uuid, "Onaylanmadı");
+    return cevap(res, 200, { kaynak: "gib", form: gib.taslakFormu(v), tarih: v.tarih || "", uyari: "Taslak GİB’den okundu (bu programdan açılmamış ya da sunucu yeniden başlamış). Açıklama, not, alıcı e-postası ve özel matrah gibi alanları kontrol edin." });
   }
   if (yol === "/api/fatura-veri") {
     if (!/^[A-Za-z0-9:_=.-]{8,4000}$/.test(String(g.uuid || ""))) return cevap(res, 400, { hata: "Fatura seçilmedi." });
