@@ -2,8 +2,6 @@
 """rapor.xlsx: gunun mutabakat ve ozet raporu (OpenPyXL).
 
 Sayfalar:
-    Özet                  genel tablo: kac firma/ekran, kac fatura, toplam matrah/KDV,
-                          ekran bazinda dagilim
     Firma Durumu          her firma tek satir; aksiyon gerekenler en ustte, renkli
     KDV Sonucu            her firmanin satis KDV - alis KDV - onceki donem devreden KDV sonucu:
                           odenecek KDV ya da sonraki doneme devreden KDV (devreden: firmalar.xlsx)
@@ -16,7 +14,6 @@ Sayfalar:
 Veri rapor.json'dan gelir, yani ayni gun yapilan butun calismalari kapsar.
 """
 
-from datetime import datetime
 from pathlib import Path
 
 from . import gostergeler, rapor
@@ -140,94 +137,6 @@ def _klasor_bagi(hucre, yol, stil):
 
 
 # --- sayfalar ----------------------------------------------------------------
-
-def _ozet_sayfasi(ws, kayitlar, satirlar, stil):
-    ws.title = "Özet"
-    donemler = sorted({k.get("donem") for k in kayitlar.values() if k.get("donem")})
-    ws["A1"] = "Luca Bot - Mutabakat Özeti"
-    ws["A1"].font = stil["buyuk"]
-    ws["A2"] = (f"Oluşturulma: {datetime.now():%d/%m/%Y %H:%M}"
-                + (f"    Dönem: {', '.join(donemler)}" if donemler else ""))
-
-    ekran_sayim = {}
-    toplam = {"basarili": 0, "bos": 0, "atlanan": 0, "sorunlu": 0, "bekliyor": 0}
-    for k in kayitlar.values():
-        for tip, durum in k["durumlar"].items():
-            grup = _durum_grubu(durum)
-            toplam[grup] += 1
-            e = ekran_sayim.setdefault(tip, {"firma": 0, "basarili": 0, "bos": 0, "atlanan": 0,
-                                             "sorunlu": 0, "bekliyor": 0, "fatura": 0, "dosya": 0})
-            e["firma"] += 1
-            e[grup] += 1
-            e["fatura"] += k["sayilar"].get(tip, 0) or 0
-            dosya = k.get("dosya") or {}
-            e["dosya"] += dosya.get(tip, 0) if isinstance(dosya, dict) else 0
-
-    mukerrersiz_fatura = rapor.fatura_adedi
-
-    aksiyonlu = sum(1 for s in satirlar if s[3])
-    gostergeler = [
-        ("Firma sayısı", len(kayitlar)),
-        ("Aksiyon gereken firma", aksiyonlu),
-        ("Fatura inen ekran", toplam["basarili"]),
-        ("Boş ekran (fatura yok)", toplam["bos"]),
-        ("Atlanan ekran (dönem dışı / çok fatura)", toplam["atlanan"]),
-        ("Sorunlu ekran (hata / inmedi)", toplam["sorunlu"]),
-        ("Bekleyen ekran (henüz işlenmedi)", toplam["bekliyor"]),
-        ("Listelenen fatura (aynı fatura iki ekranda sayılmaz)",
-         sum(mukerrersiz_fatura(k) for k in kayitlar.values())),
-        ("Tevkifatlı alış faturası (KDV2)",
-         sum(rapor.tevkifat_adedi(k) for k in kayitlar.values())),
-        ("İptal/itiraz edilmiş fatura", sum(rapor._en_yuksek(k["iptal"]) for k in kayitlar.values())),
-        ("İnen dosya", sum(rapor._dosya_sayisi(k) or 0 for k in kayitlar.values())),
-    ]
-    _tablo(ws, ["Gösterge", "Değer"], gostergeler, [52, 20], stil, ilk_satir=4, filtre=False)
-    for i, (ad, _) in enumerate(gostergeler, 5):
-        h = ws.cell(row=i, column=2)
-        if "(TL)" in ad:
-            h.number_format = PARA_BICIMI
-        if ad.startswith("Sorunlu") and h.value:
-            h.fill = stil["hata"]
-        elif ad.startswith("Aksiyon") and h.value:
-            h.fill = stil["uyari"]
-
-    bas = 5 + len(gostergeler) + 2
-    ws.cell(row=bas - 1, column=1, value="Ekran bazında").font = stil["kalin"]
-    ekran_satirlari = []
-    for tip, ad in rapor.SUTUNLAR:
-        e = ekran_sayim.get(tip)
-        if e:
-            ekran_satirlari.append([ad, e["firma"], e["basarili"], e["bos"],
-                                    e["atlanan"], e["sorunlu"], e["bekliyor"], e["fatura"], e["dosya"]])
-    _tablo(ws, ["Ekran", "Firma", "Fatura inen", "Boş", "Atlanan", "Sorunlu", "Bekliyor",
-                "Fatura adedi", "İnen dosya"],
-           ekran_satirlari, [52, 20, 12, 8, 10, 10, 10, 13, 11], stil, ilk_satir=bas, filtre=False)
-    # firma bazinda tutarlar: ayni faturalari gosteren ekranlar bir kez sayilir
-    # (bkz. rapor.ALIS_BIRLESIMI / SATIS_BIRLESIMI)
-    bas2 = bas + len(ekran_satirlari) + 3
-    ws.cell(row=bas2 - 1, column=1,
-            value="Firma bazında tutarlar (iptal/itiraz hariç; aynı faturayı gösteren ekranlar"
-                  " bir kez sayılır)").font = stil["kalin"]
-    firma_satirlari = []
-    for firma in sorted(kayitlar):
-        k = kayitlar[firma]
-        firma_satirlari.append([
-            firma, mukerrersiz_fatura(k) or None,
-            rapor._grup_toplami(k, "matrah", rapor.ALIS_EKRANLARI) or None,
-            rapor._grup_toplami(k, "kdv", rapor.ALIS_EKRANLARI) or None,
-            rapor._grup_toplami(k, "matrah", rapor.SATIS_EKRANLARI) or None,
-            rapor._grup_toplami(k, "kdv", rapor.SATIS_EKRANLARI) or None,
-            rapor.tevkifat_adedi(k) or None,
-            rapor._en_yuksek(k["iptal"]) or None,
-        ])
-    _tablo(ws, ["Firma", "Fatura", "Alış Matrah", "Alış KDV", "Satış Matrah", "Satış KDV",
-                "Tevkifatlı Alış", "İptal/İtiraz"],
-           firma_satirlari, [52, 20, 16, 16, 16, 16, 14, 13], stil, ilk_satir=bas2, filtre=False)
-    for i in range(bas2 + 1, bas2 + 1 + len(firma_satirlari)):
-        for j in range(3, 7):
-            ws.cell(row=i, column=j).number_format = PARA_BICIMI
-    ws.freeze_panes = None
-
 
 def _firma_durumu_sayfasi(ws, satirlar, stil):
     ws.title = "Firma Durumu"
@@ -498,8 +407,7 @@ def yaz(yol, kayitlar, satirlar, devreden=None):
         rapor._tamamla(k)
     stil = _stiller()
     wb = Workbook()
-    _ozet_sayfasi(wb.active, kayitlar, satirlar, stil)
-    _firma_durumu_sayfasi(wb.create_sheet(), satirlar, stil)
+    _firma_durumu_sayfasi(wb.active, satirlar, stil)
     devreden = _firmalar_devreden() if devreden is None else devreden
     _kdv_sayfasi(wb.create_sheet(), kayitlar, devreden, stil)
     _ayri_sekmeler(wb, kayitlar, devreden, stil)

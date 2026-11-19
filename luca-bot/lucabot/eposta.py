@@ -214,7 +214,7 @@ def ozet_metni(sonuclar, donem="", ikinci_tur=None):
             satirlar.append(f"  ... (+{len(sorunlular) - 20})")
         satirlar.append("")
 
-    satirlar.append("Ayrintilar ekteki rapor.xlsx dosyasinda: 'Özet' sayfasi genel tabloyu,"
+    satirlar.append("Ayrintilar ekteki rapor.xlsx dosyasinda: 'Firma Durumu' sayfasi genel tabloyu,"
                     " 'Hatalar ve Uyarılar' sayfasi ne yapilmasi gerektigini gosterir.")
     metin = "\n".join(satirlar)
     # WhatsApp/Markdown alismasindan kalan '*' isaretleri duz metin mailde

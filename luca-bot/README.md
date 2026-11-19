@@ -452,7 +452,7 @@ adımda ne zamandır beklediğini gösterir; 30 sn değişmezse turuncu, 90 sn'd
 
 ```
 indirilenler/
-  rapor.xlsx                   → TEK ve SÜREKLİ TOPLU RAPOR: Özet, Firma Durumu, KDV Sonucu, KDV Ödemesi, KDV2, SMM, İnteraktif var e-Arşiv yok, İndirilen
+  rapor.xlsx                   → TEK ve SÜREKLİ TOPLU RAPOR: Firma Durumu, KDV Sonucu, KDV Ödemesi, KDV2, SMM, İnteraktif var e-Arşiv yok, İndirilen
                                   Faturalar, Dosyalar, Hatalar (her çalışmada güncellenir)
   rapor.csv                    → aynı raporun CSV hâli
   rapor.json                   → raporun ara/ham verisi (elle düzenlenmez)
@@ -488,7 +488,6 @@ Toplu Sorgulama'da XML yalnız **alışta GİB E-Arşiv Entegrasyonu Alış Fatu
 
 | Sayfa | İçerik |
 | --- | --- |
-| **Özet** | Genel tablo: firma sayısı, fatura inen / boş / atlanan / sorunlu / bekleyen ekran, toplam fatura (aynı fatura iki ekranda iki kez sayılmaz), tevkifatlı alış, iptal/itiraz, alış–satış matrahı ve KDV'si; altında **ekran bazında** dağılım |
 | **Firma Durumu** | Her firma tek satır; aksiyon gerekenler en üstte ve renkli (kırmızı: hata, sarı: kontrol) |
 | **KDV Sonucu** | Her firmanın satış KDV − alış KDV − önceki dönem devreden KDV sonucu, **KDV2 ayrı sütunda** ve iki sonuçla: **Alış KDV (KDV2 hariç)**, **KDV2 (Tevkif Edilen KDV)**, **Ödenecek KDV (KDV2 hariç)** / **Sonraki Döneme Devreden KDV (KDV2 hariç)** ve aynıları **KDV2 dahil** (KDV2 de indirilirse). Altında süzmeye duyarlı toplam. Önceki dönem devreden KDV `firmalar.xlsx`'teki "Devreden KDV" sütunundan gelir (girilmemişse 0 sayılır ve Not sütununda yazar). Aynı sütunlar arayüzde Firma Durumu tablosunda da vardır |
 | **KDV Ödemesi** | Yalnız **ödeme çıkan** (KDV2 hariç hesapta) firmalar: satış KDV, alış KDV (KDV2 hariç), KDV2, devreden KDV, ödenecek KDV (KDV2 hariç) ve (KDV2 dahil) |

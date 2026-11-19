@@ -354,7 +354,7 @@ class RaporTestleri(unittest.TestCase):
             ]
             rapor.guncelle(klasor, sonuclar, ["C"], "e-arsiv-alis")
             wb = load_workbook(klasor / "rapor.xlsx")
-            self.assertEqual(wb.sheetnames, ["Özet", "Firma Durumu", "KDV Sonucu", "KDV Ödemesi", "KDV2", "SMM",
+            self.assertEqual(wb.sheetnames, ["Firma Durumu", "KDV Sonucu", "KDV Ödemesi", "KDV2", "SMM",
                                              rapor_excel.ARSIV_FARK_SEKMESI, "İndirilen Faturalar", "Dosyalar",
                                              "Hatalar ve Uyarılar"])
             mutabakat = {(r[0].value, r[1].value, r[4].value): r[6].value
@@ -457,8 +457,9 @@ class RaporTestleri(unittest.TestCase):
         yol = Path(d0) / "rapor.xlsx"
         rapor_excel.yaz(yol, kayitlar, [rapor._satir(k) for k in kayitlar.values()], devreden={})
         wb = load_workbook(yol)
-        self.assertEqual(wb.sheetnames[:7], ["Özet", "Firma Durumu", "KDV Sonucu", "KDV Ödemesi", "KDV2", "SMM",
+        self.assertEqual(wb.sheetnames[:6], ["Firma Durumu", "KDV Sonucu", "KDV Ödemesi", "KDV2", "SMM",
                                               "İnteraktif var, e-Arşiv yok"])
+        self.assertNotIn("Özet", wb.sheetnames)
         satirlar = lambda ad: [[c.value for c in r] for r in wb[ad].iter_rows(min_row=2)]
         # KDV 1000, tevkif edilen (KDV2) 150: hemen indirilen 850; odeme KDV2 haric 5000-850 = 4150, dahil 5000-1000 = 4000
         self.assertEqual(satirlar("KDV Ödemesi"),
@@ -616,7 +617,7 @@ class RaporTestleri(unittest.TestCase):
         def sahte(al, konu, govde, ek, gonder_mi, bildir):
             firmalar = set()
             if ek:
-                ws = load_workbook(str(ek))["Özet"] if "Özet" in load_workbook(str(ek)).sheetnames else load_workbook(str(ek)).worksheets[0]
+                ws = load_workbook(str(ek)).worksheets[0]
                 firmalar = {str(r[0]) for r in ws.iter_rows(values_only=True) if r and r[0]}
             gonderilen.append((al, konu, govde, firmalar))
             return True
