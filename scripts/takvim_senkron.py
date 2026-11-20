@@ -22,9 +22,9 @@ Gerekli ortam değişkenleri: GOOGLE_SA_JSON (hizmet hesabı anahtarının içer
 Bağımlılık yok: RS256 imzası için sistemdeki `openssl` kullanılır.
 
 Kullanım:
-  python takvim_senkron.py --veri veri                      # takvimi eşitler
-  python takvim_senkron.py --veri veri --dry-run            # Google'a bağlanmaz; üretilecek etkinlikleri yazdırır
-  python takvim_senkron.py --veri veri --simdi 2026-12-28T09:30 --dry-run
+  python scripts/takvim_senkron.py --veri veri                      # takvimi eşitler
+  python scripts/takvim_senkron.py --veri veri --dry-run            # Google'a bağlanmaz; üretilecek etkinlikleri yazdırır
+  python scripts/takvim_senkron.py --veri veri --simdi 2026-12-28T09:30 --dry-run
 """
 
 import argparse

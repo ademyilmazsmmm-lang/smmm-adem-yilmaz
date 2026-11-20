@@ -28,7 +28,7 @@ jobs:
           python-version: '3.11'
 
       - name: Sitemap oluştur
-        run: python sitemap_generator.py
+        run: python scripts/sitemap_generator.py
 
       - name: Commit & Push
         run: |

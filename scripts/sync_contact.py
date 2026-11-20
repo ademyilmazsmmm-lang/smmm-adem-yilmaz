@@ -4,7 +4,7 @@ kullanıp, aynı iletişim bilgilerini (telefon, e-posta, adres, LinkedIn,
 harita) sitedeki diğer tüm sayfalardaki "site-contact-section" bloğuna
 ve WhatsApp balonuna otomatik olarak yayar.
 
-Kullanım: python sync_contact.py
+Kullanım (depo kökünden): python scripts/sync_contact.py
 index.html içindeki #iletisim bölümünü değiştirip bu scripti çalıştırdığınızda
 (veya main'e push ettiğinizde - bkz. .github/workflows/sync-contact.yml)
 tüm site otomatik güncellenir.

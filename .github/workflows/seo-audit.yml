@@ -22,7 +22,7 @@ jobs:
       run: pip install beautifulsoup4 requests
 
     - name: Run SEO Audit
-      run: python seo_audit.py
+      run: python scripts/seo_audit.py
 
     - name: Commit SEO report
       run: |

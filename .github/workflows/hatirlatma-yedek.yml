@@ -36,4 +36,4 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
-        run: python3 hatirlatici.py --veri veri --yedek
+        run: python3 scripts/hatirlatici.py --veri veri --yedek

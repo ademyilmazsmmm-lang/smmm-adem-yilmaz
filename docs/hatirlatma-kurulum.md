@@ -138,14 +138,14 @@ Masaüstüne sadece adres kısayolu bırakılırsa sayfa normal sekmede açılı
 
 ## Google Takvim'e eşitleme (telefon bildirimi)
 
-Hatırlatmalar tek yönlü olarak Google Takvim'deki ayrı bir **Hatırlatma** takvimine yazılır; zamanı gelince telefona takvim bildirimi düşer (mail yine gider). `takvim_senkron.py` her çalışmada (10 dakikada bir, mail adımından sonra) takvimi baştan hesaplayıp eşitler.
+Hatırlatmalar tek yönlü olarak Google Takvim'deki ayrı bir **Hatırlatma** takvimine yazılır; zamanı gelince telefona takvim bildirimi düşer (mail yine gider). `scripts/takvim_senkron.py` her çalışmada (10 dakikada bir, mail adımından sonra) takvimi baştan hesaplayıp eşitler.
 
 - Mail ile aynı slot mantığı: `gunler` listesindeki her gün için o gün ve saatte bir etkinlik açılır ("KDV … (2 gün kaldı)", "KDV … (BUGÜN)"). Listede 0 yoksa olay günü için bildirimsiz tüm gün etkinliği de eklenir. Yapılacaklardaki son tarihli görevler de eklenir.
 - Bugünden 45 gün ilerisi tutulur. Tamamlanan, silinen ya da değişen hatırlatma takvimde de kalkar/güncellenir; kişilere giden kopyalar takvime yazılmaz.
 - Bildirimi takvimin kendi ayarı verir: takvim ayarlarında **Etkinlik bildirimleri → Bildirim → 0 dakika**. Telefonda Google Takvim uygulaması kurulu ya da Google hesabı iPhone Takvim'e ekli olmalı.
 - Gerekli GitHub secret'ları: `GOOGLE_SA_JSON` (hizmet hesabı anahtarının tüm JSON içeriği), `TAKVIM_ID` (takvim ayarlarındaki "Takvim kimliği"). Takvim, hizmet hesabının e-postasıyla "Etkinliklerde değişiklik yap" izniyle paylaşılmış olmalı. Secret yoksa adım sessizce atlanır; hata verirse mailleri engellemez.
 - Günlük herkese açıktır: yalnızca sayılar ve Google'ın hata kodu yazılır (örn. `404 notFound` = takvim paylaşılmamış ya da kimlik yanlış, `400 invalid_grant` = anahtar geçersiz).
-- Bilgisayarda deneme: `python takvim_senkron.py --veri veri --dry-run`.
+- Bilgisayarda deneme: `python scripts/takvim_senkron.py --veri veri --dry-run`.
 
 ### Takvimden uygulamaya (takvime elle yazılan etkinlikler)
 

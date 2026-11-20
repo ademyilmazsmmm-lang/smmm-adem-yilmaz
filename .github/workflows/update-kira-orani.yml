@@ -27,7 +27,7 @@ jobs:
       - name: Kira artış oranını TCMB EVDS'den çek ve güncelle
         env:
           TCMB_EVDS_API_KEY: ${{ secrets.TCMB_EVDS_API_KEY }}
-        run: python update_kira_orani.py
+        run: python scripts/update_kira_orani.py
 
       - name: Commit & Push
         run: |

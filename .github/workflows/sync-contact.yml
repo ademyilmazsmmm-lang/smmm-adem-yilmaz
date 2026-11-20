@@ -22,7 +22,7 @@ jobs:
           python-version: '3.11'
 
       - name: İletişim bilgilerini senkronize et
-        run: python sync_contact.py
+        run: python scripts/sync_contact.py
 
       - name: Commit & Push
         run: |

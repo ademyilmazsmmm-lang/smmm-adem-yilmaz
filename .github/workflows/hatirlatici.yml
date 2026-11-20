@@ -38,7 +38,7 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
-        run: python3 hatirlatici.py --veri veri
+        run: python3 scripts/hatirlatici.py --veri veri
 
       - name: Google Takvim'i eşitle
         # Telefona takvim bildirimi düşsün diye hatırlatmalar tek yönlü Google Takvim'e yazılır.
@@ -48,7 +48,7 @@ jobs:
         env:
           GOOGLE_SA_JSON: ${{ secrets.GOOGLE_SA_JSON }}
           TAKVIM_ID: ${{ secrets.TAKVIM_ID }}
-        run: python3 takvim_senkron.py --veri veri
+        run: python3 scripts/takvim_senkron.py --veri veri
 
       - name: Gönderim kaydını kaydet
         # Gönderme adımı kısmen başarısız olsa bile gidenler kaydedilmeli (aynı mail tekrar gitmesin).
@@ -76,4 +76,4 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
-        run: python3 hatirlatici.py --uyari
+        run: python3 scripts/hatirlatici.py --uyari

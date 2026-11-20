@@ -10,11 +10,11 @@ Gerekli ortam değişkenleri: SMTP_HOST, SMTP_USER, SMTP_PASS, MAIL_TO
 İsteğe bağlı: SMTP_PORT (587), MAIL_FROM (SMTP_USER)
 
 Kullanım:
-  python hatirlatici.py --veri veri                    # mail atar, gonderim.json'u günceller
-  python hatirlatici.py --veri veri --dry-run          # mail atmaz, dosyaya yazmaz, içeriği yazdırır
-  python hatirlatici.py --veri veri --simdi 2026-12-28T09:30 --dry-run
-  python hatirlatici.py --uyari                        # veriye ulaşılamadı uyarısı (08:00-08:09 arası)
-  python hatirlatici.py --veri veri --yedek            # hatırlatma + yapılacaklar yedeğini mail eki olarak yollar
+  python scripts/hatirlatici.py --veri veri                    # mail atar, gonderim.json'u günceller
+  python scripts/hatirlatici.py --veri veri --dry-run          # mail atmaz, dosyaya yazmaz, içeriği yazdırır
+  python scripts/hatirlatici.py --veri veri --simdi 2026-12-28T09:30 --dry-run
+  python scripts/hatirlatici.py --uyari                        # veriye ulaşılamadı uyarısı (08:00-08:09 arası)
+  python scripts/hatirlatici.py --veri veri --yedek            # hatırlatma + yapılacaklar yedeğini mail eki olarak yollar
 """
 
 import argparse
@@ -50,7 +50,7 @@ def gun_sec(y, a, g):
     return date(y, a, min(g, calendar.monthrange(y, a)[1]))
 
 
-TATIL_DOSYASI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hatirlatma-tatiller.json")
+TATIL_DOSYASI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hatirlatma-tatiller.json")
 _tatil = None
 
 
