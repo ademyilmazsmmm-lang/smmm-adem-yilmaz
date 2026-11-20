@@ -1,6 +1,6 @@
 # SMMM Adem Yılmaz — smmmyilmaz.com deposunun haritası
 
-Bu depo iki işi bir arada taşıyor: **web sitesi** (smmmyilmaz.com, GitHub Pages) ve sitenin etrafındaki **küçük programlar ve otomatik görevler**. Bu dosya "ne nerede, ne işe yarıyor" sorusunun cevabıdır. Hiçbir dosya bu harita için taşınmadı veya silinmedi.
+Bu depo iki işi bir arada taşıyor: **web sitesi** (smmmyilmaz.com, GitHub Pages) ve sitenin etrafındaki **küçük programlar ve otomatik görevler**. Bu dosya "ne nerede, ne işe yarıyor" sorusunun cevabıdır. Sayfaların (`*.html`) hiçbiri taşınmadı, silinmedi ya da değiştirilmedi; yalnızca betikler ve kurulum notu klasörlere alındı (aşağıda "Depo düzeni").
 
 > **Önemli kural:** Site derlenmeden, dosyalar olduğu gibi yayınlanır: bir dosyanın yolu onun adresidir. Örneğin `kurulus.html` dosyasının adresi `smmmyilmaz.com/kurulus.html` olur. Bir HTML dosyasını taşırsanız ya da adını değiştirirseniz adresi değişir; Google sıralaması ve paylaşılmış bağlantılar bozulur. Bu yüzden sayfalar kök klasörde duruyor.
 
@@ -10,10 +10,10 @@ Bu depo iki işi bir arada taşıyor: **web sitesi** (smmmyilmaz.com, GitHub Pag
 |---|---|---|
 | Site sayfaları | kök klasör (`*.html`) | 121 gerçek sayfa + 63 yönlendirme sayfası |
 | Otomatik görevler | `.github/workflows/` | 7 otomatik iş: 6'sı zamanlı, 1'i `index.html` değişince (aşağıda) |
-| Python betikleri | kök klasör (`*.py`) | Workflow'ların çalıştırdığı 7 betik |
+| Python betikleri | `scripts/` | Workflow'ların çalıştırdığı 7 betik |
 | Fatura Portalı | `fatura-portal/` | GİB e-Arşiv'e bağlanıp fatura kesen Node.js uygulaması |
 | Program dosyaları | `programlar/` | Kurulum dosyaları, tanıtım görselleri ve videoları (≈23 MB) |
-| Hatırlatma sistemi | `hatirlatma*`, `hatirlatici.py` | Telefon/bilgisayardan hatırlatma sayfası ve mail gönderimi |
+| Hatırlatma sistemi | `hatirlatma*` (kökte), `scripts/hatirlatici.py`, `docs/hatirlatma-kurulum.md` | Telefon/bilgisayardan hatırlatma sayfası ve mail gönderimi |
 | Yayın ayarları | `render.yaml`, `render-ucretsiz.yaml`, `CNAME` | Fatura Portalı'nın Render ayarı; alan adı |
 | Arama motoru dosyaları | `sitemap.xml`, `robots.txt`, `seo_report.csv` | `sitemap.xml` ve `seo_report.csv` otomatik üretilir, elle düzenlemeyin |
 
@@ -21,15 +21,15 @@ Bu depo iki işi bir arada taşıyor: **web sitesi** (smmmyilmaz.com, GitHub Pag
 
 | Workflow | Ne zaman | Çalıştırdığı betik | Ne yapar |
 |---|---|---|---|
-| `sitemap.yml` | Her gece 03:00 | `sitemap_generator.py` | `sitemap.xml` dosyasını yeniden üretir |
-| `seo-audit.yml` | Her gece 03:15 | `seo_audit.py` | Sayfaları denetler, `seo_report.csv` yazar |
-| `sync-contact.yml` | `index.html` değişince | `sync_contact.py` | Ana sayfadaki iletişim bilgisini diğer sayfalara yayar |
-| `update-doviz-kuru.yml` | Hafta içi 17:30 (TR) | `update_doviz_kuru.py` | TCMB kurlarını `index.html`'e yazar |
-| `update-kira-orani.yml` | Her ayın 1–7'si | `update_kira_orani.py` | Kira artış oranını TCMB'den çekip `index.html`'e yazar |
-| `hatirlatici.yml` | Her 10 dakika | `hatirlatici.py`, `takvim_senkron.py` | Zamanı gelen hatırlatmayı mail atar, Google Takvim'e işler |
-| `hatirlatma-yedek.yml` | Ayın 1'i ve 16'sı | `hatirlatici.py --yedek` | Hatırlatma ve yapılacaklar yedeğini mail eki olarak yollar |
+| `sitemap.yml` | Her gece 03:00 | `scripts/sitemap_generator.py` | `sitemap.xml` dosyasını yeniden üretir |
+| `seo-audit.yml` | Her gece 03:15 | `scripts/seo_audit.py` | Sayfaları denetler, `seo_report.csv` yazar |
+| `sync-contact.yml` | `index.html` değişince | `scripts/sync_contact.py` | Ana sayfadaki iletişim bilgisini diğer sayfalara yayar |
+| `update-doviz-kuru.yml` | Hafta içi 17:30 (TR) | `scripts/update_doviz_kuru.py` | TCMB kurlarını `index.html`'e yazar |
+| `update-kira-orani.yml` | Her ayın 1–7'si | `scripts/update_kira_orani.py` | Kira artış oranını TCMB'den çekip `index.html`'e yazar |
+| `hatirlatici.yml` | Her 10 dakika | `scripts/hatirlatici.py`, `scripts/takvim_senkron.py` | Zamanı gelen hatırlatmayı mail atar, Google Takvim'e işler |
+| `hatirlatma-yedek.yml` | Ayın 1'i ve 16'sı | `scripts/hatirlatici.py --yedek` | Hatırlatma ve yapılacaklar yedeğini mail eki olarak yollar |
 
-Bu görevler depoya kendileri commit atar (`Auto-update sitemap`, `Döviz ve altın kurunu güncelle` gibi). Geçmişte gördüğünüz bu commitler normaldir. Betiklerin yolu workflow dosyalarında yazılıdır; bir betiği taşırsanız ilgili `.yml` dosyası da güncellenmelidir.
+Bu görevler depoya kendileri commit atar (`Auto-update sitemap`, `Döviz ve altın kurunu güncelle` gibi). Geçmişte gördüğünüz bu commitler normaldir. Betiklerin yolu workflow dosyalarında yazılıdır (`python scripts/...`); bir betiği taşırsanız ilgili `.yml` dosyası da güncellenmelidir.
 
 ## Programlar
 
@@ -37,7 +37,7 @@ Bu görevler depoya kendileri commit atar (`Auto-update sitemap`, `Döviz ve alt
 
 **Program dosyaları** (`programlar/`) — sitede indirilen kurulum dosyaları (`MusavirOtomasyon_Kurulum.exe`, `DijitalStajyer-Kurulum-1.0.0.zip`) ve tanıtım görselleri/videoları. `programlar.html`, `dijital-stajyer.html`, `musavir-otomasyon.html`, `e-defter-goruntuleyici.html` ve `fatura-portal/public/index.html` bu klasöre bağlanır; adlarını değiştirirseniz bu sayfalardaki bağlantılar kırılır.
 
-**Hatırlatma sistemi** — `hatirlatma.html` sayfası (telefona uygulama gibi eklenebilir: `hatirlatma-manifest.json`, `hatirlatma-ikon*.png`), tatil listesi `hatirlatma-tatiller.json`, şifreli kasa dosyası `hatirlatma-kasa.json` ve mail betiği `hatirlatici.py`. Asıl hatırlatma verisi bu depoda değil, gizli bir depoda (`hatirlatma`) durur. Kurulum: `hatirlatma-kurulum.md`.
+**Hatırlatma sistemi** — `hatirlatma.html` sayfası (telefona uygulama gibi eklenebilir: `hatirlatma-manifest.json`, `hatirlatma-ikon*.png`), tatil listesi `hatirlatma-tatiller.json`, şifreli kasa dosyası `hatirlatma-kasa.json` ve mail betiği `scripts/hatirlatici.py`. Asıl hatırlatma verisi bu depoda değil, gizli bir depoda (`hatirlatma`) durur. Kurulum: `docs/hatirlatma-kurulum.md`.
 
 **`arsiv/index.html`** — "Mükellef Portalı — Giriş" adresi; ziyaretçiyi `portal.smmmyilmaz.com` adresine yönlendirir.
 
@@ -359,11 +359,11 @@ Bunlar hata değil, ileride karar vermeniz gereken noktalar. Hiçbirine dokunulm
 
 **3. Eski yıl adları.** `2025-...`, `2026-...` ile başlayan sayfa adları yıl değişince eskir (örn. içeriği 2026 olan `2025-kira-geliri-beyan-rehberi.html`). Adres sabit kalır, başlık güncellenir.
 
-**4. Sitemap durumu: sorun yok.** Gerçek sayfaların hepsi `sitemap.xml` içinde. Tek istisnalar kasıtlı: `noindex` olan `404.html`, `fatura.html`, `hatirlatma.html` ve canonical'i başka sayfayı gösteren `2025-pratik-bilgi.html`. Bu kurallar `sitemap_generator.py` içindedir.
+**4. Sitemap durumu: sorun yok.** Gerçek sayfaların hepsi `sitemap.xml` içinde. Tek istisnalar kasıtlı: `noindex` olan `404.html`, `fatura.html`, `hatirlatma.html` ve canonical'i başka sayfayı gösteren `2025-pratik-bilgi.html`. Bu kurallar `scripts/sitemap_generator.py` içindedir.
 
-## Düzen önerisi (uygulanmadı)
+## Depo düzeni
 
-Site adreslerini bozmadan ortalığı toplamanın güvenli yolu, **sayfalara dokunmadan** sayfa olmayan dosyaları klasörlere almaktır:
+Site adresleri bozulmasın diye sayfalara dokunulmadı; yalnızca sayfa olmayan dosyalar klasörlere alındı:
 
 ```
 scripts/   seo_audit.py, sitemap_generator.py, sync_contact.py,
@@ -371,7 +371,14 @@ scripts/   seo_audit.py, sitemap_generator.py, sync_contact.py,
 docs/      hatirlatma-kurulum.md
 ```
 
-- Bunu yaparsanız 7 workflow dosyasındaki betik yolları ve betiklerin içindeki dosya yolları birlikte güncellenmelidir. Önce ayrı bir dalda denenmelidir.
-- `render.yaml` kökte kalmalıdır; Render varsayılan olarak onu kökte arar (taşırsanız Render panelinde yolu da değiştirmeniz gerekir).
-- `hatirlatma.html` sayfası `hatirlatma-manifest.json`, `hatirlatma-ikon*.png`, `hatirlatma-kasa.json` ve `hatirlatma-tatiller.json` dosyalarını kendi adresinden okur; bunlar yerinde kalmalıdır.
-- Sayfaları (`*.html`) klasörlere taşımak ancak eski adreslerden yönlendirme, sitemap ve iç bağlantı güncellemesiyle yapılabilir. Kazancı küçük, riski büyük olduğu için önerilmez.
+**Betikleri çalıştırırken** depo kökünde olun: `python scripts/sitemap_generator.py`. Betikler `index.html` ve diğer sayfaları bulunduğunuz klasörden arar; `scripts/` içine girip çalıştırırsanız sayfaları bulamaz. GitHub Actions zaten depo kökünden çalıştırır.
+
+**Dikkat — `hatirlatici.py`:** Tatil listesini (`hatirlatma-tatiller.json`) kendi klasörünün bir üstünden, yani depo kökünden okur. Bu betiği başka bir klasöre taşırsanız o satırı (`TATIL_DOSYASI`) da güncelleyin. Güncellemezseniz hata vermez, sessizce tatil günlerini bilmez ve bayramda yanlış günde mail atar.
+
+**Bilerek taşınmayanlar:**
+- `render.yaml`: Render varsayılan olarak onu kökte arar (taşırsanız Render panelinde yolu da değiştirmeniz gerekir). `render-ucretsiz.yaml` ile birlikte kökte kaldı.
+- `hatirlatma.html` ve onun okuduğu `hatirlatma-manifest.json`, `hatirlatma-ikon*.png`, `hatirlatma-kasa.json`, `hatirlatma-tatiller.json`: sayfa bunları kendi adresinden okur.
+- `seo_report.csv`, `sitemap.xml`, `robots.txt`, `CNAME`: iş akışları ve arama motorları kökten okur.
+- Tüm `*.html` sayfaları ve `programlar/`, `arsiv/`, `fatura-portal/`: adresleri değişmesin diye.
+
+**Sayfaları klasörlere taşımak önerilmez.** Eski adreslerden yönlendirme, sitemap ve iç bağlantı güncellemesi gerekir; kazancı küçük, Google sıralamasını bozma riski büyüktür.
