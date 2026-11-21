@@ -69,8 +69,12 @@ def duzeltmeler(s):
 
 def duzeltme_yazisi(d):
     """'3 fiş (12 satır) MF + evrak no ile düzeltildi; 2 fatura fişine dokunulmadı' / neden yapılmadığı."""
-    kisa = (f"{d.get('fis', 0)} fiş ({d.get('satir', 0)} satır) MF + evrak no ile düzeltildi, {d.get('kaydedildi', 0)} kez Kaydet"
-            if d.get("kaydedildi") else "düzeltme yapılmadı")
+    parcalar = []
+    if d.get("kaydedildi"):
+        parcalar.append(f"{d.get('fis', 0)} fiş ({d.get('satir', 0)} satır) MF + evrak no ile düzeltildi, {d.get('kaydedildi', 0)} kez Kaydet")
+    if d.get("silinen"):
+        parcalar.append(f"{d['silinen']} detaysız fiş silindi")
+    kisa = "; ".join(parcalar) or "düzeltme yapılmadı"
     ek = f"; {d['fatura_fis']} fatura fişine dokunulmadı" if d.get("fatura_fis") else ""
     return kisa + ek + (f" — {d['mesaj']}" if d.get("mesaj") else "")
 

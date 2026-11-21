@@ -313,6 +313,11 @@ Listedeki **Durum** sütunu (Luca'nın "Evrak No boş olamaz." gibi açıklamas�
   yalnız 20042-20045 kodlarında **diğer fişlerin** satırları seçilir; *Toplu Değer Ata*'dan **Belge Türü = MF**, **Evrak No = Değişmez Fiş No**, **Evrak Tarihi = Fiş Tarihi**
   atanır. Fatura fişlerinin satırları seçilmez ve değerleri değişmemiş olmalıdır; atamadan sonra liste okunup (hedef satırlarda BT=MF, evrak no/tarihi dolu, diğerleri aynı)
   doğrulanır, **tutmuyorsa Kaydet'e basılmaz**. Sonra *Kaydet*, ardından liste yeniden okunur ve kalan fiş sayısı yazılır (azalmamışsa "Luca kaydı kabul etmemiş olabilir").
+  *Kaydet* Luca'da satırları tek tek kaydeder (1000 satır dakikalar sürebilir): program **"Kaydetme işlemi tamamlandı."** bildirimini bekler, pencereyi ondan önce kapatmaz;
+  satır hatası olursa (örn. e-Defter verisi değiştirilemez) sayılıp raporlanır.
+  **20026 detaysız fişler** (Fiş Listesi, borç = alacak = 0): düzeltme modunda fiş satırı **seçilir, alttaki *Sil* düğmesine basılır** ve fişin listeden kalktığı doğrulanır.
+  Geri alınamaz: listede borç/alacağı dolu bir fiş görürse hiçbir şey silmez; seçim/silme doğrulanamazsa durur. Onay penceresi silinecek sayıyı ayrıca yazar.
+  Fiş Listesi sonuç tablosu satırları başlıktan sonra doldurursa program satır gelene kadar bekler (eskiden erken okuyup "0 fiş" diyebiliyordu).
   Komut satırı: `python edefter.py ... --duzelt`. **Gerçek Luca'da henüz denenmedi: önce tek bir firmada deneyin** (`Tanı dosyaları kaydet` işaretli).
 - Varsayılan dönem geçen aydır (e-Defter aylık gönderilir). Çok fişli firmalarda bir kod için en çok 60 sayfa okunur (aşılırsa sayı "en az" olarak yazılır);
   JSON/Excel'e kod başına en çok 300 fiş yazılır (sayı her zaman tamdır).

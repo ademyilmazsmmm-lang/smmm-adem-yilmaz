@@ -1163,6 +1163,7 @@ def fis_satirlarini_grupla(basliklar, satirlar, fisler=None):
                     return i
         return None
     i_no, i_tarih, i_ack = ind("FISNO", tam=True), ind("FISTARIHI", "TARIH"), ind("ACIKLAMA")
+    i_borc, i_alacak = ind("BORC", tam=True), ind("ALACAK", tam=True)
     fisler = {} if fisler is None else fisler
     al = lambda s, i: (s[i] if i is not None and i < len(s) else "").strip()
     for s in satirlar:
@@ -1171,8 +1172,148 @@ def fis_satirlarini_grupla(basliklar, satirlar, fisler=None):
             continue
         tarih = al(s, i_tarih)
         fisler.setdefault((no, tarih), {"fis_no": no, "tarih": tarih, "degismeyen": "", "satir": 1, "evrak": [], "bt": "", "odeme": "",
-                                        "tutar": 0.0, "hesap": "", "aciklama": al(s, i_ack)[:90], "durum": []})
+                                        "tutar": tutar(al(s, i_borc)), "alacak": tutar(al(s, i_alacak)), "hesap": "",
+                                        "aciklama": al(s, i_ack)[:90], "durum": []})
     return fisler
+
+
+# Fis Listesi sonuc gorunumu (gercek ekran: Tarih, Tip, Fis No, Aciklama, Dengeli, Aktif, Borc, Alacak; altta Filtre / Yeni / Sil ...).
+# Baslik-tabanli okuyucu (LISTE_OKU_JS) tablo yapisi farkliysa (baslik ayri tablo, fazladan sutun) satirlari goremez: bu YEDEK okuyucu
+# tarih + fis no desenine bakar. Satirlar basliktan SONRA (asenkron) dolabilir: okuma satir gelene kadar bekler.
+FIS_SATIR_BEKLEME_MS = 6000
+SIL_SINIRI = 200
+FIS_YEDEK_JS = r"""() => {
+  const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
+  const gun = /^\d{2}\/\d{2}\/\d{4}$/, no = /^\d{3,}$/;
+  const trs = document.querySelectorAll('tr'), c = [];
+  for (let i = 0; i < trs.length && c.length < 5000; i++) {
+    const tr = trs[i];
+    if (!g(tr) || tr.querySelector('th') || tr.querySelector('tr')) continue;
+    const h = tr.children, t = [];
+    for (let j = 0; j < h.length; j++) t.push((h[j].textContent || '').replace(/\s+/g, ' ').trim());
+    let ti = -1, ni = -1;
+    for (let j = 0; j < t.length; j++) if (gun.test(t[j])) { ti = j; break; }
+    if (ti < 0) continue;
+    for (let j = ti + 1; j < t.length && j <= ti + 3; j++) if (no.test(t[j])) { ni = j; break; }
+    if (ni < 0) continue;
+    c.push({tarih: t[ti], tip: t[ti + 1] || '', fis_no: t[ni], aciklama: t[ni + 1] || '', borc: t.length >= ni + 5 ? t[t.length - 2] : '', alacak: t[t.length - 1] || ''});
+  }
+  return c;
+}"""
+
+FIS_ISARET_JS = r"""arg => {
+  const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
+  const eski = document.querySelectorAll('[data-lb-sec]');
+  for (let i = 0; i < eski.length; i++) eski[i].removeAttribute('data-lb-sec');
+  const trs = document.querySelectorAll('tr');
+  for (let i = 0; i < trs.length; i++) {
+    const tr = trs[i];
+    if (!g(tr) || tr.querySelector('th') || tr.querySelector('tr')) continue;
+    const h = tr.children, t = [];
+    for (let j = 0; j < h.length; j++) t.push((h[j].textContent || '').replace(/\s+/g, ' ').trim());
+    if (t.indexOf(arg.tarih) >= 0 && t.indexOf(arg.no) >= 0) { tr.setAttribute('data-lb-sec', '1'); return true; }
+  }
+  return false;
+}"""
+
+SIL_JS = r"""() => {
+  const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
+  const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\s.\-()*:\/]/g, '');
+  const d = document.querySelectorAll('button, input[type=button], input[type=submit], a');
+  for (let i = 0; i < d.length; i++) if (g(d[i]) && duz(d[i].value || d[i].textContent) === 'sil') { d[i].click(); return 'tiklandi'; }
+  return 'dugme yok';
+}"""
+
+# Luca'nin kendi (alert olmayan) onay penceresi: "Evet" / "Onayla"
+ONAY_JS = r"""() => {
+  const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
+  const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\s.\-()*:\/]/g, '');
+  const d = document.querySelectorAll('button, input[type=button], input[type=submit]');
+  for (let i = 0; i < d.length; i++) if (g(d[i]) && /^(evet|onayla)$/.test(duz(d[i].value || d[i].textContent))) { d[i].click(); return 'tiklandi'; }
+  return '';
+}"""
+
+
+def fis_grid_oku(ana, grid, log=None, bekle_ms=FIS_SATIR_BEKLEME_MS):
+    """Fis Listesi sonuc tablosunu okur. Satirlar gelene kadar bekler (baslik satirdan once gelebilir: erken okuma 'fis yok' sanilmasin),
+    baslik-tabanli okuyucu bossa yedek (tarih + fis no deseni) okuyucuyu dener."""
+    pg, fr = grid
+    bitis = time.monotonic() + bekle_ms / 1000.0
+    while True:
+        r = _degerlendir(fr, LISTE_OKU_JS, CAPA_FIS)
+        y = _degerlendir(fr, FIS_YEDEK_JS)
+        if (r and r["satirlar"]) or y or time.monotonic() > bitis:
+            break
+        pg.wait_for_timeout(600)
+    if r and r["satirlar"]:
+        return liste_oku(ana, grid, log, capa=CAPA_FIS, grupla=fis_satirlarini_grupla)
+    bos = {"fis_sayisi": 0, "satir_sayisi": 0, "kesildi": False, "fisler": [], "sayfa": 1, "fatura_fisi": 0, "diger_fis": 0}
+    if not y:
+        yaz(f"      0 fiş (tablo boş; {int(bekle_ms / 1000)} sn beklendi)", log)
+        return dict(bos, bos=True)
+    fisler = {}
+    for x in y:
+        fisler.setdefault((x["fis_no"], x["tarih"]), {"fis_no": x["fis_no"], "tarih": x["tarih"], "degismeyen": "", "satir": 1, "evrak": [], "bt": "",
+                                                      "odeme": "", "tutar": tutar(x["borc"]), "alacak": tutar(x["alacak"]), "hesap": "",
+                                                      "aciklama": (x.get("aciklama") or "")[:90], "durum": []})
+    yaz(f"      {len(fisler)} fiş, {len(y)} satır okundu (yedek okuyucu: tablo başlığı satırlarla eşleşmedi)", log)
+    return dict(bos, fis_sayisi=len(fisler), satir_sayisi=len(y), fisler=list(fisler.values())[:FIS_SINIRI])
+
+
+def detaysiz_sil(page, grid, mesajlar, log=None, tani=None):
+    """Fis Listesi'ndeki (E-Defter 20026: detaysiz fis) fisleri tek tek SECIP alttaki Sil'e basar: {silinen, mesaj}.
+    Guvenlik: listede Borc/Alacak'i dolu en az bir fis varsa (detaysiz degil) hicbir sey silinmez; her silmeden sonra fisin listeden
+    kalktigi dogrulanir, kalkmazsa durulur. Detay icermeyen (borc = alacak = 0) fisler silinir."""
+    pg, fr = grid
+    sonuc = {"silinen": 0, "mesaj": ""}
+    y = _degerlendir(fr, FIS_YEDEK_JS) or []
+    if not y:
+        sonuc["mesaj"] = "silinecek satırlar okunamadı"
+        return sonuc
+    dolu = [x for x in y if tutar(x["borc"]) or tutar(x["alacak"])]
+    if dolu:
+        sonuc["mesaj"] = f"listede borç/alacağı olan {len(dolu)} fiş var (detaysız değil); güvenlik için hiçbir fiş silinmedi"
+        return sonuc
+    for tur in range(min(len(y), SIL_SINIRI) + 1):
+        y = _degerlendir(fr, FIS_YEDEK_JS) or []
+        if not y:
+            break
+        hedef = y[0]
+        if not _degerlendir(fr, FIS_ISARET_JS, {"no": hedef["fis_no"], "tarih": hedef["tarih"]}):
+            sonuc["mesaj"] = f"fiş satırı bulunamadı ({hedef['fis_no']})"
+            break
+        try:
+            fr.locator('[data-lb-sec="1"] > td').first.click(timeout=6000)     # satiri SEC (fis no baglantisina degil, ilk hucreye)
+        except Exception as e:
+            sonuc["mesaj"] = f"fiş satırı seçilemedi: {type(e).__name__}"
+            break
+        pg.wait_for_timeout(400)
+        if tur == 0 and tani:
+            tani("-fis-sil-secili")                                           # secili satirin ekran goruntusu (tani)
+        mesajlar.clear()
+        if _degerlendir(fr, SIL_JS) != "tiklandi":
+            sonuc["mesaj"] = "Sil düğmesi bulunamadı"
+            break
+        gitti = False
+        for _ in range(24):                                                    # en cok ~12 sn: onay kutusu + silme
+            pg.wait_for_timeout(500)
+            if any(re.search(r"seç(iniz|in)\b", m, re.I) for m in mesajlar):
+                sonuc["mesaj"] = "Luca 'fiş seçiniz' dedi: satır seçilemedi, silinmedi"
+                return sonuc
+            try:
+                _degerlendir(fr, ONAY_JS)
+                kalan = _degerlendir(fr, FIS_YEDEK_JS) or []
+            except LookupError:
+                continue
+            if not any(x["fis_no"] == hedef["fis_no"] and x["tarih"] == hedef["tarih"] for x in kalan):
+                gitti = True
+                break
+        if not gitti:
+            sonuc["mesaj"] = f"Sil'e basıldı ama {hedef['fis_no']} nolu fiş listeden kalkmadı; durdum"
+            break
+        sonuc["silinen"] += 1
+        yaz(f"      Silindi: {hedef['fis_no']} nolu detaysız fiş ({hedef['tarih']})", log)
+    return sonuc
 
 
 def _adet(mesaj):
@@ -1181,7 +1322,7 @@ def _adet(mesaj):
     return int(m.group(1)) if m else None
 
 
-def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None):
+def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None, tani_hep=False, sil=False):
     """Fis Listesi'nde e-Defter hata kodlarini (20021, 20025, 20026) tarar; belge_turu_tara ile ayni kayit bicimi.
 
     E-Defter Ay secimi donemin her ayi icin yapilir (e-Defter aylik). Sonuc ekraninda 'Fis No' tablosu varsa fisler okunur;
@@ -1255,13 +1396,28 @@ def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None)
                         son["grid"] = g
                         return True
                     return False
-                kosulu_bekle(page, hazir, FIS_BEKLEME_MS, aralik_ms=400, en_az_ms=700 if onceki else 0)
+                kosulu_bekle(page, hazir, 6000, aralik_ms=400, en_az_ms=700 if onceki else 0)
+                if not son and fis_form_bul(ctx) is not None:      # form hala ekranda: Liste'ye basilmamis olabilir, bir kez daha bas
+                    yaz("      Sonuç gelmedi, form hala ekranda: Liste'ye yeniden basılıyor", log)
+                    fis_listele_tikla(pg, tani_klasoru, kod, log)
+                    kosulu_bekle(page, hazir, FIS_BEKLEME_MS, aralik_ms=400)
                 if not son and onceki:                        # tablo yenilendi ama icerigi ayni (iki kodda ayni fisler): eski tabloyu kabul et
                     g = liste_bul(ctx, CAPA_FIS)
                     if g:
                         son["grid"] = g
                 if "grid" in son:
-                    okunan = liste_oku(page, son["grid"], log, capa=CAPA_FIS, grupla=fis_satirlarini_grupla)
+                    if tani_hep and (yil, ay) == aylar[0]:
+                        tani_kaydet(page, tani_klasoru, log, f"-fis-{kod}-sonuc", "edefter")          # sonuc gorunumu (ekran + kaynak)
+                    okunan = fis_grid_oku(page, son["grid"], log)
+                    if sil and kod == "20026" and okunan["fis_sayisi"]:
+                        sr = detaysiz_sil(page, son["grid"], mesajlar, log,
+                                          (lambda ek="-fis-sil": tani_kaydet(page, tani_klasoru, log, ek, "edefter")) if tani_hep else None)
+                        d = kayit.setdefault("duzeltme", {"fis": 0, "satir": 0, "kaydedildi": 0, "kayit_hatasi": 0, "fatura_fis": 0, "silinen": 0, "mesaj": ""})
+                        d["silinen"] += sr["silinen"]
+                        if sr["mesaj"]:
+                            d["mesaj"] = (d["mesaj"] + "; " if d["mesaj"] else "") + f"{AYLAR[ay - 1]}: {sr['mesaj']}"
+                        if sr["silinen"]:
+                            okunan = fis_grid_oku(page, son["grid"], log, bekle_ms=1500)              # silmeden sonra kalanlar
                     for f in okunan["fisler"]:
                         fislerim.setdefault((f["fis_no"], f["tarih"]), f)
                     kayit["satir_sayisi"] += okunan["satir_sayisi"]
@@ -1315,7 +1471,7 @@ def edefter_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, 
                                  {k for k in kodlar if k not in FIS_KODLARI} if kodlar else None, duzelt)
     if fis_gerekli:
         try:
-            sonuc += fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log, kodlar)
+            sonuc += fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log, kodlar, tani_hep, sil=duzelt)
         except LookupError as e:
             yaz(f"    Fiş Listesi taranamadı: {e}", log)
             sonuc += [{"kod": k, "ad": "", "fis_sayisi": 0, "satir_sayisi": 0, "kesildi": False, "fisler": [], "mesaj": "",

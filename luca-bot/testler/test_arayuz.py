@@ -1776,6 +1776,7 @@ class EdefterSekmesiTestleri(ArayuzZemini):
         self.assertIn("BETA: 20042: 2 fiş", sorular[0])
         self.assertIn("Belge Türü = MF", sorular[0])
         self.assertIn("DOKUNULMAZ", sorular[0])
+        self.assertNotIn("detaysız fiş SİLİNECEK", sorular[0])          # bu firmada 20026 yok: silme uyarisi cikmaz
         edefter_sekmesi.messagebox.askyesno = lambda *a, **k: True
         self.ed.duzelt()
         self.assertEqual(len(baslatilan), 1)
@@ -1784,6 +1785,14 @@ class EdefterSekmesiTestleri(ArayuzZemini):
         self.assertEqual(komut[komut.index("--firma-tam") + 1], "BETA")
         self.assertNotIn("--hata-kodu", komut)                  # tum kodlar taranir: sonuc tablosu tutarli kalir
         self.assertNotIn("--duzelt", self.ed.komut(["BETA"]))   # normal calistirma Luca'ya yazmaz
+        # detaysiz fis (20026) varsa onay metni SILINECEGINI acikca yazar
+        self.ed.ham[beta]["hatalar"].append({"kod": "20026", "ad": "x", "fis_sayisi": 1, "hata": ""})
+        self.assertEqual(self.ed.duzeltilebilir(self.ed.ham[beta]), {"20042": 2, "20026": 1})
+        sorular.clear()
+        edefter_sekmesi.messagebox.askyesno = lambda baslik, ileti, **k: sorular.append(ileti) or False
+        self.ed.duzelt()
+        self.assertIn("20026: 1 detaysız fiş SİLİNECEK", sorular[0])
+        self.assertIn("geri alınamaz", sorular[0])
 
     def test_excel_indir_programin_yazdigi_dosyayi_kopyalar(self):
         import edefter_sekmesi

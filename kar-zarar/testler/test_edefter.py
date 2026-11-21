@@ -283,6 +283,55 @@ class UctanUca(unittest.TestCase):
         self.assertIn("Luca kayıt hatası verdi", h["duzeltme"]["mesaj"])
         self.assertEqual((h["fis_sayisi"], h["diger_fis"]), (4, 2))                              # hicbir sey degismedi
 
+    def _detaysiz(self, adet=1, borc="0,00"):
+        f = "ALFA ISLETME"
+        return {(f, "20026", "Ekim"): [{"fis_no": f"0124{8 + i}", "tarih": f"{20 + i}/10/2026", "aciklama": "", "borc": borc, "alacak": "0,00"} for i in range(adet)]}
+
+    def _fis20026(self, fis_veri, ek_arg=(), **ayar):
+        return calistir(fis_veri=fis_veri, fis_modlar={"20026": "liste"}, fis_ayar=ayar, ek_arg=("--hata-kodu", "20026") + tuple(ek_arg))
+
+    def test_fis_listesi_satirlar_basliktan_sonra_dolarsa_beklenir_bos_sanilmaz(self):
+        kod, sonuc, cikti, sahte = self._fis20026(self._detaysiz(), gecikme=2500)           # baslik hemen, satirlar 2,5 sn sonra
+        self.assertEqual(kod, 0, cikti[-2500:])
+        h = sonuc["ALFA ISLETME"]["hatalar"][0]
+        self.assertEqual((h["kod"], h["fis_sayisi"], h["hata"]), ("20026", 1, ""), cikti[-2500:])
+        self.assertEqual(h["fisler"][0]["fis_no"], "01248")
+        self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "sorun var")
+        self.assertEqual(sahte["fis_istekler"] and 1, 1)
+
+    def test_fis_listesi_baslik_satirlarla_eslesmezse_yedek_okuyucu_kullanilir(self):
+        kod, sonuc, cikti, _ = self._fis20026(self._detaysiz(2), duzen="ayri")             # baslik ayri tablo + fazladan sutun
+        self.assertEqual(kod, 0, cikti[-2500:])
+        self.assertEqual(sonuc["ALFA ISLETME"]["hatalar"][0]["fis_sayisi"], 2, cikti[-2500:])
+        self.assertIn("yedek okuyucu", cikti)
+
+    def test_duzelt_detaysiz_fisleri_secip_sil_ile_siler_varsayilanda_silmez(self):
+        kod, sonuc, cikti, sahte = self._fis20026(self._detaysiz(2))                        # --duzelt yok: dokunulmaz
+        self.assertEqual((sahte.get("fis_silinen"), sonuc["ALFA ISLETME"]["hatalar"][0]["fis_sayisi"]), (None, 2))
+        import sahte_kz
+        self.assertEqual(sahte_kz.FIS_AYAR["silinen"], [])
+        kod, sonuc, cikti, _ = self._fis20026(self._detaysiz(2), ek_arg=("--duzelt",))
+        self.assertEqual(kod, 0, cikti[-3000:])
+        self.assertEqual(sorted(x[2] for x in sahte_kz.FIS_AYAR["silinen"]), ["01248", "01249"])         # ikisi de tek tek silindi
+        h = sonuc["ALFA ISLETME"]["hatalar"][0]
+        self.assertEqual((h["fis_sayisi"], h["duzeltme"]["silinen"]), (0, 2), cikti[-3000:])
+        self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "tamam")
+        self.assertIn("DÜZELTME 20026: 2 detaysız fiş silindi", cikti)
+
+    def test_borcu_alacagi_dolu_fis_varsa_hicbir_sey_silinmez(self):
+        kod, sonuc, cikti, _ = self._fis20026(self._detaysiz(2, borc="150,00"), ek_arg=("--duzelt",))
+        import sahte_kz
+        self.assertEqual(sahte_kz.FIS_AYAR["silinen"], [])
+        h = sonuc["ALFA ISLETME"]["hatalar"][0]
+        self.assertEqual((h["fis_sayisi"], h["duzeltme"]["silinen"]), (2, 0))
+        self.assertIn("güvenlik için hiçbir fiş silinmedi", h["duzeltme"]["mesaj"])
+
+    def test_sil_calismazsa_fis_listeden_kalkmayinca_durulur(self):
+        kod, sonuc, cikti, _ = self._fis20026(self._detaysiz(2), ek_arg=("--duzelt",), sil_calismaz=True)
+        h = sonuc["ALFA ISLETME"]["hatalar"][0]
+        self.assertEqual((h["fis_sayisi"], h["duzeltme"]["silinen"]), (2, 0))
+        self.assertIn("listeden kalkmadı", h["duzeltme"]["mesaj"])
+
     def test_e_defter_kutusu_isaretsizse_tiklanir_etiketle_ayni_hucredeyse_de(self):
         """Gercek Luca'da kutu varsayilan isaretsiz olabilir: isaretlenmezse Luca liste getirmez (eski surum 0 fis sanirdi)."""
         for gorunum in ("isaretsiz", "ayni_hucre", "gizli", "gizli_gecikmeli"):

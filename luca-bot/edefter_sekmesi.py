@@ -24,6 +24,7 @@ KOD_SUTUNLARI = ("20021", "20025", "20026", "20041", "20042", "20044", "20045", 
 DURUM_YAZISI = {"tamam": "Gönderilebilir (uyumsuz fiş yok)", "sorun var": "UYUMSUZ FİŞ VAR", "hata": "Kontrol tamamlanamadı"}
 DURUM_ETIKET = {"tamam": "tamam", "sorun var": "var", "hata": "hata"}
 DUZELTME_KODLARI = ("20042", "20043", "20044", "20045")      # kar-zarar/karzarar/luca_edefter.DUZELTME_KODLARI ile ayni
+SIL_KODU = "20026"                                          # detaysiz fis: Fis Listesi'nden secilip Sil ile silinir
 KISA_AD = {
     "20021": "e-Defter başlangıç tarihinden önce numaralandırılmamış fiş",
     "20025": "Dengesiz veya pasif fiş",
@@ -274,8 +275,9 @@ class EdefterSekmesi(KarZararSekmesi):
                         metin.insert("end", "    " + fis_satiri(f) + "\n")
                 if h.get("duzeltme"):
                     d = h["duzeltme"]
-                    metin.insert("end", f"  {h['kod']} DÜZELTME: " + (f"{d.get('fis', 0)} fiş ({d.get('satir', 0)} satır) MF + evrak no ile düzeltildi"
-                                 if d.get("kaydedildi") else "düzeltme yapılmadı") +
+                    metin.insert("end", f"  {h['kod']} DÜZELTME: " + ("; ".join(
+                                     ([f"{d.get('fis', 0)} fiş ({d.get('satir', 0)} satır) MF + evrak no ile düzeltildi"] if d.get("kaydedildi") else [])
+                                     + ([f"{d['silinen']} detaysız fiş silindi"] if d.get("silinen") else [])) or "düzeltme yapılmadı") +
                                  (f"; {d['fatura_fis']} fatura fişine dokunulmadı" if d.get("fatura_fis") else "") +
                                  (f" — {d['mesaj']}" if d.get("mesaj") else "") + "\n", "baslik")
                     if h["fis_sayisi"] > len(h.get("fisler") or []):
@@ -371,9 +373,14 @@ class EdefterSekmesi(KarZararSekmesi):
         self._baslat(komut)
 
     def duzeltilebilir(self, s):
-        """Firmanin son taramasina gore duzeltilebilir (fatura olmayan) fis sayisi: {kod: adet}."""
-        return {h["kod"]: h["diger_fis"] for h in s.get("hatalar") or []
-                if h.get("kod") in DUZELTME_KODLARI and h.get("diger_fis") and not h.get("hata")}
+        """Firmanin son taramasina gore duzeltilebilir fis sayisi: {kod: adet}. 20042-20045: fatura olmayan fisler (MF + evrak no);
+        20026: detaysiz fisler (SILINIR)."""
+        sonuc = {h["kod"]: h["diger_fis"] for h in s.get("hatalar") or []
+                 if h.get("kod") in DUZELTME_KODLARI and h.get("diger_fis") and not h.get("hata")}
+        for h in s.get("hatalar") or []:
+            if h.get("kod") == SIL_KODU and h.get("fis_sayisi") and not h.get("hata"):
+                sonuc[SIL_KODU] = h["fis_sayisi"]
+        return sonuc
 
     def duzelt(self):
         """Secili firmalarda fatura OLMAYAN uyumsuz fisleri duzeltir (Luca'ya yazar): once ozet + onay, sonra edefter.py --duzelt."""
@@ -388,16 +395,20 @@ class EdefterSekmesi(KarZararSekmesi):
             if sayilar:
                 firmalar[self.ham[i]["firma"]] = sayilar
         if not firmalar:
-            messagebox.showinfo("Düzeltilecek fiş yok", "Seçili firmalarda, son taramaya göre, düzeltilebilir (fatura olmayan) fiş yok.\n"
+            messagebox.showinfo("Düzeltilecek fiş yok", "Seçili firmalarda, son taramaya göre, düzeltilebilir (fatura olmayan) fiş ya da silinecek detaysız fiş yok.\n"
                                 "191/391/6xx/7xx/15x/25x/26x hesabı olan fişlere program dokunmaz; onları Luca'da elle düzeltin.",
                                 parent=self.a.kok)
             return
-        satirlar = "\n".join(f"  • {f}: " + ", ".join(f"{k}: {n} fiş" for k, n in sorted(c.items())) for f, c in sorted(firmalar.items()))
+        def kod_yazisi(k, n):
+            return f"{k}: {n} detaysız fiş SİLİNECEK" if k == SIL_KODU else f"{k}: {n} fiş (MF + evrak no)"
+        satirlar = "\n".join(f"  • {f}: " + ", ".join(kod_yazisi(k, n) for k, n in sorted(c.items())) for f, c in sorted(firmalar.items()))
         if not messagebox.askyesno(
                 "Luca'da değişiklik yapılacak",
                 f"{len(firmalar)} firmada fatura olmayan uyumsuz fişler düzeltilecek:\n\n{satirlar}\n\n"
-                "Bu fişlerin satırlarına Belge Türü = MF, Evrak No = Değişmez Fiş No, Evrak Tarihi = Fiş Tarihi atanacak ve Luca'da "
-                "Kaydet'e basılacak.\n191/391/6xx/7xx/15x/25x/26x hesabı olan (fatura / gelir-gider) fişlere DOKUNULMAZ.\n\n"
+                "MF yazılacak fişlerin satırlarına Belge Türü = MF, Evrak No = Değişmez Fiş No, Evrak Tarihi = Fiş Tarihi atanacak ve Luca'da "
+                "Kaydet'e basılacak (satır satır kaydedilir, bitmesi beklenir).\n191/391/6xx/7xx/15x/25x/26x hesabı olan (fatura / gelir-gider) "
+                "fişlere DOKUNULMAZ.\n"
+                "20026 detaysız fişler Fiş Listesi'nde seçilip Sil düğmesiyle SİLİNİR (geri alınamaz; yalnız borç ve alacağı 0 olanlar).\n\n"
                 "Önce tek bir firmayla denemeniz önerilir. Devam edilsin mi?", icon="warning", parent=self.a.kok):
             return
         if self._baska_calisiyor() or not self.a._giris_tamam_mi():

@@ -778,7 +778,8 @@ FIS_DUGMELERI = {"liste": '<div class="alt"><button type="button" id="mukerrer">
                  "button": '<div><button type="button" id="listele" onclick="listele()"><i></i> Listele</button></div>',
                  # gercek Luca: yazisiz resimli kutu, adi yalniz title'da
                  "kutu_title": '<div class="alt_cubuk"><div onclick="listele()" title="Listele" style="cursor:pointer;width:40px;height:20px;border:1px solid"><img alt=""></div></div>'}
-FIS_AYAR = {"gizli": False, "dugme": "button", "kutu": "tek", "modlar": {"20021": "grid", "20025": "mesaj", "20026": "mesaj"}, "istekler": []}
+FIS_AYAR = {"gizli": False, "dugme": "button", "kutu": "tek", "modlar": {"20021": "grid", "20025": "mesaj", "20026": "mesaj"}, "istekler": [],
+            "gecikme": 0, "duzen": "tek", "silinen": [], "sil_calismaz": False}
 FIS_HATALARI = ["... nolu fiş(ler)de birden fazla belge mevcut.(Hata Kodu: 20044)",
                 "e-Defter başlangıç tarihinden önce numaralandırılmamış fişler mevcut.( Hata Kodu: 20021)",
                 "... adet dengesiz veya pasif fişiniz var.( Hata Kodu: 20025)", "... adet detaysız fişiniz var.( Hata Kodu: 20026)",
@@ -800,12 +801,35 @@ __FIS_DUGME__
 <div id="sonuc"></div>
 <script>
  function fisGoster(acik) { if (__GIZLI_AKTIF__) setTimeout(() => { for (const id of ['fis_ay_satiri', 'fis_hata_satiri']) document.getElementById(id).style.display = acik ? '' : 'none'; }, __GECIKME__); }
+ window.__fisCtx = {};
+ function satirSec(e, tr) { if (!e.ctrlKey) document.querySelectorAll('tr.secili').forEach(r => { r.classList.remove('secili'); r.style.background = ''; }); tr.classList.add('secili'); tr.style.background = '#bcd'; }
+ function silTikla() {
+   const sec = document.querySelectorAll('tr.secili');
+   if (!sec.length) { alert('Lütfen fiş seçiniz.'); return; }
+   if (!confirm('Seçili fişler silinecek. Emin misiniz?')) return;
+   const no = Array.from(sec).map(r => r.querySelectorAll('td')[r.querySelectorAll('td').length - 6].textContent.trim());
+   fetch('/api/fis-sil?firma=__FIRMA__&kod=' + __fisCtx.kod + '&ay=' + encodeURIComponent(__fisCtx.ay) + '&fis_no=' + encodeURIComponent(no.join(','))).then(r => r.json()).then(r => { if (r.silindi) sec.forEach(x => x.remove()); });
+ }
+ function gosterListe(r, kod, ay) {
+   __fisCtx = {kod, ay};
+   const ayri = r.duzen === 'ayri', bas = ['Tarih', 'Tip', 'Fiş No', 'Açıklama', 'Dengeli', 'Aktif', 'Borç', 'Alacak'].map(b => '<th>' + b + '</th>').join('');
+   let h = '<h3>FİŞ LİSTESİ</h3>' + (ayri ? '<table id="bas"><tr>' + bas + '</tr></table><div><table id="fislistesi"><tbody></tbody></table></div>'
+                                        : '<table id="fislistesi" border="1"><thead><tr>' + bas + '</tr></thead><tbody></tbody></table>');
+   h += '<div class="alt"><button type="button">Filtre</button><button type="button">Yeni</button><button type="button" onclick="silTikla()"><i></i> Sil</button>'
+      + '<button type="button">Fiş Yedekle-Excel</button><button type="button">Detay</button></div>';
+   document.body.innerHTML = h;
+   const doldur = () => { document.querySelector('#fislistesi tbody').innerHTML = r.satirlar.map(s =>
+       '<tr onclick="satirSec(event, this)">' + (ayri ? '<td><input type="checkbox" style="display:none"></td>' : '') + '<td>' + s.tarih + '</td><td>Mahsup</td><td><a href="#">' + s.fis_no
+       + '</a></td><td>' + s.aciklama + '</td><td>Dengeli</td><td>Aktif</td><td>' + (s.borc || '0,00') + '</td><td>' + (s.alacak || '0,00') + '</td></tr>').join(''); };
+   if (r.gecikme) setTimeout(doldur, r.gecikme); else doldur();
+ }
  function listele() {
    const kod = (/Hata\\s*Kodu:\\s*(\\d+)/.exec(document.getElementById('edefter_hata').selectedOptions[0].text) || [])[1] || '';
    const ay = document.getElementById('edefter_ay').value, ed = document.getElementById('c_edefter').checked ? '1' : '0';
    fetch('/api/fis-listesi?firma=__FIRMA__&kod=' + kod + '&ay=' + encodeURIComponent(ay) + '&edefter=' + ed).then(r => r.json()).then(r => {
      if (r.mod === 'mesaj') { alert(r.mesaj); return; }
      if (r.mod === 'hicbir') return;                // sonuc ekranina hicbir sey gelmez (okunamayan yanit)
+     if (r.mod === 'liste') { gosterListe(r, kod, ay); return; }          // gercek Luca: sonuc gorunumu formun yerine gecer
      let h = '<table border="1" id="fislistesi"><thead><tr><th>Sıra</th><th>Fiş No</th><th>Fiş Tarihi</th><th>Açıklama</th></tr></thead><tbody>';
      r.satirlar.forEach((s, i) => { h += '<tr><td>' + (i + 1) + '</td><td>' + s.fis_no + '</td><td>' + s.tarih + '</td><td>' + s.aciklama + '</td></tr>'; });
      document.getElementById('sonuc').innerHTML = h + '</tbody></table>';
@@ -867,7 +891,19 @@ class Isleyici(sahte_luca.Isleyici):
             if FIS_AYAR["modlar"].get(q.get("kod")) == "mesaj":
                 mesaj = f"{len(veri)} adet dengesiz veya pasif fişiniz var." if veri else "Kayıt bulunamadı."
                 return self._yanit(json.dumps({"mod": "mesaj", "mesaj": mesaj}, ensure_ascii=False), "application/json")
+            if FIS_AYAR["modlar"].get(q.get("kod")) == "liste":
+                return self._yanit(json.dumps({"mod": "liste", "satirlar": veri, "gecikme": FIS_AYAR["gecikme"], "duzen": FIS_AYAR["duzen"]},
+                                              ensure_ascii=False), "application/json")
             return self._yanit(json.dumps({"mod": "grid", "satirlar": veri}, ensure_ascii=False), "application/json")
+        if yol == "/api/fis-sil":
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
+            with KILIT:
+                for no in q.get("fis_no", "").split(","):
+                    FIS_AYAR["silinen"].append((q.get("kod"), q.get("ay"), no))
+                    if not FIS_AYAR["sil_calismaz"]:
+                        liste = FIS_VERI.get((q.get("firma", ""), q.get("kod", ""), q.get("ay", "")), [])
+                        liste[:] = [f for f in liste if f["fis_no"] != no]
+            return self._yanit(json.dumps({"silindi": not FIS_AYAR["sil_calismaz"]}), "application/json")
         if yol == "/edefter-form":
             secenekler = "".join(f"<option>{m}</option>" for _, m in EDEFTER_HATALAR)
             return self._yanit(EDEFTER_FORM_SAYFASI.replace("__FIRMA__", firma).replace("__SECENEKLER__", secenekler)
@@ -1008,7 +1044,8 @@ def sifirla():
     MUAVIN_VERI.clear()
     EDEFTER_VERI.clear()
     FIS_VERI.clear()
-    FIS_AYAR.update(gizli=False, dugme="button", kutu="tek", modlar={"20021": "grid", "20025": "mesaj", "20026": "mesaj"}, istekler=[])
+    FIS_AYAR.update(gizli=False, dugme="button", kutu="tek", modlar={"20021": "grid", "20025": "mesaj", "20026": "mesaj"}, istekler=[],
+                   gecikme=0, duzen="tek", silinen=[], sil_calismaz=False)
     EDEFTER_AYAR.update(form_yenile=False, edefter_kutu="isaretli", sayfa_boyu=2, kayit_yok="bos_liste", ayni_pencere=False, belge_bos_varsayilan=False, istekler=[], kaydet=0, kaydet_ayrinti=[], kaydet_kabul=True, kaydet_gecikme=0.0, kaydet_hata="")
     ISLETME_VERI.clear()
     ISLETME_AYAR["istekler"] = []
