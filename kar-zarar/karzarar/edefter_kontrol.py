@@ -65,9 +65,11 @@ def taranamayanlar(s):
 def fis_satiri(f):
     """'01023  01/07/2026  Evrak 89582  BT MF  3 satır  1.234,56'"""
     evrak = ", ".join(f.get("evrak") or []) or "-"
+    tur = {True: "fatura fişi", False: "diğer fiş"}.get(f.get("fatura_fisi"), "")
     satir = (f"{f.get('fis_no') or '?':>8}  {f.get('tarih') or '-':10}  evrak {evrak[:24]:24}  BT {f.get('bt') or '-':4}  "
              f"ödeme {f.get('odeme') or '-':6}  {f.get('satir', 0)} satır")
-    return satir + (f"  [{'; '.join(f['durum'])[:70]}]" if f.get("durum") else "")
+    return (satir + (f"  ({tur})" if tur else "")
+            + (f"  [{'; '.join(f['durum'])[:70]}]" if f.get("durum") else ""))
 
 
 def kaydet(yol, donem, sonuclar):
@@ -111,17 +113,18 @@ def excel_yaz(yol, donem, firmalar):
                 fisler.append([s["firma"], h["kod"], kod_adi(h["kod"], h.get("ad", "")), f.get("fis_no", ""), f.get("tarih", ""),
                                f.get("degismeyen", ""), ", ".join(f.get("evrak") or []), f.get("bt", ""), f.get("odeme", ""),
                                f.get("satir", 0), f.get("tutar", 0.0), f.get("hesap", ""), f.get("aciklama", ""),
-                               "; ".join(f.get("durum") or [])])
+                               "; ".join(f.get("durum") or []),
+                               {True: "Fatura fişi (191/391 var: elle)", False: "Diğer fiş (MF + evrak no atanabilir)"}.get(f.get("fatura_fisi"), "")])
             if h.get("kesildi") or h.get("fis_sayisi", 0) > len(h.get("fisler") or []):
                 fisler.append([s["firma"], h["kod"], kod_adi(h["kod"], h.get("ad", "")),
                                f"… toplam {h.get('fis_sayisi', 0)} fişten {len(h.get('fisler') or [])} tanesi listelendi", "", "", "", "",
-                               "", "", "", "", "", ""])
+                               "", "", "", "", "", "", ""])
     tablo(ws, ["Firma", "Dönem", "Durum", "Uyumsuz fiş"] + [f"{k}\n{KISA_AD.get(k, '')[:30]}" for k in kodlar] + ["Not"], ozet,
           [28, 24, 30, 12] + [16] * len(kodlar) + [60])
     sayfa = wb.create_sheet("Uyumsuz fişler")
     tablo(sayfa, ["Firma", "Hata kodu", "Hata", "Fiş No", "Fiş Tarihi", "Değişmeyen Fiş No", "Evrak No", "Belge Türü (BT)",
-                  "Ödeme Türü", "Satır", "Borç toplamı", "İlk hesap", "Açıklama", "Luca durum açıklaması"], fisler,
-          [28, 10, 40, 10, 12, 22, 24, 10, 12, 7, 14, 12, 50, 40])
+                  "Ödeme Türü", "Satır", "Borç toplamı", "İlk hesap", "Açıklama", "Luca durum açıklaması", "Fiş türü"], fisler,
+          [28, 10, 40, 10, 12, 22, 24, 10, 12, 7, 14, 12, 50, 40, 22])
     for satir in sayfa.iter_rows(min_row=2, min_col=11, max_col=11):
         for h in satir:
             h.number_format = "#,##0.00"

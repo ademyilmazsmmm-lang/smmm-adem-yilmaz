@@ -53,8 +53,9 @@ def taranamayanlar(s):
 def fis_satiri(f):
     """'   01023  01/07/2026  evrak 89582  BT MF  ödeme -  3 satır' (Luca'da Fiş No ile aranır)."""
     evrak = ", ".join(f.get("evrak") or []) or "-"
+    tur = {True: "  (fatura fişi)", False: "  (diğer fiş)"}.get(f.get("fatura_fisi"), "")
     satir = (f"{f.get('fis_no') or '?':>8}  {f.get('tarih') or '-':10}  evrak {evrak[:24]:24}  BT {f.get('bt') or '-':4}  "
-             f"ödeme {f.get('odeme') or '-':6}  {f.get('satir', 0)} satır")
+             f"ödeme {f.get('odeme') or '-':6}  {f.get('satir', 0)} satır{tur}")
     return satir + (f"  [{'; '.join(f['durum'])[:70]}]" if f.get("durum") else "")      # Luca'nın satır açıklaması
 
 
@@ -245,7 +246,7 @@ class EdefterSekmesi(KarZararSekmesi):
         metin.pack(fill="both", expand=True)
         metin.tag_configure("baslik", foreground=u.ALTIN_FG)
         metin.tag_configure("hata", foreground=u.UYARI_FG)
-        metin.insert("end", "Sütunlar: Fiş No - Fiş Tarihi - Evrak No - BT (belge türü) - Ödeme türü - Satır sayısı - [Luca'nın açıklaması]  "
+        metin.insert("end", "Sütunlar: Fiş No - Fiş Tarihi - Evrak No - BT (belge türü) - Ödeme türü - Satır sayısı - (fiş türü) - [Luca'nın açıklaması]  "
                             "(Luca'da Fiş No ile aranır)\n\n", "baslik")
         for s in firmalar:
             metin.insert("end", f"{s['firma']}   {s.get('donem', '')}   [{DURUM_YAZISI.get(s.get('durum'), s.get('durum'))}]\n", "baslik")
@@ -258,8 +259,10 @@ class EdefterSekmesi(KarZararSekmesi):
                 if h.get("hata"):
                     metin.insert("end", f"  {h['kod']} {kod_adi(h)}: TARANAMADI — {h['hata'][:200]}\n", "hata")
                 elif h.get("fis_sayisi"):
+                    ayrim = (f" — {h['fatura_fisi']} fatura fişi (191/391 var: elle kontrol), {h['diger_fis']} diğer fiş (MF + evrak no atanabilir)"
+                             if h.get("fatura_fisi") or h.get("diger_fis") else "")
                     metin.insert("end", f"  {h['kod']} {kod_adi(h)}: {h['fis_sayisi']} fiş" +
-                                 (" (en az; sayfa sınırı)" if h.get("kesildi") else "") + "\n", "baslik")
+                                 (" (en az; sayfa sınırı)" if h.get("kesildi") else "") + ayrim + "\n", "baslik")
                     for f in h.get("fisler") or []:
                         metin.insert("end", "    " + fis_satiri(f) + "\n")
                     if h["fis_sayisi"] > len(h.get("fisler") or []):

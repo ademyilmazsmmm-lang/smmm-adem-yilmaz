@@ -53,6 +53,17 @@ class SafMantik(unittest.TestCase):
         self.assertEqual(ek.fis_satiri(liste[1]).split("[")[1], "Evrak No boş olamaz.]")
         self.assertEqual(ek.kod_adi("20043"), "Evrak no ve tarih var ama belge türü boş")
 
+    def test_fatura_fisi_191_391_hesabindan_ayirt_edilir(self):
+        satirlar = [satir(1, "01", "111", "01/07/2026", hesap="320.01 SATICI"), satir("", hesap="191.108.20 KDV"), satir("", hesap="770.01 GIDER"),
+                    satir(2, "02", "112", "02/07/2026", hesap="102.04 BANKA"), satir("", hesap="780.001 GIDER"),
+                    satir(3, "03", "113", "03/07/2026", hesap="120.01 ALICI"), satir("", hesap="391.00.20 KDV")]
+        liste = list(le.fisleri_grupla(BASLIKLAR, satirlar).values())
+        self.assertEqual([le.fatura_fisi_mi(f) for f in liste], [True, False, True])
+        self.assertEqual(liste[0]["hp"], ["320", "191", "770"])
+        self.assertIsNone(le.fatura_fisi_mi({"hp": []}))                                  # hesap okunamadi: sinif belirsiz
+        self.assertIn("(fatura fişi)", ek.fis_satiri(dict(liste[0], fatura_fisi=True)))
+        self.assertIn("(diğer fiş)", ek.fis_satiri(dict(liste[1], fatura_fisi=False)))
+
     def test_sayfa_sinirinda_bolunen_fis_birlestirilir(self):
         fisler = le.fisleri_grupla(BASLIKLAR, [satir(1, "01023", "111", "01/07/2026", borc="10,00"), satir("", borc="5,00")])
         sonraki = le.fisleri_grupla(BASLIKLAR, [satir("", borc="7,00"), satir(2, "01024", "112", "02/07/2026")], fisler)
@@ -133,9 +144,10 @@ def calistir(klasor_rapor=None, veri=None, ayar=None, fis_veri=None, fis_modlar=
                                                          fis_istekler=list(sahte_kz.FIS_AYAR["istekler"]))
 
 
-def fis(no, deg, tarih, evrakli=True, bt="MF", durum="Evrak No boş olamaz."):
+def fis(no, deg, tarih, evrakli=True, bt="MF", durum="Evrak No boş olamaz.", fatura=False):
     return {"fis_no": no, "degismeyen": deg, "tarih": tarih, "durum": durum,
-            "satirlar": [("102.04", "ALBARAKA", 0, 288, "komisyon", "89582", tarih, bt, ""),
+            "satirlar": ([("191.108.20", "KDV", 10, 0, "kdv", "89582", tarih, bt, "")] if fatura else []) + [
+                         ("102.04", "ALBARAKA", 0, 288, "komisyon", "89582", tarih, bt, ""),
                          ("780.001", "KOMISYON VE FAIZ GIDERI", 288, 0, "komisyon", "89582", tarih, bt, ""),
                          ("102.04", "ALBARAKA", 0, 14.4, "bsmv", "89582", tarih, bt, "")]}
 
@@ -150,7 +162,7 @@ class UctanUca(unittest.TestCase):
         self.fis_veri = {(f, "20021", "Ekim"): [{"fis_no": "00012", "tarih": "03/10/2026", "aciklama": "numarasız fiş"},
                                                  {"fis_no": "00013", "tarih": "04/10/2026", "aciklama": "ikinci"}],
                          (f, "20025", "Ekim"): [{"fis_no": "1", "tarih": "x", "aciklama": "y"}] * 3}
-        self.veri = {(f, "20041"): [fis(f"0{100 + i}", f"9000{i}", f"0{i}/10/2026") for i in range(1, 6)],     # 5 fis: 3 sayfa
+        self.veri = {(f, "20041"): [fis(f"0{100 + i}", f"9000{i}", f"0{i}/10/2026", fatura=(i == 2)) for i in range(1, 6)],  # 5 fis: 3 sayfa; 2.si fatura fisi
                      (f, "20047"): [fis("0200", "91000", "09/10/2026", bt="FT")]}
 
     def _dogrula(self, sonuc, cikti):
@@ -164,7 +176,11 @@ class UctanUca(unittest.TestCase):
         h = kodlar["20041"]
         self.assertEqual([f["fis_no"] for f in h["fisler"]], ["0101", "0102", "0103", "0104", "0105"])     # 3 sayfa birlestirildi
         self.assertEqual((h["satir_sayisi"], h["kesildi"], h["fisler"][0]["satir"], h["fisler"][0]["evrak"], h["fisler"][0]["bt"]),
-                         (15, False, 3, ["89582"], "MF"))
+                         (16, False, 3, ["89582"], "MF"))                                  # 15 + fatura fisinin 191 satiri
+        self.assertEqual((h["fatura_fisi"], h["diger_fis"]), (1, 4))                       # 191/391 olan fis dokunulmayacak fatura fisi
+        self.assertEqual([f["fatura_fisi"] for f in h["fisler"]], [False, True, False, False, False])
+        self.assertEqual(h["fisler"][1]["hp"], ["191", "102", "780"])
+        self.assertIn("1 fatura fişi (191/391 var: elle), 4 diğer fiş (MF + evrak no atanabilir)", cikti)
         self.assertEqual(h["fisler"][0]["tutar"], 288.0)
         self.assertEqual(h["fisler"][0]["durum"], ["Evrak No boş olamaz."])                 # Luca'nin satir aciklamasi
         self.assertEqual(kodlar["20047"]["fisler"][0]["bt"], "FT")

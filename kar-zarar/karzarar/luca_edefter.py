@@ -385,10 +385,13 @@ def fisleri_grupla(basliklar, satirlar, fisler=None):
             anahtar = (degismeyen, fis_no, al(s, "tarih"))
             akim = fisler.setdefault(anahtar, {"fis_no": fis_no, "tarih": al(s, "tarih"), "degismeyen": degismeyen, "satir": 0,
                                                "evrak": [], "bt": "", "odeme": "", "tutar": 0.0,
-                                               "hesap": al(s, "hesap").split(" ")[0], "aciklama": al(s, "aciklama")[:90], "durum": []})
+                                               "hesap": al(s, "hesap").split(" ")[0], "aciklama": al(s, "aciklama")[:90], "durum": [], "hp": []})
         if akim is None:
             continue
         akim["satir"] += 1
+        on_ek = re.match(r"\d{3}", al(s, "hesap"))
+        if on_ek and on_ek.group(0) not in akim["hp"] and len(akim["hp"]) < 12:
+            akim["hp"].append(on_ek.group(0))                    # fisin hesap ailesi (191, 391, 100 ...): fatura fisi ayrimi icin
         akim["tutar"] = round(akim["tutar"] + tutar(al(s, "borc")), 2)
         for ad, alan in (("evrak_no", "evrak"),):
             v = al(s, ad)
@@ -401,6 +404,18 @@ def fisleri_grupla(basliklar, satirlar, fisler=None):
         if d and d not in akim["durum"] and len(akim["durum"]) < 3:
             akim["durum"].append(d)
     return fisler
+
+
+FATURA_HESAPLARI = ("191", "391")       # alis / satis KDV hesaplari: bu fisler fatura (FT) olur, programin dokunmayacagi fisler
+
+
+def fatura_fisi_mi(f):
+    """True: fisin hesaplarinda 191/391 var (fatura fisi: belge turu FT, elle kontrol edilir); False: yok (MF + evrak no atanabilir);
+    None: hesap bilgisi okunamadi."""
+    hp = f.get("hp")
+    if not hp:
+        return None
+    return any(h in FATURA_HESAPLARI for h in hp)
 
 
 def _imza(r):
@@ -436,8 +451,14 @@ def liste_oku(ana, liste, log=None, sayfa_siniri=SAYFA_SINIRI, capa=CAPA_BELGE, 
         kesildi = True
     yaz(f"      {len(fisler)} fiş, {satir_sayisi} satır, {sayfa_sayisi} sayfa okundu" + (" (sayfa sınırı: kalanı okunmadı)" if kesildi else ""), log)
     liste_fis = list(fisler.values())
+    for f in liste_fis:
+        f["fatura_fisi"] = fatura_fisi_mi(f)
+    fatura = sum(1 for f in liste_fis if f["fatura_fisi"] is True)
+    diger = sum(1 for f in liste_fis if f["fatura_fisi"] is False)
+    if fatura or diger:
+        yaz(f"      {fatura} fatura fişi (191/391 var: elle), {diger} diğer fiş (MF + evrak no atanabilir)", log)
     return {"fis_sayisi": len(liste_fis), "satir_sayisi": satir_sayisi, "kesildi": kesildi,
-            "fisler": liste_fis[:FIS_SINIRI], "sayfa": sayfa_sayisi}
+            "fatura_fisi": fatura, "diger_fis": diger, "fisler": liste_fis[:FIS_SINIRI], "sayfa": sayfa_sayisi}
 
 
 def belge_turu_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, kodlar=None):

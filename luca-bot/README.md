@@ -305,6 +305,8 @@ Listedeki **Durum** sütunu (Luca'nın "Evrak No boş olamaz." gibi açıklamas�
   *Fiş No – Fiş Tarihi – Evrak No – BT (belge türü) – Ödeme türü – satır sayısı* (Luca'da Fiş No ile aranır). Excel'de *Firmalar* ve *Uyumsuz fişler* sayfaları.
 - Durum: **Gönderilebilir** (hiçbir kodda uyumsuz fiş yok), **UYUMSUZ FİŞ VAR**, **Kontrol tamamlanamadı** (ekran açılamadı ya da bir kodun listesi
   okunamadı: tam kontrol değildir, "gönderilebilir" denmez).
+- **Fiş türü ayrımı:** Uyumsuz her fiş, hesaplarına bakılarak **fatura fişi** (191/391 var: belge türü FT olur, elle kontrol edilir) ya da **diğer fiş** (191/391 yok:
+  MF seçilip evrak no atanabilecek fişler) diye işaretlenir; sayılar günlükte, ayrıntıda ve Excel'de görünür. Bu bilgi yalnız gösterilir, fişlere dokunulmaz.
 - **Luca'da hiçbir şey değiştirilmez:** *Kaydet* ve *Toplu Değer Ata* düğmelerine hiç basılmaz; düzeltmeyi siz Luca'da yaparsınız.
 - Varsayılan dönem geçen aydır (e-Defter aylık gönderilir). Çok fişli firmalarda bir kod için en çok 60 sayfa okunur (aşılırsa sayı "en az" olarak yazılır);
   JSON/Excel'e kod başına en çok 300 fiş yazılır (sayı her zaman tamdır).
