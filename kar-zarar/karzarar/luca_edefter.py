@@ -586,16 +586,14 @@ FIS_KODLARI = ("20021", "20025", "20026")
 BELGE_KODLARI = ("20041", "20042", "20043", "20044", "20045", "20046", "20047", "20048")
 FIS_MENU_ADI = "Fiş Listesi"
 FIS_MENU_YOLU = "Muhasebe > Fiş İşlemleri > Fiş Listesi"
-FIS_LISTELE_ADLARI = ("Listele", "Getir", "Ara", "Sorgula", "Filtrele", "Tamam")
+FIS_LISTELE_ADLARI = ("Liste", "Listele", "Getir", "Ara", "Sorgula", "Filtrele")     # Fis Listesi'nde dugmenin adi "Liste"
 FIS_BEKLEME_MS = 25000
 AYLAR = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
 
 FIS_FORM_VAR_JS = r"""() => {
-  const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
-  const l = document.querySelectorAll('th, td, label, span, div, b');
-  for (let i = 0; i < l.length; i++)
-    if (!l[i].children.length && g(l[i]) && /^E-?\s*Defter\s*Ay\s*:?$/i.test((l[i].textContent || '').trim())) return true;
-  return false;
+  const t = (document.body && document.body.innerText) || '';
+  // onay kutusu isaretsizken "E-Defter Ay / Hata" satirlari gizlidir: hep gorunen etiketlerle taninir (Belge Turu formunda "Detayli Arama" yok)
+  return /E-?\s*Defter\s*kapsam[ıi]nda/i.test(t) && /Detayl[ıi]\s*Arama/i.test(t) && /Fiş\s*A[çc][ıi]klama/i.test(t);
 }"""
 
 # Luca'nin bazi sayfalari Array.prototype.find/filter/some'u bozar: yalniz dongu kullanilir
@@ -617,12 +615,6 @@ FIS_FORM_JS = r"""arg => {
     return null;
   };
   const sonuc = {ay: null, kutu: null, secenekler: [], secili: -1, tarihler: []};
-  const ay = yanKutu(/^E-?\s*Defter\s*Ay\s*:?$/i);
-  if (ay && ay.tagName === 'SELECT') {
-    for (let i = 0; i < ay.options.length; i++) if (duz(ay.options[i].text) === duz(arg.ay)) { ay.selectedIndex = i; break; }
-    ay.dispatchEvent(new Event('change', {bubbles: true}));
-    sonuc.ay = ay.options[ay.selectedIndex] ? ay.options[ay.selectedIndex].text.trim() : '';
-  }
   // onay kutusu: etiketle ayni hucrede / label icinde / yan hucrede
   const h = duz(arg.acik), adaylar = document.querySelectorAll('th, td, label, span, div, b');
   let cb = null;
@@ -657,6 +649,13 @@ FIS_FORM_JS = r"""arg => {
       if (!cb.checked) { cb.checked = true; cb.dispatchEvent(new Event('change', {bubbles: true})); }
     }
     sonuc.kutu = cb.checked;
+  }
+  // E-Defter Ay ve Hata satirlari kutu isaretlenince acilir: kutudan SONRA aranir
+  const ay = yanKutu(/^E-?\s*Defter\s*Ay\s*:?$/i);
+  if (ay && ay.tagName === 'SELECT') {
+    for (let i = 0; i < ay.options.length; i++) if (duz(ay.options[i].text) === duz(arg.ay)) { ay.selectedIndex = i; break; }
+    ay.dispatchEvent(new Event('change', {bubbles: true}));
+    sonuc.ay = ay.options[ay.selectedIndex] ? ay.options[ay.selectedIndex].text.trim() : '';
   }
   const hata = yanKutu(/^E-?\s*Defter\s*hata\s*:?$/i);
   if (hata && hata.tagName === 'SELECT') {
@@ -709,6 +708,17 @@ def fis_listele_tikla(page, tani_klasoru, kod, log=None):
     tani_kaydet(page, tani_klasoru, log, f"-{kod}-dugme", "edefter-fis")
     raise LookupError("Fiş Listesi formunda 'Listele' / 'Getir' / 'Ara' / 'Sorgula' düğmesi bulunamadı. Tıklanabilir öğeler: "
                       + ", ".join(adaylar[:25]))
+
+
+def _fis_form_oku(fr, arg, deneme=8):
+    """Fis Listesi formunu doldurur; onay kutusu isaretlenince acilan Ay / Hata satirlari gorunene kadar (gecikmeli olabilir) yeniden dener."""
+    r = _degerlendir(fr, FIS_FORM_JS, arg)
+    for _ in range(deneme):
+        if r.get("ay") is not None and r.get("secenekler"):
+            break
+        fr.page.wait_for_timeout(500)
+        r = _degerlendir(fr, FIS_FORM_JS, arg)
+    return r
 
 
 def fis_form_bul(ctx):
@@ -784,7 +794,7 @@ def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None)
     secenekler = {}
     for kod in istenen:
         secenekler[kod] = None
-    r0 = fr.evaluate(FIS_FORM_JS, {"ay": AYLAR[bas.month - 1], "kod": "", "acik": ACIK_KUTU})
+    r0 = _fis_form_oku(fr, {"ay": AYLAR[bas.month - 1], "kod": "", "acik": ACIK_KUTU})
     for metin in r0.get("secenekler") or []:
         m = HATA_KODU.search(metin)
         if m and m.group(1) in secenekler:
@@ -810,7 +820,7 @@ def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None)
                     dinle(pg, mesajlar)
                 else:
                     pg, fr = r
-                form = fr.evaluate(FIS_FORM_JS, {"ay": AYLAR[ay - 1], "kod": kod, "acik": ACIK_KUTU})
+                form = _fis_form_oku(fr, {"ay": AYLAR[ay - 1], "kod": kod, "acik": ACIK_KUTU})
                 if form.get("kutu") is not True:
                     tani_kaydet(page, tani_klasoru, log, f"-{kod}-kutu", "edefter-fis")
                     raise LookupError("'E-Defter kapsamında uyumsuz olan fişleri getir' kutusu "

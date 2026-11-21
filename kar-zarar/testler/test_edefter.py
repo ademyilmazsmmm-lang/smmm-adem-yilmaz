@@ -248,6 +248,16 @@ class UctanUca(unittest.TestCase):
         self.assertEqual((h["kod"], h["fis_sayisi"], h["hata"]), ("20021", 2, ""), cikti[-2000:])
         self.assertTrue(all(i["edefter"] == "1" for i in sahte["fis_istekler"]), sahte["fis_istekler"])
 
+    def test_fis_listesi_kutu_isaretsizken_ay_ve_hata_satirlari_gizli_dugme_liste(self):
+        """Gercek Luca: kutu isaretsizken E-Defter Ay/Hata gizli, dugmenin adi 'Liste' (yaninda 'Mukerrer Kayit Denetimi' var)."""
+        for gizli in (True, "gecikmeli"):
+            kod, sonuc, cikti, sahte = calistir(veri=self.veri, fis_veri=self.fis_veri, ek_arg=["--hata-kodu", "20021"],
+                                                fis_ayar={"gizli": gizli, "kutu": "tek_hucre", "dugme": "liste"})
+            self.assertEqual(kod, 0, cikti[-2500:])
+            h = sonuc["ALFA ISLETME"]["hatalar"][0]
+            self.assertEqual((h["fis_sayisi"], h["hata"]), (2, ""), (gizli, cikti[-2000:]))
+            self.assertIn("'BUTTON:Liste' tıklandı", cikti)
+
     def test_fis_listesi_listele_dugmesi_resimli_kutuysa_basligindan_bulunur(self):
         kod, sonuc, cikti, sahte = calistir(veri=self.veri, fis_veri=self.fis_veri, fis_ayar={"dugme": "kutu_title", "kutu": "tek_hucre"},
                                             ek_arg=["--hata-kodu", "20021"])
