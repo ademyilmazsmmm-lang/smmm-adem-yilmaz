@@ -179,6 +179,22 @@ class UctanUca(unittest.TestCase):
         self.assertIn("[Evrak No boş olamaz.]", cikti)
         self.assertTrue((calistir.klasor / "cikti" / "edefter.xlsx").exists())
 
+    def test_e_defter_kutusu_isaretsizse_tiklanir_etiketle_ayni_hucredeyse_de(self):
+        """Gercek Luca'da kutu varsayilan isaretsiz olabilir: isaretlenmezse Luca liste getirmez (eski surum 0 fis sanirdi)."""
+        for gorunum in ("isaretsiz", "ayni_hucre"):
+            kod, sonuc, cikti, sahte = calistir(veri=self.veri, ayar={"edefter_kutu": gorunum}, ek_arg=["--hata-kodu", "20041"])
+            self.assertEqual(kod, 0, cikti[-2500:])
+            self.assertEqual(sonuc["ALFA ISLETME"]["hatalar"][0]["fis_sayisi"], 5, (gorunum, cikti[-2000:]))
+            self.assertTrue(all(i["edefter"] == "1" for i in sahte["istekler"]), sahte["istekler"])
+            self.assertIn("Onay kutuları", cikti)
+
+    def test_e_defter_kutusu_bulunamazsa_sessizce_bos_sonuc_verilmez(self):
+        kod, sonuc, cikti, sahte = calistir(veri=self.veri, ayar={"edefter_kutu": "yok"}, ek_arg=["--hata-kodu", "20041"])
+        h = sonuc["ALFA ISLETME"]["hatalar"][0]
+        self.assertIn("kutusu bulunamadı", h["hata"])
+        self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "hata")                       # 'gonderilebilir' denmez
+        self.assertEqual(sahte["istekler"], [])
+
     def test_belge_turu_bos_olan_kutusu_kapatilir(self):
         kod, sonuc, cikti, sahte = calistir(veri=self.veri, ayar={"belge_bos_varsayilan": True}, ek_arg=["--hata-kodu", "20041"])
         self.assertEqual(kod, 0, cikti[-2500:])

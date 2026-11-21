@@ -598,7 +598,7 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
 # EDEFTER_VERI[(firma, hata kodu)] = [fis]; fis = {"fis_no", "degismeyen", "tarih", "satirlar": [(hesap kodu, hesap adi, borc, alacak,
 # aciklama, evrak no, evrak tarihi, bt, odeme)]}. Form ve liste gercek ekran goruntulerindeki gibi ayri pencerelerde acilir.
 EDEFTER_VERI = {}
-EDEFTER_AYAR = {"sayfa_boyu": 2, "kayit_yok": "bos_liste", "ayni_pencere": False, "belge_bos_varsayilan": False,
+EDEFTER_AYAR = {"edefter_kutu": "isaretli", "sayfa_boyu": 2, "kayit_yok": "bos_liste", "ayni_pencere": False, "belge_bos_varsayilan": False,
                 "istekler": [], "kaydet": 0}
 EDEFTER_HATALAR = [("20041", "... nolu fiş içinde ... belge türünün tanımı yok.( Hata Kodu: 20041)"),
                    ("20042", "... nolu fiş(ler) içinde ilgili belge tür kodlu satırda evrak no ve tarihi girilmelidir.( Hata Kodu: 20042)"),
@@ -607,6 +607,11 @@ EDEFTER_HATALAR = [("20041", "... nolu fiş içinde ... belge türünün tanım�
                    ("20046", "... nolu fiş(ler)de 100 den fazla fatura mevcut.(Hata Kodu: 20046)"),
                    ("20047", "... nolu fiş(ler)de birden fazla ödeme yöntemi mevcut.(Hata Kodu: 20047)"),
                    ("20048", "... nolu fiş(ler)de belge türü fatura olan birden fazla belge mevcut.(Hata Kodu: 20048)")]
+EDEFTER_KUTULARI = {   # e-Defter onay kutusunun gorunumu: varsayilan isaretli / isaretsiz / etiketle ayni hucrede (label icinde, isaretsiz)
+    "isaretli": '<tr><th>E-Defter kapsamında uyumsuz olan fişleri getir</th><td><input type="checkbox" id="c_edefter" checked></td></tr>',
+    "isaretsiz": '<tr><th>E-Defter kapsamında uyumsuz olan fişleri getir</th><td><input type="checkbox" id="c_edefter"></td></tr>',
+    "ayni_hucre": '<tr><td colspan="2"><label><input type="checkbox" id="c_edefter"> E-Defter kapsamında uyumsuz olan fişleri getir</label></td></tr>',
+    "yok": ''}
 EDEFTER_FORM_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>BELGE TÜRÜ DÜZENLEME - Google Chrome</title>
 """ + ORTAK_STIL + """</head><body>
 <h3>BELGE TÜRÜ DÜZENLEME</h3>
@@ -620,7 +625,7 @@ EDEFTER_FORM_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><titl
 <tr><th>Ödeme Türü Boş Olan</th><td><input type="checkbox" id="c_odeme_turu_bos"></td></tr>
 <tr><th>Entegrasyon Fişlerini de (LucaNET ve KOZA) getir</th><td><input type="checkbox" checked disabled></td></tr>
 <tr><th>Hesap Kodu</th><td><input type="text" id="hesap_kodu"></td></tr>
-<tr><th>E-Defter kapsamında uyumsuz olan fişleri getir</th><td><input type="checkbox" id="c_edefter" checked></td></tr>
+__EDEFTER_KUTU__
 <tr><th>E-Defter hata:</th><td><select id="edefter_hata">__SECENEKLER__</select></td></tr>
 <tr><th>Sayfa No/Kayıt Sayısı</th><td><select id="sayfa_no"><option>1</option></select> / <select id="kayit_sayisi"><option>50</option><option selected>100</option><option>500</option><option>1000</option></select></td></tr>
 </table>
@@ -652,12 +657,13 @@ EDEFTER_LISTE_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><tit
 </body></html>"""
 
 
-def edefter_fisleri(firma, kod):
-    return EDEFTER_VERI.get((firma, kod), [])
+def edefter_fisleri(firma, kod, edefter="1"):
+    """E-Defter kutusu isaretli degilse Luca uyumsuz fisleri getirmez (liste bos)."""
+    return EDEFTER_VERI.get((firma, kod), []) if edefter == "1" else []
 
 
 def edefter_liste_html(q):
-    fisler = edefter_fisleri(q.get("firma", ""), q.get("kod", ""))
+    fisler = edefter_fisleri(q.get("firma", ""), q.get("kod", ""), q.get("edefter", "1"))
     boyut = EDEFTER_AYAR["sayfa_boyu"]
     sayfa = max(1, int(q.get("sayfa") or 1))
     parca = fisler[(sayfa - 1) * boyut: sayfa * boyut]
@@ -716,12 +722,13 @@ class Isleyici(sahte_luca.Isleyici):
         if yol == "/edefter-form":
             secenekler = "".join(f"<option>{m}</option>" for _, m in EDEFTER_HATALAR)
             return self._yanit(EDEFTER_FORM_SAYFASI.replace("__FIRMA__", firma).replace("__SECENEKLER__", secenekler)
+                               .replace("__EDEFTER_KUTU__", EDEFTER_KUTULARI[EDEFTER_AYAR["edefter_kutu"]])
                                .replace("__BELGE_BOS__", "checked" if EDEFTER_AYAR["belge_bos_varsayilan"] else "")
                                .replace("__AYNI__", "true" if EDEFTER_AYAR["ayni_pencere"] else "false")
                                .replace("__UYARI__", "true" if EDEFTER_AYAR["kayit_yok"] == "uyari" else "false"))
         if yol == "/api/edefter-say":
             q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
-            return self._yanit(json.dumps(len(edefter_fisleri(q.get("firma", ""), q.get("kod", "")))), "application/json")
+            return self._yanit(json.dumps(len(edefter_fisleri(q.get("firma", ""), q.get("kod", ""), q.get("edefter", "1")))), "application/json")
         if yol == "/api/edefter-kaydet":
             with KILIT:
                 EDEFTER_AYAR["kaydet"] += 1
@@ -848,7 +855,7 @@ def sifirla():
     DB_OLAYLAR.clear()
     MUAVIN_VERI.clear()
     EDEFTER_VERI.clear()
-    EDEFTER_AYAR.update(sayfa_boyu=2, kayit_yok="bos_liste", ayni_pencere=False, belge_bos_varsayilan=False, istekler=[], kaydet=0)
+    EDEFTER_AYAR.update(edefter_kutu="isaretli", sayfa_boyu=2, kayit_yok="bos_liste", ayni_pencere=False, belge_bos_varsayilan=False, istekler=[], kaydet=0)
     ISLETME_VERI.clear()
     ISLETME_AYAR["istekler"] = []
     MUAVIN_AYAR.update(hesap_alani=True, excel_adi="Excel (xlsx)", istekler=[], nokta_acildi=0)

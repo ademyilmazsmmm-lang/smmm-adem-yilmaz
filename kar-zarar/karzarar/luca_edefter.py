@@ -78,11 +78,29 @@ FORM_JS = r"""arg => {
     if (kutular.length >= 2) sonuc.tarihler = [yaz(kutular[0], arg.bas), yaz(kutular[1], arg.bit)];
     else if (kutular.length === 1) sonuc.tarihler = [yaz(kutular[0], arg.bas)];
   }
+  // onay kutusu: etiketle ayni hucrede (label icinde) ya da yan hucrede olabilir; en ic eslesen etiketten baslanir
+  const kutuBul = (ad) => {
+    const h = duz(ad);
+    const adaylar = Array.from(document.querySelectorAll('th, td, label, span, div, b')).filter(e => g(e) && duz(e.textContent) === h);
+    for (let i = adaylar.length - 1; i >= 0; i--) {
+      const e = adaylar[i];
+      let cb = e.querySelector('input[type=checkbox]');
+      if (!cb && e.tagName === 'LABEL' && e.htmlFor) cb = document.getElementById(e.htmlFor);
+      const r = e.closest('tr');
+      if (!cb && r) cb = r.querySelector('input[type=checkbox]');
+      const kardes = (x) => x && (x.type === 'checkbox' ? x : (x.querySelector ? x.querySelector('input[type=checkbox]') : null));
+      if (!cb) cb = kardes(e.previousElementSibling) || kardes(e.nextElementSibling);
+      if (cb) return cb;
+    }
+    return null;
+  };
   const kutuAyarla = (ad, istenen) => {
-    const r = satir(ad);
-    const cb = r && r.querySelector('input[type=checkbox]');
+    const cb = kutuBul(ad);
     if (!cb) { sonuc.kutular[ad] = null; return; }
-    if (!cb.disabled && cb.checked !== istenen) cb.click();
+    if (!cb.disabled && cb.checked !== istenen) {
+      cb.click();
+      if (cb.checked !== istenen) { cb.checked = istenen; cb.dispatchEvent(new Event('change', {bubbles: true})); }
+    }
     sonuc.kutular[ad] = cb.checked;
   };
   for (const ad of arg.kapali) kutuAyarla(ad, false);
@@ -276,8 +294,9 @@ def formu_doldur(fr, bas, bit, kod="", kayit_siniri=KAYIT_SINIRI):
         m = HATA_KODU.search(secili)
         if not m or m.group(1) != str(kod):
             raise LookupError(f"E-Defter hata listesinde {kod} seçilemedi (seçili: {secili[:80]!r})")
-    if r["kutular"].get(ACIK_KUTU) is False:
-        raise LookupError("'E-Defter kapsamında uyumsuz olan fişleri getir' kutusu işaretlenemedi")
+    if r["kutular"].get(ACIK_KUTU) is not True:     # bulunamadi (None) ya da isaretlenemedi (False): bos liste "uyumsuz yok" sanilmasin
+        raise LookupError("'E-Defter kapsamında uyumsuz olan fişleri getir' kutusu "
+                          + ("bulunamadı" if r["kutular"].get(ACIK_KUTU) is None else "işaretlenemedi") + f" (kutular: {r['kutular']})")
     return r
 
 
@@ -442,6 +461,8 @@ def edefter_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, 
             else:
                 pg, fr = r
             form = formu_doldur(fr, bas, bit, kod)
+            if not sayfa_yazildi:
+                yaz(f"    Onay kutuları: {form['kutular']}", log)
             if not sayfa_yazildi and form.get("sayfa"):
                 sayfa_yazildi = True
                 yaz(f"    Sayfa No/Kayıt Sayısı listeleri: {form['sayfa']['listeler']}; seçili: {form['sayfa']['secili']}", log)
