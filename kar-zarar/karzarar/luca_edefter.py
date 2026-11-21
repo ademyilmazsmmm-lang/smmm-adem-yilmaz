@@ -478,16 +478,18 @@ def liste_oku(ana, liste, log=None, sayfa_siniri=SAYFA_SINIRI, capa=CAPA_BELGE, 
     pg, fr = liste
     fisler, satir_sayisi, kesildi, sayfa_sayisi = {}, 0, False, 0
     for sayfa_sayisi in range(1, sayfa_siniri + 1):
-        r = fr.evaluate(LISTE_OKU_JS, capa)
+        r = _degerlendir(fr, LISTE_OKU_JS, capa)          # liste penceresi yuklenirken yenilenebilir: yeniden dener
         if not r or not r["satirlar"]:
             sayfa_sayisi -= 1          # bos sayfa: sayilmaz
             break
         satir_sayisi += len(r["satirlar"])
         (grupla or fisleri_grupla)(r["basliklar"], r["satirlar"], fisler)
         try:
-            tiklandi = fr.evaluate(SONRAKI_JS)
+            tiklandi = _degerlendir(fr, SONRAKI_JS)
         except Exception:
             tiklandi = "hata"
+        if tiklandi == "hata":              # sayfa degistirilemedi: eksik okuma "tam" sanilmasin
+            kesildi = True
         if tiklandi != "tiklandi":
             break
         imza = _imza(r)
