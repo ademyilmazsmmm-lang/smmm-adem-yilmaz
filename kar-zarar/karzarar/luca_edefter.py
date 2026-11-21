@@ -535,45 +535,56 @@ def belge_turu_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=Fals
     for kod, metin in istenen:
         ad = re.sub(r"\s*\(?\s*Hata\s*Kodu.*$", "", metin, flags=re.I).strip(" .(")
         kayit = {"kod": kod, "ad": ad, "fis_sayisi": 0, "satir_sayisi": 0, "kesildi": False, "fisler": [], "mesaj": "", "hata": ""}
-        try:
-            r = form_bul(ctx)
-            if r is None:                       # liste formla ayni pencerede acilmis olabilir: form yeniden acilir
-                pg, fr = ekrani_ac(page, log)
-                dinle(pg, mesajlar)
-            else:
-                pg, fr = r
-            form = formu_doldur(fr, bas, bit, kod)
-            if not sayfa_yazildi:
-                yaz(f"    Onay kutuları: {form['kutular']}", log)
-            if not sayfa_yazildi and form.get("sayfa"):
-                sayfa_yazildi = True
-                yaz(f"    Sayfa No/Kayıt Sayısı listeleri: {form['sayfa']['listeler']}; seçili: {form['sayfa']['secili']}", log)
-            mesajlar.clear()
-            _listele_dugmesi(pg).click(timeout=10000)
-            son = _bekle_liste(ctx, page, mesajlar)
-            if "liste" in son:
-                dinle(son["liste"][0], mesajlar)
-                adim(f"-{kod}-liste")
-                kayit.update(liste_oku(page, son["liste"], log))
-                if son["liste"][0] is not pg:
+        for deneme in range(2):          # gecici sayfa yenilenmesi ("Execution context was destroyed"): kod bir kez daha denenir
+            kayit.update({"fis_sayisi": 0, "satir_sayisi": 0, "kesildi": False, "fisler": [], "mesaj": "", "hata": ""})
+            try:
+                r = form_bul(ctx)
+                if r is None:                       # liste formla ayni pencerede acilmis olabilir: form yeniden acilir
+                    pg, fr = ekrani_ac(page, log)
+                    dinle(pg, mesajlar)
+                else:
+                    pg, fr = r
+                form = formu_doldur(fr, bas, bit, kod)
+                if not sayfa_yazildi:
+                    yaz(f"    Onay kutuları: {form['kutular']}", log)
+                if not sayfa_yazildi and form.get("sayfa"):
+                    sayfa_yazildi = True
+                    yaz(f"    Sayfa No/Kayıt Sayısı listeleri: {form['sayfa']['listeler']}; seçili: {form['sayfa']['secili']}", log)
+                mesajlar.clear()
+                _listele_dugmesi(pg).click(timeout=10000)
+                son = _bekle_liste(ctx, page, mesajlar)
+                if "liste" in son:
+                    dinle(son["liste"][0], mesajlar)
+                    adim(f"-{kod}-liste")
+                    kayit.update(liste_oku(page, son["liste"], log))
+                    if son["liste"][0] is not pg:
+                        try:
+                            son["liste"][0].close()
+                        except Exception:
+                            pass
+                elif son.get("mesaj"):
+                    if KAYIT_YOK.search(son["mesaj"]):
+                        kayit["mesaj"] = son["mesaj"][:160]            # kayit yok = sorun yok
+                    else:
+                        raise LookupError(f"Luca mesajı: {son['mesaj'][:160]}")
+                else:
+                    tani_kaydet(page, tani_klasoru, log, f"-{kod}-bos", "edefter")
+                    raise LookupError("Listele'den sonra ne liste ne mesaj geldi (liste ekranı açılmadı)")
+                yaz(f"    {kod}: {kayit['fis_sayisi']} fiş" + (f"  ({kayit['mesaj']})" if kayit["mesaj"] else ""), log)
+            except Exception as e:
+                if page.is_closed():
+                    raise
+                kayit["hata"] = (str(e) if isinstance(e, LookupError) else f"{type(e).__name__}: {e}")[:300]
+                gecici = any(k in kayit["hata"] for k in ("context was destroyed", "yenilendi", "Target closed", "navigation"))
+                if gecici and deneme == 0:
+                    yaz(f"    {kod}: sayfa yenilendi ({kayit['hata'][:70]}), yeniden deneniyor", log)
                     try:
-                        son["liste"][0].close()
+                        page.wait_for_timeout(1500)
                     except Exception:
                         pass
-            elif son.get("mesaj"):
-                if KAYIT_YOK.search(son["mesaj"]):
-                    kayit["mesaj"] = son["mesaj"][:160]            # kayit yok = sorun yok
-                else:
-                    raise LookupError(f"Luca mesajı: {son['mesaj'][:160]}")
-            else:
-                tani_kaydet(page, tani_klasoru, log, f"-{kod}-bos", "edefter")
-                raise LookupError("Listele'den sonra ne liste ne mesaj geldi (liste ekranı açılmadı)")
-            yaz(f"    {kod}: {kayit['fis_sayisi']} fiş" + (f"  ({kayit['mesaj']})" if kayit["mesaj"] else ""), log)
-        except Exception as e:
-            if page.is_closed():
-                raise
-            kayit["hata"] = (str(e) if isinstance(e, LookupError) else f"{type(e).__name__}: {e}")[:300]
-            yaz(f"    {kod}: HATA {kayit['hata']}", log)
+                    continue
+                yaz(f"    {kod}: HATA {kayit['hata']}", log)
+            break                                   # basarili ya da yeniden denenmeyecek hata
         sonuc.append(kayit)
     ek_sayfalari_kapat(ctx, page)
     return sonuc
