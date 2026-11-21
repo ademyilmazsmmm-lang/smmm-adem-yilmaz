@@ -7,6 +7,7 @@ luca-bot/testler/sahte_luca.py'yi (Luca taklidi) genisletir; luca-bot'a dokunmaz
 """
 
 import json
+import time
 import sys
 import threading
 from http.server import ThreadingHTTPServer
@@ -601,7 +602,7 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
 # aciklama, evrak no, evrak tarihi, bt, odeme)]}. Form ve liste gercek ekran goruntulerindeki gibi ayri pencerelerde acilir.
 EDEFTER_VERI = {}
 EDEFTER_AYAR = {"form_yenile": False, "edefter_kutu": "isaretli", "sayfa_boyu": 2, "kayit_yok": "bos_liste", "ayni_pencere": False, "belge_bos_varsayilan": False,
-                "istekler": [], "kaydet": 0, "kaydet_ayrinti": [], "kaydet_kabul": True}
+                "istekler": [], "kaydet": 0, "kaydet_ayrinti": [], "kaydet_kabul": True, "kaydet_gecikme": 0.0, "kaydet_hata": ""}
 EDEFTER_HATALAR = [("20041", "... nolu fiş içinde ... belge türünün tanımı yok.( Hata Kodu: 20041)"),
                    ("20042", "... nolu fiş(ler) içinde ilgili belge tür kodlu satırda evrak no ve tarihi girilmelidir.( Hata Kodu: 20042)"),
                    ("20044", "... nolu fiş(ler)de birden fazla belge mevcut.(Hata Kodu: 20044)"),
@@ -652,45 +653,58 @@ __EDEFTER_KUTU__
 EDEFTER_LISTE_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>E-DEFTER UYUMSUZ FİŞLERİ DÜZENLEME - Google Chrome</title>
 """ + ORTAK_STIL + """</head><body>
 <h4>E-DEFTER UYUMSUZ FİŞLERİ DÜZENLEME</h4>
-<table id="liste" border="1"><thead><tr><th><input type="checkbox" id="hepsi" checked onclick="hepsiniSec(this.checked)"></th><th>Sıra</th><th>Fiş No</th><th>Değişmeyen Fiş No</th><th>Fiş Tarihi</th>
+<table id="liste" border="1"><thead><tr><th><input type="checkbox" id="hepsi" onclick="hepsiniSec(this.checked)"></th><th>Sıra</th><th>Fiş No</th><th>Değişmeyen Fiş No</th><th>Fiş Tarihi</th>
 <th>Hesap Kodu</th><th>Borç</th><th>Alacak</th><th>Açıklama</th><th>Evrak No</th><th>Evrak Tarihi</th><th>BT</th><th>Ödeme Türü</th><th>Durum</th></tr></thead>
-<tbody>__SATIRLAR__</tbody></table>
-<div id="alt"><button type="button" onclick="git(-1)"><i></i></button><button type="button" onclick="git(1)"><i></i></button>
+<tbody class="fisler">__SATIRLAR__</tbody></table>
+<div id="alt"><button type="button" onclick="git(-1)" title="Önceki Sayfa"><i></i></button><button type="button" onclick="git(1)" title="Sonraki Sayfa"><i></i></button>
 <b>Sayfa No: __SAYFA__</b>
-<button type="button" onclick="topluAc()">Toplu Değer Ata</button><button type="button">Toplu Değer Seç</button><button type="button">Filtre</button>
-<button type="button" onclick="kaydet()"><img alt="kaydet"> Kaydet</button></div>
-<div id="toplu" style="display:none;position:fixed;right:10px;bottom:40px;border:2px solid #357;background:#fff;width:520px">
- <div style="background:#357;color:#fff">Lütfen Seçili Satırlara Aktarmak İstediğiniz Değerleri Giriniz.</div>
- <table>
-  <tr><td>Ödeme Türü</td><td><input type="text" id="t_odeme"></td><td><button type="button" onclick="aktar('odeme')">Aktar</button></td><td><button type="button">Temizle</button></td></tr>
-  <tr><td>Belge Türü</td><td><input type="text" id="t_bt"></td><td><button type="button" onclick="aktar('bt')">Aktar</button></td><td><button type="button">Temizle</button></td></tr>
-  <tr><td>Evrak Tarihi</td><td><input type="text" id="t_et"></td><td><button type="button" onclick="aktar('et')">Aktar</button></td><td><button type="button">Temizle</button></td></tr>
-  <tr><td>Evrak No Alanına Değişmez Fiş Numarasını Aktar</td><td></td><td><button type="button" onclick="aktar('no')">Aktar</button></td><td><button type="button">Temizle</button></td></tr>
+<button type="button" onclick="topluDegerAtaDivAc(); return false;">Toplu Değer Ata</button><button type="button">Toplu Değer Seç</button><button type="button">Filtre</button>
+<button type="button" onclick="gonder('Kaydet'); return false;"><i></i> Kaydet</button></div>
+<div id="maske" style="display:none;position:fixed;left:40%;top:40%;background:#eee;border:1px solid #333;padding:20px"></div>
+<div id="not" style="display:none;position:fixed;right:10px;bottom:90px;background:#dfd;border:1px solid #393;padding:12px"></div>
+<div class="toplu-deger-ata-window" style="display:none;position:fixed;right:10px;bottom:40px;border:2px solid #357;background:#fff;width:520px">
+ <div class="header">Lütfen Seçili Satırlara Aktarmak İstediğiniz Değerleri Giriniz.</div>
+ <table class="form_table">
+  <tr><th>Ödeme Türü</th><td><input type="text" id="ODEME_YONTEMI_TUMU"></td><td><button type="button" onclick="odemeYontemiAta()">Aktar</button><button type="button">Temizle</button></td></tr>
+  <tr><th>Belge Türü</th><td><input type="text" id="BELGE_TURU_TUMU" maxlength="2" onclick="void 0"></td><td><button type="button" onclick="belgeTuruAta()">Aktar</button><button type="button">Temizle</button></td></tr>
+  <tr><th>Evrak Tarihi</th><td><input type="text" id="EVRAK_TARIHI_TUMU"></td><td><button type="button" onclick="evrakTarihiAta()">Aktar</button><button type="button">Temizle</button></td></tr>
+  <tr><th colspan="2">Evrak No Alanına Değişmez Fiş Numarasını Aktar </th><td><button type="button" onclick="evrakNoAta()">Aktar</button><button type="button">Temizle</button></td></tr>
+  <tr><th colspan="3"><a href="#" onclick="fisTarihiniEvrakTarihiAta(); return false;">Fiş Tarihini Evrak Tarihi Olarak Ata</a></th></tr>
  </table>
- <a href="#" onclick="aktar('tarih'); return false;">Fiş Tarihini Evrak Tarihi Olarak Ata</a>
- <div id="uyari" style="color:red"></div>
 </div>
 <script>
+ const byId = id => document.getElementById(id);
+ function lucaNotYaz(m, t) { const n = byId('not'); n.textContent = m; n.style.display = 'block'; setTimeout(() => { n.style.display = 'none'; }, 3000); }
+ function showMask(m) { const k = byId('maske'); k.textContent = m; k.style.display = 'block'; }
+ function hideMask() { byId('maske').style.display = 'none'; }
  function git(d) { const u = new URL(location.href); u.searchParams.set('sayfa', Math.max(1, __SAYFA__ + d)); location.href = u.toString(); }
- const satirlar = () => Array.from(document.querySelectorAll('#liste tbody tr'));
- function hepsiniSec(v) { satirlar().forEach(r => r.querySelector('input[type=checkbox]').checked = v); }
- function topluAc() { document.getElementById('toplu').style.display = 'block'; }
- function aktar(ne) {
-   const sec = satirlar().filter(r => r.querySelector('input[type=checkbox]').checked);
-   if (!sec.length) { document.getElementById('uyari').textContent = 'Lütfen kayıt seçiniz.'; return; }
-   sec.forEach(r => {
-     const k = r.cells; // 9 evrak no, 10 evrak tarihi, 11 bt, 12 odeme
-     if (ne === 'bt') k[11].textContent = document.getElementById('t_bt').value;
-     if (ne === 'odeme') k[12].querySelector('input').value = document.getElementById('t_odeme').value;
-     if (ne === 'et') k[10].querySelector('input').value = document.getElementById('t_et').value;
-     if (ne === 'no') k[9].querySelector('input').value = r.dataset.deg;
-     if (ne === 'tarih') k[10].querySelector('input').value = r.dataset.tarih;
-   });
+ const secili = () => Array.from(document.querySelectorAll('tbody.fisler input.ss')).filter(k => k.checked);
+ function hepsiniSec(v) { document.querySelectorAll('tbody.fisler input.ss').forEach(k => k.checked = v); }
+ function topluDegerAtaDivAc() { document.querySelector('.toplu-deger-ata-window').style.display = 'block'; }
+ const yok = () => { if (!secili().length) { lucaNotYaz('Lütfen kayıt seçiniz.'); return true; } return false; };
+ function belgeTuruAta() { if (yok()) return; secili().forEach(k => byId('BELGE_TURU_' + k.getAttribute('x')).value = byId('BELGE_TURU_TUMU').value); }
+ function odemeYontemiAta() { if (yok()) return; secili().forEach(k => byId('ODEME_YONTEMI_' + k.getAttribute('x')).value = byId('ODEME_YONTEMI_TUMU').value); }
+ function evrakTarihiAta() { if (yok()) return; secili().forEach(k => byId('EVRAK_TARIHI_' + k.getAttribute('x')).value = byId('EVRAK_TARIHI_TUMU').value); }
+ function evrakNoAta() { if (yok()) return; secili().forEach(k => { if (k.getAttribute('uniqueId')) byId('EVRAK_NO_' + k.getAttribute('x')).value = k.getAttribute('uniqueId'); }); }
+ function fisTarihiniEvrakTarihiAta() { if (yok()) return; secili().forEach(k => byId('EVRAK_TARIHI_' + k.getAttribute('x')).value = k.getAttribute('fisTarihi')); }
+ function gonder(t) { if (t === 'Kaydet') updateFisDetay(); }
+ function updateFisDetay() {
+   const sec = secili();
+   if (!sec.length) { lucaNotYaz('Lütfen kaydetmek istediğiniz kayıtları seçiniz.', 'warning'); return; }
+   showMask('Lütfen Bekleyiniz.');
+   const dizi = sec.map(k => { const x = k.getAttribute('x'); return {key: k.getAttribute('key'), no: byId('EVRAK_NO_' + x).value, et: byId('EVRAK_TARIHI_' + x).value,
+                                                                        bt: byId('BELGE_TURU_' + x).value, odeme: byId('ODEME_YONTEMI_' + x).value}; });
+   satir(dizi, dizi.length);
  }
- function kaydet() {
-   const d = satirlar().map((r, i) => ({i, no: r.cells[9].querySelector('input').value, et: r.cells[10].querySelector('input').value,
-                                        bt: r.cells[11].textContent.trim(), odeme: r.cells[12].querySelector('input').value}));
-   fetch('/api/edefter-kaydet?firma=__FIRMA__&kod=__KOD__&sayfa=__SAYFA__&d=' + encodeURIComponent(JSON.stringify(d)));
+ function satir(dizi, n) {          // gercek Luca gibi: satirlar TEK TEK kaydedilir, sayfa yenilenmez
+   const d = dizi.pop();
+   fetch('/api/edefter-kaydet?firma=__FIRMA__&kod=__KOD__&key=' + encodeURIComponent(d.key) + '&no=' + encodeURIComponent(d.no) + '&et=' + encodeURIComponent(d.et)
+         + '&bt=' + encodeURIComponent(d.bt) + '&odeme=' + encodeURIComponent(d.odeme)).then(r => r.text()).then(x => {
+     const siraNo = n - dizi.length - 1;
+     if (x && byId('durum_' + siraNo)) { byId('durum_' + siraNo).style.color = '#DF0101'; byId('durum_' + siraNo).innerHTML = x; }
+     if (dizi.length) { showMask((n - dizi.length) + '/' + n + ' kaydediliyor...'); satir(dizi, n); }
+     else { hideMask(); lucaNotYaz('Kaydetme işlemi tamamlandı.', 'success'); }
+   });
  }
 </script>
 </body></html>"""
@@ -708,44 +722,47 @@ def edefter_liste_html(q):
     parca = fisler[(sayfa - 1) * boyut: sayfa * boyut]
     satirlar = []
     sira = (sayfa - 1) * boyut
+    x = 0
     for f in parca:
         sira += 1
         for i, (hk, ha, borc, alacak, aciklama, evrak, evrak_t, bt, odeme) in enumerate(f["satirlar"]):
             ilk = i == 0
             satirlar.append(
-                "<tr data-deg='" + f["degismeyen"] + "' data-tarih='" + f["tarih"] + "'><td><input type='checkbox' checked></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s<br>%s</td><td>%s</td><td>%s</td><td>%s</td>"
-                "<td><input type='text' value='%s'></td><td><input type='text' value='%s'></td><td>%s</td><td><input type='text' value='%s'></td><td>%s</td></tr>"
-                % (sira if ilk else "", ("<a href='#'>%s</a>" % f["fis_no"]) if ilk else "", f["degismeyen"] if ilk else "",
-                   f["tarih"] if ilk else "", hk, ha, tr_sayi(borc), tr_sayi(alacak), aciklama, evrak, evrak_t, bt, odeme,
-                   f.get("durum", "") if ilk else ""))
+                "<tr><td><input class='ss' type='checkbox' name='item' x='%d' key='%s|%d' uniqueId='%s' fisTarihi='%s'></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td>"
+                "<td>%s<br>%s</td><td>%s</td><td>%s</td><td>%s</td>"
+                "<td><input type='text' id='EVRAK_NO_%d' name='EVRAK_NO' value='%s'></td><td><input type='text' id='EVRAK_TARIHI_%d' name='EVRAK_TARIHI' value='%s'></td>"
+                "<td><input type='text' id='BELGE_TURU_%d' name='BELGE_TURU' maxlength='2' value='%s'></td><td><input type='text' id='ODEME_YONTEMI_%d' name='ODEME_YONTEMI' value='%s'></td>"
+                "<td id='durum_%d'>%s</td></tr>"
+                % (x, f["fis_no"], i, f["degismeyen"], f["tarih"], sira if ilk else "", ("<a href='#'>%s</a>" % f["fis_no"]) if ilk else "",
+                   f["degismeyen"] if ilk else "", f["tarih"] if ilk else "", hk, ha, tr_sayi(borc), tr_sayi(alacak), aciklama,
+                   x, evrak, x, evrak_t, x, bt, x, odeme, x, f.get("durum", "") if ilk else ""))
+            x += 1
     return (EDEFTER_LISTE_SAYFASI.replace("__SATIRLAR__", "".join(satirlar)).replace("__SAYFA__", str(sayfa))
             .replace("__FIRMA__", q.get("firma", "")).replace("__KOD__", q.get("kod", "")))
 
 
 def edefter_kaydet(q):
-    """Listedeki Kaydet: gelen satir degerlerini fislere isler; belge turu + evrak no + evrak tarihi dolan fis listeden duser
-    (gercek Luca gibi: uyumsuz degil artik). EDEFTER_AYAR['kaydet_kabul']=False: Luca kaydi sessizce yok sayar."""
+    """Listedeki Kaydet'in TEK satirlik istegi (gercek Luca gibi satir satir; her istek EDEFTER_AYAR['kaydet_gecikme'] sn surer).
+    Belge turu + evrak no + evrak tarihi dolan fis listeden duser (artik uyumsuz degil). Donus: hata metni ya da ''.
+    EDEFTER_AYAR['kaydet_kabul']=False: kayit sessizce yok sayilir; 'kaydet_hata': her satir icin bu hata doner."""
+    time.sleep(EDEFTER_AYAR["kaydet_gecikme"])
     firma, kod = q.get("firma", ""), q.get("kod", "")
-    fisler = EDEFTER_VERI.get((firma, kod), [])
-    boyut = EDEFTER_AYAR["sayfa_boyu"]
-    sayfa = max(1, int(q.get("sayfa") or 1))
-    parca = fisler[(sayfa - 1) * boyut: sayfa * boyut]
-    satirlar = [(f, i) for f in parca for i in range(len(f["satirlar"]))]
-    veri = json.loads(q.get("d") or "[]")
-    EDEFTER_AYAR["kaydet_ayrinti"].append({"firma": firma, "kod": kod, "sayfa": sayfa, "satirlar": veri})
+    fis_no, _, i = q.get("key", "").rpartition("|")
+    EDEFTER_AYAR["kaydet_ayrinti"].append({"firma": firma, "kod": kod, "fis_no": fis_no, "i": int(i or 0), "no": q.get("no", ""),
+                                           "et": q.get("et", ""), "bt": q.get("bt", ""), "odeme": q.get("odeme", "")})
+    if EDEFTER_AYAR["kaydet_hata"]:
+        return EDEFTER_AYAR["kaydet_hata"]
     if not EDEFTER_AYAR["kaydet_kabul"]:
-        return
-    for d in veri:
-        f, i = satirlar[d["i"]]
-        hk, ha, borc, alacak, aciklama, _no, _et, _bt, _odeme = f["satirlar"][i]
-        f["satirlar"][i] = (hk, ha, borc, alacak, aciklama, d["no"], d["et"], d["bt"], d["odeme"])
-    for f in parca:
-        if all(x[5] and x[6] and x[7] for x in f["satirlar"]):
-            fisler.remove(f)
-
-
-
-
+        return ""
+    fisler = EDEFTER_VERI.get((firma, kod), [])
+    f = next((f for f in fisler if f["fis_no"] == fis_no), None)
+    if f is None:
+        return ""
+    hk, ha, borc, alacak, aciklama, _no, _et, _bt, _odeme = f["satirlar"][int(i or 0)]
+    f["satirlar"][int(i or 0)] = (hk, ha, borc, alacak, aciklama, q.get("no", ""), q.get("et", ""), q.get("bt", ""), q.get("odeme", ""))
+    if all(x[5] and x[6] and x[7] for x in f["satirlar"]):
+        fisler.remove(f)
+    return ""
 
 
 # --- Luca > Muhasebe > Fis Islemleri > Fis Listesi (e-Defter hata kodlari 20021/20025/20026; ekran goruntusundeki form) ---
@@ -867,8 +884,7 @@ class Isleyici(sahte_luca.Isleyici):
             q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
             with KILIT:
                 EDEFTER_AYAR["kaydet"] += 1
-                edefter_kaydet(q)
-            return self._yanit("{}", "application/json")
+            return self._yanit(edefter_kaydet(q), "text/plain")
         if yol == "/edefter-liste":
             q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
             with KILIT:
@@ -993,7 +1009,7 @@ def sifirla():
     EDEFTER_VERI.clear()
     FIS_VERI.clear()
     FIS_AYAR.update(gizli=False, dugme="button", kutu="tek", modlar={"20021": "grid", "20025": "mesaj", "20026": "mesaj"}, istekler=[])
-    EDEFTER_AYAR.update(form_yenile=False, edefter_kutu="isaretli", sayfa_boyu=2, kayit_yok="bos_liste", ayni_pencere=False, belge_bos_varsayilan=False, istekler=[], kaydet=0, kaydet_ayrinti=[], kaydet_kabul=True)
+    EDEFTER_AYAR.update(form_yenile=False, edefter_kutu="isaretli", sayfa_boyu=2, kayit_yok="bos_liste", ayni_pencere=False, belge_bos_varsayilan=False, istekler=[], kaydet=0, kaydet_ayrinti=[], kaydet_kabul=True, kaydet_gecikme=0.0, kaydet_hata="")
     ISLETME_VERI.clear()
     ISLETME_AYAR["istekler"] = []
     MUAVIN_AYAR.update(hesap_alani=True, excel_adi="Excel (xlsx)", istekler=[], nokta_acildi=0)

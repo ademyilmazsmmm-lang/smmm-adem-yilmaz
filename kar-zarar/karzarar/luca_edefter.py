@@ -15,6 +15,7 @@ ekran her zaman beklendigi gibi olmayabilir: neyin tutmadigi gunlukten ve tani/ 
 """
 
 import re
+import time
 
 from lucabot.bekleme import kosulu_bekle
 from lucabot.luca_ekran import acik_pencereleri_kapat
@@ -587,15 +588,17 @@ DEGER_JS = r"""arg => {
   const aktarDugmesi = satir => { const c = aktarlar(satir); return c.length ? c[c.length - 1] : null; };
   // etiketin satiri: TEK Aktar dugmesi iceren en kucuk ata (baska satirin Aktar'ina basilmasin)
   const satirBul = etiket => { for (let a = etiket, i = 0; a && i < 5; a = a.parentElement, i++) { if (a === kutu) break; const c = aktarlar(a); if (c.length === 1) return a; if (c.length > 1) break; } return null; };
+  // ayni metni tasiyan sarmalayici (th > a) varsa EN ICTEKI oge: tiklanacak olan baglanti / dugmedir
+  const enIc = liste => { for (let i = 0; i < liste.length; i++) { let altta = false; for (let j = 0; j < liste.length; j++) if (i !== j && liste[i].contains(liste[j])) altta = true; if (!altta) return liste[i]; } return null; };
   if (arg.adim === 'tarih') {
-    const l = icinde('Fiş Tarihini Evrak Tarihi Olarak Ata');
-    if (!l.length) return 'etiket yok';
-    l[0].click();
+    const l = enIc(icinde('Fiş Tarihini Evrak Tarihi Olarak Ata'));
+    if (!l) return 'etiket yok';
+    l.click();
     return 'ok';
   }
-  const etiketler = icinde(arg.adim === 'belge' ? 'Belge Türü' : 'Evrak No Alanına Değişmez Fiş Numarasını Aktar');
-  if (!etiketler.length) return 'etiket yok';
-  const satir = satirBul(etiketler[0]);
+  const etiket = enIc(icinde(arg.adim === 'belge' ? 'Belge Türü' : 'Evrak No Alanına Değişmez Fiş Numarasını Aktar'));
+  if (!etiket) return 'etiket yok';
+  const satir = satirBul(etiket);
   if (!satir) return 'aktar dugmesi yok';
   if (arg.adim === 'belge') {
     const giris = satir.querySelector('select, input[type=text], input:not([type]):not([type=button]):not([type=checkbox])');
@@ -614,12 +617,53 @@ DEGER_JS = r"""arg => {
   return 'ok';
 }"""
 
-KAYDET_JS = r"""() => {
+# Gercek Luca (tani HTML'inden): satir kutulari input.ss (x = satir no, uniqueId = degismez fis no, fisTarihi), alanlar EVRAK_NO_<x>,
+# EVRAK_TARIHI_<x>, BELGE_TURU_<x>, ODEME_YONTEMI_<x>. Kaydet = gonder('Kaydet'): SECILI satirlari DWR ile TEK TEK kaydeder
+# ("N/M kaydediliyor..." maskesi), bitince lucaNotYaz("Kaydetme islemi tamamlandi.") der; sayfa yenilenmez. Bitmeden pencere
+# kapatilirsa ya da liste yeniden okunursa kayit yarim kalir: bu yuzden bitis beklenir.
+SNAP_JS = r"""() => {
+  const kutular = document.querySelectorAll('input.ss'), c = [];
+  for (let i = 0; i < kutular.length; i++) {
+    const k = kutular[i], x = k.getAttribute('x');
+    const v = ad => { const e = document.getElementById(ad + '_' + x); return e ? (e.value || '') : null; };
+    c.push([k.checked ? 1 : 0, v('EVRAK_NO'), v('EVRAK_TARIHI'), (v('BELGE_TURU') || '').toUpperCase(), v('ODEME_YONTEMI')]);
+  }
+  return c;
+}"""
+
+KAYDET_BASLAT_JS = r"""() => {
   const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
   const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\s.\-()*:\/]/g, '');
+  let kanca = 'yok';
+  if (typeof window.lucaNotYaz === 'function') {          // bitis notunu yakalamak icin: lucaNotYaz'i bir kez sar
+    if (!window.__lbSarildi) {
+      const o = window.lucaNotYaz;
+      window.lucaNotYaz = function (m) { (window.__lbNot = window.__lbNot || []).push(String(m)); return o.apply(this, arguments); };
+      window.__lbSarildi = true;
+    }
+    kanca = 'var';
+  }
+  window.__lbNot = [];
   const d = document.querySelectorAll('button, input[type=button], input[type=submit], a');
-  for (let i = 0; i < d.length; i++) if (g(d[i]) && duz(d[i].value || d[i].textContent) === 'kaydet') { d[i].click(); return 'tiklandi'; }
+  for (let i = 0; i < d.length; i++) {
+    const oc = d[i].getAttribute('onclick') || '';
+    if (g(d[i]) && (/gonder\(\s*['"]Kaydet['"]\s*\)/.test(oc) || duz(d[i].value || d[i].textContent) === 'kaydet')) { d[i].click(); return 'tiklandi:' + kanca; }
+  }
   return 'dugme yok';
+}"""
+
+KAYDET_DURUM_JS = r"""() => {
+  const t = (document.body && document.body.innerText) || '';
+  const m = /(\d+)\s*\/\s*(\d+)\s*kaydediliyor/i.exec(t);
+  return {notlar: window.__lbNot || [], ilerleme: m ? [parseInt(m[1], 10), parseInt(m[2], 10)] : null,
+          maske: /kaydediliyor|L[üu]tfen\s*Bekleyiniz/i.test(t), yazi: /Kaydetme\s*işlemi\s*tamamland/i.test(t)};
+}"""
+
+# Kaydet hatalari: satirin Durum hucresine kirmizi yazilir (renk atanmis hucre = hata)
+KAYDET_HATA_JS = r"""() => {
+  const h = document.querySelectorAll('[id^=durum_]'), c = [];
+  for (let i = 0; i < h.length; i++) if (h[i].style && h[i].style.color && (h[i].textContent || '').trim()) c.push(h[i].textContent.trim().slice(0, 100));
+  return c;
 }"""
 
 
@@ -680,7 +724,7 @@ def duzelt_uygula(ana, liste, log=None, toplam_sayfa=1, capa=CAPA_BELGE):
     """Acik uyumsuz-fis listesinin GORUNEN sayfasinda fatura olmayan fislere MF + evrak no (+evrak tarihi) atar ve Kaydet'e basar.
     {fis, satir, kaydedildi, mesaj}; dogrulama tutmazsa Kaydet'e BASILMAZ ve 'mesaj'a neden yazilir."""
     pg, fr = liste
-    sonuc = {"fis": 0, "satir": 0, "fatura_fis": 0, "kaydedildi": False, "mesaj": "", "bos": False}
+    sonuc = {"fis": 0, "satir": 0, "fatura_fis": 0, "kaydedildi": False, "kayit_hatasi": 0, "mesaj": "", "bos": False}
     r0 = _degerlendir(fr, LISTE_OKU_JS, capa)
     if not r0 or not r0["satirlar"]:
         sonuc["mesaj"] = "liste okunamadı"
@@ -692,9 +736,9 @@ def duzelt_uygula(ana, liste, log=None, toplam_sayfa=1, capa=CAPA_BELGE):
     if not hedef:
         sonuc.update(mesaj=f"sayfa {sayfa}: düzeltilecek (fatura olmayan) fiş yok", bos=True)
         return sonuc
-    once, ix = _degerler(r0["basliklar"], r0["satirlar"])
-    if None in (ix["evrak_no"], ix["evrak_tarihi"], ix["bt"]):
-        sonuc["mesaj"] = "Evrak No / Evrak Tarihi / BT sütunları listede bulunamadı"
+    once = _degerlendir(fr, SNAP_JS)                  # secimden ONCE her satirin degerleri (gercek alan kimlikleriyle)
+    if len(once) != len(r0["satirlar"]) or any(x[1] is None or x[3] is None for x in once):
+        sonuc["mesaj"] = f"satır kutuları/alanları listeyle uyuşmuyor ({len(once)} kutu, {len(r0['satirlar'])} satır); düzeltme yapılmadı"
         return sonuc
     sec = _degerlendir(fr, SEC_JS, {"capa": capa, "sec": hedef})
     if not sec or sec["kutu"] < len(r0["satirlar"]) or sec["secili"] != len(hedef) or sec["yanlis"]:
@@ -726,28 +770,80 @@ def duzelt_uygula(ana, liste, log=None, toplam_sayfa=1, capa=CAPA_BELGE):
             return sonuc
         else:
             pg.wait_for_timeout(500)
-    # dogrulama: hedef satirlarda BT=MF, evrak no ve evrak tarihi dolu; diger satirlar degismemis
-    r1 = _degerlendir(fr, LISTE_OKU_JS, capa)
-    if not r1 or len(r1["satirlar"]) != len(r0["satirlar"]):
-        sonuc["mesaj"] = "atamadan sonra liste yeniden okunamadı"
-        return sonuc
-    sonra, _ = _degerler(r1["basliklar"], r1["satirlar"])
+    # dogrulama (gercek alan kimlikleriyle): hedef satirlarda BT=MF, evrak no ve evrak tarihi dolu; diger satirlar degismemis
+    sonra = _degerlendir(fr, SNAP_JS)
     hedef_kume = set(hedef)
+    if len(sonra) != len(once):
+        sonuc["mesaj"] = f"atamadan sonra satır sayısı değişti ({len(once)} → {len(sonra)}); Kaydet'e basılmadı"
+        return sonuc
     for i, (a, b) in enumerate(zip(once, sonra)):
         if i in hedef_kume:
-            if b[2] != DUZELTME_BELGE_TURU or not b[0] or not b[1]:
-                sonuc["mesaj"] = f"atama doğrulanamadı (satır {i + 1}: evrak no={b[0] or '-'}, evrak tarihi={b[1] or '-'}, BT={b[2] or '-'}); Kaydet'e basılmadı"
+            if b[0] != 1 or b[3] != DUZELTME_BELGE_TURU or not b[1] or not b[2]:
+                sonuc["mesaj"] = (f"atama doğrulanamadı (satır {i + 1}: seçili={b[0]}, evrak no={b[1] or '-'}, evrak tarihi={b[2] or '-'}, "
+                                  f"BT={b[3] or '-'}); Kaydet'e basılmadı")
                 return sonuc
-        elif a != b:
-            sonuc["mesaj"] = f"seçilmeyen satır değişti (satır {i + 1}); Kaydet'e basılmadı"
+        elif b[0] or a[1:] != b[1:]:
+            sonuc["mesaj"] = f"seçilmeyen satır değişti ya da seçildi (satır {i + 1}); Kaydet'e basılmadı"
             return sonuc
-    k = _degerlendir(fr, KAYDET_JS)
-    if k != "tiklandi":
+    kaydet = kaydet_ve_bekle(pg, fr, len(hedef), log)
+    sonuc.update(kaydedildi=kaydet["tamam"], kayit_hatasi=len(kaydet["hatalar"]), mesaj=kaydet["mesaj"])
+    if kaydet["hatalar"]:
+        sonuc["mesaj"] = f"{len(kaydet['hatalar'])} satırda Luca kayıt hatası verdi (örnek: {kaydet['hatalar'][0]})"
+    if kaydet["tamam"]:
+        yaz(f"      Kaydedildi: {fis_sayisi} fiş / {len(hedef)} satır (BT={DUZELTME_BELGE_TURU}, evrak no = değişmez fiş no)"
+            + (f"; {len(kaydet['hatalar'])} satırda Luca hata verdi: {kaydet['hatalar'][0]}" if kaydet["hatalar"] else ""), log)
+    return sonuc
+
+
+def kaydet_ve_bekle(pg, fr, satir_sayisi, log=None):
+    """Kaydet'e basar ve Luca'nin SATIR SATIR kaydi bitene kadar bekler (1000 satir dakikalar surebilir); pencereyi bitmeden birakmaz.
+    {tamam, mesaj, hatalar}: bitis 'Kaydetme islemi tamamlandi' notundan (yoksa 'kaydediliyor' maskesinin kalkmasindan) anlasilir."""
+    sonuc = {"tamam": False, "mesaj": "", "hatalar": []}
+    k = _degerlendir(fr, KAYDET_BASLAT_JS)
+    if not str(k).startswith("tiklandi"):
         sonuc["mesaj"] = f"Kaydet düğmesi bulunamadı ({k})"
         return sonuc
-    pg.wait_for_timeout(2500)
-    sonuc["kaydedildi"] = True
-    yaz(f"      Kaydet'e basıldı: {fis_sayisi} fiş / {len(hedef)} satır (BT={DUZELTME_BELGE_TURU}, evrak no = değişmez fiş no)", log)
+    kancali = str(k).endswith("var")
+    sinir = min(7200.0, 120.0 + 3.0 * satir_sayisi)         # satir basina ~3 sn pay; ilerleme durursa daha once vazgecilir
+    bas = time.monotonic()
+    son_ilerleme, son_degisim, son_yazi, gorulen_maske, sakin = None, bas, bas, False, 0
+    while True:
+        simdi = time.monotonic()
+        try:
+            d = _degerlendir(fr, KAYDET_DURUM_JS)
+        except LookupError:
+            d = None                                     # kayit sirasinda sayfa yenilendi: bir sonraki turda yeniden denenir
+        if d:
+            notlar = d.get("notlar") or []
+            if any("tamamland" in n.lower() for n in notlar) or (d.get("yazi") and not d.get("maske")):
+                sonuc["tamam"] = True
+                break
+            if any("seçiniz" in n.lower() or "seciniz" in n.lower() for n in notlar):
+                sonuc["mesaj"] = "Luca 'kayıt seçiniz' dedi: kaydedilecek satır seçilmemiş"
+                break
+            if d.get("ilerleme") != son_ilerleme:
+                son_ilerleme, son_degisim = d.get("ilerleme"), simdi
+            if d.get("ilerleme") and simdi - son_yazi >= 15:
+                yaz(f"      Kaydediliyor… {d['ilerleme'][0]}/{d['ilerleme'][1]} ({int(simdi - bas)} sn)", log)
+                son_yazi = simdi
+            gorulen_maske = gorulen_maske or bool(d.get("maske"))
+            if not kancali:                              # kanca kurulamadiysa: maske goruldukten sonra kalkarsa bitmistir
+                sakin = 0 if d.get("maske") else sakin + 1
+                if (gorulen_maske and sakin >= 3) or (not gorulen_maske and simdi - bas > 20):
+                    sonuc["tamam"] = True
+                    break
+            if d.get("ilerleme") and simdi - son_degisim > 240:
+                sonuc["mesaj"] = f"kayıt ilerlemesi 4 dakikadır durdu ({d['ilerleme'][0]}/{d['ilerleme'][1]}); beklemeyi bıraktım"
+                break
+        if simdi - bas > sinir:
+            sonuc["mesaj"] = f"kayıt {int(sinir)} sn içinde bitmedi (bitişi gösteren not gelmedi)"
+            break
+        pg.wait_for_timeout(1000)
+    if sonuc["tamam"]:
+        try:
+            sonuc["hatalar"] = _degerlendir(fr, KAYDET_HATA_JS) or []
+        except LookupError:
+            pass
     return sonuc
 
 
@@ -819,7 +915,7 @@ def belge_turu_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=Fals
 
     def duzelt_kodu(kod, kayit):
         """Fatura olmayan uyumsuz fisleri duzeltir (Kaydet), listeyi yeniden okuyup sonucu dogrular."""
-        toplam = {"fis": 0, "satir": 0, "kaydedildi": 0, "fatura_fis": kayit.get("fatura_fisi", 0), "mesaj": ""}
+        toplam = {"fis": 0, "satir": 0, "kaydedildi": 0, "kayit_hatasi": 0, "fatura_fis": kayit.get("fatura_fisi", 0), "mesaj": ""}
         onceki = kayit.get("diger_fis", 0)
         for tur in range(1, DUZELTME_TUR_SINIRI + 1):
             son, fpg = listele(kod)
@@ -838,6 +934,9 @@ def belge_turu_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=Fals
             toplam["fis"] += r["fis"]
             toplam["satir"] += r["satir"]
             toplam["kaydedildi"] += 1
+            toplam["kayit_hatasi"] += r.get("kayit_hatasi", 0)
+            if r.get("mesaj"):
+                toplam["luca"] = r["mesaj"]
             tara(kod, kayit, etiket="-duzeltme")
             yeni = kayit.get("diger_fis", 0)
             yaz(f"      Düzeltme sonrası liste: {kayit.get('fis_sayisi', 0)} fiş ({kayit.get('fatura_fisi', 0)} fatura fişi, {yeni} diğer fiş)", log)
@@ -847,6 +946,8 @@ def belge_turu_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=Fals
             onceki = yeni
             if not yeni:
                 break
+        if toplam.get("luca"):
+            toplam["mesaj"] = (toplam["mesaj"] + " — " if toplam["mesaj"] else "") + toplam.pop("luca")
         kayit["duzeltme"] = toplam
 
     for kod, metin in istenen:

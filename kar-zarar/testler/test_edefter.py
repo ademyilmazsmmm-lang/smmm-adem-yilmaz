@@ -231,16 +231,16 @@ class UctanUca(unittest.TestCase):
     def test_duzelt_yalniz_fatura_olmayan_fislere_mf_evrak_no_ve_tarih_atar_kaydeder_dogrular(self):
         kod, sonuc, cikti, sahte = calistir(veri=self._duzeltme_veri(), ayar={"sayfa_boyu": 50}, ek_arg=("--duzelt", "--hata-kodu", "20042"))
         self.assertEqual(kod, 0, cikti[-3000:])
-        self.assertEqual(sahte["kaydet"], 1, cikti[-3000:])
-        satirlar = sahte["kaydet_ayrinti"][0]["satirlar"]
-        self.assertEqual(len(satirlar), 3 + 4 + 3 + 3)                       # 4 fis: 3 + 4 (191 satiri) + 3 + 3 satir
-        fis1, fatura, sat, fis4 = satirlar[0:3], satirlar[3:7], satirlar[7:10], satirlar[10:13]
-        self.assertEqual({(d["no"], d["et"], d["bt"]) for d in fis1}, {("92001", "05/10/2026", "MF")})
-        self.assertEqual({(d["no"], d["et"], d["bt"]) for d in fis4}, {("92004", "08/10/2026", "MF")})
-        self.assertEqual({(d["no"], d["et"], d["bt"]) for d in fatura + sat}, {("", "", "")})   # fatura fisleri DEGISMEDI
+        self.assertEqual(sahte["kaydet"], 6, cikti[-3000:])
+        kaydedilen = sahte["kaydet_ayrinti"]
+        self.assertEqual({d["fis_no"] for d in kaydedilen}, {"0301", "0304"})                 # yalniz secilen (fatura olmayan) fislerin satirlari kaydedildi
+        self.assertEqual(len(kaydedilen), 6)                                                  # 3 + 3 satir, TEK TEK
+        self.assertEqual({(d["no"], d["et"], d["bt"]) for d in kaydedilen if d["fis_no"] == "0301"}, {("92001", "05/10/2026", "MF")})
+        self.assertEqual({(d["no"], d["et"], d["bt"]) for d in kaydedilen if d["fis_no"] == "0304"}, {("92004", "08/10/2026", "MF")})
         h = {x["kod"]: x for x in sonuc["ALFA ISLETME"]["hatalar"]}["20042"]
         self.assertEqual((h["fis_sayisi"], h["fatura_fisi"], h["diger_fis"]), (2, 2, 0))          # kalan: yalniz fatura/satis fisleri
         self.assertEqual((h["duzeltme"]["fis"], h["duzeltme"]["satir"], h["duzeltme"]["kaydedildi"], h["duzeltme"]["fatura_fis"]), (2, 6, 1, 2))
+        self.assertEqual(h["duzeltme"]["kayit_hatasi"], 0)
         self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "sorun var")                          # fatura fisleri elle duzeltilecek
         self.assertIn("DÜZELTME 20042: 2 fiş (6 satır) MF + evrak no ile düzeltildi", cikti)
 
@@ -253,7 +253,7 @@ class UctanUca(unittest.TestCase):
     def test_duzelt_kaydi_luca_kabul_etmezse_tekrarlanmaz_ve_bildirilir(self):
         kod, sonuc, cikti, sahte = calistir(veri=self._duzeltme_veri(), ayar={"sayfa_boyu": 50, "kaydet_kabul": False},
                                             ek_arg=("--duzelt", "--hata-kodu", "20042"))
-        self.assertEqual((kod, sahte["kaydet"]), (0, 1), cikti[-2500:])
+        self.assertEqual((kod, sahte["kaydet"]), (0, 6), cikti[-2500:])               # 6 satir kaydedildi, Luca yok saydi
         h = {x["kod"]: x for x in sonuc["ALFA ISLETME"]["hatalar"]}["20042"]
         self.assertIn("azalmadı", h["duzeltme"]["mesaj"])
         self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "sorun var")
@@ -263,8 +263,25 @@ class UctanUca(unittest.TestCase):
         self.assertEqual(kod, 0, cikti[-3000:])
         h = {x["kod"]: x for x in sonuc["ALFA ISLETME"]["hatalar"]}["20042"]
         self.assertEqual((h["fis_sayisi"], h["diger_fis"]), (2, 0), cikti[-3000:])
-        for k in sahte["kaydet_ayrinti"]:                                       # hicbir turda fatura fisinin satirlari degistirilmedi
-            self.assertFalse([d for d in k["satirlar"] if d["bt"] == "MF" and not d["no"]])
+        self.assertEqual({d["fis_no"] for d in sahte["kaydet_ayrinti"]}, {"0301", "0304"})   # hicbir turda fatura fisinin satiri kaydedilmedi
+
+    def test_duzelt_satir_satir_kayit_bitene_kadar_beklenir(self):
+        # her satirin kaydi 0,7 sn: 6 satir ~4,2 sn. Beklenmezse (eski 2,5 sn) liste yarim kayitla okunur ve fis kalir
+        kod, sonuc, cikti, sahte = calistir(veri=self._duzeltme_veri(), ayar={"sayfa_boyu": 50, "kaydet_gecikme": 0.7},
+                                            ek_arg=("--duzelt", "--hata-kodu", "20042"))
+        self.assertEqual(kod, 0, cikti[-3000:])
+        h = {x["kod"]: x for x in sonuc["ALFA ISLETME"]["hatalar"]}["20042"]
+        self.assertEqual((h["fis_sayisi"], h["diger_fis"], h["duzeltme"]["kaydedildi"]), (2, 0, 1), cikti[-3000:])
+        self.assertEqual(len(sahte["kaydet_ayrinti"]), 6)
+
+    def test_duzelt_luca_satir_hatasi_verirse_raporlanir(self):
+        kod, sonuc, cikti, sahte = calistir(veri=self._duzeltme_veri(), ayar={"sayfa_boyu": 50, "kaydet_hata": "ORA-20999: E-Defter Verileri Değiştirilemez."},
+                                            ek_arg=("--duzelt", "--hata-kodu", "20042"))
+        self.assertEqual(kod, 0, cikti[-3000:])
+        h = {x["kod"]: x for x in sonuc["ALFA ISLETME"]["hatalar"]}["20042"]
+        self.assertEqual(h["duzeltme"]["kayit_hatasi"], 6)
+        self.assertIn("Luca kayıt hatası verdi", h["duzeltme"]["mesaj"])
+        self.assertEqual((h["fis_sayisi"], h["diger_fis"]), (4, 2))                              # hicbir sey degismedi
 
     def test_e_defter_kutusu_isaretsizse_tiklanir_etiketle_ayni_hucredeyse_de(self):
         """Gercek Luca'da kutu varsayilan isaretsiz olabilir: isaretlenmezse Luca liste getirmez (eski surum 0 fis sanirdi)."""
