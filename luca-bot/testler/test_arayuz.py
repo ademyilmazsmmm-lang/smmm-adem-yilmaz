@@ -1712,6 +1712,10 @@ class EdefterSekmesiTestleri(ArayuzZemini):
         self.assertEqual(komut[komut.index("--hesap") + 1], "hepsi")
         self.assertEqual(komut[komut.index("--firma") + 1], "ALFA")
         self.assertEqual(self.ed.komut(["A", "B"]).count("--firma-tam"), 2)
+        self.assertNotIn("--tani", self.ed.komut())
+        self.ed.v_tani.set(True)
+        self.assertIn("--tani", self.ed.komut())
+        self.ed.v_tani.set(False)
         self.ed.v_bit.set("01/09/2026")
         with self.assertRaises(ValueError):
             self.ed.komut()

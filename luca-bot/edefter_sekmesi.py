@@ -70,6 +70,7 @@ class EdefterSekmesi(KarZararSekmesi):
         self.v_bit = tk.StringVar(value=bit)
         self.v_firma = tk.StringVar()
         self.v_yenile = tk.BooleanVar(value=False)
+        self.v_tani = tk.BooleanVar(value=False)
         self.ham = []
         self.donem_metni = ""
 
@@ -105,6 +106,9 @@ class EdefterSekmesi(KarZararSekmesi):
                  font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w", justify="left", wraplength=280).pack(fill="x", pady=(16, 0))
         tk.Checkbutton(p, text="Firma listesini Luca'dan yeniden çek", variable=self.v_yenile, font=u.KUCUK,
                        **self.a._kutu_renk()).pack(anchor="w", pady=(10, 0))
+
+        tk.Checkbutton(p, text="Tanı dosyaları kaydet (sorun olursa gönderin)", variable=self.v_tani, font=u.KUCUK,
+                       **self.a._kutu_renk()).pack(anchor="w", pady=(4, 0))
 
         alt = tk.Frame(p, bg=u.ZEMIN)
         alt.pack(side="bottom", fill="x")
@@ -309,6 +313,8 @@ class EdefterSekmesi(KarZararSekmesi):
         ayar_hazirla(self.klasor, self.a.ayarlar, {})
         komut = [self.ui.python_komutu(), "-u", str(self.klasor / "edefter.py"), "--bitince-kapat",
                  "--tarih", f"{bas}-{bit}"] + self._hesap_arg()
+        if self.v_tani.get():
+            komut.append("--tani")
         if tam_firmalar:
             for f in tam_firmalar:
                 komut += ["--firma-tam", f]
