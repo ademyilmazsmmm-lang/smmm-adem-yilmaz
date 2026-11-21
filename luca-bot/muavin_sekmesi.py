@@ -364,7 +364,7 @@ class MuavinSekmesi(KarZararSekmesi):
         return komut
 
     def _baska_calisiyor(self):
-        if self.a.surec or self.a.kz.calisiyor() or self.a.db.calisiyor():
+        if self.a.surec or self.a.kz.calisiyor() or self.a.db.calisiyor() or self.a.ed.calisiyor():
             messagebox.showinfo("Başka çalışma sürüyor", "Fatura indirme / Kâr-Zarar / Defter Beyan çalışıyor; bitince "
                                 "başlatın (ikisi aynı anda Luca'ya girmemeli).", parent=self.a.kok)
             return True

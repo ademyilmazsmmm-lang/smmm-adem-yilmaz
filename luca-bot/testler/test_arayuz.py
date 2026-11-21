@@ -162,6 +162,35 @@ SAHTE_MUAVIN = textwrap.dedent('''
 ''')
 
 
+SAHTE_EDEFTER = textwrap.dedent('''
+    import json, sys
+    from pathlib import Path
+    print("ARGS " + " ".join(sys.argv[1:]), flush=True)
+    donem = sys.argv[sys.argv.index("--tarih") + 1]
+    h = lambda kod, adet, **ek: dict({"kod": kod, "ad": "x", "fis_sayisi": adet, "satir_sayisi": adet * 3, "kesildi": False,
+                                      "mesaj": "", "hata": "", "fisler": [
+        {"fis_no": "0%d" % (1020 + i), "tarih": "0%d/10/2026" % (i + 1), "degismeyen": "9%d" % i, "satir": 3,
+         "evrak": ["8958%d" % i], "bt": "MF", "odeme": "", "tutar": 288.0, "hesap": "102.04", "aciklama": "x"}
+        for i in range(adet)]}, **ek)
+    kodlar = ["20041", "20042", "20044", "20045", "20046", "20047", "20048"]
+    temiz = [h(k, 0) for k in kodlar]
+    firmalar = [
+        {"firma": "ALFA", "donem": donem, "hata": "", "durum": "tamam", "hatalar": temiz},
+        {"firma": "BETA", "donem": donem, "hata": "", "durum": "sorun var",
+         "hatalar": [h("20041", 5)] + temiz[1:5] + [h("20047", 1)] + [h("20048", 0, hata="liste açılmadı")]},
+        {"firma": "GAMA", "donem": donem, "hata": "Toplu Belge Türü ve Ödeme Yöntemi Düzenleme ekranı açılamadı", "durum": "hata", "hatalar": []},
+    ]
+    cikti = Path(__file__).resolve().parent / "cikti"
+    cikti.mkdir(exist_ok=True)
+    for i, f in enumerate(firmalar, 1):
+        print(f"[{i}/{len(firmalar)}] {f['firma']}  (e-Defter kontrolü)", flush=True)
+        (cikti / "edefter.json").write_text(json.dumps({"donem": donem, "firmalar": firmalar[:i]}), encoding="utf-8")
+    from openpyxl import Workbook
+    wb = Workbook(); wb.active.title = "Firmalar"; wb.create_sheet("Uyumsuz fişler"); wb.save(str(cikti / "edefter.xlsx"))
+    print("[OK] 3 firma", flush=True)
+''')
+
+
 class ArayuzZemini(unittest.TestCase):
     """Ortak kurulum (sahte ayarlar, rapor.json, sahte bot); kendi testi yok."""
 
@@ -250,7 +279,7 @@ class ArayuzTestleri(ArayuzZemini):
         self.assertEqual(set(secenekler.values()), {"hepsi", "ofis", "isletme"})
         self.assertIn(o, "".join(secenekler))
         self.assertIn(i, "".join(secenekler))
-        for sekme in (self.app.kz, self.app.db, self.app.mv):
+        for sekme in (self.app.kz, self.app.db, self.app.mv, self.app.ed):
             if sekme.klasor is None:
                 continue
             self.assertEqual(sekme._hesap_arg(), ["--hesap", "hepsi"])
@@ -1625,6 +1654,135 @@ class MuavinSekmesiTestleri(ArayuzZemini):
         self.assertTrue(self.app.db._baska_calisiyor())
         self.assertTrue(db_bilgi)
         self.assertTrue(self.mv.calisiyor())
+
+
+@unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")
+class EdefterSekmesiTestleri(ArayuzZemini):
+    """e-Defter sekmesi: kar-zarar/edefter.py yerine sahte program calisir."""
+
+    def setUp(self):
+        import kar_zarar_sekmesi
+        self.kz_klasor = Path(tempfile.mkdtemp(prefix="ed-test-"))
+        (self.kz_klasor / "kar_zarar.py").write_text("print('x')", encoding="utf-8")
+        (self.kz_klasor / "edefter.py").write_text(SAHTE_EDEFTER, encoding="utf-8")
+        self._eski = kar_zarar_sekmesi.ADAYLAR
+        kar_zarar_sekmesi.ADAYLAR = (self.kz_klasor,)
+        super().setUp()
+        self.ed = self.app.ed
+
+    def tearDown(self):
+        import kar_zarar_sekmesi
+        if self.ed.surec:
+            self.ed.surec.kill()
+            self.ed.surec.wait()
+            self.ed.surec.stdout.close()
+        kar_zarar_sekmesi.ADAYLAR = self._eski
+        super().tearDown()
+
+    def _bilgi_yakala(self):
+        import edefter_sekmesi
+        self.bilgiler = []
+        eski = edefter_sekmesi.messagebox.showinfo
+        edefter_sekmesi.messagebox.showinfo = lambda *a, **k: self.bilgiler.append(a)
+        self.addCleanup(setattr, edefter_sekmesi.messagebox, "showinfo", eski)
+
+    def _calistir(self):
+        self.ed.v_bas.set("01/10/2026")
+        self.ed.v_bit.set("31/10/2026")
+        self.ed.calistir()
+        self.assertIsNotNone(self.ed.surec)
+        self.assertTrue(self._bekle(lambda: self.ed.surec is None))
+
+    def test_sekme_ve_varsayilan_donem(self):
+        self.assertIn("edefter", self.app.sekme_dugmeleri)
+        self.assertEqual(self.app.sekme_dugmeleri["edefter"].cget("text"), "e-Defter")
+        self.app.sekme_sec("edefter")
+        self.kok.update()
+        self.assertTrue(self.ed.govde.winfo_ismapped())
+        self.assertFalse(self.app.mv.govde.winfo_ismapped())
+        self.assertRegex(self.ed.v_bas.get(), r"^01/\d{2}/\d{4}$")          # gecen ayin ilk gunu
+
+    def test_komut_tarih_hesap_ve_firma(self):
+        self.ed.v_bas.set("01/10/2026")
+        self.ed.v_bit.set("31/10/2026")
+        self.ed.v_firma.set("ALFA")
+        komut = self.ed.komut()
+        self.assertEqual(Path(komut[komut.index("-u") + 1]).name, "edefter.py")
+        self.assertEqual(komut[komut.index("--tarih") + 1], "01/10/2026-31/10/2026")
+        self.assertEqual(komut[komut.index("--hesap") + 1], "hepsi")
+        self.assertEqual(komut[komut.index("--firma") + 1], "ALFA")
+        self.assertEqual(self.ed.komut(["A", "B"]).count("--firma-tam"), 2)
+        self.ed.v_bit.set("01/09/2026")
+        with self.assertRaises(ValueError):
+            self.ed.komut()
+
+    def test_calisir_tablo_kod_sayilari_ve_ozet(self):
+        self._calistir()
+        self.assertIn("--tarih 01/10/2026-31/10/2026", self.ed.log_metni())
+        sutunlar = list(self.ed.tablo.sutunlar)
+        self.assertEqual(sutunlar[:4], ["Firma", "Dönem", "Durum", "Uyumsuz fiş"])
+        self.assertEqual(sutunlar[4:11], ["20041", "20042", "20044", "20045", "20046", "20047", "20048"])
+        satirlar = {self.ed.agac.item(i)["values"][0]: [str(x) for x in self.ed.agac.item(i)["values"]]
+                    for i in self.ed.agac.get_children()}
+        self.assertEqual(satirlar["ALFA"][2], "Gönderilebilir (uyumsuz fiş yok)")
+        self.assertEqual(satirlar["BETA"][2], "UYUMSUZ FİŞ VAR")
+        self.assertEqual(satirlar["BETA"][3], "6")                                   # 5 + 1
+        self.assertEqual((satirlar["BETA"][4], satirlar["BETA"][9], satirlar["BETA"][10]), ("5", "1", "?"))   # 20048 taranamadi
+        self.assertIn("20048: liste açılmadı", satirlar["BETA"][11])
+        self.assertEqual(satirlar["GAMA"][2], "Kontrol tamamlanamadı")
+        self.assertIn("ekranı açılamadı", satirlar["GAMA"][11])
+        ozet = self.ed.ozet_etiketi.cget("text")
+        self.assertIn("1 firmada 6 uyumsuz fiş var", ozet)
+        self.assertIn("1 firma e-Defter'e gönderilebilir", ozet)
+        self.assertIn("1 firmada kontrol tamamlanamadı", ozet)
+
+    def test_ayrinti_secim_yoksa_tum_uyumsuz_fisleri_listeler(self):
+        self._calistir()
+        pencereler = []
+        eski = tk.Toplevel
+        self.addCleanup(setattr, tk, "Toplevel", eski)
+        tk.Toplevel = lambda *a, **k: pencereler.append(eski(*a, **k)) or pencereler[-1]
+        self.ed.ayrinti()
+        metin = [w for w in pencereler[0].winfo_children() if isinstance(w, tk.Text)][0].get("1.0", "end")
+        for parca in ("BETA", "20041 Belge türü tanımı yok: 5 fiş", "01020", "01024", "evrak 89580", "BT MF", "3 satır",
+                      "20047 Birden fazla ödeme yöntemi: 1 fiş", "20048 Belge türü fatura olan birden fazla belge: TARANAMADI",
+                      "liste açılmadı", "GAMA", "ekranı açılamadı", "ALFA", "e-Defter kapsamında uyumsuz fiş yok",
+                      "Toplam: 6 uyumsuz fiş (3 firma)"):
+            self.assertIn(parca, metin)
+        pencereler[0].destroy()
+
+    def test_excel_indir_programin_yazdigi_dosyayi_kopyalar(self):
+        import edefter_sekmesi
+        self._calistir()
+        hedef = self.d / "kontrol.xlsx"
+        eski_dialog = edefter_sekmesi.filedialog.asksaveasfilename
+        edefter_sekmesi.filedialog.asksaveasfilename = lambda *a, **k: str(hedef)
+        self.addCleanup(setattr, edefter_sekmesi.filedialog, "asksaveasfilename", eski_dialog)
+        acilan = []
+        self.ed.ui.dosya_ac = lambda yol: acilan.append(yol)
+        self.ed.excele_indir()
+        from openpyxl import load_workbook
+        self.assertEqual(load_workbook(hedef).sheetnames, ["Firmalar", "Uyumsuz fişler"])
+        self.assertEqual(acilan, [str(hedef)])
+
+    def test_baska_calisma_varken_baslamaz_ve_e_defter_calisirken_digerleri_baslamaz(self):
+        self._bilgi_yakala()
+        self.app.surec = mock.MagicMock()
+        self.addCleanup(setattr, self.app, "surec", None)
+        self.assertTrue(self.ed._baska_calisiyor())
+        self.assertTrue(self.bilgiler)
+        self.app.surec = None
+        import muavin_sekmesi
+        mv_bilgi = []
+        eski = muavin_sekmesi.messagebox.showinfo
+        muavin_sekmesi.messagebox.showinfo = lambda *a, **k: mv_bilgi.append(a)
+        self.addCleanup(setattr, muavin_sekmesi.messagebox, "showinfo", eski)
+        self.ed.surec = mock.MagicMock()
+        self.addCleanup(setattr, self.ed, "surec", None)
+        self.assertTrue(self.app.mv._baska_calisiyor())
+        self.assertTrue(mv_bilgi)
+        self.assertTrue(self.ed.calisiyor())
+
 
 
 @unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")

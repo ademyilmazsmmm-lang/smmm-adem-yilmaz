@@ -110,6 +110,21 @@ satır hataları (`hatalar`, `hata_ozeti`) ve **sabit kıymet** sayısı. Durum:
 Gönderme penceresinin metni şöyle okunur: `N. satır için.` satırının altındaki her ek satır o satırın hatasıdır;
 sondaki `gönderim tamamlandı. (N)` hatasız giden kayıt sayısıdır.
 
+## e-Defter ön kontrolü (`edefter.py`)
+
+e-Defter göndermeden önce Luca'nın "Toplu Belge Türü ve Ödeme Yöntemi Düzenleme" ekranındaki e-Defter uyumsuzluk kontrolünü her 1. sınıf
+firma için çalıştırır, uyumsuz fişleri listeler (arayüzde **e-Defter** sekmesi). Luca'da hiçbir şey değiştirilmez (Kaydet'e basılmaz).
+
+```
+python edefter.py --tarih 01/10/2026-31/10/2026
+python edefter.py --tarih 01/10/2026-31/10/2026 --firma-tam "ALFA" --hata-kodu 20041 --tani
+```
+
+- Hata kodları (listeden okunur): 20041, 20042, 20044, 20045, 20046, 20047, 20048. Sonuç `cikti/edefter.json` ve `cikti/edefter.xlsx`
+  (*Firmalar*, *Uyumsuz fişler*); modüller `karzarar/luca_edefter.py` (ekran), `karzarar/edefter_kontrol.py` (sonuç/Excel).
+- Test: `LUCA_TEST_CHROMIUM=... xvfb-run -a python -m unittest testler.test_edefter` (mantık + sahte Luca: ayrı pencerede form/liste, sayfalama, uyarı kutusu).
+- **Gerçek Luca'da denenmedi**; ekran yapısı ekran görüntülerinden alındı. Fiş Listesi ekranındaki ek kodlar (20021, 20025, 20026, XML karakter) henüz yok.
+
 ## Muavin kontrolü (`muavin.py`)
 
 İndirilen gelen/giden faturaların **fatura numarası ve genel toplam (KDV dahil) tutarı** Luca kayıtlarıyla uyuşuyor mu diye bakar

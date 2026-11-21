@@ -286,9 +286,30 @@ kayıtlarıyla uyuşuyor mu?* İkisi de uyuyorsa sorun yoktur. Altta `kar-zarar/
   (muavin ve işletme defteri dökümü ayrıştırıcıları); **Luca'da uçtan uca henüz denenmemiştir**. İlk çalıştırmada günlükteki
   *Muavin formu (tanı)* satırı ve `tani/` klasörü sorun halinde gerekir.
 
-Fatura İndirme, Kâr / Zarar, Defter Beyan ve Muavin aynı anda çalışmaz. **Defter Beyan Gerçek Luca'da henüz denenmemiştir**: önce tek bir firmayla
+Fatura İndirme, Kâr / Zarar, Defter Beyan, Muavin ve e-Defter aynı anda çalışmaz. **Defter Beyan Gerçek Luca'da henüz denenmemiştir**: önce tek bir firmayla
 *Yalnız kontrol*, sonra *Gönder* deneyin; sorun olursa `kar-zarar/cikti/<tarih>/tani/` klasöründeki dosyalar gerekir
 (komut satırı: `python defter_beyan.py --tarih 01/01/2026-30/09/2026 --firma "ALFA" --tani`).
+
+### e-Defter sekmesi (göndermeden önce uyumsuz fiş kontrolü)
+
+**e-Defter** sekmesi, e-Defter'i göndermeden önce Luca'nın kendi kontrolünü tüm firmalarda sizin yerinize çalıştırır
+(`kar-zarar/edefter.py`). Her **1. sınıf (genel muhasebe)** firma için Luca'da **Muhasebe > Fiş İşlemleri > Düzenleme > Toplu Belge Türü ve Ödeme
+Yöntemi Düzenleme** ekranı açılır (ayrı bir pencerede), *Fiş Tarihi* sekmedeki tarih aralığına ayarlanır, *E-Defter kapsamında uyumsuz olan fişleri
+getir* işaretli kalır ve *E-Defter hata* listesindeki her hata kodu için **Listele**'ye basılıp açılan "E-Defter Uyumsuz Fişleri Düzenleme" listesi
+okunur (tüm sayfalar): 20041 belge türü tanımı yok · 20042 belge tür / evrak no / tarih uyumsuz · 20044 birden fazla belge · 20045 birden fazla
+belge türü · 20046 100'den fazla fatura · 20047 birden fazla ödeme yöntemi · 20048 fatura türünde birden fazla belge.
+
+- Tabloda firma başına hata kodu sütunlarında **uyumsuz fiş sayısı** görünür; **Uyumsuz fişler** düğmesi (ya da çift tıklama) fişleri listeler:
+  *Fiş No – Fiş Tarihi – Evrak No – BT (belge türü) – Ödeme türü – satır sayısı* (Luca'da Fiş No ile aranır). Excel'de *Firmalar* ve *Uyumsuz fişler* sayfaları.
+- Durum: **Gönderilebilir** (hiçbir kodda uyumsuz fiş yok), **UYUMSUZ FİŞ VAR**, **Kontrol tamamlanamadı** (ekran açılamadı ya da bir kodun listesi
+  okunamadı: tam kontrol değildir, "gönderilebilir" denmez).
+- **Luca'da hiçbir şey değiştirilmez:** *Kaydet* ve *Toplu Değer Ata* düğmelerine hiç basılmaz; düzeltmeyi siz Luca'da yaparsınız.
+- Varsayılan dönem geçen aydır (e-Defter aylık gönderilir). Çok fişli firmalarda bir kod için en çok 60 sayfa okunur (aşılırsa sayı "en az" olarak yazılır);
+  JSON/Excel'e kod başına en çok 300 fiş yazılır (sayı her zaman tamdır).
+- **Gerçek Luca'da henüz denenmemiştir.** Form ve sonuç listesinin yapısı ekran görüntülerinden alınmıştır; ilk denemede `--tani` ile bir firmayla
+  çalıştırın (`python edefter.py --tarih 01/10/2026-31/10/2026 --firma-tam "FIRMA" --tani`); `tani/` klasörü ve günlük sorun halinde gerekir.
+  *Fiş Listesi* ekranındaki ek kodlar (20021 numaralandırılmamış fiş, 20025 dengesiz/pasif fiş, 20026 detaysız fiş, XML'de hataya neden olan karakter)
+  henüz taranmaz.
 
 ### Beyanname Takip sekmesi
 
@@ -591,6 +612,7 @@ kişiye gidebilir. Program klasöründeki `mail-yonlendirme.json` (ya da `ayarla
 | `beyanname_sekmesi.py`, `lucabot/beyanname_takip.py` | Arayüzün Beyanname Takip sekmesi ve `beyanname-takip/` programını başlatma/durdurma/okuma mantığı |
 | `defter_beyan_sekmesi.py` | Arayüzün Defter Beyan sekmesi (2. sınıf gönderme/kontrol); `kar-zarar/defter_beyan.py` çalışır |
 | `muavin_sekmesi.py` | Arayüzün Muavin sekmesi (faturası olup muavinde olmayanlar); `kar-zarar/muavin.py` çalışır |
+| `edefter_sekmesi.py` | Arayüzün e-Defter sekmesi (göndermeden önce uyumsuz fişler); `kar-zarar/edefter.py` çalışır |
 | `gostergeler.py` | Arayüzün alt kutuları (tevkifat KDV, SMM, interaktif farkı, KDV ödemesi); arayüzün kendisi `luca_arayuz.py` |
 | `firma_tablosu.py` | `firmalar.xlsx` şablonu, arayüzdeki Firma / Ekran Seçimi tablosunun okunup yazılması, Luca listesiyle karşılaştırma/birleştirme |
 | `luca_beyanname.py` | Luca'nın GİB Beyanname Takip ekranından KDV1 PDF'lerini toplu indirme |

@@ -218,8 +218,15 @@ MIZAN_MENU_JS = """
  var menuItems = [["Muhasebe", ""], ["|||Mizan", "raporMizanHazirla.do?c_musteri_id=1"],
                   ["||||Muavin Defter", "raporMuavinDefterNoktaVurusluHazirla.do?c_musteri_id=1"],   // Nokta Vurusulu: Excel YOK (once gelir)
                   ["|||||Muavin Defter", "raporMuavinDefterHazirla.do?c_musteri_id=1"],
-                  ["||||İşletme Defteri Dökümü", "raporIsletmeDefteriHazirla.do?c_musteri_id=1"]];
- function aktar(link) { sekmeAc((link.indexOf('Nokta') >= 0 ? '/muavin-nokta' : link.indexOf('Muavin') >= 0 ? '/muavin' : link.indexOf('Isletme') >= 0 ? '/isletme' : '/mizan') + '?firma=' + encodeURIComponent(seciliFirma) + '&t=' + Date.now()); }
+                  ["||||İşletme Defteri Dökümü", "raporIsletmeDefteriHazirla.do?c_musteri_id=1"],
+                  ["||||Toplu Belge Türü ve Ödeme Yöntemi Düzenleme", "parameterBelgeTuruDuzenlemeAction.do?tip=jsp&c_musteri_id=1"]];
+ function aktar(link) {
+   if (link.indexOf('BelgeTuruDuzenleme') >= 0) {   // gercek Luca: form ayri bir tarayici penceresinde acilir
+     window.open('/edefter-form?firma=' + encodeURIComponent(seciliFirma) + '&t=' + Date.now(), '_blank', 'popup,width=1100,height=800');
+     return;
+   }
+   sekmeAc((link.indexOf('Nokta') >= 0 ? '/muavin-nokta' : link.indexOf('Muavin') >= 0 ? '/muavin' : link.indexOf('Isletme') >= 0 ? '/isletme' : '/mizan') + '?firma=' + encodeURIComponent(seciliFirma) + '&t=' + Date.now());
+ }
 """
 sahte_luca.ANA_SAYFA = sahte_luca.ANA_SAYFA.replace("</script></body></html>", MIZAN_MENU_JS + "</script></body></html>", 1)
 
@@ -587,6 +594,88 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
 </script></body></html>"""
 
 
+# --- Luca > Muhasebe > Fis Islemleri > Duzenleme > Toplu Belge Turu ve Odeme Yontemi Duzenleme (e-Defter on kontrolu) ---
+# EDEFTER_VERI[(firma, hata kodu)] = [fis]; fis = {"fis_no", "degismeyen", "tarih", "satirlar": [(hesap kodu, hesap adi, borc, alacak,
+# aciklama, evrak no, evrak tarihi, bt, odeme)]}. Form ve liste gercek ekran goruntulerindeki gibi ayri pencerelerde acilir.
+EDEFTER_VERI = {}
+EDEFTER_AYAR = {"sayfa_boyu": 2, "kayit_yok": "bos_liste", "ayni_pencere": False, "belge_bos_varsayilan": False,
+                "istekler": [], "kaydet": 0}
+EDEFTER_HATALAR = [("20041", "... nolu fiş içinde ... belge türünün tanımı yok.( Hata Kodu: 20041)"),
+                   ("20042", "... nolu fiş(ler) içinde ilgili belge tür kodlu satırda evrak no ve tarihi girilmelidir.( Hata Kodu: 20042)"),
+                   ("20044", "... nolu fiş(ler)de birden fazla belge mevcut.(Hata Kodu: 20044)"),
+                   ("20045", "... nolu fiş(ler)de birden fazla belge tür mevcut.(Hata Kodu: 20045)"),
+                   ("20046", "... nolu fiş(ler)de 100 den fazla fatura mevcut.(Hata Kodu: 20046)"),
+                   ("20047", "... nolu fiş(ler)de birden fazla ödeme yöntemi mevcut.(Hata Kodu: 20047)"),
+                   ("20048", "... nolu fiş(ler)de belge türü fatura olan birden fazla belge mevcut.(Hata Kodu: 20048)")]
+EDEFTER_FORM_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>BELGE TÜRÜ DÜZENLEME - Google Chrome</title>
+""" + ORTAK_STIL + """</head><body>
+<h3>BELGE TÜRÜ DÜZENLEME</h3>
+<table class="form_table">
+<tr><th>Fiş Tarihi *</th><td><input type="text" id="tarih_ilk"></td><td><img alt="takvim"></td><td></td>
+    <td><input type="text" id="tarih_son"></td><td><img alt="takvim"></td></tr>
+<tr><th>Evrak No Dolu</th><td><input type="checkbox" id="c_evrak_no_dolu"></td></tr>
+<tr><th>Evrak Tarihi Dolu</th><td><input type="checkbox" id="c_evrak_tarihi_dolu"></td></tr>
+<tr><th>Evrak Tarihi Boş Olan</th><td><input type="checkbox" id="c_evrak_tarihi_bos"></td></tr>
+<tr><th>Belge Türü Boş Olan</th><td><input type="checkbox" id="c_belge_turu_bos" __BELGE_BOS__></td></tr>
+<tr><th>Ödeme Türü Boş Olan</th><td><input type="checkbox" id="c_odeme_turu_bos"></td></tr>
+<tr><th>Entegrasyon Fişlerini de (LucaNET ve KOZA) getir</th><td><input type="checkbox" checked disabled></td></tr>
+<tr><th>Hesap Kodu</th><td><input type="text" id="hesap_kodu"></td></tr>
+<tr><th>E-Defter kapsamında uyumsuz olan fişleri getir</th><td><input type="checkbox" id="c_edefter" checked></td></tr>
+<tr><th>E-Defter hata:</th><td><select id="edefter_hata">__SECENEKLER__</select></td></tr>
+<tr><th>Sayfa No/Kayıt Sayısı</th><td><input type="text" id="sayfa_no"></td></tr>
+</table>
+<div><button type="button" id="listele" onclick="listele()"><i></i> Listele</button></div>
+<script>
+ function listele() {
+   const v = id => encodeURIComponent(document.getElementById(id).value);
+   const c = id => document.getElementById(id).checked ? '1' : '0';
+   const kod = (/Hata\\s*Kodu:\\s*(\\d+)/.exec(document.getElementById('edefter_hata').selectedOptions[0].text) || [])[1] || '';
+   const q = '?firma=__FIRMA__&kod=' + kod + '&bas=' + v('tarih_ilk') + '&bit=' + v('tarih_son') + '&edefter=' + c('c_edefter')
+           + '&belge_bos=' + c('c_belge_turu_bos') + '&evrak_dolu=' + c('c_evrak_no_dolu');
+   const ac = () => { if (__AYNI__) location.href = '/edefter-liste' + q + '&sayfa=1';
+                      else window.open('/edefter-liste' + q + '&sayfa=1', '_blank', 'popup,width=1200,height=800'); };
+   if (__UYARI__) fetch('/api/edefter-say' + q).then(r => r.json()).then(n => { if (!n) alert('Kayıt bulunamadı.'); else ac(); });
+   else ac();
+ }
+</script></body></html>"""
+EDEFTER_LISTE_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>E-DEFTER UYUMSUZ FİŞLERİ DÜZENLEME - Google Chrome</title>
+""" + ORTAK_STIL + """</head><body>
+<h4>E-DEFTER UYUMSUZ FİŞLERİ DÜZENLEME</h4>
+<table id="liste" border="1"><thead><tr><th><input type="checkbox"></th><th>Sıra</th><th>Fiş No</th><th>Değişmeyen Fiş No</th><th>Fiş Tarihi</th>
+<th>Hesap Kodu</th><th>Borç</th><th>Alacak</th><th>Açıklama</th><th>Evrak No</th><th>Evrak Tarihi</th><th>BT</th><th>Ödeme Türü</th><th>Durum</th></tr></thead>
+<tbody>__SATIRLAR__</tbody></table>
+<div id="alt"><button type="button" onclick="git(-1)"><i></i></button><button type="button" onclick="git(1)"><i></i></button>
+<b>Sayfa No: __SAYFA__</b>
+<button type="button">Toplu Değer Ata</button><button type="button">Toplu Değer Seç</button><button type="button">Filtre</button>
+<button type="button" onclick="fetch('/api/edefter-kaydet')"><img alt="kaydet"> Kaydet</button></div>
+<script>function git(d) { const u = new URL(location.href); u.searchParams.set('sayfa', Math.max(1, __SAYFA__ + d)); location.href = u.toString(); }</script>
+</body></html>"""
+
+
+def edefter_fisleri(firma, kod):
+    return EDEFTER_VERI.get((firma, kod), [])
+
+
+def edefter_liste_html(q):
+    fisler = edefter_fisleri(q.get("firma", ""), q.get("kod", ""))
+    boyut = EDEFTER_AYAR["sayfa_boyu"]
+    sayfa = max(1, int(q.get("sayfa") or 1))
+    parca = fisler[(sayfa - 1) * boyut: sayfa * boyut]
+    satirlar = []
+    sira = (sayfa - 1) * boyut
+    for f in parca:
+        sira += 1
+        for i, (hk, ha, borc, alacak, aciklama, evrak, evrak_t, bt, odeme) in enumerate(f["satirlar"]):
+            ilk = i == 0
+            satirlar.append(
+                "<tr><td><input type='checkbox'></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s<br>%s</td><td>%s</td><td>%s</td><td>%s</td>"
+                "<td><input type='text' value='%s'></td><td><input type='text' value='%s'></td><td>%s</td><td><input type='text' value='%s'></td><td></td></tr>"
+                % (sira if ilk else "", ("<a href='#'>%s</a>" % f["fis_no"]) if ilk else "", f["degismeyen"] if ilk else "",
+                   f["tarih"] if ilk else "", hk, ha, tr_sayi(borc), tr_sayi(alacak), aciklama, evrak, evrak_t, bt, odeme))
+    return EDEFTER_LISTE_SAYFASI.replace("__SATIRLAR__", "".join(satirlar)).replace("__SAYFA__", str(sayfa))
+
+
+
 class Isleyici(sahte_luca.Isleyici):
     """Once kar/zarar rotalari, bulunamazsa Luca taklidi."""
 
@@ -623,6 +712,24 @@ class Isleyici(sahte_luca.Isleyici):
             time.sleep(DB_AYAR["yavas"])
             return self._yanit(json.dumps(db_liste(DB_SEC["firma"], q["tur"], q["bas"], q["bit"], q["durum"]),
                                           ensure_ascii=False), "application/json")
+        if yol == "/edefter-form":
+            secenekler = "".join(f"<option>{m}</option>" for _, m in EDEFTER_HATALAR)
+            return self._yanit(EDEFTER_FORM_SAYFASI.replace("__FIRMA__", firma).replace("__SECENEKLER__", secenekler)
+                               .replace("__BELGE_BOS__", "checked" if EDEFTER_AYAR["belge_bos_varsayilan"] else "")
+                               .replace("__AYNI__", "true" if EDEFTER_AYAR["ayni_pencere"] else "false")
+                               .replace("__UYARI__", "true" if EDEFTER_AYAR["kayit_yok"] == "uyari" else "false"))
+        if yol == "/api/edefter-say":
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
+            return self._yanit(json.dumps(len(edefter_fisleri(q.get("firma", ""), q.get("kod", "")))), "application/json")
+        if yol == "/api/edefter-kaydet":
+            with KILIT:
+                EDEFTER_AYAR["kaydet"] += 1
+            return self._yanit("{}", "application/json")
+        if yol == "/edefter-liste":
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
+            with KILIT:
+                EDEFTER_AYAR["istekler"].append(q)
+            return self._yanit(edefter_liste_html(q))
         if yol == "/muavin-nokta":
             with KILIT:
                 MUAVIN_AYAR.setdefault("nokta_acildi", 0)
@@ -739,6 +846,8 @@ def sifirla():
     DB_AYAR.update(gonderim_hatasi=False, api_bos=False, satir_hatasi=False, sabit_hatasi=False, jqx=False, cari_yok=False, secim_calismaz=False, tarih_bozuk=False, filtre_yok=False, yavas=0.0)
     DB_OLAYLAR.clear()
     MUAVIN_VERI.clear()
+    EDEFTER_VERI.clear()
+    EDEFTER_AYAR.update(sayfa_boyu=2, kayit_yok="bos_liste", ayni_pencere=False, belge_bos_varsayilan=False, istekler=[], kaydet=0)
     ISLETME_VERI.clear()
     ISLETME_AYAR["istekler"] = []
     MUAVIN_AYAR.update(hesap_alani=True, excel_adi="Excel (xlsx)", istekler=[], nokta_acildi=0)
