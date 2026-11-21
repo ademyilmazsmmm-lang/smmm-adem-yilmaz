@@ -1721,16 +1721,16 @@ class EdefterSekmesiTestleri(ArayuzZemini):
         self.assertIn("--tarih 01/10/2026-31/10/2026", self.ed.log_metni())
         sutunlar = list(self.ed.tablo.sutunlar)
         self.assertEqual(sutunlar[:4], ["Firma", "Dönem", "Durum", "Uyumsuz fiş"])
-        self.assertEqual(sutunlar[4:11], ["20041", "20042", "20044", "20045", "20046", "20047", "20048"])
+        self.assertEqual(sutunlar[4:14], ["20021", "20025", "20026", "20041", "20042", "20044", "20045", "20046", "20047", "20048"])
         satirlar = {self.ed.agac.item(i)["values"][0]: [str(x) for x in self.ed.agac.item(i)["values"]]
                     for i in self.ed.agac.get_children()}
         self.assertEqual(satirlar["ALFA"][2], "Gönderilebilir (uyumsuz fiş yok)")
         self.assertEqual(satirlar["BETA"][2], "UYUMSUZ FİŞ VAR")
         self.assertEqual(satirlar["BETA"][3], "6")                                   # 5 + 1
-        self.assertEqual((satirlar["BETA"][4], satirlar["BETA"][9], satirlar["BETA"][10]), ("5", "1", "?"))   # 20048 taranamadi
-        self.assertIn("20048: liste açılmadı", satirlar["BETA"][11])
+        self.assertEqual((satirlar["BETA"][7], satirlar["BETA"][12], satirlar["BETA"][13]), ("5", "1", "?"))   # 20041, 20047, 20048 taranamadi
+        self.assertIn("20048: liste açılmadı", satirlar["BETA"][14])
         self.assertEqual(satirlar["GAMA"][2], "Kontrol tamamlanamadı")
-        self.assertIn("ekranı açılamadı", satirlar["GAMA"][11])
+        self.assertIn("ekranı açılamadı", satirlar["GAMA"][14])
         ozet = self.ed.ozet_etiketi.cget("text")
         self.assertIn("1 firmada 6 uyumsuz fiş var", ozet)
         self.assertIn("1 firma e-Defter'e gönderilebilir", ozet)

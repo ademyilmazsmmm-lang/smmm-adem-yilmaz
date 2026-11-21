@@ -104,13 +104,15 @@ class SafMantik(unittest.TestCase):
         self.assertEqual(fisler[1][2], "Belge türü tanımı yok")
 
 
-def calistir(klasor_rapor=None, veri=None, ayar=None, ek_arg=(), firma="ALFA ISLETME", tarih="01/10/2026-31/10/2026",
+def calistir(klasor_rapor=None, veri=None, ayar=None, fis_veri=None, fis_modlar=None, ek_arg=(), firma="ALFA ISLETME", tarih="01/10/2026-31/10/2026",
              tum_firmalar=True):
     """Sahte Luca + edefter.py: (cikis kodu, sonuc sozlugu {firma: sonuc}, cikti, sahte sunucunun kaydettikleri)."""
     import sahte_kz
     sahte_kz.sifirla()
     sahte_kz.EDEFTER_VERI.update(veri or {})
     sahte_kz.EDEFTER_AYAR.update(ayar or {})
+    sahte_kz.FIS_VERI.update(fis_veri or {})
+    sahte_kz.FIS_AYAR["modlar"].update(fis_modlar or {})
     klasor = Path(tempfile.mkdtemp(prefix="edefter-uu-"))
     sunucu, adres = sahte_kz.baslat()
     ayarlar = {"giris_adresi": adres, "tarayici": "chromium", "tarayici_yolu": os.environ.get("LUCA_TEST_CHROMIUM", ""),
@@ -127,7 +129,8 @@ def calistir(klasor_rapor=None, veri=None, ayar=None, ek_arg=(), firma="ALFA ISL
     except OSError:
         sonuc = {}
     calistir.klasor = klasor
-    return r.returncode, sonuc, r.stdout + r.stderr, dict(sahte_kz.EDEFTER_AYAR, istekler=list(sahte_kz.EDEFTER_AYAR["istekler"]))
+    return r.returncode, sonuc, r.stdout + r.stderr, dict(sahte_kz.EDEFTER_AYAR, istekler=list(sahte_kz.EDEFTER_AYAR["istekler"]),
+                                                         fis_istekler=list(sahte_kz.FIS_AYAR["istekler"]))
 
 
 def fis(no, deg, tarih, evrakli=True, bt="MF", durum="Evrak No boş olamaz."):
@@ -144,6 +147,9 @@ class UctanUca(unittest.TestCase):
         except ImportError as e:
             self.skipTest(str(e))
         f = "ALFA ISLETME"
+        self.fis_veri = {(f, "20021", "Ekim"): [{"fis_no": "00012", "tarih": "03/10/2026", "aciklama": "numarasız fiş"},
+                                                 {"fis_no": "00013", "tarih": "04/10/2026", "aciklama": "ikinci"}],
+                         (f, "20025", "Ekim"): [{"fis_no": "1", "tarih": "x", "aciklama": "y"}] * 3}
         self.veri = {(f, "20041"): [fis(f"0{100 + i}", f"9000{i}", f"0{i}/10/2026") for i in range(1, 6)],     # 5 fis: 3 sayfa
                      (f, "20047"): [fis("0200", "91000", "09/10/2026", bt="FT")]}
 
@@ -151,9 +157,10 @@ class UctanUca(unittest.TestCase):
         s = sonuc["ALFA ISLETME"]
         self.assertEqual(s["durum"], "sorun var", cikti[-2500:])
         kodlar = {h["kod"]: h for h in s["hatalar"]}
-        self.assertEqual(list(kodlar), ["20041", "20042", "20044", "20045", "20046", "20047", "20048"])
+        self.assertEqual(list(kodlar), ["20041", "20042", "20044", "20045", "20046", "20047", "20048", "20021", "20025", "20026"])
         self.assertEqual({k: h["fis_sayisi"] for k, h in kodlar.items()},
-                         {"20041": 5, "20042": 0, "20044": 0, "20045": 0, "20046": 0, "20047": 1, "20048": 0})
+                         {"20041": 5, "20042": 0, "20044": 0, "20045": 0, "20046": 0, "20047": 1, "20048": 0,
+                          "20021": 2, "20025": 3, "20026": 0})
         h = kodlar["20041"]
         self.assertEqual([f["fis_no"] for f in h["fisler"]], ["0101", "0102", "0103", "0104", "0105"])     # 3 sayfa birlestirildi
         self.assertEqual((h["satir_sayisi"], h["kesildi"], h["fisler"][0]["satir"], h["fisler"][0]["evrak"], h["fisler"][0]["bt"]),
@@ -166,7 +173,7 @@ class UctanUca(unittest.TestCase):
         self.assertIn("UYUMSUZ  20047", cikti)
 
     def test_her_hata_kodu_icin_liste_okunur_sayfalar_birlestirilir_kaydet_basilmaz(self):
-        kod, sonuc, cikti, sahte = calistir(veri=self.veri)
+        kod, sonuc, cikti, sahte = calistir(veri=self.veri, fis_veri=self.fis_veri)
         self.assertEqual(kod, 0, cikti[-2500:])
         self._dogrula(sonuc, cikti)
         self.assertEqual(sahte["kaydet"], 0)                                           # Kaydet'e hic basilmadi
@@ -195,6 +202,30 @@ class UctanUca(unittest.TestCase):
         self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "hata")                       # 'gonderilebilir' denmez
         self.assertEqual(sahte["istekler"], [])
 
+    def test_fis_listesi_kodlari_tablo_uyari_ve_kayit_yok(self):
+        kod, sonuc, cikti, sahte = calistir(veri=self.veri, fis_veri=self.fis_veri, ek_arg=["--hata-kodu", "20021", "--hata-kodu", "20025", "--hata-kodu", "20026"])
+        self.assertEqual(kod, 0, cikti[-2500:])
+        s = sonuc["ALFA ISLETME"]
+        kodlar = {h["kod"]: h for h in s["hatalar"]}
+        self.assertEqual(list(kodlar), ["20021", "20025", "20026"])                              # Belge Turu ekrani acilmadi
+        self.assertNotIn("Belge Türü Düzenleme formu açıldı", cikti)
+        self.assertEqual([(f["fis_no"], f["tarih"], f["aciklama"]) for f in kodlar["20021"]["fisler"]],
+                         [("00012", "03/10/2026", "numarasız fiş"), ("00013", "04/10/2026", "ikinci")])
+        self.assertEqual((kodlar["20021"]["fis_sayisi"], kodlar["20025"]["fis_sayisi"], kodlar["20026"]["fis_sayisi"]), (2, 3, 0))
+        self.assertIn("3 adet dengesiz", kodlar["20025"]["mesaj"])
+        self.assertIn("bulunamad", kodlar["20026"]["mesaj"])
+        self.assertEqual(s["durum"], "sorun var")
+        # E-Defter Ay = donemin ayi (Ekim), onay kutusu isaretli, istenen kodlar sorgulandi
+        self.assertEqual({(i["kod"], i["ay"], i["edefter"]) for i in sahte["fis_istekler"]},
+                         {("20021", "Ekim", "1"), ("20025", "Ekim", "1"), ("20026", "Ekim", "1")})
+        self.assertIn("Fiş Listesi: E-Defter Ay=Ekim", cikti)
+
+    def test_fis_listesi_sonucu_okunamazsa_hata_yazilir_gonderilebilir_denmez(self):
+        kod, sonuc, cikti, sahte = calistir(veri=self.veri, fis_modlar={"20025": "hicbir"}, ek_arg=["--hata-kodu", "20025"])
+        s = sonuc["ALFA ISLETME"]
+        self.assertIn("tablo ya da mesaj gelmedi", s["hatalar"][0]["hata"])
+        self.assertEqual(s["durum"], "hata")
+
     def test_belge_turu_bos_olan_kutusu_kapatilir(self):
         kod, sonuc, cikti, sahte = calistir(veri=self.veri, ayar={"belge_bos_varsayilan": True}, ek_arg=["--hata-kodu", "20041"])
         self.assertEqual(kod, 0, cikti[-2500:])
@@ -206,7 +237,10 @@ class UctanUca(unittest.TestCase):
         self.assertEqual(kod, 0, cikti[-2500:])
         s = sonuc["ALFA ISLETME"]
         self.assertEqual(s["durum"], "tamam", cikti[-2500:])
-        self.assertTrue(all(h["fis_sayisi"] == 0 and not h["hata"] and "bulunamad" in h["mesaj"] for h in s["hatalar"]), s["hatalar"])
+        belge = [h for h in s["hatalar"] if h["kod"] not in le.FIS_KODLARI]
+        self.assertEqual(len(belge), 7)
+        self.assertTrue(all(h["fis_sayisi"] == 0 and not h["hata"] and "bulunamad" in h["mesaj"] for h in belge), s["hatalar"])
+        self.assertTrue(all(h["fis_sayisi"] == 0 and not h["hata"] for h in s["hatalar"]), s["hatalar"])
         self.assertIn("e-Defter kapsamında uyumsuz fiş yok", cikti)
 
     def test_adi_verilen_firma_kayitli_listede_yoksa_liste_yenilenir_hala_yoksa_atlanir(self):

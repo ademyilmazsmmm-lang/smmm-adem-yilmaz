@@ -52,9 +52,14 @@ MENU_ICEREN_JS = r"""anahtar => {
 FORM_VAR_JS = r"""() => {
   const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
   const l = document.querySelectorAll('th, td, label, span, div, b');
-  for (let i = 0; i < l.length; i++)
-    if (!l[i].children.length && g(l[i]) && /^E-?\s*Defter\s*hata/i.test((l[i].textContent || '').trim())) return true;
-  return false;
+  let hata = false, belge = false;
+  for (let i = 0; i < l.length; i++) {
+    if (l[i].children.length || !g(l[i])) continue;
+    const t = (l[i].textContent || '').trim();
+    if (/^E-?\s*Defter\s*hata/i.test(t)) hata = true;
+    if (/^Belge\s*Türü\s*Boş\s*Olan/i.test(t)) belge = true;     // Fiş Listesi'nde de "E-Defter Hata" var: bu etiket ayirir
+  }
+  return hata && belge;
 }"""
 
 # Formu okur ve doldurur. arg: {bas, bit, kod ('' = secimi degistirme), kapali: [...], acik: '...'}
@@ -135,21 +140,21 @@ FORM_JS = r"""arg => {
   return sonuc;
 }"""
 
-LISTE_VAR_JS = r"""() => {
+LISTE_VAR_JS = r"""capa => {
   const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
   const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\s.\-()*:\/]/g, '');
   const c = document.querySelectorAll('th, td');
-  for (let i = 0; i < c.length; i++) if (g(c[i]) && !c[i].children.length && duz(c[i].textContent) === 'değişmeyenfişno') return true;
+  for (let i = 0; i < c.length; i++) if (g(c[i]) && !c[i].children.length && duz(c[i].textContent) === capa) return true;
   return false;
 }"""
 
 # Listeyi okur: {basliklar, satirlar, sayfa}; baslik hucresi 'Degismeyen Fis No' olan tablo
-LISTE_OKU_JS = r"""() => {
+LISTE_OKU_JS = r"""capa => {
   const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
   const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\s.\-()*:\/]/g, '');
   const sade = t => (t || '').replace(/\s+/g, ' ').trim();
   let bas = null;
-  for (const c of document.querySelectorAll('th, td')) if (g(c) && !c.children.length && duz(c.textContent) === 'değişmeyenfişno') { bas = c; break; }
+  for (const c of document.querySelectorAll('th, td')) if (g(c) && !c.children.length && duz(c.textContent) === capa) { bas = c; break; }
   if (!bas) return null;
   const hsatir = bas.closest('tr'), tablo = hsatir.closest('table');
   const basliklar = Array.from(hsatir.children).map(c => sade(c.textContent));
@@ -215,7 +220,7 @@ def ek_sayfalari_kapat(ctx, ana):
                 pass
 
 
-def _bul(ctx, js):
+def _bul(ctx, js, arg=None):
     """js'in true dondurdugu (sayfa, cerceve) ya da None; acilan pencereler de taranir."""
     for pg in acik_sayfalar(ctx):
         try:
@@ -224,7 +229,7 @@ def _bul(ctx, js):
             continue
         for fr in cerceveler:
             try:
-                if fr.evaluate(js):
+                if fr.evaluate(js, arg):
                     return pg, fr
             except Exception:
                 continue
@@ -235,8 +240,12 @@ def form_bul(ctx):
     return _bul(ctx, FORM_VAR_JS)
 
 
-def liste_bul(ctx):
-    return _bul(ctx, LISTE_VAR_JS)
+CAPA_BELGE = "değişmeyenfişno"      # E-Defter Uyumsuz Fisleri listesinin baslik hucresi (duz metin)
+CAPA_FIS = "fişno"                  # Fis Listesi tablosunun baslik hucresi
+
+
+def liste_bul(ctx, capa=CAPA_BELGE):
+    return _bul(ctx, LISTE_VAR_JS, capa)
 
 
 def dinle(pg, mesajlar):
@@ -399,17 +408,17 @@ def _imza(r):
     return (r.get("sayfa"), tuple(tuple(s[:5]) for s in r["satirlar"][:3]))
 
 
-def liste_oku(ana, liste, log=None, sayfa_siniri=SAYFA_SINIRI):
+def liste_oku(ana, liste, log=None, sayfa_siniri=SAYFA_SINIRI, capa=CAPA_BELGE, grupla=None):
     """Acilan e-Defter uyumsuz fis listesini tum sayfalariyla okur: {fis_sayisi, satir_sayisi, fisler, kesildi, sayfa}."""
     pg, fr = liste
     fisler, satir_sayisi, kesildi, sayfa_sayisi = {}, 0, False, 0
     for sayfa_sayisi in range(1, sayfa_siniri + 1):
-        r = fr.evaluate(LISTE_OKU_JS)
+        r = fr.evaluate(LISTE_OKU_JS, capa)
         if not r or not r["satirlar"]:
             sayfa_sayisi -= 1          # bos sayfa: sayilmaz
             break
         satir_sayisi += len(r["satirlar"])
-        fisleri_grupla(r["basliklar"], r["satirlar"], fisler)
+        (grupla or fisleri_grupla)(r["basliklar"], r["satirlar"], fisler)
         try:
             tiklandi = fr.evaluate(SONRAKI_JS)
         except Exception:
@@ -419,7 +428,7 @@ def liste_oku(ana, liste, log=None, sayfa_siniri=SAYFA_SINIRI):
         imza = _imza(r)
 
         def degisti():
-            x = fr.evaluate(LISTE_OKU_JS)
+            x = fr.evaluate(LISTE_OKU_JS, capa)
             return bool(x) and _imza(x) != imza
         if not kosulu_bekle(ana, degisti, 8000, aralik_ms=300):
             break                   # sonraki'ne basildi ama sayfa degismedi: son sayfa
@@ -431,8 +440,8 @@ def liste_oku(ana, liste, log=None, sayfa_siniri=SAYFA_SINIRI):
             "fisler": liste_fis[:FIS_SINIRI], "sayfa": sayfa_sayisi}
 
 
-def edefter_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, kodlar=None):
-    """Acik firmanin e-Defter hata kodlarini tarar: [{kod, ad, fis_sayisi, satir_sayisi, kesildi, fisler, mesaj, hata}].
+def belge_turu_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, kodlar=None):
+    """Toplu Belge Turu Duzenleme ekraninda e-Defter hata kodlarini tarar: [{kod, ad, fis_sayisi, satir_sayisi, kesildi, fisler, mesaj, hata}].
 
     kodlar: yalniz bu hata kodlari (None: listedeki hepsi). Bir kodun taranmasi basarisiz olursa o kodun kaydina 'hata' yazilir,
     digerleri taranmaya devam eder."""
@@ -492,4 +501,279 @@ def edefter_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, 
             yaz(f"    {kod}: HATA {kayit['hata']}", log)
         sonuc.append(kayit)
     ek_sayfalari_kapat(ctx, page)
+    return sonuc
+
+
+# --- Fis Listesi ekrani: Muhasebe > Fis Islemleri > Fis Listesi (20021 / 20025 / 20026) -------------------------------------
+# Ekran goruntusu: Ilk/Son Fis Tarihi (e-Defter kutusu isaretliyken gri), "E-Defter kapsaminda uyumsuz olan fisleri getir"
+# onay kutusu, "E-Defter Ay" (Ocak...) ve "E-Defter Hata:" listesi. Tarihleri E-Defter Ay belirler. Sonuc ekraninin yapisi
+# henuz gorulmedi: ekranda 'Fis No' baslikli bir tablo, uyari kutusu ya da sayfadaki mesaj aranir; hicbiri gelmezse HATA yazilir
+# (sessizce "sorun yok" denmez) ve tani/ klasorune ekran kaydedilir.
+FIS_KODLARI = ("20021", "20025", "20026")
+BELGE_KODLARI = ("20041", "20042", "20043", "20044", "20045", "20046", "20047", "20048")
+FIS_MENU_ADI = "Fiş Listesi"
+FIS_MENU_YOLU = "Muhasebe > Fiş İşlemleri > Fiş Listesi"
+FIS_LISTELE_ADLARI = ("Listele", "Getir", "Ara", "Sorgula")
+FIS_BEKLEME_MS = 25000
+AYLAR = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
+
+FIS_FORM_VAR_JS = r"""() => {
+  const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
+  const l = document.querySelectorAll('th, td, label, span, div, b');
+  for (let i = 0; i < l.length; i++)
+    if (!l[i].children.length && g(l[i]) && /^E-?\s*Defter\s*Ay\s*:?$/i.test((l[i].textContent || '').trim())) return true;
+  return false;
+}"""
+
+# Luca'nin bazi sayfalari Array.prototype.find/filter/some'u bozar: yalniz dongu kullanilir
+FIS_FORM_JS = r"""arg => {
+  const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
+  const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\s.\-()*:]/g, '');
+  const yaprak = [], hepsi = document.querySelectorAll('th, td, label, span, div, b');
+  for (let i = 0; i < hepsi.length; i++) if (!hepsi[i].children.length && g(hepsi[i])) yaprak.push(hepsi[i]);
+  const etiket = desen => { for (let i = 0; i < yaprak.length; i++) if (desen.test((yaprak[i].textContent || '').trim())) return yaprak[i]; return null; };
+  const ILK = 'input:not([type=checkbox]):not([type=hidden]):not([type=image]):not([type=button]), select';
+  const yanKutu = desen => {
+    const e = etiket(desen);
+    if (!e) return null;
+    const hucre = e.closest('td, th') || e;
+    for (let n = hucre.nextElementSibling; n; n = n.nextElementSibling) {
+      const k = (n.matches && n.matches(ILK)) ? n : (n.querySelector ? n.querySelector(ILK) : null);
+      if (k && g(k)) return k;
+    }
+    return null;
+  };
+  const sonuc = {ay: null, kutu: null, secenekler: [], secili: -1, tarihler: []};
+  const ay = yanKutu(/^E-?\s*Defter\s*Ay\s*:?$/i);
+  if (ay && ay.tagName === 'SELECT') {
+    for (let i = 0; i < ay.options.length; i++) if (duz(ay.options[i].text) === duz(arg.ay)) { ay.selectedIndex = i; break; }
+    ay.dispatchEvent(new Event('change', {bubbles: true}));
+    sonuc.ay = ay.options[ay.selectedIndex] ? ay.options[ay.selectedIndex].text.trim() : '';
+  }
+  // onay kutusu: etiketle ayni hucrede / label icinde / yan hucrede
+  const h = duz(arg.acik), adaylar = document.querySelectorAll('th, td, label, span, div, b');
+  let cb = null;
+  for (let i = adaylar.length - 1; i >= 0 && !cb; i--) {
+    const e = adaylar[i];
+    if (!g(e) || duz(e.textContent) !== h) continue;
+    cb = e.querySelector('input[type=checkbox]');
+    if (!cb && e.tagName === 'LABEL' && e.htmlFor) cb = document.getElementById(e.htmlFor);
+    const r = e.closest('tr');
+    if (!cb && r) cb = r.querySelector('input[type=checkbox]');
+    const kardes = x => x && (x.type === 'checkbox' ? x : (x.querySelector ? x.querySelector('input[type=checkbox]') : null));
+    if (!cb) cb = kardes(e.previousElementSibling) || kardes(e.nextElementSibling);
+  }
+  if (cb) {
+    if (!cb.disabled && !cb.checked) {
+      cb.click();
+      if (!cb.checked) { cb.checked = true; cb.dispatchEvent(new Event('change', {bubbles: true})); }
+    }
+    sonuc.kutu = cb.checked;
+  }
+  const hata = yanKutu(/^E-?\s*Defter\s*hata\s*:?$/i);
+  if (hata && hata.tagName === 'SELECT') {
+    for (let i = 0; i < hata.options.length; i++) sonuc.secenekler.push((hata.options[i].text || '').replace(/\s+/g, ' ').trim());
+    if (arg.kod) {
+      const d = new RegExp('Hata\\s*Kodu\\s*:?\\s*' + arg.kod + '\\b', 'i');
+      for (let i = 0; i < hata.options.length; i++) if (d.test(hata.options[i].text)) { hata.selectedIndex = i; hata.dispatchEvent(new Event('change', {bubbles: true})); break; }
+    }
+    sonuc.secili = hata.selectedIndex;
+  }
+  for (const desen of [/^İlk\s*Fiş\s*Tarihi/i, /^Son\s*Fiş\s*Tarihi/i]) { const k = yanKutu(desen); sonuc.tarihler.push(k ? k.value : null); }
+  return sonuc;
+}"""
+
+
+def fis_form_bul(ctx):
+    return _bul(ctx, FIS_FORM_VAR_JS)
+
+
+def fis_listesini_ac(page, log=None):
+    """Fis Listesi ekranini acar (ana pencerenin icerik cercevesinde): (pencere, cerceve)."""
+    ctx = page.context
+    ek_sayfalari_kapat(ctx, page)
+    acik_pencereleri_kapat(page)
+    denenen = []
+    from .luca_muavin import menu_baglantilari
+    for etiket, baglanti in menu_baglantilari(page, FIS_MENU_ADI):
+        if not _baglantiyi_ac(page, baglanti):
+            continue
+        if kosulu_bekle(page, lambda: fis_form_bul(ctx) is not None, 45000, aralik_ms=500):
+            yaz(f"    Fiş Listesi açıldı (menü verisi: {baglanti})", log)
+            return fis_form_bul(ctx)
+        denenen.append(f"{baglanti}: form açılmadı")
+    try:
+        menu_yolunu_ac(page, FIS_MENU_YOLU, lambda: fis_form_bul(ctx) is not None)
+        yaz("    Fiş Listesi açıldı (ekran menüsü)", log)
+        return fis_form_bul(ctx)
+    except LookupError as e:
+        denenen.append(f"ekran menüsü: {e}")
+    raise LookupError("Fiş Listesi ekranı açılamadı. Denenen: " + "; ".join(denenen)[:600])
+
+
+def fis_satirlarini_grupla(basliklar, satirlar, fisler=None):
+    """Fis Listesi tablosu (bir satir = bir fis): Fis No / Fis Tarihi / Aciklama sutunlarindan fis sozlukleri."""
+    sade = [_sade(b) for b in basliklar]
+
+    def ind(*adaylar, tam=False):
+        for a in adaylar:
+            for i, b in enumerate(sade):
+                if b == a or (not tam and a in b):
+                    return i
+        return None
+    i_no, i_tarih, i_ack = ind("FISNO", tam=True), ind("FISTARIHI", "TARIH"), ind("ACIKLAMA")
+    fisler = {} if fisler is None else fisler
+    al = lambda s, i: (s[i] if i is not None and i < len(s) else "").strip()
+    for s in satirlar:
+        no = al(s, i_no)
+        if not no:
+            continue
+        tarih = al(s, i_tarih)
+        fisler.setdefault((no, tarih), {"fis_no": no, "tarih": tarih, "degismeyen": "", "satir": 1, "evrak": [], "bt": "", "odeme": "",
+                                        "tutar": 0.0, "hesap": "", "aciklama": al(s, i_ack)[:90], "durum": []})
+    return fisler
+
+
+def _adet(mesaj):
+    """'3 adet dengesiz veya pasif fisiniz var.' -> 3 (sayi yoksa None)."""
+    m = re.search(r"(\d+)\s*adet", mesaj or "", re.I)
+    return int(m.group(1)) if m else None
+
+
+def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None):
+    """Fis Listesi'nde e-Defter hata kodlarini (20021, 20025, 20026) tarar; belge_turu_tara ile ayni kayit bicimi.
+
+    E-Defter Ay secimi donemin her ayi icin yapilir (e-Defter aylik). Sonuc ekraninda 'Fis No' tablosu varsa fisler okunur;
+    'N adet ... fisiniz var' uyarisi gelirse sayi alinir; 'kayit yok' ise 0; hicbiri gelmezse kodun kaydina hata yazilir."""
+    ctx = page.context
+    mesajlar = []
+    istenen = [k for k in FIS_KODLARI if not kodlar or k in kodlar]
+    aylar, y, m = [], bas.year, bas.month
+    while (y, m) <= (bit.year, bit.month):
+        aylar.append((y, m))
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    pg, fr = fis_listesini_ac(page, log)
+    dinle(pg, mesajlar)
+    secenekler = {}
+    for kod in istenen:
+        secenekler[kod] = None
+    r0 = fr.evaluate(FIS_FORM_JS, {"ay": AYLAR[bas.month - 1], "kod": "", "acik": ACIK_KUTU})
+    for metin in r0.get("secenekler") or []:
+        m = HATA_KODU.search(metin)
+        if m and m.group(1) in secenekler:
+            secenekler[m.group(1)] = metin
+    yaz(f"    Fiş Listesi: E-Defter Ay={r0.get('ay')}, onay kutusu={r0.get('kutu')}, tarihler={r0.get('tarihler')}; "
+        f"hata kodları: {[k for k, v in secenekler.items() if v]}", log)
+    sonuc = []
+    for kod in istenen:
+        metin = secenekler.get(kod)
+        ad = re.sub(r"\s*\(?\s*Hata\s*Kodu.*$", "", metin or "", flags=re.I).strip(" .(")
+        kayit = {"kod": kod, "ad": ad, "fis_sayisi": 0, "satir_sayisi": 0, "kesildi": False, "fisler": [], "mesaj": "", "hata": ""}
+        sonuc.append(kayit)
+        if not metin:
+            kayit["mesaj"] = "Bu kod Fiş Listesi'ndeki E-Defter hata listesinde yok (bu Luca sürümünde yok sayıldı)"
+            yaz(f"    {kod}: listede yok", log)
+            continue
+        fislerim = {}
+        try:
+            for (yil, ay) in aylar:
+                r = fis_form_bul(ctx)
+                if r is None:
+                    pg, fr = fis_listesini_ac(page, log)
+                    dinle(pg, mesajlar)
+                else:
+                    pg, fr = r
+                form = fr.evaluate(FIS_FORM_JS, {"ay": AYLAR[ay - 1], "kod": kod, "acik": ACIK_KUTU})
+                if form.get("kutu") is not True:
+                    raise LookupError("'E-Defter kapsamında uyumsuz olan fişleri getir' kutusu "
+                                      + ("bulunamadı" if form.get("kutu") is None else "işaretlenemedi"))
+                if _sade(form.get("ay") or "") != _sade(AYLAR[ay - 1]):
+                    raise LookupError(f"E-Defter Ay seçilemedi (seçili: {form.get('ay')!r}, beklenen: {AYLAR[ay - 1]})")
+                secili = form["secenekler"][form["secili"]] if 0 <= form.get("secili", -1) < len(form["secenekler"]) else ""
+                if f"Hata Kodu: {kod}" not in secili.replace("  ", " ") and not re.search(rf"Hata\s*Kodu\s*:?\s*{kod}\b", secili):
+                    raise LookupError(f"E-Defter Hata listesinde {kod} seçilemedi (seçili: {secili[:80]!r})")
+                mesajlar.clear()
+                onceki = liste_bul(ctx, CAPA_FIS)          # onceki kodun sonuc tablosu ekranda kalmis olabilir
+                onceki_imza = _grid_imza(onceki) if onceki else None
+                _listele_dugmesi_adlari(pg).click(timeout=10000)
+                son = {}
+
+                def hazir():
+                    if mesajlar:                              # uyari kutusu (orn. "Kayit bulunamadi")
+                        son["mesaj"] = mesajlar[-1]
+                        return True
+                    for p2 in acik_sayfalar(ctx):
+                        for f2 in p2.frames:
+                            mm = f2.evaluate(BOS_MESAJ_JS)
+                            if mm and not onceki:
+                                son["mesaj"] = mm
+                                return True
+                    g = liste_bul(ctx, CAPA_FIS)
+                    if g and (onceki_imza is None or _grid_imza(g) != onceki_imza):   # eski tablo degil, yenilenen tablo
+                        son["grid"] = g
+                        return True
+                    return False
+                kosulu_bekle(page, hazir, FIS_BEKLEME_MS, aralik_ms=400, en_az_ms=700 if onceki else 0)
+                if not son and onceki:                        # tablo yenilendi ama icerigi ayni (iki kodda ayni fisler): eski tabloyu kabul et
+                    g = liste_bul(ctx, CAPA_FIS)
+                    if g:
+                        son["grid"] = g
+                if "grid" in son:
+                    okunan = liste_oku(page, son["grid"], log, capa=CAPA_FIS, grupla=fis_satirlarini_grupla)
+                    for f in okunan["fisler"]:
+                        fislerim.setdefault((f["fis_no"], f["tarih"]), f)
+                    kayit["satir_sayisi"] += okunan["satir_sayisi"]
+                    kayit["kesildi"] = kayit["kesildi"] or okunan["kesildi"]
+                elif son.get("mesaj"):
+                    if KAYIT_YOK.search(son["mesaj"]):
+                        kayit["mesaj"] = son["mesaj"][:160]
+                    elif _adet(son["mesaj"]) is not None and re.search(r"fi[sş]", son["mesaj"], re.I):
+                        kayit["fis_sayisi"] += _adet(son["mesaj"])
+                        kayit["mesaj"] = son["mesaj"][:160]
+                    else:
+                        tani_kaydet(page, tani_klasoru, log, f"-{kod}-mesaj", "edefter-fis")
+                        raise LookupError(f"Luca mesajı anlaşılamadı: {son['mesaj'][:160]}")
+                else:
+                    tani_kaydet(page, tani_klasoru, log, f"-{kod}-bos", "edefter-fis")
+                    raise LookupError("Listele'den sonra tablo ya da mesaj gelmedi (Fiş Listesi sonucu okunamadı)")
+            if fislerim:
+                kayit["fisler"] = list(fislerim.values())[:FIS_SINIRI]
+                kayit["fis_sayisi"] += len(fislerim)
+            yaz(f"    {kod}: {kayit['fis_sayisi']} fiş" + (f"  ({kayit['mesaj']})" if kayit["mesaj"] else ""), log)
+        except LookupError as e:
+            kayit["hata"] = str(e)[:300]
+            yaz(f"    {kod}: HATA {kayit['hata']}", log)
+    ek_sayfalari_kapat(ctx, page)
+    return sonuc
+
+
+def _grid_imza(grid):
+    try:
+        r = grid[1].evaluate(LISTE_OKU_JS, CAPA_FIS)
+    except Exception:
+        return None
+    return _imza(r) if r else None
+
+
+def _listele_dugmesi_adlari(pg):
+    return luca_mizan._rapor_dugmesi(pg, FIS_LISTELE_ADLARI, "Fiş Listesi")
+
+
+def edefter_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, kodlar=None):
+    """Acik firmanin e-Defter hata kodlarini iki ekrandan tarar (Belge Turu Duzenleme + Fis Listesi); kayit listesi.
+
+    kodlar: yalniz bu hata kodlari (None: hepsi). Bir ekran acilamazsa o ekranin kodlari 'hata' ile isaretlenir, digeri taranir."""
+    sonuc = []
+    belge_gerekli = not kodlar or any(k not in FIS_KODLARI for k in kodlar)
+    fis_gerekli = not kodlar or any(k in FIS_KODLARI for k in kodlar)
+    if belge_gerekli:
+        sonuc += belge_turu_tara(page, firma, bas, bit, tani_klasoru, log, tani_hep,
+                                 {k for k in kodlar if k not in FIS_KODLARI} if kodlar else None)
+    if fis_gerekli:
+        try:
+            sonuc += fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log, kodlar)
+        except LookupError as e:
+            yaz(f"    Fiş Listesi taranamadı: {e}", log)
+            sonuc += [{"kod": k, "ad": "", "fis_sayisi": 0, "satir_sayisi": 0, "kesildi": False, "fisler": [], "mesaj": "",
+                       "hata": str(e)[:300]} for k in FIS_KODLARI if not kodlar or k in kodlar]
     return sonuc

@@ -310,8 +310,10 @@ Listedeki **Durum** sütunu (Luca'nın "Evrak No boş olamaz." gibi açıklamas�
   JSON/Excel'e kod başına en çok 300 fiş yazılır (sayı her zaman tamdır).
 - **Gerçek Luca'da henüz denenmemiştir.** Form ve sonuç listesinin yapısı ekran görüntülerinden alınmıştır; ilk denemede `--tani` ile bir firmayla
   çalıştırın (`python edefter.py --tarih 01/10/2026-31/10/2026 --firma-tam "FIRMA" --tani`); `tani/` klasörü ve günlük sorun halinde gerekir.
-  *Fiş Listesi* ekranındaki ek kodlar (20021 numaralandırılmamış fiş, 20025 dengesiz/pasif fiş, 20026 detaysız fiş, XML'de hataya neden olan karakter)
-  henüz taranmaz. *Ödeme Türü Boş Olan* (kasa/banka hesaplarında ödeme türü girilmesi) ayrı bir kontroldür ve henüz yoktur.
+  *Fiş Listesi* ekranı (*Muhasebe > Fiş İşlemleri > Fiş Listesi*: E-Defter Ay + E-Defter Hata) de taranır: 20021 numaralandırılmamış fiş, 20025 dengesiz/pasif
+  fiş, 20026 detaysız fiş. Bu ekranın **sonuç görünümü henüz görülmedi**: 'Fiş No' tablosu, "N adet ... fişiniz var" uyarısı ya da "kayıt yok" okunur;
+  hiçbiri gelmezse HATA yazılır ("gönderilebilir" denmez) ve `tani/` klasörüne ekran kaydedilir. XML'de hataya neden olan karakter listesi henüz taranmaz.
+  *Ödeme Türü Boş Olan* (kasa/banka hesaplarında ödeme türü girilmesi) ayrı bir kontroldür ve henüz yoktur.
   Kaynak: Luca yardım makalesi "01.02.013 Fiş İşlemleri > Toplu Belge Türü ve Ödeme Yöntemi Düzenleme".
 
 ### Beyanname Takip sekmesi

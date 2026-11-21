@@ -219,8 +219,10 @@ MIZAN_MENU_JS = """
                   ["||||Muavin Defter", "raporMuavinDefterNoktaVurusluHazirla.do?c_musteri_id=1"],   // Nokta Vurusulu: Excel YOK (once gelir)
                   ["|||||Muavin Defter", "raporMuavinDefterHazirla.do?c_musteri_id=1"],
                   ["||||İşletme Defteri Dökümü", "raporIsletmeDefteriHazirla.do?c_musteri_id=1"],
-                  ["||||Toplu Belge Türü ve Ödeme Yöntemi Düzenleme", "parameterBelgeTuruDuzenlemeAction.do?tip=jsp&c_musteri_id=1"]];
+                  ["||||Toplu Belge Türü ve Ödeme Yöntemi Düzenleme", "parameterBelgeTuruDuzenlemeAction.do?tip=jsp&c_musteri_id=1"],
+                  ["||||Fiş Listesi", "listFisAction.do?c_musteri_id=1"]];
  function aktar(link) {
+   if (link.indexOf('listFisAction') >= 0) { sekmeAc('/fis-listesi?firma=' + encodeURIComponent(seciliFirma) + '&t=' + Date.now()); return; }
    if (link.indexOf('BelgeTuruDuzenleme') >= 0) {   // gercek Luca: form ayri bir tarayici penceresinde acilir
      window.open('/edefter-form?firma=' + encodeURIComponent(seciliFirma) + '&t=' + Date.now(), '_blank', 'popup,width=1100,height=800');
      return;
@@ -683,6 +685,43 @@ def edefter_liste_html(q):
 
 
 
+# --- Luca > Muhasebe > Fis Islemleri > Fis Listesi (e-Defter hata kodlari 20021/20025/20026; ekran goruntusundeki form) ---
+# FIS_VERI[(firma, kod, ay adi)] = [{"fis_no", "tarih", "aciklama"}]; FIS_AYAR["modlar"][kod] = "grid" (tablo) ya da "mesaj" (uyari kutusu)
+FIS_VERI = {}
+FIS_AYAR = {"modlar": {"20021": "grid", "20025": "mesaj", "20026": "mesaj"}, "istekler": []}
+FIS_HATALARI = ["... nolu fiş(ler)de birden fazla belge mevcut.(Hata Kodu: 20044)",
+                "e-Defter başlangıç tarihinden önce numaralandırılmamış fişler mevcut.( Hata Kodu: 20021)",
+                "... adet dengesiz veya pasif fişiniz var.( Hata Kodu: 20025)", "... adet detaysız fişiniz var.( Hata Kodu: 20026)",
+                "... nolu fiş içinde ... belge türünün tanımı yok.( Hata Kodu: 20041)",
+                "... nolu fiş(ler) içinde belge tür, evrak no ve tarih uyumsuzluğu.(Hata Kodu: 20042)",
+                "E-Defter XML içinde hataya neden olan karakter sahip fiş listesi"]
+FIS_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>FİŞ LİSTESİ</title>
+""" + ORTAK_STIL + """</head><body>
+<h3>FİŞ LİSTESİ</h3>
+<table class="form_table">
+<tr><th>İlk Fiş Tarihi</th><td><input type="text" id="ilk_tarih" value="01/01/2026" readonly></td><th>Son Fiş Tarihi</th><td><input type="text" id="son_tarih" value="31/01/2026" readonly></td></tr>
+<tr><td colspan="4"><input type="checkbox" id="c_edefter"> E-Defter kapsamında uyumsuz olan fişleri getir</td></tr>
+<tr><th>E-Defter Ay</th><td><select id="edefter_ay">__AYLAR__</select></td></tr>
+<tr><th>E-Defter Hata:</th><td><select id="edefter_hata">__HATALAR__</select></td></tr>
+</table>
+<div><button type="button" id="listele" onclick="listele()"><i></i> Listele</button></div>
+<div id="sonuc"></div>
+<script>
+ function listele() {
+   const kod = (/Hata\\s*Kodu:\\s*(\\d+)/.exec(document.getElementById('edefter_hata').selectedOptions[0].text) || [])[1] || '';
+   const ay = document.getElementById('edefter_ay').value, ed = document.getElementById('c_edefter').checked ? '1' : '0';
+   fetch('/api/fis-listesi?firma=__FIRMA__&kod=' + kod + '&ay=' + encodeURIComponent(ay) + '&edefter=' + ed).then(r => r.json()).then(r => {
+     if (r.mod === 'mesaj') { alert(r.mesaj); return; }
+     if (r.mod === 'hicbir') return;                // sonuc ekranina hicbir sey gelmez (okunamayan yanit)
+     let h = '<table border="1" id="fislistesi"><thead><tr><th>Sıra</th><th>Fiş No</th><th>Fiş Tarihi</th><th>Açıklama</th></tr></thead><tbody>';
+     r.satirlar.forEach((s, i) => { h += '<tr><td>' + (i + 1) + '</td><td>' + s.fis_no + '</td><td>' + s.tarih + '</td><td>' + s.aciklama + '</td></tr>'; });
+     document.getElementById('sonuc').innerHTML = h + '</tbody></table>';
+   });
+ }
+</script></body></html>"""
+AYLAR_TR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+
+
 class Isleyici(sahte_luca.Isleyici):
     """Once kar/zarar rotalari, bulunamazsa Luca taklidi."""
 
@@ -719,6 +758,21 @@ class Isleyici(sahte_luca.Isleyici):
             time.sleep(DB_AYAR["yavas"])
             return self._yanit(json.dumps(db_liste(DB_SEC["firma"], q["tur"], q["bas"], q["bit"], q["durum"]),
                                           ensure_ascii=False), "application/json")
+        if yol == "/fis-listesi":
+            return self._yanit(FIS_SAYFASI.replace("__FIRMA__", firma)
+                               .replace("__AYLAR__", "".join(f"<option>{a}</option>" for a in AYLAR_TR))
+                               .replace("__HATALAR__", "".join(f"<option>{h}</option>" for h in FIS_HATALARI)))
+        if yol == "/api/fis-listesi":
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
+            with KILIT:
+                FIS_AYAR["istekler"].append(q)
+            veri = FIS_VERI.get((q.get("firma", ""), q.get("kod", ""), q.get("ay", "")), []) if q.get("edefter") == "1" else []
+            if FIS_AYAR["modlar"].get(q.get("kod")) == "hicbir":
+                return self._yanit(json.dumps({"mod": "hicbir"}), "application/json")
+            if FIS_AYAR["modlar"].get(q.get("kod")) == "mesaj":
+                mesaj = f"{len(veri)} adet dengesiz veya pasif fişiniz var." if veri else "Kayıt bulunamadı."
+                return self._yanit(json.dumps({"mod": "mesaj", "mesaj": mesaj}, ensure_ascii=False), "application/json")
+            return self._yanit(json.dumps({"mod": "grid", "satirlar": veri}, ensure_ascii=False), "application/json")
         if yol == "/edefter-form":
             secenekler = "".join(f"<option>{m}</option>" for _, m in EDEFTER_HATALAR)
             return self._yanit(EDEFTER_FORM_SAYFASI.replace("__FIRMA__", firma).replace("__SECENEKLER__", secenekler)
@@ -855,6 +909,8 @@ def sifirla():
     DB_OLAYLAR.clear()
     MUAVIN_VERI.clear()
     EDEFTER_VERI.clear()
+    FIS_VERI.clear()
+    FIS_AYAR.update(modlar={"20021": "grid", "20025": "mesaj", "20026": "mesaj"}, istekler=[])
     EDEFTER_AYAR.update(edefter_kutu="isaretli", sayfa_boyu=2, kayit_yok="bos_liste", ayni_pencere=False, belge_bos_varsayilan=False, istekler=[], kaydet=0)
     ISLETME_VERI.clear()
     ISLETME_AYAR["istekler"] = []

@@ -19,7 +19,7 @@ from tablo_gorunumu import SiralaFiltreTablosu
 
 DOSYA = "edefter.json"
 EXCEL = "edefter.xlsx"
-KOD_SUTUNLARI = ("20041", "20042", "20044", "20045", "20046", "20047", "20048")
+KOD_SUTUNLARI = ("20021", "20025", "20026", "20041", "20042", "20044", "20045", "20046", "20047", "20048")
 DURUM_YAZISI = {"tamam": "Gönderilebilir (uyumsuz fiş yok)", "sorun var": "UYUMSUZ FİŞ VAR", "hata": "Kontrol tamamlanamadı"}
 DURUM_ETIKET = {"tamam": "tamam", "sorun var": "var", "hata": "hata"}
 KISA_AD = {
