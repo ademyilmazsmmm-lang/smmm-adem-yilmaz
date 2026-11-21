@@ -296,7 +296,7 @@ Fatura İndirme, Kâr / Zarar, Defter Beyan, Muavin ve e-Defter aynı anda çal�
 (`kar-zarar/edefter.py`). Her **1. sınıf (genel muhasebe)** firma için Luca'da **Muhasebe > Fiş İşlemleri > Düzenleme > Toplu Belge Türü ve Ödeme
 Yöntemi Düzenleme** ekranı açılır (ayrı bir pencerede), *Fiş Tarihi* sekmedeki tarih aralığına ayarlanır, *E-Defter kapsamında uyumsuz olan fişleri
 getir* işaretli kalır ve *E-Defter hata* listesindeki her hata kodu için **Listele**'ye basılıp açılan "E-Defter Uyumsuz Fişleri Düzenleme" listesi
-okunur (tüm sayfalar; "Sayfa No/Kayıt Sayısı"nda sayfa başına kayıt en çok 500'e çıkarılır). Hata kodları listeden okunur (Luca sürümüne göre değişir):
+okunur (tüm sayfalar; "Sayfa No/Kayıt Sayısı"nda sayfa başına kayıt en çok 1000'e çıkarılır). Hata kodları listeden okunur (Luca sürümüne göre değişir):
 20041 belge türü tanımı yok · 20042 belge tür / evrak no / tarih uyumsuz · 20043 evrak no ve tarih var, belge türü boş · 20044 birden fazla belge ·
 20045 birden fazla belge türü · 20046 bir fişte çok fatura (50/100 sınırı) · 20047 birden fazla ödeme yöntemi · 20048 fatura türünde birden fazla belge.
 Listedeki **Durum** sütunu (Luca'nın "Evrak No boş olamaz." gibi açıklaması) fişin yanında köşeli parantezle ve Excel'de ayrı sütunda gösterilir.

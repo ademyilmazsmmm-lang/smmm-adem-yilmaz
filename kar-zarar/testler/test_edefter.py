@@ -174,7 +174,7 @@ class UctanUca(unittest.TestCase):
         istek = [i for i in sahte["istekler"] if i["kod"] == "20041"]
         self.assertEqual([i["sayfa"] for i in istek], ["1", "2", "3", "4"])
         self.assertEqual((istek[0]["bas"], istek[0]["bit"], istek[0]["edefter"]), ("01/10/2026", "31/10/2026", "1"))
-        self.assertTrue(all(i["kayit"] == "500" for i in sahte["istekler"]), sahte["istekler"])   # sayfa basina kayit en yukseklere cikarildi
+        self.assertTrue(all(i["kayit"] == "1000" for i in sahte["istekler"]), sahte["istekler"])   # sayfa basina kayit en yukseklere cikarildi
         self.assertIn("Sayfa No/Kayıt Sayısı listeleri", cikti)
         self.assertIn("[Evrak No boş olamaz.]", cikti)
         self.assertTrue((calistir.klasor / "cikti" / "edefter.xlsx").exists())

@@ -30,7 +30,7 @@ MENU_YOLU = "Muhasebe > Fiş İşlemleri > Düzenleme > Toplu Belge Türü ve Ö
 HATA_KODU = re.compile(r"Hata\s*Kodu\s*:?\s*(\d+)", re.I)
 FIS_SINIRI = 300         # JSON'a yazilacak en cok fis (sayi her zaman tamdir: 'kesildi' degilse)
 SAYFA_SINIRI = 60        # bir hata kodu icin en cok okunacak sayfa
-KAYIT_SINIRI = 500       # "Sayfa No/Kayit Sayisi"nda secilecek en buyuk kayit sayisi (varsayilan kucuk: cok sayfa = yavas)
+KAYIT_SINIRI = 1000      # "Sayfa No/Kayit Sayisi"nda secilecek en buyuk kayit sayisi (varsayilan kucuk: cok sayfa = yavas)
 LISTE_BEKLEME_MS = 45000
 KAYIT_YOK = re.compile(r"kay[ıi]t.{0,25}(bulunamad|bulunmuyor|yok)|bulunamad[ıi]|listelenecek", re.I)
 # Bu onay kutulari her kontrolde KAPALI olur (yalniz e-Defter uyumsuzlugu aranir); e-Defter kutusu ACIK olur.
