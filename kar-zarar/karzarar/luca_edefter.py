@@ -586,7 +586,7 @@ FIS_KODLARI = ("20021", "20025", "20026")
 BELGE_KODLARI = ("20041", "20042", "20043", "20044", "20045", "20046", "20047", "20048")
 FIS_MENU_ADI = "Fiş Listesi"
 FIS_MENU_YOLU = "Muhasebe > Fiş İşlemleri > Fiş Listesi"
-FIS_LISTELE_ADLARI = ("Liste", "Listele", "Getir", "Ara", "Sorgula", "Filtrele")     # Fis Listesi'nde dugmenin adi "Liste"
+FIS_LISTELE_ADLARI = ("Liste", "Listele")     # Fis Listesi'nde dugmenin adi "Liste"
 FIS_BEKLEME_MS = 25000
 AYLAR = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
 
@@ -676,7 +676,7 @@ FIS_DUGME_JS = r"""adlar => {
   const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
   const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\s.\-()*:]/g, '');
   const aranan = adlar.map(duz), adaylar = [], hepsi = document.querySelectorAll('button, input, a, img, span, div, td, li, i');
-  let bulunan = null;
+  let bulunan = null, enIyi = 999;
   for (let i = 0; i < hepsi.length; i++) {
     const e = hepsi[i];
     if (!g(e) || (e.tagName === 'INPUT' && /^(checkbox|text|hidden|radio|password)$/i.test(e.type || ''))) continue;
@@ -686,7 +686,8 @@ FIS_DUGME_JS = r"""adlar => {
                      || getComputedStyle(e).cursor === 'pointer';
     if (!tiklanir) continue;
     if (adaylar.length < 40) adaylar.push(e.tagName + ':' + t + (e.id ? '#' + e.id : ''));
-    if (!bulunan && aranan.indexOf(duz(t)) >= 0) bulunan = e;
+    const sira = aranan.indexOf(duz(t));
+    if (sira >= 0 && sira < enIyi) { enIyi = sira; bulunan = e; }          // adlarin sirasi onceliklidir (belge sirasi degil)
   }
   if (bulunan) { bulunan.click(); return {tiklandi: bulunan.tagName + ':' + (bulunan.value || bulunan.title || bulunan.alt || bulunan.textContent || '').trim().slice(0, 30), adaylar}; }
   return {tiklandi: null, adaylar};

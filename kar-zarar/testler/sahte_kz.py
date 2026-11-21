@@ -693,7 +693,8 @@ def edefter_liste_html(q):
 # FIS_VERI[(firma, kod, ay adi)] = [{"fis_no", "tarih", "aciklama"}]; FIS_AYAR["modlar"][kod] = "grid" (tablo) ya da "mesaj" (uyari kutusu)
 FIS_VERI = {}
 FIS_KUTULARI = {   # onay kutularinin yapisi: ayri hucre / ucu tek hucrede alt alta (gercek Luca) ; hepsi isaretsiz baslar
-    "tek": '<tr><td colspan="4"><input type="checkbox" id="c_edefter"> E-Defter kapsamında uyumsuz olan fişleri getir</td></tr>',
+    "tek": '<tr><td colspan="4"><input type="checkbox" id="c_edefter" onclick="fisGoster(this.checked)"> E-Defter kapsamında uyumsuz olan fişleri getir</td></tr>'
+           '<tr><td colspan="4"><input type="checkbox" id="c_detayli"> Detaylı Arama</td></tr>',
     "tek_hucre": '<tr><td colspan="4"><input type="checkbox" id="c_yevmiye" disabled> Yevmiye numarası ve fiş numarası uyumsuzları listele<br>'
                  '<input type="checkbox" id="c_edefter" onclick="fisGoster(this.checked)"> E-Defter kapsamında uyumsuz olan fişleri getir<br>'
                  '<input type="checkbox" id="c_detayli"> Detaylı Arama</td></tr>'}
@@ -713,6 +714,7 @@ FIS_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>FİŞ L
 <h3>FİŞ LİSTESİ</h3>
 <table class="form_table">
 <tr><th>İlk Fiş Tarihi</th><td><input type="text" id="ilk_tarih" value="01/01/2026" readonly></td><th>Son Fiş Tarihi</th><td><input type="text" id="son_tarih" value="31/01/2026" readonly></td></tr>
+<tr><th>Fiş Açıklama</th><td colspan="3"><input type="text" id="fis_aciklama"></td></tr>
 __FIS_KUTU__
 <tr id="fis_ay_satiri" style="__GIZLI__"><th>E-Defter Ay</th><td><select id="edefter_ay">__AYLAR__</select></td></tr>
 <tr id="fis_hata_satiri" style="__GIZLI__"><th>E-Defter Hata:</th><td><select id="edefter_hata">__HATALAR__</select></td></tr>
