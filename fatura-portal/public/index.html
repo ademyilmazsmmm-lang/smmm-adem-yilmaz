@@ -298,6 +298,7 @@ details.kayit.gsatir>summary{flex-direction:row;align-items:flex-start;justify-c
 .galtbar small{font-size:.74rem;opacity:.9}
 #gecmisKart{padding-bottom:64px}
 .gs-yan{display:flex;align-items:center;gap:8px;flex:none;padding-top:1px}
+.gs-mail{color:var(--accent);vertical-align:-2px;margin-left:4px;flex:none}
 .gs-ok{width:9px;height:9px;border-right:2.5px solid currentColor;border-bottom:2.5px solid currentColor;transform:rotate(45deg);margin:6px 4px 0 0;flex:none;transition:transform .2s}
 details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
 .gs-ic{display:flex;flex-direction:column;gap:8px;padding:8px 12px 10px;border-top:1px dashed var(--line)}
@@ -475,6 +476,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
           <option value="OZELMATRAH">Özel matrah</option>
         </select></div>
     </div>
+    <p class="not" id="tarihUyari" hidden role="alert" style="margin:0;padding:8px 10px;border-radius:10px;border-left:4px solid var(--danger);background:var(--danger-soft);color:var(--danger);font-weight:600;font-size:.84rem;line-height:1.35"></p>
     <div class="alt" id="iadeAlan" hidden>
       <p class="not"><b>İade faturasında iade edilen faturanın numarası ve tarihi zorunludur.</b> İade faturası, <b>aldığınız</b> bir faturadaki malı iade ederken karşı tarafa kesilir; asıl faturanın numarasını ve tarihini girin. Kestiğiniz bir satış faturası iade edilmez; hatalıysa Geçmiş’ten <b>İptal</b> kullanın.</p>
       <div class="satir"><div><label for="iadeNo">İade edilen fatura no *</label><input id="iadeNo" autocomplete="off" placeholder="GIB2026000000023"></div><div><label for="iadeTarih">Düzenlenme tarihi *</label><input id="iadeTarih" type="date"></div></div>
@@ -1022,6 +1024,19 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   var mk = function(){ return (V && V.mukellefler.filter(function(x){ return x.id === mSec; })[0]) || null; };
   /* Hizmet listesi ve marka (logo/imza) seçili mükellefe aittir */
   function HZ(){ var m = mk(); return (m && m.hizmetler) || []; }
+  /* Düzenleme süresi: fatura işlemden itibaren en geç 7 gün içinde düzenlenmelidir (VUK 231/5). Bugün 21'i ise 14'ü tarihli fatura kesilir, 13'ü tarihli kesilmemeli (geç düzenleme cezası).
+   * Yalnız UYARI verilir, engellenmez. */
+  var FATURA_SURE = 7;
+  function gunFarki(iso){
+    var q = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""), b = /^(\d{4})-(\d{2})-(\d{2})$/.exec(bugunStr()); if (!q || !b) return 0;
+    return Math.round((Date.UTC(+b[1], b[2] - 1, +b[3]) - Date.UTC(+q[1], q[2] - 1, +q[3])) / 864e5);
+  }
+  function gecUyariMetni(iso){
+    var g = gunFarki(iso); if (g <= FATURA_SURE) return "";
+    var b = bugunStr().split("-"), d = new Date(Date.UTC(+b[0], b[1] - 1, +b[2] - FATURA_SURE)), p2 = function(n){ return String(n).padStart(2, "0"); };
+    return "⚠ Fatura tarihi bugünden " + g + " gün önce. Fatura, işlemden itibaren en geç " + FATURA_SURE + " gün içinde düzenlenmelidir; geç düzenlenirse ceza uygulanır. Bugün için en eski tarih: " + p2(d.getUTCDate()) + "." + p2(d.getUTCMonth() + 1) + "." + d.getUTCFullYear() + ".";
+  }
+  function tarihUyariYaz(){ var m = gecUyariMetni($("tarih").value), e = $("tarihUyari"); if (!e) return; e.hidden = !m; e.textContent = m; }
   function bugunStr(){ var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
   var BIRIMLER = [["C62","Adet"],["GRM","gr"],["KGM","Kg"],["TNE","Ton"],["LTR","Litre"],["MTR","Metre"],["MTK","m²"],["MTQ","m³"],["DAY","Gün"],["MON","Ay"],["HUR","Saat"],["PA","Paket"],["BX","Kutu"]];
   var PARASEM = { TRY: "₺", USD: "$", EUR: "€", GBP: "£" };
@@ -1211,7 +1226,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   }
   var onizTimer, sonHesap = null;
   function onizle(){
-    clearTimeout(onizTimer); sifirla();
+    clearTimeout(onizTimer); sifirla(); tarihUyariYaz();
     var g = girdi();
     if (!g.kalemler.some(function(k){ return k.fiyat > 0; })) { sonHesap = null; $("ozet").innerHTML = ""; $("ozetHata").textContent = ""; $("notOnizleme").textContent = ""; kalemToplamlari(null); kontrolBtn(); return; }
     onizTimer = setTimeout(function(){
@@ -1275,7 +1290,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   function formuTemizle(){
     F.alici = ""; F.dahil = false; F.para = "TRY"; F.kur = ""; F.kurElle = false; F.kalemler = [ilkKalem()]; F.tip = tipKalemden(F.kalemler[0]); if (F.tip === "OZELMATRAH") F.dahil = false;
     $("ekNot").value = ""; $("notIrs").checked = true; $("tarih").value = bugunStr(); $("sorguDurum").textContent = ""; $("iadeNo").value = ""; $("iadeTarih").value = "";
-    F.duzenle = null; duzenleBant();
+    F.duzenle = null; duzenleBant(); tarihUyariYaz();
     cizAlici(); cizKalemler(); formDoldur(); $("ozet").innerHTML = ""; $("ozetHata").textContent = ""; $("notOnizleme").textContent = ""; sonHesap = null; kontrolBtn();
   }
   /* Taslak düzenleme: uyarı bandı ve düğme yazısı (F.duzenle = { uuid, belgeNo, tarih, mid }) */
@@ -1313,7 +1328,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   function taslakOlustur(){
     var g = girdi(), t = sonHesap && sonHesap.toplam, dz = F.duzenle;
     if (dz && dz.mid !== mSec) { alert("Düzenlenen taslak başka bir mükellefe ait. “Düzenlemeden vazgeç”e basın ya da ilgili mükellefi seçin."); return; }
-    var ozet = g.aliciUnvan + " (" + g.aliciVkn + ")\n" + g.kalemler.length + " satır" + (t ? " — ödenecek " + fmt(t.odenecek) + " " + PARASEM[g.para] : "");
+    var ozet = g.aliciUnvan + " (" + g.aliciVkn + ")\n" + g.kalemler.length + " satır" + (t ? " — ödenecek " + fmt(t.odenecek) + " " + PARASEM[g.para] : "") + (gecUyariMetni(g.tarih) ? "\n\n" + gecUyariMetni(g.tarih) + "\nYine de devam edilsin mi?" : "");
     if (!confirm(dz ? "Taslak güncellensin mi?\n\n" + ozet + "\n\nYeni taslak oluşturulacak ve eski taslak" + (dz.belgeNo ? " (" + dz.belgeNo + ")" : "") + " silinecek." : "GİB’de taslak oluşturulsun mu?\n\n" + ozet)) return;
     yurut($("devam"), function(){ durum(dz ? "Taslak güncelleniyor…" : "Taslak oluşturuluyor…"); return api("/api/taslak", "POST", g).then(function(r){
       if (!dz) return r; /* düzenleme: önce yeni taslak oluştu; eskisi şimdi silinir (yeni oluşmadan eskiyi silmeyiz: hata olursa hiçbir şey kaybolmaz) */
@@ -1341,7 +1356,8 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     $("onayBilgi").textContent = (x.belgeNo || "") + (x.tutar ? " · " + fmt(x.tutar) + " ₺" : ""); $("kodGir").value = ""; $("kodAlan").hidden = true;
     var od = $("onayDurum"); od.className = "durum"; od.textContent = "";
     $("onayPanel").hidden = false; $("onayPanel").scrollIntoView({ block: "start" }); /* anında: kaydırma animasyonu sürerken dokunuşlar kutuya ulaşmaz */
-    if (!confirm("Onay için mükellefin telefonuna SMS kodu gönderilsin mi?\n\n" + x.alici + " — " + x.belgeNo)) { onayKapat(); return; }
+    var gu = gecUyariMetni(tarihIso(x.tarih));
+    if (!confirm((gu ? gu + "\n\n" : "") + "Onay için mükellefin telefonuna SMS kodu gönderilsin mi?\n\n" + x.alici + " — " + x.belgeNo)) { onayKapat(); return; }
     smsGonder();
   }
   $("smsTekrar").addEventListener("click", smsGonder);
@@ -1870,11 +1886,14 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   });
   function gecmisSatirHtml(x){
     var k = x.k, i = x.i, t = (k.tarih || "").split("-").reverse().join("/"), kel = String(k.aliciUnvan || "").trim().split(/\s+/), uzun = kel.length > 2;
+    var ep = Array.isArray(k.epostalar) && k.epostalar.length ? k.epostalar[k.epostalar.length - 1] : null, epz = ep ? tarihAl(ep.zaman) : null;
+    var epYazi = ep ? "E-posta gönderildi: " + ep.to + (epz ? " · " + String(epz.getDate()).padStart(2, "0") + "." + String(epz.getMonth() + 1).padStart(2, "0") + " " + String(epz.getHours()).padStart(2, "0") + ":" + String(epz.getMinutes()).padStart(2, "0") : "") + (k.epostalar.length > 1 ? " (" + k.epostalar.length + " kez)" : "") : "";
+    var zarf = ep ? ' <svg class="gs-mail" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="' + esc(epYazi) + '"><title>' + esc(epYazi) + '</title><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>' : "";
     var ad = '<span class="gs-isim"' + (x.iptal ? ' style="text-decoration:line-through"' : "") + '>' + esc(kel.slice(0, 2).join(" ")) + '</span><span class="gs-tutar">' + fmt(k.hesap.odenecek) + " " + (PARASEM[k.para] || "₺") + "</span>"; /* unvan: ilk iki kelime (tamamı açılınca görünür) */
     return '<details class="kayit gsatir' + (x.iptal ? " iptal" : "") + '" data-gid="' + esc(k.id) + '"' + (gAcik[k.id] ? " open" : "") + '><summary>' +
-      '<span class="gs-metin"><span class="gs-ad">' + ad + '</span><small>' + esc(t) + " · " + esc(k.belgeNo || "") + '</small><span class="gs-alt">' + (tahOzet(k) || "<span></span>") + (x.iptal ? '<span class="iptalyazi" style="margin:0">İPTAL</span>' : '<span class="onayliyazi" style="margin:0">ONAYLI</span>') + '</span></span>' +
+      '<span class="gs-metin"><span class="gs-ad">' + ad + '</span><small>' + esc(t) + " · " + esc(k.belgeNo || "") + zarf + '</small><span class="gs-alt">' + (tahOzet(k) || "<span></span>") + (x.iptal ? '<span class="iptalyazi" style="margin:0">İPTAL</span>' : '<span class="onayliyazi" style="margin:0">ONAYLI</span>') + '</span></span>' +
       '<i class="gs-ok" aria-hidden="true"></i></summary>' +
-      '<div class="gs-ic">' + (uzun ? '<small style="color:var(--muted);overflow-wrap:anywhere">' + esc(k.aliciUnvan) + '</small>' : "") + '<div class="gs-dugme"><button class="k" type="button" data-gk="' + i + '">Görüntüle</button><button class="k" type="button" data-gs="' + i + '">Paylaş</button><button class="k" type="button" data-gz="' + i + '">XML+HTML</button><button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' +
+      '<div class="gs-ic">' + (ep ? '<small style="color:var(--muted);overflow-wrap:anywhere">✉ ' + esc(epYazi) + '</small>' : "") + (uzun ? '<small style="color:var(--muted);overflow-wrap:anywhere">' + esc(k.aliciUnvan) + '</small>' : "") + '<div class="gs-dugme"><button class="k" type="button" data-gk="' + i + '">Görüntüle</button><button class="k" type="button" data-gs="' + i + '">Paylaş</button><button class="k" type="button" data-gz="' + i + '">XML+HTML</button><button class="k" type="button" data-gt="' + i + '">Tekrarla</button>' +
       (x.iptal ? '<small class="iptalyazi" style="font-size:.68rem;margin:0">TALEP GÖNDERİLDİ</small>' : '<button class="k" type="button" data-gp="' + i + '">İptal</button>') + '</div>' + tahBlok(k, i, true) + '</div></details>';
   }
   function gTarihAraligi(){
