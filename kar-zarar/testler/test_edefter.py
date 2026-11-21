@@ -204,19 +204,21 @@ class UctanUca(unittest.TestCase):
 
     def test_e_defter_kutusu_isaretsizse_tiklanir_etiketle_ayni_hucredeyse_de(self):
         """Gercek Luca'da kutu varsayilan isaretsiz olabilir: isaretlenmezse Luca liste getirmez (eski surum 0 fis sanirdi)."""
-        for gorunum in ("isaretsiz", "ayni_hucre"):
+        for gorunum in ("isaretsiz", "ayni_hucre", "gizli", "gizli_gecikmeli"):
             kod, sonuc, cikti, sahte = calistir(veri=self.veri, ayar={"edefter_kutu": gorunum}, ek_arg=["--hata-kodu", "20041"])
             self.assertEqual(kod, 0, cikti[-2500:])
             self.assertEqual(sonuc["ALFA ISLETME"]["hatalar"][0]["fis_sayisi"], 5, (gorunum, cikti[-2000:]))
             self.assertTrue(all(i["edefter"] == "1" for i in sahte["istekler"]), sahte["istekler"])
             self.assertIn("Onay kutuları", cikti)
 
-    def test_e_defter_kutusu_bulunamazsa_sessizce_bos_sonuc_verilmez(self):
-        kod, sonuc, cikti, sahte = calistir(veri=self.veri, ayar={"edefter_kutu": "yok"}, ek_arg=["--hata-kodu", "20041"])
-        h = sonuc["ALFA ISLETME"]["hatalar"][0]
-        self.assertIn("kutusu bulunamadı", h["hata"])
-        self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "hata")                       # 'gonderilebilir' denmez
-        self.assertEqual(sahte["istekler"], [])
+    def test_form_acilirken_sayfa_yenilenirse_okuma_yeniden_denenir(self):
+        """Gercek Luca'da form penceresi acilirken yenilenebilir ("Execution context was destroyed"): firma iptal olmaz."""
+        kod, sonuc, cikti, sahte = calistir(veri=self.veri, ayar={"form_yenile": True, "edefter_kutu": "gizli"},
+                                            ek_arg=["--hata-kodu", "20041", "--hata-kodu", "20047"])
+        self.assertEqual(kod, 0, cikti[-2500:])
+        kodlar = {h["kod"]: h for h in sonuc["ALFA ISLETME"]["hatalar"]}
+        self.assertEqual((kodlar["20041"]["fis_sayisi"], kodlar["20047"]["fis_sayisi"]), (5, 1), cikti[-2500:])
+        self.assertFalse(any(h["hata"] for h in kodlar.values()), kodlar)
 
     def test_fis_listesi_kodlari_tablo_uyari_ve_kayit_yok(self):
         kod, sonuc, cikti, sahte = calistir(veri=self.veri, fis_veri=self.fis_veri, ek_arg=["--hata-kodu", "20021", "--hata-kodu", "20025", "--hata-kodu", "20026"])

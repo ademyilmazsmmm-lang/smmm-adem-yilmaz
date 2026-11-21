@@ -600,7 +600,7 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
 # EDEFTER_VERI[(firma, hata kodu)] = [fis]; fis = {"fis_no", "degismeyen", "tarih", "satirlar": [(hesap kodu, hesap adi, borc, alacak,
 # aciklama, evrak no, evrak tarihi, bt, odeme)]}. Form ve liste gercek ekran goruntulerindeki gibi ayri pencerelerde acilir.
 EDEFTER_VERI = {}
-EDEFTER_AYAR = {"edefter_kutu": "isaretli", "sayfa_boyu": 2, "kayit_yok": "bos_liste", "ayni_pencere": False, "belge_bos_varsayilan": False,
+EDEFTER_AYAR = {"form_yenile": False, "edefter_kutu": "isaretli", "sayfa_boyu": 2, "kayit_yok": "bos_liste", "ayni_pencere": False, "belge_bos_varsayilan": False,
                 "istekler": [], "kaydet": 0}
 EDEFTER_HATALAR = [("20041", "... nolu fiş içinde ... belge türünün tanımı yok.( Hata Kodu: 20041)"),
                    ("20042", "... nolu fiş(ler) içinde ilgili belge tür kodlu satırda evrak no ve tarihi girilmelidir.( Hata Kodu: 20042)"),
@@ -613,6 +613,9 @@ EDEFTER_KUTULARI = {   # e-Defter onay kutusunun gorunumu: varsayilan isaretli /
     "isaretli": '<tr><th>E-Defter kapsamında uyumsuz olan fişleri getir</th><td><input type="checkbox" id="c_edefter" checked></td></tr>',
     "isaretsiz": '<tr><th>E-Defter kapsamında uyumsuz olan fişleri getir</th><td><input type="checkbox" id="c_edefter"></td></tr>',
     "ayni_hucre": '<tr><td colspan="2"><label><input type="checkbox" id="c_edefter"> E-Defter kapsamında uyumsuz olan fişleri getir</label></td></tr>',
+    # gercek Luca: kutu isaretsizken "E-Defter hata" satiri gizli, isaretlenince (hemen / gecikmeyle) gorunur
+    "gizli": '<tr><th>E-Defter kapsamında uyumsuz olan fişleri getir</th><td><input type="checkbox" id="c_edefter" onclick="hataGoster(this.checked, 0)"></td></tr>',
+    "gizli_gecikmeli": '<tr><th>E-Defter kapsamında uyumsuz olan fişleri getir</th><td><input type="checkbox" id="c_edefter" onclick="hataGoster(this.checked, 900)"></td></tr>',
     "yok": ''}
 EDEFTER_FORM_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>BELGE TÜRÜ DÜZENLEME - Google Chrome</title>
 """ + ORTAK_STIL + """</head><body>
@@ -628,11 +631,12 @@ EDEFTER_FORM_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><titl
 <tr><th>Entegrasyon Fişlerini de (LucaNET ve KOZA) getir</th><td><input type="checkbox" checked disabled></td></tr>
 <tr><th>Hesap Kodu</th><td><input type="text" id="hesap_kodu"></td></tr>
 __EDEFTER_KUTU__
-<tr><th>E-Defter hata:</th><td><select id="edefter_hata">__SECENEKLER__</select></td></tr>
+<tr id="hata_satiri" style="__HATA_STIL__"><th>E-Defter hata:</th><td><select id="edefter_hata">__SECENEKLER__</select></td></tr>
 <tr><th>Sayfa No/Kayıt Sayısı</th><td><select id="sayfa_no"><option>1</option></select> / <select id="kayit_sayisi"><option>50</option><option selected>100</option><option>500</option><option>1000</option></select></td></tr>
 </table>
 <div><button type="button" id="listele" onclick="listele()"><i></i> Listele</button></div>
 <script>
+ function hataGoster(acik, gecikme) { setTimeout(() => { document.getElementById('hata_satiri').style.display = acik ? '' : 'none'; }, gecikme); }
  function listele() {
    const v = id => encodeURIComponent(document.getElementById(id).value);
    const c = id => document.getElementById(id).checked ? '1' : '0';
@@ -776,6 +780,8 @@ class Isleyici(sahte_luca.Isleyici):
         if yol == "/edefter-form":
             secenekler = "".join(f"<option>{m}</option>" for _, m in EDEFTER_HATALAR)
             return self._yanit(EDEFTER_FORM_SAYFASI.replace("__FIRMA__", firma).replace("__SECENEKLER__", secenekler)
+                               .replace("__YENILE__", "true" if EDEFTER_AYAR["form_yenile"] else "false")
+                               .replace("__HATA_STIL__", "display:none" if EDEFTER_AYAR["edefter_kutu"].startswith("gizli") else "")
                                .replace("__EDEFTER_KUTU__", EDEFTER_KUTULARI[EDEFTER_AYAR["edefter_kutu"]])
                                .replace("__BELGE_BOS__", "checked" if EDEFTER_AYAR["belge_bos_varsayilan"] else "")
                                .replace("__AYNI__", "true" if EDEFTER_AYAR["ayni_pencere"] else "false")
@@ -911,7 +917,7 @@ def sifirla():
     EDEFTER_VERI.clear()
     FIS_VERI.clear()
     FIS_AYAR.update(modlar={"20021": "grid", "20025": "mesaj", "20026": "mesaj"}, istekler=[])
-    EDEFTER_AYAR.update(edefter_kutu="isaretli", sayfa_boyu=2, kayit_yok="bos_liste", ayni_pencere=False, belge_bos_varsayilan=False, istekler=[], kaydet=0)
+    EDEFTER_AYAR.update(form_yenile=False, edefter_kutu="isaretli", sayfa_boyu=2, kayit_yok="bos_liste", ayni_pencere=False, belge_bos_varsayilan=False, istekler=[], kaydet=0)
     ISLETME_VERI.clear()
     ISLETME_AYAR["istekler"] = []
     MUAVIN_AYAR.update(hesap_alani=True, excel_adi="Excel (xlsx)", istekler=[], nokta_acildi=0)

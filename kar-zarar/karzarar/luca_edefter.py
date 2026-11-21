@@ -54,10 +54,11 @@ FORM_VAR_JS = r"""() => {
   const l = document.querySelectorAll('th, td, label, span, div, b');
   let hata = false, belge = false;
   for (let i = 0; i < l.length; i++) {
-    if (l[i].children.length || !g(l[i])) continue;
+    if (!g(l[i])) continue;
     const t = (l[i].textContent || '').trim();
-    if (/^E-?\s*Defter\s*hata/i.test(t)) hata = true;
-    if (/^Belge\s*Türü\s*Boş\s*Olan/i.test(t)) belge = true;     // Fiş Listesi'nde de "E-Defter Hata" var: bu etiket ayirir
+    if (/^E-?\s*Defter\s*kapsam/i.test(t)) hata = true;        // etiket onay kutusuyla ayni hucrede / label icinde olabilir
+    if (l[i].children.length) continue;        // onay kutusunun etiketi hep gorunur ("E-Defter hata" satiri kutu isaretlenince acilir)
+    if (/^Belge\s*Türü\s*Boş\s*Olan/i.test(t)) belge = true;     // Fiş Listesi'nde de ayni onay kutusu var: bu etiket ayirir
   }
   return hata && belge;
 }"""
@@ -293,8 +294,9 @@ def ekrani_ac(page, log=None):
 def formu_doldur(fr, bas, bit, kod="", kayit_siniri=KAYIT_SINIRI):
     """Fis tarihini yazar, onay kutularini ayarlar, kod verilirse E-Defter hata listesinden onu secer.
     {tarihler, kutular, secenekler, secili}; tarihler yazildigi gibi geri okunamazsa LookupError."""
-    r = fr.evaluate(FORM_JS, {"bas": f"{bas:%d/%m/%Y}", "bit": f"{bit:%d/%m/%Y}", "kod": str(kod or ""),
-                              "kapali": list(KAPALI_KUTULAR), "acik": ACIK_KUTU, "kayitSiniri": kayit_siniri})
+    arg = {"bas": f"{bas:%d/%m/%Y}", "bit": f"{bit:%d/%m/%Y}", "kod": str(kod or ""),
+           "kapali": list(KAPALI_KUTULAR), "acik": ACIK_KUTU, "kayitSiniri": kayit_siniri}
+    r = _hata_satiri_bekle(fr, arg) if kod else _degerlendir(fr, FORM_JS, arg)
     beklenen = [f"{bas:%d/%m/%Y}", f"{bit:%d/%m/%Y}"]
     if not r.get("tarihler") or r["tarihler"] != beklenen:
         raise LookupError(f"Fiş Tarihi kutuları doldurulamadı (okunan: {r.get('tarihler')}, beklenen: {beklenen})")
@@ -309,9 +311,40 @@ def formu_doldur(fr, bas, bit, kod="", kayit_siniri=KAYIT_SINIRI):
     return r
 
 
+def _degerlendir(fr, js, arg=None, deneme=6):
+    """fr.evaluate; form penceresi acilirken sayfa yeniden yuklenirse ("Execution context was destroyed") bekleyip yeniden dener."""
+    son = None
+    for _ in range(deneme):
+        try:
+            return fr.evaluate(js, arg)
+        except Exception as e:
+            m = str(e)
+            if not any(k in m for k in ("context was destroyed", "navigation", "Target closed", "detached")):
+                raise
+            son = e
+            try:
+                fr.page.wait_for_load_state("domcontentloaded", timeout=5000)
+            except Exception:
+                pass
+            fr.page.wait_for_timeout(700)
+    raise LookupError(f"Sayfa yüklenirken yenilendi, okunamadı: {str(son)[:120]}")
+
+
+def _hata_satiri_bekle(fr, arg, deneme=8):
+    """'E-Defter hata' satiri onay kutusu isaretlenince gorunur (bazen gecikmeyle): secenekler gelene kadar formu yeniden okur."""
+    r = _degerlendir(fr, FORM_JS, arg)
+    for _ in range(deneme):
+        if r.get("secenekler"):
+            break
+        fr.page.wait_for_timeout(500)
+        r = _degerlendir(fr, FORM_JS, arg)
+    return r
+
+
 def hata_secenekleri(fr):
-    """[(kod, metin)]: E-Defter hata listesindeki secenekler; kodu olmayanlar (orn. bos) alinmaz."""
-    r = fr.evaluate(FORM_JS, {"bas": "", "bit": "", "kod": "", "kapali": [], "acik": "__yok__", "kayitSiniri": 0})
+    """[(kod, metin)]: E-Defter hata listesindeki secenekler; kodu olmayanlar (orn. bos) alinmaz. Once onay kutusu isaretlenir
+    (liste ancak o zaman gorunur)."""
+    r = _hata_satiri_bekle(fr, {"bas": "", "bit": "", "kod": "", "kapali": [], "acik": ACIK_KUTU, "kayitSiniri": 0})
     sonuc = []
     for metin in r.get("secenekler") or []:
         m = HATA_KODU.search(metin)
@@ -517,8 +550,10 @@ def belge_turu_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=Fals
                 tani_kaydet(page, tani_klasoru, log, f"-{kod}-bos", "edefter")
                 raise LookupError("Listele'den sonra ne liste ne mesaj geldi (liste ekranı açılmadı)")
             yaz(f"    {kod}: {kayit['fis_sayisi']} fiş" + (f"  ({kayit['mesaj']})" if kayit["mesaj"] else ""), log)
-        except LookupError as e:
-            kayit["hata"] = str(e)[:300]
+        except Exception as e:
+            if page.is_closed():
+                raise
+            kayit["hata"] = (str(e) if isinstance(e, LookupError) else f"{type(e).__name__}: {e}")[:300]
             yaz(f"    {kod}: HATA {kayit['hata']}", log)
         sonuc.append(kayit)
     ek_sayfalari_kapat(ctx, page)
@@ -761,8 +796,10 @@ def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None)
                 kayit["fisler"] = list(fislerim.values())[:FIS_SINIRI]
                 kayit["fis_sayisi"] += len(fislerim)
             yaz(f"    {kod}: {kayit['fis_sayisi']} fiş" + (f"  ({kayit['mesaj']})" if kayit["mesaj"] else ""), log)
-        except LookupError as e:
-            kayit["hata"] = str(e)[:300]
+        except Exception as e:
+            if page.is_closed():
+                raise
+            kayit["hata"] = (str(e) if isinstance(e, LookupError) else f"{type(e).__name__}: {e}")[:300]
             yaz(f"    {kod}: HATA {kayit['hata']}", log)
     ek_sayfalari_kapat(ctx, page)
     return sonuc
