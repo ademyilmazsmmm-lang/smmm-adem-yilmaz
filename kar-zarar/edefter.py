@@ -75,6 +75,20 @@ def firma_logu(s, log):
         yaz(f"    UYARI: {kod} taranamadı: {hata[:200]}", log)
 
 
+def birinci_sinif_suz(page, firmalar, bit, ayar_h, args, log, sira):
+    """Yalniz 1. sinif (genel muhasebe) firmalar kontrol edilir. Firma adi elle verildiyse ve kayitli sinif listesinde yoksa
+    (liste eski olabilir) liste bir kez Luca'dan yeniden cekilip tekrar bakilir; hala yoksa 1. sinif degildir, atlanir."""
+    neden = "e-Defter yalnız genel muhasebe (1. sınıf) firmalarında olur"
+    birinci = mv.birinci_sinif_firmalari(page, firmalar, bit, ayar_h, log, args.listeyi_yenile, sira, neden=neden)
+    if (args.firma or args.firma_tam) and not args.listeyi_yenile and any(f not in birinci for f in firmalar):
+        yaz("Firma kayıtlı 1. sınıf listesinde yok: liste eski olabilir, Luca'dan yeniden çekiliyor", log)
+        birinci = mv.birinci_sinif_firmalari(page, firmalar, bit, ayar_h, log, True, sira, neden=neden)
+    atlanan = [f for f in firmalar if f not in birinci]
+    if atlanan and (args.firma or args.firma_tam):
+        yaz("1. sınıf olmadığı için atlandı: " + ", ".join(atlanan), log)
+    return [f for f in firmalar if f in birinci]
+
+
 def hesabi_isle(pw, sira, hesap_adi, ayar_h, args, ayarlar, log, tani, bas, bit, donem, gece_modu, kayit_yolu, islenen, coklu):
     """Bir Luca hesabinin (ofis / isletme) 1. sinif firmalarini tarar; {firma: sonuc}."""
     sonuclar = {}
@@ -92,8 +106,7 @@ def hesabi_isle(pw, sira, hesap_adi, ayar_h, args, ayarlar, log, tani, bas, bit,
             return sonuclar
         firmalar = [f for f in secim.firmalar if f not in islenen]
         if not args.tum_firmalar and firmalar:
-            birinci = mv.birinci_sinif_firmalari(page, firmalar, bit, ayar_h, log, args.listeyi_yenile, sira)
-            firmalar = [f for f in firmalar if f in birinci]
+            firmalar = birinci_sinif_suz(page, firmalar, bit, ayar_h, args, log, sira)
         if not firmalar:
             yaz("Işlenecek firma yok: seçilen firmalar arasında 1. sınıf (genel muhasebe) firma bulunamadı "
                 "(Müşteri Listesi alınamadıysa 'Firma listesini Luca'dan yeniden çek' ya da --tum-firmalar ile deneyin).", log)

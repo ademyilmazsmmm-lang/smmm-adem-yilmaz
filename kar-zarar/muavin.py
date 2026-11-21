@@ -95,7 +95,8 @@ def eslesme_tanisi(adaylar, kayitlar, log):
         "Liste eski/başka hesaptan kalmış olabilir: sekmede 'Firma listesini Luca'dan yeniden çek'i işaretleyip tekrar çalıştırın.", log)
 
 
-def birinci_sinif_firmalari(page, adaylar, bit, ayarlar, log, yenile=False, sira=0):
+def birinci_sinif_firmalari(page, adaylar, bit, ayarlar, log, yenile=False, sira=0,
+                            neden="muavin yalnız genel muhasebe firmalarında olur"):
     """Luca'daki firmalardan Musteri Listesi'nde 1. sinif (genel muhasebe) olanlar; liste alinamazsa hepsi."""
     sinif = ayarlar.get("luca_sinifi", kz.LUCA_SINIFI)
     if not sinif:
@@ -111,7 +112,7 @@ def birinci_sinif_firmalari(page, adaylar, bit, ayarlar, log, yenile=False, sira
     if adaylar and not uygun:
         eslesme_tanisi(adaylar, kayitlar, log)
     yaz(f"{sinif}: {len(uygun)} firma; {len(adaylar) - len(uygun)} firma bu listede olmadığı için atlandı "
-        "(muavin yalnız genel muhasebe firmalarında olur)", log)
+        f"({neden})", log)
     return uygun
 
 

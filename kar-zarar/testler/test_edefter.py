@@ -104,7 +104,8 @@ class SafMantik(unittest.TestCase):
         self.assertEqual(fisler[1][2], "Belge türü tanımı yok")
 
 
-def calistir(klasor_rapor=None, veri=None, ayar=None, ek_arg=(), firma="ALFA ISLETME", tarih="01/10/2026-31/10/2026"):
+def calistir(klasor_rapor=None, veri=None, ayar=None, ek_arg=(), firma="ALFA ISLETME", tarih="01/10/2026-31/10/2026",
+             tum_firmalar=True):
     """Sahte Luca + edefter.py: (cikis kodu, sonuc sozlugu {firma: sonuc}, cikti, sahte sunucunun kaydettikleri)."""
     import sahte_kz
     sahte_kz.sifirla()
@@ -117,8 +118,8 @@ def calistir(klasor_rapor=None, veri=None, ayar=None, ek_arg=(), firma="ALFA ISL
     (klasor / "ayarlar.json").write_text(json.dumps(ayarlar), encoding="utf-8")
     ortam = dict(os.environ, LUCA_BOT_AYAR=str(klasor / "ayarlar.json"), LOCALAPPDATA=str(klasor / "yerel"),
                  KARZARAR_CIKTI=str(klasor / "cikti"), PYTHONIOENCODING="utf-8")
-    komut = [sys.executable, str(KOK / "edefter.py"), "--tarih", tarih, "--firma-tam", firma, "--tum-firmalar", "--bitince-kapat",
-             *ek_arg]
+    komut = [sys.executable, str(KOK / "edefter.py"), "--tarih", tarih, "--firma-tam", firma,
+             *(["--tum-firmalar"] if tum_firmalar else []), "--bitince-kapat", *ek_arg]
     r = subprocess.run(komut, env=ortam, cwd=str(KOK), capture_output=True, text=True, encoding="utf-8")
     sunucu.shutdown()
     try:
@@ -191,6 +192,31 @@ class UctanUca(unittest.TestCase):
         self.assertEqual(s["durum"], "tamam", cikti[-2500:])
         self.assertTrue(all(h["fis_sayisi"] == 0 and not h["hata"] and "bulunamad" in h["mesaj"] for h in s["hatalar"]), s["hatalar"])
         self.assertIn("e-Defter kapsamında uyumsuz fiş yok", cikti)
+
+    def test_adi_verilen_firma_kayitli_listede_yoksa_liste_yenilenir_hala_yoksa_atlanir(self):
+        """Yalniz 1. sinif: kayitli liste eskiyse bir kez yeniden cekilir; gercekten 1. sinif degilse atlanir."""
+        import argparse
+        from unittest import mock
+        import edefter
+        args = argparse.Namespace(firma=["PILSA"], firma_tam=None, listeyi_yenile=False)
+        cagrilar = []
+
+        def sahte(page, adaylar, bit, ayar, log, yenile=False, sira=0, neden=""):
+            cagrilar.append(yenile)
+            return list(adaylar) if yenile else []                # eski liste: yok; yeni liste: var
+        with mock.patch.object(edefter.mv, "birinci_sinif_firmalari", sahte):
+            self.assertEqual(edefter.birinci_sinif_suz(None, ["PILSA ENER"], None, {}, args, None, 0), ["PILSA ENER"])
+        self.assertEqual(cagrilar, [False, True])
+        cagrilar.clear()
+        with mock.patch.object(edefter.mv, "birinci_sinif_firmalari", lambda *a, **k: cagrilar.append(k.get("yenile", a[5] if len(a) > 5 else False)) or []):
+            self.assertEqual(edefter.birinci_sinif_suz(None, ["PILSA ENER"], None, {}, args, None, 0), [])      # 2. sinif: atlanir
+        self.assertEqual(len(cagrilar), 2)
+        # firma adi verilmediyse (tum liste) kayitli liste yeterli: yeniden cekilmez
+        cagrilar.clear()
+        args2 = argparse.Namespace(firma=None, firma_tam=None, listeyi_yenile=False)
+        with mock.patch.object(edefter.mv, "birinci_sinif_firmalari", sahte):
+            edefter.birinci_sinif_suz(None, ["A"], None, {}, args2, None, 0)
+        self.assertEqual(cagrilar, [False])
 
     def test_liste_form_penceresinde_acilirsa_form_yeniden_acilir(self):
         kod, sonuc, cikti, sahte = calistir(veri=self.veri, ayar={"ayni_pencere": True}, ek_arg=["--hata-kodu", "20041", "--hata-kodu", "20047"])
