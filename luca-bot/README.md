@@ -305,9 +305,15 @@ Listedeki **Durum** sütunu (Luca'nın "Evrak No boş olamaz." gibi açıklamas�
   *Fiş No – Fiş Tarihi – Evrak No – BT (belge türü) – Ödeme türü – satır sayısı* (Luca'da Fiş No ile aranır). Excel'de *Firmalar* ve *Uyumsuz fişler* sayfaları.
 - Durum: **Gönderilebilir** (hiçbir kodda uyumsuz fiş yok), **UYUMSUZ FİŞ VAR**, **Kontrol tamamlanamadı** (ekran açılamadı ya da bir kodun listesi
   okunamadı: tam kontrol değildir, "gönderilebilir" denmez).
-- **Fiş türü ayrımı:** Uyumsuz her fiş, hesaplarına bakılarak **fatura fişi** (191/391 var: belge türü FT olur, elle kontrol edilir) ya da **diğer fiş** (191/391 yok:
-  MF seçilip evrak no atanabilecek fişler) diye işaretlenir; sayılar günlükte, ayrıntıda ve Excel'de görünür. Bu bilgi yalnız gösterilir, fişlere dokunulmaz.
-- **Luca'da hiçbir şey değiştirilmez:** *Kaydet* ve *Toplu Değer Ata* düğmelerine hiç basılmaz; düzeltmeyi siz Luca'da yaparsınız.
+- **Fiş türü ayrımı:** Uyumsuz her fiş, hesaplarına bakılarak **fatura fişi** ya da **diğer fiş** diye işaretlenir. Hesaplarında **191, 391, 6xx, 7xx, 15x (stok),
+  25x / 26x (duran varlık)** olan fiş fatura sayılır (satışta 391 olmayabilir; 601 yeterlidir): belge türü FT olur, **program asla dokunmaz**, siz elle düzeltirsiniz.
+  Bunların hiçbiri olmayan fişler (kasa, banka, cari mahsup) "diğer fiş"tir: MF seçilip evrak no atanabilir. Sayılar günlükte, ayrıntıda ve Excel'de görünür.
+- **Varsayılan: Luca'da hiçbir şey değiştirilmez** (*Kaydet* / *Toplu Değer Ata*'ya basılmaz).
+- **Seçilenleri Düzelt (MF)…** (isteğe bağlı, Luca'ya yazar): tabloda firma seçip basınca önce firma ve kod bazında özet gösterilir, **onayınız** istenir. Onaydan sonra
+  yalnız 20042-20045 kodlarında **diğer fişlerin** satırları seçilir; *Toplu Değer Ata*'dan **Belge Türü = MF**, **Evrak No = Değişmez Fiş No**, **Evrak Tarihi = Fiş Tarihi**
+  atanır. Fatura fişlerinin satırları seçilmez ve değerleri değişmemiş olmalıdır; atamadan sonra liste okunup (hedef satırlarda BT=MF, evrak no/tarihi dolu, diğerleri aynı)
+  doğrulanır, **tutmuyorsa Kaydet'e basılmaz**. Sonra *Kaydet*, ardından liste yeniden okunur ve kalan fiş sayısı yazılır (azalmamışsa "Luca kaydı kabul etmemiş olabilir").
+  Komut satırı: `python edefter.py ... --duzelt`. **Gerçek Luca'da henüz denenmedi: önce tek bir firmada deneyin** (`Tanı dosyaları kaydet` işaretli).
 - Varsayılan dönem geçen aydır (e-Defter aylık gönderilir). Çok fişli firmalarda bir kod için en çok 60 sayfa okunur (aşılırsa sayı "en az" olarak yazılır);
   JSON/Excel'e kod başına en çok 300 fiş yazılır (sayı her zaman tamdır).
 - **Gerçek Luca'da henüz denenmemiştir.** Form ve sonuç listesinin yapısı ekran görüntülerinden alınmıştır; ilk denemede `--tani` ile bir firmayla

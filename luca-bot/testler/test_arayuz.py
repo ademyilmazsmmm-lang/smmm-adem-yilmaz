@@ -1755,6 +1755,36 @@ class EdefterSekmesiTestleri(ArayuzZemini):
             self.assertIn(parca, metin)
         pencereler[0].destroy()
 
+    def test_duzelt_onay_ister_yalniz_duzeltilebilir_firmalari_ve_duzelt_bayragiyla_calistirir(self):
+        import edefter_sekmesi
+        self._bilgi_yakala()
+        self._calistir()
+        beta = [i for i, f in enumerate(self.ed.ham) if f["firma"] == "BETA"][0]
+        self.ed.tablo.secili_indeksler = lambda: [beta]
+        self.ed.duzelt()                                       # BETA'da yalniz 20041 var (duzeltme kodu degil): duzeltilecek fis yok
+        self.assertTrue(any("Düzeltilecek fiş yok" in str(b) for b in self.bilgiler))
+        self.ed.ham[beta]["hatalar"].append({"kod": "20042", "ad": "x", "fis_sayisi": 3, "diger_fis": 2, "fatura_fisi": 1, "hata": ""})
+        self.assertEqual(self.ed.duzeltilebilir(self.ed.ham[beta]), {"20042": 2})
+        sorular, baslatilan = [], []
+        self.ed._baslat = lambda komut: baslatilan.append(komut)
+        self.ed.a._giris_tamam_mi = lambda: True
+        eski = edefter_sekmesi.messagebox.askyesno
+        self.addCleanup(setattr, edefter_sekmesi.messagebox, "askyesno", eski)
+        edefter_sekmesi.messagebox.askyesno = lambda baslik, ileti, **k: sorular.append(ileti) or False
+        self.ed.duzelt()                                       # kullanici Hayir dedi: calismaz
+        self.assertEqual(baslatilan, [])
+        self.assertIn("BETA: 20042: 2 fiş", sorular[0])
+        self.assertIn("Belge Türü = MF", sorular[0])
+        self.assertIn("DOKUNULMAZ", sorular[0])
+        edefter_sekmesi.messagebox.askyesno = lambda *a, **k: True
+        self.ed.duzelt()
+        self.assertEqual(len(baslatilan), 1)
+        komut = baslatilan[0]
+        self.assertIn("--duzelt", komut)
+        self.assertEqual(komut[komut.index("--firma-tam") + 1], "BETA")
+        self.assertNotIn("--hata-kodu", komut)                  # tum kodlar taranir: sonuc tablosu tutarli kalir
+        self.assertNotIn("--duzelt", self.ed.komut(["BETA"]))   # normal calistirma Luca'ya yazmaz
+
     def test_excel_indir_programin_yazdigi_dosyayi_kopyalar(self):
         import edefter_sekmesi
         self._calistir()

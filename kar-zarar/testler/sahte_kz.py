@@ -601,7 +601,7 @@ DB_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Defter B
 # aciklama, evrak no, evrak tarihi, bt, odeme)]}. Form ve liste gercek ekran goruntulerindeki gibi ayri pencerelerde acilir.
 EDEFTER_VERI = {}
 EDEFTER_AYAR = {"form_yenile": False, "edefter_kutu": "isaretli", "sayfa_boyu": 2, "kayit_yok": "bos_liste", "ayni_pencere": False, "belge_bos_varsayilan": False,
-                "istekler": [], "kaydet": 0}
+                "istekler": [], "kaydet": 0, "kaydet_ayrinti": [], "kaydet_kabul": True}
 EDEFTER_HATALAR = [("20041", "... nolu fiş içinde ... belge türünün tanımı yok.( Hata Kodu: 20041)"),
                    ("20042", "... nolu fiş(ler) içinde ilgili belge tür kodlu satırda evrak no ve tarihi girilmelidir.( Hata Kodu: 20042)"),
                    ("20044", "... nolu fiş(ler)de birden fazla belge mevcut.(Hata Kodu: 20044)"),
@@ -652,14 +652,47 @@ __EDEFTER_KUTU__
 EDEFTER_LISTE_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>E-DEFTER UYUMSUZ FİŞLERİ DÜZENLEME - Google Chrome</title>
 """ + ORTAK_STIL + """</head><body>
 <h4>E-DEFTER UYUMSUZ FİŞLERİ DÜZENLEME</h4>
-<table id="liste" border="1"><thead><tr><th><input type="checkbox"></th><th>Sıra</th><th>Fiş No</th><th>Değişmeyen Fiş No</th><th>Fiş Tarihi</th>
+<table id="liste" border="1"><thead><tr><th><input type="checkbox" id="hepsi" checked onclick="hepsiniSec(this.checked)"></th><th>Sıra</th><th>Fiş No</th><th>Değişmeyen Fiş No</th><th>Fiş Tarihi</th>
 <th>Hesap Kodu</th><th>Borç</th><th>Alacak</th><th>Açıklama</th><th>Evrak No</th><th>Evrak Tarihi</th><th>BT</th><th>Ödeme Türü</th><th>Durum</th></tr></thead>
 <tbody>__SATIRLAR__</tbody></table>
 <div id="alt"><button type="button" onclick="git(-1)"><i></i></button><button type="button" onclick="git(1)"><i></i></button>
 <b>Sayfa No: __SAYFA__</b>
-<button type="button">Toplu Değer Ata</button><button type="button">Toplu Değer Seç</button><button type="button">Filtre</button>
-<button type="button" onclick="fetch('/api/edefter-kaydet')"><img alt="kaydet"> Kaydet</button></div>
-<script>function git(d) { const u = new URL(location.href); u.searchParams.set('sayfa', Math.max(1, __SAYFA__ + d)); location.href = u.toString(); }</script>
+<button type="button" onclick="topluAc()">Toplu Değer Ata</button><button type="button">Toplu Değer Seç</button><button type="button">Filtre</button>
+<button type="button" onclick="kaydet()"><img alt="kaydet"> Kaydet</button></div>
+<div id="toplu" style="display:none;position:fixed;right:10px;bottom:40px;border:2px solid #357;background:#fff;width:520px">
+ <div style="background:#357;color:#fff">Lütfen Seçili Satırlara Aktarmak İstediğiniz Değerleri Giriniz.</div>
+ <table>
+  <tr><td>Ödeme Türü</td><td><input type="text" id="t_odeme"></td><td><button type="button" onclick="aktar('odeme')">Aktar</button></td><td><button type="button">Temizle</button></td></tr>
+  <tr><td>Belge Türü</td><td><input type="text" id="t_bt"></td><td><button type="button" onclick="aktar('bt')">Aktar</button></td><td><button type="button">Temizle</button></td></tr>
+  <tr><td>Evrak Tarihi</td><td><input type="text" id="t_et"></td><td><button type="button" onclick="aktar('et')">Aktar</button></td><td><button type="button">Temizle</button></td></tr>
+  <tr><td>Evrak No Alanına Değişmez Fiş Numarasını Aktar</td><td></td><td><button type="button" onclick="aktar('no')">Aktar</button></td><td><button type="button">Temizle</button></td></tr>
+ </table>
+ <a href="#" onclick="aktar('tarih'); return false;">Fiş Tarihini Evrak Tarihi Olarak Ata</a>
+ <div id="uyari" style="color:red"></div>
+</div>
+<script>
+ function git(d) { const u = new URL(location.href); u.searchParams.set('sayfa', Math.max(1, __SAYFA__ + d)); location.href = u.toString(); }
+ const satirlar = () => Array.from(document.querySelectorAll('#liste tbody tr'));
+ function hepsiniSec(v) { satirlar().forEach(r => r.querySelector('input[type=checkbox]').checked = v); }
+ function topluAc() { document.getElementById('toplu').style.display = 'block'; }
+ function aktar(ne) {
+   const sec = satirlar().filter(r => r.querySelector('input[type=checkbox]').checked);
+   if (!sec.length) { document.getElementById('uyari').textContent = 'Lütfen kayıt seçiniz.'; return; }
+   sec.forEach(r => {
+     const k = r.cells; // 9 evrak no, 10 evrak tarihi, 11 bt, 12 odeme
+     if (ne === 'bt') k[11].textContent = document.getElementById('t_bt').value;
+     if (ne === 'odeme') k[12].querySelector('input').value = document.getElementById('t_odeme').value;
+     if (ne === 'et') k[10].querySelector('input').value = document.getElementById('t_et').value;
+     if (ne === 'no') k[9].querySelector('input').value = r.dataset.deg;
+     if (ne === 'tarih') k[10].querySelector('input').value = r.dataset.tarih;
+   });
+ }
+ function kaydet() {
+   const d = satirlar().map((r, i) => ({i, no: r.cells[9].querySelector('input').value, et: r.cells[10].querySelector('input').value,
+                                        bt: r.cells[11].textContent.trim(), odeme: r.cells[12].querySelector('input').value}));
+   fetch('/api/edefter-kaydet?firma=__FIRMA__&kod=__KOD__&sayfa=__SAYFA__&d=' + encodeURIComponent(JSON.stringify(d)));
+ }
+</script>
 </body></html>"""
 
 
@@ -680,12 +713,38 @@ def edefter_liste_html(q):
         for i, (hk, ha, borc, alacak, aciklama, evrak, evrak_t, bt, odeme) in enumerate(f["satirlar"]):
             ilk = i == 0
             satirlar.append(
-                "<tr><td><input type='checkbox'></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s<br>%s</td><td>%s</td><td>%s</td><td>%s</td>"
+                "<tr data-deg='" + f["degismeyen"] + "' data-tarih='" + f["tarih"] + "'><td><input type='checkbox' checked></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s<br>%s</td><td>%s</td><td>%s</td><td>%s</td>"
                 "<td><input type='text' value='%s'></td><td><input type='text' value='%s'></td><td>%s</td><td><input type='text' value='%s'></td><td>%s</td></tr>"
                 % (sira if ilk else "", ("<a href='#'>%s</a>" % f["fis_no"]) if ilk else "", f["degismeyen"] if ilk else "",
                    f["tarih"] if ilk else "", hk, ha, tr_sayi(borc), tr_sayi(alacak), aciklama, evrak, evrak_t, bt, odeme,
                    f.get("durum", "") if ilk else ""))
-    return EDEFTER_LISTE_SAYFASI.replace("__SATIRLAR__", "".join(satirlar)).replace("__SAYFA__", str(sayfa))
+    return (EDEFTER_LISTE_SAYFASI.replace("__SATIRLAR__", "".join(satirlar)).replace("__SAYFA__", str(sayfa))
+            .replace("__FIRMA__", q.get("firma", "")).replace("__KOD__", q.get("kod", "")))
+
+
+def edefter_kaydet(q):
+    """Listedeki Kaydet: gelen satir degerlerini fislere isler; belge turu + evrak no + evrak tarihi dolan fis listeden duser
+    (gercek Luca gibi: uyumsuz degil artik). EDEFTER_AYAR['kaydet_kabul']=False: Luca kaydi sessizce yok sayar."""
+    firma, kod = q.get("firma", ""), q.get("kod", "")
+    fisler = EDEFTER_VERI.get((firma, kod), [])
+    boyut = EDEFTER_AYAR["sayfa_boyu"]
+    sayfa = max(1, int(q.get("sayfa") or 1))
+    parca = fisler[(sayfa - 1) * boyut: sayfa * boyut]
+    satirlar = [(f, i) for f in parca for i in range(len(f["satirlar"]))]
+    veri = json.loads(q.get("d") or "[]")
+    EDEFTER_AYAR["kaydet_ayrinti"].append({"firma": firma, "kod": kod, "sayfa": sayfa, "satirlar": veri})
+    if not EDEFTER_AYAR["kaydet_kabul"]:
+        return
+    for d in veri:
+        f, i = satirlar[d["i"]]
+        hk, ha, borc, alacak, aciklama, _no, _et, _bt, _odeme = f["satirlar"][i]
+        f["satirlar"][i] = (hk, ha, borc, alacak, aciklama, d["no"], d["et"], d["bt"], d["odeme"])
+    for f in parca:
+        if all(x[5] and x[6] and x[7] for x in f["satirlar"]):
+            fisler.remove(f)
+
+
+
 
 
 
@@ -805,8 +864,10 @@ class Isleyici(sahte_luca.Isleyici):
             q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
             return self._yanit(json.dumps(len(edefter_fisleri(q.get("firma", ""), q.get("kod", ""), q.get("edefter", "1")))), "application/json")
         if yol == "/api/edefter-kaydet":
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
             with KILIT:
                 EDEFTER_AYAR["kaydet"] += 1
+                edefter_kaydet(q)
             return self._yanit("{}", "application/json")
         if yol == "/edefter-liste":
             q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query, keep_blank_values=True).items()}
@@ -932,7 +993,7 @@ def sifirla():
     EDEFTER_VERI.clear()
     FIS_VERI.clear()
     FIS_AYAR.update(gizli=False, dugme="button", kutu="tek", modlar={"20021": "grid", "20025": "mesaj", "20026": "mesaj"}, istekler=[])
-    EDEFTER_AYAR.update(form_yenile=False, edefter_kutu="isaretli", sayfa_boyu=2, kayit_yok="bos_liste", ayni_pencere=False, belge_bos_varsayilan=False, istekler=[], kaydet=0)
+    EDEFTER_AYAR.update(form_yenile=False, edefter_kutu="isaretli", sayfa_boyu=2, kayit_yok="bos_liste", ayni_pencere=False, belge_bos_varsayilan=False, istekler=[], kaydet=0, kaydet_ayrinti=[], kaydet_kabul=True)
     ISLETME_VERI.clear()
     ISLETME_AYAR["istekler"] = []
     MUAVIN_AYAR.update(hesap_alani=True, excel_adi="Excel (xlsx)", istekler=[], nokta_acildi=0)

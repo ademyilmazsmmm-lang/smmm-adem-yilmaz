@@ -62,6 +62,19 @@ def taranamayanlar(s):
     return [(h["kod"], h["hata"]) for h in s.get("hatalar") or [] if h.get("hata")]
 
 
+def duzeltmeler(s):
+    """Duzeltme denenen kodlar: [(kod, {fis, satir, kaydedildi, fatura_fis, mesaj})]."""
+    return [(h["kod"], h["duzeltme"]) for h in s.get("hatalar") or [] if h.get("duzeltme")]
+
+
+def duzeltme_yazisi(d):
+    """'3 fiş (12 satır) MF + evrak no ile düzeltildi; 2 fatura fişine dokunulmadı' / neden yapılmadığı."""
+    kisa = (f"{d.get('fis', 0)} fiş ({d.get('satir', 0)} satır) MF + evrak no ile düzeltildi, {d.get('kaydedildi', 0)} kez Kaydet"
+            if d.get("kaydedildi") else "düzeltme yapılmadı")
+    ek = f"; {d['fatura_fis']} fatura fişine dokunulmadı" if d.get("fatura_fis") else ""
+    return kisa + ek + (f" — {d['mesaj']}" if d.get("mesaj") else "")
+
+
 def fis_satiri(f):
     """'01023  01/07/2026  Evrak 89582  BT MF  3 satır  1.234,56'"""
     evrak = ", ".join(f.get("evrak") or []) or "-"
@@ -106,6 +119,8 @@ def excel_yaz(yol, donem, firmalar):
         sayilar = {h["kod"]: h for h in s.get("hatalar") or []}
         hucre = lambda k: ("?" if sayilar[k].get("hata") else sayilar[k]["fis_sayisi"]) if k in sayilar else ""
         not_ = s.get("hata") or "; ".join(f"{k}: {h[:80]}" for k, h in taranamayanlar(s))
+        for k, d in duzeltmeler(s):
+            not_ = (not_ + "; " if not_ else "") + f"{k}: {duzeltme_yazisi(d)}"
         ozet.append([s["firma"], s.get("donem") or donem, DURUM_YAZISI.get(s["durum"], s["durum"]), sorun_sayisi(s)]
                     + [hucre(k) for k in kodlar] + [not_])
         for h in s.get("hatalar") or []:
@@ -114,7 +129,7 @@ def excel_yaz(yol, donem, firmalar):
                                f.get("degismeyen", ""), ", ".join(f.get("evrak") or []), f.get("bt", ""), f.get("odeme", ""),
                                f.get("satir", 0), f.get("tutar", 0.0), f.get("hesap", ""), f.get("aciklama", ""),
                                "; ".join(f.get("durum") or []),
-                               {True: "Fatura fişi (191/391 var: elle)", False: "Diğer fiş (MF + evrak no atanabilir)"}.get(f.get("fatura_fisi"), "")])
+                               {True: "Fatura/gelir-gider fişi (191/391/6xx/7xx: elle)", False: "Diğer fiş (MF + evrak no atanabilir)"}.get(f.get("fatura_fisi"), "")])
             if h.get("kesildi") or h.get("fis_sayisi", 0) > len(h.get("fisler") or []):
                 fisler.append([s["firma"], h["kod"], kod_adi(h["kod"], h.get("ad", "")),
                                f"… toplam {h.get('fis_sayisi', 0)} fişten {len(h.get('fisler') or [])} tanesi listelendi", "", "", "", "",

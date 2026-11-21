@@ -4,7 +4,8 @@
 Repodaki kar-zarar/edefter.py programini arka planda calistirir. Her 1. sinif (genel muhasebe) firma icin Luca'da
 Muhasebe > Fis Islemleri > Duzenleme > Toplu Belge Turu ve Odeme Yontemi Duzenleme ekraninda "E-Defter kapsaminda uyumsuz olan
 fisleri getir" ile her e-Defter hata kodu (20041, 20042, 20044-20048) taranir; uyumsuz fisler (fis no, tarih, evrak no, belge turu,
-odeme turu) listelenir. Luca'da hicbir sey degistirilmez (Kaydet'e basilmaz). Sonuc kar-zarar/cikti/edefter.json'dan okunur.
+odeme turu) listelenir. Tarama Luca'da hicbir sey degistirmez. "Seçilenleri Düzelt" YALNIZ onayla calisir: fatura olmayan fislere
+(191/391/6xx/7xx/15x/25x/26x hesabi olmayan) Belge Turu MF + evrak no atar ve Kaydet'e basar. Sonuc kar-zarar/cikti/edefter.json'dan okunur.
 Kar/Zarar, Defter Beyan, Muavin ve Fatura indirme ile ayni anda calismaz.
 """
 
@@ -22,6 +23,7 @@ EXCEL = "edefter.xlsx"
 KOD_SUTUNLARI = ("20021", "20025", "20026", "20041", "20042", "20044", "20045", "20046", "20047", "20048")
 DURUM_YAZISI = {"tamam": "Gönderilebilir (uyumsuz fiş yok)", "sorun var": "UYUMSUZ FİŞ VAR", "hata": "Kontrol tamamlanamadı"}
 DURUM_ETIKET = {"tamam": "tamam", "sorun var": "var", "hata": "hata"}
+DUZELTME_KODLARI = ("20042", "20043", "20044", "20045")      # kar-zarar/karzarar/luca_edefter.DUZELTME_KODLARI ile ayni
 KISA_AD = {
     "20021": "e-Defter başlangıç tarihinden önce numaralandırılmamış fiş",
     "20025": "Dengesiz veya pasif fiş",
@@ -133,6 +135,7 @@ class EdefterSekmesi(KarZararSekmesi):
         alt.pack(side="bottom", fill="x", pady=(10, 0))
         u.dugme(alt, "Uyumsuz fişler", self.ayrinti, ana=True).pack(side="left")
         u.dugme(alt, "Seçilenleri Yeniden Çalıştır", self.secilenleri_calistir).pack(side="left", padx=8)
+        u.dugme(alt, "Seçilenleri Düzelt (MF)…", self.duzelt).pack(side="left")
         u.dugme(alt, "Güncelle", self.guncelle).pack(side="left")
         u.dugme(alt, "Excel olarak indir", self.excele_indir).pack(side="left", padx=8)
         self.durum_yazisi = tk.Label(alt, text="", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN)
@@ -263,12 +266,18 @@ class EdefterSekmesi(KarZararSekmesi):
                 if h.get("hata"):
                     metin.insert("end", f"  {h['kod']} {kod_adi(h)}: TARANAMADI — {h['hata'][:200]}\n", "hata")
                 elif h.get("fis_sayisi"):
-                    ayrim = (f" — {h['fatura_fisi']} fatura fişi (191/391 var: elle kontrol), {h['diger_fis']} diğer fiş (MF + evrak no atanabilir)"
+                    ayrim = (f" — {h['fatura_fisi']} fatura fişi (191/391/6xx/7xx/stok/duran varlık: elle kontrol), {h['diger_fis']} diğer fiş (MF + evrak no atanabilir)"
                              if h.get("fatura_fisi") or h.get("diger_fis") else "")
                     metin.insert("end", f"  {h['kod']} {kod_adi(h)}: {h['fis_sayisi']} fiş" +
                                  (" (en az; sayfa sınırı)" if h.get("kesildi") else "") + ayrim + "\n", "baslik")
                     for f in h.get("fisler") or []:
                         metin.insert("end", "    " + fis_satiri(f) + "\n")
+                if h.get("duzeltme"):
+                    d = h["duzeltme"]
+                    metin.insert("end", f"  {h['kod']} DÜZELTME: " + (f"{d.get('fis', 0)} fiş ({d.get('satir', 0)} satır) MF + evrak no ile düzeltildi"
+                                 if d.get("kaydedildi") else "düzeltme yapılmadı") +
+                                 (f"; {d['fatura_fis']} fatura fişine dokunulmadı" if d.get("fatura_fis") else "") +
+                                 (f" — {d['mesaj']}" if d.get("mesaj") else "") + "\n", "baslik")
                     if h["fis_sayisi"] > len(h.get("fisler") or []):
                         metin.insert("end", f"    … {h['fis_sayisi'] - len(h.get('fisler') or [])} fiş daha (Luca'da listeleyin)\n")
             metin.insert("end", "\n")
@@ -360,6 +369,45 @@ class EdefterSekmesi(KarZararSekmesi):
             messagebox.showerror("Eksik bilgi", str(e), parent=self.a.kok)
             return
         self._baslat(komut)
+
+    def duzeltilebilir(self, s):
+        """Firmanin son taramasina gore duzeltilebilir (fatura olmayan) fis sayisi: {kod: adet}."""
+        return {h["kod"]: h["diger_fis"] for h in s.get("hatalar") or []
+                if h.get("kod") in DUZELTME_KODLARI and h.get("diger_fis") and not h.get("hata")}
+
+    def duzelt(self):
+        """Secili firmalarda fatura OLMAYAN uyumsuz fisleri duzeltir (Luca'ya yazar): once ozet + onay, sonra edefter.py --duzelt."""
+        sira = self.tablo.secili_indeksler()
+        if not sira:
+            messagebox.showinfo("Firma seçin", "Önce tabloda düzeltilecek firmaları seçin (Ctrl / Shift ile birden çok).\n"
+                                "Düzeltilecek fişler son taramadan bilinir; önce tarama yapın.", parent=self.a.kok)
+            return
+        firmalar = {}
+        for i in sira:
+            sayilar = self.duzeltilebilir(self.ham[i])
+            if sayilar:
+                firmalar[self.ham[i]["firma"]] = sayilar
+        if not firmalar:
+            messagebox.showinfo("Düzeltilecek fiş yok", "Seçili firmalarda, son taramaya göre, düzeltilebilir (fatura olmayan) fiş yok.\n"
+                                "191/391/6xx/7xx/15x/25x/26x hesabı olan fişlere program dokunmaz; onları Luca'da elle düzeltin.",
+                                parent=self.a.kok)
+            return
+        satirlar = "\n".join(f"  • {f}: " + ", ".join(f"{k}: {n} fiş" for k, n in sorted(c.items())) for f, c in sorted(firmalar.items()))
+        if not messagebox.askyesno(
+                "Luca'da değişiklik yapılacak",
+                f"{len(firmalar)} firmada fatura olmayan uyumsuz fişler düzeltilecek:\n\n{satirlar}\n\n"
+                "Bu fişlerin satırlarına Belge Türü = MF, Evrak No = Değişmez Fiş No, Evrak Tarihi = Fiş Tarihi atanacak ve Luca'da "
+                "Kaydet'e basılacak.\n191/391/6xx/7xx/15x/25x/26x hesabı olan (fatura / gelir-gider) fişlere DOKUNULMAZ.\n\n"
+                "Önce tek bir firmayla denemeniz önerilir. Devam edilsin mi?", icon="warning", parent=self.a.kok):
+            return
+        if self._baska_calisiyor() or not self.a._giris_tamam_mi():
+            return
+        try:
+            komut = self.komut(sorted(firmalar)) + ["--duzelt"]
+        except ValueError as e:
+            messagebox.showerror("Eksik bilgi", str(e), parent=self.a.kok)
+            return
+        self._baslat(komut)             # tum kodlar yeniden taranir (sonuc tablosu tutarli kalsin); duzeltme yalniz DUZELTME_KODLARI'nda
 
     def _baslat(self, komut):
         super()._baslat(komut)

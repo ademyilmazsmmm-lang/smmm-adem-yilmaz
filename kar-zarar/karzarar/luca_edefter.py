@@ -435,13 +435,15 @@ def fisleri_grupla(basliklar, satirlar, fisler=None):
             anahtar = (degismeyen, fis_no, al(s, "tarih"))
             akim = fisler.setdefault(anahtar, {"fis_no": fis_no, "tarih": al(s, "tarih"), "degismeyen": degismeyen, "satir": 0,
                                                "evrak": [], "bt": "", "odeme": "", "tutar": 0.0,
-                                               "hesap": al(s, "hesap").split(" ")[0], "aciklama": al(s, "aciklama")[:90], "durum": [], "hp": []})
+                                               "hesap": al(s, "hesap").split(" ")[0], "aciklama": al(s, "aciklama")[:90], "durum": [], "hp": [], "fatura_hp": []})
         if akim is None:
             continue
         akim["satir"] += 1
         on_ek = re.match(r"\d{3}", al(s, "hesap"))
         if on_ek and on_ek.group(0) not in akim["hp"] and len(akim["hp"]) < 12:
-            akim["hp"].append(on_ek.group(0))                    # fisin hesap ailesi (191, 391, 100 ...): fatura fisi ayrimi icin
+            akim["hp"].append(on_ek.group(0))                    # fisin hesap ailesi (191, 391, 100 ...): bilgi icin
+        if on_ek and on_ek.group(0).startswith(FATURA_ONEKLERI) and on_ek.group(0) not in akim["fatura_hp"] and len(akim["fatura_hp"]) < 6:
+            akim["fatura_hp"].append(on_ek.group(0))             # fatura / gelir-gider hesabi: fis fatura sayilir (sinirdan bagimsiz)
         akim["tutar"] = round(akim["tutar"] + tutar(al(s, "borc")), 2)
         for ad, alan in (("evrak_no", "evrak"),):
             v = al(s, ad)
@@ -456,16 +458,21 @@ def fisleri_grupla(basliklar, satirlar, fisler=None):
     return fisler
 
 
-FATURA_HESAPLARI = ("191", "391")       # alis / satis KDV hesaplari: bu fisler fatura (FT) olur, programin dokunmayacagi fisler
+# Fatura fisi (belge turu FT) sayilan hesaplar: 191/391 KDV, 6xx ve 7xx gelir-gider (601 satista 391 olmayabilir), 15x stok, 25x/26x duran varlik.
+# Bu hesaplardan biri olan fise program ASLA dokunmaz (belge turu / evrak no elle girilir). Digerleri (kasa, banka, cari mahsup) MF olabilir.
+FATURA_ONEKLERI = ("191", "391", "6", "7", "15", "25", "26")
+FATURA_HESAPLARI = FATURA_ONEKLERI      # eski ad
 
 
 def fatura_fisi_mi(f):
-    """True: fisin hesaplarinda 191/391 var (fatura fisi: belge turu FT, elle kontrol edilir); False: yok (MF + evrak no atanabilir);
-    None: hesap bilgisi okunamadi."""
+    """True: fiste fatura / gelir-gider hesabi var (191, 391, 6xx, 7xx, 15x, 25x, 26x: elle kontrol edilir, program dokunmaz);
+    False: yok (kasa/banka/cari mahsup fisi: MF + evrak no atanabilir); None: hesap bilgisi okunamadi."""
+    if f.get("fatura_hp"):
+        return True
     hp = f.get("hp")
     if not hp:
         return None
-    return any(h in FATURA_HESAPLARI for h in hp)
+    return any(h.startswith(FATURA_ONEKLERI) for h in hp)
 
 
 def _imza(r):
@@ -508,16 +515,248 @@ def liste_oku(ana, liste, log=None, sayfa_siniri=SAYFA_SINIRI, capa=CAPA_BELGE, 
     fatura = sum(1 for f in liste_fis if f["fatura_fisi"] is True)
     diger = sum(1 for f in liste_fis if f["fatura_fisi"] is False)
     if fatura or diger:
-        yaz(f"      {fatura} fatura fişi (191/391 var: elle), {diger} diğer fiş (MF + evrak no atanabilir)", log)
+        yaz(f"      {fatura} fatura fişi (191/391/6xx/7xx/stok/duran varlık var: elle), {diger} diğer fiş (MF + evrak no atanabilir)", log)
     return {"fis_sayisi": len(liste_fis), "satir_sayisi": satir_sayisi, "kesildi": kesildi,
             "fatura_fisi": fatura, "diger_fis": diger, "fisler": liste_fis[:FIS_SINIRI], "sayfa": sayfa_sayisi}
 
 
-def belge_turu_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, kodlar=None):
+# --- DUZELTME (yalniz kullanici acikca isterse: --duzelt) -------------------------------------------------------------------
+# E-Defter Uyumsuz Fisleri Duzenleme penceresinde, fatura OLMAYAN fislerin (191/391/6xx/7xx/15x/25x/26x hesabi olmayan: kasa, banka,
+# cari mahsup) satirlarini secer; Toplu Deger Ata'dan Belge Turu = MF, "Evrak No Alanina Degismez Fis Numarasini Aktar" ve
+# "Fis Tarihini Evrak Tarihi Olarak Ata" uygular, SONRA Kaydet'e basar. Fatura fislerinin satirlari secilmez ve degerleri
+# degismemis olmalidir (aksi halde Kaydet'e BASILMAZ). Gercek Luca'da henuz denenmedi: her adim dogrulanir, supheli durumda durulur.
+DUZELTME_KODLARI = ("20042", "20043", "20044", "20045")
+DUZELTME_BELGE_TURU = "MF"
+DUZELTME_TUR_SINIRI = 4        # Kaydet'ten sonra liste yeniden acilip kalan fisler icin en cok bu kadar tur
+
+SEC_JS = r"""arg => {
+  const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
+  const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\s.\-()*:\/]/g, '');
+  let bas = null;
+  const hucreler = document.querySelectorAll('th, td');
+  for (let i = 0; i < hucreler.length; i++) if (g(hucreler[i]) && !hucreler[i].children.length && duz(hucreler[i].textContent) === arg.capa) { bas = hucreler[i]; break; }
+  if (!bas) return null;
+  const hsatir = bas.closest('tr'), tablo = hsatir.closest('table'), n = hsatir.children.length;
+  const topla = t => { const c = []; for (let i = 0; i < t.rows.length; i++) { const r = t.rows[i]; if (r !== hsatir && r.cells.length === n && !r.querySelector('th')) c.push(r); } return c; };
+  let satirlar = topla(tablo);
+  if (!satirlar.length) {
+    const tablolar = document.querySelectorAll('table');
+    for (let i = 0; i < tablolar.length; i++) { if (tablolar[i] === tablo) continue; const s = topla(tablolar[i]); if (s.length > satirlar.length) satirlar = s; }
+  }
+  const hedef = {};
+  for (let i = 0; i < arg.sec.length; i++) hedef[arg.sec[i]] = true;
+  let kutu = 0, secili = 0, yanlis = 0;
+  for (let i = 0; i < satirlar.length; i++) {
+    const k = satirlar[i].querySelector('input[type=checkbox]');
+    if (!k) continue;
+    kutu++;
+    const ister = !!hedef[i];
+    if (!!k.checked !== ister && !k.disabled) k.click();
+    if (!!k.checked !== ister && !k.disabled) { k.checked = ister; k.dispatchEvent(new Event('change', {bubbles: true})); }
+    if (k.checked) secili++;
+    if (!!k.checked !== ister) yanlis++;
+  }
+  return {satir: satirlar.length, kutu, secili, yanlis};
+}"""
+
+# Toplu Deger Ata penceresi: adim = ac | belge | evrak_no | tarih
+DEGER_JS = r"""arg => {
+  const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
+  const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\s.\-()*:\/]/g, '');
+  const tum = document.querySelectorAll('button, input, a, img, span, div, td, th, label, b, li');
+  const metin = e => (e.value || e.title || e.alt || (e.children.length > 2 ? '' : e.textContent) || '').replace(/\s+/g, ' ').trim();
+  const yapraklar = ara => { const c = []; for (let i = 0; i < tum.length; i++) { const e = tum[i]; if (g(e) && !(e.tagName === 'INPUT' && /^(text|checkbox|hidden|radio)$/i.test(e.type || '')) && duz(metin(e)) === duz(ara)) c.push(e); } return c; };
+  const govde = (document.body && document.body.innerText) || '';
+  const acik = /Aktarmak\s*İstediğiniz/i.test(govde);
+  if (arg.adim === 'kontrol') return acik ? 'acik' : 'pencere yok';
+  if (arg.adim === 'ac') {
+    if (acik) return 'acik';
+    const d = yapraklar('Toplu Değer Ata');
+    if (!d.length) return 'dugme yok';
+    d[d.length - 1].click();
+    return 'tiklandi';
+  }
+  if (!acik) return 'pencere yok';
+  // pencere kutusu: basligi iceren ve "Belge Turu" ile "Evrak Tarihi" etiketlerini de barindiran en kucuk ata
+  let kutu = null;
+  const baslik = yapraklar('Lütfen Seçili Satırlara Aktarmak İstediğiniz Değerleri Giriniz.')[0] || null;
+  if (baslik) for (let a = baslik, i = 0; a && i < 8; a = a.parentElement, i++) if (/Belge\s*Türü/i.test(a.innerText || '') && /Evrak\s*Tarihi/i.test(a.innerText || '')) { kutu = a; break; }
+  if (!kutu) return 'pencere kutusu yok';
+  const icinde = ara => { const c = []; for (let i = 0; i < tum.length; i++) { const e = tum[i]; if (kutu.contains(e) && g(e) && duz(metin(e)) === duz(ara) && !(e.tagName === 'INPUT' && /^(text|checkbox|hidden|radio)$/i.test(e.type || ''))) c.push(e); } return c; };
+  const aktarlar = satir => { const d = satir.querySelectorAll('button, input[type=button], input[type=submit], a, span, div, img, td'), c = []; for (let i = 0; i < d.length; i++) if (g(d[i]) && duz(metin(d[i])) === 'aktar') c.push(d[i]); const ic = []; for (let i = 0; i < c.length; i++) { let altta = false; for (let j = 0; j < c.length; j++) if (i !== j && c[i].contains(c[j])) altta = true; if (!altta) ic.push(c[i]); } return ic; };
+  const aktarDugmesi = satir => { const c = aktarlar(satir); return c.length ? c[c.length - 1] : null; };
+  // etiketin satiri: TEK Aktar dugmesi iceren en kucuk ata (baska satirin Aktar'ina basilmasin)
+  const satirBul = etiket => { for (let a = etiket, i = 0; a && i < 5; a = a.parentElement, i++) { if (a === kutu) break; const c = aktarlar(a); if (c.length === 1) return a; if (c.length > 1) break; } return null; };
+  if (arg.adim === 'tarih') {
+    const l = icinde('Fiş Tarihini Evrak Tarihi Olarak Ata');
+    if (!l.length) return 'etiket yok';
+    l[0].click();
+    return 'ok';
+  }
+  const etiketler = icinde(arg.adim === 'belge' ? 'Belge Türü' : 'Evrak No Alanına Değişmez Fiş Numarasını Aktar');
+  if (!etiketler.length) return 'etiket yok';
+  const satir = satirBul(etiketler[0]);
+  if (!satir) return 'aktar dugmesi yok';
+  if (arg.adim === 'belge') {
+    const giris = satir.querySelector('select, input[type=text], input:not([type]):not([type=button]):not([type=checkbox])');
+    if (!giris) return 'belge turu kutusu yok';
+    if (giris.tagName === 'SELECT') {
+      let bulundu = false;
+      for (let i = 0; i < giris.options.length; i++) if (duz(giris.options[i].text) === duz(arg.deger) || duz(giris.options[i].value) === duz(arg.deger)) { giris.selectedIndex = i; bulundu = true; break; }
+      if (!bulundu) return 'belge turu secenegi yok';
+    } else {
+      giris.focus(); giris.value = arg.deger;
+      for (const o of ['input', 'keyup', 'change', 'blur']) giris.dispatchEvent(new Event(o, {bubbles: true}));
+    }
+    giris.dispatchEvent(new Event('change', {bubbles: true}));
+  }
+  aktarDugmesi(satir).click();
+  return 'ok';
+}"""
+
+KAYDET_JS = r"""() => {
+  const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
+  const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\s.\-()*:\/]/g, '');
+  const d = document.querySelectorAll('button, input[type=button], input[type=submit], a');
+  for (let i = 0; i < d.length; i++) if (g(d[i]) && duz(d[i].value || d[i].textContent) === 'kaydet') { d[i].click(); return 'tiklandi'; }
+  return 'dugme yok';
+}"""
+
+
+def satir_anahtarlari(basliklar, satirlar):
+    """Her liste satirinin fis anahtari (degismeyen, fis no, tarih); fis basi gorulmeden gelen devam satirlari None."""
+    sade = [_sade(b) for b in basliklar]
+    idx = {ad: (sade.index(k) if k in sade else None) for ad, k in SUTUN_ADLARI.items()}
+    al = lambda s, ad: (s[idx[ad]] if idx[ad] is not None and idx[ad] < len(s) else "").strip()
+    anahtarlar, akim = [], None
+    for s in satirlar:
+        if al(s, "fis_no") or al(s, "degismeyen"):
+            akim = (al(s, "degismeyen"), al(s, "fis_no"), al(s, "tarih"))
+        anahtarlar.append(akim)
+    return anahtarlar
+
+
+def duzeltme_plani(basliklar, satirlar, son_fisi_disla=False):
+    """Bu sayfada duzeltilecek (fatura OLMAYAN) fislerin satir indeksleri: (hedef_indeksler, hedef_fis_sayisi, fatura_fis_sayisi).
+
+    son_fisi_disla: liste birden cok sayfaysa sayfa sonunda bolunmus olabilecek son fis atlanir (hesaplari eksik gorunebilir)."""
+    anahtarlar = satir_anahtarlari(basliklar, satirlar)
+    fisler = fisleri_grupla(basliklar, satirlar)
+    sinif = {a: fatura_fisi_mi(f) for a, f in fisler.items()}
+    son = anahtarlar[-1] if anahtarlar else None
+    hedef, hedef_fis, fatura_fis = [], set(), set()
+    for i, a in enumerate(anahtarlar):
+        if a is None or sinif.get(a) is not False or (son_fisi_disla and a == son):
+            if a is not None and sinif.get(a) is True:
+                fatura_fis.add(a)
+            continue
+        hedef.append(i)
+        hedef_fis.add(a)
+    return hedef, len(hedef_fis), len(fatura_fis)
+
+
+def _degerler(basliklar, satirlar):
+    sade = [_sade(b) for b in basliklar]
+    ix = {ad: (sade.index(SUTUN_ADLARI[ad]) if SUTUN_ADLARI[ad] in sade else None) for ad in ("evrak_no", "evrak_tarihi", "bt", "degismeyen")}
+    al = lambda s, ad: (s[ix[ad]] if ix[ad] is not None and ix[ad] < len(s) else "").strip()
+    return [(al(s, "evrak_no"), al(s, "evrak_tarihi"), al(s, "bt").upper()) for s in satirlar], ix
+
+
+def sonraki_sayfa(ana, liste, capa=CAPA_BELGE):
+    """Liste penceresinde bir sonraki sayfaya gecer; True: sayfa degisti, False: son sayfa (ya da gecilemedi)."""
+    pg, fr = liste
+    onceki = _degerlendir(fr, LISTE_OKU_JS, capa)
+    if not onceki or _degerlendir(fr, SONRAKI_JS) != "tiklandi":
+        return False
+    imza = _imza(onceki)
+
+    def degisti():
+        x = fr.evaluate(LISTE_OKU_JS, capa)
+        return bool(x) and _imza(x) != imza
+    return bool(kosulu_bekle(ana, degisti, 8000, aralik_ms=300))
+
+
+def duzelt_uygula(ana, liste, log=None, toplam_sayfa=1, capa=CAPA_BELGE):
+    """Acik uyumsuz-fis listesinin GORUNEN sayfasinda fatura olmayan fislere MF + evrak no (+evrak tarihi) atar ve Kaydet'e basar.
+    {fis, satir, kaydedildi, mesaj}; dogrulama tutmazsa Kaydet'e BASILMAZ ve 'mesaj'a neden yazilir."""
+    pg, fr = liste
+    sonuc = {"fis": 0, "satir": 0, "fatura_fis": 0, "kaydedildi": False, "mesaj": "", "bos": False}
+    r0 = _degerlendir(fr, LISTE_OKU_JS, capa)
+    if not r0 or not r0["satirlar"]:
+        sonuc["mesaj"] = "liste okunamadı"
+        return sonuc
+    sayfa = r0.get("sayfa") or 1
+    # sayfa sonunda bolunmus olabilecek son fis (sonraki sayfa varsa) atlanir: hesaplari eksik gorunup fatura fisi olmayan sanilmasin
+    hedef, fis_sayisi, fatura_fis = duzeltme_plani(r0["basliklar"], r0["satirlar"], toplam_sayfa > 1 and sayfa < toplam_sayfa)
+    sonuc.update(fis=fis_sayisi, satir=len(hedef), fatura_fis=fatura_fis)
+    if not hedef:
+        sonuc.update(mesaj=f"sayfa {sayfa}: düzeltilecek (fatura olmayan) fiş yok", bos=True)
+        return sonuc
+    once, ix = _degerler(r0["basliklar"], r0["satirlar"])
+    if None in (ix["evrak_no"], ix["evrak_tarihi"], ix["bt"]):
+        sonuc["mesaj"] = "Evrak No / Evrak Tarihi / BT sütunları listede bulunamadı"
+        return sonuc
+    sec = _degerlendir(fr, SEC_JS, {"capa": capa, "sec": hedef})
+    if not sec or sec["kutu"] < len(r0["satirlar"]) or sec["secili"] != len(hedef) or sec["yanlis"]:
+        sonuc["mesaj"] = f"satır seçimi doğrulanamadı: {sec}"
+        return sonuc
+    yaz(f"      {fis_sayisi} fiş ({len(hedef)} satır) seçildi; {fatura_fis} fatura fişi seçilmedi", log)
+    adimlar = (("ac", None), ("belge", DUZELTME_BELGE_TURU), ("evrak_no", None), ("tarih", None))
+    for adim, deger in adimlar:
+        sonuc_js = None
+        for _ in range(5):                          # pencerenin acilmasi / yerlesmesi icin kisa beklemeler
+            sonuc_js = _degerlendir(fr, DEGER_JS, {"adim": adim, "deger": deger})
+            if adim == "ac" and sonuc_js in ("acik", "tiklandi"):
+                break
+            if adim != "ac" and sonuc_js == "ok":
+                break
+            if adim != "ac" and sonuc_js in ("etiket yok", "aktar dugmesi yok", "belge turu kutusu yok", "belge turu secenegi yok"):
+                break
+            pg.wait_for_timeout(600)
+        if adim == "ac":
+            if sonuc_js not in ("acik", "tiklandi"):
+                sonuc["mesaj"] = f"Toplu Değer Ata penceresi açılamadı ({sonuc_js})"
+                return sonuc
+            pg.wait_for_timeout(900)
+            if sonuc_js == "tiklandi" and _degerlendir(fr, DEGER_JS, {"adim": "kontrol", "deger": None}) == "pencere yok":
+                sonuc["mesaj"] = "Toplu Değer Ata düğmesine basıldı ama pencere açılmadı"
+                return sonuc
+        elif sonuc_js != "ok":
+            sonuc["mesaj"] = f"Toplu Değer Ata › {adim}: {sonuc_js}"
+            return sonuc
+        else:
+            pg.wait_for_timeout(500)
+    # dogrulama: hedef satirlarda BT=MF, evrak no ve evrak tarihi dolu; diger satirlar degismemis
+    r1 = _degerlendir(fr, LISTE_OKU_JS, capa)
+    if not r1 or len(r1["satirlar"]) != len(r0["satirlar"]):
+        sonuc["mesaj"] = "atamadan sonra liste yeniden okunamadı"
+        return sonuc
+    sonra, _ = _degerler(r1["basliklar"], r1["satirlar"])
+    hedef_kume = set(hedef)
+    for i, (a, b) in enumerate(zip(once, sonra)):
+        if i in hedef_kume:
+            if b[2] != DUZELTME_BELGE_TURU or not b[0] or not b[1]:
+                sonuc["mesaj"] = f"atama doğrulanamadı (satır {i + 1}: evrak no={b[0] or '-'}, evrak tarihi={b[1] or '-'}, BT={b[2] or '-'}); Kaydet'e basılmadı"
+                return sonuc
+        elif a != b:
+            sonuc["mesaj"] = f"seçilmeyen satır değişti (satır {i + 1}); Kaydet'e basılmadı"
+            return sonuc
+    k = _degerlendir(fr, KAYDET_JS)
+    if k != "tiklandi":
+        sonuc["mesaj"] = f"Kaydet düğmesi bulunamadı ({k})"
+        return sonuc
+    pg.wait_for_timeout(2500)
+    sonuc["kaydedildi"] = True
+    yaz(f"      Kaydet'e basıldı: {fis_sayisi} fiş / {len(hedef)} satır (BT={DUZELTME_BELGE_TURU}, evrak no = değişmez fiş no)", log)
+    return sonuc
+
+
+def belge_turu_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, kodlar=None, duzelt=False):
     """Toplu Belge Turu Duzenleme ekraninda e-Defter hata kodlarini tarar: [{kod, ad, fis_sayisi, satir_sayisi, kesildi, fisler, mesaj, hata}].
 
     kodlar: yalniz bu hata kodlari (None: listedeki hepsi). Bir kodun taranmasi basarisiz olursa o kodun kaydina 'hata' yazilir,
-    digerleri taranmaya devam eder."""
+    digerleri taranmaya devam eder. duzelt=True: DUZELTME_KODLARI'ndaki kodlarda fatura OLMAYAN uyumsuz fisler duzeltilir
+    (kayda 'duzeltme' eklenir); varsayilan False: hicbir sey degistirilmez."""
     ctx = page.context
     mesajlar = []
     adim = (lambda ek: tani_kaydet(page, tani_klasoru, log, ek, "edefter")) if tani_hep else (lambda ek: None)
@@ -531,52 +770,102 @@ def belge_turu_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=Fals
     istenen = [(k, m) for k, m in secenekler if not kodlar or k in kodlar]
     yaz("    E-Defter hata kodları: " + ", ".join(k for k, _ in istenen), log)
     sonuc = []
-    sayfa_yazildi = False
+    durum = {"sayfa_yazildi": False}
+
+    def listele(kod):
+        """Formu (gerekirse yeniden acarak) doldurup Listele'ye basar: (_bekle_liste sonucu, form penceresi)."""
+        r = form_bul(ctx)
+        if r is None:                       # liste formla ayni pencerede acilmis olabilir: form yeniden acilir
+            fpg, ffr = ekrani_ac(page, log)
+            dinle(fpg, mesajlar)
+        else:
+            fpg, ffr = r
+        form = formu_doldur(ffr, bas, bit, kod)
+        if not durum["sayfa_yazildi"]:
+            yaz(f"    Onay kutuları: {form['kutular']}", log)
+            if form.get("sayfa"):
+                durum["sayfa_yazildi"] = True
+                yaz(f"    Sayfa No/Kayıt Sayısı listeleri: {form['sayfa']['listeler']}; seçili: {form['sayfa']['secili']}", log)
+        mesajlar.clear()
+        _listele_dugmesi(fpg).click(timeout=10000)
+        return _bekle_liste(ctx, page, mesajlar), fpg
+
+    def kapat(son, fpg):
+        if son["liste"][0] is not fpg:
+            try:
+                son["liste"][0].close()
+            except Exception:
+                pass
+
+    def tara(kod, kayit, etiket=""):
+        """Listele + liste_oku; kayit'i gunceller. True: liste vardi."""
+        son, fpg = listele(kod)
+        if "liste" in son:
+            dinle(son["liste"][0], mesajlar)
+            adim(f"-{kod}-liste{etiket}")
+            if tani_hep and son["liste"][0] is not page and not etiket:     # liste penceresinin kendisi (ayri pencere): ekran + kaynak
+                tani_kaydet(son["liste"][0], tani_klasoru, log, f"-{kod}-pencere", "edefter")
+            kayit.update(liste_oku(page, son["liste"], log))
+            kapat(son, fpg)
+            return True
+        if son.get("mesaj"):
+            if KAYIT_YOK.search(son["mesaj"]):
+                kayit.update({"fis_sayisi": 0, "satir_sayisi": 0, "kesildi": False, "fisler": [], "fatura_fisi": 0, "diger_fis": 0,
+                              "sayfa": 0, "mesaj": son["mesaj"][:160]})        # kayit yok = sorun yok
+                return False
+            raise LookupError(f"Luca mesajı: {son['mesaj'][:160]}")
+        tani_kaydet(page, tani_klasoru, log, f"-{kod}-bos", "edefter")
+        raise LookupError("Listele'den sonra ne liste ne mesaj geldi (liste ekranı açılmadı)")
+
+    def duzelt_kodu(kod, kayit):
+        """Fatura olmayan uyumsuz fisleri duzeltir (Kaydet), listeyi yeniden okuyup sonucu dogrular."""
+        toplam = {"fis": 0, "satir": 0, "kaydedildi": 0, "fatura_fis": kayit.get("fatura_fisi", 0), "mesaj": ""}
+        onceki = kayit.get("diger_fis", 0)
+        for tur in range(1, DUZELTME_TUR_SINIRI + 1):
+            son, fpg = listele(kod)
+            if "liste" not in son:
+                break
+            dinle(son["liste"][0], mesajlar)
+            for _sayfa in range(SAYFA_SINIRI):                  # duzeltilecek fis olan ilk sayfayi bul: bos sayfalardan sonrakine gec
+                r = duzelt_uygula(page, son["liste"], log, toplam_sayfa=kayit.get("sayfa", 1))
+                if not r.get("bos") or not sonraki_sayfa(page, son["liste"]):
+                    break
+            kapat(son, fpg)
+            if not r["kaydedildi"]:
+                toplam["mesaj"] = r["mesaj"]
+                yaz(f"      Düzeltme yapılmadı: {r['mesaj']}", log)
+                break
+            toplam["fis"] += r["fis"]
+            toplam["satir"] += r["satir"]
+            toplam["kaydedildi"] += 1
+            tara(kod, kayit, etiket="-duzeltme")
+            yeni = kayit.get("diger_fis", 0)
+            yaz(f"      Düzeltme sonrası liste: {kayit.get('fis_sayisi', 0)} fiş ({kayit.get('fatura_fisi', 0)} fatura fişi, {yeni} diğer fiş)", log)
+            if yeni >= onceki:
+                toplam["mesaj"] = "Kaydet'ten sonra düzeltilebilir fiş sayısı azalmadı (Luca kaydı kabul etmemiş olabilir)"
+                break
+            onceki = yeni
+            if not yeni:
+                break
+        kayit["duzeltme"] = toplam
+
     for kod, metin in istenen:
         ad = re.sub(r"\s*\(?\s*Hata\s*Kodu.*$", "", metin, flags=re.I).strip(" .(")
         kayit = {"kod": kod, "ad": ad, "fis_sayisi": 0, "satir_sayisi": 0, "kesildi": False, "fisler": [], "mesaj": "", "hata": ""}
         for deneme in range(2):          # gecici sayfa yenilenmesi ("Execution context was destroyed"): kod bir kez daha denenir
-            kayit.update({"fis_sayisi": 0, "satir_sayisi": 0, "kesildi": False, "fisler": [], "mesaj": "", "hata": ""})
+            kayit.clear()
+            kayit.update({"kod": kod, "ad": ad, "fis_sayisi": 0, "satir_sayisi": 0, "kesildi": False, "fisler": [], "mesaj": "", "hata": ""})
             try:
-                r = form_bul(ctx)
-                if r is None:                       # liste formla ayni pencerede acilmis olabilir: form yeniden acilir
-                    pg, fr = ekrani_ac(page, log)
-                    dinle(pg, mesajlar)
-                else:
-                    pg, fr = r
-                form = formu_doldur(fr, bas, bit, kod)
-                if not sayfa_yazildi:
-                    yaz(f"    Onay kutuları: {form['kutular']}", log)
-                if not sayfa_yazildi and form.get("sayfa"):
-                    sayfa_yazildi = True
-                    yaz(f"    Sayfa No/Kayıt Sayısı listeleri: {form['sayfa']['listeler']}; seçili: {form['sayfa']['secili']}", log)
-                mesajlar.clear()
-                _listele_dugmesi(pg).click(timeout=10000)
-                son = _bekle_liste(ctx, page, mesajlar)
-                if "liste" in son:
-                    dinle(son["liste"][0], mesajlar)
-                    adim(f"-{kod}-liste")
-                    kayit.update(liste_oku(page, son["liste"], log))
-                    if son["liste"][0] is not pg:
-                        try:
-                            son["liste"][0].close()
-                        except Exception:
-                            pass
-                elif son.get("mesaj"):
-                    if KAYIT_YOK.search(son["mesaj"]):
-                        kayit["mesaj"] = son["mesaj"][:160]            # kayit yok = sorun yok
-                    else:
-                        raise LookupError(f"Luca mesajı: {son['mesaj'][:160]}")
-                else:
-                    tani_kaydet(page, tani_klasoru, log, f"-{kod}-bos", "edefter")
-                    raise LookupError("Listele'den sonra ne liste ne mesaj geldi (liste ekranı açılmadı)")
+                tara(kod, kayit)
+                if duzelt and kod in DUZELTME_KODLARI and kayit.get("diger_fis"):
+                    duzelt_kodu(kod, kayit)
                 yaz(f"    {kod}: {kayit['fis_sayisi']} fiş" + (f"  ({kayit['mesaj']})" if kayit["mesaj"] else ""), log)
             except Exception as e:
                 if page.is_closed():
                     raise
                 kayit["hata"] = (str(e) if isinstance(e, LookupError) else f"{type(e).__name__}: {e}")[:300]
                 gecici = any(k in kayit["hata"] for k in ("context was destroyed", "yenilendi", "Target closed", "navigation"))
-                if gecici and deneme == 0:
+                if gecici and deneme == 0 and not kayit.get("duzeltme", {}).get("kaydedildi"):
                     yaz(f"    {kod}: sayfa yenilendi ({kayit['hata'][:70]}), yeniden deneniyor", log)
                     try:
                         page.wait_for_timeout(1500)
@@ -913,7 +1202,7 @@ def _listele_dugmesi_adlari(pg):
     return luca_mizan._rapor_dugmesi(pg, FIS_LISTELE_ADLARI, "Fiş Listesi")
 
 
-def edefter_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, kodlar=None):
+def edefter_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, kodlar=None, duzelt=False):
     """Acik firmanin e-Defter hata kodlarini iki ekrandan tarar (Belge Turu Duzenleme + Fis Listesi); kayit listesi.
 
     kodlar: yalniz bu hata kodlari (None: hepsi). Bir ekran acilamazsa o ekranin kodlari 'hata' ile isaretlenir, digeri taranir."""
@@ -922,7 +1211,7 @@ def edefter_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, 
     fis_gerekli = not kodlar or any(k in FIS_KODLARI for k in kodlar)
     if belge_gerekli:
         sonuc += belge_turu_tara(page, firma, bas, bit, tani_klasoru, log, tani_hep,
-                                 {k for k in kodlar if k not in FIS_KODLARI} if kodlar else None)
+                                 {k for k in kodlar if k not in FIS_KODLARI} if kodlar else None, duzelt)
     if fis_gerekli:
         try:
             sonuc += fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log, kodlar)

@@ -8,7 +8,13 @@
 Her 1. sinif (genel muhasebe) firma icin Luca'da Muhasebe > Fis Islemleri > Duzenleme > Toplu Belge Turu ve Odeme Yontemi
 Duzenleme ekrani acilir; "E-Defter kapsaminda uyumsuz olan fisleri getir" ile listedeki her e-Defter hata kodu (20041, 20042,
 20044-20048) icin Listele'ye basilir ve acilan "E-Defter Uyumsuz Fisleri Duzenleme" listesi okunur. Sonuc cikti/edefter.json ve
-cikti/edefter.xlsx'e yazilir (onceki firmalar korunur). Kaydet / Toplu Deger Ata'ya HICBIR ZAMAN basilmaz.
+cikti/edefter.xlsx'e yazilir (onceki firmalar korunur). VARSAYILAN: hicbir sey degistirilmez (Kaydet / Toplu Deger Ata'ya basilmaz).
+
+    python edefter.py --tarih 01/10/2026-31/10/2026 --firma-tam "OSMAN ALEM" --duzelt --tani
+
+--duzelt (YALNIZ acikca istenirse): 20042-20045 kodlarinda fatura OLMAYAN uyumsuz fisler (191/391/6xx/7xx/15x/25x/26x hesabi
+olmayan: kasa, banka, cari mahsup) icin Toplu Deger Ata ile Belge Turu = MF, evrak no = degismez fis no, evrak tarihi = fis
+tarihi atanir ve Kaydet'e basilir; sonra liste yeniden okunup dogrulanir. Fatura fislerine (191/391/6xx/7xx...) dokunulmaz.
 """
 
 import argparse
@@ -50,6 +56,8 @@ def arguman_ayristirici():
     p.add_argument("--hata-kodu", action="append", dest="hata_kodlari",
                    help="Yalniz bu e-Defter hata kodu (orn. 20041); birden fazla kez verilebilir (varsayilan: listedeki hepsi)")
     p.add_argument("--listeyi-yenile", action="store_true", help="Luca Musteri Listesi'ni yeniden oku")
+    p.add_argument("--duzelt", action="store_true",
+                   help="DIKKAT: Luca'ya YAZAR. Fatura olmayan uyumsuz fislere MF + evrak no atar ve Kaydet'e basar (yalniz 20042-20045)")
     p.add_argument("--tani", action="store_true", help="Her adimdan sonra ekran goruntusu + sayfa kaydi (tani/) sakla")
     p.add_argument("--hesap", default="hepsi",
                    help="Hangi Luca hesabi: hepsi (once ofis, sonra etkinse isletme), ofis ya da isletme "
@@ -73,6 +81,8 @@ def firma_logu(s, log):
             yaz(f"      {h['kod']}  … ve {h['fis_sayisi'] - GUNLUK_FIS_SINIRI} fiş daha (hepsi Excel raporunda)", log)
     for kod, hata in ek.taranamayanlar(s):
         yaz(f"    UYARI: {kod} taranamadı: {hata[:200]}", log)
+    for kod, d in ek.duzeltmeler(s):
+        yaz(f"    DÜZELTME {kod}: {ek.duzeltme_yazisi(d)}", log)
 
 
 def birinci_sinif_suz(page, firmalar, bit, ayar_h, args, log, sira):
@@ -123,7 +133,8 @@ def hesabi_isle(pw, sira, hesap_adi, ayar_h, args, ayarlar, log, tani, bas, bit,
                 if not donem_ayarla(page, firma, bas, bit, log):
                     raise LookupError("firmanın bu döneme uygun çalışma dönemi yok")
                 hatalar = luca_edefter.edefter_tara(page, firma, bas, bit, tani, log, tani_hep=args.tani,
-                                                    kodlar=set(args.hata_kodlari) if args.hata_kodlari else None)
+                                                    kodlar=set(args.hata_kodlari) if args.hata_kodlari else None,
+                                                    duzelt=args.duzelt)
                 sonuc = ek.firma_sonucu(firma, donem, hatalar)
                 ardisik = 0 if sonuc["durum"] != "hata" else ardisik + 1
                 firma_logu(sonuc, log)
