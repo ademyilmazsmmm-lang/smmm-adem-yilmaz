@@ -30,6 +30,7 @@ MENU_YOLU = "Muhasebe > Fiş İşlemleri > Düzenleme > Toplu Belge Türü ve Ö
 HATA_KODU = re.compile(r"Hata\s*Kodu\s*:?\s*(\d+)", re.I)
 FIS_SINIRI = 300         # JSON'a yazilacak en cok fis (sayi her zaman tamdir: 'kesildi' degilse)
 SAYFA_SINIRI = 60        # bir hata kodu icin en cok okunacak sayfa
+KAYIT_SINIRI = 500       # "Sayfa No/Kayit Sayisi"nda secilecek en buyuk kayit sayisi (varsayilan kucuk: cok sayfa = yavas)
 LISTE_BEKLEME_MS = 45000
 KAYIT_YOK = re.compile(r"kay[ıi]t.{0,25}(bulunamad|bulunmuyor|yok)|bulunamad[ıi]|listelenecek", re.I)
 # Bu onay kutulari her kontrolde KAPALI olur (yalniz e-Defter uyumsuzlugu aranir); e-Defter kutusu ACIK olur.
@@ -70,7 +71,7 @@ FORM_JS = r"""arg => {
   };
   const yaz = (k, v) => { k.focus(); k.value = v; k.dispatchEvent(new Event('input', {bubbles: true}));
                           k.dispatchEvent(new Event('change', {bubbles: true})); k.blur(); return k.value; };
-  const sonuc = {tarihler: null, kutular: {}, secenekler: [], secili: -1};
+  const sonuc = {tarihler: null, kutular: {}, secenekler: [], secili: -1, sayfa: null};
   const tr = satir(/^Fiş\s*Tarihi/i);
   if (tr && arg.bas) {
     const kutular = Array.from(tr.querySelectorAll('input')).filter(k => g(k) && !/^(checkbox|button|hidden|image|radio|submit)$/i.test(k.type || ''));
@@ -96,6 +97,22 @@ FORM_JS = r"""arg => {
       if (hedef >= 0) { s.selectedIndex = hedef; s.dispatchEvent(new Event('change', {bubbles: true})); }
     }
     sonuc.secili = s.selectedIndex;
+  }
+  // "Sayfa No/Kayit Sayisi": iki liste (sayfa no, sayfa basina kayit); kayit sayisi izin verilen en buyuk degere cikarilir
+  const sr = satir(/^Sayfa\s*No\s*\/\s*Kay[ıi]t/i);
+  if (sr) {
+    const sel = Array.from(sr.querySelectorAll('select')).filter(g);
+    sonuc.sayfa = {listeler: sel.map(x => Array.from(x.options).map(o => (o.text || '').trim()).slice(0, 12)), secili: []};
+    if (sel.length >= 2 && arg.kayitSiniri) {
+      const k = sel[1];
+      let en = -1, deger = -1;
+      for (let i = 0; i < k.options.length; i++) {
+        const n = parseInt((k.options[i].text || '').replace(/\D/g, ''), 10);
+        if (!isNaN(n) && n <= arg.kayitSiniri && n > deger) { deger = n; en = i; }
+      }
+      if (en >= 0 && k.selectedIndex !== en) { k.selectedIndex = en; k.dispatchEvent(new Event('change', {bubbles: true})); }
+    }
+    sonuc.sayfa.secili = sel.map(x => (x.options[x.selectedIndex] ? x.options[x.selectedIndex].text.trim() : ''));
   }
   return sonuc;
 }"""
@@ -246,11 +263,11 @@ def ekrani_ac(page, log=None):
                       "Denenen: " + "; ".join(denenen)[:600] + (f" | menüdeki benzer girişler: {benzer}" if benzer else ""))
 
 
-def formu_doldur(fr, bas, bit, kod=""):
+def formu_doldur(fr, bas, bit, kod="", kayit_siniri=KAYIT_SINIRI):
     """Fis tarihini yazar, onay kutularini ayarlar, kod verilirse E-Defter hata listesinden onu secer.
     {tarihler, kutular, secenekler, secili}; tarihler yazildigi gibi geri okunamazsa LookupError."""
     r = fr.evaluate(FORM_JS, {"bas": f"{bas:%d/%m/%Y}", "bit": f"{bit:%d/%m/%Y}", "kod": str(kod or ""),
-                              "kapali": list(KAPALI_KUTULAR), "acik": ACIK_KUTU})
+                              "kapali": list(KAPALI_KUTULAR), "acik": ACIK_KUTU, "kayitSiniri": kayit_siniri})
     beklenen = [f"{bas:%d/%m/%Y}", f"{bit:%d/%m/%Y}"]
     if not r.get("tarihler") or r["tarihler"] != beklenen:
         raise LookupError(f"Fiş Tarihi kutuları doldurulamadı (okunan: {r.get('tarihler')}, beklenen: {beklenen})")
@@ -266,7 +283,7 @@ def formu_doldur(fr, bas, bit, kod=""):
 
 def hata_secenekleri(fr):
     """[(kod, metin)]: E-Defter hata listesindeki secenekler; kodu olmayanlar (orn. bos) alinmaz."""
-    r = fr.evaluate(FORM_JS, {"bas": "", "bit": "", "kod": "", "kapali": [], "acik": "__yok__"})
+    r = fr.evaluate(FORM_JS, {"bas": "", "bit": "", "kod": "", "kapali": [], "acik": "__yok__", "kayitSiniri": 0})
     sonuc = []
     for metin in r.get("secenekler") or []:
         m = HATA_KODU.search(metin)
@@ -340,7 +357,7 @@ def fisleri_grupla(basliklar, satirlar, fisler=None):
             anahtar = (degismeyen, fis_no, al(s, "tarih"))
             akim = fisler.setdefault(anahtar, {"fis_no": fis_no, "tarih": al(s, "tarih"), "degismeyen": degismeyen, "satir": 0,
                                                "evrak": [], "bt": "", "odeme": "", "tutar": 0.0,
-                                               "hesap": al(s, "hesap").split(" ")[0], "aciklama": al(s, "aciklama")[:90]})
+                                               "hesap": al(s, "hesap").split(" ")[0], "aciklama": al(s, "aciklama")[:90], "durum": []})
         if akim is None:
             continue
         akim["satir"] += 1
@@ -352,6 +369,9 @@ def fisleri_grupla(basliklar, satirlar, fisler=None):
         for ad in ("bt", "odeme"):
             if not akim[ad] and al(s, ad):
                 akim[ad] = al(s, ad)
+        d = al(s, "durum")                      # Luca'nin satir aciklamasi: "Evrak No bos olamaz." gibi
+        if d and d not in akim["durum"] and len(akim["durum"]) < 3:
+            akim["durum"].append(d)
     return fisler
 
 
@@ -410,6 +430,7 @@ def edefter_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, 
     istenen = [(k, m) for k, m in secenekler if not kodlar or k in kodlar]
     yaz("    E-Defter hata kodları: " + ", ".join(k for k, _ in istenen), log)
     sonuc = []
+    sayfa_yazildi = False
     for kod, metin in istenen:
         ad = re.sub(r"\s*\(?\s*Hata\s*Kodu.*$", "", metin, flags=re.I).strip(" .(")
         kayit = {"kod": kod, "ad": ad, "fis_sayisi": 0, "satir_sayisi": 0, "kesildi": False, "fisler": [], "mesaj": "", "hata": ""}
@@ -420,7 +441,10 @@ def edefter_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=False, 
                 dinle(pg, mesajlar)
             else:
                 pg, fr = r
-            formu_doldur(fr, bas, bit, kod)
+            form = formu_doldur(fr, bas, bit, kod)
+            if not sayfa_yazildi and form.get("sayfa"):
+                sayfa_yazildi = True
+                yaz(f"    Sayfa No/Kayıt Sayısı listeleri: {form['sayfa']['listeler']}; seçili: {form['sayfa']['secili']}", log)
             mesajlar.clear()
             _listele_dugmesi(pg).click(timeout=10000)
             son = _bekle_liste(ctx, page, mesajlar)

@@ -296,8 +296,10 @@ Fatura İndirme, Kâr / Zarar, Defter Beyan, Muavin ve e-Defter aynı anda çal�
 (`kar-zarar/edefter.py`). Her **1. sınıf (genel muhasebe)** firma için Luca'da **Muhasebe > Fiş İşlemleri > Düzenleme > Toplu Belge Türü ve Ödeme
 Yöntemi Düzenleme** ekranı açılır (ayrı bir pencerede), *Fiş Tarihi* sekmedeki tarih aralığına ayarlanır, *E-Defter kapsamında uyumsuz olan fişleri
 getir* işaretli kalır ve *E-Defter hata* listesindeki her hata kodu için **Listele**'ye basılıp açılan "E-Defter Uyumsuz Fişleri Düzenleme" listesi
-okunur (tüm sayfalar): 20041 belge türü tanımı yok · 20042 belge tür / evrak no / tarih uyumsuz · 20044 birden fazla belge · 20045 birden fazla
-belge türü · 20046 100'den fazla fatura · 20047 birden fazla ödeme yöntemi · 20048 fatura türünde birden fazla belge.
+okunur (tüm sayfalar; "Sayfa No/Kayıt Sayısı"nda sayfa başına kayıt en çok 500'e çıkarılır). Hata kodları listeden okunur (Luca sürümüne göre değişir):
+20041 belge türü tanımı yok · 20042 belge tür / evrak no / tarih uyumsuz · 20043 evrak no ve tarih var, belge türü boş · 20044 birden fazla belge ·
+20045 birden fazla belge türü · 20046 bir fişte çok fatura (50/100 sınırı) · 20047 birden fazla ödeme yöntemi · 20048 fatura türünde birden fazla belge.
+Listedeki **Durum** sütunu (Luca'nın "Evrak No boş olamaz." gibi açıklaması) fişin yanında köşeli parantezle ve Excel'de ayrı sütunda gösterilir.
 
 - Tabloda firma başına hata kodu sütunlarında **uyumsuz fiş sayısı** görünür; **Uyumsuz fişler** düğmesi (ya da çift tıklama) fişleri listeler:
   *Fiş No – Fiş Tarihi – Evrak No – BT (belge türü) – Ödeme türü – satır sayısı* (Luca'da Fiş No ile aranır). Excel'de *Firmalar* ve *Uyumsuz fişler* sayfaları.
@@ -309,7 +311,8 @@ belge türü · 20046 100'den fazla fatura · 20047 birden fazla ödeme yöntemi
 - **Gerçek Luca'da henüz denenmemiştir.** Form ve sonuç listesinin yapısı ekran görüntülerinden alınmıştır; ilk denemede `--tani` ile bir firmayla
   çalıştırın (`python edefter.py --tarih 01/10/2026-31/10/2026 --firma-tam "FIRMA" --tani`); `tani/` klasörü ve günlük sorun halinde gerekir.
   *Fiş Listesi* ekranındaki ek kodlar (20021 numaralandırılmamış fiş, 20025 dengesiz/pasif fiş, 20026 detaysız fiş, XML'de hataya neden olan karakter)
-  henüz taranmaz.
+  henüz taranmaz. *Ödeme Türü Boş Olan* (kasa/banka hesaplarında ödeme türü girilmesi) ayrı bir kontroldür ve henüz yoktur.
+  Kaynak: Luca yardım makalesi "01.02.013 Fiş İşlemleri > Toplu Belge Türü ve Ödeme Yöntemi Düzenleme".
 
 ### Beyanname Takip sekmesi
 

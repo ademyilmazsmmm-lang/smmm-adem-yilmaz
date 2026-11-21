@@ -28,9 +28,10 @@ KISA_AD = {
     "20026": "Detaysız fiş",
     "20041": "Belge türü tanımı yok",
     "20042": "Belge tür, evrak no ve tarih uyumsuz",
+    "20043": "Evrak no ve tarih var ama belge türü boş",
     "20044": "Birden fazla belge",
     "20045": "Birden fazla belge türü",
-    "20046": "100'den fazla fatura",
+    "20046": "Bir fişte çok fazla fatura (50/100 sınırı)",
     "20047": "Birden fazla ödeme yöntemi",
     "20048": "Belge türü fatura olan birden fazla belge",
 }
@@ -52,8 +53,9 @@ def taranamayanlar(s):
 def fis_satiri(f):
     """'   01023  01/07/2026  evrak 89582  BT MF  ödeme -  3 satır' (Luca'da Fiş No ile aranır)."""
     evrak = ", ".join(f.get("evrak") or []) or "-"
-    return (f"{f.get('fis_no') or '?':>8}  {f.get('tarih') or '-':10}  evrak {evrak[:24]:24}  BT {f.get('bt') or '-':4}  "
-            f"ödeme {f.get('odeme') or '-':6}  {f.get('satir', 0)} satır")
+    satir = (f"{f.get('fis_no') or '?':>8}  {f.get('tarih') or '-':10}  evrak {evrak[:24]:24}  BT {f.get('bt') or '-':4}  "
+             f"ödeme {f.get('odeme') or '-':6}  {f.get('satir', 0)} satır")
+    return satir + (f"  [{'; '.join(f['durum'])[:70]}]" if f.get("durum") else "")      # Luca'nın satır açıklaması
 
 
 class EdefterSekmesi(KarZararSekmesi):
@@ -95,9 +97,9 @@ class EdefterSekmesi(KarZararSekmesi):
         tk.Label(p, text="e-Defter göndermeden önce Luca'nın kendi kontrolü çalıştırılır (Fiş İşlemleri > Düzenleme > Toplu "
                  "Belge Türü ve Ödeme Yöntemi Düzenleme > \"E-Defter kapsamında uyumsuz olan fişleri getir\"); her hata "
                  "kodu için uyumsuz fişler listelenir.\n\n"
-                 "20041 belge türü tanımı yok · 20042 belge tür/evrak no/tarih uyumsuz · 20044 birden fazla belge · "
-                 "20045 birden fazla belge türü · 20046 100'den fazla fatura · 20047 birden fazla ödeme yöntemi · "
-                 "20048 fatura türünde birden fazla belge.\n\nLuca'da hiçbir şey değiştirilmez; yalnız okunur "
+                 "20041 belge türü tanımı yok · 20042 belge tür/evrak no/tarih uyumsuz · 20043 evrak no ve tarih var, belge türü boş · "
+                 "20044 birden fazla belge · 20045 birden fazla belge türü · 20046 bir fişte çok fatura · 20047 birden fazla "
+                 "ödeme yöntemi · 20048 fatura türünde birden fazla belge (listede hangileri varsa onlar taranır).\n\nLuca'da hiçbir şey değiştirilmez; yalnız okunur "
                  "(düzeltmeyi siz Luca'da yaparsınız).",
                  font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w", justify="left", wraplength=280).pack(fill="x", pady=(16, 0))
         tk.Checkbutton(p, text="Firma listesini Luca'dan yeniden çek", variable=self.v_yenile, font=u.KUCUK,
@@ -243,7 +245,7 @@ class EdefterSekmesi(KarZararSekmesi):
         metin.pack(fill="both", expand=True)
         metin.tag_configure("baslik", foreground=u.ALTIN_FG)
         metin.tag_configure("hata", foreground=u.UYARI_FG)
-        metin.insert("end", "Sütunlar: Fiş No - Fiş Tarihi - Evrak No - BT (belge türü) - Ödeme türü - Satır sayısı  "
+        metin.insert("end", "Sütunlar: Fiş No - Fiş Tarihi - Evrak No - BT (belge türü) - Ödeme türü - Satır sayısı - [Luca'nın açıklaması]  "
                             "(Luca'da Fiş No ile aranır)\n\n", "baslik")
         for s in firmalar:
             metin.insert("end", f"{s['firma']}   {s.get('donem', '')}   [{DURUM_YAZISI.get(s.get('durum'), s.get('durum'))}]\n", "baslik")

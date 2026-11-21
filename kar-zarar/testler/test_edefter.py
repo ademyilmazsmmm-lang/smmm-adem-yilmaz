@@ -43,6 +43,16 @@ class SafMantik(unittest.TestCase):
         self.assertEqual(liste[1]["tutar"], 1000.5)
         self.assertEqual((liste[1]["bt"], liste[1]["odeme"], liste[1]["hesap"]), ("MF", "NAKIT", "102.04"))
 
+    def test_luca_durum_aciklamasi_ve_yeni_kodlar(self):
+        satirlar = [satir(1, "01023", "111", "01/07/2026"), satir("", ""), satir(2, "01024", "112", "02/07/2026")]
+        for s_ in (satirlar[0], satirlar[2]):
+            s_[13] = "Evrak No boş olamaz."
+        satirlar[1][13] = "Belge Türü , Evrak No boş olamaz."
+        liste = list(le.fisleri_grupla(BASLIKLAR, satirlar).values())
+        self.assertEqual(liste[0]["durum"], ["Evrak No boş olamaz.", "Belge Türü , Evrak No boş olamaz."])
+        self.assertEqual(ek.fis_satiri(liste[1]).split("[")[1], "Evrak No boş olamaz.]")
+        self.assertEqual(ek.kod_adi("20043"), "Evrak no ve tarih var ama belge türü boş")
+
     def test_sayfa_sinirinda_bolunen_fis_birlestirilir(self):
         fisler = le.fisleri_grupla(BASLIKLAR, [satir(1, "01023", "111", "01/07/2026", borc="10,00"), satir("", borc="5,00")])
         sonraki = le.fisleri_grupla(BASLIKLAR, [satir("", borc="7,00"), satir(2, "01024", "112", "02/07/2026")], fisler)
@@ -119,8 +129,8 @@ def calistir(klasor_rapor=None, veri=None, ayar=None, ek_arg=(), firma="ALFA ISL
     return r.returncode, sonuc, r.stdout + r.stderr, dict(sahte_kz.EDEFTER_AYAR, istekler=list(sahte_kz.EDEFTER_AYAR["istekler"]))
 
 
-def fis(no, deg, tarih, evrakli=True, bt="MF"):
-    return {"fis_no": no, "degismeyen": deg, "tarih": tarih,
+def fis(no, deg, tarih, evrakli=True, bt="MF", durum="Evrak No boş olamaz."):
+    return {"fis_no": no, "degismeyen": deg, "tarih": tarih, "durum": durum,
             "satirlar": [("102.04", "ALBARAKA", 0, 288, "komisyon", "89582", tarih, bt, ""),
                          ("780.001", "KOMISYON VE FAIZ GIDERI", 288, 0, "komisyon", "89582", tarih, bt, ""),
                          ("102.04", "ALBARAKA", 0, 14.4, "bsmv", "89582", tarih, bt, "")]}
@@ -148,6 +158,7 @@ class UctanUca(unittest.TestCase):
         self.assertEqual((h["satir_sayisi"], h["kesildi"], h["fisler"][0]["satir"], h["fisler"][0]["evrak"], h["fisler"][0]["bt"]),
                          (15, False, 3, ["89582"], "MF"))
         self.assertEqual(h["fisler"][0]["tutar"], 288.0)
+        self.assertEqual(h["fisler"][0]["durum"], ["Evrak No boş olamaz."])                 # Luca'nin satir aciklamasi
         self.assertEqual(kodlar["20047"]["fisler"][0]["bt"], "FT")
         self.assertFalse(any(x["hata"] for x in s["hatalar"]), s["hatalar"])
         self.assertIn("UYUMSUZ  20041  Belge türü tanımı yok: 5 fiş", cikti)
@@ -162,6 +173,9 @@ class UctanUca(unittest.TestCase):
         istek = [i for i in sahte["istekler"] if i["kod"] == "20041"]
         self.assertEqual([i["sayfa"] for i in istek], ["1", "2", "3", "4"])
         self.assertEqual((istek[0]["bas"], istek[0]["bit"], istek[0]["edefter"]), ("01/10/2026", "31/10/2026", "1"))
+        self.assertTrue(all(i["kayit"] == "500" for i in sahte["istekler"]), sahte["istekler"])   # sayfa basina kayit en yukseklere cikarildi
+        self.assertIn("Sayfa No/Kayıt Sayısı listeleri", cikti)
+        self.assertIn("[Evrak No boş olamaz.]", cikti)
         self.assertTrue((calistir.klasor / "cikti" / "edefter.xlsx").exists())
 
     def test_belge_turu_bos_olan_kutusu_kapatilir(self):

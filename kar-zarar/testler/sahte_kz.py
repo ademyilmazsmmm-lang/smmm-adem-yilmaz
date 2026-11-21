@@ -622,7 +622,7 @@ EDEFTER_FORM_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><titl
 <tr><th>Hesap Kodu</th><td><input type="text" id="hesap_kodu"></td></tr>
 <tr><th>E-Defter kapsamında uyumsuz olan fişleri getir</th><td><input type="checkbox" id="c_edefter" checked></td></tr>
 <tr><th>E-Defter hata:</th><td><select id="edefter_hata">__SECENEKLER__</select></td></tr>
-<tr><th>Sayfa No/Kayıt Sayısı</th><td><input type="text" id="sayfa_no"></td></tr>
+<tr><th>Sayfa No/Kayıt Sayısı</th><td><select id="sayfa_no"><option>1</option></select> / <select id="kayit_sayisi"><option>50</option><option selected>100</option><option>500</option><option>1000</option></select></td></tr>
 </table>
 <div><button type="button" id="listele" onclick="listele()"><i></i> Listele</button></div>
 <script>
@@ -631,7 +631,7 @@ EDEFTER_FORM_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><titl
    const c = id => document.getElementById(id).checked ? '1' : '0';
    const kod = (/Hata\\s*Kodu:\\s*(\\d+)/.exec(document.getElementById('edefter_hata').selectedOptions[0].text) || [])[1] || '';
    const q = '?firma=__FIRMA__&kod=' + kod + '&bas=' + v('tarih_ilk') + '&bit=' + v('tarih_son') + '&edefter=' + c('c_edefter')
-           + '&belge_bos=' + c('c_belge_turu_bos') + '&evrak_dolu=' + c('c_evrak_no_dolu');
+           + '&belge_bos=' + c('c_belge_turu_bos') + '&evrak_dolu=' + c('c_evrak_no_dolu') + '&kayit=' + v('kayit_sayisi');
    const ac = () => { if (__AYNI__) location.href = '/edefter-liste' + q + '&sayfa=1';
                       else window.open('/edefter-liste' + q + '&sayfa=1', '_blank', 'popup,width=1200,height=800'); };
    if (__UYARI__) fetch('/api/edefter-say' + q).then(r => r.json()).then(n => { if (!n) alert('Kayıt bulunamadı.'); else ac(); });
@@ -669,9 +669,10 @@ def edefter_liste_html(q):
             ilk = i == 0
             satirlar.append(
                 "<tr><td><input type='checkbox'></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s<br>%s</td><td>%s</td><td>%s</td><td>%s</td>"
-                "<td><input type='text' value='%s'></td><td><input type='text' value='%s'></td><td>%s</td><td><input type='text' value='%s'></td><td></td></tr>"
+                "<td><input type='text' value='%s'></td><td><input type='text' value='%s'></td><td>%s</td><td><input type='text' value='%s'></td><td>%s</td></tr>"
                 % (sira if ilk else "", ("<a href='#'>%s</a>" % f["fis_no"]) if ilk else "", f["degismeyen"] if ilk else "",
-                   f["tarih"] if ilk else "", hk, ha, tr_sayi(borc), tr_sayi(alacak), aciklama, evrak, evrak_t, bt, odeme))
+                   f["tarih"] if ilk else "", hk, ha, tr_sayi(borc), tr_sayi(alacak), aciklama, evrak, evrak_t, bt, odeme,
+                   f.get("durum", "") if ilk else ""))
     return EDEFTER_LISTE_SAYFASI.replace("__SATIRLAR__", "".join(satirlar)).replace("__SAYFA__", str(sayfa))
 
 
