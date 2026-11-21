@@ -115,7 +115,7 @@ class SafMantik(unittest.TestCase):
         self.assertEqual(fisler[1][2], "Belge türü tanımı yok")
 
 
-def calistir(klasor_rapor=None, veri=None, ayar=None, fis_veri=None, fis_modlar=None, ek_arg=(), firma="ALFA ISLETME", tarih="01/10/2026-31/10/2026",
+def calistir(klasor_rapor=None, veri=None, ayar=None, fis_veri=None, fis_modlar=None, fis_ayar=None, ek_arg=(), firma="ALFA ISLETME", tarih="01/10/2026-31/10/2026",
              tum_firmalar=True):
     """Sahte Luca + edefter.py: (cikis kodu, sonuc sozlugu {firma: sonuc}, cikti, sahte sunucunun kaydettikleri)."""
     import sahte_kz
@@ -124,6 +124,7 @@ def calistir(klasor_rapor=None, veri=None, ayar=None, fis_veri=None, fis_modlar=
     sahte_kz.EDEFTER_AYAR.update(ayar or {})
     sahte_kz.FIS_VERI.update(fis_veri or {})
     sahte_kz.FIS_AYAR["modlar"].update(fis_modlar or {})
+    sahte_kz.FIS_AYAR.update(fis_ayar or {})
     klasor = Path(tempfile.mkdtemp(prefix="edefter-uu-"))
     sunucu, adres = sahte_kz.baslat()
     ayarlar = {"giris_adresi": adres, "tarayici": "chromium", "tarayici_yolu": os.environ.get("LUCA_TEST_CHROMIUM", ""),
@@ -237,6 +238,22 @@ class UctanUca(unittest.TestCase):
         self.assertEqual({(i["kod"], i["ay"], i["edefter"]) for i in sahte["fis_istekler"]},
                          {("20021", "Ekim", "1"), ("20025", "Ekim", "1"), ("20026", "Ekim", "1")})
         self.assertIn("Fiş Listesi: E-Defter Ay=Ekim", cikti)
+
+    def test_fis_listesi_uc_onay_kutusu_tek_hucredeyse_dogru_kutu_isaretlenir(self):
+        """Gercek Luca'da Fis Listesi'nde ucu tek hucrede alt alta: hucre metni etikete esit olmaz, kutu yanindaki yaziyla bulunur."""
+        kod, sonuc, cikti, sahte = calistir(veri=self.veri, fis_veri=self.fis_veri, fis_ayar={"kutu": "tek_hucre"},
+                                            ek_arg=["--hata-kodu", "20021"])
+        self.assertEqual(kod, 0, cikti[-2500:])
+        h = sonuc["ALFA ISLETME"]["hatalar"][0]
+        self.assertEqual((h["kod"], h["fis_sayisi"], h["hata"]), ("20021", 2, ""), cikti[-2000:])
+        self.assertTrue(all(i["edefter"] == "1" for i in sahte["fis_istekler"]), sahte["fis_istekler"])
+
+    def test_fis_listesi_listele_dugmesi_resimli_kutuysa_basligindan_bulunur(self):
+        kod, sonuc, cikti, sahte = calistir(veri=self.veri, fis_veri=self.fis_veri, fis_ayar={"dugme": "kutu_title", "kutu": "tek_hucre"},
+                                            ek_arg=["--hata-kodu", "20021"])
+        self.assertEqual(kod, 0, cikti[-2500:])
+        self.assertEqual(sonuc["ALFA ISLETME"]["hatalar"][0]["fis_sayisi"], 2, cikti[-2000:])
+        self.assertIn("DIV:Listele", cikti)
 
     def test_fis_listesi_sonucu_okunamazsa_hata_yazilir_gonderilebilir_denmez(self):
         kod, sonuc, cikti, sahte = calistir(veri=self.veri, fis_modlar={"20025": "hicbir"}, ek_arg=["--hata-kodu", "20025"])

@@ -692,7 +692,15 @@ def edefter_liste_html(q):
 # --- Luca > Muhasebe > Fis Islemleri > Fis Listesi (e-Defter hata kodlari 20021/20025/20026; ekran goruntusundeki form) ---
 # FIS_VERI[(firma, kod, ay adi)] = [{"fis_no", "tarih", "aciklama"}]; FIS_AYAR["modlar"][kod] = "grid" (tablo) ya da "mesaj" (uyari kutusu)
 FIS_VERI = {}
-FIS_AYAR = {"modlar": {"20021": "grid", "20025": "mesaj", "20026": "mesaj"}, "istekler": []}
+FIS_KUTULARI = {   # onay kutularinin yapisi: ayri hucre / ucu tek hucrede alt alta (gercek Luca) ; hepsi isaretsiz baslar
+    "tek": '<tr><td colspan="4"><input type="checkbox" id="c_edefter"> E-Defter kapsamında uyumsuz olan fişleri getir</td></tr>',
+    "tek_hucre": '<tr><td colspan="4"><input type="checkbox" id="c_yevmiye" disabled> Yevmiye numarası ve fiş numarası uyumsuzları listele<br>'
+                 '<input type="checkbox" id="c_edefter"> E-Defter kapsamında uyumsuz olan fişleri getir<br>'
+                 '<input type="checkbox" id="c_detayli"> Detaylı Arama</td></tr>'}
+FIS_DUGMELERI = {"button": '<div><button type="button" id="listele" onclick="listele()"><i></i> Listele</button></div>',
+                 # gercek Luca: yazisiz resimli kutu, adi yalniz title'da
+                 "kutu_title": '<div class="alt_cubuk"><div onclick="listele()" title="Listele" style="cursor:pointer;width:40px;height:20px;border:1px solid"><img alt=""></div></div>'}
+FIS_AYAR = {"dugme": "button", "kutu": "tek", "modlar": {"20021": "grid", "20025": "mesaj", "20026": "mesaj"}, "istekler": []}
 FIS_HATALARI = ["... nolu fiş(ler)de birden fazla belge mevcut.(Hata Kodu: 20044)",
                 "e-Defter başlangıç tarihinden önce numaralandırılmamış fişler mevcut.( Hata Kodu: 20021)",
                 "... adet dengesiz veya pasif fişiniz var.( Hata Kodu: 20025)", "... adet detaysız fişiniz var.( Hata Kodu: 20026)",
@@ -704,11 +712,11 @@ FIS_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>FİŞ L
 <h3>FİŞ LİSTESİ</h3>
 <table class="form_table">
 <tr><th>İlk Fiş Tarihi</th><td><input type="text" id="ilk_tarih" value="01/01/2026" readonly></td><th>Son Fiş Tarihi</th><td><input type="text" id="son_tarih" value="31/01/2026" readonly></td></tr>
-<tr><td colspan="4"><input type="checkbox" id="c_edefter"> E-Defter kapsamında uyumsuz olan fişleri getir</td></tr>
+__FIS_KUTU__
 <tr><th>E-Defter Ay</th><td><select id="edefter_ay">__AYLAR__</select></td></tr>
 <tr><th>E-Defter Hata:</th><td><select id="edefter_hata">__HATALAR__</select></td></tr>
 </table>
-<div><button type="button" id="listele" onclick="listele()"><i></i> Listele</button></div>
+__FIS_DUGME__
 <div id="sonuc"></div>
 <script>
  function listele() {
@@ -763,7 +771,7 @@ class Isleyici(sahte_luca.Isleyici):
             return self._yanit(json.dumps(db_liste(DB_SEC["firma"], q["tur"], q["bas"], q["bit"], q["durum"]),
                                           ensure_ascii=False), "application/json")
         if yol == "/fis-listesi":
-            return self._yanit(FIS_SAYFASI.replace("__FIRMA__", firma)
+            return self._yanit(FIS_SAYFASI.replace("__FIS_KUTU__", FIS_KUTULARI[FIS_AYAR["kutu"]]).replace("__FIS_DUGME__", FIS_DUGMELERI[FIS_AYAR["dugme"]]).replace("__FIRMA__", firma)
                                .replace("__AYLAR__", "".join(f"<option>{a}</option>" for a in AYLAR_TR))
                                .replace("__HATALAR__", "".join(f"<option>{h}</option>" for h in FIS_HATALARI)))
         if yol == "/api/fis-listesi":
@@ -916,7 +924,7 @@ def sifirla():
     MUAVIN_VERI.clear()
     EDEFTER_VERI.clear()
     FIS_VERI.clear()
-    FIS_AYAR.update(modlar={"20021": "grid", "20025": "mesaj", "20026": "mesaj"}, istekler=[])
+    FIS_AYAR.update(dugme="button", kutu="tek", modlar={"20021": "grid", "20025": "mesaj", "20026": "mesaj"}, istekler=[])
     EDEFTER_AYAR.update(form_yenile=False, edefter_kutu="isaretli", sayfa_boyu=2, kayit_yok="bos_liste", ayni_pencere=False, belge_bos_varsayilan=False, istekler=[], kaydet=0)
     ISLETME_VERI.clear()
     ISLETME_AYAR["istekler"] = []

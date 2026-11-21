@@ -84,6 +84,23 @@ FORM_JS = r"""arg => {
     if (kutular.length >= 2) sonuc.tarihler = [yaz(kutular[0], arg.bas), yaz(kutular[1], arg.bit)];
     else if (kutular.length === 1) sonuc.tarihler = [yaz(kutular[0], arg.bas)];
   }
+
+  // yedek: kutular tek hucrede alt alta olabilir (hucrenin tum metni etikete esit olmaz): kutunun hemen yanindaki yazi okunur
+  const yanYazi = cb => {
+    if (cb.id) { const l = document.querySelector('label[for="' + cb.id + '"]'); if (l) return l.textContent || ''; }
+    const ust = cb.closest('label'); if (ust) return ust.textContent || '';
+    let t = '';
+    for (let n = cb.nextSibling; n; n = n.nextSibling) {
+      if (n.nodeType === 1 && (n.tagName === 'INPUT' || n.tagName === 'BR' || n.tagName === 'SELECT' || n.tagName === 'TABLE')) break;
+      t += n.textContent || '';
+    }
+    return t;
+  };
+  const metinleBul = ad => {
+    const h = duz(ad), kutular = document.querySelectorAll('input[type=checkbox]');
+    for (let i = 0; i < kutular.length; i++) if (g(kutular[i]) && duz(yanYazi(kutular[i])) === h) return kutular[i];
+    return null;
+  };
   // onay kutusu: etiketle ayni hucrede (label icinde) ya da yan hucrede olabilir; en ic eslesen etiketten baslanir
   const kutuBul = (ad) => {
     const h = duz(ad);
@@ -101,7 +118,7 @@ FORM_JS = r"""arg => {
     return null;
   };
   const kutuAyarla = (ad, istenen) => {
-    const cb = kutuBul(ad);
+    const cb = kutuBul(ad) || metinleBul(ad);
     if (!cb) { sonuc.kutular[ad] = null; return; }
     if (!cb.disabled && cb.checked !== istenen) {
       cb.click();
@@ -569,7 +586,7 @@ FIS_KODLARI = ("20021", "20025", "20026")
 BELGE_KODLARI = ("20041", "20042", "20043", "20044", "20045", "20046", "20047", "20048")
 FIS_MENU_ADI = "Fiş Listesi"
 FIS_MENU_YOLU = "Muhasebe > Fiş İşlemleri > Fiş Listesi"
-FIS_LISTELE_ADLARI = ("Listele", "Getir", "Ara", "Sorgula")
+FIS_LISTELE_ADLARI = ("Listele", "Getir", "Ara", "Sorgula", "Filtrele", "Tamam")
 FIS_BEKLEME_MS = 25000
 AYLAR = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
 
@@ -619,6 +636,21 @@ FIS_FORM_JS = r"""arg => {
     const kardes = x => x && (x.type === 'checkbox' ? x : (x.querySelector ? x.querySelector('input[type=checkbox]') : null));
     if (!cb) cb = kardes(e.previousElementSibling) || kardes(e.nextElementSibling);
   }
+  if (!cb) {
+    const kutular = document.querySelectorAll('input[type=checkbox]');
+    for (let i = 0; i < kutular.length && !cb; i++) {
+      const k = kutular[i];
+      if (!g(k)) continue;
+      let t = '';
+      if (k.id) { const l = document.querySelector('label[for="' + k.id + '"]'); if (l) t = l.textContent || ''; }
+      if (!t && k.closest('label')) t = k.closest('label').textContent || '';
+      if (!t) for (let n = k.nextSibling; n; n = n.nextSibling) {
+        if (n.nodeType === 1 && (n.tagName === 'INPUT' || n.tagName === 'BR' || n.tagName === 'SELECT' || n.tagName === 'TABLE')) break;
+        t += n.textContent || '';
+      }
+      if (duz(t) === h) cb = k;
+    }
+  }
   if (cb) {
     if (!cb.disabled && !cb.checked) {
       cb.click();
@@ -638,6 +670,45 @@ FIS_FORM_JS = r"""arg => {
   for (const desen of [/^İlk\s*Fiş\s*Tarihi/i, /^Son\s*Fiş\s*Tarihi/i]) { const k = yanKutu(desen); sonuc.tarihler.push(k ? k.value : null); }
   return sonuc;
 }"""
+
+
+# Fis Listesi'nde Listele dugmesi bir <button> olmayabilir (resim / tiklanabilir kutu / baslik-ipucu): genis arama
+FIS_DUGME_JS = r"""adlar => {
+  const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
+  const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\s.\-()*:]/g, '');
+  const aranan = adlar.map(duz), adaylar = [], hepsi = document.querySelectorAll('button, input, a, img, span, div, td, li, i');
+  let bulunan = null;
+  for (let i = 0; i < hepsi.length; i++) {
+    const e = hepsi[i];
+    if (!g(e) || (e.tagName === 'INPUT' && /^(checkbox|text|hidden|radio|password)$/i.test(e.type || ''))) continue;
+    const t = (e.value || e.title || e.alt || e.getAttribute('aria-label') || (e.children.length > 3 ? '' : e.textContent) || '').replace(/\s+/g, ' ').trim();
+    if (!t || t.length > 40) continue;
+    const tiklanir = /^(BUTTON|A|IMG)$/.test(e.tagName) || (e.tagName === 'INPUT') || e.hasAttribute('onclick') || e.getAttribute('role') === 'button'
+                     || getComputedStyle(e).cursor === 'pointer';
+    if (!tiklanir) continue;
+    if (adaylar.length < 40) adaylar.push(e.tagName + ':' + t + (e.id ? '#' + e.id : ''));
+    if (!bulunan && aranan.indexOf(duz(t)) >= 0) bulunan = e;
+  }
+  if (bulunan) { bulunan.click(); return {tiklandi: bulunan.tagName + ':' + (bulunan.value || bulunan.title || bulunan.alt || bulunan.textContent || '').trim().slice(0, 30), adaylar}; }
+  return {tiklandi: null, adaylar};
+}"""
+
+
+def fis_listele_tikla(page, tani_klasoru, kod, log=None):
+    """Fis Listesi'nde Listele'ye (ya da esdegerine) basar; bulunamazsa tiklanabilir ogelerin listesiyle LookupError."""
+    adaylar = []
+    for fr in list(page.frames):
+        try:
+            r = fr.evaluate(FIS_DUGME_JS, list(FIS_LISTELE_ADLARI))
+        except Exception:
+            continue
+        if r.get("tiklandi"):
+            yaz(f"    Fiş Listesi: '{r['tiklandi']}' tıklandı", log)
+            return
+        adaylar += r.get("adaylar") or []
+    tani_kaydet(page, tani_klasoru, log, f"-{kod}-dugme", "edefter-fis")
+    raise LookupError("Fiş Listesi formunda 'Listele' / 'Getir' / 'Ara' / 'Sorgula' düğmesi bulunamadı. Tıklanabilir öğeler: "
+                      + ", ".join(adaylar[:25]))
 
 
 def fis_form_bul(ctx):
@@ -741,6 +812,7 @@ def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None)
                     pg, fr = r
                 form = fr.evaluate(FIS_FORM_JS, {"ay": AYLAR[ay - 1], "kod": kod, "acik": ACIK_KUTU})
                 if form.get("kutu") is not True:
+                    tani_kaydet(page, tani_klasoru, log, f"-{kod}-kutu", "edefter-fis")
                     raise LookupError("'E-Defter kapsamında uyumsuz olan fişleri getir' kutusu "
                                       + ("bulunamadı" if form.get("kutu") is None else "işaretlenemedi"))
                 if _sade(form.get("ay") or "") != _sade(AYLAR[ay - 1]):
@@ -751,7 +823,7 @@ def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None)
                 mesajlar.clear()
                 onceki = liste_bul(ctx, CAPA_FIS)          # onceki kodun sonuc tablosu ekranda kalmis olabilir
                 onceki_imza = _grid_imza(onceki) if onceki else None
-                _listele_dugmesi_adlari(pg).click(timeout=10000)
+                fis_listele_tikla(pg, tani_klasoru, kod, log)
                 son = {}
 
                 def hazir():
