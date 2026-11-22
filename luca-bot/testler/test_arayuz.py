@@ -1703,6 +1703,15 @@ class EdefterSekmesiTestleri(ArayuzZemini):
         self.assertFalse(self.app.mv.govde.winfo_ismapped())
         self.assertRegex(self.ed.v_bas.get(), r"^01/\d{2}/\d{4}$")          # gecen ayin ilk gunu
 
+    def test_calistir_dugmesi_sol_panel_uzun_olsa_da_gorunur(self):
+        self.app.sekme_sec("edefter")
+        self.kok.update()
+        d = self.ed.calistir_dugmesi
+        panel = d.master.master                                     # Calistir + Durdur cercevesi -> sol panel
+        self.assertTrue(d.winfo_ismapped())
+        self.assertLessEqual(d.winfo_y() + d.winfo_height() + d.master.winfo_y(), panel.winfo_height() + 2)   # panelin icinde, tasmamis
+        self.assertLess(self.ed.durdur_dugmesi.winfo_rooty(), self.kok.winfo_rooty() + self.kok.winfo_height())
+
     def test_komut_tarih_hesap_ve_firma(self):
         self.ed.v_bas.set("01/10/2026")
         self.ed.v_bit.set("31/10/2026")

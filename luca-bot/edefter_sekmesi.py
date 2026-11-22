@@ -84,6 +84,14 @@ class EdefterSekmesi(KarZararSekmesi):
         p.pack(side="left", fill="y")
         p.pack_propagate(False)
 
+        # Calistir / Durdur once paketlenir ve en alta sabitlenir: ustteki icerik uzasa da dugmeler hep gorunur
+        alt = tk.Frame(p, bg=u.ZEMIN)
+        alt.pack(side="bottom", fill="x")
+        self.calistir_dugmesi = u.dugme(alt, "Çalıştır", self.calistir, ana=True)
+        self.calistir_dugmesi.pack(side="left", fill="x", expand=True, padx=(0, 6))
+        self.durdur_dugmesi = u.dugme(alt, "Durdur", self.durdur, state="disabled")
+        self.durdur_dugmesi.pack(side="left", fill="x", expand=True)
+
         u.bolum_basligi(p, "Fiş tarihi aralığı (e-Defter ayı)").pack(fill="x")
         t = tk.Frame(p, bg=u.ZEMIN)
         t.pack(fill="x", pady=(6, 0))
@@ -100,30 +108,18 @@ class EdefterSekmesi(KarZararSekmesi):
         u.giris_kutusu(p, self.v_firma).pack(fill="x", ipady=4)
         self._hesap_secici(p)
 
-        tk.Label(p, text="e-Defter göndermeden önce Luca'nın kendi kontrolü çalıştırılır (Fiş İşlemleri > Düzenleme > Toplu "
-                 "Belge Türü ve Ödeme Yöntemi Düzenleme > \"E-Defter kapsamında uyumsuz olan fişleri getir\"); her hata "
-                 "kodu için uyumsuz fişler listelenir.\n\n"
-                 "20041 belge türü tanımı yok · 20042 belge tür/evrak no/tarih uyumsuz · 20043 evrak no ve tarih var, belge türü boş · "
-                 "20044 birden fazla belge · 20045 birden fazla belge türü · 20046 bir fişte çok fatura · 20047 birden fazla "
-                 "ödeme yöntemi · 20048 fatura türünde birden fazla belge (listede hangileri varsa onlar taranır).\n\nLuca'da hiçbir şey değiştirilmez; yalnız okunur "
-                 "(düzeltmeyi siz Luca'da yaparsınız).",
-                 font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w", justify="left", wraplength=280).pack(fill="x", pady=(16, 0))
+        tk.Label(p, text="Luca'nın e-Defter uyumsuz fiş kontrolü çalıştırılır (Belge Türü Düzenleme: 20041-20048, Fiş Listesi: "
+                 "20021/20025/20026). Fatura (191 borç / 391 alacak, FT) olmayan fişlere MF + Evrak No atanır; 20026 detaysız fişler silinir.",
+                 font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w", justify="left", wraplength=280).pack(fill="x", pady=(10, 0))
         tk.Checkbutton(p, text="Firma listesini Luca'dan yeniden çek", variable=self.v_yenile, font=u.KUCUK,
                        **self.a._kutu_renk()).pack(anchor="w", pady=(10, 0))
 
-        tk.Checkbutton(p, text="Tarama sırasında düzeltmeleri de yap (MF atama + detaysız fiş silme)", variable=self.v_duzelt, font=u.KUCUK,
+        tk.Checkbutton(p, text="Tarama sırasında düzeltmeleri de yap", variable=self.v_duzelt, font=u.KUCUK,
                        **self.a._kutu_renk()).pack(anchor="w", pady=(10, 0))
-        tk.Label(p, text="Açıkken, her hata kodu okunur okunmaz fatura olmayan fişler düzeltilir (191 borç / 391 alacak ve FT fişlere dokunulmaz). "
-                 "Kapalıysa yalnız okunur.", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w", justify="left", wraplength=280).pack(fill="x")
+        tk.Label(p, text="Kapalıysa yalnız okunur, Luca'da hiçbir şey değişmez.", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w",
+                 justify="left", wraplength=280).pack(fill="x")
         tk.Checkbutton(p, text="Tanı dosyaları kaydet (sorun olursa gönderin)", variable=self.v_tani, font=u.KUCUK,
                        **self.a._kutu_renk()).pack(anchor="w", pady=(4, 0))
-
-        alt = tk.Frame(p, bg=u.ZEMIN)
-        alt.pack(side="bottom", fill="x")
-        self.calistir_dugmesi = u.dugme(alt, "Çalıştır", self.calistir, ana=True)
-        self.calistir_dugmesi.pack(side="left", fill="x", expand=True, padx=(0, 6))
-        self.durdur_dugmesi = u.dugme(alt, "Durdur", self.durdur, state="disabled")
-        self.durdur_dugmesi.pack(side="left", fill="x", expand=True)
 
     def _sag_panel(self):
         u = self.ui
