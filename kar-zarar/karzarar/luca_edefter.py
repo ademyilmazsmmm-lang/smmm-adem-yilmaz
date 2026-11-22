@@ -443,7 +443,7 @@ def fisleri_grupla(basliklar, satirlar, fisler=None):
         on_ek = re.match(r"\d{3}", al(s, "hesap"))
         if on_ek and on_ek.group(0) not in akim["hp"] and len(akim["hp"]) < 12:
             akim["hp"].append(on_ek.group(0))                    # fisin hesap ailesi (191, 391, 100 ...): bilgi icin
-        if on_ek and on_ek.group(0).startswith(FATURA_ONEKLERI) and on_ek.group(0) not in akim["fatura_hp"] and len(akim["fatura_hp"]) < 6:
+        if on_ek and fatura_hesabi_mi(on_ek.group(0)) and on_ek.group(0) not in akim["fatura_hp"] and len(akim["fatura_hp"]) < 6:
             akim["fatura_hp"].append(on_ek.group(0))             # fatura / gelir-gider hesabi: fis fatura sayilir (sinirdan bagimsiz)
         akim["tutar"] = round(akim["tutar"] + tutar(al(s, "borc")), 2)
         for ad, alan in (("evrak_no", "evrak"),):
@@ -463,6 +463,12 @@ def fisleri_grupla(basliklar, satirlar, fisler=None):
 # Bu hesaplardan biri olan fise program ASLA dokunmaz (belge turu / evrak no elle girilir). Digerleri (kasa, banka, cari mahsup) MF olabilir.
 FATURA_ONEKLERI = ("191", "391", "6", "7", "15", "25", "26")
 FATURA_HESAPLARI = FATURA_ONEKLERI      # eski ad
+FATURA_HARIC = ()                       # fatura SAYILMAYACAK hesap onekleri (orn. ("780", "159"): banka komisyon / avans fisleri); --fatura-haric
+
+
+def fatura_hesabi_mi(onek):
+    """3 haneli hesap ailesi (orn. '780') fatura / gelir-gider hesabi sayilir mi."""
+    return onek.startswith(FATURA_ONEKLERI) and not (FATURA_HARIC and onek.startswith(FATURA_HARIC))
 
 
 def fatura_fisi_mi(f):
@@ -473,7 +479,7 @@ def fatura_fisi_mi(f):
     hp = f.get("hp")
     if not hp:
         return None
-    return any(h.startswith(FATURA_ONEKLERI) for h in hp)
+    return any(fatura_hesabi_mi(h) for h in hp)
 
 
 def _imza(r):

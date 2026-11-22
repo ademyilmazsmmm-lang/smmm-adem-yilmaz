@@ -59,6 +59,8 @@ def arguman_ayristirici():
     p.add_argument("--listeyi-yenile", action="store_true", help="Luca Musteri Listesi'ni yeniden oku")
     p.add_argument("--duzelt", action="store_true",
                    help="DIKKAT: Luca'ya YAZAR. Fatura olmayan uyumsuz fislere MF + evrak no atar ve Kaydet'e basar (yalniz 20042-20045)")
+    p.add_argument("--fatura-haric", default="",
+                   help="Fatura SAYILMAYACAK hesap onekleri, virgulle (orn. 780,159): bu hesaplar fatura sayma nedeni olmaz, fis duzeltilebilir")
     p.add_argument("--tani", action="store_true", help="Her adimdan sonra ekran goruntusu + sayfa kaydi (tani/) sakla")
     p.add_argument("--hesap", default="hepsi",
                    help="Hangi Luca hesabi: hepsi (once ofis, sonra etkinse isletme), ofis ya da isletme "
@@ -179,6 +181,10 @@ def edefter_kontrol(args, ayarlar, p):
     log = klasor / "calisma.log"
     kayit_yolu = CIKTI / ek.DOSYA
     konsol.bolum(f"E-DEFTER ÖN KONTROL  {bas_m} - {bit_m}", log)
+    haric = tuple(x.strip() for x in (args.fatura_haric or "").split(",") if x.strip().isdigit())
+    if haric:
+        luca_edefter.FATURA_HARIC = haric
+        yaz(f"Fatura sayılmayacak hesaplar: {', '.join(haric)} (bu hesapları içeren fişler fatura sayılmaz)", log)
     try:
         hesap_listesi = hesaplar.hesaplar(ayarlar, args.hesap)
     except ValueError as e:

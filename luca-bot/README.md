@@ -308,6 +308,8 @@ Listedeki **Durum** sütunu (Luca'nın "Evrak No boş olamaz." gibi açıklamas�
 - **Fiş türü ayrımı:** Uyumsuz her fiş, hesaplarına bakılarak **fatura fişi** ya da **diğer fiş** diye işaretlenir. Hesaplarında **191, 391, 6xx, 7xx, 15x (stok),
   25x / 26x (duran varlık)** olan fiş fatura sayılır (satışta 391 olmayabilir; 601 yeterlidir): belge türü FT olur, **program asla dokunmaz**, siz elle düzeltirsiniz.
   Bunların hiçbiri olmayan fişler (kasa, banka, cari mahsup) "diğer fiş"tir: MF seçilip evrak no atanabilir. Sayılar günlükte, ayrıntıda ve Excel'de görünür.
+  **Fatura sayılmayacak hesaplar** kutusu (komut satırı `--fatura-haric 780,159`): banka komisyonu (780) ya da verilen sipariş avansı (159) gibi hesaplar fişi fatura yapmıyorsa
+  buraya yazın; o hesaplar fatura sayma nedeni olmaz. Her fişin neden fatura sayıldığı ayrıntıda `(fatura fişi: 780,760)` ve Excel'de *Fatura sayılma nedeni* sütununda görünür.
 - **Varsayılan: Luca'da hiçbir şey değiştirilmez** (*Kaydet* / *Toplu Değer Ata*'ya basılmaz).
 - **Seçilenleri Düzelt (MF)…** (isteğe bağlı, Luca'ya yazar): tabloda firma seçip basınca önce firma ve kod bazında özet gösterilir, **onayınız** istenir. Onaydan sonra
   yalnız 20042-20045 kodlarında **diğer fişlerin** satırları seçilir; *Toplu Değer Ata*'dan **Belge Türü = MF** ve **Evrak No = Değişmez Fiş No** (iki *Aktar*) atanır, evrak tarihine dokunulmaz. Fatura fişlerinin satırları seçilmez ve değerleri değişmemiş olmalıdır; atamadan sonra liste okunup (hedef satırlarda BT=MF, evrak no dolu, evrak tarihi ve diğer satırlar aynı)

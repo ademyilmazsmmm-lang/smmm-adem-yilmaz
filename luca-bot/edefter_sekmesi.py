@@ -56,7 +56,7 @@ def taranamayanlar(s):
 def fis_satiri(f):
     """'   01023  01/07/2026  evrak 89582  BT MF  ödeme -  3 satır' (Luca'da Fiş No ile aranır)."""
     evrak = ", ".join(f.get("evrak") or []) or "-"
-    tur = {True: "  (fatura fişi)", False: "  (diğer fiş)"}.get(f.get("fatura_fisi"), "")
+    tur = {True: "  (fatura fişi" + (f": {','.join(f['fatura_hp'])}" if f.get("fatura_hp") else "") + ")", False: "  (diğer fiş)"}.get(f.get("fatura_fisi"), "")
     satir = (f"{f.get('fis_no') or '?':>8}  {f.get('tarih') or '-':10}  evrak {evrak[:24]:24}  BT {f.get('bt') or '-':4}  "
              f"ödeme {f.get('odeme') or '-':6}  {f.get('satir', 0)} satır{tur}")
     return satir + (f"  [{'; '.join(f['durum'])[:70]}]" if f.get("durum") else "")      # Luca'nın satır açıklaması
@@ -74,6 +74,7 @@ class EdefterSekmesi(KarZararSekmesi):
         self.v_firma = tk.StringVar()
         self.v_yenile = tk.BooleanVar(value=False)
         self.v_tani = tk.BooleanVar(value=False)
+        self.v_haric = tk.StringVar()        # fatura sayilmayacak hesap onekleri (orn. 780,159)
         self.ham = []
         self.donem_metni = ""
 
@@ -110,6 +111,12 @@ class EdefterSekmesi(KarZararSekmesi):
         tk.Checkbutton(p, text="Firma listesini Luca'dan yeniden çek", variable=self.v_yenile, font=u.KUCUK,
                        **self.a._kutu_renk()).pack(anchor="w", pady=(10, 0))
 
+        tk.Label(p, text="Fatura sayılmayacak hesaplar (örn. 780,159)", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN,
+                 anchor="w").pack(fill="x", pady=(10, 2))
+        u.giris_kutusu(p, self.v_haric).pack(fill="x", ipady=3)
+        tk.Label(p, text="Varsayılan: 191/391/6xx/7xx/15x/25x/26x hesabı olan fiş fatura sayılır ve düzeltilmez. Burada yazdığınız "
+                 "hesaplar (örn. banka komisyonu 780) fatura sayma nedeni olmaz.", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w",
+                 justify="left", wraplength=280).pack(fill="x")
         tk.Checkbutton(p, text="Tanı dosyaları kaydet (sorun olursa gönderin)", variable=self.v_tani, font=u.KUCUK,
                        **self.a._kutu_renk()).pack(anchor="w", pady=(4, 0))
 
@@ -326,6 +333,8 @@ class EdefterSekmesi(KarZararSekmesi):
                  "--tarih", f"{bas}-{bit}"] + self._hesap_arg()
         if self.v_tani.get():
             komut.append("--tani")
+        if self.v_haric.get().strip():
+            komut += ["--fatura-haric", self.v_haric.get().strip()]
         if tam_firmalar:
             for f in tam_firmalar:
                 komut += ["--firma-tam", f]
