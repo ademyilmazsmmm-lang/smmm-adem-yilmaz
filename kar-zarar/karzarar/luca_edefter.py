@@ -1069,7 +1069,13 @@ FIS_FORM_JS = r"""arg => {
     }
     sonuc.secili = hata.selectedIndex;
   }
-  for (const desen of [/^İlk\s*Fiş\s*Tarihi/i, /^Son\s*Fiş\s*Tarihi/i]) { const k = yanKutu(desen); sonuc.tarihler.push(k ? k.value : null); }
+  // E-Defter Ay secimi tarih kutularina yansimayabiliyor (gercek Luca: sonuc ilk/son fis tarihi hep Ocak): ayin ilk/son gunu acikca yazilir
+  const tarihler = [[/^İlk\s*Fiş\s*Tarihi/i, arg.bas], [/^Son\s*Fiş\s*Tarihi/i, arg.bit]];
+  for (let i = 0; i < 2; i++) {
+    const k = yanKutu(tarihler[i][0]);
+    if (k && tarihler[i][1] && k.value !== tarihler[i][1]) { k.value = tarihler[i][1]; k.dispatchEvent(new Event('change', {bubbles: true})); }
+    sonuc.tarihler.push(k ? k.value : null);
+  }
   return sonuc;
 }"""
 
@@ -1201,19 +1207,36 @@ FIS_YEDEK_JS = r"""() => {
   return c;
 }"""
 
+# Satirin onay kutusunu SECER (gercek Luca: sol hucrede onay kutusu; Sil secili kutulari siler), diger tum kutulari kaldirir.
+# Donus: {bulundu, kutu (satirda kutu var mi), secili (isaretli kutu sayisi), hedef (hedef kutu isaretli mi)}
 FIS_ISARET_JS = r"""arg => {
   const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
   const eski = document.querySelectorAll('[data-lb-sec]');
   for (let i = 0; i < eski.length; i++) eski[i].removeAttribute('data-lb-sec');
-  const trs = document.querySelectorAll('tr');
+  const trs = document.querySelectorAll('tr'), satirlar = [];
+  let hedef = null;
   for (let i = 0; i < trs.length; i++) {
     const tr = trs[i];
     if (!g(tr) || tr.querySelector('th') || tr.querySelector('tr')) continue;
     const h = tr.children, t = [];
     for (let j = 0; j < h.length; j++) t.push((h[j].textContent || '').replace(/\s+/g, ' ').trim());
-    if (t.indexOf(arg.tarih) >= 0 && t.indexOf(arg.no) >= 0) { tr.setAttribute('data-lb-sec', '1'); return true; }
+    if (t.indexOf(arg.tarih) < 0 || t.indexOf(arg.no) < 0) { if (/^\d{2}\/\d{2}\/\d{4}$/.test(t[1] || t[0] || '')) satirlar.push(tr); continue; }
+    hedef = tr;
+    satirlar.push(tr);
   }
-  return false;
+  if (!hedef) return {bulundu: false};
+  hedef.setAttribute('data-lb-sec', '1');
+  let secili = 0, kutu = false;
+  for (let i = 0; i < satirlar.length; i++) {
+    const k = satirlar[i].querySelector('input[type=checkbox]');
+    if (!k) continue;
+    const ister = satirlar[i] === hedef;
+    if (ister) kutu = true;
+    if (!!k.checked !== ister && !k.disabled) k.click();
+    if (!!k.checked !== ister && !k.disabled) { k.checked = ister; k.dispatchEvent(new Event('change', {bubbles: true})); }
+    if (k.checked) secili++;
+  }
+  return {bulundu: true, kutu, secili, hedef: kutu && !!hedef.querySelector('input[type=checkbox]').checked};
 }"""
 
 SIL_JS = r"""() => {
@@ -1234,22 +1257,53 @@ ONAY_JS = r"""() => {
 }"""
 
 
-def fis_grid_oku(ana, grid, log=None, bekle_ms=FIS_SATIR_BEKLEME_MS):
-    """Fis Listesi sonuc tablosunu okur. Satirlar gelene kadar bekler (baslik satirdan once gelebilir: erken okuma 'fis yok' sanilmasin),
-    baslik-tabanli okuyucu bossa yedek (tarih + fis no deseni) okuyucuyu dener."""
+# Sonuc sayfasi gizli formu (gercek Luca): ilkFisTarihi / sonFisTarihi = sorgunun tarihleri, sayfadakiKayitSayisi = sonucun kayit sayisi,
+# EDEFTER_UYUMSUZ_FISLER = hata kodu. Bunlar sorgunun DOGRU ay/kod icin yapildigini ve sonucun gercekten bos olup olmadigini gosterir.
+FIS_SONUC_BILGI_JS = r"""() => {
+  const al = ad => { const e = document.querySelector('input[name="' + ad + '"]'); return e ? e.value : null; };
+  const ilk = al('ilkFisTarihi'), son = al('sonFisTarihi'), kayit = al('sayfadakiKayitSayisi');
+  if (ilk === null && kayit === null) return null;
+  return {ilk, son, kayit: kayit === null || kayit === '' ? null : parseInt(kayit, 10), hata: al('EDEFTER_UYUMSUZ_FISLER')};
+}"""
+
+
+def ay_sinirlari(yil, ay):
+    """('01/08/2026', '31/08/2026')"""
+    import calendar
+    son = calendar.monthrange(yil, ay)[1]
+    return f"01/{ay:02d}/{yil}", f"{son:02d}/{ay:02d}/{yil}"
+
+
+def fis_grid_oku(ana, grid, log=None, bekle_ms=FIS_SATIR_BEKLEME_MS, beklenen=None, sayiya_guven=True):
+    """Fis Listesi sonuc tablosunu okur. beklenen = (ilk tarih, son tarih, hata kodu): sonuc sayfasi baska ay/kod icin listelenmisse
+    LookupError (sessizce '0 fis' denmez). Luca'nin bildirdigi kayit sayisi 0 ise bos kabul edilir (beklemeden); sayi > 0 ama satirlar
+    okunamiyorsa LookupError. Satirlar basliktan sonra dolabilir: satir gelene kadar beklenir; baslik-tabanli okuyucu bossa yedek okuyucu."""
     pg, fr = grid
     bitis = time.monotonic() + bekle_ms / 1000.0
+    bilgi = None
     while True:
+        bilgi = _degerlendir(fr, FIS_SONUC_BILGI_JS) or bilgi
+        if bilgi and beklenen:
+            if (bilgi.get("ilk"), bilgi.get("son")) != (beklenen[0], beklenen[1]):
+                raise LookupError(f"Fiş Listesi istenen ay için değil, {bilgi.get('ilk')}-{bilgi.get('son')} için listelendi "
+                                  f"(beklenen {beklenen[0]}-{beklenen[1]}): E-Defter Ay / tarih kutuları sorguya yansımadı")
+            if bilgi.get("hata") and bilgi["hata"] != beklenen[2]:
+                raise LookupError(f"Fiş Listesi {bilgi['hata']} için listelendi (beklenen {beklenen[2]})")
+        if sayiya_guven and bilgi and bilgi.get("kayit") == 0:
+            yaz("      0 fiş (Luca: kayıt sayısı 0)", log)
+            return {"fis_sayisi": 0, "satir_sayisi": 0, "kesildi": False, "fisler": [], "sayfa": 1, "fatura_fisi": 0, "diger_fis": 0, "bos": True}
         r = _degerlendir(fr, LISTE_OKU_JS, CAPA_FIS)
         y = _degerlendir(fr, FIS_YEDEK_JS)
         if (r and r["satirlar"]) or y or time.monotonic() > bitis:
             break
-        pg.wait_for_timeout(600)
+        pg.wait_for_timeout(500)
     if r and r["satirlar"]:
         return liste_oku(ana, grid, log, capa=CAPA_FIS, grupla=fis_satirlarini_grupla)
     bos = {"fis_sayisi": 0, "satir_sayisi": 0, "kesildi": False, "fisler": [], "sayfa": 1, "fatura_fisi": 0, "diger_fis": 0}
     if not y:
-        yaz(f"      0 fiş (tablo boş; {int(bekle_ms / 1000)} sn beklendi)", log)
+        if sayiya_guven and bilgi and bilgi.get("kayit"):
+            raise LookupError(f"Luca {bilgi['kayit']} kayıt bildirdi ama tablo satırları okunamadı")
+        yaz(f"      0 fiş (tablo boş; Luca kayıt sayısı bildirmedi, {int(bekle_ms / 1000)} sn beklendi)", log)
         return dict(bos, bos=True)
     fisler = {}
     for x in y:
@@ -1279,14 +1333,20 @@ def detaysiz_sil(page, grid, mesajlar, log=None, tani=None):
         if not y:
             break
         hedef = y[0]
-        if not _degerlendir(fr, FIS_ISARET_JS, {"no": hedef["fis_no"], "tarih": hedef["tarih"]}):
+        isaret = _degerlendir(fr, FIS_ISARET_JS, {"no": hedef["fis_no"], "tarih": hedef["tarih"]})
+        if not isaret or not isaret.get("bulundu"):
             sonuc["mesaj"] = f"fiş satırı bulunamadı ({hedef['fis_no']})"
             break
-        try:
-            fr.locator('[data-lb-sec="1"] > td').first.click(timeout=6000)     # satiri SEC (fis no baglantisina degil, ilk hucreye)
-        except Exception as e:
-            sonuc["mesaj"] = f"fiş satırı seçilemedi: {type(e).__name__}"
-            break
+        if isaret.get("kutu"):
+            if not isaret.get("hedef") or isaret.get("secili") != 1:         # tam olarak BU fisin kutusu isaretli olmali
+                sonuc["mesaj"] = f"fiş seçilemedi (isaretli kutu sayısı {isaret.get('secili')}, hedef {isaret.get('hedef')}); silinmedi"
+                break
+        else:
+            try:                                                              # onay kutusu yoksa satira tikla (fis no baglantisina degil, ilk hucreye)
+                fr.locator('[data-lb-sec="1"] > td').first.click(timeout=6000)
+            except Exception as e:
+                sonuc["mesaj"] = f"fiş satırı seçilemedi: {type(e).__name__}"
+                break
         pg.wait_for_timeout(400)
         if tur == 0 and tani:
             tani("-fis-sil-secili")                                           # secili satirin ekran goruntusu (tani)
@@ -1339,7 +1399,7 @@ def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None,
     secenekler = {}
     for kod in istenen:
         secenekler[kod] = None
-    r0 = _fis_form_oku(fr, {"ay": AYLAR[bas.month - 1], "kod": "", "acik": ACIK_KUTU})
+    r0 = _fis_form_oku(fr, dict(zip(("bas", "bit"), ay_sinirlari(bas.year, bas.month)), ay=AYLAR[bas.month - 1], kod="", acik=ACIK_KUTU))
     for metin in r0.get("secenekler") or []:
         m = HATA_KODU.search(metin)
         if m and m.group(1) in secenekler:
@@ -1347,6 +1407,7 @@ def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None,
     yaz(f"    Fiş Listesi: E-Defter Ay={r0.get('ay')}, onay kutusu={r0.get('kutu')}, tarihler={r0.get('tarihler')}; "
         f"hata kodları: {[k for k, v in secenekler.items() if v]}", log)
     sonuc = []
+    durum_form_tani = []
     for kod in istenen:
         metin = secenekler.get(kod)
         ad = re.sub(r"\s*\(?\s*Hata\s*Kodu.*$", "", metin or "", flags=re.I).strip(" .(")
@@ -1365,7 +1426,15 @@ def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None,
                     dinle(pg, mesajlar)
                 else:
                     pg, fr = r
-                form = _fis_form_oku(fr, {"ay": AYLAR[ay - 1], "kod": kod, "acik": ACIK_KUTU})
+                ay_bas, ay_bit = ay_sinirlari(yil, ay)
+                form = _fis_form_oku(fr, {"ay": AYLAR[ay - 1], "kod": kod, "acik": ACIK_KUTU, "bas": ay_bas, "bit": ay_bit})
+                fr.page.wait_for_timeout(500)                       # Ay / Hata secimlerinin degisim islemleri tarihleri sonradan sifirlayabilir:
+                form = _fis_form_oku(fr, {"ay": AYLAR[ay - 1], "kod": kod, "acik": ACIK_KUTU, "bas": ay_bas, "bit": ay_bit})   # Liste'den hemen once yeniden yaz
+                if form.get("tarihler") and None not in form["tarihler"] and form["tarihler"] != [ay_bas, ay_bit]:
+                    raise LookupError(f"Fiş Listesi tarih kutuları yazılamadı (şimdi {form['tarihler']}, beklenen {[ay_bas, ay_bit]})")
+                if tani_hep and not durum_form_tani:
+                    durum_form_tani.append(1)
+                    tani_kaydet(page, tani_klasoru, log, "-fis-form", "edefter")                  # formun kendisi (Ay / Liste dugmesi nasil)
                 if form.get("kutu") is not True:
                     tani_kaydet(page, tani_klasoru, log, f"-{kod}-kutu", "edefter-fis")
                     raise LookupError("'E-Defter kapsamında uyumsuz olan fişleri getir' kutusu "
@@ -1408,7 +1477,7 @@ def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None,
                 if "grid" in son:
                     if tani_hep and (yil, ay) == aylar[0]:
                         tani_kaydet(page, tani_klasoru, log, f"-fis-{kod}-sonuc", "edefter")          # sonuc gorunumu (ekran + kaynak)
-                    okunan = fis_grid_oku(page, son["grid"], log)
+                    okunan = fis_grid_oku(page, son["grid"], log, beklenen=(ay_bas, ay_bit, kod))
                     if sil and kod == "20026" and okunan["fis_sayisi"]:
                         sr = detaysiz_sil(page, son["grid"], mesajlar, log,
                                           (lambda ek="-fis-sil": tani_kaydet(page, tani_klasoru, log, ek, "edefter")) if tani_hep else None)
@@ -1417,7 +1486,7 @@ def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None,
                         if sr["mesaj"]:
                             d["mesaj"] = (d["mesaj"] + "; " if d["mesaj"] else "") + f"{AYLAR[ay - 1]}: {sr['mesaj']}"
                         if sr["silinen"]:
-                            okunan = fis_grid_oku(page, son["grid"], log, bekle_ms=1500)              # silmeden sonra kalanlar
+                            okunan = fis_grid_oku(page, son["grid"], log, bekle_ms=1500, sayiya_guven=False)   # silmeden sonra kalanlar (gizli sayac eski kalabilir)
                     for f in okunan["fisler"]:
                         fislerim.setdefault((f["fis_no"], f["tarih"]), f)
                     kayit["satir_sayisi"] += okunan["satir_sayisi"]

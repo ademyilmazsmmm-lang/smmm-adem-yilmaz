@@ -299,6 +299,23 @@ class UctanUca(unittest.TestCase):
         self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "sorun var")
         self.assertEqual(sahte["fis_istekler"] and 1, 1)
 
+    def test_fis_listesi_donemi_tarih_kutulari_belirler_secilen_ayin_tarihleri_yazilir(self):
+        # fiş Eylül'de: E-Defter Ay secimi tarih kutularina yansimadigi icin (gercek Luca) kutulara ayin ilk/son gunu yazilmali
+        f = "ALFA ISLETME"
+        veri = {(f, "20026", "Eylül"): [{"fis_no": "01248", "tarih": "30/09/2026", "aciklama": "", "borc": "0,00", "alacak": "0,00"}]}
+        kod, sonuc, cikti, sahte = calistir(fis_veri=veri, fis_modlar={"20026": "liste"}, tarih="01/09/2026-31/10/2026", ek_arg=("--hata-kodu", "20026"))
+        self.assertEqual(kod, 0, cikti[-2500:])
+        h = sonuc[f]["hatalar"][0]
+        self.assertEqual((h["fis_sayisi"], h["hata"]), (1, ""), cikti[-2500:])
+        self.assertEqual([(i["ilk"], i["son"]) for i in sahte["fis_istekler"]], [("01/09/2026", "30/09/2026"), ("01/10/2026", "31/10/2026")])
+        self.assertIn("Luca: kayıt sayısı 0", cikti)                      # Ekim'de gercekten 0: Luca'nin kayit sayisindan bilinir
+
+    def test_fis_listesi_baska_ay_icin_listelenirse_sessizce_sifir_denmez(self):
+        kod, sonuc, cikti, _ = self._fis20026(self._detaysiz(), tarih_yoksay=True)
+        h = sonuc["ALFA ISLETME"]["hatalar"][0]
+        self.assertIn("istenen ay için değil", h["hata"])
+        self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "hata")
+
     def test_fis_listesi_baslik_satirlarla_eslesmezse_yedek_okuyucu_kullanilir(self):
         kod, sonuc, cikti, _ = self._fis20026(self._detaysiz(2), duzen="ayri")             # baslik ayri tablo + fazladan sutun
         self.assertEqual(kod, 0, cikti[-2500:])

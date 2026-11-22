@@ -317,7 +317,10 @@ Listedeki **Durum** sütunu (Luca'nın "Evrak No boş olamaz." gibi açıklamas�
   satır hatası olursa (örn. e-Defter verisi değiştirilemez) sayılıp raporlanır.
   **20026 detaysız fişler** (Fiş Listesi, borç = alacak = 0): düzeltme modunda fiş satırı **seçilir, alttaki *Sil* düğmesine basılır** ve fişin listeden kalktığı doğrulanır.
   Geri alınamaz: listede borç/alacağı dolu bir fiş görürse hiçbir şey silmez; seçim/silme doğrulanamazsa durur. Onay penceresi silinecek sayıyı ayrıca yazar.
-  Fiş Listesi sonuç tablosu satırları başlıktan sonra doldurursa program satır gelene kadar bekler (eskiden erken okuyup "0 fiş" diyebiliyordu).
+  **Fiş Listesi dönemi:** Luca'da "E-Defter Ay" seçimi tarih kutularına yansımıyor (sonuç hep Ocak için geliyordu: 20021/20025/20026 hep 0 görünüyordu). Program önce
+  Ay'ı, sonra hata kodunu seçer, ardından tarih kutularına ayın ilk/son gününü yazar ve Liste'den hemen önce bir kez daha yazar. Sonuç sayfasının "hangi tarihler / hangi kod
+  için listelendi" ve "kayıt sayısı" bilgisini okuyup doğrular: yanlış ay ya da kod için listelenmişse sessizce 0 demez, hata yazar; Luca kayıt sayısı 0 diyorsa beklemeden 0 kabul eder.
+  Satırlar başlıktan sonra dolarsa satır gelene kadar bekler.
   Komut satırı: `python edefter.py ... --duzelt`. **Gerçek Luca'da henüz denenmedi: önce tek bir firmada deneyin** (`Tanı dosyaları kaydet` işaretli).
 - Varsayılan dönem geçen aydır (e-Defter aylık gönderilir). Çok fişli firmalarda bir kod için en çok 60 sayfa okunur (aşılırsa sayı "en az" olarak yazılır);
   JSON/Excel'e kod başına en çok 300 fiş yazılır (sayı her zaman tamdır).
