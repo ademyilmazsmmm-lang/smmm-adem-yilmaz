@@ -235,8 +235,8 @@ class UctanUca(unittest.TestCase):
         kaydedilen = sahte["kaydet_ayrinti"]
         self.assertEqual({d["fis_no"] for d in kaydedilen}, {"0301", "0304"})                 # yalniz secilen (fatura olmayan) fislerin satirlari kaydedildi
         self.assertEqual(len(kaydedilen), 6)                                                  # 3 + 3 satir, TEK TEK
-        self.assertEqual({(d["no"], d["et"], d["bt"]) for d in kaydedilen if d["fis_no"] == "0301"}, {("92001", "05/10/2026", "MF")})
-        self.assertEqual({(d["no"], d["et"], d["bt"]) for d in kaydedilen if d["fis_no"] == "0304"}, {("92004", "08/10/2026", "MF")})
+        self.assertEqual({(d["no"], d["et"], d["bt"]) for d in kaydedilen if d["fis_no"] == "0301"}, {("92001", "", "MF")})
+        self.assertEqual({(d["no"], d["et"], d["bt"]) for d in kaydedilen if d["fis_no"] == "0304"}, {("92004", "", "MF")})
         h = {x["kod"]: x for x in sonuc["ALFA ISLETME"]["hatalar"]}["20042"]
         self.assertEqual((h["fis_sayisi"], h["fatura_fisi"], h["diger_fis"]), (2, 2, 0))          # kalan: yalniz fatura/satis fisleri
         self.assertEqual((h["duzeltme"]["fis"], h["duzeltme"]["satir"], h["duzeltme"]["kaydedildi"], h["duzeltme"]["fatura_fis"]), (2, 6, 1, 2))
@@ -255,7 +255,7 @@ class UctanUca(unittest.TestCase):
                                             ek_arg=("--duzelt", "--hata-kodu", "20042"))
         self.assertEqual((kod, sahte["kaydet"]), (0, 6), cikti[-2500:])               # 6 satir kaydedildi, Luca yok saydi
         h = {x["kod"]: x for x in sonuc["ALFA ISLETME"]["hatalar"]}["20042"]
-        self.assertIn("azalmadı", h["duzeltme"]["mesaj"])
+        self.assertIn("hâlâ uyumsuz listeleniyor", h["duzeltme"]["mesaj"])
         self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "sorun var")
 
     def test_duzelt_cok_sayfali_listede_sayfa_sonundaki_fis_atlanir_turlarla_tamamlanir(self):
@@ -334,6 +334,12 @@ class UctanUca(unittest.TestCase):
         self.assertEqual((h["fis_sayisi"], h["duzeltme"]["silinen"]), (0, 2), cikti[-3000:])
         self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "tamam")
         self.assertIn("DÜZELTME 20026: 2 detaysız fiş silindi", cikti)
+
+    def test_detaysiz_silme_satirda_fazladan_hucre_olsa_da_borc_alacak_basliktan_okunur(self):
+        kod, sonuc, cikti, _ = self._fis20026(self._detaysiz(2), ek_arg=("--duzelt",), duzen="ayri")      # satirlarda gizli fazladan hucre
+        import sahte_kz
+        self.assertEqual(sorted(x[2] for x in sahte_kz.FIS_AYAR["silinen"]), ["01248", "01249"], cikti[-2500:])
+        self.assertEqual(sonuc["ALFA ISLETME"]["hatalar"][0]["duzeltme"]["silinen"], 2)
 
     def test_borcu_alacagi_dolu_fis_varsa_hicbir_sey_silinmez(self):
         kod, sonuc, cikti, _ = self._fis20026(self._detaysiz(2, borc="150,00"), ek_arg=("--duzelt",))

@@ -13,8 +13,9 @@ cikti/edefter.xlsx'e yazilir (onceki firmalar korunur). VARSAYILAN: hicbir sey d
     python edefter.py --tarih 01/10/2026-31/10/2026 --firma-tam "OSMAN ALEM" --duzelt --tani
 
 --duzelt (YALNIZ acikca istenirse): 20042-20045 kodlarinda fatura OLMAYAN uyumsuz fisler (191/391/6xx/7xx/15x/25x/26x hesabi
-olmayan: kasa, banka, cari mahsup) icin Toplu Deger Ata ile Belge Turu = MF, evrak no = degismez fis no, evrak tarihi = fis
-tarihi atanir ve Kaydet'e basilir; sonra liste yeniden okunup dogrulanir. Fatura fislerine (191/391/6xx/7xx...) dokunulmaz.
+olmayan: kasa, banka, cari mahsup) icin Toplu Deger Ata ile Belge Turu = MF ve evrak no = degismez fis no atanir (Aktar'lar),
+sonra Kaydet'e basilir (satir satir kaydin bitmesi beklenir); liste yeniden okunup dogrulanir. Fatura fislerine dokunulmaz.
+20026 (detaysiz fis, Fis Listesi): fisler secilip alttaki Sil'e basilir.
 """
 
 import argparse

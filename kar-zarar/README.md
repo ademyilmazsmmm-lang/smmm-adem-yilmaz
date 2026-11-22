@@ -115,7 +115,7 @@ sondaki `gönderim tamamlandı. (N)` hatasız giden kayıt sayısıdır.
 e-Defter göndermeden önce Luca'nın "Toplu Belge Türü ve Ödeme Yöntemi Düzenleme" ekranındaki e-Defter uyumsuzluk kontrolünü her 1. sınıf
 firma için çalıştırır, uyumsuz fişleri listeler (arayüzde **e-Defter** sekmesi). Varsayılan: Luca'da hiçbir şey değiştirilmez (Kaydet'e basılmaz).
 `--duzelt` (yalnız açıkça istenirse, Luca'ya yazar): 20042-20045'te **fatura olmayan** fişlere (191/391/6xx/7xx/15x/25x/26x hesabı olmayan) Belge Türü = MF,
-Evrak No = Değişmez Fiş No, Evrak Tarihi = Fiş Tarihi atar, doğrular, Kaydet'e basar ve listeyi yeniden okur. Fatura fişlerine dokunulmaz.
+Evrak No = Değişmez Fiş No atar (evrak tarihine dokunmaz), doğrular, Kaydet'e basar ve listeyi yeniden okur; 20026 detaysız fişleri seçip Sil'e basar. Fatura fişlerine dokunulmaz.
 
 ```
 python edefter.py --tarih 01/10/2026-31/10/2026

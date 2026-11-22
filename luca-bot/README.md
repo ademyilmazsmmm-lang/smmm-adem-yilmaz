@@ -310,9 +310,8 @@ Listedeki **Durum** sütunu (Luca'nın "Evrak No boş olamaz." gibi açıklamas�
   Bunların hiçbiri olmayan fişler (kasa, banka, cari mahsup) "diğer fiş"tir: MF seçilip evrak no atanabilir. Sayılar günlükte, ayrıntıda ve Excel'de görünür.
 - **Varsayılan: Luca'da hiçbir şey değiştirilmez** (*Kaydet* / *Toplu Değer Ata*'ya basılmaz).
 - **Seçilenleri Düzelt (MF)…** (isteğe bağlı, Luca'ya yazar): tabloda firma seçip basınca önce firma ve kod bazında özet gösterilir, **onayınız** istenir. Onaydan sonra
-  yalnız 20042-20045 kodlarında **diğer fişlerin** satırları seçilir; *Toplu Değer Ata*'dan **Belge Türü = MF**, **Evrak No = Değişmez Fiş No**, **Evrak Tarihi = Fiş Tarihi**
-  atanır. Fatura fişlerinin satırları seçilmez ve değerleri değişmemiş olmalıdır; atamadan sonra liste okunup (hedef satırlarda BT=MF, evrak no/tarihi dolu, diğerleri aynı)
-  doğrulanır, **tutmuyorsa Kaydet'e basılmaz**. Sonra *Kaydet*, ardından liste yeniden okunur ve kalan fiş sayısı yazılır (azalmamışsa "Luca kaydı kabul etmemiş olabilir").
+  yalnız 20042-20045 kodlarında **diğer fişlerin** satırları seçilir; *Toplu Değer Ata*'dan **Belge Türü = MF** ve **Evrak No = Değişmez Fiş No** (iki *Aktar*) atanır, evrak tarihine dokunulmaz. Fatura fişlerinin satırları seçilmez ve değerleri değişmemiş olmalıdır; atamadan sonra liste okunup (hedef satırlarda BT=MF, evrak no dolu, evrak tarihi ve diğer satırlar aynı)
+  doğrulanır, **tutmuyorsa Kaydet'e basılmaz**. Sonra *Kaydet*, ardından liste yeniden okunur: düzeltilen fişler listeden kalkmalıdır, hâlâ listeleniyorsa durur ve fiş numaralarını yazar.
   *Kaydet* Luca'da satırları tek tek kaydeder (1000 satır dakikalar sürebilir): program **"Kaydetme işlemi tamamlandı."** bildirimini bekler, pencereyi ondan önce kapatmaz;
   satır hatası olursa (örn. e-Defter verisi değiştirilemez) sayılıp raporlanır.
   **20026 detaysız fişler** (Fiş Listesi, borç = alacak = 0): düzeltme modunda fiş satırı **seçilir, alttaki *Sil* düğmesine basılır** ve fişin listeden kalktığı doğrulanır.

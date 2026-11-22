@@ -528,7 +528,8 @@ def liste_oku(ana, liste, log=None, sayfa_siniri=SAYFA_SINIRI, capa=CAPA_BELGE, 
 # degismemis olmalidir (aksi halde Kaydet'e BASILMAZ). Gercek Luca'da henuz denenmedi: her adim dogrulanir, supheli durumda durulur.
 DUZELTME_KODLARI = ("20042", "20043", "20044", "20045")
 DUZELTME_BELGE_TURU = "MF"
-DUZELTME_TUR_SINIRI = 4        # Kaydet'ten sonra liste yeniden acilip kalan fisler icin en cok bu kadar tur
+DUZELTME_TARIH_ATA = False     # True: "Fis Tarihini Evrak Tarihi Olarak Ata" da uygulanir (varsayilan KAPALI: yalniz Belge Turu + Evrak No)
+DUZELTME_TUR_SINIRI = 8        # Kaydet'ten sonra liste yeniden acilip kalan fisler icin en cok bu kadar tur
 
 SEC_JS = r"""arg => {
   const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
@@ -732,7 +733,8 @@ def duzelt_uygula(ana, liste, log=None, toplam_sayfa=1, capa=CAPA_BELGE):
     sayfa = r0.get("sayfa") or 1
     # sayfa sonunda bolunmus olabilecek son fis (sonraki sayfa varsa) atlanir: hesaplari eksik gorunup fatura fisi olmayan sanilmasin
     hedef, fis_sayisi, fatura_fis = duzeltme_plani(r0["basliklar"], r0["satirlar"], toplam_sayfa > 1 and sayfa < toplam_sayfa)
-    sonuc.update(fis=fis_sayisi, satir=len(hedef), fatura_fis=fatura_fis)
+    anahtarlar = satir_anahtarlari(r0["basliklar"], r0["satirlar"])
+    sonuc.update(fis=fis_sayisi, satir=len(hedef), fatura_fis=fatura_fis, anahtarlar=sorted({anahtarlar[i] for i in hedef}))
     if not hedef:
         sonuc.update(mesaj=f"sayfa {sayfa}: düzeltilecek (fatura olmayan) fiş yok", bos=True)
         return sonuc
@@ -745,7 +747,7 @@ def duzelt_uygula(ana, liste, log=None, toplam_sayfa=1, capa=CAPA_BELGE):
         sonuc["mesaj"] = f"satır seçimi doğrulanamadı: {sec}"
         return sonuc
     yaz(f"      {fis_sayisi} fiş ({len(hedef)} satır) seçildi; {fatura_fis} fatura fişi seçilmedi", log)
-    adimlar = (("ac", None), ("belge", DUZELTME_BELGE_TURU), ("evrak_no", None), ("tarih", None))
+    adimlar = (("ac", None), ("belge", DUZELTME_BELGE_TURU), ("evrak_no", None)) + ((("tarih", None),) if DUZELTME_TARIH_ATA else ())
     for adim, deger in adimlar:
         sonuc_js = None
         for _ in range(5):                          # pencerenin acilmasi / yerlesmesi icin kisa beklemeler
@@ -778,7 +780,7 @@ def duzelt_uygula(ana, liste, log=None, toplam_sayfa=1, capa=CAPA_BELGE):
         return sonuc
     for i, (a, b) in enumerate(zip(once, sonra)):
         if i in hedef_kume:
-            if b[0] != 1 or b[3] != DUZELTME_BELGE_TURU or not b[1] or not b[2]:
+            if b[0] != 1 or b[3] != DUZELTME_BELGE_TURU or not b[1] or (DUZELTME_TARIH_ATA and not b[2]) or (not DUZELTME_TARIH_ATA and b[2] != a[2]):
                 sonuc["mesaj"] = (f"atama doğrulanamadı (satır {i + 1}: seçili={b[0]}, evrak no={b[1] or '-'}, evrak tarihi={b[2] or '-'}, "
                                   f"BT={b[3] or '-'}); Kaydet'e basılmadı")
                 return sonuc
@@ -914,9 +916,9 @@ def belge_turu_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=Fals
         raise LookupError("Listele'den sonra ne liste ne mesaj geldi (liste ekranı açılmadı)")
 
     def duzelt_kodu(kod, kayit):
-        """Fatura olmayan uyumsuz fisleri duzeltir (Kaydet), listeyi yeniden okuyup sonucu dogrular."""
+        """Fatura olmayan uyumsuz fisleri duzeltir (Kaydet), listeyi yeniden okuyup sonucu dogrular: duzeltilen fisler listeden
+        kalkmali; hala listeleniyorsa (Luca kaydi kabul etmedi) durulur. Toplam sayi baska sebeplerle artabilir: ona bakilmaz."""
         toplam = {"fis": 0, "satir": 0, "kaydedildi": 0, "kayit_hatasi": 0, "fatura_fis": kayit.get("fatura_fisi", 0), "mesaj": ""}
-        onceki = kayit.get("diger_fis", 0)
         for tur in range(1, DUZELTME_TUR_SINIRI + 1):
             son, fpg = listele(kod)
             if "liste" not in son:
@@ -926,6 +928,8 @@ def belge_turu_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=Fals
                 r = duzelt_uygula(page, son["liste"], log, toplam_sayfa=kayit.get("sayfa", 1))
                 if not r.get("bos") or not sonraki_sayfa(page, son["liste"]):
                     break
+            if tani_hep and tur == 1 and r.get("kaydedildi"):
+                tani_kaydet(son["liste"][0], tani_klasoru, log, f"-{kod}-kayit-sonrasi", "edefter")      # Durum sutunu: Luca'nin satir hatalari
             kapat(son, fpg)
             if not r["kaydedildi"]:
                 toplam["mesaj"] = r["mesaj"]
@@ -938,13 +942,14 @@ def belge_turu_tara(page, firma, bas, bit, tani_klasoru, log=None, tani_hep=Fals
             if r.get("mesaj"):
                 toplam["luca"] = r["mesaj"]
             tara(kod, kayit, etiket="-duzeltme")
-            yeni = kayit.get("diger_fis", 0)
-            yaz(f"      Düzeltme sonrası liste: {kayit.get('fis_sayisi', 0)} fiş ({kayit.get('fatura_fisi', 0)} fatura fişi, {yeni} diğer fiş)", log)
-            if yeni >= onceki:
-                toplam["mesaj"] = "Kaydet'ten sonra düzeltilebilir fiş sayısı azalmadı (Luca kaydı kabul etmemiş olabilir)"
+            yaz(f"      Düzeltme sonrası liste: {kayit.get('fis_sayisi', 0)} fiş ({kayit.get('fatura_fisi', 0)} fatura fişi, {kayit.get('diger_fis', 0)} diğer fiş)", log)
+            kalan = {(f.get("degismeyen", ""), f.get("fis_no", ""), f.get("tarih", "")) for f in kayit.get("fisler") or []}
+            hala = [a for a in r.get("anahtarlar") or [] if tuple(a) in kalan]
+            if hala:
+                toplam["mesaj"] = (f"Kaydet'ten sonra düzeltilen {len(hala)} fiş hâlâ uyumsuz listeleniyor "
+                                   f"(örnek fiş no: {', '.join(a[1] for a in hala[:5])}): Luca kaydı kabul etmemiş ya da başka bir uyumsuzluk var")
                 break
-            onceki = yeni
-            if not yeni:
+            if not kayit.get("diger_fis"):
                 break
         if toplam.get("luca"):
             toplam["mesaj"] = (toplam["mesaj"] + " — " if toplam["mesaj"] else "") + toplam.pop("luca")
@@ -1191,6 +1196,16 @@ SIL_SINIRI = 200
 FIS_YEDEK_JS = r"""() => {
   const g = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
   const gun = /^\d{2}\/\d{2}\/\d{4}$/, no = /^\d{3,}$/;
+  const duz = t => (t || '').toLocaleLowerCase('tr').replace(/[\s.\-()*:\/]/g, '');
+  // Borc / Alacak sutunlari baslik satirindan (data satirlarinda fazladan hucre olabilir: sondan sayilmaz)
+  let bi = -1, ai = -1;
+  const bh = document.querySelectorAll('th, td');
+  for (let i = 0; i < bh.length && bi < 0; i++) {
+    if (!bh[i].children.length && duz(bh[i].textContent) === 'borç') {
+      const kardes = bh[i].parentElement ? bh[i].parentElement.children : [];
+      for (let j = 0; j < kardes.length; j++) { const d = duz(kardes[j].textContent); if (d === 'borç') bi = j; if (d === 'alacak') ai = j; }
+    }
+  }
   const trs = document.querySelectorAll('tr'), c = [];
   for (let i = 0; i < trs.length && c.length < 5000; i++) {
     const tr = trs[i];
@@ -1202,7 +1217,8 @@ FIS_YEDEK_JS = r"""() => {
     if (ti < 0) continue;
     for (let j = ti + 1; j < t.length && j <= ti + 3; j++) if (no.test(t[j])) { ni = j; break; }
     if (ni < 0) continue;
-    c.push({tarih: t[ti], tip: t[ti + 1] || '', fis_no: t[ni], aciklama: t[ni + 1] || '', borc: t.length >= ni + 5 ? t[t.length - 2] : '', alacak: t[t.length - 1] || ''});
+    const bor = bi >= 0 && bi < t.length ? t[bi] : (t.length >= ni + 5 ? t[t.length - 2] : ''), ala = ai >= 0 && ai < t.length ? t[ai] : (t[t.length - 1] || '');
+    c.push({tarih: t[ti], tip: t[ti + 1] || '', fis_no: t[ni], aciklama: t[ni + 1] || '', borc: bor, alacak: ala, hucre: t.slice(0, 12).map(x => x.slice(0, 18))});
   }
   return c;
 }"""
@@ -1326,7 +1342,8 @@ def detaysiz_sil(page, grid, mesajlar, log=None, tani=None):
         return sonuc
     dolu = [x for x in y if tutar(x["borc"]) or tutar(x["alacak"])]
     if dolu:
-        sonuc["mesaj"] = f"listede borç/alacağı olan {len(dolu)} fiş var (detaysız değil); güvenlik için hiçbir fiş silinmedi"
+        sonuc["mesaj"] = (f"listede borç/alacağı olan {len(dolu)} fiş var (detaysız değil); güvenlik için hiçbir fiş silinmedi "
+                          f"[satır hücreleri: {dolu[0].get('hucre')}; borç={dolu[0]['borc']!r}, alacak={dolu[0]['alacak']!r}]")
         return sonuc
     for tur in range(min(len(y), SIL_SINIRI) + 1):
         y = _degerlendir(fr, FIS_YEDEK_JS) or []
@@ -1478,6 +1495,9 @@ def fis_listesi_tara(page, firma, bas, bit, tani_klasoru, log=None, kodlar=None,
                     if tani_hep and (yil, ay) == aylar[0]:
                         tani_kaydet(page, tani_klasoru, log, f"-fis-{kod}-sonuc", "edefter")          # sonuc gorunumu (ekran + kaynak)
                     okunan = fis_grid_oku(page, son["grid"], log, beklenen=(ay_bas, ay_bit, kod))
+                    if tani_hep and okunan["fis_sayisi"] and (kod, "dolu") not in durum_form_tani:
+                        durum_form_tani.append((kod, "dolu"))
+                        tani_kaydet(page, tani_klasoru, log, f"-fis-{kod}-sonuc-dolu", "edefter")        # satirlarin gercek yapisi
                     if sil and kod == "20026" and okunan["fis_sayisi"]:
                         sr = detaysiz_sil(page, son["grid"], mesajlar, log,
                                           (lambda ek="-fis-sil": tani_kaydet(page, tani_klasoru, log, ek, "edefter")) if tani_hep else None)

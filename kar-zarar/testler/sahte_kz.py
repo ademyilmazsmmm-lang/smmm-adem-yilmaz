@@ -760,7 +760,7 @@ def edefter_kaydet(q):
         return ""
     hk, ha, borc, alacak, aciklama, _no, _et, _bt, _odeme = f["satirlar"][int(i or 0)]
     f["satirlar"][int(i or 0)] = (hk, ha, borc, alacak, aciklama, q.get("no", ""), q.get("et", ""), q.get("bt", ""), q.get("odeme", ""))
-    if all(x[5] and x[6] and x[7] for x in f["satirlar"]):
+    if all(x[5] and x[7] for x in f["satirlar"]):          # belge turu + evrak no dolu: artik uyumsuz degil (evrak tarihi aranmaz)
         fisler.remove(f)
     return ""
 

@@ -405,7 +405,7 @@ class EdefterSekmesi(KarZararSekmesi):
         if not messagebox.askyesno(
                 "Luca'da değişiklik yapılacak",
                 f"{len(firmalar)} firmada fatura olmayan uyumsuz fişler düzeltilecek:\n\n{satirlar}\n\n"
-                "MF yazılacak fişlerin satırlarına Belge Türü = MF, Evrak No = Değişmez Fiş No, Evrak Tarihi = Fiş Tarihi atanacak ve Luca'da "
+                "MF yazılacak fişlerin satırlarına Belge Türü = MF ve Evrak No = Değişmez Fiş No atanacak ve Luca'da "
                 "Kaydet'e basılacak (satır satır kaydedilir, bitmesi beklenir).\n191/391/6xx/7xx/15x/25x/26x hesabı olan (fatura / gelir-gider) "
                 "fişlere DOKUNULMAZ.\n"
                 "20026 detaysız fişler Fiş Listesi'nde seçilip Sil düğmesiyle SİLİNİR (geri alınamaz; yalnız borç ve alacağı 0 olanlar).\n\n"
