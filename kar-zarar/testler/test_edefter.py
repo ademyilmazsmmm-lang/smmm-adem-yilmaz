@@ -53,39 +53,29 @@ class SafMantik(unittest.TestCase):
         self.assertEqual(ek.fis_satiri(liste[1]).split("[")[1], "Evrak No boş olamaz.]")
         self.assertEqual(ek.kod_adi("20043"), "Evrak no ve tarih var ama belge türü boş")
 
-    def test_fatura_fisi_hesaplardan_ayirt_edilir_satista_391_olmayabilir(self):
-        satirlar = [satir(1, "01", "111", "01/07/2026", hesap="320.01 SATICI"), satir("", hesap="191.108.20 KDV"), satir("", hesap="770.01 GIDER"),
-                    satir(2, "02", "112", "02/07/2026", hesap="102.04 BANKA"), satir("", hesap="100.01 KASA"),
-                    satir(3, "03", "113", "03/07/2026", hesap="120.01 ALICI"), satir("", hesap="391.00.20 KDV"),
-                    satir(4, "04", "114", "04/07/2026", hesap="120.02 ALICI"), satir("", hesap="601.01 YURTICI SATIS"),   # satista 391 yok
-                    satir(5, "05", "115", "05/07/2026", hesap="320.02 SATICI"), satir("", hesap="153.01 TICARI MAL"),
-                    satir(6, "06", "116", "06/07/2026", hesap="102.01 BANKA"), satir("", hesap="770.02 GIDER")]
+    def test_fatura_191_borc_391_alacak_hareketinden_anlasilir_gerisi_fatura_degildir(self):
+        satirlar = [satir(1, "01", "111", "01/07/2026", hesap="320.01 SATICI", alacak="120,00"), satir("", hesap="191.108.20 KDV", borc="20,00"),   # alis: 191 borc
+                    satir("", hesap="770.01 GIDER", borc="100,00"),
+                    satir(2, "02", "112", "02/07/2026", hesap="102.04 BANKA", alacak="50,00"), satir("", hesap="100.01 KASA", borc="50,00"),       # mahsup
+                    satir(3, "03", "113", "03/07/2026", hesap="120.01 ALICI", borc="120,00"), satir("", hesap="391.00.20 KDV", alacak="20,00"),    # satis: 391 alacak
+                    satir("", hesap="601.01 SATIS", alacak="100,00"),
+                    satir(4, "04", "114", "04/07/2026", hesap="120.02 ALICI", borc="100,00"), satir("", hesap="601.01 SATIS", alacak="100,00"),   # 391 yok: fatura degil
+                    satir(5, "05", "115", "05/07/2026", hesap="320.02 SATICI", alacak="100,00"), satir("", hesap="770.02 GIDER", borc="100,00"),  # KDV'siz gider
+                    satir(6, "06", "116", "06/07/2026", hesap="102.01 BANKA", alacak="20,00"), satir("", hesap="780.02 KOMISYON", borc="20,00"),   # banka komisyonu
+                    satir(7, "07", "117", "07/07/2026", hesap="191.108.20 KDV", alacak="20,00"), satir("", hesap="320.01 SATICI", borc="20,00"),  # 191 ALACAK (iade): fatura degil
+                    satir(8, "08", "118", "08/07/2026", hesap="391.00.20 KDV", borc="20,00"), satir("", hesap="120.01 ALICI", alacak="20,00"),    # 391 BORC (iade): fatura degil
+                    satir(9, "09", "119", "09/07/2026", hesap="102.05 BANKA", bt="FT")]                                                         # belge turu FT: dokunulmaz
         liste = list(le.fisleri_grupla(BASLIKLAR, satirlar).values())
-        self.assertEqual([le.fatura_fisi_mi(f) for f in liste], [True, False, True, True, True, True])
+        self.assertEqual([le.fatura_fisi_mi(f) for f in liste], [True, False, True, False, False, False, False, False, True])
+        self.assertEqual([le.fatura_nedeni(f)[:6] for f in liste if le.fatura_fisi_mi(f)], ["191 bo", "191 bo", "belge "])
         self.assertEqual(liste[0]["hp"], ["320", "191", "770"])
-        self.assertEqual(liste[3]["fatura_hp"], ["601"])
         self.assertIsNone(le.fatura_fisi_mi({"hp": []}))                                  # hesap okunamadi: sinif belirsiz
-        self.assertIn("(fatura fişi", ek.fis_satiri(dict(liste[0], fatura_fisi=True)))
+        self.assertIn("(fatura fişi: 191 borç", ek.fis_satiri(dict(liste[0], fatura_fisi=True, fatura_neden=le.fatura_nedeni(liste[0]))))
         self.assertIn("(diğer fiş)", ek.fis_satiri(dict(liste[1], fatura_fisi=False)))
-
-    def test_fatura_haric_hesaplar_fatura_sayma_nedeni_olmaz(self):
-        satirlar = [satir(1, "01", "111", "01/07/2026", hesap="102.04 BANKA"), satir("", hesap="780.001 KOMISYON"), satir("", hesap="159.01 AVANS"),
-                    satir(2, "02", "112", "02/07/2026", hesap="320.01 SATICI"), satir("", hesap="770.01 GIDER")]
-        eski = le.FATURA_HARIC
-        try:
-            liste = list(le.fisleri_grupla(BASLIKLAR, satirlar).values())
-            self.assertEqual([le.fatura_fisi_mi(f) for f in liste], [True, True])
-            self.assertEqual(liste[0]["fatura_hp"], ["780", "159"])                      # neden gorunur
-            self.assertIn("(fatura fişi: 780,159)", ek.fis_satiri(dict(liste[0], fatura_fisi=True)))
-            le.FATURA_HARIC = ("780", "159")
-            liste = list(le.fisleri_grupla(BASLIKLAR, satirlar).values())
-            self.assertEqual([le.fatura_fisi_mi(f) for f in liste], [False, True])       # 770 hala fatura sayilir
-        finally:
-            le.FATURA_HARIC = eski
 
     def test_duzeltme_plani_yalniz_fatura_olmayan_fislerin_satirlarini_secer(self):
         satirlar = [satir(1, "01", "111", "01/07/2026", hesap="102.04 BANKA"), satir("", hesap="100.01 KASA"),
-                    satir(2, "02", "112", "02/07/2026", hesap="120.02 ALICI"), satir("", hesap="601.01 SATIS"),
+                    satir(2, "02", "112", "02/07/2026", hesap="120.02 ALICI", borc="120,00"), satir("", hesap="391.01 KDV", alacak="20,00"),
                     satir(3, "03", "113", "03/07/2026", hesap="102.01 BANKA"), satir("", hesap="120.01 ALICI"), satir("", hesap="320.01")]
         hedef, fis_sayisi, fatura = le.duzeltme_plani(BASLIKLAR, satirlar)
         self.assertEqual((hedef, fis_sayisi, fatura), ([0, 1, 4, 5, 6], 2, 1))
@@ -176,8 +166,11 @@ def calistir(klasor_rapor=None, veri=None, ayar=None, fis_veri=None, fis_modlar=
                                                          fis_istekler=list(sahte_kz.FIS_AYAR["istekler"]))
 
 
-def fis(no, deg, tarih, evrakli=True, bt="MF", durum="Evrak No boş olamaz.", fatura=False, hesap="100.01"):
+def fis(no, deg, tarih, evrakli=True, bt="MF", durum="Evrak No boş olamaz.", fatura=False, hesap="100.01", hesaplar=None):
     ev, et = ("89582", tarih) if evrakli else ("", "")
+    if hesaplar:                       # ozel hesap listesi (ilki borc, digerleri alacak)
+        return {"fis_no": no, "degismeyen": deg, "tarih": tarih, "durum": durum,
+                "satirlar": [(h, "HESAP", 100 if i == 0 else 0, 0 if i == 0 else 100, "x", ev, et, bt, "") for i, h in enumerate(hesaplar)]}
     return {"fis_no": no, "degismeyen": deg, "tarih": tarih, "durum": durum,
             "satirlar": ([("191.108.20", "KDV", 10, 0, "kdv", ev, et, bt, "")] if fatura else []) + [
                          ("102.04", "ALBARAKA", 0, 288, "komisyon", ev, et, bt, ""),
@@ -213,7 +206,7 @@ class UctanUca(unittest.TestCase):
         self.assertEqual((h["fatura_fisi"], h["diger_fis"]), (1, 4))                       # 191/391 olan fis dokunulmayacak fatura fisi
         self.assertEqual([f["fatura_fisi"] for f in h["fisler"]], [False, True, False, False, False])
         self.assertEqual(h["fisler"][1]["hp"], ["191", "102", "100"])
-        self.assertIn("1 fatura fişi (191/391/6xx/7xx/stok/duran varlık var: elle), 4 diğer fiş (MF + evrak no atanabilir)", cikti)
+        self.assertIn("1 fatura fişi (191 borç / 391 alacak / FT: elle), 4 diğer fiş (MF + evrak no atanabilir)", cikti)
         self.assertEqual(h["fisler"][0]["tutar"], 288.0)
         self.assertEqual(h["fisler"][0]["durum"], ["Evrak No boş olamaz."])                 # Luca'nin satir aciklamasi
         self.assertEqual(kodlar["20047"]["fisler"][0]["bt"], "FT")
@@ -240,7 +233,7 @@ class UctanUca(unittest.TestCase):
         bos = dict(evrakli=False, bt="")
         return {(f, "20042"): [fis("0301", "92001", "05/10/2026", **bos),                                  # kasa/banka fisi: duzeltilir
                                fis("0302", "92002", "06/10/2026", fatura=True, **bos),                      # 191 var: dokunulmaz
-                               fis("0303", "92003", "07/10/2026", hesap="601.01", **bos),                   # 601 satis (391 yok): dokunulmaz
+                               fis("0303", "92003", "07/10/2026", hesaplar=["120.01", "391.01"], **bos),    # satis: 391 alacak: dokunulmaz
                                fis("0304", "92004", "08/10/2026", **bos)]}                                  # ikinci duzeltilebilir fis
 
     def test_duzelt_yalniz_fatura_olmayan_fislere_mf_evrak_no_ve_tarih_atar_kaydeder_dogrular(self):
@@ -259,19 +252,17 @@ class UctanUca(unittest.TestCase):
         self.assertEqual(sonuc["ALFA ISLETME"]["durum"], "sorun var")                          # fatura fisleri elle duzeltilecek
         self.assertIn("DÜZELTME 20042: 2 fiş (6 satır) MF + evrak no ile düzeltildi", cikti)
 
-    def test_fatura_haric_verilirse_o_hesapli_fis_duzeltilir_verilmezse_dokunulmaz(self):
+    def test_kdv_siz_gider_ve_satis_fisi_fatura_sayilmaz_mf_alir_iade_de_fatura_degildir(self):
         f = "ALFA ISLETME"
-        veri = {(f, "20042"): [fis("0401", "93001", "05/10/2026", evrakli=False, bt="", hesap="780.001")]}      # banka komisyonu mahsubu
+        veri = {(f, "20042"): [fis("0401", "93001", "05/10/2026", evrakli=False, bt="", hesaplar=["770.01", "320.01"]),     # KDV'siz gider alisi
+                               fis("0402", "93002", "06/10/2026", evrakli=False, bt="", hesaplar=["120.01", "601.01"]),     # 391 olmayan satis
+                               fis("0403", "93003", "07/10/2026", evrakli=False, bt="", hesaplar=["120.01", "391.01"])]}    # 391 alacak: fatura
         kod, sonuc, cikti, sahte = calistir(veri=veri, ayar={"sayfa_boyu": 50}, ek_arg=("--duzelt", "--hata-kodu", "20042"))
-        self.assertEqual((kod, sahte["kaydet"]), (0, 0), cikti[-2000:])                    # 780 = fatura sayilir: dokunulmadi
-        self.assertIn("(fatura fişi: 780)", cikti)
-        veri = {(f, "20042"): [fis("0401", "93001", "05/10/2026", evrakli=False, bt="", hesap="780.001")]}
-        kod, sonuc, cikti, sahte = calistir(veri=veri, ayar={"sayfa_boyu": 50}, ek_arg=("--duzelt", "--hata-kodu", "20042", "--fatura-haric", "780"))
         self.assertEqual(kod, 0, cikti[-2500:])
-        self.assertEqual(sahte["kaydet"], 3, cikti[-2500:])                                  # 3 satir kaydedildi
+        self.assertEqual({d["fis_no"] for d in sahte["kaydet_ayrinti"]}, {"0401", "0402"})                  # fatura olmayanlar MF aldi, 0403'e dokunulmadi
         h = sonuc[f]["hatalar"][0]
-        self.assertEqual((h["fis_sayisi"], h["duzeltme"]["fis"]), (0, 1))
-        self.assertIn("Fatura sayılmayacak hesaplar: 780", cikti)
+        self.assertEqual((h["fis_sayisi"], h["fatura_fisi"], h["diger_fis"]), (1, 1, 0))
+        self.assertIn("191 borç / 391 alacak (kesin fatura)", h["fisler"][0]["fatura_neden"])
 
     def test_duzelt_verilmezse_kaydet_basilmaz(self):
         kod, sonuc, cikti, sahte = calistir(veri=self._duzeltme_veri(), ayar={"sayfa_boyu": 50}, ek_arg=("--hata-kodu", "20042"))

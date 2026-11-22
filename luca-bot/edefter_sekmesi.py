@@ -5,7 +5,7 @@ Repodaki kar-zarar/edefter.py programini arka planda calistirir. Her 1. sinif (g
 Muhasebe > Fis Islemleri > Duzenleme > Toplu Belge Turu ve Odeme Yontemi Duzenleme ekraninda "E-Defter kapsaminda uyumsuz olan
 fisleri getir" ile her e-Defter hata kodu (20041, 20042, 20044-20048) taranir; uyumsuz fisler (fis no, tarih, evrak no, belge turu,
 odeme turu) listelenir. Tarama Luca'da hicbir sey degistirmez. "Seçilenleri Düzelt" YALNIZ onayla calisir: fatura olmayan fislere
-(191/391/6xx/7xx/15x/25x/26x hesabi olmayan) Belge Turu MF + evrak no atar ve Kaydet'e basar. Sonuc kar-zarar/cikti/edefter.json'dan okunur.
+(191 borc / 391 alacak hareketi ve FT olmayan) Belge Turu MF + evrak no atar ve Kaydet'e basar. Sonuc kar-zarar/cikti/edefter.json'dan okunur.
 Kar/Zarar, Defter Beyan, Muavin ve Fatura indirme ile ayni anda calismaz.
 """
 
@@ -56,7 +56,7 @@ def taranamayanlar(s):
 def fis_satiri(f):
     """'   01023  01/07/2026  evrak 89582  BT MF  ödeme -  3 satır' (Luca'da Fiş No ile aranır)."""
     evrak = ", ".join(f.get("evrak") or []) or "-"
-    tur = {True: "  (fatura fişi" + (f": {','.join(f['fatura_hp'])}" if f.get("fatura_hp") else "") + ")", False: "  (diğer fiş)"}.get(f.get("fatura_fisi"), "")
+    tur = {True: "  (fatura fişi" + (f": {f['fatura_neden']}" if f.get("fatura_neden") else "") + ")", False: "  (diğer fiş)"}.get(f.get("fatura_fisi"), "")
     satir = (f"{f.get('fis_no') or '?':>8}  {f.get('tarih') or '-':10}  evrak {evrak[:24]:24}  BT {f.get('bt') or '-':4}  "
              f"ödeme {f.get('odeme') or '-':6}  {f.get('satir', 0)} satır{tur}")
     return satir + (f"  [{'; '.join(f['durum'])[:70]}]" if f.get("durum") else "")      # Luca'nın satır açıklaması
@@ -74,7 +74,7 @@ class EdefterSekmesi(KarZararSekmesi):
         self.v_firma = tk.StringVar()
         self.v_yenile = tk.BooleanVar(value=False)
         self.v_tani = tk.BooleanVar(value=False)
-        self.v_haric = tk.StringVar()        # fatura sayilmayacak hesap onekleri (orn. 780,159)
+        self.v_duzelt = tk.BooleanVar(value=True)       # tarama sirasinda duzeltmeleri de yap (ayri calistirma gerekmez)
         self.ham = []
         self.donem_metni = ""
 
@@ -111,12 +111,10 @@ class EdefterSekmesi(KarZararSekmesi):
         tk.Checkbutton(p, text="Firma listesini Luca'dan yeniden çek", variable=self.v_yenile, font=u.KUCUK,
                        **self.a._kutu_renk()).pack(anchor="w", pady=(10, 0))
 
-        tk.Label(p, text="Fatura sayılmayacak hesaplar (örn. 780,159)", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN,
-                 anchor="w").pack(fill="x", pady=(10, 2))
-        u.giris_kutusu(p, self.v_haric).pack(fill="x", ipady=3)
-        tk.Label(p, text="Varsayılan: 191/391/6xx/7xx/15x/25x/26x hesabı olan fiş fatura sayılır ve düzeltilmez. Burada yazdığınız "
-                 "hesaplar (örn. banka komisyonu 780) fatura sayma nedeni olmaz.", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w",
-                 justify="left", wraplength=280).pack(fill="x")
+        tk.Checkbutton(p, text="Tarama sırasında düzeltmeleri de yap (MF atama + detaysız fiş silme)", variable=self.v_duzelt, font=u.KUCUK,
+                       **self.a._kutu_renk()).pack(anchor="w", pady=(10, 0))
+        tk.Label(p, text="Açıkken, her hata kodu okunur okunmaz fatura olmayan fişler düzeltilir (191 borç / 391 alacak ve FT fişlere dokunulmaz). "
+                 "Kapalıysa yalnız okunur.", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN, anchor="w", justify="left", wraplength=280).pack(fill="x")
         tk.Checkbutton(p, text="Tanı dosyaları kaydet (sorun olursa gönderin)", variable=self.v_tani, font=u.KUCUK,
                        **self.a._kutu_renk()).pack(anchor="w", pady=(4, 0))
 
@@ -274,7 +272,7 @@ class EdefterSekmesi(KarZararSekmesi):
                 if h.get("hata"):
                     metin.insert("end", f"  {h['kod']} {kod_adi(h)}: TARANAMADI — {h['hata'][:200]}\n", "hata")
                 elif h.get("fis_sayisi"):
-                    ayrim = (f" — {h['fatura_fisi']} fatura fişi (191/391/6xx/7xx/stok/duran varlık: elle kontrol), {h['diger_fis']} diğer fiş (MF + evrak no atanabilir)"
+                    ayrim = (f" — {h['fatura_fisi']} fatura fişi (191 borç / 391 alacak / FT: elle kontrol), {h['diger_fis']} diğer fiş (MF + evrak no atanabilir)"
                              if h.get("fatura_fisi") or h.get("diger_fis") else "")
                     metin.insert("end", f"  {h['kod']} {kod_adi(h)}: {h['fis_sayisi']} fiş" +
                                  (" (en az; sayfa sınırı)" if h.get("kesildi") else "") + ayrim + "\n", "baslik")
@@ -333,8 +331,8 @@ class EdefterSekmesi(KarZararSekmesi):
                  "--tarih", f"{bas}-{bit}"] + self._hesap_arg()
         if self.v_tani.get():
             komut.append("--tani")
-        if self.v_haric.get().strip():
-            komut += ["--fatura-haric", self.v_haric.get().strip()]
+        if self.v_duzelt.get():
+            komut.append("--duzelt")
         if tam_firmalar:
             for f in tam_firmalar:
                 komut += ["--firma-tam", f]
@@ -355,6 +353,19 @@ class EdefterSekmesi(KarZararSekmesi):
             return True
         return False
 
+    def _duzeltme_onayi(self):
+        """Tarama sirasinda duzeltme aciksa Luca'ya yazilacagini bir kez onaylatir (False: vazgecildi)."""
+        if not self.v_duzelt.get():
+            return True
+        return messagebox.askyesno(
+            "Luca'da değişiklik yapılacak",
+            "Tarama sırasında düzeltmeler de yapılacak:\n\n"
+            "• 20042-20045: fatura OLMAYAN fişlerin satırlarına Belge Türü = MF ve Evrak No = Değişmez Fiş No atanıp Kaydet'e basılır.\n"
+            "• 20026: detaysız fişler seçilip Sil düğmesiyle SİLİNİR (geri alınamaz; yalnız borç ve alacağı 0 olanlar).\n\n"
+            "191 borç / 391 alacak hareketi olan ve belge türü FT olan (fatura) fişlere DOKUNULMAZ.\n"
+            "Yalnız okumak istiyorsanız 'Tarama sırasında düzeltmeleri de yap' kutusunu kapatın.\n\nDevam edilsin mi?",
+            icon="warning", parent=self.a.kok)
+
     def calistir(self):
         if self._baska_calisiyor() or not self.a._giris_tamam_mi():
             return
@@ -362,6 +373,8 @@ class EdefterSekmesi(KarZararSekmesi):
             komut = self.komut()
         except ValueError as e:
             messagebox.showerror("Eksik bilgi", str(e), parent=self.a.kok)
+            return
+        if not self._duzeltme_onayi():
             return
         self._baslat(komut)
 
@@ -378,6 +391,8 @@ class EdefterSekmesi(KarZararSekmesi):
             komut = self.komut(firmalar)
         except ValueError as e:
             messagebox.showerror("Eksik bilgi", str(e), parent=self.a.kok)
+            return
+        if not self._duzeltme_onayi():
             return
         self._baslat(komut)
 
@@ -405,7 +420,7 @@ class EdefterSekmesi(KarZararSekmesi):
                 firmalar[self.ham[i]["firma"]] = sayilar
         if not firmalar:
             messagebox.showinfo("Düzeltilecek fiş yok", "Seçili firmalarda, son taramaya göre, düzeltilebilir (fatura olmayan) fiş ya da silinecek detaysız fiş yok.\n"
-                                "191/391/6xx/7xx/15x/25x/26x hesabı olan fişlere program dokunmaz; onları Luca'da elle düzeltin.",
+                                "191 borç / 391 alacak hareketi olan (fatura) fişlere program dokunmaz; onları Luca'da elle düzeltin.",
                                 parent=self.a.kok)
             return
         def kod_yazisi(k, n):
@@ -415,7 +430,7 @@ class EdefterSekmesi(KarZararSekmesi):
                 "Luca'da değişiklik yapılacak",
                 f"{len(firmalar)} firmada fatura olmayan uyumsuz fişler düzeltilecek:\n\n{satirlar}\n\n"
                 "MF yazılacak fişlerin satırlarına Belge Türü = MF ve Evrak No = Değişmez Fiş No atanacak ve Luca'da "
-                "Kaydet'e basılacak (satır satır kaydedilir, bitmesi beklenir).\n191/391/6xx/7xx/15x/25x/26x hesabı olan (fatura / gelir-gider) "
+                "Kaydet'e basılacak (satır satır kaydedilir, bitmesi beklenir).\n191 borç / 391 alacak hareketi olan (fatura) "
                 "fişlere DOKUNULMAZ.\n"
                 "20026 detaysız fişler Fiş Listesi'nde seçilip Sil düğmesiyle SİLİNİR (geri alınamaz; yalnız borç ve alacağı 0 olanlar).\n\n"
                 "Önce tek bir firmayla denemeniz önerilir. Devam edilsin mi?", icon="warning", parent=self.a.kok):
@@ -423,7 +438,9 @@ class EdefterSekmesi(KarZararSekmesi):
         if self._baska_calisiyor() or not self.a._giris_tamam_mi():
             return
         try:
-            komut = self.komut(sorted(firmalar)) + ["--duzelt"]
+            komut = self.komut(sorted(firmalar))
+            if "--duzelt" not in komut:
+                komut.append("--duzelt")
         except ValueError as e:
             messagebox.showerror("Eksik bilgi", str(e), parent=self.a.kok)
             return

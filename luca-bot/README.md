@@ -305,13 +305,11 @@ Listedeki **Durum** sütunu (Luca'nın "Evrak No boş olamaz." gibi açıklamas�
   *Fiş No – Fiş Tarihi – Evrak No – BT (belge türü) – Ödeme türü – satır sayısı* (Luca'da Fiş No ile aranır). Excel'de *Firmalar* ve *Uyumsuz fişler* sayfaları.
 - Durum: **Gönderilebilir** (hiçbir kodda uyumsuz fiş yok), **UYUMSUZ FİŞ VAR**, **Kontrol tamamlanamadı** (ekran açılamadı ya da bir kodun listesi
   okunamadı: tam kontrol değildir, "gönderilebilir" denmez).
-- **Fiş türü ayrımı:** Uyumsuz her fiş, hesaplarına bakılarak **fatura fişi** ya da **diğer fiş** diye işaretlenir. Hesaplarında **191, 391, 6xx, 7xx, 15x (stok),
-  25x / 26x (duran varlık)** olan fiş fatura sayılır (satışta 391 olmayabilir; 601 yeterlidir): belge türü FT olur, **program asla dokunmaz**, siz elle düzeltirsiniz.
-  Bunların hiçbiri olmayan fişler (kasa, banka, cari mahsup) "diğer fiş"tir: MF seçilip evrak no atanabilir. Sayılar günlükte, ayrıntıda ve Excel'de görünür.
-  **Fatura sayılmayacak hesaplar** kutusu (komut satırı `--fatura-haric 780,159`): banka komisyonu (780) ya da verilen sipariş avansı (159) gibi hesaplar fişi fatura yapmıyorsa
-  buraya yazın; o hesaplar fatura sayma nedeni olmaz. Her fişin neden fatura sayıldığı ayrıntıda `(fatura fişi: 780,760)` ve Excel'de *Fatura sayılma nedeni* sütununda görünür.
-- **Varsayılan: Luca'da hiçbir şey değiştirilmez** (*Kaydet* / *Toplu Değer Ata*'ya basılmaz).
-- **Seçilenleri Düzelt (MF)…** (isteğe bağlı, Luca'ya yazar): tabloda firma seçip basınca önce firma ve kod bazında özet gösterilir, **onayınız** istenir. Onaydan sonra
+- **Fiş türü ayrımı:** Uyumsuz her fiş **fatura fişi** ya da **diğer fiş** diye işaretlenir. **191 hesabında borç** ya da **391 hesabında alacak** hareketi olan fiş
+  **kesin fatura**dır; belge türü zaten **FT** olan fiş de fatura sayılır. Faturaya **program asla dokunmaz** (siz elle düzeltirsiniz). Bunların **dışındaki her fiş**
+  (banka/POS mahsubu, gider, tahsilat, tediye, 601 satış…) "diğer fiş"tir ve MF + evrak no alabilir. Her fişin neden fatura sayıldığı ayrıntıda ve Excel'de *Fatura sayılma nedeni* sütununda görünür.
+- **Tarama sırasında düzeltme:** sol paneldeki **"Tarama sırasında düzeltmeleri de yap"** kutusu açıkken (varsayılan) **Çalıştır** basınca, her hata kodu okunur okunmaz düzeltme de yapılır; ayrıca çalıştırmanız gerekmez. Başlarken bir kez onay istenir (silme geri alınamaz). Kutu kapalıysa program yalnız okur (*Kaydet* / *Toplu Değer Ata* / *Sil*'e basılmaz).
+- **Seçilenleri Düzelt (MF)…** (taramayı yeniden yapmadan seçili firmalara düzeltme; Luca'ya yazar): tabloda firma seçip basınca önce firma ve kod bazında özet gösterilir, **onayınız** istenir. Onaydan sonra
   yalnız 20042-20045 kodlarında **diğer fişlerin** satırları seçilir; *Toplu Değer Ata*'dan **Belge Türü = MF** ve **Evrak No = Değişmez Fiş No** (iki *Aktar*) atanır, evrak tarihine dokunulmaz. Fatura fişlerinin satırları seçilmez ve değerleri değişmemiş olmalıdır; atamadan sonra liste okunup (hedef satırlarda BT=MF, evrak no dolu, evrak tarihi ve diğer satırlar aynı)
   doğrulanır, **tutmuyorsa Kaydet'e basılmaz**. Sonra *Kaydet*, ardından liste yeniden okunur: düzeltilen fişler listeden kalkmalıdır, hâlâ listeleniyorsa durur ve fiş numaralarını yazar.
   *Kaydet* Luca'da satırları tek tek kaydeder (1000 satır dakikalar sürebilir): program **"Kaydetme işlemi tamamlandı."** bildirimini bekler, pencereyi ondan önce kapatmaz;

@@ -1669,6 +1669,7 @@ class EdefterSekmesiTestleri(ArayuzZemini):
         kar_zarar_sekmesi.ADAYLAR = (self.kz_klasor,)
         super().setUp()
         self.ed = self.app.ed
+        self.ed.v_duzelt.set(False)          # varsayilan ACIK (tarama sirasinda duzeltme); testler cogunlukla yalniz-okuma yolunu dener
 
     def tearDown(self):
         import kar_zarar_sekmesi
@@ -1785,6 +1786,10 @@ class EdefterSekmesiTestleri(ArayuzZemini):
         self.assertEqual(komut[komut.index("--firma-tam") + 1], "BETA")
         self.assertNotIn("--hata-kodu", komut)                  # tum kodlar taranir: sonuc tablosu tutarli kalir
         self.assertNotIn("--duzelt", self.ed.komut(["BETA"]))   # normal calistirma Luca'ya yazmaz
+        # duzeltme kutusu (varsayilan ACIK): Calistir ayri duzeltme calistirmasi gerektirmeden --duzelt ile baslar, once onay ister
+        self.ed.v_duzelt.set(True)
+        self.assertIn("--duzelt", self.ed.komut(["BETA"]))
+        self.assertEqual(self.ed.komut(["BETA"]).count("--duzelt"), 1)
         # detaysiz fis (20026) varsa onay metni SILINECEGINI acikca yazar
         self.ed.ham[beta]["hatalar"].append({"kod": "20026", "ad": "x", "fis_sayisi": 1, "hata": ""})
         self.assertEqual(self.ed.duzeltilebilir(self.ed.ham[beta]), {"20042": 2, "20026": 1})
@@ -1793,6 +1798,32 @@ class EdefterSekmesiTestleri(ArayuzZemini):
         self.ed.duzelt()
         self.assertIn("20026: 1 detaysız fiş SİLİNECEK", sorular[0])
         self.assertIn("geri alınamaz", sorular[0])
+
+    def test_calistir_duzeltme_acikken_once_onay_ister_hayirda_baslamaz_evette_duzelt_ile_baslar(self):
+        import edefter_sekmesi
+        yeni_ed = self.ed
+        baslatilan, sorular = [], []
+        yeni_ed._baslat = lambda komut: baslatilan.append(komut)
+        yeni_ed.a._giris_tamam_mi = lambda: True
+        yeni_ed.v_bas.set("01/10/2026")
+        yeni_ed.v_bit.set("31/10/2026")
+        yeni_ed.v_duzelt.set(True)
+        eski = edefter_sekmesi.messagebox.askyesno
+        self.addCleanup(setattr, edefter_sekmesi.messagebox, "askyesno", eski)
+        edefter_sekmesi.messagebox.askyesno = lambda baslik, ileti, **k: sorular.append(ileti) or False
+        yeni_ed.calistir()
+        self.assertEqual(baslatilan, [])                                   # Hayir: baslamadi
+        self.assertIn("Belge Türü = MF", sorular[0])
+        self.assertIn("SİLİNİR (geri alınamaz", sorular[0])
+        self.assertIn("191 borç / 391 alacak", sorular[0])
+        edefter_sekmesi.messagebox.askyesno = lambda *a, **k: True
+        yeni_ed.calistir()
+        self.assertEqual(len(baslatilan), 1)
+        self.assertIn("--duzelt", baslatilan[0])
+        yeni_ed.v_duzelt.set(False)                                         # kutu kapali: onay sorulmaz, yalniz okunur
+        edefter_sekmesi.messagebox.askyesno = lambda *a, **k: self.fail("onay sorulmamali")
+        yeni_ed.calistir()
+        self.assertNotIn("--duzelt", baslatilan[1])
 
     def test_excel_indir_programin_yazdigi_dosyayi_kopyalar(self):
         import edefter_sekmesi

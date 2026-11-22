@@ -436,15 +436,20 @@ def fisleri_grupla(basliklar, satirlar, fisler=None):
             anahtar = (degismeyen, fis_no, al(s, "tarih"))
             akim = fisler.setdefault(anahtar, {"fis_no": fis_no, "tarih": al(s, "tarih"), "degismeyen": degismeyen, "satir": 0,
                                                "evrak": [], "bt": "", "odeme": "", "tutar": 0.0,
-                                               "hesap": al(s, "hesap").split(" ")[0], "aciklama": al(s, "aciklama")[:90], "durum": [], "hp": [], "fatura_hp": []})
+                                               "hesap": al(s, "hesap").split(" ")[0], "aciklama": al(s, "aciklama")[:90], "durum": [], "hp": [], "fatura_hp": [], "f_kdv": False, "f_ft": False})
         if akim is None:
             continue
         akim["satir"] += 1
         on_ek = re.match(r"\d{3}", al(s, "hesap"))
         if on_ek and on_ek.group(0) not in akim["hp"] and len(akim["hp"]) < 12:
             akim["hp"].append(on_ek.group(0))                    # fisin hesap ailesi (191, 391, 100 ...): bilgi icin
-        if on_ek and fatura_hesabi_mi(on_ek.group(0)) and on_ek.group(0) not in akim["fatura_hp"] and len(akim["fatura_hp"]) < 6:
-            akim["fatura_hp"].append(on_ek.group(0))             # fatura / gelir-gider hesabi: fis fatura sayilir (sinirdan bagimsiz)
+        hk = on_ek.group(0) if on_ek else ""
+        if (hk == "191" and tutar(al(s, "borc")) > 0) or (hk == "391" and tutar(al(s, "alacak")) > 0):
+            akim["f_kdv"] = True                                  # 191 BORC / 391 ALACAK hareketi: kesin fatura
+            if hk not in akim["fatura_hp"]:
+                akim["fatura_hp"].append(hk)
+        if al(s, "bt").upper() == "FT":
+            akim["f_ft"] = True                                   # belge turu zaten FATURA
         akim["tutar"] = round(akim["tutar"] + tutar(al(s, "borc")), 2)
         for ad, alan in (("evrak_no", "evrak"),):
             v = al(s, ad)
@@ -459,27 +464,31 @@ def fisleri_grupla(basliklar, satirlar, fisler=None):
     return fisler
 
 
-# Fatura fisi (belge turu FT) sayilan hesaplar: 191/391 KDV, 6xx ve 7xx gelir-gider (601 satista 391 olmayabilir), 15x stok, 25x/26x duran varlik.
-# Bu hesaplardan biri olan fise program ASLA dokunmaz (belge turu / evrak no elle girilir). Digerleri (kasa, banka, cari mahsup) MF olabilir.
-FATURA_ONEKLERI = ("191", "391", "6", "7", "15", "25", "26")
-FATURA_HESAPLARI = FATURA_ONEKLERI      # eski ad
-FATURA_HARIC = ()                       # fatura SAYILMAYACAK hesap onekleri (orn. ("780", "159"): banka komisyon / avans fisleri); --fatura-haric
+# FATURA FISI TESPITI (program fatura fisine ASLA dokunmaz: belge turu FT / evrak no elle girilir):
+#   * 191 hesabinda BORC ya da 391 hesabinda ALACAK hareketi olan fis KESIN fatura (alis / satis faturasi)
+#   * belge turu zaten FT olan fis fatura sayilir (MF'ye cevrilip bozulmasin)
+# Bunlarin DISINDAKI her fis (banka/POS mahsubu, gider, tahsilat, tediye, 601 satis vb.) fatura SAYILMAZ: MF + evrak no atanabilir.
 
 
-def fatura_hesabi_mi(onek):
-    """3 haneli hesap ailesi (orn. '780') fatura / gelir-gider hesabi sayilir mi."""
-    return onek.startswith(FATURA_ONEKLERI) and not (FATURA_HARIC and onek.startswith(FATURA_HARIC))
+def fatura_nedeni(f):
+    """Fatura sayilma nedeni ('' = fatura degil); hesap bilgisi hic yoksa None."""
+    if "f_kdv" not in f:                                              # eski kayit (bayraksiz): yon bilinmez, hesap ailesinden turet
+        if not f.get("hp"):
+            return None
+        return "KDV hesabı (191/391)" if any(h in ("191", "391") for h in f["hp"]) else ""
+    if not (f.get("hp") or f.get("satir")):
+        return None
+    if f["f_kdv"]:
+        return "191 borç / 391 alacak (kesin fatura)"
+    if f["f_ft"]:
+        return "belge türü FT"
+    return ""
 
 
 def fatura_fisi_mi(f):
-    """True: fiste fatura / gelir-gider hesabi var (191, 391, 6xx, 7xx, 15x, 25x, 26x: elle kontrol edilir, program dokunmaz);
-    False: yok (kasa/banka/cari mahsup fisi: MF + evrak no atanabilir); None: hesap bilgisi okunamadi."""
-    if f.get("fatura_hp"):
-        return True
-    hp = f.get("hp")
-    if not hp:
-        return None
-    return any(fatura_hesabi_mi(h) for h in hp)
+    """True: fatura (program dokunmaz, elle kontrol edilir); False: fatura degil (MF + evrak no atanabilir); None: hesap bilgisi okunamadi."""
+    n = fatura_nedeni(f)
+    return None if n is None else bool(n)
 
 
 def _imza(r):
@@ -518,17 +527,18 @@ def liste_oku(ana, liste, log=None, sayfa_siniri=SAYFA_SINIRI, capa=CAPA_BELGE, 
     yaz(f"      {len(fisler)} fiş, {satir_sayisi} satır, {sayfa_sayisi} sayfa okundu" + (" (sayfa sınırı: kalanı okunmadı)" if kesildi else ""), log)
     liste_fis = list(fisler.values())
     for f in liste_fis:
+        f["fatura_neden"] = fatura_nedeni(f) or ""
         f["fatura_fisi"] = fatura_fisi_mi(f)
     fatura = sum(1 for f in liste_fis if f["fatura_fisi"] is True)
     diger = sum(1 for f in liste_fis if f["fatura_fisi"] is False)
     if fatura or diger:
-        yaz(f"      {fatura} fatura fişi (191/391/6xx/7xx/stok/duran varlık var: elle), {diger} diğer fiş (MF + evrak no atanabilir)", log)
+        yaz(f"      {fatura} fatura fişi (191 borç / 391 alacak / FT: elle), {diger} diğer fiş (MF + evrak no atanabilir)", log)
     return {"fis_sayisi": len(liste_fis), "satir_sayisi": satir_sayisi, "kesildi": kesildi,
             "fatura_fisi": fatura, "diger_fis": diger, "fisler": liste_fis[:FIS_SINIRI], "sayfa": sayfa_sayisi}
 
 
 # --- DUZELTME (yalniz kullanici acikca isterse: --duzelt) -------------------------------------------------------------------
-# E-Defter Uyumsuz Fisleri Duzenleme penceresinde, fatura OLMAYAN fislerin (191/391/6xx/7xx/15x/25x/26x hesabi olmayan: kasa, banka,
+# E-Defter Uyumsuz Fisleri Duzenleme penceresinde, fatura OLMAYAN fislerin (191 borc / 391 alacak hareketi ve FT olmayan: kasa, banka,
 # cari mahsup) satirlarini secer; Toplu Deger Ata'dan Belge Turu = MF, "Evrak No Alanina Degismez Fis Numarasini Aktar" ve
 # "Fis Tarihini Evrak Tarihi Olarak Ata" uygular, SONRA Kaydet'e basar. Fatura fislerinin satirlari secilmez ve degerleri
 # degismemis olmalidir (aksi halde Kaydet'e BASILMAZ). Gercek Luca'da henuz denenmedi: her adim dogrulanir, supheli durumda durulur.
