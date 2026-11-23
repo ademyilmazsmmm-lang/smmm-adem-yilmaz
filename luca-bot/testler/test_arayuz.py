@@ -1952,6 +1952,14 @@ class BeyannameSekmesiTestleri(ArayuzZemini):
         self.assertFalse(bt.saglikli_mi(self.port))
         self.assertEqual(str(self.bt.baslat_dugmesi.cget("state")), "normal")
 
+    def test_kapsam_secici_ofis_isletme_ve_bir_ile_baslayanlar(self):
+        etiketler = [e for _, e in self.bt.kapsam_secenekleri]
+        self.assertTrue(etiketler)
+        self.assertEqual(str(self.bt.kapsam_kutusu.cget("state")), "readonly")
+        for kod, etiket in self.bt.kapsam_secenekleri:                       # secilen etiket formda koda cevrilir
+            self.bt.v_kapsam.set(etiket)
+            self.assertEqual(self.bt._form()["KAPSAM"], kod)
+
     def test_program_zaten_calisiyorsa_baslat_arayuzu_ona_baglar_pencere_acmaz(self):
         import beyanname_sekmesi as bs
         acilan = []

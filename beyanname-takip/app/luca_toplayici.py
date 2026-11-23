@@ -25,6 +25,9 @@ LUCA_OFIS_UYE_NO gibi ön ekli adlar kullanılır; tek hesapta ön eksiz LUCA_UY
   LUCABOT_YOLU     lucabot paketinin bulunduğu dizin
   LUCA_TANI=1      tanı modu: giriş + ekranlar açılır, filtre seçenekleri ve ekran görüntüleri DATA_DIR/tani'ya
                    yazılır, veri KAYDEDİLMEZ. Env değişkenine gerek yok: web sayfasındaki "Tanı" sekmesi aynısını yapar.
+  LUCA_FIRMA_ONEK=isletme:1   hesap:önek (virgülle birden çok): o hesapta YALNIZ kısa adı bu önekle başlayan firmalar taranır
+                       (örn. isletme:1 = işletme hesabında adı "1" ile başlayanlar); hesap belirtilmeyen hesapta tüm firmalar
+  LUCA_ARKA_PLAN=1    Luca tarayıcı penceresini EKRANIN DIŞINDA aç (Luca görünmez/headless tarayıcıyla çalışmaz; pencere görünmez ama etkindir)
   LUCA_MUSTERI_YILI=otomatik|yok|2027,2026   müşteri listesi yıl filtresi (otomatik: yalnızca bu yıl)
   LUCA_SGK_LISTESI=1|0 "E-Bildirge Giriş Dosyası" listesinden çalışanı olan firmaları oku (varsayılan 1)
   LUCA_GIB_GETIR=1|0   okumadan önce "GİB'den Getir"e bas (varsayılan 1); LUCA_GIB_GUN: kaç günlük aralık (15, en çok 31);
@@ -41,6 +44,7 @@ from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
+from .kontrol import ayni_firma, mukellef_normalize
 from .kurallar import Tatiller
 from .luca_ekran_okuma import (beyanname_json_kayitlari, gib_getir_araligi, musteri_html_filtre, musteri_html_oku,
                                musteri_yillari, musterileri_birlestir, onayli_kayitlar, sgk_isyerleri_say, yukleme_araligi)
@@ -72,7 +76,25 @@ def env_oku():
     return os.environ
 
 
+def onek_oku(metin):
+    """'isletme:1, ofis:A' -> {'isletme': '1', 'ofis': 'A'} (bozuk parçalar atlanır)."""
+    sonuc = {}
+    for parca in str(metin or "").split(","):
+        hesap, _, onek = parca.partition(":")
+        if hesap.strip() and onek.strip():
+            sonuc[hesap.strip()] = onek.strip()
+    return sonuc
+
+
 def tarayici_ayari(env, windows=None):
+    """Tarayici ayari + (LUCA_ARKA_PLAN=1) pencerenin ekran disinda acilmasi."""
+    ayar = _tarayici_ayari(env, windows)
+    if str(env.get("LUCA_ARKA_PLAN") or "").strip() == "1":
+        ayar["tarayici_arka_plan"] = True
+    return ayar
+
+
+def _tarayici_ayari(env, windows=None):
     """lucabot'a verilecek tarayıcı ayarı. Windows'ta bilgisayardaki Chrome/Edge denenir (lucabot'un kendi sırası), Linux/Docker'da
     (Chrome yok, süreç root) Playwright'ın Chromium'u ve sandbox kapalı. LUCA_TARAYICI=chrome|edge|chromium ile zorlanabilir."""
     windows = (os.name == "nt") if windows is None else windows
@@ -92,6 +114,7 @@ class LucaToplayici:
         self.kopru_fabrikasi = kopru_fabrikasi or (lambda hesap, kimlik, captcha: GercekLucabot(
             self.veri, hesap, kimlik, captcha, env))
         self.hesaplar = [h.strip() for h in (env.get("LUCA_HESAPLAR") or "ofis").split(",") if h.strip()]
+        self.firma_onekleri = onek_oku(env.get("LUCA_FIRMA_ONEK"))
 
     def tani(self, bugun, captcha=None):
         """Tanı: giriş + ekranları aç, seçenekleri ve ekran görüntülerini DATA_DIR/tani'ya yaz; veri kaydetme."""
@@ -121,6 +144,13 @@ class LucaToplayici:
                 m["hesap"] = hesap
             for b in bey:
                 b["hesap"] = hesap
+            onek = self.firma_onekleri.get(hesap)
+            if onek:                                   # bu hesapta yalnız adı önekle başlayan firmalar (ve onların beyannameleri)
+                tum = len(mus)
+                mus = [m for m in mus if str(m.get("ad") or m.get("kisa_ad") or "").strip().startswith(onek)]
+                kalan = [mukellef_normalize(m, hesap) for m in mus]
+                bey = [b for b in bey if any(ayni_firma(k, b) for k in kalan)]
+                uyarilar = list(uyarilar) + [f"yalnız adı \"{onek}\" ile başlayan firmalar alındı ({len(mus)} / {tum})"]
             sonuc["mukellefler"] += mus
             sonuc["beyannameler"] += bey
             sonuc["uyarilar"] += [f"{hesap}: {u}" for u in uyarilar]

@@ -110,6 +110,16 @@ def kanal_profili(profil, kanal):
     return profil.parent / f"{profil.name}-{kanal or 'chromium'}"
 
 
+# Arka plan kipi (AYAR["tarayici_arka_plan"]): Luca "headless" tarayiciyla calismiyor, bu yuzden pencere GORUNUR ama ekranin DISINDA acilir
+# (kullanici tarayici penceresi gormez / ugrasmaz). Pencere gizlenmis sayilip yavaslatilmasin diye arka plan kisitlamalari kapatilir.
+ARKA_PLAN_ARGUMANLARI = ["--window-position=-32000,-32000", "--window-size=1400,900", "--disable-backgrounding-occluded-windows",
+                         "--disable-renderer-backgrounding", "--disable-background-timer-throttling"]
+
+
+def _pencere_argumanlari():
+    return list(ARKA_PLAN_ARGUMANLARI) if AYAR.get("tarayici_arka_plan") else ["--start-maximized"]
+
+
 def tarayici_ac(pw, profil, log, gunluk=False):
     """Once bilgisayarda kurulu Chrome/Edge denenir; Playwright'in kendi tarayicisi son care.
 
@@ -131,7 +141,7 @@ def tarayici_ac(pw, profil, log, gunluk=False):
             kanal_yolu.mkdir(parents=True, exist_ok=True)
             ctx = pw.chromium.launch_persistent_context(
                 str(kanal_yolu), headless=False, accept_downloads=True,
-                args=["--start-maximized"] + (["--enable-logging", "--v=1"] if gunluk else []),
+                args=_pencere_argumanlari() + (["--enable-logging", "--v=1"] if gunluk else []),
                 # Playwright varsayilan olarak --disable-breakpad geciyor; tani
                 # modunda kaldiriyoruz ki cokme Windows olay gunlugune dussun
                 ignore_default_args=["--enable-automation"]

@@ -675,4 +675,9 @@ python testler/uctan_uca.py                    # programın tamamı, sahte Luca 
 - **Sekme yoklaması hata koruması:** Arayüz döngüsü her sekmeyi ayrı korur; bir sekmede hata olursa diğerleri (ve Beyanname Takip "Kontrol ediliyor…") durmaz. Hata günlükte
   bir kez gösterilir, ayrıntısı `arayuz-hata.log` dosyasına yazılır.
 - **Beyanname Takip tablosu** iki Luca hesabını ayırır: **Luca hesabı** sütunu (Adem Yılmaz / Ali Karaahmet; adlar `hesap-adlari.json`'dan) ve bu sütunda filtre vardır.
+- **Beyanname Takip: taranacak hesap / firmalar** (sol panel, "Taranacak Luca hesabı / firmalar"): her iki hesap, yalnız Adem Yılmaz, yalnız Ali Karaahmet,
+  yalnız Ali Karaahmet'te adı **"1" ile başlayan** firmalar ya da Adem Yılmaz (tüm) + Ali Karaahmet ("1" ile başlayan). Seçilmeyen hesaba Luca'da hiç girilmez.
+  Ayarı kaydedince program çalışıyorsa **yeniden başlatın** (`ayarlar.env`: `LUCA_HESAPLAR`, `LUCA_FIRMA_ONEK`).
+- **Beyanname Takip: "Luca tarayıcısı ekranda görünmesin"** (varsayılan açık, `LUCA_ARKA_PLAN=1`): Luca görünmez (headless) tarayıcıyla çalışmadığı için pencere yine açılır ama
+  **ekranın dışında** (görünmeyen konumda) ve etkin kalır; tarayıcı penceresiyle uğraşmanız gerekmez. Luca girişinde sorun yaşarsanız kutuyu kapatıp deneyin.
 

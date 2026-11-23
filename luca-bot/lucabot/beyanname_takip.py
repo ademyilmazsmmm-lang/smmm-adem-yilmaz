@@ -104,6 +104,31 @@ def _temiz(deger):
     return str(deger if deger is not None else "").replace("\r", " ").replace("\n", " ").strip()
 
 
+# Taranacak Luca hesabi / firma kapsami: kod -> (LUCA_HESAPLAR, LUCA_FIRMA_ONEK). "1 ile baslayan" = firma kisa adi "1" ile baslayanlar.
+KAPSAMLAR = {"hepsi": ("ofis,isletme", ""), "ofis": ("ofis", ""), "isletme": ("isletme", ""),
+             "isletme-1": ("isletme", "isletme:1"), "hepsi-1": ("ofis,isletme", "isletme:1")}
+
+
+def kapsam_etiketleri(ana_ayarlar=None):
+    """[(kod, gorunen etiket)]: ikinci (isletme) hesap tanimli degilse yalniz ofis secenegi."""
+    o, i = hesaplar.gorunen_ad("ofis"), hesaplar.gorunen_ad("isletme")
+    if ana_ayarlar is not None and hesaplar.ikinci_hesap(ana_ayarlar) is None:
+        return [("ofis", f"Yalnız {o}")]
+    return [("hepsi", f"Her iki hesap: {o} + {i} (tüm firmalar)"), ("ofis", f"Yalnız {o} (tüm firmalar)"),
+            ("isletme", f"Yalnız {i} (tüm firmalar)"), ("isletme-1", f"Yalnız {i}: adı \"1\" ile başlayan firmalar"),
+            ("hepsi-1", f"{o} (tüm firmalar) + {i} (yalnız \"1\" ile başlayanlar)")]
+
+
+def kapsam_kodu(env):
+    """ayarlar.env'deki LUCA_HESAPLAR / LUCA_FIRMA_ONEK -> kapsam kodu (tanimsizsa 'hepsi')."""
+    hesap = ",".join(h.strip() for h in (env.get("LUCA_HESAPLAR") or "ofis").split(",") if h.strip())
+    onek = (env.get("LUCA_FIRMA_ONEK") or "").strip().replace(" ", "")
+    for kod, (h, o) in KAPSAMLAR.items():
+        if h == hesap and o == onek:
+            return kod
+    return "hepsi" if "isletme" in hesap else "ofis"
+
+
 def varsayilan_form(k, ana_ayarlar=None):
     """Formun ilk degerleri: ayarlar.env'deki mevcutlar; olmayanlar icin makul varsayilanlar (sayfa sifresi uretilir)."""
     e = env_oku(env_yolu(k))
@@ -115,7 +140,8 @@ def varsayilan_form(k, ana_ayarlar=None):
             "RESEND_API_KEY": e.get("RESEND_API_KEY", ""),
             "TELEGRAM_TOKEN": e.get("TELEGRAM_TOKEN", ""),
             "TELEGRAM_CHAT_ID": e.get("TELEGRAM_CHAT_ID", ""),
-            "luca_ayarlardan": not e.get("LUCA_OFIS_PAROLA")}
+            "luca_ayarlardan": not e.get("LUCA_OFIS_PAROLA"), "KAPSAM": kapsam_kodu(e),
+            "ARKA_PLAN": e.get("LUCA_ARKA_PLAN", "1") != "0"}        # varsayilan ACIK: Luca penceresi ekranda gorunmez
 
 
 def dogrula(form):
@@ -170,6 +196,10 @@ def env_hazirla(k, form, ana_ayarlar):
         d.update({"SMTP_HOST": str(smtp.get("sunucu") or "smtp.office365.com"), "SMTP_PORT": str(smtp.get("port") or 587),
                   "SMTP_KULLANICI": str(smtp["kullanici"]), "SMTP_PAROLA": str(smtp["sifre"]),
                   "MAIL_GONDEREN": str(smtp.get("gonderen") or smtp["kullanici"])})
+    d["LUCA_ARKA_PLAN"] = "1" if form.get("ARKA_PLAN", True) else "0"
+    kapsam = form.get("KAPSAM")
+    if kapsam in KAPSAMLAR and not (ikinci is None and "isletme" in KAPSAMLAR[kapsam][0] and not mevcut.get("LUCA_ISLETME_PAROLA")):
+        d["LUCA_HESAPLAR"], d["LUCA_FIRMA_ONEK"] = KAPSAMLAR[kapsam]
     env_yaz(yol, d)
     return yol
 

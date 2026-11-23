@@ -86,6 +86,10 @@ class BeyannameSekmesi:
         self.v = {ad: tk.StringVar(value=form[ad]) for ad in ("WEB_SIFRE", "PORT", "LUCA_GIB_GUN", "MAIL_ALICI", "RESEND_API_KEY",
                                                                "TELEGRAM_TOKEN", "TELEGRAM_CHAT_ID")}
         self.v_luca = tk.BooleanVar(value=form["luca_ayarlardan"])
+        self.kapsam_secenekleri = bt.kapsam_etiketleri(self.a.ayarlar)           # [(kod, etiket)]
+        etiket = dict(self.kapsam_secenekleri).get(form.get("KAPSAM"), self.kapsam_secenekleri[0][1])
+        self.v_kapsam = tk.StringVar(value=etiket)
+        self.v_arka_plan = tk.BooleanVar(value=form.get("ARKA_PLAN", True))
         self._sol_panel()
         tk.Frame(self.govde, bg=ui.CIZGI, width=1).pack(side="left", fill="y")
         self._sag_panel()
@@ -118,6 +122,12 @@ class BeyannameSekmesi:
         tk.Checkbutton(p, text="Giriş bilgilerini Dijital Stajyer ayarlarından al", variable=self.v_luca, font=u.KUCUK,
                        **self.a._kutu_renk()).pack(anchor="w", pady=(6, 0))
         alan("GİB'den Getir kaç günü kapsasın (1-31)", "LUCA_GIB_GUN")
+        tk.Label(p, text="Taranacak Luca hesabı / firmalar", font=u.KUCUK, fg=u.ETIKET, bg=u.ZEMIN, anchor="w").pack(fill="x", pady=(8, 3))
+        self.kapsam_kutusu = ttk.Combobox(p, textvariable=self.v_kapsam, values=[e for _, e in self.kapsam_secenekleri], state="readonly",
+                                          font=u.KUCUK)
+        self.kapsam_kutusu.pack(fill="x", ipady=3)
+        tk.Checkbutton(p, text="Luca tarayıcısı ekranda görünmesin (arka planda)", variable=self.v_arka_plan, font=u.KUCUK,
+                       **self.a._kutu_renk()).pack(anchor="w", pady=(6, 0))
         u.bolum_basligi(p, "Bildirim").pack(fill="x", pady=(14, 0))
         alan("E-posta alıcı", "MAIL_ALICI", ilk=True)
         alan("Resend API anahtarı (boşsa SMTP ayarları kullanılır)", "RESEND_API_KEY", gizli=True)
@@ -175,6 +185,8 @@ class BeyannameSekmesi:
     def _form(self):
         form = {ad: v.get() for ad, v in self.v.items()}
         form["luca_ayarlardan"] = self.v_luca.get()
+        form["ARKA_PLAN"] = self.v_arka_plan.get()
+        form["KAPSAM"] = next((k for k, e in self.kapsam_secenekleri if e == self.v_kapsam.get()), self.kapsam_secenekleri[0][0])
         return form
 
     def _bildir(self, metin, hata=False):

@@ -405,6 +405,40 @@ def test_iki_hesap_ayri_islenir():
     assert {m["hesap"] for m in r["mukellefler"]} == {"ofis", "isletme"} and all(k.kapandi for k in kopruler.values())
 
 
+def test_arka_plan_ayari_pencereyi_ekran_disinda_acar():
+    from app.luca_toplayici import tarayici_ayari
+    assert "tarayici_arka_plan" not in tarayici_ayari({}, windows=True)
+    assert tarayici_ayari({"LUCA_ARKA_PLAN": "1"}, windows=True)["tarayici_arka_plan"] is True
+    assert "tarayici_arka_plan" not in tarayici_ayari({"LUCA_ARKA_PLAN": "0"}, windows=True)
+
+
+def test_hesap_ve_firma_oneki_kapsami():
+    from app.luca_toplayici import onek_oku
+    assert onek_oku("isletme:1, ofis:A, bozuk, :x") == {"isletme": "1", "ofis": "A"}
+    musteriler = [{"sirket_id": "10", "ad": "1 ALFA", "unvan": "ALFA LTD", "vkn": "1111111111"},
+                  {"sirket_id": "11", "ad": "BETA", "unvan": "BETA AS", "vkn": "2222222222"}]
+    cevap = cevap_json([bey_kaydi("1 ALFA", "ALFA LTD", "1111111111", "KDV1", *EKIM), bey_kaydi("BETA", "BETA AS", "2222222222", "KDV1", *EKIM)])
+
+    def calistir(env_ek):
+        kopruler = {"ofis": SahteKopru(), "isletme": SahteKopru(cevap, musteriler=[dict(m) for m in musteriler])}
+        env = {"LUCA_HESAPLAR": "ofis,isletme", **{f"LUCA_{h.upper()}_{a}": "x" for h in kopruler for a in ("UYE_NO", "KULLANICI", "PAROLA")}, **env_ek}
+        acilan = []
+        def fabrika(h, k, c):
+            acilan.append(h)
+            return kopruler[h]
+        t = LucaToplayici("/tmp/x", env=env, kopru_fabrikasi=fabrika, tatil=T)
+        return t.topla(date(2026, 11, 26)), acilan
+    r, acilan = calistir({})                                                       # kapsam yok: iki hesap, tum firmalar
+    assert {(m["hesap"], m["ad"]) for m in r["mukellefler"] if m["hesap"] == "isletme"} == {("isletme", "1 ALFA"), ("isletme", "BETA")}
+    r, acilan = calistir({"LUCA_FIRMA_ONEK": "isletme:1"})                         # isletmede yalniz "1" ile baslayanlar
+    isl = [m["ad"] for m in r["mukellefler"] if m["hesap"] == "isletme"]
+    assert isl == ["1 ALFA"] and {b["firma"] for b in r["beyannameler"] if b["hesap"] == "isletme"} == {"ALFA LTD"}
+    assert any("yalnız adı \"1\" ile başlayan" in u for u in r["uyarilar"])
+    assert [m for m in r["mukellefler"] if m["hesap"] == "ofis"]                   # ofis hesabi etkilenmez
+    r, acilan = calistir({"LUCA_HESAPLAR": "isletme", "LUCA_ISLETME_UYE_NO": "x"})  # yalniz Ali Karaahmet: ofis hesabina hic girilmez
+    assert acilan == ["isletme"] and {m["hesap"] for m in r["mukellefler"]} == {"isletme"}
+
+
 def test_cekirdekle_butunlesme_ve_eslesmeyen_uyarisi(tmp_path):
     cevap = cevap_json([bey_kaydi("ALFA", "ALFA LTD", "1111111111", "KDV1", *EKIM),
                         bey_kaydi("YABANCI", "TANINMAYAN FIRMA", "8888888888", "KDV1", *EKIM),

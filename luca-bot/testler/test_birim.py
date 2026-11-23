@@ -580,6 +580,43 @@ class RaporTestleri(unittest.TestCase):
             e = bt.env_oku(bt.env_yolu(Path(d)))
             self.assertEqual((e["LUCA_HESAPLAR"], e["LUCA_ISLETME_KULLANICI"], e["LUCA_ISLETME_DOGRULAMA_ANAHTARI"]), ("ofis,isletme", "i", "K2"))
 
+    def test_beyanname_takip_kapsam_secimi_hesap_ve_firma_oneki(self):
+        from lucabot import beyanname_takip as bt
+        iki = {"uye_no": "1", "kullanici_adi": "o", "parola": "p",
+               "ikinci_hesap": {"etkin": True, "uye_no": "2", "kullanici_adi": "i", "parola": "q"}}
+        bir = {"uye_no": "1", "kullanici_adi": "o", "parola": "p"}
+        self.assertEqual([k for k, _ in bt.kapsam_etiketleri(iki)], ["hepsi", "ofis", "isletme", "isletme-1", "hepsi-1"])
+        self.assertEqual([k for k, _ in bt.kapsam_etiketleri(bir)], ["ofis"])                     # isletme hesabi yoksa yalniz ofis
+        self.assertIn("1\" ile başlayan", dict(bt.kapsam_etiketleri(iki))["isletme-1"])
+        with tempfile.TemporaryDirectory() as d:
+            form = {"WEB_SIFRE": "sifre12", "PORT": "8765", "LUCA_GIB_GUN": "31", "luca_ayarlardan": True}
+            for kod, hesap, onek in (("isletme", "isletme", ""), ("isletme-1", "isletme", "isletme:1"), ("ofis", "ofis", ""),
+                                     ("hepsi-1", "ofis,isletme", "isletme:1"), ("hepsi", "ofis,isletme", "")):
+                bt.env_hazirla(Path(d), dict(form, KAPSAM=kod), iki)
+                e = bt.env_oku(bt.env_yolu(Path(d)))
+                self.assertEqual((e["LUCA_HESAPLAR"], e.get("LUCA_FIRMA_ONEK", "")), (hesap, onek), kod)
+                self.assertEqual(bt.kapsam_kodu(e), kod)                                           # yazilan kapsam geri okunur
+                self.assertEqual(bt.varsayilan_form(Path(d), iki)["KAPSAM"], kod)
+            self.assertEqual(bt.env_oku(bt.env_yolu(Path(d)))["LUCA_ARKA_PLAN"], "1")                      # varsayilan: arka plan
+            bt.env_hazirla(Path(d), dict(form, KAPSAM="hepsi", ARKA_PLAN=False), iki)
+            self.assertEqual(bt.env_oku(bt.env_yolu(Path(d)))["LUCA_ARKA_PLAN"], "0")
+            self.assertFalse(bt.varsayilan_form(Path(d), iki)["ARKA_PLAN"])
+            self.assertEqual(bt.kapsam_kodu({}), "ofis")
+            self.assertEqual(bt.kapsam_kodu({"LUCA_HESAPLAR": "ofis,isletme"}), "hepsi")
+
+    def test_tarayici_arka_plan_pencereyi_ekran_disinda_acar(self):
+        from lucabot import ortak, tarayici
+        eski = ortak.AYAR.get("tarayici_arka_plan")
+        try:
+            ortak.AYAR["tarayici_arka_plan"] = True
+            args = tarayici._pencere_argumanlari()
+            self.assertIn("--window-position=-32000,-32000", args)
+            self.assertNotIn("--start-maximized", args)
+            ortak.AYAR["tarayici_arka_plan"] = False
+            self.assertEqual(tarayici._pencere_argumanlari(), ["--start-maximized"])
+        finally:
+            ortak.AYAR["tarayici_arka_plan"] = eski
+
     def test_beyanname_takip_form_dogrulama(self):
         from lucabot import beyanname_takip as bt
         self.assertEqual(bt.dogrula({"WEB_SIFRE": "abcd", "PORT": "8765", "LUCA_GIB_GUN": "31"}), [])
