@@ -1533,12 +1533,33 @@ class Arayuz:
                 and self.kuyruk.empty()):
             self._bitti(self.surec.returncode)
         self._son_islemi_goster()
-        self.kz.tikla()
-        self.db.tikla()
-        self.mv.tikla()
-        self.ed.tikla()
-        self.bt.tikla()
+        # Her sekmenin yoklamasi AYRI korunur: biri hata verirse digerleri (ve dongunun kendisi) durmaz. Eskiden bir sekmedeki
+        # hata dongunun yeniden kurulmasini engelliyor, sonraki sekmeler (orn. Beyanname Takip "Kontrol ediliyor...") donuk kaliyordu.
+        for ad, sekme in (("kz", self.kz), ("db", self.db), ("mv", self.mv), ("ed", self.ed), ("bt", self.bt)):
+            try:
+                sekme.tikla()
+            except Exception as e:  # noqa: BLE001
+                self._tikla_hatasi(ad, e)
         self.dongu_id = self.kok.after(150, self._dongu)
+
+    def _tikla_hatasi(self, ad, hata):
+        """Bir sekme yoklamasinda hata: ayni hata gunlukte BIR kez gosterilir (dongu 150 ms'de bir calisir), ayrinti dosyaya yazilir."""
+        import traceback
+        anahtar = (ad, type(hata).__name__, str(hata)[:80])
+        goruldu = self.__dict__.setdefault("_tikla_hatalari", set())
+        if anahtar in goruldu:
+            return
+        goruldu.add(anahtar)
+        ayrinti = "".join(traceback.format_exception(type(hata), hata, hata.__traceback__))
+        try:
+            with open(Path(__file__).resolve().parent / "arayuz-hata.log", "a", encoding="utf-8") as f:
+                f.write(f"--- {time.strftime('%d/%m/%Y %H:%M:%S')} sekme={ad}\n{ayrinti}\n")
+        except OSError:
+            pass
+        try:
+            self._log_ekle(f"\n[Arayüz uyarısı] '{ad}' sekmesi güncellenemedi: {type(hata).__name__}: {hata} (ayrıntı: arayuz-hata.log)\n", "uyari")
+        except Exception:  # noqa: BLE001
+            pass
 
     def _metni_isle(self, metin):
         satirlar = (self.yarim_satir + metin.replace("\r\n", "\n")).split("\n")

@@ -1942,8 +1942,8 @@ class BeyannameSekmesiTestleri(ArayuzZemini):
         self.assertTrue(self._bekle(lambda: len(self.bt.tablo.satirlar) > 0, 30), self.bt.veri_etiketi.cget("text"))
         self.assertIn("madde", self.bt.veri_etiketi.cget("text"))
         satir = self.bt.tablo.satirlar[0]
-        self.assertEqual(len(satir), 7)
-        self.assertIn(satir[5], ("Verildi", "EKSİK", "Eksik (ayar onaysız)", "SGK e-Bildirge eksik", "Muaf"))
+        self.assertEqual(len(satir), 8)
+        self.assertIn(satir[6], ("Verildi", "EKSİK", "Eksik (ayar onaysız)", "SGK e-Bildirge eksik", "Muaf"))
         self.assertEqual(bt.kontrol_oku(self.bt_klasor)["port"], self.port)
         self.assertTrue(bt.saglikli_mi(self.port))
         self.bt.durdur()
@@ -1955,9 +1955,35 @@ class BeyannameSekmesiTestleri(ArayuzZemini):
         import beyanname_sekmesi as bs
         s = bs.satir_uret({"ad": "ALFA", "tur_ad": "KDV", "etiket": "Eylül 2026", "son_gun": "2026-10-28", "kalan": -2,
                            "durum": "eksik", "kapanis_donemi": True})
-        self.assertEqual(s[:6], ("ALFA", "KDV", "Eylül 2026", "28/10/2026", "2 gün geçti", "EKSİK"))
-        self.assertIn("kapanış", s[6])
+        self.assertEqual(s[:2], ("ALFA", "Adem Yılmaz"))                      # hesap yok: programin varsayilani ofis
+        self.assertEqual(s[2:7], ("KDV", "Eylül 2026", "28/10/2026", "2 gün geçti", "EKSİK"))
+        self.assertIn("kapanış", s[7])
+        self.assertEqual(bs.satir_uret({"ad": "BETA", "hesap": "isletme"})[1], "Ali Karaahmet")      # iki Luca hesabi ayirt edilir
+        self.assertEqual(bs.satir_uret({"ad": "BETA", "hesap": "ofis"})[1], "Adem Yılmaz")
         self.assertEqual(bs.kalan_yazisi(0), "BUGÜN")
+
+
+@unittest.skipUnless(TK_VAR, "tkinter ya da ekran yok")
+class ArayuzDongusuDayaniklilik(ArayuzZemini):
+    """Bir sekmenin yoklamasi hata verse de ana dongu durmaz, sonraki sekmeler (Beyanname Takip) guncellenmeye devam eder."""
+
+    def test_bir_sekme_hata_verse_digerleri_calisir_ve_dongu_yeniden_kurulur(self):
+        cagrilar = []
+        self.app.bt.tikla = lambda: cagrilar.append("bt")
+        self.app.mv.tikla = lambda: cagrilar.append("mv")
+
+        def bozuk():
+            raise RuntimeError("deneme hatasi")
+        self.app.ed.tikla = bozuk                                       # e-Defter, Beyanname'den ONCE yoklanir
+        self.app.kok.after_cancel(self.app.dongu_id) if getattr(self.app, "dongu_id", None) else None
+        self.app._dongu()
+        self.assertIn("bt", cagrilar)                                   # bozuk sekmeden sonraki sekme yine yoklandi
+        self.assertIn("mv", cagrilar)
+        self.assertTrue(self.app.dongu_id)                              # dongu yeniden kuruldu
+        self.assertIn("'ed' sekmesi güncellenemedi", self.app.log.get("1.0", "end"))
+        self.app._dongu()                                               # ayni hata gunlukte tekrarlanmaz
+        self.assertEqual(self.app.log.get("1.0", "end").count("'ed' sekmesi güncellenemedi"), 1)
+        self.app.kok.after_cancel(self.app.dongu_id)
 
 
 if __name__ == "__main__":

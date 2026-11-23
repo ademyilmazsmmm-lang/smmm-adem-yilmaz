@@ -43,16 +43,22 @@ def gun_yazisi(iso):
         return str(iso or "")
 
 
+def hesap_adi(hesap):
+    """Madde hesabi ('ofis' / 'isletme') -> gorunen ad ('Adem Yılmaz' / 'Ali Karaahmet'); bos hesap 'ofis' sayilir (programin varsayilani)."""
+    from lucabot import hesaplar
+    return hesaplar.gorunen_ad(hesap or "ofis")
+
+
 def satir_uret(m):
-    """Program maddesi -> tablo satiri (Muakkellef, Beyanname, Donem, Son gun, Kalan, Durum, Not)."""
+    """Program maddesi -> tablo satiri (Mukellef, Luca hesabi, Beyanname, Donem, Son gun, Kalan, Durum, Not)."""
     durum = m.get("durum") or ""
     notlar = []
     if m.get("kapanis_donemi"):
         notlar.append("kapanış dönemi: süre farklı olabilir")
     if durum == "onaysiz":
         notlar.append("mükellef ayarı onaylanmamış")
-    return (m.get("ad", ""), m.get("tur_ad") or m.get("tur", ""), m.get("etiket") or m.get("donem", ""), gun_yazisi(m.get("son_gun")),
-            kalan_yazisi(m.get("kalan")), DURUM_YAZISI.get(durum, durum), "; ".join(notlar))
+    return (m.get("ad", ""), hesap_adi(m.get("hesap")), m.get("tur_ad") or m.get("tur", ""), m.get("etiket") or m.get("donem", ""),
+            gun_yazisi(m.get("son_gun")), kalan_yazisi(m.get("kalan")), DURUM_YAZISI.get(durum, durum), "; ".join(notlar))
 
 
 class BeyannameSekmesi:
@@ -157,10 +163,10 @@ class BeyannameSekmesi:
         kaydir.pack(side="right", fill="y")
         self.log.pack(side="left", fill="both", expand=True)
 
-        sutunlar = ("Mükellef", "Beyanname", "Dönem", "Son gün", "Kalan", "Durum", "Not")
-        genislik = (230, 130, 110, 95, 90, 160, 220)
-        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 2, 3, 4, 5, 6}, secim="extended",
-                                         filtreler=("Durum", "Beyanname"),
+        sutunlar = ("Mükellef", "Luca hesabı", "Beyanname", "Dönem", "Son gün", "Kalan", "Durum", "Not")
+        genislik = (220, 120, 120, 100, 90, 80, 150, 200)
+        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 2, 3, 4, 5, 6, 7}, secim="extended",
+                                         filtreler=("Luca hesabı", "Durum", "Beyanname"),
                                          etiketler={"tamam": u.YESIL_FG, "eksik": u.KIRMIZI, "uyari": u.UYARI_FG, "soluk": u.SOLUK})
         self.tablo.pack(fill="both", expand=True)
 
