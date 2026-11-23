@@ -215,8 +215,11 @@ class BeyannameSekmesi:
             return
         port = int(self.v["PORT"].get())
         if bt.saglikli_mi(port):
-            messagebox.showinfo("Port dolu", f"{port} numaralı portta zaten bir program yanıt veriyor (Beyanname Takip başka yerden "
-                                "açılmış olabilir). Durumu izlemek için Yenile'ye basın ya da farklı bir port seçin.", parent=self.a.kok)
+            # program zaten ayakta (baska yerden / onceki oturumdan baslatilmis): ikinci kez baslatmaya calismadan arayuzu ona baglar
+            self.calisiyor_mu = True
+            self._durumu_yaz()
+            self._son_veri = 0.0
+            self._bildir(f"Program {port} portunda zaten çalışıyor; izleme bağlandı")
             return
         self._islem_calisiyor = True
         self.baslat_dugmesi.configure(state="disabled")

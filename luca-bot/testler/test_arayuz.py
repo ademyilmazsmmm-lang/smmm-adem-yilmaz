@@ -1951,6 +1951,22 @@ class BeyannameSekmesiTestleri(ArayuzZemini):
         self.assertFalse(bt.saglikli_mi(self.port))
         self.assertEqual(str(self.bt.baslat_dugmesi.cget("state")), "normal")
 
+    def test_program_zaten_calisiyorsa_baslat_arayuzu_ona_baglar_pencere_acmaz(self):
+        import beyanname_sekmesi as bs
+        acilan = []
+        eski_bilgi, eski_saglik = bs.messagebox.showinfo, bs.bt.saglikli_mi
+        self.addCleanup(setattr, bs.messagebox, "showinfo", eski_bilgi)
+        self.addCleanup(setattr, bs.bt, "saglikli_mi", eski_saglik)
+        bs.messagebox.showinfo = lambda *a, **k: acilan.append(a)
+        bs.bt.saglikli_mi = lambda *a, **k: True                        # port dolu: program zaten yanit veriyor
+        self.bt.kaydet = lambda sessiz=False: True
+        self.bt.calisiyor_mu = False
+        self.bt.baslat()
+        self.assertTrue(self.bt.calisiyor_mu)                           # durum "Calisiyor"a gecti ("Kontrol ediliyor" / "Port dolu" yok)
+        self.assertIn("Çalışıyor", self.bt.durum_etiketi.cget("text"))
+        self.assertEqual(str(self.bt.durdur_dugmesi.cget("state")), "normal")
+        self.assertEqual(acilan, [])
+
     def test_satir_uretimi(self):
         import beyanname_sekmesi as bs
         s = bs.satir_uret({"ad": "ALFA", "tur_ad": "KDV", "etiket": "Eylül 2026", "son_gun": "2026-10-28", "kalan": -2,
