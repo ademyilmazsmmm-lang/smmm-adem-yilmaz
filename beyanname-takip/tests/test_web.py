@@ -314,3 +314,27 @@ def test_kapat_kontrol_yalniz_dogru_anahtarla(tmp_path, monkeypatch):
             break
         time.sleep(0.05)
     assert cikis == [1]
+
+
+def test_maddeler_ek_onayli_ama_izlenmeyen_beyannameleri_de_listeler(istemci):
+    """KDV2 gibi: firmanın ayarında KDV2 kapalıysa tablo satırı yoktu, filtrede de görünmüyordu. ek=1: Luca'da onaylı olanlar ayrıca listelenir
+    (uyarıya / eksik hesabına GİRMEZ)."""
+    ic, c, _ = istemci
+    giris(ic)
+    c.topla()
+    mus = c.depo.oku("mukellefler.json")["kayitlar"]
+    alfa = next(m for m in mus if m["ad"] == "ALFA TİCARET")
+    bey = c.depo.oku("beyannameler.json")["kayitlar"]
+    yeni = [dict(bey[0], firma=alfa["unvan"], kisa_ad=alfa["ad"], vkn=alfa["vkn"], tur="KDV2", durum="Onaylandı", donem="10/2026", donem_bas="10/2026"),
+            dict(bey[0], firma=alfa["unvan"], kisa_ad=alfa["ad"], vkn=alfa["vkn"], tur="KDV2", durum="Onaylandı", donem="10/2026", donem_bas="10/2026"),   # ayni kayit bir kez
+            dict(bey[0], firma=alfa["unvan"], kisa_ad=alfa["ad"], vkn=alfa["vkn"], tur="KDV2", durum="Hatalı", donem="09/2026", donem_bas="09/2026"),       # onaysiz: yok sayilir
+            dict(bey[0], firma=alfa["unvan"], kisa_ad=alfa["ad"], vkn=alfa["vkn"], tur="DAMGA", durum="Onaylandı", donem="10/2026", donem_bas="10/2026")]   # taninmayan tur
+    c.depo.yaz("beyannameler.json", {"zaman": "2026-11-26T08:00:00", "kayitlar": bey + yeni[:1] + yeni[1:]})
+    normal = ic.get("/api/maddeler").json()
+    assert not any(x["tur"] == "KDV2" and x["ad"] == "ALFA TİCARET" for x in normal)              # varsayilan cikti degismez (uyarilar bunu kullanir)
+    ek = [x for x in ic.get("/api/maddeler", params={"ek": 1}).json() if x.get("ek")]
+    kdv2 = [x for x in ek if x["tur"] == "KDV2" and x["ad"] == "ALFA TİCARET"]
+    assert len(kdv2) == 1 and kdv2[0]["durum"] == "verildi" and kdv2[0]["etiket"] == "Ekim 2026" and kdv2[0]["tur_ad"].startswith("KDV 2")
+    assert any(x["tur"] == "DAMGA" and x["tur_ad"] == "DAMGA" for x in ek)                       # taninmayan tur Luca'daki kodla gorunur
+    assert not any(x["donem"] == "2026-09" and x["tur"] == "KDV2" for x in ek)                    # hatali kayit listelenmez
+    assert [x for x in ic.get("/api/maddeler", params={"ek": 1}).json() if not x.get("ek")] == normal

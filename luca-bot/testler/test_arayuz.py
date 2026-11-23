@@ -1970,6 +1970,53 @@ class BeyannameSekmesiTestleri(ArayuzZemini):
         self.assertGreater(len(self.bt.tablo.satirlar), 0)                      # durunca tablo silinmez
         self.assertEqual(str(self.bt.baslat_dugmesi.cget("state")), "normal")
 
+    def _veri(self, maddeler):
+        return {"durum": {"veri": {"zaman": "2026-11-24T02:11:00"}, "kanallar": ["Telegram"]}, "maddeler": maddeler}
+
+    def test_onayli_ama_izlenmeyen_beyannameler_tabloda_ve_filtrede_gorunur(self):
+        izlenen = {"ad": "ALFA", "hesap": "isletme", "tur": "KDV1", "tur_ad": "KDV", "etiket": "Ekim 2026", "son_gun": "2026-11-26", "kalan": 2,
+                   "durum": "eksik"}
+        ek = {"ad": "BETA", "hesap": "ofis", "tur": "KDV2", "tur_ad": "KDV 2 (sorumlu sıfatıyla)", "etiket": "Ekim 2026", "son_gun": "", "kalan": None,
+              "durum": "verildi", "ek": True}
+        self.bt._veriyi_yaz("ok", self._veri([ek, izlenen]))
+        self.assertEqual([s[0] for s in self.bt.tablo.satirlar], ["ALFA", "BETA"])                     # izlenmeyenler en sonda
+        beta = self.bt.tablo.satirlar[1]
+        self.assertEqual((beta[1], beta[2], beta[6]), ("Adem Yılmaz", "KDV 2 (sorumlu sıfatıyla)", "Verildi"))
+        self.assertIn("ayarda izlenmiyor", beta[7])
+        self.assertIn("KDV 2 (sorumlu sıfatıyla)", self.bt.tablo.filtre_kutulari["Beyanname"].cget("values"))      # filtrede KDV2 var
+        self.assertIn("1 madde, 1 verilmemiş  (+1 izlenmeyen onaylı beyanname)", self.bt.veri_etiketi.cget("text"))
+        self.assertEqual(self.bt.tablo.satir_etiketleri[1], "tamam")
+
+    def test_excel_aktar_gorunen_satirlari_yazar_ve_gereksiz_dugmeler_yok(self):
+        import beyanname_sekmesi as bs
+        from openpyxl import load_workbook
+        self.bt._veriyi_yaz("ok", self._veri([
+            {"ad": "ALFA", "hesap": "isletme", "tur": "KDV1", "tur_ad": "KDV", "etiket": "Ekim 2026", "son_gun": "2026-11-26", "kalan": 2, "durum": "eksik"},
+            {"ad": "BETA", "hesap": "ofis", "tur": "KDV1", "tur_ad": "KDV", "etiket": "Ekim 2026", "son_gun": "2026-11-26", "kalan": 2, "durum": "verildi"}]))
+        self.bt.tablo.filtre_ayarla("Durum", "EKSİK")                                                  # yalniz gorunenler aktarilir
+        hedef = self.d / "bt.xlsx"
+        eski_dosya, eski_ac = bs.filedialog.asksaveasfilename, self.bt.ui.dosya_ac
+        self.addCleanup(setattr, bs.filedialog, "asksaveasfilename", eski_dosya)
+        bs.filedialog.asksaveasfilename = lambda *a, **k: str(hedef)
+        acilan = []
+        self.bt.ui.dosya_ac = lambda yol: acilan.append(yol)
+        self.bt.excele_aktar()
+        satirlar = list(load_workbook(hedef).active.iter_rows(values_only=True))
+        self.assertEqual(satirlar[0][:3], ("Mükellef", "Luca hesabı", "Beyanname"))
+        self.assertEqual([s[0] for s in satirlar[1:]], ["ALFA"])
+        self.assertEqual(satirlar[1][1], "Ali Karaahmet")
+        self.assertEqual(acilan, [str(hedef)])
+        # "Tarayicida Ac" / "Simdi Luca'dan Cek" dugmeleri kaldirildi; Excel dugmesi var
+        def dugmeler(w):
+            for c in w.winfo_children():
+                if isinstance(c, tk.Button):
+                    yield c.cget("text")
+                yield from dugmeler(c)
+        yazilar = set(dugmeler(self.bt.govde))
+        self.assertIn("Excel'e Aktar", yazilar)
+        self.assertNotIn("Tarayıcıda Aç", yazilar)
+        self.assertNotIn("Şimdi Luca'dan Çek", yazilar)
+
     def test_kapsam_secici_ofis_isletme_ve_bir_ile_baslayanlar(self):
         etiketler = [e for _, e in self.bt.kapsam_secenekleri]
         self.assertTrue(etiketler)

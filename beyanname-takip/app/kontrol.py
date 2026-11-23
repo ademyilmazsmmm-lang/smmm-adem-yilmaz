@@ -5,7 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass, asdict
 from datetime import date, datetime, timedelta
 
-from .kurallar import (BEYANNAMELER, donem_baslangici, donem_bitisi, donemler_uret, onayli_mi, sade, tur_coz)
+from .kurallar import (AYLAR, BEYANNAMELER, donem_baslangici, donem_bitisi, donemler_uret, onayli_mi, sade, tur_coz)
 
 VARSAYILAN_AYAR = {"KDV1": "aylik", "MPHB": "auto", "GECICI": "3aylik", "KDV2": "yok", "POSET": "yok", "KONAKLAMA": "yok", "KV": "auto", "GV": "auto", "sgk": "auto", "onayli": False, "isyeri": ""}
 
@@ -198,6 +198,36 @@ def degerlendir(mukellefler, ayarlar, beyannameler, bugun, tatil, once=10, sonra
                     ayar_onayli=bool(ay.get("onayli")),
                     kapanis_donemi=bool(kapanis and d.bas <= kapanis <= d.bit)))
     sonuc.sort(key=lambda x: (x.son_gun, x.tur, x.ad))
+    return sonuc
+
+
+def ek_beyannameler(mukellefler, beyannameler, maddeler):
+    """Luca'da ONAYLI olup ayrıca izlenmeyen beyannameler (örn. ayarında KDV2 açık olmayan firmanın KDV2'si): [{mid, ad, hesap, tur, tur_ad, donem,
+    etiket, durum:"verildi", son_gun:"", kalan:None, ek:True}]. Uyarı / "eksik" hesabına GİRMEZ; yalnız ekranda "hangi beyannameler var" görülsün diye
+    listelenir. Tanınmayan türler Luca'daki koduyla gösterilir. Aynı firma+tür+dönem bir kez."""
+    izlenen = {(m.mid, m.tur) for m in maddeler}
+    sonuc, gorulen = [], set()
+    for b in beyannameler:
+        if not onayli_mi(b.get("durum")):
+            continue
+        yil, ay = donem_bitisi(b)
+        if not yil:
+            continue
+        tur = tur_coz(b.get("tur"))
+        m = next((x for x in mukellefler if ayni_firma(x, b)), None)
+        if m is None or (tur and (m["id"], tur) in izlenen):
+            continue
+        kod = tur or (str(b.get("tur") or "").strip() or "?")
+        by, ba = donem_baslangici(b)
+        anahtar = (m["id"], kod, yil, ay, ba)
+        if anahtar in gorulen:
+            continue
+        gorulen.add(anahtar)
+        etiket = f"{AYLAR[ay - 1]} {yil}" if not ba or (by, ba) == (yil, ay) else f"{AYLAR[ba - 1]}–{AYLAR[ay - 1]} {yil}"
+        sonuc.append({"mid": m["id"], "ad": m.get("ad") or m.get("unvan") or m["id"], "hesap": m["hesap"], "isyeri": "", "tur": kod,
+                      "tur_ad": BEYANNAMELER[tur]["ad"] if tur else kod, "donem": f"{yil}-{ay:02d}", "etiket": etiket, "son_gun": "",
+                      "kalan": None, "durum": "verildi", "ayar_onayli": True, "kapanis_donemi": False, "ek": True})
+    sonuc.sort(key=lambda x: (x["donem"], x["tur_ad"], x["ad"]))
     return sonuc
 
 

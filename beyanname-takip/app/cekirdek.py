@@ -6,7 +6,7 @@ import re
 import threading
 from datetime import datetime, timedelta, timezone
 
-from .kontrol import (SLOTLAR, ayni_firma, bolumlere_ayir, degerlendir, gunluk_ozet, mesaj_olustur, mukellef_normalize)
+from .kontrol import (SLOTLAR, ayni_firma, bolumlere_ayir, degerlendir, ek_beyannameler, gunluk_ozet, mesaj_olustur, mukellef_normalize)
 from .kurallar import Tatiller
 
 log = logging.getLogger("cekirdek")
@@ -98,6 +98,12 @@ class Uygulama:
         mus = self.depo.oku("mukellefler.json", {}).get("kayitlar", [])
         bey = self.depo.oku("beyannameler.json", {}).get("kayitlar", [])
         return degerlendir(mus, self.depo.oku("ayarlar.json", {}), bey, bugun, self.tatil)
+
+    def ek_maddeler(self, bugun=None):
+        """Onaylı olup izlenmeyen beyannameler (kontrol.ek_beyannameler): ekranda "hangi beyannameler var" görülsün diye; uyarıya girmez."""
+        mus = self.depo.oku("mukellefler.json", {}).get("kayitlar", [])
+        bey = self.depo.oku("beyannameler.json", {}).get("kayitlar", [])
+        return ek_beyannameler(mus, bey, self.maddeler(bugun))
 
     def veri_durumu(self):
         d = self.depo.oku("durum.json", {})

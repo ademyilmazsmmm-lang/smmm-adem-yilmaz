@@ -14,7 +14,7 @@ import threading
 import time
 import webbrowser
 from datetime import date, datetime
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 import tkinter as tk
 
 from lucabot import beyanname_takip as bt
@@ -57,8 +57,42 @@ def satir_uret(m):
         notlar.append("kapanış dönemi: süre farklı olabilir")
     if durum == "onaysiz":
         notlar.append("mükellef ayarı onaylanmamış")
+    if m.get("ek"):
+        notlar.append("Luca'da onaylı; ayarda izlenmiyor (uyarıya girmez)")
     return (m.get("ad", ""), hesap_adi(m.get("hesap")), m.get("tur_ad") or m.get("tur", ""), m.get("etiket") or m.get("donem", ""),
             gun_yazisi(m.get("son_gun")), kalan_yazisi(m.get("kalan")), DURUM_YAZISI.get(durum, durum), "; ".join(notlar))
+
+
+def excel_yaz(yol, sutunlar, satirlar, etiketler=None, ozet=""):
+    """Beyanname Takip tablosunu .xlsx yapar: baslik, EKSIK / uyari satirlari renkli, filtre + sabit baslik; ilk satir altinda ozet degil yalniz tablo."""
+    from pathlib import Path
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Beyanname Takip"
+    ws.append(list(sutunlar))
+    for h in ws[1]:
+        h.font, h.fill = Font(bold=True, color="FFFFFF"), PatternFill("solid", fgColor="1F3A5F")
+        h.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    renk = {"eksik": "FDE2E2", "uyari": "FFF1CC", "tamam": "E4F4E4"}
+    for i, satir in enumerate(satirlar):
+        ws.append([str(x) if x is not None else "" for x in satir])
+        dolgu = renk.get((etiketler or [""] * len(satirlar))[i])
+        if dolgu:
+            for h in ws[ws.max_row]:
+                h.fill = PatternFill("solid", fgColor=dolgu)
+    genislik = {"Mükellef": 34, "Luca hesabı": 16, "Beyanname": 28, "Dönem": 18, "Son gün": 12, "Kalan": 12, "Durum": 22, "Not": 50}
+    for n, ad in enumerate(sutunlar, 1):
+        ws.column_dimensions[get_column_letter(n)].width = genislik.get(ad, 16)
+    ws.freeze_panes = "A2"
+    if satirlar:
+        ws.auto_filter.ref = ws.dimensions
+    gecici = Path(yol).with_suffix(".tmp.xlsx")
+    wb.save(str(gecici))
+    gecici.replace(yol)
+    return yol
 
 
 class BeyannameSekmesi:
@@ -162,11 +196,10 @@ class BeyannameSekmesi:
 
         alt = tk.Frame(p, bg=u.ZEMIN)
         alt.pack(side="bottom", fill="x", pady=(8, 0))
-        u.dugme(alt, "Tarayıcıda Aç", self.tarayicida_ac, ana=True).pack(side="left")
-        u.dugme(alt, "Şimdi Luca'dan Çek", self.simdi_cek).pack(side="left", padx=8)
-        u.dugme(alt, "Yenile", self.yenile).pack(side="left")
-        u.dugme(alt, "Ayarları Kaydet", self.kaydet).pack(side="left", padx=8)
-        u.dugme(alt, "Klasörü Aç", lambda: u.dosya_ac(self.klasor / "yerel")).pack(side="left")
+        u.dugme(alt, "Excel'e Aktar", self.excele_aktar, ana=True).pack(side="left")
+        u.dugme(alt, "Yenile", self.yenile).pack(side="left", padx=8)
+        u.dugme(alt, "Ayarları Kaydet", self.kaydet).pack(side="left")
+        u.dugme(alt, "Klasörü Aç", lambda: u.dosya_ac(self.klasor / "yerel")).pack(side="left", padx=8)
         self.mesaj_etiketi = tk.Label(alt, text="", font=u.KUCUK, fg=u.SOLUK, bg=u.ZEMIN)
         self.mesaj_etiketi.pack(side="right")
 
@@ -301,7 +334,7 @@ class BeyannameSekmesi:
             except (OSError, ValueError):
                 continue                                  # program anlik yanit vermedi
             if durum.get("captcha_bekliyor"):
-                self._bildir("CAPTCHA bekliyor — Telegram'dan ya da \"Tarayıcıda Aç\" sayfasından cevaplayın")
+                self._bildir(f"CAPTCHA bekliyor — Telegram'dan ya da {bt.adres(port)} adresindeki sayfadan cevaplayın")
             bitti, ok, mesaj = bt.tarama_bitti(durum, onceki_toplama, onceki_rapor, ozet)
             if bitti:
                 sonuc = (True, ok, mesaj)
@@ -328,6 +361,7 @@ class BeyannameSekmesi:
         """Program durunca da gorunecek ozet satiri (Luca verisi zamani, madde / eksik sayisi)."""
         d, maddeler = veri["durum"], veri["maddeler"]
         v = d.get("veri") or {}
+        maddeler = [m for m in maddeler if not m.get("ek")]
         eksik = [m for m in maddeler if m.get("durum") in ("eksik", "onaysiz", "sgk_eksik")]
         zaman = ""
         if v.get("zaman"):
@@ -377,6 +411,26 @@ class BeyannameSekmesi:
             messagebox.showinfo("Çalışmıyor", "Önce Başlat'a basın.", parent=self.a.kok)
             return
         webbrowser.open(bt.adres(self.v["PORT"].get()))
+
+    def excele_aktar(self):
+        """Tabloda GORUNEN satirlari (filtre / siralama uygulanmis) Excel dosyasina yazar."""
+        sira = self.tablo.gorunen_indeksler()
+        if not sira:
+            messagebox.showinfo("Aktarılacak satır yok", "Tabloda satır yok. Önce Başlat ile tarama yapın ya da filtreyi gevşetin.", parent=self.a.kok)
+            return
+        yol = filedialog.asksaveasfilename(
+            title="Excel olarak kaydet", parent=self.a.kok, defaultextension=".xlsx",
+            initialfile=f"beyanname-takip-{date.today():%d.%m.%Y}.xlsx", filetypes=[("Excel", "*.xlsx")])
+        if not yol:
+            return
+        try:
+            excel_yaz(yol, list(self.tablo.sutunlar), [self.tablo.satirlar[n] for n in sira],
+                      [self.tablo.satir_etiketleri[n] for n in sira], self.veri_etiketi.cget("text") or self._kalici_veri_metni)
+        except PermissionError:
+            messagebox.showerror("Kaydedilemedi", "Dosya Excel'de açık; kapatıp tekrar deneyin.", parent=self.a.kok)
+            return
+        self._bildir(f"{len(sira)} satır Excel'e aktarıldı")
+        self.ui.dosya_ac(yol)
 
     def yenile(self):
         self._son_saglik = self._son_veri = 0.0
@@ -500,9 +554,10 @@ class BeyannameSekmesi:
         if d.get("captcha_bekliyor"):
             parca.append("CAPTCHA bekliyor — tarayıcıdaki sayfadan cevaplayın")
         eksik = [m for m in maddeler if m.get("durum") in ("eksik", "onaysiz", "sgk_eksik")]
-        parca.append(f"{len(maddeler)} madde, {len(eksik)} verilmemiş")
+        ek = [m for m in maddeler if m.get("ek")]
+        parca.append(f"{len(maddeler) - len(ek)} madde, {len(eksik)} verilmemiş" + (f"  (+{len(ek)} izlenmeyen onaylı beyanname)" if ek else ""))
         self.veri_etiketi.configure(text="  ·  ".join(parca), fg=self.ui.TURUNCU if (v.get("hata") or d.get("captcha_bekliyor")) else self.ui.SOLUK)
-        sirali = sorted(maddeler, key=lambda m: (m.get("son_gun") or "", m.get("ad") or ""))
+        sirali = sorted(maddeler, key=lambda m: (bool(m.get("ek")), m.get("son_gun") or "9999-99-99", m.get("ad") or ""))   # izlenmeyenler en sonda
         self.tablo.doldur([satir_uret(m) for m in sirali], [DURUM_ETIKET.get(m.get("durum"), "") for m in sirali])
 
     def _gunlugu_yaz(self):

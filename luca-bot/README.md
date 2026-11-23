@@ -684,3 +684,7 @@ python testler/uctan_uca.py                    # programın tamamı, sahte Luca 
   tarayıcı penceresi **görünür** açılır, işlemleri izlersiniz; "Tarayıcıda Aç" demenize gerek yok), tarama bitince sonuç tabloya yazılır ve **program durdurulur**. Tablo ve özet satırı
   durduktan sonra da ekranda kalır. "Tarama bitince eksik özetini e-posta/Telegram ile gönder" (varsayılan kapalı) açıksa tarama sonunda özet de gönderilir.
   Kutu kapalıysa eski gibi çalışır (Başlat yalnız programı açar, zamanlanmış uyarılar sürer). Tarama sırasında **Durdur** ile vazgeçilebilir. "Luca tarayıcısı arka planda" seçeneği kaldırıldı.
+- **Beyanname Takip: tablo ve Excel:** "Tarayıcıda Aç" ve "Şimdi Luca'dan Çek" düğmeleri kaldırıldı (Başlat zaten taramayı yapıyor). **Excel'e Aktar** düğmesi tabloda **görünen** satırları
+  (filtre ve sıralama uygulanmış) .xlsx olarak kaydeder. Beyanname filtresi artık Luca'da **onaylı olup ayrıca izlenmeyen** beyannameleri de içerir (örn. firmanın ayarında KDV2 kapalıysa bile Luca'da
+  onaylı KDV2 varsa "KDV 2 (sorumlu sıfatıyla)" satırı **Verildi** olarak, not sütununda "ayarda izlenmiyor" yazısıyla listelenir; uyarıya / eksik hesabına girmez). Tanınmayan türler Luca'daki koduyla görünür.
+

@@ -139,8 +139,10 @@ def uygulama_olustur(cekirdek=None, env=os.environ):
                 "turler": {k: {"ad": v["ad"], "periyotlar": list(v["periyotlar"]), "auto": OTOMATIK.get(k, "")} for k, v in BEYANNAMELER.items()}}
 
     @app.get("/api/maddeler", dependencies=gerekli)
-    def maddeler():
-        return [m.sozluk() for m in cekirdek.maddeler()]
+    def maddeler(ek: int = 0):
+        """Beklenen beyannameler ve durumları. ek=1: ayrıca Luca'da onaylı olup izlenmeyen beyannameler (ek:true; uyarıya girmez)."""
+        sonuc = [m.sozluk() for m in cekirdek.maddeler()]
+        return sonuc + cekirdek.ek_maddeler() if ek else sonuc
 
     @app.get("/api/mukellefler", dependencies=gerekli)
     def mukellefler():

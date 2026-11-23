@@ -326,7 +326,7 @@ def veri_oku(port, sifre, zaman_asimi=10):
     """Programin API'sinden (oturum acarak) {'durum': ..., 'maddeler': [...]} okur; hata: OSError/ValueError."""
     acici = _oturum(port, sifre, zaman_asimi)
     sonuc = {}
-    for ad, yol in (("durum", "/api/durum"), ("maddeler", "/api/maddeler")):
+    for ad, yol in (("durum", "/api/durum"), ("maddeler", "/api/maddeler?ek=1")):        # ek=1: onayli ama izlenmeyen beyannameler de (KDV2 vb.)
         with acici.open(adres(port) + yol, timeout=zaman_asimi) as r:
             sonuc[ad] = json.loads(r.read().decode("utf-8"))
     return sonuc
