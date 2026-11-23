@@ -1943,6 +1943,7 @@ class BeyannameSekmesiTestleri(ArayuzZemini):
         self.assertIn("madde", self.bt.veri_etiketi.cget("text"))
         satir = self.bt.tablo.satirlar[0]
         self.assertEqual(len(satir), 8)
+        self.assertEqual(self.bt.tablo.filtre_adlari, ["Luca hesabı", "Dönem", "Durum", "Beyanname"])      # donem de filtrelenebilir
         self.assertIn(satir[6], ("Verildi", "EKSİK", "Eksik (ayar onaysız)", "SGK e-Bildirge eksik", "Muaf"))
         self.assertEqual(bt.kontrol_oku(self.bt_klasor)["port"], self.port)
         self.assertTrue(bt.saglikli_mi(self.port))

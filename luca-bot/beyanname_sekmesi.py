@@ -166,7 +166,7 @@ class BeyannameSekmesi:
         sutunlar = ("Mükellef", "Luca hesabı", "Beyanname", "Dönem", "Son gün", "Kalan", "Durum", "Not")
         genislik = (220, 120, 120, 100, 90, 80, 150, 200)
         self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 2, 3, 4, 5, 6, 7}, secim="extended",
-                                         filtreler=("Luca hesabı", "Durum", "Beyanname"),
+                                         filtreler=("Luca hesabı", "Dönem", "Durum", "Beyanname"),
                                          etiketler={"tamam": u.YESIL_FG, "eksik": u.KIRMIZI, "uyari": u.UYARI_FG, "soluk": u.SOLUK})
         self.tablo.pack(fill="both", expand=True)
 
