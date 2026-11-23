@@ -435,6 +435,9 @@ def test_hesap_ve_firma_oneki_kapsami():
     assert isl == ["1 ALFA"] and {b["firma"] for b in r["beyannameler"] if b["hesap"] == "isletme"} == {"ALFA LTD"}
     assert any("yalnız adı \"1\" ile başlayan" in u for u in r["uyarilar"])
     assert [m for m in r["mukellefler"] if m["hesap"] == "ofis"]                   # ofis hesabi etkilenmez
+    r, acilan = calistir({"LUCA_FIRMA_ONEK": "isletme:!1"})                        # isletmede "1" ile baslayanlar HARIC
+    assert [m["ad"] for m in r["mukellefler"] if m["hesap"] == "isletme"] == ["BETA"]
+    assert {b["firma"] for b in r["beyannameler"] if b["hesap"] == "isletme"} == {"BETA AS"}
     r, acilan = calistir({"LUCA_HESAPLAR": "isletme", "LUCA_ISLETME_UYE_NO": "x"})  # yalniz Ali Karaahmet: ofis hesabina hic girilmez
     assert acilan == ["isletme"] and {m["hesap"] for m in r["mukellefler"]} == {"isletme"}
 

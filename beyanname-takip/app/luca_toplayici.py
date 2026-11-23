@@ -26,7 +26,8 @@ LUCA_OFIS_UYE_NO gibi ön ekli adlar kullanılır; tek hesapta ön eksiz LUCA_UY
   LUCA_TANI=1      tanı modu: giriş + ekranlar açılır, filtre seçenekleri ve ekran görüntüleri DATA_DIR/tani'ya
                    yazılır, veri KAYDEDİLMEZ. Env değişkenine gerek yok: web sayfasındaki "Tanı" sekmesi aynısını yapar.
   LUCA_FIRMA_ONEK=isletme:1   hesap:önek (virgülle birden çok): o hesapta YALNIZ kısa adı bu önekle başlayan firmalar taranır
-                       (örn. isletme:1 = işletme hesabında adı "1" ile başlayanlar); hesap belirtilmeyen hesapta tüm firmalar
+                       (örn. isletme:1 = işletme hesabında adı "1" ile başlayanlar); "isletme:!1" = "1" ile başlayanlar HARİÇ
+                       hepsi; hesap belirtilmeyen hesapta tüm firmalar
   LUCA_ARKA_PLAN=1    Luca tarayıcı penceresini EKRANIN DIŞINDA aç (Luca görünmez/headless tarayıcıyla çalışmaz; pencere görünmez ama etkindir)
   LUCA_MUSTERI_YILI=otomatik|yok|2027,2026   müşteri listesi yıl filtresi (otomatik: yalnızca bu yıl)
   LUCA_SGK_LISTESI=1|0 "E-Bildirge Giriş Dosyası" listesinden çalışanı olan firmaları oku (varsayılan 1)
@@ -74,6 +75,12 @@ def kimlik_oku(env, hesap, tek_hesap):
 
 def env_oku():
     return os.environ
+
+
+def onek_uygun(ad, onek):
+    """Firma adi onek kosuluna uyar mi ('1': ile baslar; '!1': ile BASLAMAZ)."""
+    ad = ad.strip()
+    return not ad.startswith(onek[1:]) if onek.startswith("!") else ad.startswith(onek)
 
 
 def onek_oku(metin):
@@ -147,10 +154,11 @@ class LucaToplayici:
             onek = self.firma_onekleri.get(hesap)
             if onek:                                   # bu hesapta yalnız adı önekle başlayan firmalar (ve onların beyannameleri)
                 tum = len(mus)
-                mus = [m for m in mus if str(m.get("ad") or m.get("kisa_ad") or "").strip().startswith(onek)]
+                mus = [m for m in mus if onek_uygun(str(m.get("ad") or m.get("kisa_ad") or ""), onek)]
                 kalan = [mukellef_normalize(m, hesap) for m in mus]
                 bey = [b for b in bey if any(ayni_firma(k, b) for k in kalan)]
-                uyarilar = list(uyarilar) + [f"yalnız adı \"{onek}\" ile başlayan firmalar alındı ({len(mus)} / {tum})"]
+                uyarilar = list(uyarilar) + [(f"adı \"{onek[1:]}\" ile başlayanlar hariç firmalar alındı ({len(mus)} / {tum})" if onek.startswith("!")
+                                              else f"yalnız adı \"{onek}\" ile başlayan firmalar alındı ({len(mus)} / {tum})")]
             sonuc["mukellefler"] += mus
             sonuc["beyannameler"] += bey
             sonuc["uyarilar"] += [f"{hesap}: {u}" for u in uyarilar]

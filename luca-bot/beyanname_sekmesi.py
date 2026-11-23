@@ -89,7 +89,12 @@ class BeyannameSekmesi:
         self.kapsam_secenekleri = bt.kapsam_etiketleri(self.a.ayarlar)           # [(kod, etiket)]
         etiket = dict(self.kapsam_secenekleri).get(form.get("KAPSAM"), self.kapsam_secenekleri[0][1])
         self.v_kapsam = tk.StringVar(value=etiket)
-        self.v_arka_plan = tk.BooleanVar(value=form.get("ARKA_PLAN", True))
+        self._tarama_suruyor = False
+        self._iptal = threading.Event()
+        self._kalici_veri_metni = ""        # tek seferlik tarama bitip program durunca ozet satiri silinmesin
+        self.v_tek_sefer = tk.BooleanVar(value=form.get("TEK_SEFER", True))
+        self.v_ozet = tk.BooleanVar(value=form.get("OZET_GONDER", False))
+        self.v["MAIL_ALICI_BIR"] = tk.StringVar(value=form.get("MAIL_ALICI_BIR") or "")
         self._sol_panel()
         tk.Frame(self.govde, bg=ui.CIZGI, width=1).pack(side="left", fill="y")
         self._sag_panel()
@@ -126,10 +131,13 @@ class BeyannameSekmesi:
         self.kapsam_kutusu = ttk.Combobox(p, textvariable=self.v_kapsam, values=[e for _, e in self.kapsam_secenekleri], state="readonly",
                                           font=u.KUCUK)
         self.kapsam_kutusu.pack(fill="x", ipady=3)
-        tk.Checkbutton(p, text="Luca tarayıcısı ekranda görünmesin (arka planda)", variable=self.v_arka_plan, font=u.KUCUK,
+        tk.Checkbutton(p, text="Başlat = tek tarama; bitince programı durdur", variable=self.v_tek_sefer, font=u.KUCUK,
                        **self.a._kutu_renk()).pack(anchor="w", pady=(6, 0))
+        tk.Checkbutton(p, text="Tarama bitince eksik özetini e-posta/Telegram ile gönder", variable=self.v_ozet, font=u.KUCUK,
+                       **self.a._kutu_renk()).pack(anchor="w", pady=(2, 0))
         u.bolum_basligi(p, "Bildirim").pack(fill="x", pady=(14, 0))
         alan("E-posta alıcı", "MAIL_ALICI", ilk=True)
+        alan("E-posta alıcı: adı \"1\" ile başlayan firmalar (Gürbetçi)", "MAIL_ALICI_BIR")
         alan("Resend API anahtarı (boşsa SMTP ayarları kullanılır)", "RESEND_API_KEY", gizli=True)
         alan("Telegram bot token (isteğe bağlı)", "TELEGRAM_TOKEN", gizli=True)
         alan("Telegram chat id", "TELEGRAM_CHAT_ID")
@@ -185,7 +193,8 @@ class BeyannameSekmesi:
     def _form(self):
         form = {ad: v.get() for ad, v in self.v.items()}
         form["luca_ayarlardan"] = self.v_luca.get()
-        form["ARKA_PLAN"] = self.v_arka_plan.get()
+        form["TEK_SEFER"] = self.v_tek_sefer.get()
+        form["OZET_GONDER"] = self.v_ozet.get()
         form["KAPSAM"] = next((k for k, e in self.kapsam_secenekleri if e == self.v_kapsam.get()), self.kapsam_secenekleri[0][0])
         return form
 
@@ -215,19 +224,26 @@ class BeyannameSekmesi:
     def baslat(self):
         if self._islem_calisiyor:
             return
-        if self.calisiyor_mu:
-            messagebox.showinfo("Zaten çalışıyor", "Program zaten çalışıyor.", parent=self.a.kok)
-            return
         eksik = bt.eksik_paketler()
-        if eksik:
+        if eksik and not self.calisiyor_mu:
             messagebox.showerror("Paket eksik", "Şu paketler kurulu değil: " + ", ".join(eksik) + "\n\nKurulum sihirbazındaki 'Eksik bileşenleri "
                                  "kur'a basın ya da luca-bot klasöründe `pip install -r requirements.txt` çalıştırın.", parent=self.a.kok)
             return
+        tek_sefer = self.v_tek_sefer.get()
+        if self.calisiyor_mu:
+            if not tek_sefer:
+                messagebox.showinfo("Zaten çalışıyor", "Program zaten çalışıyor.", parent=self.a.kok)
+                return
+            if not messagebox.askyesno("Program zaten çalışıyor", "Program zaten çalışıyor. Yeni ayarların (hesap kapsamı, e-posta) geçerli olması için "
+                                       "önce durdurulup yeniden başlatılacak, tarama yapılacak ve bitince program durdurulacak.\n\nDevam edilsin mi?",
+                                       parent=self.a.kok):
+                return
+            self._durdur_sessiz()
         if not self.kaydet(sessiz=True):
             return
         port = int(self.v["PORT"].get())
         if bt.saglikli_mi(port):
-            # program zaten ayakta (baska yerden / onceki oturumdan baslatilmis): ikinci kez baslatmaya calismadan arayuzu ona baglar
+            # baska bir program (ya da durdurulamayan eski surec) portta yanit veriyor: izleme ona baglanir, tarama yapilmaz
             self.calisiyor_mu = True
             self._durumu_yaz()
             self._son_veri = 0.0
@@ -236,6 +252,9 @@ class BeyannameSekmesi:
         self._islem_calisiyor = True
         self.baslat_dugmesi.configure(state="disabled")
         self._bildir("Başlatılıyor…")
+        self._iptal.clear()
+        ozet = self.v_ozet.get()
+        sifre = self.v["WEB_SIFRE"].get()
 
         def is_():
             try:
@@ -247,19 +266,97 @@ class BeyannameSekmesi:
                     time.sleep(0.5)
                 else:
                     self._bildir("Program başlamadı — günlüğe bakın (aşağıda)", hata=True)
+                    return
+                if tek_sefer:
+                    self._tek_tarama(port, sifre, ozet)
             except Exception as e:  # noqa: BLE001
                 self._bildir(f"Başlatılamadı: {type(e).__name__}: {e}", hata=True)
             finally:
                 self._islem_calisiyor = False
+                self._tarama_suruyor = False
                 self._son_saglik = 0.0
         threading.Thread(target=is_, daemon=True).start()
 
+    TARAMA_AZAMI_SN = 90 * 60       # tek tarama icin en uzun bekleme (CAPTCHA / yavas Luca dahil)
+
+    def _tek_tarama(self, port, sifre, ozet):
+        """Program acildiktan sonra Luca taramasini baslatir (Luca penceresi gorunur acilir, islemler izlenir), bitince sonucu tabloya yazar ve
+        programi durdurur. (Arka plan is parcacigindan cagrilir.)"""
+        self._tarama_suruyor = True
+        onceki = bt.durum_oku(port, sifre)
+        onceki_toplama = (onceki.get("son_toplama") or {}).get("zaman")
+        onceki_rapor = (onceki.get("son_rapor") or {}).get("zaman")
+        if ozet:
+            bt.rapor_gonder(port, sifre)               # veriyi cek + eksik ozetini e-posta/Telegram ile gonder
+        else:
+            bt.simdi_cek(port, sifre)                  # yalniz veriyi cek (mesaj gitmez)
+        self._hizli_bitis = time.monotonic() + self.TARAMA_AZAMI_SN
+        self._bildir("Luca taranıyor… (açılan Luca penceresinden işlemleri izleyebilirsiniz)")
+        bitis = time.monotonic() + self.TARAMA_AZAMI_SN
+        sonuc = (False, False, "Tarama beklenen sürede bitmedi (90 dk); program açık bırakıldı")
+        while time.monotonic() < bitis and not self._iptal.is_set():
+            time.sleep(3.0)
+            try:
+                durum = bt.durum_oku(port, sifre)
+            except (OSError, ValueError):
+                continue                                  # program anlik yanit vermedi
+            if durum.get("captcha_bekliyor"):
+                self._bildir("CAPTCHA bekliyor — Telegram'dan ya da \"Tarayıcıda Aç\" sayfasından cevaplayın")
+            bitti, ok, mesaj = bt.tarama_bitti(durum, onceki_toplama, onceki_rapor, ozet)
+            if bitti:
+                sonuc = (True, ok, mesaj)
+                break
+        else:
+            if self._iptal.is_set():
+                return                                    # kullanici Durdur'a bastı: durdurma onun elinde
+        bitti, ok, mesaj = sonuc
+        try:                                              # program durmadan once son veriyi tabloya al
+            veri = bt.veri_oku(port, sifre)
+            self._veri_sonuc = ("ok", veri)
+            self._tarama_ozeti_hazirla(veri)
+        except (OSError, ValueError):
+            pass
+        if bitti:
+            self._iptal.set()
+            ok_durdu, durdu_mesaj = bt.durdur(self.klasor)
+            self._bildir(("Tarama bitti: " if ok else "Tarama TAMAMLANAMADI: ") + mesaj + (" — program durduruldu" if ok_durdu else f" — {durdu_mesaj}"),
+                         hata=not ok)
+        else:
+            self._bildir(mesaj, hata=True)
+
+    def _tarama_ozeti_hazirla(self, veri):
+        """Program durunca da gorunecek ozet satiri (Luca verisi zamani, madde / eksik sayisi)."""
+        d, maddeler = veri["durum"], veri["maddeler"]
+        v = d.get("veri") or {}
+        eksik = [m for m in maddeler if m.get("durum") in ("eksik", "onaysiz", "sgk_eksik")]
+        zaman = ""
+        if v.get("zaman"):
+            try:
+                zaman = "Luca verisi: " + datetime.fromisoformat(v["zaman"]).strftime("%d/%m/%Y %H:%M") + "  ·  "
+            except ValueError:
+                pass
+        self._kalici_veri_metni = f"{zaman}{len(maddeler)} madde, {len(eksik)} verilmemiş (son tarama; program durduruldu)"
+
+    def _durdur_sessiz(self):
+        """Onay sormadan programi durdurur (yeniden baslatmadan once)."""
+        try:
+            bt.durdur(self.klasor)
+        except Exception:  # noqa: BLE001
+            pass
+        for _ in range(20):
+            if not bt.saglikli_mi(int(self.v["PORT"].get()), 0.5):
+                break
+            time.sleep(0.5)
+        self.calisiyor_mu = False
+        self._durumu_yaz()
+
     def durdur(self):
-        if self._islem_calisiyor:
+        if self._islem_calisiyor and not self._tarama_suruyor:
             return
         if not messagebox.askyesno("Durdur", "Beyanname Takip durdurulsun mu?\n\nDurunca uyarı mesajları gitmez (son gün akşamları dahil); "
                                    "yeniden başlatana kadar kontrol yapılmaz.", parent=self.a.kok):
             return
+        self._iptal.set()                    # sürüyorsa tek tarama bekleyişi bırakılır
         self._islem_calisiyor = True
         self.durdur_dugmesi.configure(state="disabled")
         self._bildir("Durduruluyor…")
@@ -377,7 +474,7 @@ class BeyannameSekmesi:
         else:
             self.durum_etiketi.configure(text="○ Çalışmıyor", fg=u.SOLUK)
             self.adres_etiketi.configure(text="")
-            self.veri_etiketi.configure(text="")
+            self.veri_etiketi.configure(text=self._kalici_veri_metni, fg=self.ui.SOLUK)
         self.baslat_dugmesi.configure(state="disabled" if self.calisiyor_mu else "normal")
         self.durdur_dugmesi.configure(state="normal" if self.calisiyor_mu else "disabled")
 

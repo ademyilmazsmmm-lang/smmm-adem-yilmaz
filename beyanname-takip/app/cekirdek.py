@@ -2,6 +2,7 @@
 
 import html
 import logging
+import re
 import threading
 from datetime import datetime, timedelta, timezone
 
@@ -20,8 +21,10 @@ def simdi_tr():
 
 
 class Uygulama:
-    def __init__(self, depo, toplayici, telegram, captcha, tatil=None, saat=simdi_tr):
+    def __init__(self, depo, toplayici, telegram, captcha, tatil=None, saat=simdi_tr, birli_alici=None):
         self.depo, self.toplayici, self.telegram, self.captcha = depo, toplayici, telegram, captcha
+        # Adı "1" ile başlayan firmaların eksik listesi (ayrı e-postalar) bu adreslere gider, ana e-posta alıcısına GİTMEZ; boşsa hepsi ana alıcıya
+        self.birli_alici = [a.strip() for a in re.split(r"[,;]", birli_alici or "") if a.strip()]
         self.tatil = tatil or Tatiller()
         self.saat = saat
         self._toplama_kilidi = threading.Lock()
@@ -118,9 +121,13 @@ class Uygulama:
         ek += vd["uyarilar"]
         # Veri uyarıları (Luca hatası, eski veri, bayram verisi) bir kez; eksik listeleri Ofis / Ofis "1"liler / İşletme için AYRI e-postalar
         metinler = mesaj_olustur([], slot, vd["zaman"], vd["hata"], vd["eski"], " | ".join(ek) or None, esik=esik)
+        birli = set()                      # "1" ile başlayan firma bölümlerinin metinleri (ayrı alıcıya gider)
         for baslik, ms in bolumlere_ayir(maddeler):
             for parca in mesaj_olustur(ms, slot, vd["zaman"], None, False, None, esik=esik):
-                metinler.append(f"<b>[{html.escape(baslik)}]</b> " + parca)
+                metin = f"<b>[{html.escape(baslik)}]</b> " + parca
+                metinler.append(metin)
+                if " · 1 ile başlayanlar" in baslik:
+                    birli.add(metin)
         if slot == SLOTLAR[0] and esik is None:
             ozet = gunluk_ozet(maddeler, vd["zaman"], bugun)
             if vd["hata"]:
@@ -129,7 +136,14 @@ class Uygulama:
                 metinler = [ozet] + metinler
         if gecikmeli and metinler:
             metinler[0] = "<i>(gecikmeli gönderim)</i>\n" + metinler[0]
+        self._birli_idx = {i for i, m in enumerate(metinler) if m in birli}      # son listedeki konumlar (metinlere önek eklenebilir)
         return metinler
+
+    def _gonder(self, metin, sira):
+        """Tek mesajı gönderir: "1" ile başlayan firma bölümü, birli_alici tanımlıysa ana e-postaya gitmez; o adrese (ve Telegram'a) gider."""
+        if self.birli_alici and sira in getattr(self, "_birli_idx", ()):
+            return self.telegram.gonder_alici(metin, self.birli_alici)
+        return self.telegram.gonder(metin)
 
     def rapor_gonder(self, esik=10, gib_aralik=None):
         """Elle istenen özet: Luca'dan taze veriyi çeker, son günü `esik` gün içinde (ya da yeni geçmiş) eksik her şeyi bildirim
@@ -146,9 +160,10 @@ class Uygulama:
                 vd = self.veri_durumu()
                 metinler = [f"✅ <b>Beyanname takip özeti</b>\nÖnümüzdeki {esik} gün içinde son günü gelen eksik beyanname yok."
                             f"\n<i>Luca verisi: {vd['zaman']} itibarıyla</i>"]
+                self._birli_idx = set()
             else:
                 metinler[0] = "📋 <b>Elle istenen özet</b>\n" + metinler[0]
-            ok = all([self.telegram.gonder(m) for m in metinler])
+            ok = all([self._gonder(m, i) for i, m in enumerate(metinler)])
             sonuc = {"ok": ok, "zaman": simdi.isoformat(), "mesaj": f"{len(metinler)} e-posta gönderildi" if ok else "bildirim gönderilemedi"}
         except Exception as e:  # noqa: BLE001
             log.exception("rapor başarısız")
@@ -170,7 +185,7 @@ class Uygulama:
             return "zaten çalıştı"
         self.topla()
         metinler = self._mesajlar(slot, bugun, gecikmeli)
-        basarili = all(self.telegram.gonder(m) for m in metinler) if metinler else True
+        basarili = all(self._gonder(m, i) for i, m in enumerate(metinler)) if metinler else True
         if basarili:
             def isle(g):
                 g[anahtar] = self.saat().isoformat()

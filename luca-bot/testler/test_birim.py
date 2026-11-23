@@ -583,26 +583,62 @@ class RaporTestleri(unittest.TestCase):
     def test_beyanname_takip_kapsam_secimi_hesap_ve_firma_oneki(self):
         from lucabot import beyanname_takip as bt
         iki = {"uye_no": "1", "kullanici_adi": "o", "parola": "p",
-               "ikinci_hesap": {"etkin": True, "uye_no": "2", "kullanici_adi": "i", "parola": "q"}}
+               "ikinci_hesap": {"etkin": True, "uye_no": "2", "kullanici_adi": "i", "parola": "q"},
+               "mail_yonlendirme": [{"ad": "Gurbetçi Adem", "firma_on_eki": "1", "alici": "g@x.com"}]}
         bir = {"uye_no": "1", "kullanici_adi": "o", "parola": "p"}
-        self.assertEqual([k for k, _ in bt.kapsam_etiketleri(iki)], ["hepsi", "ofis", "isletme", "isletme-1", "hepsi-1"])
+        self.assertEqual([k for k, _ in bt.kapsam_etiketleri(iki)], ["toplu", "ofis", "isletme", "bir"])
         self.assertEqual([k for k, _ in bt.kapsam_etiketleri(bir)], ["ofis"])                     # isletme hesabi yoksa yalniz ofis
-        self.assertIn("1\" ile başlayan", dict(bt.kapsam_etiketleri(iki))["isletme-1"])
+        etiket = dict(bt.kapsam_etiketleri(iki))
+        self.assertIn("1\" ile başlayanlar hariç", etiket["isletme"])
+        self.assertIn("1\" ile başlayanlar", etiket["bir"])
         with tempfile.TemporaryDirectory() as d:
             form = {"WEB_SIFRE": "sifre12", "PORT": "8765", "LUCA_GIB_GUN": "31", "luca_ayarlardan": True}
-            for kod, hesap, onek in (("isletme", "isletme", ""), ("isletme-1", "isletme", "isletme:1"), ("ofis", "ofis", ""),
-                                     ("hepsi-1", "ofis,isletme", "isletme:1"), ("hepsi", "ofis,isletme", "")):
+            for kod, hesap, onek in (("isletme", "isletme", "isletme:!1"), ("bir", "isletme", "isletme:1"), ("ofis", "ofis", ""),
+                                     ("toplu", "ofis,isletme", "")):
                 bt.env_hazirla(Path(d), dict(form, KAPSAM=kod), iki)
                 e = bt.env_oku(bt.env_yolu(Path(d)))
                 self.assertEqual((e["LUCA_HESAPLAR"], e.get("LUCA_FIRMA_ONEK", "")), (hesap, onek), kod)
                 self.assertEqual(bt.kapsam_kodu(e), kod)                                           # yazilan kapsam geri okunur
                 self.assertEqual(bt.varsayilan_form(Path(d), iki)["KAPSAM"], kod)
-            self.assertEqual(bt.env_oku(bt.env_yolu(Path(d)))["LUCA_ARKA_PLAN"], "1")                      # varsayilan: arka plan
-            bt.env_hazirla(Path(d), dict(form, KAPSAM="hepsi", ARKA_PLAN=False), iki)
+            # Luca penceresi HER ZAMAN gorunur: eskiden "arka plan" yazilmis olsa bile 0'a doner
+            bt.env_yaz(bt.env_yolu(Path(d)), {"LUCA_ARKA_PLAN": "1"})
+            bt.env_hazirla(Path(d), dict(form, KAPSAM="toplu"), iki)
             self.assertEqual(bt.env_oku(bt.env_yolu(Path(d)))["LUCA_ARKA_PLAN"], "0")
-            self.assertFalse(bt.varsayilan_form(Path(d), iki)["ARKA_PLAN"])
             self.assertEqual(bt.kapsam_kodu({}), "ofis")
-            self.assertEqual(bt.kapsam_kodu({"LUCA_HESAPLAR": "ofis,isletme"}), "hepsi")
+            self.assertEqual(bt.kapsam_kodu({"LUCA_HESAPLAR": "ofis,isletme"}), "toplu")
+
+    def test_beyanname_takip_1_ile_baslayanlar_epostasi_ve_tek_sefer_ayarlari(self):
+        from lucabot import beyanname_takip as bt
+        ana = {"uye_no": "1", "kullanici_adi": "o", "parola": "p",
+               "mail_yonlendirme": [{"ad": "Gurbetçi Adem", "firma_on_eki": "1", "alici": "gurbetci@x.com"}]}
+        self.assertEqual(bt.birli_alicilari(ana), "gurbetci@x.com")                              # mevcut mail-yonlendirme kuralindan
+        self.assertEqual(bt.birli_alicilari({"uye_no": "1", "mail_yonlendirme": [{"ad": "x", "firma_on_eki": "A", "alici": "a@x.com"}]}), "")
+        with tempfile.TemporaryDirectory() as d:
+            f = bt.varsayilan_form(Path(d), ana)
+            self.assertEqual((f["MAIL_ALICI_BIR"], f["TEK_SEFER"], f["OZET_GONDER"]), ("gurbetci@x.com", True, False))
+            form = {"WEB_SIFRE": "sifre12", "PORT": "8765", "LUCA_GIB_GUN": "31", "luca_ayarlardan": True,
+                    "MAIL_ALICI_BIR": "yeni@x.com", "TEK_SEFER": False, "OZET_GONDER": True}
+            bt.env_hazirla(Path(d), form, ana)
+            e = bt.env_oku(bt.env_yolu(Path(d)))
+            self.assertEqual((e["MAIL_ALICI_BIR"], e["BEYANNAME_TEK_SEFER"], e["BEYANNAME_OZET_GONDER"]), ("yeni@x.com", "0", "1"))
+            f = bt.varsayilan_form(Path(d), ana)
+            self.assertEqual((f["MAIL_ALICI_BIR"], f["TEK_SEFER"], f["OZET_GONDER"]), ("yeni@x.com", False, True))
+            bt.env_hazirla(Path(d), dict(form, MAIL_ALICI_BIR=""), ana)                          # bilerek bos birakildi: yonlendirme yok
+            self.assertEqual(bt.varsayilan_form(Path(d), ana)["MAIL_ALICI_BIR"], "")
+
+    def test_beyanname_takip_tarama_bitti(self):
+        from lucabot import beyanname_takip as bt
+        d = {"son_toplama": {"zaman": "T1", "ok": True, "mukellef": 5, "beyanname": 9}, "son_rapor": {"zaman": "R1", "ok": True, "mesaj": "3 e-posta gönderildi"},
+             "rapor_suruyor": False}
+        self.assertEqual(bt.tarama_bitti(d, "T1", "R1", False), (False, False, ""))                       # zaman degismedi: suruyor
+        self.assertEqual(bt.tarama_bitti(d, "T0", "R1", False), (True, True, "5 mükellef, 9 beyanname okundu"))
+        self.assertEqual(bt.tarama_bitti(d, "T0", "R1", True), (False, False, ""))                        # ozet modu: rapor henuz bitmedi
+        self.assertEqual(bt.tarama_bitti(dict(d, rapor_suruyor=True), "T0", "R0", True), (False, False, ""))
+        self.assertEqual(bt.tarama_bitti(d, "T0", "R0", True), (True, True, "3 e-posta gönderildi"))
+        hata = {"son_toplama": {"zaman": "T2", "ok": False, "hata": "RuntimeError: giris"}}
+        bitti, ok, mesaj = bt.tarama_bitti(hata, "T1", None, False)
+        self.assertEqual((bitti, ok), (True, False))
+        self.assertIn("giris", mesaj)
 
     def test_tarayici_arka_plan_pencereyi_ekran_disinda_acar(self):
         from lucabot import ortak, tarayici

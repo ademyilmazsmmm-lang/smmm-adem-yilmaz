@@ -45,7 +45,7 @@ OTURUM_SN = 12 * 3600
 def uygulama_kur(env=os.environ):
     depo = Depo(env.get("DATA_DIR", "veri"))
     tg = Bildirici([Telegram(env.get("TELEGRAM_TOKEN"), env.get("TELEGRAM_CHAT_ID")), ResendApi.ortamdan(env), GmailApi.ortamdan(env), Eposta.ortamdan(env)])
-    return Uygulama(depo, sec(env.get("TOPLAYICI", "ornek"), depo.dizin), tg, CaptchaKoprusu(tg))
+    return Uygulama(depo, sec(env.get("TOPLAYICI", "ornek"), depo.dizin), tg, CaptchaKoprusu(tg), birli_alici=env.get("MAIL_ALICI_BIR"))
 
 
 def _cik():

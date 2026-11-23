@@ -448,6 +448,44 @@ def test_mesajlar_ofis_birli_ve_isletme_ayri_epostalar(tmp_path):
     assert "SON UYARI" in ofis
 
 
+class SahteEposta:
+    """E-posta kanalı: alıcı listesi vardır (Bildirici.gonder_alici bunu geçici olarak değiştirir)."""
+    hazir = True
+
+    def __init__(self, alicilar):
+        self.alicilar, self.gidenler = list(alicilar), []
+
+    def gonder(self, metin):
+        self.gidenler.append((tuple(self.alicilar), metin))
+        return True
+
+
+def test_birli_firmalarin_uyarisi_ayri_adrese_gider_ana_postaya_gitmez(tmp_path):
+    from app.bildirim import Bildirici
+    from app.kontrol import mukellef_normalize
+
+    class Uc:
+        def topla(self, bugun, captcha=None):
+            mk = [mukellef_normalize({"sirket_id": v, "ad": a, "unvan": a, "vkn": v, "acilis": "01/01/2015", "kapanis": ""}, h)
+                  for a, v, h in (("ALFA", "1111111111", "ofis"), ("1 BETA", "2222222222", "isletme"), ("GAMA", "3333333333", "isletme"))]
+            return {"mukellefler": mk, "beyannameler": [], "uyarilar": []}
+    tg, posta = SahteTelegram(), SahteEposta(["ana@x.com"])
+    saat = Saat("2026-11-30T21:00")
+    u = Uygulama(Depo(tmp_path), Uc(), Bildirici([tg, posta]), CaptchaKoprusu(tg), saat=saat, birli_alici="gurbetci@x.com")
+    u.slot_calistir("21:00")
+    gidenler = {(al, m.split("</b>")[0].replace("<b>", "")) for al, m in posta.gidenler}
+    assert (("gurbetci@x.com",), "[İŞLETME · 1 ile başlayanlar]") in gidenler            # "1" firmalari: yalniz Gurbetci'ye
+    assert (("ana@x.com",), "[İŞLETME]") in gidenler and (("ana@x.com",), "[OFİS]") in gidenler
+    assert not any(al == ("ana@x.com",) and "1 BETA" in m for al, m in posta.gidenler)   # ana postaya "1" firmasi gitmedi
+    assert not any(al == ("gurbetci@x.com",) and ("ALFA" in m or "GAMA" in m) for al, m in posta.gidenler)
+    assert posta.alicilar == ["ana@x.com"]                                                # kanalin ana alicisi geri yuklendi
+    # birli_alici tanimli degilse eski davranis: hepsi ana alicilara
+    posta2 = SahteEposta(["ana@x.com"])
+    u2 = Uygulama(Depo(tmp_path / "b"), Uc(), Bildirici([SahteTelegram(), posta2]), CaptchaKoprusu(tg), saat=Saat("2026-11-30T21:00"))
+    u2.slot_calistir("21:00")
+    assert {al for al, _ in posta2.gidenler} == {("ana@x.com",)}
+
+
 def test_topla_gib_araligini_toplayiciya_iletir_ve_sonucta_gosterir(tmp_path):
     from datetime import date as _d
     alinan = []

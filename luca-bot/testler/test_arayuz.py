@@ -1934,6 +1934,7 @@ class BeyannameSekmesiTestleri(ArayuzZemini):
         self.bt.kaydet(sessiz=True)
         bt.env_yaz(bt.env_yolu(self.bt_klasor), {"TOPLAYICI": "ornek", "ZAMANLAYICI": "0"})      # gercek Luca'ya girme: ornek veri
         self.app.sekme_sec("bt")
+        self.bt.v_tek_sefer.set(False)                                       # surekli calisma kipi: Baslat yalniz programi acar
         self.bt.baslat()
         self.assertTrue(self._bekle(lambda: self.bt.calisiyor_mu, 40))
         self.assertEqual(str(self.bt.durdur_dugmesi.cget("state")), "normal")
@@ -1952,6 +1953,23 @@ class BeyannameSekmesiTestleri(ArayuzZemini):
         self.assertFalse(bt.saglikli_mi(self.port))
         self.assertEqual(str(self.bt.baslat_dugmesi.cget("state")), "normal")
 
+    def test_baslat_tek_tarama_programi_acar_tarar_tabloyu_doldurur_ve_durdurur(self):
+        from lucabot import beyanname_takip as bt
+        self._kutular()
+        self.bt.v["PORT"].set(str(self.port))
+        self.bt.kaydet(sessiz=True)
+        bt.env_yaz(bt.env_yolu(self.bt_klasor), {"TOPLAYICI": "ornek", "ZAMANLAYICI": "0"})      # gercek Luca'ya girme: ornek veri
+        self.app.sekme_sec("bt")
+        self.assertTrue(self.bt.v_tek_sefer.get())
+        self.bt.baslat()                                                       # tek tarama: ac, tara, bitince durdur
+        self.assertTrue(self._bekle(lambda: "Tarama bitti" in (self.bt._mesaj or ("",))[0] or
+                                    self.bt.mesaj_etiketi.cget("text").startswith("Tarama bitti"), 60), self.bt.mesaj_etiketi.cget("text"))
+        self.assertTrue(self._bekle(lambda: len(self.bt.tablo.satirlar) > 0, 20))                 # tablo program durmadan once dolduruldu
+        self.assertTrue(self._bekle(lambda: not self.bt.calisiyor_mu and not bt.saglikli_mi(self.port), 30))
+        self.assertIn("program durduruldu", self.bt.veri_etiketi.cget("text") + self.bt.mesaj_etiketi.cget("text"))
+        self.assertGreater(len(self.bt.tablo.satirlar), 0)                      # durunca tablo silinmez
+        self.assertEqual(str(self.bt.baslat_dugmesi.cget("state")), "normal")
+
     def test_kapsam_secici_ofis_isletme_ve_bir_ile_baslayanlar(self):
         etiketler = [e for _, e in self.bt.kapsam_secenekleri]
         self.assertTrue(etiketler)
@@ -1959,6 +1977,59 @@ class BeyannameSekmesiTestleri(ArayuzZemini):
         for kod, etiket in self.bt.kapsam_secenekleri:                       # secilen etiket formda koda cevrilir
             self.bt.v_kapsam.set(etiket)
             self.assertEqual(self.bt._form()["KAPSAM"], kod)
+
+    def _tek_tarama_calistir(self, durumlar, ozet=False):
+        """_tek_tarama'yi sahte program API'siyle calistirir: (cagrilar, durumlar kuyrugu)."""
+        import beyanname_sekmesi as bs
+        cagrilar, kuyruk = [], list(durumlar)
+        asil = {ad: getattr(bs.bt, ad) for ad in ("durum_oku", "simdi_cek", "rapor_gonder", "veri_oku", "durdur")}
+        asil_uyku = bs.time.sleep
+        self.addCleanup(lambda: [setattr(bs.bt, ad, f) for ad, f in asil.items()])
+        self.addCleanup(setattr, bs.time, "sleep", asil_uyku)
+        bs.bt.durum_oku = lambda *a, **k: kuyruk.pop(0) if len(kuyruk) > 1 else kuyruk[0]
+        bs.bt.simdi_cek = lambda *a, **k: cagrilar.append("cek") or True
+        bs.bt.rapor_gonder = lambda *a, **k: cagrilar.append("rapor") or True
+        bs.bt.veri_oku = lambda *a, **k: {"durum": {"veri": {"zaman": "2026-11-23T10:00:00"}},
+                                          "maddeler": [{"durum": "eksik"}, {"durum": "verildi"}, {"durum": "eksik"}]}
+        bs.bt.durdur = lambda k: (cagrilar.append("durdur"), (True, "Program durduruldu"))[1]
+        bs.time.sleep = lambda s: None
+        self.bt._iptal.clear()
+        self.bt._tek_tarama(8765, "x", ozet)
+        return cagrilar
+
+    def test_tek_tarama_veriyi_ceker_tabloya_yazar_ozeti_saklar_ve_programi_durdurur(self):
+        onceki = {"son_toplama": {"zaman": "T0"}}
+        bitti = {"son_toplama": {"zaman": "T1", "ok": True, "mukellef": 3, "beyanname": 4}}
+        cagrilar = self._tek_tarama_calistir([onceki, onceki, bitti])
+        self.assertEqual(cagrilar, ["cek", "durdur"])                         # e-posta ozeti istenmedi: yalniz veri cekildi
+        self.assertEqual(self.bt._veri_sonuc[0], "ok")                        # tabloya yazilacak son veri program durmadan okundu
+        self.assertIn("Tarama bitti: 3 mükellef, 4 beyanname okundu", self.bt._mesaj[0])
+        self.assertIn("program durduruldu", self.bt._mesaj[0])
+        self.assertFalse(self.bt._mesaj[1])
+        self.assertIn("3 madde, 2 verilmemiş", self.bt._kalici_veri_metni)     # program durunca da gorunur
+        self.bt.calisiyor_mu = False
+        self.bt._durumu_yaz()
+        self.assertIn("2 verilmemiş", self.bt.veri_etiketi.cget("text"))
+
+    def test_tek_tarama_ozet_istenirse_rapor_gonderir_hata_olursa_bildirir(self):
+        onceki = {"son_toplama": {"zaman": "T0"}, "son_rapor": {"zaman": "R0"}}
+        bitti = {"son_toplama": {"zaman": "T1", "ok": True, "mukellef": 1, "beyanname": 1}, "rapor_suruyor": False,
+                 "son_rapor": {"zaman": "R1", "ok": True, "mesaj": "2 e-posta gönderildi"}}
+        self.assertEqual(self._tek_tarama_calistir([onceki, bitti], ozet=True), ["rapor", "durdur"])
+        self.assertIn("2 e-posta gönderildi", self.bt._mesaj[0])
+        hata = {"son_toplama": {"zaman": "T2", "ok": False, "hata": "RuntimeError: giriş"}}
+        self._tek_tarama_calistir([onceki, hata])
+        self.assertTrue(self.bt._mesaj[1])
+        self.assertIn("TAMAMLANAMADI", self.bt._mesaj[0])
+        self.assertIn("giriş", self.bt._mesaj[0])
+
+    def test_arka_plan_secenegi_yok_ve_yeni_alanlar_var(self):
+        self.assertFalse(hasattr(self.bt, "v_arka_plan"))
+        self.assertTrue(self.bt.v_tek_sefer.get())                           # varsayilan: tek tarama, bitince dur
+        self.assertFalse(self.bt.v_ozet.get())
+        self.assertIn("MAIL_ALICI_BIR", self.bt.v)
+        f = self.bt._form()
+        self.assertTrue(f["TEK_SEFER"] and not f["OZET_GONDER"] and "ARKA_PLAN" not in f)
 
     def test_program_zaten_calisiyorsa_baslat_arayuzu_ona_baglar_pencere_acmaz(self):
         import beyanname_sekmesi as bs

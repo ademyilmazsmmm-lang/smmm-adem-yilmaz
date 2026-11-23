@@ -104,29 +104,40 @@ def _temiz(deger):
     return str(deger if deger is not None else "").replace("\r", " ").replace("\n", " ").strip()
 
 
-# Taranacak Luca hesabi / firma kapsami: kod -> (LUCA_HESAPLAR, LUCA_FIRMA_ONEK). "1 ile baslayan" = firma kisa adi "1" ile baslayanlar.
-KAPSAMLAR = {"hepsi": ("ofis,isletme", ""), "ofis": ("ofis", ""), "isletme": ("isletme", ""),
-             "isletme-1": ("isletme", "isletme:1"), "hepsi-1": ("ofis,isletme", "isletme:1")}
+# Taranacak Luca hesabi / firma kapsami: kod -> (LUCA_HESAPLAR, LUCA_FIRMA_ONEK). "1 ile baslayan" = firma kisa adi "1" ile baslayanlar
+# (isletme hesabinda; "!1" = "1" ile baslayanlar HARIC). Toplu = Adem Yilmaz + Ali Karaahmet (1'ler dahil: onlar da ayri e-postaya gider).
+KAPSAMLAR = {"toplu": ("ofis,isletme", ""), "ofis": ("ofis", ""), "isletme": ("isletme", "isletme:!1"), "bir": ("isletme", "isletme:1")}
+
+
+def birli_alicilari(ana_ayarlar=None):
+    """mail-yonlendirme.json'daki '1' on ekli kuralin alicilari (virgullu metin; yoksa bos) = '1 ile baslayanlar' e-posta adresi."""
+    try:
+        from . import eposta
+        for k in eposta.yonlendirmeler(ana_ayarlar or {}):
+            if any(o.strip() == "1" for o in k["on_ekler"]):
+                return ", ".join(k["alicilar"])
+    except Exception:  # noqa: BLE001 - yonlendirme dosyasi bozuksa varsayilan bos
+        pass
+    return ""
 
 
 def kapsam_etiketleri(ana_ayarlar=None):
     """[(kod, gorunen etiket)]: ikinci (isletme) hesap tanimli degilse yalniz ofis secenegi."""
     o, i = hesaplar.gorunen_ad("ofis"), hesaplar.gorunen_ad("isletme")
     if ana_ayarlar is not None and hesaplar.ikinci_hesap(ana_ayarlar) is None:
-        return [("ofis", f"Yalnız {o}")]
-    return [("hepsi", f"Her iki hesap: {o} + {i} (tüm firmalar)"), ("ofis", f"Yalnız {o} (tüm firmalar)"),
-            ("isletme", f"Yalnız {i} (tüm firmalar)"), ("isletme-1", f"Yalnız {i}: adı \"1\" ile başlayan firmalar"),
-            ("hepsi-1", f"{o} (tüm firmalar) + {i} (yalnız \"1\" ile başlayanlar)")]
+        return [("ofis", o)]
+    return [("toplu", f"Toplu: {o} + {i} + \"1\" ile başlayanlar"), ("ofis", o),
+            ("isletme", f"{i} (\"1\" ile başlayanlar hariç)"), ("bir", "\"1\" ile başlayanlar (Adem Gürbetçi)")]
 
 
 def kapsam_kodu(env):
-    """ayarlar.env'deki LUCA_HESAPLAR / LUCA_FIRMA_ONEK -> kapsam kodu (tanimsizsa 'hepsi')."""
+    """ayarlar.env'deki LUCA_HESAPLAR / LUCA_FIRMA_ONEK -> kapsam kodu (tanimsizsa tek hesapta 'ofis', iki hesapta 'toplu')."""
     hesap = ",".join(h.strip() for h in (env.get("LUCA_HESAPLAR") or "ofis").split(",") if h.strip())
     onek = (env.get("LUCA_FIRMA_ONEK") or "").strip().replace(" ", "")
     for kod, (h, o) in KAPSAMLAR.items():
         if h == hesap and o == onek:
             return kod
-    return "hepsi" if "isletme" in hesap else "ofis"
+    return "toplu" if "isletme" in hesap else "ofis"
 
 
 def varsayilan_form(k, ana_ayarlar=None):
@@ -141,7 +152,9 @@ def varsayilan_form(k, ana_ayarlar=None):
             "TELEGRAM_TOKEN": e.get("TELEGRAM_TOKEN", ""),
             "TELEGRAM_CHAT_ID": e.get("TELEGRAM_CHAT_ID", ""),
             "luca_ayarlardan": not e.get("LUCA_OFIS_PAROLA"), "KAPSAM": kapsam_kodu(e),
-            "ARKA_PLAN": e.get("LUCA_ARKA_PLAN", "1") != "0"}        # varsayilan ACIK: Luca penceresi ekranda gorunmez
+            "MAIL_ALICI_BIR": e.get("MAIL_ALICI_BIR") if "MAIL_ALICI_BIR" in e else birli_alicilari(ana),   # "1 ile baslayanlar" e-postasi
+            "TEK_SEFER": e.get("BEYANNAME_TEK_SEFER", "1") != "0",         # Baslat = tek tarama, bitince programi durdur
+            "OZET_GONDER": e.get("BEYANNAME_OZET_GONDER", "0") == "1"}     # tarama bitince eksik ozetini e-posta/Telegram ile gonder
 
 
 def dogrula(form):
@@ -196,7 +209,10 @@ def env_hazirla(k, form, ana_ayarlar):
         d.update({"SMTP_HOST": str(smtp.get("sunucu") or "smtp.office365.com"), "SMTP_PORT": str(smtp.get("port") or 587),
                   "SMTP_KULLANICI": str(smtp["kullanici"]), "SMTP_PAROLA": str(smtp["sifre"]),
                   "MAIL_GONDEREN": str(smtp.get("gonderen") or smtp["kullanici"])})
-    d["LUCA_ARKA_PLAN"] = "1" if form.get("ARKA_PLAN", True) else "0"
+    d["LUCA_ARKA_PLAN"] = "0"                        # Luca penceresi HER ZAMAN gorunur acilir (islemler izlenir)
+    d["MAIL_ALICI_BIR"] = str(form.get("MAIL_ALICI_BIR", "")).strip()
+    d["BEYANNAME_TEK_SEFER"] = "1" if form.get("TEK_SEFER", True) else "0"
+    d["BEYANNAME_OZET_GONDER"] = "1" if form.get("OZET_GONDER", False) else "0"
     kapsam = form.get("KAPSAM")
     if kapsam in KAPSAMLAR and not (ikinci is None and "isletme" in KAPSAMLAR[kapsam][0] and not mevcut.get("LUCA_ISLETME_PAROLA")):
         d["LUCA_HESAPLAR"], d["LUCA_FIRMA_ONEK"] = KAPSAMLAR[kapsam]
@@ -322,6 +338,39 @@ def simdi_cek(port, sifre, zaman_asimi=15):
     istek = urllib.request.Request(adres(port) + "/api/kontrol", data=b"", method="POST")
     with acici.open(istek, timeout=zaman_asimi) as r:
         return bool(json.loads(r.read().decode("utf-8")).get("ok"))
+
+
+def durum_oku(port, sifre, zaman_asimi=10):
+    """Programin /api/durum yaniti (dict); hata: OSError/ValueError."""
+    acici = _oturum(port, sifre, zaman_asimi)
+    with acici.open(adres(port) + "/api/durum", timeout=zaman_asimi) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def rapor_gonder(port, sifre, gun=10, zaman_asimi=15):
+    """Programa Luca'dan taze veri cekip eksik ozetini e-posta/Telegram ile gondermesini soyler (arka planda; sonuc durumda son_rapor)."""
+    acici = _oturum(port, sifre, zaman_asimi)
+    istek = urllib.request.Request(adres(port) + f"/api/rapor?gun={int(gun)}", data=b"", method="POST")
+    with acici.open(istek, timeout=zaman_asimi) as r:
+        return bool(json.loads(r.read().decode("utf-8")).get("ok"))
+
+
+def tarama_bitti(durum, onceki_toplama, onceki_rapor, ozet):
+    """(bitti, ok, mesaj): tek seferlik taramanin bitip bitmedigi. Tarama: durumdaki son_toplama.zaman degisince biter (basarili ya da hatali);
+    ozet (rapor) modunda ayrica rapor_suruyor kalkip son_rapor.zaman degismeli."""
+    toplama = (durum.get("son_toplama") or {})
+    if toplama.get("zaman") == onceki_toplama:
+        return False, False, ""
+    hata = "Luca'dan veri alınamadı: " + str(toplama.get("hata") or "bilinmeyen hata")
+    if ozet:
+        rapor = durum.get("son_rapor") or {}
+        if durum.get("rapor_suruyor") or rapor.get("zaman") == onceki_rapor:
+            return False, False, ""
+        ok = bool(toplama.get("ok")) and bool(rapor.get("ok"))
+        return True, ok, ((hata + ". ") if not toplama.get("ok") else "") + (rapor.get("mesaj") or "")
+    if not toplama.get("ok"):
+        return True, False, hata
+    return True, True, f"{toplama.get('mukellef', 0)} mükellef, {toplama.get('beyanname', 0)} beyanname okundu"
 
 
 def log_sonu(k, satir=200, azami_bayt=60000):

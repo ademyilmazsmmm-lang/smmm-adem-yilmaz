@@ -675,9 +675,12 @@ python testler/uctan_uca.py                    # programın tamamı, sahte Luca 
 - **Sekme yoklaması hata koruması:** Arayüz döngüsü her sekmeyi ayrı korur; bir sekmede hata olursa diğerleri (ve Beyanname Takip "Kontrol ediliyor…") durmaz. Hata günlükte
   bir kez gösterilir, ayrıntısı `arayuz-hata.log` dosyasına yazılır.
 - **Beyanname Takip tablosu** iki Luca hesabını ayırır: **Luca hesabı** sütunu (Adem Yılmaz / Ali Karaahmet; adlar `hesap-adlari.json`'dan) ve bu sütunda filtre vardır.
-- **Beyanname Takip: taranacak hesap / firmalar** (sol panel, "Taranacak Luca hesabı / firmalar"): her iki hesap, yalnız Adem Yılmaz, yalnız Ali Karaahmet,
-  yalnız Ali Karaahmet'te adı **"1" ile başlayan** firmalar ya da Adem Yılmaz (tüm) + Ali Karaahmet ("1" ile başlayan). Seçilmeyen hesaba Luca'da hiç girilmez.
-  Ayarı kaydedince program çalışıyorsa **yeniden başlatın** (`ayarlar.env`: `LUCA_HESAPLAR`, `LUCA_FIRMA_ONEK`).
-- **Beyanname Takip: "Luca tarayıcısı ekranda görünmesin"** (varsayılan açık, `LUCA_ARKA_PLAN=1`): Luca görünmez (headless) tarayıcıyla çalışmadığı için pencere yine açılır ama
-  **ekranın dışında** (görünmeyen konumda) ve etkin kalır; tarayıcı penceresiyle uğraşmanız gerekmez. Luca girişinde sorun yaşarsanız kutuyu kapatıp deneyin.
-
+- **Beyanname Takip: taranacak hesap / firmalar** (sol panel): **Toplu** (Adem Yılmaz + Ali Karaahmet + "1" ile başlayanlar), **Adem Yılmaz**, **Ali Karaahmet** ("1" ile başlayanlar
+  hariç) ya da yalnız **"1" ile başlayanlar** (işletme hesabındaki, adı "1" ile başlayan firmalar; Adem Gürbetçi). Seçilmeyen hesaba Luca'da hiç girilmez.
+  Ayar `ayarlar.env`'e yazılır (`LUCA_HESAPLAR`, `LUCA_FIRMA_ONEK`: `isletme:1` yalnız "1" ile başlayanlar, `isletme:!1` bunlar hariç).
+- **"1" ile başlayan firmaların e-postası:** "E-posta alıcı: adı \"1\" ile başlayan firmalar" kutusu (varsayılan: `mail-yonlendirme.json`'daki "1" kuralının adresi, `MAIL_ALICI_BIR`).
+  Adı "1" ile başlayan firmaların eksik listesi (ayrı e-postalar) **yalnız bu adrese** gider, ana e-posta alıcısına gitmez (Telegram'a hepsi gider). Boşsa eski davranış.
+- **Beyanname Takip: Başlat = tek tarama** ("Başlat = tek tarama; bitince programı durdur", varsayılan açık): Başlat'a basınca program açılır, Luca taraması **hemen başlar** (Luca
+  tarayıcı penceresi **görünür** açılır, işlemleri izlersiniz; "Tarayıcıda Aç" demenize gerek yok), tarama bitince sonuç tabloya yazılır ve **program durdurulur**. Tablo ve özet satırı
+  durduktan sonra da ekranda kalır. "Tarama bitince eksik özetini e-posta/Telegram ile gönder" (varsayılan kapalı) açıksa tarama sonunda özet de gönderilir.
+  Kutu kapalıysa eski gibi çalışır (Başlat yalnız programı açar, zamanlanmış uyarılar sürer). Tarama sırasında **Durdur** ile vazgeçilebilir. "Luca tarayıcısı arka planda" seçeneği kaldırıldı.

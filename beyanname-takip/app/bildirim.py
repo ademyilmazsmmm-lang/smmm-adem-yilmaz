@@ -303,6 +303,24 @@ class Bildirici:
         sonuc = [k.gonder(metin) for k in self.kanallar if k.hazir]           # biri düşse diğeri yine denenir
         return any(sonuc)
 
+    def gonder_alici(self, metin, alicilar):
+        """E-posta kanallarına ana alıcı yerine YALNIZ `alicilar` gider (örn. "1" ile başlayan firmaların uyarısı başka kişiye);
+        Telegram gibi alıcı listesi olmayan kanallara olduğu gibi gönderilir."""
+        sonuc = []
+        for k in self.kanallar:
+            if not k.hazir:
+                continue
+            if hasattr(k, "alicilar"):
+                eski = k.alicilar
+                k.alicilar = list(alicilar)
+                try:
+                    sonuc.append(k.gonder(metin))
+                finally:
+                    k.alicilar = eski
+            else:
+                sonuc.append(k.gonder(metin))
+        return any(sonuc)
+
     def foto_gonder(self, png, aciklama=""):
         return any([k.foto_gonder(png, aciklama) for k in self.kanallar if k.hazir])
 
