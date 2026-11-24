@@ -252,10 +252,10 @@ class KarZararSekmesi:
                                      justify="left", wraplength=640)
         self.ozet_etiketi.pack(side="bottom", fill="x", pady=(6, 0))
         # sutun adlari sabit; ekranda yazan basliklar sonuca gore degisir (bkz. _basliklari_guncelle)
-        sutunlar = ("Firma", "Dönem", "Kâr / Zarar", "Fatura ayı farkı", "Faturalar dahil", "Not")
-        genislik = (150, 170, 175, 140, 190, 90)
-        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 5}, secim="extended",
-                                         filtreler=("Dönem",), degisti=self._toplam_yaz,
+        sutunlar = ("Firma", "Dönem", "Kâr / Zarar", "Fatura ayı farkı", "Faturalar dahil", "Not", "Luca hesabı")
+        genislik = (150, 170, 175, 140, 190, 90, 130)
+        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 5, 6}, secim="extended",
+                                         filtreler=("Dönem", "Luca hesabı"), degisti=self._toplam_yaz,
                                          etiketler={"kar": u.YESIL_FG, "zarar": u.KIRMIZI, "hata": u.SOLUK})
         self.tablo.pack(fill="both", expand=True)
         self.agac = self.tablo.agac
@@ -342,7 +342,7 @@ class KarZararSekmesi:
                 not_ = s.get("fatura_not") or ""
             if s.get("son_hata"):  # son sorguda hata aldi, onceki basarili sonuc korunuyor
                 not_ = f"Son sorguda hata: {s['son_hata']}" + (f" | {not_}" if not_ else "")
-            satirlar.append((s["firma"], s.get("donem") or self.donem_metni, ilk, ikinci, ucuncu, not_))
+            satirlar.append((s["firma"], s.get("donem") or self.donem_metni, ilk, ikinci, ucuncu, not_, s.get("hesap") or ""))
             etiketler.append(etiket)
         self._basliklari_guncelle(aralik)
         self.tablo.doldur(satirlar, etiketler)

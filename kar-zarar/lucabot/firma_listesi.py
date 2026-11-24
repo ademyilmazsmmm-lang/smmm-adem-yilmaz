@@ -134,6 +134,11 @@ def _ayni_firma(ad, atlanan):
     return bool(k) and bool(a) and (k.startswith(a) or a.startswith(k))
 
 
+def _onek_uygun(ad, onek):
+    ad = str(ad or "").strip()
+    return not ad.startswith(onek[1:]) if onek.startswith("!") else ad.startswith(onek)
+
+
 def firmalari_suz(luca_firmalari, ayarlar, aranan=None, limit=None, baslangic=None, log=None, tam_adlar=None):
     """Luca'daki firma listesinden bu calismada islenecekleri secer.
 
@@ -142,6 +147,15 @@ def firmalari_suz(luca_firmalari, ayarlar, aranan=None, limit=None, baslangic=No
     tam_adlar: Luca'daki adla TAM eslesen firmalar (parca eslesme/virgul bolme yok): yalniz bunlar islenir.
     """
     firmalar = list(luca_firmalari)
+
+    onek = (ayarlar or {}).get("firma_onek")          # hesaplar.hesaplar: "ali" ('!1') / "gurbetci" ('1') kapsami
+    if onek:
+        tum = len(firmalar)
+        firmalar = [f for f in firmalar if _onek_uygun(f, onek)]
+        yaz(("Kapsam: adı \"%s\" ile başlayanlar HARİÇ firmalar" % onek[1:] if onek.startswith("!")
+             else "Kapsam: yalnız adı \"%s\" ile başlayan firmalar" % onek) + f" ({len(firmalar)} / {tum})", log)
+        if not firmalar:
+            return FirmaSecimi([], bos_sebep="secilen kapsama uyan firma yok")
 
     if tam_adlar:
         istenen = {karsilastir(a) for a in tam_adlar if str(a).strip()}

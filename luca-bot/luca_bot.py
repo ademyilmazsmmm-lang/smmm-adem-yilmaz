@@ -61,7 +61,8 @@ def arguman_ayristirici():
                    help="YALNIZ TEST/TESHIS: hizli modu kapatir, ekranlar tek tek (eski yol) sorgulanir "
                         "(ayarlar.json: toplu_sorgu=false ile de olur)")
     p.add_argument("--hesap", default="hepsi",
-                   help="Hangi Luca hesabi taransin: hepsi (varsayilan: once ofis, sonra etkinse isletme), ofis ya da isletme")
+                   help="Hangi Luca hesabi/sahibi taransin: hepsi (varsayilan: once ofis, sonra etkinse isletme), ofis (Adem Yilmaz), isletme (tum isletme firmalari), "
+                        "ali (isletme: adi '1' ile BASLAMAYANLAR = Ali Karaahmet) ya da gurbetci (isletme: adi '1' ile baslayanlar = Adem Gurbetci)")
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--tarayici-indirsin", action="store_true",

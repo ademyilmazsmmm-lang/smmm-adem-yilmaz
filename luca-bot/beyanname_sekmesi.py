@@ -43,10 +43,11 @@ def gun_yazisi(iso):
         return str(iso or "")
 
 
-def hesap_adi(hesap):
-    """Madde hesabi ('ofis' / 'isletme') -> gorunen ad ('Adem Yılmaz' / 'Ali Karaahmet'); bos hesap 'ofis' sayilir (programin varsayilani)."""
+def hesap_adi(hesap, firma=""):
+    """Madde hesabi ('ofis' / 'isletme') -> sahibin adi: 'Adem Yılmaz' / 'Ali Karaahmet' / 'Adem Gürbetçi' (isletmede adi "1" ile baslayan firma);
+    bos hesap 'ofis' sayilir (programin varsayilani)."""
     from lucabot import hesaplar
-    return hesaplar.gorunen_ad(hesap or "ofis")
+    return hesaplar.sahip_adi(hesap or "ofis", firma)
 
 
 def satir_uret(m):
@@ -59,7 +60,7 @@ def satir_uret(m):
         notlar.append("mükellef ayarı onaylanmamış")
     if m.get("ek"):
         notlar.append("Luca'da onaylı; ayarda izlenmiyor (uyarıya girmez)")
-    return (m.get("ad", ""), hesap_adi(m.get("hesap")), m.get("tur_ad") or m.get("tur", ""), m.get("etiket") or m.get("donem", ""),
+    return (m.get("ad", ""), hesap_adi(m.get("hesap"), m.get("ad")), m.get("tur_ad") or m.get("tur", ""), m.get("etiket") or m.get("donem", ""),
             gun_yazisi(m.get("son_gun")), kalan_yazisi(m.get("kalan")), DURUM_YAZISI.get(durum, durum), "; ".join(notlar))
 
 

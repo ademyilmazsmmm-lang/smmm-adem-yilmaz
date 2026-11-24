@@ -95,9 +95,10 @@ BELGE_ADLARI = dict(BELGE_TIPLERI)
 UZUN_BEKLEME = 30  # "Şu an" satiri bu kadar saniye degismezse turuncu, 3 katinda kirmizi
 ILERLEME = re.compile(r"^\[(\d+)/(\d+)\]\s+(.+?)(?:\s+\|\s+tahmini kalan:\s*(.+))?$")
 def _hesap_secenekleri():
-    """Luca hesabi kutusu: hesaplarin sahiplerinin adlariyla (hesap-adlari.json), ornegin 'Yalnız Adem Yılmaz (ofis)'."""
-    o, i = hesaplar.gorunen_ad("ofis"), hesaplar.gorunen_ad("isletme")
-    return ((f"Hepsi ({o} + {i})", "hepsi"), (f"Yalnız {o} (ofis)", "ofis"), (f"Yalnız {i} (işletme)", "isletme"))
+    """Luca hesabi / sahip kutusu: Adem Yilmaz (ofis), Ali Karaahmet (isletme) ve Adem Gurbetci (isletmede adi "1" ile baslayanlar); adlar hesap-adlari.json'dan."""
+    o, i, g = hesaplar.gorunen_ad("ofis"), hesaplar.gorunen_ad("isletme"), hesaplar.gorunen_ad("gurbetci")
+    return ((f"Hepsi ({o} + {i} + {g})", "hepsi"), (f"Yalnız {o}", "ofis"), (f"Yalnız {i} (\"1\" ile başlayanlar hariç)", "ali"),
+            (f"Yalnız {g} (adı \"1\" ile başlayanlar)", "gurbetci"))
 
 
 HESAP_SECENEKLERI = _hesap_secenekleri()

@@ -32,7 +32,7 @@ from lucabot.luca_gezinme import firma_secici_bekle  # noqa: E402
 from lucabot.musteri_listesi import listeyi_oku as musteri_listesini_oku  # noqa: E402
 from lucabot.ortak import (AYAR, DURDUR_DOSYASI, ayarlari_oku, gunluge_yaz,  # noqa: E402
                            tarih_cozumle, yaz)
-from lucabot.hesaplar import gorunen_ad, profil_eki as hesap_profil_eki  # noqa: E402
+from lucabot.hesaplar import gorunen_ad, sahip_adi, profil_eki as hesap_profil_eki  # noqa: E402
 from lucabot.tarayici import profil_klasoru, tarayici_ac, tarayiciyi_kapat  # noqa: E402
 
 # Luca Musteri Listesi filtresi: yalniz isletme defteri firmalari (bilanco firmalari Defter Beyan'a sorulmaz)
@@ -51,7 +51,8 @@ def arguman_ayristirici():
     p.add_argument("--baslangic", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--bitis", help="GG/AA/YYYY (ayarlar.json'daki degeri ezer)")
     p.add_argument("--hesap", default="hepsi",
-                   help="Hangi Luca hesabi: hepsi (once ofis, sonra etkinse isletme), ofis ya da isletme "
+                   help="Hangi Luca hesabi/sahibi: hepsi (once ofis, sonra etkinse isletme), ofis (Adem Yilmaz), isletme (tum isletme firmalari), "
+                        "ali (isletme: adi '1' ile BASLAMAYANLAR = Ali Karaahmet) ya da gurbetci (isletme: adi '1' ile baslayanlar = Adem Gurbetci) "
                         "(ayarlar.json: ikinci_hesap)")
     p.add_argument("--firma", action="append",
                    help="Sadece bu firma(lar); virgulle ayirarak birden fazla yazilabilir")
@@ -318,8 +319,7 @@ def kar_zarar_cek(args, ayarlar, p):
             finally:
                 tarayiciyi_kapat(ctx)
             for f in set(sonuclar) - once:
-                if coklu:
-                    sonuclar[f]["hesap"] = gorunen_ad(hesap_adi)
+                sonuclar[f]["hesap"] = sahip_adi(hesap_adi, f)        # Adem Yilmaz / Ali Karaahmet / Adem Gurbetci
     tamam = sum(1 for s in sonuclar.values() if s["kar"] is not None)
     excel = _kaydet(kayit_yolu, bas, bit, sonuclar)
     yaz(f"EXCEL RAPOR: {excel}", log)

@@ -162,10 +162,10 @@ class EdefterSekmesi(KarZararSekmesi):
         self.ozet_etiketi = tk.Label(p, text="", font=u.GOVDE_KALIN, fg=u.ALTIN_FG, bg=u.ZEMIN, anchor="w",
                                      justify="left", wraplength=720)
         self.ozet_etiketi.pack(side="bottom", fill="x", pady=(6, 0))
-        sutunlar = ("Firma", "Dönem", "Durum", "Uyumsuz fiş") + KOD_SUTUNLARI + ("Not",)
-        genislik = (170, 140, 200, 85) + (62,) * len(KOD_SUTUNLARI) + (260,)
-        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 2, len(sutunlar) - 1}, secim="extended",
-                                         filtreler=("Durum",), degisti=self._toplam_yaz,
+        sutunlar = ("Firma", "Dönem", "Durum", "Uyumsuz fiş") + KOD_SUTUNLARI + ("Not", "Luca hesabı")
+        genislik = (170, 140, 200, 85) + (62,) * len(KOD_SUTUNLARI) + (260, 130)
+        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 2, len(sutunlar) - 2, len(sutunlar) - 1}, secim="extended",
+                                         filtreler=("Luca hesabı", "Durum"), degisti=self._toplam_yaz,
                                          etiketler={"tamam": u.YESIL_FG, "var": u.KIRMIZI, "hata": u.UYARI_FG})
         self.tablo.pack(fill="both", expand=True)
         self.agac = self.tablo.agac
@@ -207,7 +207,7 @@ class EdefterSekmesi(KarZararSekmesi):
                     parca.append("diğer kodlar: " + ", ".join(diger))
                 not_ = "; ".join(parca)
             satirlar.append((s["firma"], s.get("donem") or self.donem_metni, DURUM_YAZISI.get(durum, durum),
-                             sorun_sayisi(s) or "", *[hucre(k) for k in KOD_SUTUNLARI], not_))
+                             sorun_sayisi(s) or "", *[hucre(k) for k in KOD_SUTUNLARI], not_, s.get("hesap") or ""))
             etiketler.append(DURUM_ETIKET.get(durum, "hata"))
         self.tablo.doldur(satirlar, etiketler)
         self.donem_etiketi.configure(

@@ -50,6 +50,10 @@ def hesaplar(ayarlar, secim="hepsi"):
     Ayar sozlugu ana ayarlarin kopyasidir; yalniz giris bilgileri (uye no, kullanici, parola, dogrulama anahtari) hesabindir.
     Etkin ikinci hesap yoksa yalniz ofis doner; ikinci hesap istenip bulunamazsa ValueError."""
     secim = _sade(secim) or "hepsi"
+    if secim in KAPSAM_HESAP:                        # "ali" / "gurbetci": isletme hesabi + firma adi kosulu (firma_onek)
+        hedef, onek = KAPSAM_HESAP[secim]
+        tum = hesaplar(ayarlar, hedef)
+        return [(ad, dict(a, firma_onek=onek)) for ad, a in tum]
     ilk = dict(ayarlar, hesap_adi=ILK_AD)
     liste = [(ILK_AD, ilk)]
     h = ikinci_hesap(ayarlar)
@@ -78,7 +82,7 @@ def profil_eki(sira):
 # Hesap anahtarlari ("ofis", "isletme") dahili; ekranda/gunlukte/raporda hesabin SAHIBININ adi gosterilir. Adlar kisisel oldugu icin
 # depoda degil, program klasorundeki hesap-adlari.json'dadir (git'e girmez): {"ofis": "Ad Soyad", "isletme": "Ad Soyad"}.
 ADLAR_DOSYASI = "hesap-adlari.json"
-VARSAYILAN_ADLAR = {"ofis": "Ofis", "isletme": "İşletme"}
+VARSAYILAN_ADLAR = {"ofis": "Ofis", "isletme": "İşletme", "gurbetci": "Adem Gürbetçi"}
 
 
 def _adlar_dosyasi():
@@ -90,6 +94,13 @@ def _adlar_dosyasi():
     return None
 
 
+# Uc sahip: Adem Yilmaz (ofis hesabi), Ali Karaahmet (isletme hesabi, adi "1" ile BASLAMAYAN firmalar), Adem Gurbetci (isletme hesabinda adi "1" ile
+# baslayan firmalar). "hepsi" = hepsi; "isletme" = isletme hesabinin TUM firmalari (eski kullanim); "ali" / "gurbetci" = yukaridaki ayrim.
+GURBETCI_AD = "gurbetci"
+GURBETCI_ONEK = "1"
+KAPSAM_HESAP = {"ali": ("isletme", "!" + GURBETCI_ONEK), GURBETCI_AD: ("isletme", GURBETCI_ONEK)}
+
+
 def adlari_oku():
     """{"ofis": ..., "isletme": ...}: dosyadaki adlar, eksikler varsayilanla tamamlanir."""
     adlar = dict(VARSAYILAN_ADLAR)
@@ -97,7 +108,7 @@ def adlari_oku():
     if yol:
         try:
             for k, v in json.loads(yol.read_text(encoding="utf-8-sig")).items():
-                if isinstance(v, str) and v.strip() and _sade(k) in ("ofis", "isletme"):
+                if isinstance(v, str) and v.strip() and _sade(k) in ("ofis", "isletme", GURBETCI_AD):
                     adlar[_sade(k)] = v.strip()
         except (OSError, ValueError, AttributeError):
             pass
@@ -107,5 +118,20 @@ def adlari_oku():
 def gorunen_ad(hesap_adi):
     """'ofis' -> 'Adem Yılmaz' (dosyadan); bilinmeyen hesap adi oldugu gibi doner."""
     anahtar = _sade(hesap_adi)
-    anahtar = "isletme" if anahtar not in ("ofis",) and anahtar else anahtar
+    anahtar = "isletme" if anahtar not in ("ofis", GURBETCI_AD) and anahtar else anahtar
     return adlari_oku().get(anahtar, str(hesap_adi))
+
+
+def sahip_adi(hesap_adi, firma=""):
+    """Firmanin SAHIBI: isletme hesabinda adi "1" ile baslayan firma Adem Gurbetci'ye aittir; digerleri hesabin sahibine."""
+    if _sade(hesap_adi) not in ("ofis", "") and str(firma or "").strip().startswith(GURBETCI_ONEK):
+        return gorunen_ad(GURBETCI_AD)
+    return gorunen_ad(hesap_adi)
+
+
+def onek_uygun(ad, onek):
+    """Firma adi onek kosuluna uyar mi ('1': ile baslar; '!1': ile BASLAMAZ; bos: hepsi)."""
+    ad = str(ad or "").strip()
+    if not onek:
+        return True
+    return not ad.startswith(onek[1:]) if onek.startswith("!") else ad.startswith(onek)

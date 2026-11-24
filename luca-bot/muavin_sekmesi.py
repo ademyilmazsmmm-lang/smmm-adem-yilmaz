@@ -153,10 +153,10 @@ class MuavinSekmesi(KarZararSekmesi):
                                      justify="left", wraplength=720)
         self.ozet_etiketi.pack(side="bottom", fill="x", pady=(6, 0))
         sutunlar = ("Firma", "Dönem", "Kaynak", "Alış fatura", "Alış sorun", "Satış fatura", "Satış sorun", "Sorunlu tutar",
-                    "Durum", "Not")
-        genislik = (170, 140, 120, 75, 75, 75, 75, 110, 190, 280)
-        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 2, 8, 9}, secim="extended",
-                                         filtreler=("Durum",), degisti=self._toplam_yaz,
+                    "Durum", "Not", "Luca hesabı")
+        genislik = (170, 140, 120, 75, 75, 75, 75, 110, 190, 280, 130)
+        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 2, 8, 9, 10}, secim="extended",
+                                         filtreler=("Luca hesabı", "Durum"), degisti=self._toplam_yaz,
                                          etiketler={"tamam": u.YESIL_FG, "var": u.KIRMIZI, "hata": u.UYARI_FG})
         self.tablo.pack(fill="both", expand=True)
         self.agac = self.tablo.agac
@@ -197,7 +197,7 @@ class MuavinSekmesi(KarZararSekmesi):
                          f"{atlanan} fatura sayılmadı (iptal / KDV'siz)" if atlanan else ""]
                 not_ = "; ".join(x for x in parca if x)
             satirlar.append((s["firma"], s.get("donem") or self.donem_metni, kaynak, *sayilar[:2], sayilar[2], sayilar[3],
-                             tutar, DURUM_YAZISI.get(durum, durum), not_))
+                             tutar, DURUM_YAZISI.get(durum, durum), not_, s.get("hesap") or ""))
             etiketler.append(DURUM_ETIKET.get(durum, "hata"))
         self.tablo.doldur(satirlar, etiketler)
         self.donem_etiketi.configure(

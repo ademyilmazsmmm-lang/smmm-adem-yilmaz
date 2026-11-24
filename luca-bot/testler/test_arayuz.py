@@ -276,18 +276,30 @@ class ArayuzTestleri(ArayuzZemini):
         """Luca hesabi kutusu hesap sahibi adlariyla gelir; Kar/Zarar, Defter Beyan ve Muavin komutuna --hesap girer."""
         secenekler = dict(self.mod.HESAP_SECENEKLERI)
         o, i = self.mod.hesaplar.gorunen_ad("ofis"), self.mod.hesaplar.gorunen_ad("isletme")
-        self.assertEqual(set(secenekler.values()), {"hepsi", "ofis", "isletme"})
-        self.assertIn(o, "".join(secenekler))
-        self.assertIn(i, "".join(secenekler))
+        g = self.mod.hesaplar.gorunen_ad("gurbetci")
+        self.assertEqual(set(secenekler.values()), {"hepsi", "ofis", "ali", "gurbetci"})          # Adem Yilmaz / Ali Karaahmet / Adem Gurbetci
+        self.assertEqual(g, "Adem Gürbetçi")
+        for ad in (o, i, g):
+            self.assertIn(ad, "".join(secenekler))
         for sekme in (self.app.kz, self.app.db, self.app.mv, self.app.ed):
             if sekme.klasor is None:
                 continue
             self.assertEqual(sekme._hesap_arg(), ["--hesap", "hepsi"])
-            sekme.v_hesap.set([a for a, d in self.mod.HESAP_SECENEKLERI if d == "isletme"][0])
-            self.assertEqual(sekme._hesap_arg(), ["--hesap", "isletme"])
+            for kod in ("ali", "gurbetci", "ofis"):
+                sekme.v_hesap.set([a for a, d in self.mod.HESAP_SECENEKLERI if d == kod][0])
+                self.assertEqual(sekme._hesap_arg(), ["--hesap", kod])
         k = self.app.mv.komut() if self.app.mv.klasor else []
         if k:
-            self.assertEqual(k[k.index("--hesap") + 1], "isletme")
+            self.assertEqual(k[k.index("--hesap") + 1], "ofis")
+
+    def test_sonuc_tablolarinda_luca_hesabi_sutunu_ve_filtresi_uc_sahibi_ayirir(self):
+        """Kar/Zarar, Defter Beyan, Muavin ve e-Defter tablolari: "Luca hesabı" sutunu (Adem Yılmaz / Ali Karaahmet / Adem Gürbetçi) + filtre."""
+        for sekme in (self.app.kz, self.app.db, self.app.mv, self.app.ed):
+            if sekme.klasor is None:
+                continue
+            self.assertEqual(sekme.tablo.sutunlar[-1], "Luca hesabı", sekme.__class__.__name__)
+            self.assertIn("Luca hesabı", sekme.tablo.filtre_adlari, sekme.__class__.__name__)
+            self.assertEqual(sekme.tablo.sutunlar.index("Luca hesabı"), len(sekme.tablo.sutunlar) - 1)
 
     def test_hizli_mod_tek_yol_secenek_yok(self):
         """Hizli mod varsayilan ve tek yol: arayuzde kutu ve komutta --toplu / --eski-ekranlar yok."""
@@ -299,9 +311,12 @@ class ArayuzTestleri(ArayuzZemini):
     def test_luca_hesabi_secimi_komuta_girer_ve_ozet_iki_hesabi_gosterir(self):
         etiket = {d: a for a, d in self.mod.HESAP_SECENEKLERI}
         self.assertNotIn("--hesap", self.app.komut())                        # varsayilan: hepsi
-        self.app.v_hesap.set(etiket["isletme"])
+        self.app.v_hesap.set(etiket["ali"])
         k = self.app.komut()
-        self.assertEqual(k[k.index("--hesap") + 1], "isletme")
+        self.assertEqual(k[k.index("--hesap") + 1], "ali")
+        self.app.v_hesap.set(etiket["gurbetci"])
+        k = self.app.komut()
+        self.assertEqual(k[k.index("--hesap") + 1], "gurbetci")
         self.app.v_hesap.set(etiket["ofis"])
         k = self.app.komut()
         self.assertEqual(k[k.index("--hesap") + 1], "ofis")
@@ -806,7 +821,7 @@ class KarZararSekmesiTestleri(ArayuzZemini):
         # basliklar: 1-8. ay kar/zarar, 9. ay farki, 1-9. ay (faturalar dahil); Kaynak sutunu yok
         basliklar = [self.kz.agac.heading(c)["text"] for c in self.kz.agac["columns"]]
         self.assertEqual(basliklar, ["Firma", "Dönem", "1-8. Ay Kâr / Zarar", "9. Ay Farkı",
-                                     "1-9. Ay (faturalar dahil)", "Not"])
+                                     "1-9. Ay (faturalar dahil)", "Not", "Luca hesabı"])
         self.assertNotIn("Kaynak", self.kz.tablo.sutunlar)
         self.assertIn("Dahil edilen: Eylül 2026", self.kz.fatura_etiketi.cget("text"))
         self.assertIn("zarar", satirlar[1][2])
@@ -2103,6 +2118,7 @@ class BeyannameSekmesiTestleri(ArayuzZemini):
         self.assertIn("kapanış", s[7])
         self.assertEqual(bs.satir_uret({"ad": "BETA", "hesap": "isletme"})[1], "Ali Karaahmet")      # iki Luca hesabi ayirt edilir
         self.assertEqual(bs.satir_uret({"ad": "BETA", "hesap": "ofis"})[1], "Adem Yılmaz")
+        self.assertEqual(bs.satir_uret({"ad": "1BURHANETT", "hesap": "isletme"})[1], "Adem Gürbetçi")      # isletmede "1" ile baslayan: ucuncu sahip
         self.assertEqual(bs.kalan_yazisi(0), "BUGÜN")
 
 

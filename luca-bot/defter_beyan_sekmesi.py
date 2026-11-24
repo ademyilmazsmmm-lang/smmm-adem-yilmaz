@@ -201,10 +201,10 @@ class DefterBeyanSekmesi(KarZararSekmesi):
         self.ozet_etiketi = tk.Label(p, text="", font=u.GOVDE_KALIN, fg=u.ALTIN_FG, bg=u.ZEMIN, anchor="w",
                                      justify="left", wraplength=720)
         self.ozet_etiketi.pack(side="bottom", fill="x", pady=(6, 0))
-        sutunlar = ("Firma", "Dönem", "İşlem", "Gelir kalan", "Gider kalan", "Sabit kıymet", "Durum", "Not")
-        genislik = (170, 150, 80, 90, 90, 90, 190, 300)
-        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 2, 6, 7}, secim="extended",
-                                         filtreler=("Durum",), degisti=self._toplam_yaz,
+        sutunlar = ("Firma", "Dönem", "İşlem", "Gelir kalan", "Gider kalan", "Sabit kıymet", "Durum", "Not", "Luca hesabı")
+        genislik = (170, 150, 80, 90, 90, 90, 190, 300, 130)
+        self.tablo = SiralaFiltreTablosu(p, u, sutunlar, genislik, yazi={0, 1, 2, 6, 7, 8}, secim="extended",
+                                         filtreler=("Luca hesabı", "Durum"), degisti=self._toplam_yaz,
                                          etiketler={"tamam": u.YESIL_FG, "sabit": u.SOLUK, "var": u.KIRMIZI,
                                                     "hata": u.UYARI_FG})
         self.tablo.pack(fill="both", expand=True)
@@ -245,7 +245,7 @@ class DefterBeyanSekmesi(KarZararSekmesi):
                 not_ = ""
             islem = "Gönderme" if s.get("islem") == "gonder" else "Kontrol"
             satirlar.append((s["firma"], s.get("donem") or self.donem_metni, islem, sutun(sayilar[0]), sutun(sayilar[1]),
-                             str(sabit) if sabit else "", DURUM_YAZISI.get(durum, durum), not_))
+                             str(sabit) if sabit else "", DURUM_YAZISI.get(durum, durum), not_, s.get("hesap") or ""))
             etiketler.append(DURUM_ETIKET.get(durum, "hata"))
         self.tablo.doldur(satirlar, etiketler)
         self.donem_etiketi.configure(

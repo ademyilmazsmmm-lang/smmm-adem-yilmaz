@@ -570,6 +570,31 @@ class RaporTestleri(unittest.TestCase):
         self.assertEqual([ad for ad, _ in hesaplar.hesaplar(eksik)], ["ofis"])
         self.assertEqual((hesaplar.profil_eki(0), hesaplar.profil_eki(1)), ("", "hesap2"))
 
+    def test_uc_sahip_ali_ve_gurbetci_kapsami_hesap_ve_firma_suzgeci(self):
+        """Adem Yilmaz (ofis) / Ali Karaahmet (isletme, '1' ile BASLAMAYAN) / Adem Gurbetci (isletme, '1' ile baslayan)."""
+        from lucabot import firma_listesi, hesaplar
+        a = {"uye_no": "1", "kullanici_adi": "o", "parola": "p",
+             "ikinci_hesap": {"etkin": True, "ad": "İşletme", "uye_no": "2", "kullanici_adi": "i", "parola": "q"}}
+        ali, gurbetci = hesaplar.hesaplar(a, "ali"), hesaplar.hesaplar(a, "gurbetci")
+        self.assertEqual([(ad, x.get("firma_onek")) for ad, x in ali], [("isletme", "!1")])
+        self.assertEqual([(ad, x.get("firma_onek")) for ad, x in gurbetci], [("isletme", "1")])
+        self.assertEqual(ali[0][1]["kullanici_adi"], "i")                                        # giris bilgisi isletme hesabininki
+        self.assertNotIn("firma_onek", hesaplar.hesaplar(a, "isletme")[0][1])                    # eski "isletme": tum isletme firmalari
+        self.assertNotIn("firma_onek", hesaplar.hesaplar(a, "hepsi")[0][1])
+        with self.assertRaises(ValueError):                                                      # isletme hesabi kapaliysa Ali / Gurbetci secilemez
+            hesaplar.hesaplar({"uye_no": "1", "kullanici_adi": "o", "parola": "p"}, "gurbetci")
+        self.assertEqual((hesaplar.gorunen_ad("ofis"), hesaplar.gorunen_ad("gurbetci")), (hesaplar.gorunen_ad("ofis"), "Adem Gürbetçi"))
+        self.assertEqual(hesaplar.sahip_adi("isletme", "1BURHANETT"), "Adem Gürbetçi")
+        self.assertEqual(hesaplar.sahip_adi("isletme", "ADEM ÜTÜ"), hesaplar.gorunen_ad("isletme"))
+        self.assertEqual(hesaplar.sahip_adi("ofis", "1 FIRMA"), hesaplar.gorunen_ad("ofis"))     # ofiste "1" firmasi hala Adem Yilmaz'in
+        firmalar = ["1BURHANETT", "1DOĞUKANET", "ADEM ÜTÜ", "BEKİRTEZCA"]
+        s = firma_listesi.firmalari_suz(firmalar, ali[0][1])
+        self.assertEqual(s.firmalar, ["ADEM ÜTÜ", "BEKİRTEZCA"])                                  # Ali: "1" ile baslayanlar haric
+        s = firma_listesi.firmalari_suz(firmalar, gurbetci[0][1])
+        self.assertEqual(s.firmalar, ["1BURHANETT", "1DOĞUKANET"])                                # Gurbetci: yalniz "1" ile baslayanlar
+        self.assertEqual(firma_listesi.firmalari_suz(firmalar, {}).firmalar, firmalar)            # kapsam yok: hepsi
+        self.assertFalse(firma_listesi.firmalari_suz(["ADEM ÜTÜ"], gurbetci[0][1]).firmalar)      # uyan firma yok
+
     def test_beyanname_takip_isletme_hesabi_aktarilir(self):
         from lucabot import beyanname_takip as bt
         with tempfile.TemporaryDirectory() as d:

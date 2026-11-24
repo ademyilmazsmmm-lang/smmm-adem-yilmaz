@@ -190,7 +190,8 @@ Anahtarı'nı girin (`ayarlar.json` içinde `ikinci_hesap`). Sonra **Çalıştı
 - Firma listesi (`firmalar.xlsx`) ortaktır; her hesapta yalnız o hesapta Luca'nın gösterdiği firmalar taranır. Aynı adlı bir firma iki
   hesapta da varsa rapor firma adına göre birleştiği için biri diğerinin satırının üzerine yazar; bu durumda adlarını ayırın.
 - Rapor (`rapor.xlsx`, `rapor.json`) ve e-posta özeti **tek ve birleşiktir**; iki hesabın sonucu birlikte gelir.
-- Sol paneldeki **Luca hesabı** kutusu: *Hepsi*, *Yalnız ofis*, *Yalnız işletme* (komut satırı: `--hesap ofis|isletme`). Tek bir firmayı
+- Sol paneldeki **Luca hesabı** kutusu: *Hepsi*, *Yalnız Adem Yılmaz* (ofis), *Yalnız Ali Karaahmet* (işletme, adı "1" ile başlayanlar hariç),
+  *Yalnız Adem Gürbetçi* (işletme, adı "1" ile başlayanlar) (komut satırı: `--hesap hepsi|ofis|ali|gurbetci`; eski `isletme` = işletmenin tüm firmaları). Tek bir firmayı
   denerken `--firma` yalnız bir hesapta bulunabilir; diğer hesapta firma çıkmaması hata sayılmaz.
 - **Luca'dan Firma Listesini Çek** iki hesabın firmalarını birleştirir. Beyanname Takip sekmesi işletme hesabını da otomatik alır
   (`LUCA_ISLETME_*`). Kâr/Zarar, Defter Beyan ve KDV Devri (beyanname PDF) yalnız ofis hesabıyla çalışır.
@@ -260,6 +261,9 @@ Fatura İndirme, **Kâr / Zarar**, **Defter Beyan** ve **Muavin** sekmelerinin h
 işletme hesabı seçilir (komut satırında `--hesap hepsi|ofis|isletme`). *Hepsi*'nde önce ofis, sonra (Luca Giriş Bilgileri > İkinci hesap etkinse) işletme
 hesabı kendi girişi ve tarayıcı profiliyle açılır; her hesabın firma listesi/sınıfları ayrı (Müşteri Listesi önbelleği `musteri-listeleri-hesap2.json`).
 İki hesapta da görünen firma ilkinde işlenir. Sonuçlarda `hesap` alanı hesabın sahibinin adını taşır.
+**Üç sahip her sekmede:** Adem Yılmaz (ofis hesabı), Ali Karaahmet (işletme hesabı, adı "1" ile başlamayan firmalar), Adem Gürbetçi (işletme hesabı, adı "1" ile
+başlayan firmalar). Kâr/Zarar, Defter Beyan, Muavin ve e-Defter sonuç tablolarının **en sağında "Luca hesabı" sütunu ve filtresi** vardır; Beyanname Takip tablosu da
+"1" ile başlayan firmaları Adem Gürbetçi olarak gösterir. Fatura İndirme'de yalnız kapsam seçicisi vardır (durum tablosunda sahip sütunu yok).
 Ekranda hesapların sahiplerinin adı görünür: program klasöründeki `hesap-adlari.json` (git'e girmez) — `{"ofis": "Ad Soyad", "isletme": "Ad Soyad"}`; yoksa "Ofis" / "İşletme".
 
 ### Muavin sekmesi (fatura no + genel toplam kontrolü)

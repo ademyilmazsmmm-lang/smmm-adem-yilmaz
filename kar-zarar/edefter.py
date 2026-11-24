@@ -34,7 +34,7 @@ from karzarar import edefter_kontrol as ek, luca_edefter  # noqa: E402
 from lucabot import hesaplar, konsol  # noqa: E402
 from lucabot.firma_listesi import firmalari_suz  # noqa: E402
 from lucabot.giris import luca_oturumu_ac  # noqa: E402
-from lucabot.hesaplar import gorunen_ad, profil_eki as hesap_profil_eki  # noqa: E402
+from lucabot.hesaplar import gorunen_ad, sahip_adi, profil_eki as hesap_profil_eki  # noqa: E402
 from lucabot.luca_ekran import acik_pencereleri_kapat  # noqa: E402
 from lucabot.luca_gezinme import donem_ayarla, firma_sec, firma_secici_bekle  # noqa: E402
 from lucabot.ortak import AYAR, DURDUR_DOSYASI, ayarlari_oku, gunluge_yaz, yaz  # noqa: E402
@@ -61,7 +61,8 @@ def arguman_ayristirici():
                    help="DIKKAT: Luca'ya YAZAR. Fatura olmayan uyumsuz fislere MF + evrak no atar ve Kaydet'e basar (yalniz 20042-20045)")
     p.add_argument("--tani", action="store_true", help="Her adimdan sonra ekran goruntusu + sayfa kaydi (tani/) sakla")
     p.add_argument("--hesap", default="hepsi",
-                   help="Hangi Luca hesabi: hepsi (once ofis, sonra etkinse isletme), ofis ya da isletme "
+                   help="Hangi Luca hesabi/sahibi: hepsi (once ofis, sonra etkinse isletme), ofis (Adem Yilmaz), isletme (tum isletme firmalari), "
+                        "ali (isletme: adi '1' ile BASLAMAYANLAR = Ali Karaahmet) ya da gurbetci (isletme: adi '1' ile baslayanlar = Adem Gurbetci) "
                         "(ayarlar.json: ikinci_hesap)")
     p.add_argument("--tum-firmalar", action="store_true", help="1. sinif suzgecini kapat (yalniz deneme icin)")
     p.add_argument("--tarayici", choices=["chrome", "edge", "chromium"])
@@ -156,8 +157,7 @@ def hesabi_isle(pw, sira, hesap_adi, ayar_h, args, ayarlar, log, tani, bas, bit,
                 gunluge_yaz("    " + traceback.format_exc().replace("\n", "\n    "), log)
                 sonuc = ek.firma_sonucu(firma, donem, [], hata=type(e).__name__)
             islenen.add(firma)
-            if coklu:
-                sonuc["hesap"] = gorunen_ad(hesap_adi)
+            sonuc["hesap"] = sahip_adi(hesap_adi, firma)             # Adem Yilmaz / Ali Karaahmet / Adem Gurbetci
             sonuclar[firma] = sonuc
             ek.kaydet(kayit_yolu, donem, {firma: sonuc})
             if ardisik >= ARDISIK_HATA_SINIRI:

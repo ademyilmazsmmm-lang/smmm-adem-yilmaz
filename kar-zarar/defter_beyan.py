@@ -31,7 +31,7 @@ from lucabot.giris import luca_oturumu_ac  # noqa: E402
 from lucabot.luca_ekran import acik_pencereleri_kapat  # noqa: E402
 from lucabot.luca_gezinme import donem_ayarla, firma_sec, firma_secici_bekle  # noqa: E402
 from lucabot.ortak import AYAR, DURDUR_DOSYASI, ayarlari_oku, gunluge_yaz, yaz  # noqa: E402
-from lucabot.hesaplar import gorunen_ad, profil_eki as hesap_profil_eki  # noqa: E402
+from lucabot.hesaplar import gorunen_ad, sahip_adi, profil_eki as hesap_profil_eki  # noqa: E402
 from lucabot.tarayici import profil_klasoru, tarayici_ac, tarayiciyi_kapat  # noqa: E402
 
 CIKTI = kz.CIKTI
@@ -48,7 +48,8 @@ def arguman_ayristirici():
     p.add_argument("--islem", choices=["kontrol", "gonder"], default="kontrol",
                    help="kontrol: yalniz say (varsayilan, hicbir sey gonderilmez); gonder: gonderilmemisleri Defter Beyan'a gonder")
     p.add_argument("--hesap", default="hepsi",
-                   help="Hangi Luca hesabi: hepsi (once ofis, sonra etkinse isletme), ofis ya da isletme "
+                   help="Hangi Luca hesabi/sahibi: hepsi (once ofis, sonra etkinse isletme), ofis (Adem Yilmaz), isletme (tum isletme firmalari), "
+                        "ali (isletme: adi '1' ile BASLAMAYANLAR = Ali Karaahmet) ya da gurbetci (isletme: adi '1' ile baslayanlar = Adem Gurbetci) "
                         "(ayarlar.json: ikinci_hesap)")
     p.add_argument("--firma", action="append", help="Sadece bu firma(lar) (parca eslesir, virgulle ayrilir)")
     p.add_argument("--firma-tam", action="append", dest="firma_tam",
@@ -161,8 +162,7 @@ def defter_beyan_cek(args, ayarlar, p):
                                 db.close()
                             except Exception:
                                 pass
-                    if coklu:
-                        sonuc["hesap"] = gorunen_ad(hesap_adi)
+                    sonuc["hesap"] = sahip_adi(hesap_adi, firma)         # Adem Yilmaz / Ali Karaahmet / Adem Gurbetci
                     sonuclar[firma] = sonuc
                     db_sonuc.kaydet(kayit_yolu, f"{bas_m}-{bit_m}", {firma: sonuc})
                     if ardisik >= ARDISIK_HATA_SINIRI:
