@@ -995,7 +995,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     });
   }
   /* Kaydetme: tüm listeyi değil yalnız DEĞİŞENi gönderir (sunucuda güncel durumun üstüne uygulanır); iki kişi aynı anda çalışınca biri diğerini ezmez */
-  var BAZ_METIN = "", FARK_ALAN = ["ad", "vkn", "kullanici", "gibSifre", "sgk", "sgkEk", "kdvDevir", "sonBeyan", "defterBeyan", "earsiv", "profil"], FARK_LISTE = ["aliciler", "hizmetler"];
+  var BAZ_METIN = "", FARK_ALAN = ["ad", "vkn", "kullanici", "gibSifre", "sgk", "sgkEk", "kdvDevir", "sonBeyan", "defterBeyan", "earsiv", "gizli", "profil"], FARK_LISTE = ["aliciler", "hizmetler"];
   function farkHazirla(){
     var taban = {}, var0 = false; try { var b = JSON.parse(BAZ_METIN); (b.veri && b.veri.mukellefler || b.mukellefler || []).forEach(function(m){ taban[m.id] = m; var0 = true; }); } catch (e) { /* taban yok */ }
     if (!var0) return null;
@@ -1091,12 +1091,37 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   $("mChips").addEventListener("click", function(e){ var b = e.target.closest("button"); if (!b) return; mPanelKapat(); $("mSecAd").textContent = b.textContent; /* seçim anında görünür; ağır güncellemeler çizimden sonra */ });
   document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !$("mPanel").hidden) mPanelKapat(); });
   /* e-Arşiv kullanmayan mükellef: Yeni fatura / Taslaklar (mükellef girişinde Geçmiş de) gizlenir, Vergi D. açılır */
+  /* Mükellefin göreceği bölümler (ofis Ayarlar'dan belirler): m.gizli = { ana:[], vd:[], sgk:[], belge:[] } gizlenenlerin listesi; boş = hepsi görünür. Yalnız mükellef girişinde uygulanır; ofis ve çalışan hepsini görür. */
+  var GZ = [
+    ["ana", "Ana ekran", [["borc", "Vergi borcu"], ["sgkborc", "SGK borcu"], ["tebligat", "Tebligat"], ["kar", "Kâr / zarar"], ["devir", "KDV devri"], ["kira", "Kira bilgileri"], ["tarihler", "Yaklaşan tarihler"]]],
+    ["vd", "Vergi Dairesi", [["borc", "Borç durumu"], ["tebligat", "Tebligat"], ["trafik", "Trafik cezası"], ["gelen", "Gelen fatura"], ["yazi", "Borcu yoktur"], ["dilekce", "Dilekçelerim"], ["levha", "e-Vergi levhası"], ["bt", "Beyanname · Tahakkuk"], ["yoklama", "Yoklama fişi"], ["sicil", "Sicil bilgisi"], ["arac", "Araçlarım"], ["pos", "POS"], ["haciz", "Haciz"], ["zrapor", "Z raporu"], ["kdv", "KDV raporu"]]],
+    ["sgk", "SGK", [["isveren", "Borç sorgulama"], ["eborc", "E-Borcu Yoktur"], ["tesvik", "Potansiyel teşvik"], ["ebildirge", "Hizmet · Tahakkuk"], ["tescil", "İşe giriş / çıkış"], ["rapor", "Rapor sorgulama"], ["bagkur", "Bağ-Kur (4/b)"]]],
+    ["belge", "Belgeler", [["belgeler", "Belgelerim"], ["talepler", "Ofise talep"], ["banka", "Banka evrakı"]]]
+  ];
+  function gizliMi(g, k, m){ if (ROL !== "mukellef") return false; m = m || mk(); var l = m && m.gizli && m.gizli[g]; return !!(l && l.indexOf(k) >= 0); }
+  function grupBos(g, m){
+    if (ROL !== "mukellef" || !m) return false; var l = (m.gizli && m.gizli[g]) || [], tum = GZ.filter(function(x){ return x[0] === g; })[0][2];
+    if (!tum.every(function(x){ return l.indexOf(x[0]) >= 0; })) return false;
+    return !(g === "vd" && m.defterBeyan); /* Hesap özeti (Defter-Beyan) ayrıca açıksa Vergi D. sekmesi kalır */
+  }
+  function gizliYazi(m){ var n = 0; GZ.forEach(function(g){ n += ((m.gizli || {})[g[0]] || []).length; }); return n ? n + " bölüm gizli" : "hepsi görünür"; }
+  function gizliAyarHtml(m){
+    var h = '<details class="alt2" data-ak="gz:' + m.id + '"' + ac("gz:" + m.id) + '><summary>Mükellefin göreceği bölümler <small data-gz-say="' + m.id + '">' + gizliYazi(m) + '</small></summary><div class="icerik"><p class="not" style="margin:0">İşaretli olanlar mükellefin ekranında görünür; işareti kaldırdığınız bölüm ona gösterilmez. Hiçbir şeyi değiştirmezseniz her şey şimdiki gibi görünür. Siz ve çalışanlar her zaman hepsini görürsünüz. e-Arşiv ve Defter-Beyan için yukarıdaki kutuları kullanın.</p>';
+    GZ.forEach(function(g){
+      h += '<div><b style="font-size:.85rem">' + g[1] + '</b><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;margin-top:4px">';
+      g[2].forEach(function(x){ var gz = ((m.gizli || {})[g[0]] || []).indexOf(x[0]) >= 0; h += '<label class="onay" style="display:flex;gap:8px;align-items:flex-start;font-weight:500;font-size:.88rem"><input type="checkbox" data-gz="' + m.id + '|' + g[0] + '|' + x[0] + '"' + (gz ? "" : " checked") + ' style="margin-top:3px;flex:none"><span>' + esc(x[1]) + '</span></label>'; });
+      h += '</div></div>';
+    });
+    return h + '<button class="k" type="button" data-gz-hepsi="' + m.id + '">Hepsini göster</button></div></details>';
+  }
   function modulGuncelle(){
     var m = mk(), ea = !m || m.earsiv !== false, gizli = {};
     if (!ea) gizli.earsiv = 1;
+    ["vd", "sgk", "belge"].forEach(function(g){ if (grupBos(g, m)) gizli[g] = 1; });
     var n = 0; document.querySelectorAll("#sekmeler [data-sekme]").forEach(function(b){ var h = !!gizli[b.getAttribute("data-sekme")]; b.hidden = h; b.style.display = h ? "none" : ""; if (!h) n++; });
     $("sekmeler").style.gridTemplateColumns = "repeat(" + (n || 1) + ", 1fr)";
-    if (gizli.earsiv && EAGRUP.indexOf(aktifSekme) >= 0) sekme("vd");
+    var git = gizli.earsiv && EAGRUP.indexOf(aktifSekme) >= 0 ? (gizli.vd ? "ana" : "vd") : (gizli[aktifSekme] ? "ana" : "");
+    if (git) sekme(git);
   }
   function seritGoster(){ $("mSerit").hidden = !((ROL === "ofis" || COKLU) && V && V.mukellefler.length > 0) || aktifSekme === "ayar"; }
   function cizAlici(){
@@ -2461,7 +2486,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   }
   function mukellefBolumler(m, ofis){
     var ea = m.earsiv !== false;
-    return (ofis ? '<label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-ea="' + m.id + '"' + (ea ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>e-Arşiv fatura kullanıyor <small class="not">(kapalıysa yalnız Vergi Dairesi bölümü açılır)</small></span></label><label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-db="' + m.id + '"' + (m.defterBeyan ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>Defter-Beyan kullanıyor <small class="not">(şahıs, 2. sınıf; Vergi D. bölümünde “Hesap özeti” açılır)</small></span></label>' + (m.defterBeyan ? '<div><label>Defter-Beyan’a verisi girilen son dönem</label><input type="month" data-f="sonBeyan" value="' + esc(m.sonBeyan || "") + '"><p class="not" style="margin:4px 0 0;font-size:.78rem">Ana ekrandaki kâr/zarar durumu bu döneme kadar hesaplanır (örn. 2026-09). Boş bırakırsanız otomatik: ayın 28’inden sonra önceki ayın sonuna, 28’inden önce iki ay öncesinin sonuna kadar.</p></div>' : "") : "") + profilHtml(m) + (ea ? markaHtml(m, true) + hizmetHtml(m) + aliciHtml(m) + iceHtml(m) : "") + gibBagHtml(m) + gibKullaniciHtml(m) + sgkAyarHtml(m) + (ea ? smsAyarHtml(m) : "") + (ofis && !PERSONEL ? hesapHtml(m) + etkinlikHtml(m) : "") +
+    return (ofis ? '<label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-ea="' + m.id + '"' + (ea ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>e-Arşiv fatura kullanıyor <small class="not">(kapalıysa yalnız Vergi Dairesi bölümü açılır)</small></span></label><label class="onay" style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" data-db="' + m.id + '"' + (m.defterBeyan ? " checked" : "") + ' style="margin-top:3px;flex:none"><span>Defter-Beyan kullanıyor <small class="not">(şahıs, 2. sınıf; Vergi D. bölümünde “Hesap özeti” açılır)</small></span></label>' + (m.defterBeyan ? '<div><label>Defter-Beyan’a verisi girilen son dönem</label><input type="month" data-f="sonBeyan" value="' + esc(m.sonBeyan || "") + '"><p class="not" style="margin:4px 0 0;font-size:.78rem">Ana ekrandaki kâr/zarar durumu bu döneme kadar hesaplanır (örn. 2026-09). Boş bırakırsanız otomatik: ayın 28’inden sonra önceki ayın sonuna, 28’inden önce iki ay öncesinin sonuna kadar.</p></div>' : "") : "") + (ofis ? gizliAyarHtml(m) : "") + profilHtml(m) + (ea ? markaHtml(m, true) + hizmetHtml(m) + aliciHtml(m) + iceHtml(m) : "") + gibBagHtml(m) + gibKullaniciHtml(m) + sgkAyarHtml(m) + (ea ? smsAyarHtml(m) : "") + (ofis && !PERSONEL ? hesapHtml(m) + etkinlikHtml(m) : "") +
       '<div class="durum" data-md role="status"></div>' + (ofis && !PERSONEL ? '<button class="btn tehlike" type="button" data-sil-m="' + m.id + '">Mükellefi sil</button>' : "");
   }
   function mukellefAyarHtml(m){
@@ -2782,11 +2807,24 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     if (e.target.open && e.target.parentElement) [].slice.call(e.target.parentElement.children).forEach(function(c){ if (c !== e.target && c.tagName === "DETAILS" && c.open) { c.open = false; var ck = c.getAttribute("data-ak"); if (ck) ayarAcik[ck] = false; } }); /* aynı düzeyde yalnız biri açık */
     if (e.target.open && /^ku?:/.test(k) && !MARKA[k.replace(/^ku?:/, "")]) markaYukle(k.replace(/^ku?:/, "")).then(function(){ if (ayarAcik[k]) cizAyar(); }); // yalnız ilk açılışta; yeniden çizim toggle’ı tekrar tetikler
   }, true);
+  $("ayarIc").addEventListener("click", function(e){
+    var b = e.target.closest("[data-gz-hepsi]"); if (!b) return; var gm = mBul(b.getAttribute("data-gz-hepsi")), gd = $("ayarDurum"); if (!gm) return;
+    var eski = gm.gizli; gm.gizli = {}; var kap = b.closest("details"); if (kap) kap.querySelectorAll("[data-gz]").forEach(function(x){ x.checked = true; }); var gs = document.querySelector('[data-gz-say="' + gm.id + '"]'); if (gs) gs.textContent = gizliYazi(gm);
+    kaydetV().then(function(){ if (gd) { gd.className = "durum ok"; gd.textContent = "Kaydedildi: mükellef her şeyi görüyor."; } }, function(er){ gm.gizli = eski; ayarHata(gd, er); cizAyar(); });
+  });
   $("ayarIc").addEventListener("input", function(e){ if (e.target.id === "mAyAra") { MAYARA = e.target.value; mAyAraUygula(); } });
   $("ayarIc").addEventListener("change", function(e){
     if (e.target.getAttribute && e.target.getAttribute("data-db") != null) {
       var dm = mBul(e.target.getAttribute("data-db")); if (!dm) return; dm.defterBeyan = e.target.checked; var dd = $("ayarDurum");
       kaydetV().then(function(){ hepsi(); var d2 = $("ayarDurum"); if (d2) { d2.className = "durum ok"; d2.textContent = dm.defterBeyan ? "Defter-Beyan açıldı; Vergi D. bölümünde Hesap özeti görünür." : "Defter-Beyan kapatıldı."; } }, function(er){ dm.defterBeyan = !dm.defterBeyan; ayarHata(dd, er); });
+      return;
+    }
+    if (e.target.getAttribute && e.target.getAttribute("data-gz")) {
+      var gp = e.target.getAttribute("data-gz").split("|"), gm = mBul(gp[0]), gd = $("ayarDurum"); if (!gm) return;
+      var gEski = gm.gizli, gYeni = JSON.parse(JSON.stringify(gEski || {})), gl = (gYeni[gp[1]] || []).filter(function(x){ return x !== gp[2]; });
+      if (!e.target.checked) gl.push(gp[2]); if (gl.length) gYeni[gp[1]] = gl; else delete gYeni[gp[1]];
+      gm.gizli = gYeni; var gs = document.querySelector('[data-gz-say="' + gm.id + '"]'); if (gs) gs.textContent = gizliYazi(gm);
+      kaydetV().then(function(){ if (gd) { gd.className = "durum ok"; gd.textContent = "Kaydedildi: mükellefin göreceği bölümler güncellendi."; } }, function(er){ gm.gizli = gEski; e.target.checked = !e.target.checked; if (gs) gs.textContent = gizliYazi(gm); ayarHata(gd, er); });
       return;
     }
     if (e.target.getAttribute && e.target.getAttribute("data-ea") != null) {
@@ -3690,6 +3728,8 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   }
   function vdSekmeCiz(){
     var dbm = mBul(VD.mid), dbVar = !!(dbm && dbm.defterBeyan); var dbc = $("vdSeg").querySelector('[data-vd="hesapozeti"]'); if (dbc) dbc.hidden = !dbVar; if (VD.sek === "hesapozeti" && !dbVar) VD.sek = "borc";
+    $("vdSeg").querySelectorAll("[data-vd]").forEach(function(b){ var k = b.getAttribute("data-vd"); if (k !== "hesapozeti") b.hidden = gizliMi("vd", k, dbm); });
+    if (gizliMi("vd", VD.sek, dbm) || ($("vdSeg").querySelector('[data-vd="' + VD.sek + '"]') || {}).hidden) { var ilkc = [].filter.call($("vdSeg").querySelectorAll("[data-vd]"), function(b){ return !b.hidden; })[0]; if (ilkc) VD.sek = ilkc.getAttribute("data-vd"); }
     $("vdSeg").querySelectorAll("[data-vd]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-vd") === VD.sek ? "true" : "false"); });
     $("vdNot").textContent = VDNOT[VD.sek]; $("vdTarih").hidden = VD.sek !== "gelen" && VD.sek !== "dilekce"; $("vdDilYaz").hidden = VD.sek !== "dilekce" || !VD.bagli; $("vdTebIlet").hidden = VD.sek !== "tebligat" || !VD.bagli; $("vdYazi").hidden = VD.sek !== "yazi" || !VD.bagli; if (VD.sek === "yazi" && VD.bagli) vdYaziAlan(); $("vdYil").hidden = VD.sek !== "levha" || !VD.bagli; if (VD.sek === "levha") vdYilCiz();
     $("vdTahakkuk").hidden = VD.sek !== "bt" || !VD.bagli; $("vdArac").hidden = VD.sek !== "arac" || !VD.bagli; $("vdPos").hidden = (VD.sek !== "pos" && VD.sek !== "zrapor") || !VD.bagli; $("vdTel").hidden = VD.sek !== "telefon" || !VD.bagli; $("vdKdv").hidden = VD.sek !== "kdv"; $("vdHesap").hidden = VD.sek !== "hesapozeti"; $("vdHaciz").hidden = VD.sek !== "haciz" || !VD.bagli; $("vdHacizDerin").hidden = ROL !== "ofis"; if (VD.sek === "kdv") kdvEtiket(); if (VD.sek === "hesapozeti") vdHoAlan(); if (VD.sek === "bt") vdTahakkukAlan(); if (VD.sek === "pos" || VD.sek === "zrapor") vdPosAlan(); if (VD.sek === "telefon" && VD.bagli) vdTelAc(); $("vdTani").hidden = true; $("vdDurum").textContent = ""; $("vdDurum").className = "durum"; vdBagDurum(); vdCiz();
@@ -3716,9 +3756,10 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     kutu.innerHTML = h; kutu.style.gridTemplateColumns = "repeat(" + Math.min(n, 2) + ",minmax(0,1fr))";
   }
   function vdSgkCiz(){
+    var mg = mBul(VD.mid); if (gizliMi("sgk", VD.sgkGor || VD.sgkSis, mg)) { var ilk = GZ[2][2].map(function(x){ return x[0]; }).filter(function(k){ return !gizliMi("sgk", k, mg); })[0]; if (ilk) { VD.sgkGor = ilk; VD.sgkSis = ilk === "eborc" || ilk === "tesvik" ? "isveren" : ilk; } }
     var sis = VD.sgkSis, gor = VD.sgkGor || sis, b = !!VD.sgkB[sis + "|" + VD.sgkIx], m = mBul(VD.mid) || {}, k = sgkIsyeri(m, VD.sgkIx), eksik = sis !== "bagkur" && !(k.kullanici && k.isyeriKod && k.isyeriVar && (sis === "rapor" || k.sistemVar));
     sgkIsyeriCiz(); $("sgkMuk").textContent = (m.ad || "") + ((m.sgkEk || []).length ? " · " + sgkIsyeriAdi(m, VD.sgkIx) : "");
-    $("sgkSis").querySelectorAll("[data-sis]").forEach(function(x){ x.setAttribute("aria-pressed", x.getAttribute("data-sis") === gor ? "true" : "false"); });
+    $("sgkSis").querySelectorAll("[data-sis]").forEach(function(x){ x.hidden = gizliMi("sgk", x.getAttribute("data-sis"), mg); x.setAttribute("aria-pressed", x.getAttribute("data-sis") === gor ? "true" : "false"); });
     $("vdSgkAciklama").textContent = SGKAC[gor];
     var eb = gor === "eborc", tv = gor === "tesvik"; $("isvBorcK").style.display = eb || tv ? "none" : "grid"; $("isvTesvik").style.display = tv ? "grid" : "none"; $("isvEborcK").style.display = eb ? "grid" : "none"; $("isvEborcK").hidden = !eb; $("isvBorcsuzAc").style.display = "none"; $("isvBorcsuz").hidden = !eb; $("isvBorcsuz").style.display = eb ? "grid" : "none";
     var bagkur = sis === "bagkur", rapor = sis === "rapor" || bagkur, oz = sis === "isveren" || sis === "tescil" || rapor; /* bu iki sistemde işlemler baştan görünür; güvenlik kodu, bir işleme dokununca istenir */
@@ -4189,10 +4230,10 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   /* Vergi sağlığı özeti: son sorgulardaki verilerden yeşil / sarı / kırmızı değerlendirme (yeni sorgu yapmaz) */
   function saglikHtml(son, m){
     var sat = [], renk = { iyi: "var(--accent)", uyari: "var(--warn)", kotu: "var(--danger)", yok: "var(--muted)" }, seviye = 0, say = function(t, x){ sat.push([t, x]); seviye = Math.max(seviye, x === "kotu" ? 3 : x === "uyari" ? 2 : x === "yok" ? 1 : 0); };
-    var vb = son.vdBorc, sb = son.sgkBorc, tb = son.tebligat, sgkVar = !!(m && m.sgk && m.sgk.kullanici);
-    if (!vb) say("Vergi borcu henüz sorgulanmadı", "yok"); else say(vb.toplam > 0 ? "Vergi borcu var: " + anaTl(vb.toplam) : "Vergi borcu yok", vb.toplam > 0 ? "kotu" : "iyi");
+    var gB = gizliMi("ana", "borc"), gT = gizliMi("ana", "tebligat"), vb = gB ? null : son.vdBorc, sb = son.sgkBorc, tb = gT ? null : son.tebligat, sgkVar = !!(m && m.sgk && m.sgk.kullanici) && !gizliMi("ana", "sgkborc");
+    if (gB) { } else if (!vb) say("Vergi borcu henüz sorgulanmadı", "yok"); else say(vb.toplam > 0 ? "Vergi borcu var: " + anaTl(vb.toplam) : "Vergi borcu yok", vb.toplam > 0 ? "kotu" : "iyi");
     if (sgkVar) { if (!sb) say("SGK borcu henüz sorgulanmadı", "yok"); else say(sb.toplam > 0 ? "SGK borcu var: " + anaTl(sb.toplam) : "SGK borcu yok", sb.toplam > 0 ? "kotu" : "iyi"); }
-    if (!tb) say("Tebligatlar henüz sorgulanmadı", "yok"); else if (tb.onemli > 0 && tb.okunmadi > 0) say(tb.okunmadi + " okunmamış tebligat, " + tb.onemli + " önemli", "uyari"); else if (tb.okunmadi > 0) say(tb.okunmadi + " okunmamış tebligat", "uyari"); else say("Okunmamış tebligat yok", "iyi");
+    if (gT) { } else if (!tb) say("Tebligatlar henüz sorgulanmadı", "yok"); else if (tb.onemli > 0 && tb.okunmadi > 0) say(tb.okunmadi + " okunmamış tebligat, " + tb.onemli + " önemli", "uyari"); else if (tb.okunmadi > 0) say(tb.okunmadi + " okunmamış tebligat", "uyari"); else say("Okunmamış tebligat yok", "iyi");
     var zam = [vb, sgkVar ? sb : null, tb].filter(Boolean).map(function(x){ return new Date(x.zaman).getTime(); }).filter(Boolean), eski = zam.length ? Math.round((Date.now() - Math.min.apply(null, zam)) / 864e5) : 0;
     if (eski > 7) say("Bilgiler " + eski + " gün önceki sorgudan; yenilemek iyi olur", "uyari");
     var tam = seviye >= 3 ? ["Acil", "kotu"] : seviye === 2 ? ["Dikkat", "uyari"] : seviye === 1 ? ["Eksik bilgi", "yok"] : ["İyi", "iyi"];
@@ -4258,10 +4299,10 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   function anaCiz(r){ if (ANA_GORUNUM === "klasik") anaCizKlasik(r); else anaCizYeni(r); }
   function anaCizYeni(r){
     r = r || {}; var son = r.son || {}, ofis = ROL === "ofis", m = mk(), now = new Date(), ad = m ? m.ad : "Mükellef Portalı";
-    var vb = son.vdBorc, sb = son.sgkBorc, tb = son.tebligat, sgkVar = !!(m && m.sgk && m.sgk.kullanici), seviye = 0;
+    var gB = gizliMi("ana", "borc"), gT = gizliMi("ana", "tebligat"), vb = son.vdBorc, sb = son.sgkBorc, tb = son.tebligat, sgkVar = !!(m && m.sgk && m.sgk.kullanici) && !gizliMi("ana", "sgkborc"), seviye = 0;
     var yuk = function(x){ seviye = Math.max(seviye, x === "kotu" ? 3 : x === "uyari" ? 2 : x === "yok" ? 1 : 0); return x; };
-    var tVb = !vb ? yuk("yok") : yuk(vb.toplam > 0 ? "kotu" : "iyi"), tSb = !sgkVar ? "" : !sb ? yuk("yok") : yuk(sb.toplam > 0 ? "kotu" : "iyi"), tTb = !tb ? yuk("yok") : yuk(tb.okunmadi > 0 ? "uyari" : "iyi");
-    var zam = [vb, sgkVar ? sb : null, tb].filter(Boolean).map(function(x){ return new Date(x.zaman).getTime(); }).filter(Boolean), enEski = zam.length ? Math.min.apply(null, zam) : 0, enYeni = zam.length ? Math.max.apply(null, zam) : 0;
+    var tVb = gB ? "" : !vb ? yuk("yok") : yuk(vb.toplam > 0 ? "kotu" : "iyi"), tSb = !sgkVar ? "" : !sb ? yuk("yok") : yuk(sb.toplam > 0 ? "kotu" : "iyi"), tTb = gT ? "" : !tb ? yuk("yok") : yuk(tb.okunmadi > 0 ? "uyari" : "iyi");
+    var zam = [gB ? null : vb, sgkVar ? sb : null, gT ? null : tb].filter(Boolean).map(function(x){ return new Date(x.zaman).getTime(); }).filter(Boolean), enEski = zam.length ? Math.min.apply(null, zam) : 0, enYeni = zam.length ? Math.max.apply(null, zam) : 0;
     if (enEski && Date.now() - enEski > 7 * 864e5) yuk("uyari");
     var gen = seviye >= 3 ? ["Dikkat gerekiyor", "kotu"] : seviye === 2 ? ["Kontrol edin", "uyari"] : seviye === 1 ? ["Güncelleme bekliyor", "yok"] : ["Her şey yolunda", "iyi"];
     var h = '<div class="a2">' + yedekUyariHtml();
@@ -4272,35 +4313,35 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     h += anaEkranKart();
     /* genel durum: vergi borcu, SGK borcu, tebligat */
     var kpi = function(git, sek, etiket, deger, alt, tur){ return '<button type="button" data-git="' + git + '"' + (sek ? ' data-vdsek="' + sek + '"' : '') + ' class="' + tur + '"><i></i><span>' + etiket + '<small>' + alt + '</small></span><b>' + deger + '</b><em>›</em></button>'; };
-    h += '<section class="a2-kart"><div class="a2-kbas"><div><b>Genel durum</b><small style="display:block">' + (enYeni ? "Son sorgu " + anaZaman(enYeni) : "Henüz sorgulanmadı") + '</small></div><button type="button" class="a2-lnk" data-gunc-ac="1">⟳ Güncelle</button></div><div class="a2-kpi">' +
-      kpi("vd", "borc", "Vergi borcu", vb ? (vb.toplam > 0 ? anaTl(vb.toplam) : "Yok") : "—", vb ? (vb.toplam > 0 ? "Ödenecek" : "Borç bulunmuyor") : "Sorgulanmadı", tVb) +
+    if (!(gB && !sgkVar && gT)) h += '<section class="a2-kart"><div class="a2-kbas"><div><b>Genel durum</b><small style="display:block">' + (enYeni ? "Son sorgu " + anaZaman(enYeni) : "Henüz sorgulanmadı") + '</small></div><button type="button" class="a2-lnk" data-gunc-ac="1">⟳ Güncelle</button></div><div class="a2-kpi">' +
+      (gB ? "" : kpi("vd", "borc", "Vergi borcu", vb ? (vb.toplam > 0 ? anaTl(vb.toplam) : "Yok") : "—", vb ? (vb.toplam > 0 ? "Ödenecek" : "Borç bulunmuyor") : "Sorgulanmadı", tVb)) +
       (sgkVar ? kpi("sgk", "", "SGK borcu", sb ? (sb.toplam > 0 ? anaTl(sb.toplam) : "Yok") : "—", sb ? (sb.toplam > 0 ? "Ödenecek" : "Borç bulunmuyor") : "Sorgulanmadı", tSb) : "") +
-      kpi("vd", "tebligat", "Tebligat", tb ? (tb.okunmadi > 0 ? tb.okunmadi + " okunmamış" : "Yeni yok") : "—", tb ? (tb.onemli ? tb.onemli + " önemli · " : "") + "toplam " + tb.toplam + (tb.trafik ? " · " + tb.trafik + " trafik cezası" : "") : "Sorgulanmadı", tTb) +
+      (gT ? "" : kpi("vd", "tebligat", "Tebligat", tb ? (tb.okunmadi > 0 ? tb.okunmadi + " okunmamış" : "Yeni yok") : "—", tb ? (tb.onemli ? tb.onemli + " önemli · " : "") + "toplam " + tb.toplam + (tb.trafik ? " · " + tb.trafik + " trafik cezası" : "") : "Sorgulanmadı", tTb)) +
       '</div></section>';
     /* hızlı işlemler */
     h += '<div class="a2-eylem">' + (m && m.earsiv !== false ? '<button class="btn" type="button" data-git="yeni">' + IKON.fatura.replace("<svg ", '<svg width="20" height="20" ') + 'Yeni fatura kes</button>' : '') +
-      '<button class="k" type="button" data-git="belge"><span>Belgelerim</span>' + (r.belge ? '<em>' + r.belge + '</em>' : '') + '</button>' +
-      '<button class="k" type="button" data-git="talep"><span>' + (ofis ? "Talepler" : "Taleplerim") + '</span>' + (ofis ? (r.bekleyenToplam > 0 ? '<em>' + r.bekleyenToplam + '</em>' : '') : (r.acikTalep > 0 ? '<em>' + r.acikTalep + '</em>' : '')) + '</button>' +
-      '<button class="k" type="button" data-git="banka" style="grid-column:1/-1"><span>Bankaya verilecek evraklar</span><em style="background:none;font-size:1.2rem;padding:0">›</em></button></div>';
+      (gizliMi("belge", "belgeler") ? "" : '<button class="k" type="button" data-git="belge"><span>Belgelerim</span>' + (r.belge ? '<em>' + r.belge + '</em>' : '') + '</button>') +
+      (gizliMi("belge", "talepler") ? "" : '<button class="k" type="button" data-git="talep"><span>' + (ofis ? "Talepler" : "Taleplerim") + '</span>' + (ofis ? (r.bekleyenToplam > 0 ? '<em>' + r.bekleyenToplam + '</em>' : '') : (r.acikTalep > 0 ? '<em>' + r.acikTalep + '</em>' : '')) + '</button>') +
+      (gizliMi("belge", "banka") ? "" : '<button class="k" type="button" data-git="banka" style="grid-column:1/-1"><span>Bankaya verilecek evraklar</span><em style="background:none;font-size:1.2rem;padding:0">›</em></button>') + '</div>';
     /* mali özet: kâr, KDV devri, fatura gelir / gider */
     var satirlar = "", notlar = [];
-    if (m && m.defterBeyan) {
+    if (m && m.defterBeyan && !gizliMi("ana", "kar")) {
       var ho = son.hesapOzeti;
       if (ho) { var hb = new Date(ho.bas + "T00:00:00"), he = new Date(ho.bit + "T00:00:00"), kar = ho.kar || 0; satirlar += '<div class="a2-sat"><div><span>' + (kar < 0 ? "Zarar" : "Kâr") + ' · ' + AYLAR_UZUN[hb.getMonth()] + '–' + AYLAR_UZUN[he.getMonth()] + ' ' + he.getFullYear() + '</span><small>Gelir ' + anaTl(ho.gelir || 0) + ' · gider ' + anaTl(ho.gider || 0) + '</small></div><b style="color:' + (kar < 0 ? "var(--danger)" : "var(--accent)") + '">' + anaTl(Math.abs(kar)) + '</b></div>'; notlar.push("Kâr / zarar, Defter-Beyan’a girilen verilere göredir; " + AYLAR_UZUN[(he.getMonth() + 1) % 12] + " ve sonrası beyan verilip veri girilmediyse dahil değildir."); }
       else satirlar += '<div class="a2-sat"><div><span>Kâr / zarar</span><small>Güncelleyince Defter-Beyan’dan gelir</small></div><b style="color:var(--muted)">—</b></div>';
     }
-    if (m) { var dv = m.kdvDevir || {}, da = Object.keys(dv).sort().pop(); if (da) { var dp = da.split("-"), dvv = Number(dv[da]) || 0; satirlar += '<div class="a2-sat"><div><span>KDV devri · ' + AYLAR_UZUN[+dp[1] - 1] + ' ' + dp[0] + ' sonu</span><small><button type="button" class="a2-lnk" data-devir-yenile="1" style="padding:0;font-size:.74rem">Yenile</button> <span class="not" id="devirDurum" style="margin:0;display:inline"></span></small></div><b>' + anaTl(dvv) + '</b></div>'; notlar.push("KDV devri, tahakkuk fişindeki sonraki döneme devreden KDV’dir; aylık KDV raporu bu tutarı düşer."); }
+    if (m && !gizliMi("ana", "devir")) { var dv = m.kdvDevir || {}, da = Object.keys(dv).sort().pop(); if (da) { var dp = da.split("-"), dvv = Number(dv[da]) || 0; satirlar += '<div class="a2-sat"><div><span>KDV devri · ' + AYLAR_UZUN[+dp[1] - 1] + ' ' + dp[0] + ' sonu</span><small><button type="button" class="a2-lnk" data-devir-yenile="1" style="padding:0;font-size:.74rem">Yenile</button> <span class="not" id="devirDurum" style="margin:0;display:inline"></span></small></div><b>' + anaTl(dvv) + '</b></div>'; notlar.push("KDV devri, tahakkuk fişindeki sonraki döneme devreden KDV’dir; aylık KDV raporu bu tutarı düşer."); }
       else satirlar += '<div class="a2-sat"><div><span>KDV devri</span><small><button type="button" class="a2-lnk" data-devir-yenile="1" style="padding:0;font-size:.74rem">Tahakkuk fişinden al</button> <span class="not" id="devirDurum" style="margin:0;display:inline"></span></small></div><b style="color:var(--muted)">—</b></div>'; }
-    if (m && !m.defterBeyan) { satirlar += geciciKarSatir(son); if (son.geciciKar) notlar.push("Kâr / zarar: en son verilen geçici vergi beyannamesindeki dönem kârı ya da zararıdır (şirketlerde ticari bilanço kârı/zararı); yıl başından o dönemin sonuna kadar birikmiş tutardır. Vergiye esas matrah, kanunen kabul edilmeyen giderler gibi kalemler yüzünden bundan farklı olabilir. Sonraki aylar dahil değildir, kesin sonuç yıllık beyannamede çıkar."); }
+    if (m && !m.defterBeyan && !gizliMi("ana", "kar")) { satirlar += geciciKarSatir(son); if (son.geciciKar) notlar.push("Kâr / zarar: en son verilen geçici vergi beyannamesindeki dönem kârı ya da zararıdır (şirketlerde ticari bilanço kârı/zararı); yıl başından o dönemin sonuna kadar birikmiş tutardır. Vergiye esas matrah, kanunen kabul edilmeyen giderler gibi kalemler yüzünden bundan farklı olabilir. Sonraki aylar dahil değildir, kesin sonuç yıllık beyannamede çıkar."); }
     var kd = son.kdv, kt = function(x){ return x == null ? "—" : anaTl(x / 100); };
     if (!m || m.earsiv !== false) [kd && kd.onceki, kd && kd.cari].forEach(function(d, i){
       satirlar += '<div class="a2-sat"><div><span>' + (d ? esc(d.ad) : (i ? "Bu ay" : "Geçen ay")) + ' faturaları</span><small>' + (d ? (d.bitti ? "" : "Ay sürüyor · ") + anaZaman(d.zaman) : "Rapor hazırlanmadı") + '</small></div><div class="a2-iki"><i>gelir</i><i>gider</i><b style="color:var(--accent);font-size:.86rem">' + (d ? kt(d.gelir) : "—") + '</b><b style="color:var(--danger);font-size:.86rem">' + (d ? kt(d.gider) : "—") + '</b></div></div>';
     });
-    if (satirlar) h += '<section class="a2-kart"><div class="a2-kbas"><b>Mali özet</b>' + (!m || m.earsiv !== false ? '<button type="button" class="a2-lnk" data-git="vd" data-vdsek="kdv">KDV raporu ›</button>' : '') + '</div><div>' + satirlar + '</div>' + (notlar.length ? '<details class="a2-not"><summary>ⓘ Açıklama</summary>' + notlar.map(function(t){ return '<p>' + esc(t) + '</p>'; }).join("") + '<p>Fatura tutarları KDV dahildir.</p></details>' : '') + '</section>';
-    if (KIRA) h += kiraKartHtml(son); /* Kira: Yaklaşan tarihlerin üstünde */
+    if (satirlar) h += '<section class="a2-kart"><div class="a2-kbas"><b>Mali özet</b>' + ((!m || m.earsiv !== false) && !gizliMi("vd", "kdv") ? '<button type="button" class="a2-lnk" data-git="vd" data-vdsek="kdv">KDV raporu ›</button>' : '') + '</div><div>' + satirlar + '</div>' + (notlar.length ? '<details class="a2-not"><summary>ⓘ Açıklama</summary>' + notlar.map(function(t){ return '<p>' + esc(t) + '</p>'; }).join("") + '<p>Fatura tutarları KDV dahildir.</p></details>' : '') + '</section>';
+    if (KIRA && !gizliMi("ana", "kira")) h += kiraKartHtml(son); /* Kira: Yaklaşan tarihlerin üstünde */
     /* yaklaşan tarihler: ilk 3 görünür, gerisi açılır */
     var tl = yaklasanTarihler(), tsat = function(x){ var g = x.kalan === 0 ? "Bugün" : x.kalan === 1 ? "Yarın" : x.kalan + " gün"; return '<div class="a2-tar' + (x.kalan <= 3 ? " yakin" : x.kalan <= 7 ? " orta" : "") + '"><div style="min-width:0"><b>' + esc(x.ad) + '</b><small>' + x.d.getDate() + ' ' + AYLAR[x.d.getMonth()] + ' ' + GUNLER[x.d.getDay()] + (x.donem ? ' · ' + x.donem : '') + '</small></div><span class="gun">' + g + '</span></div>'; };
-    if (tl.length) h += '<section class="a2-kart"><div class="a2-kbas"><b>Yaklaşan tarihler</b><small>Vergi ve SGK</small></div><div>' + tl.slice(0, 3).map(tsat).join("") + '</div>' + (tl.length > 3 ? '<details id="anaTarih" class="a2-not"' + (ANA_TARIH_ACIK ? " open" : "") + '><summary>Tümünü göster (' + tl.length + ')</summary><div style="margin-top:6px">' + tl.slice(3).map(tsat).join("") + '</div></details>' : '') + '</section>';
+    if (tl.length && !gizliMi("ana", "tarihler")) h += '<section class="a2-kart"><div class="a2-kbas"><b>Yaklaşan tarihler</b><small>Vergi ve SGK</small></div><div>' + tl.slice(0, 3).map(tsat).join("") + '</div>' + (tl.length > 3 ? '<details id="anaTarih" class="a2-not"' + (ANA_TARIH_ACIK ? " open" : "") + '><summary>Tümünü göster (' + tl.length + ')</summary><div style="margin-top:6px">' + tl.slice(3).map(tsat).join("") + '</div></details>' : '') + '</section>';
     if (ofis && OFISK.takip) h += '<section class="a2-kart" style="gap:6px"><div class="a2-kbas"><div><b>Muhasebe ücreti takibi</b><small style="display:block">Portala taşınıyor · çalışma devam ediyor</small></div><a class="a2-lnk" style="text-decoration:none" href="' + esc(OFISK.takip) + '" target="_blank" rel="noopener">Programı aç ›</a></div></section>';
     h += '<div class="a2-alt"><button type="button" class="a2-lnk" data-ana-gorunum="klasik" style="color:var(--muted);font-weight:500">Klasik görünüme dön</button></div></div>';
     $("anaIc").innerHTML = h; guncGoster(son);
@@ -4311,22 +4352,22 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     var kapali = duyuruKapali(); (DUYURU || []).filter(function(d){ return kapali.indexOf(d.id) < 0; }).forEach(function(d){
       h += '<div class="kayit" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start;border-left:4px solid var(--warn);background:var(--warn-soft)"><div><b style="font-size:.85rem">Ofisten duyuru</b><div style="overflow-wrap:anywhere;margin-top:2px">' + esc(d.metin) + '</div>' + (d.bitis ? '<small class="not">Son gün: ' + esc(d.bitis.split("-").reverse().join(".")) + '</small>' : "") + '</div><button class="k" type="button" data-dy-kapat="' + esc(d.id) + '" aria-label="Duyuruyu kapat" style="min-height:34px;padding:2px 10px">✕</button></div>';
     });
-    h += anaEkranKart() + saglikHtml(son, m) + karHtml(son, m) + devirKartHtml(m);
-    var vb = son.vdBorc, sb = son.sgkBorc;
+    h += anaEkranKart() + saglikHtml(son, m) + (gizliMi("ana", "kar") ? "" : karHtml(son, m)) + (gizliMi("ana", "devir") ? "" : devirKartHtml(m));
+    var vb = son.vdBorc, sb = son.sgkBorc, gB = gizliMi("ana", "borc"), gS = gizliMi("ana", "sgkborc"), gT = gizliMi("ana", "tebligat");
     var kutu = function(git, ikon, baslik, deger, alt, sinif){ return '<button type="button" data-git="' + git + '" class="' + sinif + '"><span class="ik">' + IKON[ikon] + '</span><span>' + baslik + '</span><b>' + deger + '</b><small>' + alt + '</small></button>'; };
     h += '<div><div class="abas"><b>' + IKON.durum + 'Son durum</b><small>Son sorguya göre</small></div><div class="ozet">' +
-      kutu("vd", "vd", "Vergi borcu", vb ? anaTl(vb.toplam) : "—", vb ? anaZaman(vb.zaman) + " sorgusu" : "Sorgulamak için dokunun", vb ? (vb.toplam > 0 ? "dik" : "iyi") : "") +
-      kutu("sgk", "sgk", "SGK borcu", sb ? anaTl(sb.toplam) : "—", sb ? anaZaman(sb.zaman) + " sorgusu" : "Sorgulamak için dokunun", sb ? (sb.toplam > 0 ? "dik" : "iyi") : "") +
-      kutu("belge", "belge", "Belgelerim", r.belge == null ? "—" : String(r.belge), "İmza sirküleri, gazete…", "") +
-      kutu("banka", "belge", "Banka evrakı", "Hazırla", "Levha, beyanname, mizan", "") +
-      kutu("talep", "talep", ofis ? "Bekleyen talepler" : "Taleplerim", ofis ? (r.bekleyenToplam == null ? "—" : String(r.bekleyenToplam)) : (r.acikTalep == null ? "—" : r.acikTalep + " açık"), ofis ? (r.hesapTalep > 0 ? "Tüm mükellefler · " + r.hesapTalep + " hesap talebi" : "Tüm mükellefler") : "Ofise sorularınız", ofis && r.bekleyenToplam > 0 ? "dik" : "") +
+      (gB ? "" : kutu("vd", "vd", "Vergi borcu", vb ? anaTl(vb.toplam) : "—", vb ? anaZaman(vb.zaman) + " sorgusu" : "Sorgulamak için dokunun", vb ? (vb.toplam > 0 ? "dik" : "iyi") : "")) +
+      (gS ? "" : kutu("sgk", "sgk", "SGK borcu", sb ? anaTl(sb.toplam) : "—", sb ? anaZaman(sb.zaman) + " sorgusu" : "Sorgulamak için dokunun", sb ? (sb.toplam > 0 ? "dik" : "iyi") : "")) +
+      (gizliMi("belge", "belgeler") ? "" : kutu("belge", "belge", "Belgelerim", r.belge == null ? "—" : String(r.belge), "İmza sirküleri, gazete…", "")) +
+      (gizliMi("belge", "banka") ? "" : kutu("banka", "belge", "Banka evrakı", "Hazırla", "Levha, beyanname, mizan", "")) +
+      (gizliMi("belge", "talepler") ? "" : kutu("talep", "talep", ofis ? "Bekleyen talepler" : "Taleplerim", ofis ? (r.bekleyenToplam == null ? "—" : String(r.bekleyenToplam)) : (r.acikTalep == null ? "—" : r.acikTalep + " açık"), ofis ? (r.hesapTalep > 0 ? "Tüm mükellefler · " + r.hesapTalep + " hesap talebi" : "Tüm mükellefler") : "Ofise sorularınız", ofis && r.bekleyenToplam > 0 ? "dik" : "")) +
       '</div><p class="not" style="margin:8px 2px 0;font-size:.78rem">Vergi dairesi ve SGK tutarları, o bölümde sorgulayınca güncellenir (güvenlik kodu gerekir).</p></div>';
     var kd = son.kdv, kdKutu = function(d){ if (!d) return '<div class="kdvk"><b>—</b><small>Hazırlanmadı</small></div>'; var kt = function(x){ return x == null ? "—" : anaTl(x / 100); }; return '<div class="kdvk"><b>' + esc(d.ad) + '</b><div><span>Gelir (kesilen)</span><b style="color:var(--accent)">' + kt(d.gelir) + '</b></div><div><span>Gider (alınan)</span><b style="color:var(--danger)">' + kt(d.gider) + '</b></div><small>' + (d.bitti ? "" : "Ay sürüyor · ") + anaZaman(d.zaman) + '</small></div>'; };
     if (!m || m.earsiv !== false) h += '<div><div class="abas"><b>' + IKON.fatura.replace("<svg ", '<svg width="18" height="18" ') + 'Fatura özeti</b><small>KDV dahil · gelir / gider</small></div><div class="kdvg">' + kdKutu(kd && kd.onceki) + kdKutu(kd && kd.cari) + '</div><button type="button" class="k" data-git="vd" data-vdsek="kdv" style="margin-top:6px">Raporu hazırla / yenile</button></div>';
     var tb = son.tebligat;
-    if (tb) h += '<button type="button" data-git="vd" class="kayit" style="text-align:left;display:grid;gap:2px;border:1px solid var(--line)"><span style="font-size:.78rem;color:var(--muted)">Tebligat · ' + anaZaman(tb.zaman) + ' sorgusu</span><span><b style="color:' + (tb.onemli ? "var(--danger)" : "inherit") + '">' + tb.onemli + ' önemli</b> · ' + tb.okunmadi + ' okunmamış · ' + tb.trafik + ' trafik cezası · toplam ' + tb.toplam + '</span></button>';
+    if (tb && !gT) h += '<button type="button" data-git="vd" class="kayit" style="text-align:left;display:grid;gap:2px;border:1px solid var(--line)"><span style="font-size:.78rem;color:var(--muted)">Tebligat · ' + anaZaman(tb.zaman) + ' sorgusu</span><span><b style="color:' + (tb.onemli ? "var(--danger)" : "inherit") + '">' + tb.onemli + ' önemli</b> · ' + tb.okunmadi + ' okunmamış · ' + tb.trafik + ' trafik cezası · toplam ' + tb.toplam + '</span></button>';
     if (m && m.earsiv !== false) h += '<button class="btn anafatura" type="button" data-git="yeni">' + IKON.fatura.replace("<svg ", '<svg width="20" height="20" ') + 'Yeni fatura kes</button>';
-    if (KIRA) h += kiraHtml(KIRA);
+    if (KIRA && !gizliMi("ana", "kira")) h += kiraHtml(KIRA);
     h += '<details id="anaTarih" class="anatarih"' + (ANA_TARIH_ACIK ? " open" : "") + '><summary class="abas" style="cursor:pointer;list-style:none"><b>' + IKON.takvim + 'Yaklaşan tarihler</b><small>Vergi ve SGK · ' + (ANA_TARIH_ACIK ? "gizle" : "göster") + '</small></summary><div class="tkl">' +
       yaklasanTarihler().map(function(x){ var g = x.kalan === 0 ? "Bugün" : x.kalan === 1 ? "Yarın" : x.kalan + " gün"; return '<div class="tk' + (x.kalan <= 3 ? " yakin" : x.kalan <= 7 ? " orta" : "") + '"><div><b>' + esc(x.ad) + '</b><small>' + x.d.getDate() + ' ' + AYLAR[x.d.getMonth()] + ' ' + x.d.getFullYear() + ' · ' + GUNLER[x.d.getDay()] + (x.donem ? ' · ' + x.donem : '') + '</small></div><span class="gun">' + g + '</span></div>'; }).join("") +
       '</div><p class="not" style="margin:8px 2px 0;font-size:.78rem">Hafta sonu ve resmî tatiller sonraki iş gününe kayar.</p></details>';
@@ -4394,11 +4435,12 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     var d = $("gGuncDurum"), sonuc = [], hata = []; GUNC.zorla[m.id] = false;
     var ad = function(x, y){ sonuc.push(x); return y; };
     var adim = function(t){ d.className = "durum"; d.textContent = "⏳ Veriler çekiliyor — " + t; }; adim("vergi borcu ve tebligat…");
-    var vdIs = !VD.bagli ? Promise.resolve() : api("/api/vd/borc", "POST", { mukellefId: m.id }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.borc = r; sonuc.push("vergi borcu"); }, function(er){ hata.push("Vergi borcu: " + er.message); })
-      .then(function(){ return api("/api/vd/tebligat", "POST", { mukellefId: m.id }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.tebligat = r; tebOzetGonder(m.id, r); sonuc.push("tebligat"); }, function(er){ hata.push("Tebligat: " + er.message); }); });
+    var vdIs = !VD.bagli ? Promise.resolve() : (gizliMi("ana", "borc") ? Promise.resolve() : api("/api/vd/borc", "POST", { mukellefId: m.id }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.borc = r; sonuc.push("vergi borcu"); }, function(er){ hata.push("Vergi borcu: " + er.message); }))
+      .then(function(){ if (gizliMi("ana", "tebligat")) return; return api("/api/vd/tebligat", "POST", { mukellefId: m.id }).then(function(r){ r.zaman = new Date().toLocaleString("tr-TR"); VD.sonuc.tebligat = r; tebOzetGonder(m.id, r); sonuc.push("tebligat"); }, function(er){ hata.push("Tebligat: " + er.message); }); });
     /* Vergi dairesi bağlıysa kâr durumu (Defter-Beyan hesap özeti) ve KDV devri (tahakkuk fişi) de kendiliğinden alınır */
     if (VD.bagli) {
       vdIs = vdIs.then(function(){
+        if (gizliMi("ana", "kar")) return;
         if (!m.defterBeyan) { /* 1. sınıf: kâr/zarar son verilen geçici vergi beyannamesinden */
           adim("kâr / zarar (son geçici beyanname)…");
           return api("/api/vd/gecici-kar", "POST", { mukellefId: m.id }).then(function(r){ if (r && r.tutar != null) { sonuc.push("kâr/zarar"); return geciciKarGonder(m.id, r); } if (r && !r.yok) hata.push("Kâr/zarar: " + (r.hata || "beyannameden okunamadı")); }, function(er){ if (oturumDustu(er)) return; hata.push("Kâr/zarar: " + er.message); });
@@ -4406,9 +4448,11 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
         var a = hoAralik(m); adim("kâr durumu (Defter-Beyan)…");
         return api("/api/vd/hesapozeti", "POST", { mukellefId: m.id, bas: a.bas, bit: a.bit, mali: "1" }).then(function(r){ sonuc.push("kâr durumu"); return hesapOzetiGonder(m.id, r); }, function(er){ if (oturumDustu(er)) return; hata.push("Kâr durumu: " + er.message); });
       }).then(function(){
+        if (gizliMi("ana", "devir")) return;
         adim("KDV devri (tahakkuk fişi)…");
         return kdvDevirTahakkuk(m, devirAnahtar()).then(function(x){ if (x && x.tutar != null) sonuc.push("KDV devri"); }, function(er){ if (oturumDustu(er)) return; hata.push("KDV devri: " + er.message); });
       }).then(function(){
+        if (gizliMi("ana", "kira")) return;
         adim("güncel kira (son muhtasar)…");
         return api("/api/vd/guncel-kira", "POST", { mukellefId: m.id }).then(function(r){ if (r && r.tutar != null) { sonuc.push("güncel kira"); return guncelKiraGonder(m.id, r); } if (r && r.belirsiz) hata.push("Güncel kira muhtasar beyannamesinden güvenle okunamadı (" + (r.tani || "tablo okunamadı") + ")"); return guncelKiraGonder(m.id, { yok: true }); /* eski (yanlış olabilecek) tutar silinir */ }, function(er){ if (oturumDustu(er)) return; hata.push("Güncel kira: " + er.message); });
       }).then(function(){
@@ -4416,7 +4460,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
         return kdvOto(function(t){ d.className = "durum"; d.textContent = "⏳ Veriler çekiliyor — fatura özeti: " + t; }).then(function(h){ if (h) hata.push("Fatura özeti: " + h); else sonuc.push("fatura özeti"); return new Promise(function(r){ setTimeout(r, 700); }); });
       });
     }
-    var sgkIs = !VD.sgkB["isveren|0"] ? Promise.resolve() : api("/api/sgk/sayfa", "POST", { mukellefId: m.id, sistem: "isveren", ix: 0, ad: "DonemBorcGoruntuleme" }).then(function(){ sonuc.push("SGK borcu"); }, function(er){ hata.push("SGK borcu: " + er.message); });
+    var sgkIs = !VD.sgkB["isveren|0"] || gizliMi("ana", "sgkborc") ? Promise.resolve() : api("/api/sgk/sayfa", "POST", { mukellefId: m.id, sistem: "isveren", ix: 0, ad: "DonemBorcGoruntuleme" }).then(function(){ sonuc.push("SGK borcu"); }, function(er){ hata.push("SGK borcu: " + er.message); });
     return Promise.all([vdIs, sgkIs]).then(function(){
       GUNC.calisiyor = false; $("gGuncelle").disabled = false; $("gButonlar").style.display = "flex";
       if (hata.length) { d.className = "durum hata"; d.textContent = (sonuc.length ? "Yenilenen: " + sonuc.join(", ") + ". " : "") + hata.join(" · "); $("gKodlar").style.display = "none"; $("gGuncelle").hidden = true; $("gKodAl").hidden = false; $("gKodAl").disabled = false; $("gKodAl").textContent = "Yeniden dene (yeni kodlar)"; } else { d.className = "durum ok"; d.textContent = "✓ Güncellendi: " + sonuc.join(", ") + ". Oturumlar 5 dakika açık kalır."; setTimeout(function(){ if (GUNC.mid === m.id && !GUNC.calisiyor) $("anaGunc").hidden = true; }, 2500); }
@@ -4456,7 +4500,8 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   function tarihYaz(z){ var d = new Date(z); return isNaN(d) ? "" : p2(d.getDate()) + "." + p2(d.getMonth() + 1) + "." + d.getFullYear(); }
   function belgeAc(){
     var m = mk(), ofis = ROL === "ofis"; $("belgeMuk").textContent = m ? m.ad : "";
-    $("belgeSeg").querySelectorAll("[data-bs]").forEach(function(b){ b.setAttribute("aria-pressed", b.getAttribute("data-bs") === BS ? "true" : "false"); });
+    if (gizliMi("belge", BS, m)) { var ilkb = ["belgeler", "talepler", "banka"].filter(function(k){ return !gizliMi("belge", k, m); })[0]; if (ilkb) BS = ilkb; }
+    $("belgeSeg").querySelectorAll("[data-bs]").forEach(function(b){ b.hidden = gizliMi("belge", b.getAttribute("data-bs"), m); b.setAttribute("aria-pressed", b.getAttribute("data-bs") === BS ? "true" : "false"); });
     $("belgeBolum").hidden = BS !== "belgeler"; $("talepBolum").hidden = BS !== "talepler"; $("bankaBolum").hidden = BS !== "banka";
     $("belgeAciklama").textContent = ofis ? "Mükellef için saklanan belgeler. Yüklediğiniz belgeyi mükellef kendi ekranından görüp indirir." : "Ofisinizin sizin için sakladığı belgeler: imza sirküleri, ticaret sicil gazetesi, faaliyet belgesi vb. İndirmek için dokunun.";
     $("talepAciklama").textContent = ofis ? "Mükelleflerin ofise gönderdiği talepler (tüm firmalar). Yapınca “Yapıldı” deyin, isterseniz kısa bir yanıt yazın." : "Ofise iletmek istediğiniz bir şey varsa buraya yazın; yapılınca burada “Yapıldı” görünür.";

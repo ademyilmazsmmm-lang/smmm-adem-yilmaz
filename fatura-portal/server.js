@@ -20,7 +20,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-21-319";
+const SURUM = "2026-11-26-320";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -134,7 +134,7 @@ const htSay = new Map();
 const ISVEREN_SAYFALAR = new Set(["DonemBorcGoruntuleme", "CariDonemBorc", "Mufredat", "IAIIBYEB", "IAIOTGBYEB", "IAIOTIBYEB", "IAKBYEB", "IATBYEB", "IAHBYEB", "IASBYEB", "IAKGFBYEB", "IAKU", "TesvikPotansiyel"]);
 function temizMukellef(o, id) {
   const v = depo.mukellef(o, id).veri;
-  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, earsiv: v.earsiv !== false, defterBeyan: v.defterBeyan === true, sonBeyan: v.sonBeyan || "", kdvDevir: v.kdvDevir || {}, sgk: { ad: (v.sgk && v.sgk.ad) || "", kullanici: (v.sgk && v.sgk.kullanici) || "", isyeriKod: (v.sgk && v.sgk.isyeriKod) || "", sistemVar: !!(v.sgk && v.sgk.sistemSifre), isyeriVar: !!(v.sgk && v.sgk.isyeriSifre) }, sgkEk: (v.sgkEk || []).map((x) => ({ id: x.id, ad: x.ad || "", kullanici: x.kullanici || "", isyeriKod: x.isyeriKod || "", sistemVar: !!x.sistemSifre, isyeriVar: !!x.isyeriSifre })), profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: mGibi(o) && !(o.musteri ? depo.personelKabulSurum(o) === KABUL_SURUM : (v.kabul && v.kabul.surum === KABUL_SURUM)), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
+  return { id, ad: v.ad, vkn: v.vkn, kullanici: v.kullanici, sifreVar: !!v.gibSifre, earsiv: v.earsiv !== false, defterBeyan: v.defterBeyan === true, gizli: gizliTemiz(v.gizli), sonBeyan: v.sonBeyan || "", kdvDevir: v.kdvDevir || {}, sgk: { ad: (v.sgk && v.sgk.ad) || "", kullanici: (v.sgk && v.sgk.kullanici) || "", isyeriKod: (v.sgk && v.sgk.isyeriKod) || "", sistemVar: !!(v.sgk && v.sgk.sistemSifre), isyeriVar: !!(v.sgk && v.sgk.isyeriSifre) }, sgkEk: (v.sgkEk || []).map((x) => ({ id: x.id, ad: x.ad || "", kullanici: x.kullanici || "", isyeriKod: x.isyeriKod || "", sistemVar: !!x.sistemSifre, isyeriVar: !!x.isyeriSifre })), profil: v.profil || {}, kabul: o.rol === "ofis" ? (v.kabul || null) : undefined, kabulGerek: mGibi(o) && !(o.musteri ? depo.personelKabulSurum(o) === KABUL_SURUM : (v.kabul && v.kabul.surum === KABUL_SURUM)), aliciler: v.aliciler || [], hizmetler: v.hizmetler || [], markaVar: { logo: !!(v.marka && v.marka.logo), imza: !!(v.marka && v.marka.imza) }, // resimler büyük: ayrı uçtan (/api/marka) istenir
     hesapKullanici: o.rol === "ofis" ? depo.hesapKullanicisi(id) : undefined, sonGiris: v.sonGiris || null };
 }
 const mGibi = (o) => !!o && (o.rol === "mukellef" || o.musteri === true); /* mükellef yetkileri: kendi hesabı ya da çok firmalı müşteri hesabı */
@@ -161,6 +161,7 @@ function birlestir(o, g) {
     }
     if (m.kdvDevir && typeof m.kdvDevir === "object" && !Array.isArray(m.kdvDevir)) { const kd = {}; for (const [k, x] of Object.entries(m.kdvDevir).slice(0, 48)) if (/^\d{4}-(0[1-9]|1[0-2])$/.test(k) && Number.isFinite(Number(x))) kd[k] = Math.max(0, Math.min(1e12, Math.round(Number(x) * 100) / 100)); v.kdvDevir = kd; } /* ay sonu devreden KDV (TL), tahakkuk fişinden elle girilir */
     if (!mGibi(o) && typeof m.sonBeyan === "string" && /^(\d{4}-(0[1-9]|1[0-2]))?$/.test(m.sonBeyan)) v.sonBeyan = m.sonBeyan; /* Defter-Beyan'a verisi girilen son dönem (YYYY-AA) */
+    if (!mGibi(o) && m.gizli && typeof m.gizli === "object") v.gizli = gizliTemiz(m.gizli); // mükellefin ekranında gizlenecek bölümler (ofis belirler)
     if (!mGibi(o) && typeof m.defterBeyan === "boolean") v.defterBeyan = m.defterBeyan; // Defter-Beyan (şahıs 2. sınıf) kullanan mükellefte Hesap özeti açılır
     if (!mGibi(o) && typeof m.earsiv === "boolean") v.earsiv = m.earsiv; // e-Arşiv kullanmayan mükellef yalnız Vergi Dairesi bölümünü kullanır
     v.aliciler = aliciTemiz(m.aliciler); v.hizmetler = hizmetTemiz(m.hizmetler); if (m.marka) v.marka = markaTemiz(m.marka); if (m.profil) v.profil = profilTemiz(m.profil);
@@ -171,7 +172,23 @@ function birlestir(o, g) {
 /* Parçalı güncelleme (yarış koşulu önleyici): istemci yalnız DEĞİŞEN alanları ve liste farklarını (ekle / değiştir / sil) gönderir; bunlar
    sunucudaki GÜNCEL durumun üstüne uygulanır. Böylece iki kişi aynı anda çalışırken biri diğerinin değişikliğini ya da hiç dokunmadığı
    mükellefleri ezmez. Aynı alanı aynı anda değiştirirlerse yalnız o alanda sonra gelen kalır. */
-const FARK_ALANLAR = ["ad", "vkn", "kullanici", "gibSifre", "sgk", "sgkEk", "kdvDevir", "sonBeyan", "defterBeyan", "earsiv", "marka", "profil"];
+/* Mükellef ekranında gizlenebilen bölümler: yalnız bu anahtarlar kabul edilir (boş = hepsi görünür) */
+const GIZLI_IZIN = {
+  ana: ["borc", "sgkborc", "tebligat", "kar", "devir", "kira", "tarihler"],
+  vd: ["borc", "tebligat", "trafik", "gelen", "yazi", "dilekce", "levha", "bt", "yoklama", "sicil", "arac", "pos", "haciz", "zrapor", "kdv"],
+  sgk: ["isveren", "eborc", "tesvik", "ebildirge", "tescil", "rapor", "bagkur"],
+  belge: ["belgeler", "talepler", "banka"],
+};
+function gizliTemiz(g) {
+  const c = {};
+  if (!g || typeof g !== "object") return c;
+  for (const k of Object.keys(GIZLI_IZIN)) {
+    const l = Array.isArray(g[k]) ? g[k].filter((x, i, a) => GIZLI_IZIN[k].includes(x) && a.indexOf(x) === i) : [];
+    if (l.length) c[k] = l;
+  }
+  return c;
+}
+const FARK_ALANLAR = ["ad", "vkn", "kullanici", "gibSifre", "sgk", "sgkEk", "kdvDevir", "sonBeyan", "defterBeyan", "earsiv", "gizli", "marka", "profil"];
 function listeFark(liste, f) {
   const sil = new Set((Array.isArray(f.sil) ? f.sil : []).map(String)), out = (Array.isArray(liste) ? liste : []).filter((x) => !sil.has(String(x.id))), idx = new Map(out.map((x, i) => [String(x.id), i]));
   for (const x of [...(Array.isArray(f.degis) ? f.degis : []), ...(Array.isArray(f.ekle) ? f.ekle : [])]) {
