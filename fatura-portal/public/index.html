@@ -1198,11 +1198,11 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     ["308", "Transit ve gümrük antrepo taşımacılığı"], ["311", "Uluslararası taşımacılık"], ["201", "Diplomatik istisna"],
     ["350", "Diğer"]
   ];
-  /* Konaklama vergisi: oran kanunla belirlenir (31.12.2026'ya kadar %1; uzatılmazsa 2027'den itibaren %2). Fatura tarihine göre yasal oran ipucu olarak gösterilir, seçim kullanıcıdadır. */
-  function konaklamaYasal(t){ return String(t || "") <= "2026-12-31" ? 1 : 2; }
+  /* Konaklama vergisi: oran kanunla belirlenir (31.12.2027'ye kadar %1 — 12059 sayılı Cumhurbaşkanı Kararı; uzatılmazsa 2028'den itibaren %2). Fatura tarihine göre yasal oran ipucu olarak gösterilir, seçim kullanıcıdadır. */
+  function konaklamaYasal(t){ return String(t || "") <= "2027-12-31" ? 1 : 2; }
   function konaklamaSecHtml(k){
     var yo = konaklamaYasal($("tarih").value || bugunStr()), kv = String(k.konaklama || "");
-    return '<div><label>Konaklama vergisi (isteğe bağlı)</label><select data-kf="konaklama"><option value=""' + (kv === "" ? " selected" : "") + '>Yok</option><option value="1"' + (kv === "1" ? " selected" : "") + '>%1</option><option value="2"' + (kv === "2" ? " selected" : "") + '>%2</option></select><span class="not" style="margin:2px 0 0;font-size:.78rem">Yasal oran bu fatura tarihi için %' + yo + ' (31.12.2026’ya kadar %1; uzatılmazsa 2027’den itibaren %2). KDV’siz tutar üzerinden hesaplanır, KDV matrahına girmez.</span></div>';
+    return '<div><label>Konaklama vergisi (isteğe bağlı)</label><select data-kf="konaklama"><option value=""' + (kv === "" ? " selected" : "") + '>Yok</option><option value="1"' + (kv === "1" ? " selected" : "") + '>%1</option><option value="2"' + (kv === "2" ? " selected" : "") + '>%2</option></select><span class="not" style="margin:2px 0 0;font-size:.78rem">Yasal oran bu fatura tarihi için %' + yo + ' (31.12.2027’ye kadar %1, 12059 sayılı Karar; uzatılmazsa 2028’den itibaren %2). KDV’siz tutar üzerinden hesaplanır, KDV matrahına girmez.</span></div>';
   }
   function kodSecHtml(k){
     var bil = TEVKODLAR.some(function(x){ return x[0] === String(k.kod); }), diger = k.kodDiger || (!bil && !!k.kod);
@@ -2301,7 +2301,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
         '<div><label>Listede görünen ad</label><input data-f="etiket" value="' + esc(x.etiket || x.ad) + '"></div>' +
         '<div><label>Faturaya yazılacak hizmet adı</label><input data-f="ad" value="' + esc(x.ad) + '"></div>' +
         '<div class="satir"><div><label>KDV %</label><select data-f="kdv">' + kdvOranSec(x.kdv) + '</select></div><div><label>Tevkifat oranı (x/10)</label><select data-f="tev">' + tevOranSec(x.tev) + '</select></div></div>' +
-        '<div><label>Konaklama vergisi (isteğe bağlı)</label><select data-f="konaklama"><option value=""' + (!(x.konaklama > 0) ? " selected" : "") + '>Yok</option><option value="1"' + (x.konaklama === 1 ? " selected" : "") + '>%1</option><option value="2"' + (x.konaklama === 2 ? " selected" : "") + '>%2</option></select><span class="not" style="margin:2px 0 0;font-size:.78rem">Seçilirse bu hizmet faturaya eklendiğinde konaklama vergisi alanı açılır. Yasal oran: 31.12.2026’ya kadar %1, uzatılmazsa 2027’den itibaren %2.</span></div>' +
+        '<div><label>Konaklama vergisi (isteğe bağlı)</label><select data-f="konaklama"><option value=""' + (!(x.konaklama > 0) ? " selected" : "") + '>Yok</option><option value="1"' + (x.konaklama === 1 ? " selected" : "") + '>%1</option><option value="2"' + (x.konaklama === 2 ? " selected" : "") + '>%2</option></select><span class="not" style="margin:2px 0 0;font-size:.78rem">Seçilirse bu hizmet faturaya eklendiğinde konaklama vergisi alanı açılır. Yasal oran: 31.12.2027’ye kadar %1 (12059 sayılı Karar), uzatılmazsa 2028’den itibaren %2.</span></div>' +
         '<div><label>Tevkifat kodu (yazın ya da listeden seçin; oran kendiliğinden gelir)</label><input data-f="kod" inputmode="numeric" autocomplete="off" list="tevListe" placeholder="Örn: 624" value="' + esc(x.kod) + '"><span class="not" data-tevnot style="margin:2px 0 0;font-size:.8rem">' + tevKodNot(x.kod) + '</span></div>' +
         '<div><label>İstisna sebep kodu (istisna ise, örn. 302)</label><input data-f="istisna" inputmode="numeric" value="' + esc(x.istisna || "") + '"></div>' +
         '<div><label>Özel matrah nedeni (özel matrahlı satış ise)</label><select data-f="ozel"><option value="">Yok</option>' + OZELLER.map(function(o){ return '<option value="' + o[0] + '"' + (o[0] === String(x.ozel || "") ? " selected" : "") + '>' + o[0] + " · " + esc(o[1]) + '</option>'; }).join("") + '</select></div>' +
