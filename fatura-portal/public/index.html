@@ -492,7 +492,6 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   </div></details>
 
   <details class="card bolum" id="malKart"><summary><span class="no">3</span><span class="bas">Mal / Hizmet</span><small id="ozMal"></small></summary><div class="icerik">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><label style="margin:0">Birim fiyatlar</label><div class="seg"><button class="chip" type="button" data-dahil="0" aria-pressed="true">KDV hariç</button><button class="chip" type="button" data-dahil="1" aria-pressed="false">KDV dahil</button></div></div>
     <div id="kalemler" style="display:flex;flex-direction:column;gap:10px"></div>
     <button class="btn ikincil" type="button" id="kalemEkle">+ Satır ekle</button>
   </div></details>
@@ -1178,6 +1177,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
       '<div class="satir3"><div><label>' + (mad ? "Gram" : "Miktar") + '</label><input data-kf="miktar" inputmode="decimal" value="' + esc(k.miktar) + '"></div>' +
       '<div><label>Birim</label><select data-kf="birim">' + bir + '</select></div>' +
       '<div><label>' + (mad ? "Gram fiyatı (otomatik)" : "Birim fiyat (" + PARASEM[F.para] + ")") + '</label><input data-kf="fiyat" inputmode="decimal" placeholder="0,00" value="' + esc(k.fiyat) + '"' + (mad ? " readonly" : "") + '></div></div>' +
+      (F.tip === "OZELMATRAH" ? "" : '<div class="seg" role="group" aria-label="Fiyat KDV dahil mi" style="display:flex"><button class="chip" style="flex:1" type="button" data-dahil="0" aria-pressed="' + (!F.dahil) + '">KDV hariç</button><button class="chip" style="flex:1" type="button" data-dahil="1" aria-pressed="' + (!!F.dahil) + '">KDV dahil</button></div>') +
       '<div class="satir"><div><label>KDV %</label><select data-kf="kdv">' + kdvOranSec(k.kdv) + '</select></div>' +
       (tev ? '<div><label>Tevkifat (x/10)</label><select data-kf="tev">' + tevSec + '</select></div>' : '<div></div>') + '</div>' +
       (F.tip === "SATIS" && k.konaklamaVar ? konaklamaSecHtml(k) : "") + (tev ? kodSecHtml(k) : "") + (F.tip === "ISTISNA" ? istisnaSecHtml(k) : "") + (F.tip === "OZELMATRAH" ? ozelSecHtml(k) : "") +
@@ -1235,7 +1235,6 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   function formDoldur(){
     $("tip").value = F.tip; $("iadeAlan").hidden = F.tip !== "IADE"; $("para").value = F.para; $("kur").value = F.kur;
     $("kurAlan").hidden = F.para === "TRY"; $("kurEtiket").textContent = "Kur (1 " + F.para + " = ? ₺)";
-    var dsg = document.querySelector("[data-dahil]"); if (dsg && dsg.parentElement && dsg.parentElement.parentElement) dsg.parentElement.parentElement.hidden = F.tip === "OZELMATRAH"; /* özel matrahta fiyat KDV hariç mal bedelidir */
     document.querySelectorAll("[data-dahil]").forEach(function(b){ b.setAttribute("aria-pressed", String((b.getAttribute("data-dahil") === "1") === F.dahil)); });
   }
   function aliciBilgi(){
@@ -1554,7 +1553,8 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
 
   /* ---------- olaylar ---------- */
   $("mChips").addEventListener("click", function(e){ var t = e.target.closest("button"); if (!t) return; mSec = t.getAttribute("data-m"); F.alici = ""; var mid0 = mSec; requestAnimationFrame(function(){ setTimeout(function(){ if (mSec !== mid0) return; cizM(); cizAlici(); cizKalemler(); markaUygula(); markaYukle(mSec); onizle(); }, 0); }); });
-  document.querySelectorAll("[data-dahil]").forEach(function(b){ b.addEventListener("click", function(){ F.dahil = b.getAttribute("data-dahil") === "1"; formDoldur(); onizle(); }); });
+  /* KDV hariç/dahil seçimi her satırda fiyatın hemen altında; tek ortak ayar (F.dahil), tıklama delege edilir */
+  document.addEventListener("click", function(e){ var b = e.target.closest && e.target.closest("[data-dahil]"); if (!b || F.tip === "OZELMATRAH") return; F.dahil = b.getAttribute("data-dahil") === "1"; formDoldur(); onizle(); });
   $("alici").addEventListener("change", function(){
     F.alici = this.value;
     if (F.alici === "__yeni" || F.alici === "__yd") { $("yAd").value = ""; $("yVkn").value = ""; $("yAdres").value = ""; $("yVd").value = ""; $("yEposta").value = ""; $("yUlke").value = ""; $("sorguDurum").textContent = ""; }
