@@ -117,6 +117,13 @@ class MuavinMantigi(unittest.TestCase):
         self.assertEqual(muavin.otomatik_cek(birinci_yok, ikinci_var), (["satir"], 2))
         self.assertEqual(cagri, ["muavin", "isletme"])
         self.assertEqual(muavin.otomatik_cek(lambda: ["m"], ikinci_var), (["m"], 1))     # muavin acilirsa isletmeye bakilmaz
+        # muavin acilir ama BOS: 2. sinif firmalarda Luca bos muavin verir -> isletme dokumune bakilir
+        self.assertEqual(muavin.otomatik_cek(lambda: [], ikinci_var), (["satir"], 2))
+        self.assertEqual(muavin.otomatik_cek(lambda: [], lambda: []), ([], 1))           # ikisi de bos: muavin sonucu korunur
+
+        def ikinci_acilmaz():
+            raise LookupError("form yok")
+        self.assertEqual(muavin.otomatik_cek(lambda: [], ikinci_acilmaz), ([], 1))
 
         def ikinci_yok():
             raise LookupError("menü yok")
@@ -417,6 +424,8 @@ class MuavinMantigi(unittest.TestCase):
         from openpyxl import load_workbook
         wb = load_workbook(str(xlsx))
         self.assertEqual(wb.sheetnames, ["Özet", "Eksik (muavinde yok)", "Tutar uyuşmuyor"])
+        ozet = list(wb["Özet"].iter_rows(values_only=True))
+        self.assertEqual(ozet[0][-1], "Sorgu zamanı")
         eksik = list(wb["Eksik (muavinde yok)"].iter_rows(values_only=True))
         self.assertEqual(eksik[0][2:7], ("Tarih", "Fatura No", "Ünvan / İsim", "KDV", "KDV dahil tutar"))   # istenen sira
         self.assertEqual((eksik[1][1], eksik[1][2], eksik[1][3], eksik[1][5], eksik[1][6]),

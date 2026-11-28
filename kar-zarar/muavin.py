@@ -18,7 +18,7 @@ import argparse
 import signal
 import sys
 import traceback
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 KOK = Path(__file__).resolve().parent
@@ -156,17 +156,43 @@ def firma_siniflari(page, firmalar, bit, ayarlar, log, secim, yenile=False, sira
     return {f: siniflar[f] for f in firmalar if f in siniflar}
 
 
+def excel_guvenli_yaz(yol, donem, firmalar, log):
+    """Excel'i yazar; dosya Excel'de acik oldugu icin (Windows) yazilamazsa ayni klasorde saat damgali yeni dosyaya yazar,
+    boylece eski sonuc 'guncel' sanilmaz."""
+    try:
+        return mk.excel_yaz(yol, donem, firmalar)
+    except PermissionError:
+        yedek = Path(yol).with_name(f"{Path(yol).stem}-{datetime.now():%H%M%S}.xlsx")
+        yaz(f"UYARI: {Path(yol).name} başka bir programda (Excel) açık olduğu için yazılamadı; güncel sonuç şuraya yazıldı: {yedek.name}", log)
+        return mk.excel_yaz(yedek, donem, firmalar)
+
+
 def otomatik_cek(birinci, ikinci, log=None):
     """Sinifi bilinmeyen firma: birinci() (Muavin Defter) denenir, ekran/form yoksa ikinci() (Isletme Defteri Dokumu).
+    Muavin acilir ama BOS (0 kayit) donerse de ikinci() denenir: 2. sinif (isletme/serbest meslek) firmalarda Luca
+    bos bir muavin verir; bunu "1. sinif, tum faturalar muavinde yok" saymak sahte alarm uretir. Isletme dokumunde
+    kayit varsa 2. sinif sayilir; yoksa bos muavin sonucu korunur.
     (satirlar, sinif) dondurur; ikisi de basarisizsa iki nedeni de tasiyan LookupError."""
     try:
-        return birinci(), 1
+        satirlar = birinci()
     except LookupError as e1:
         yaz(f"    Muavin Defter açılamadı ({str(e1)[:100]}); İşletme Defteri Dökümü deneniyor", log)
         try:
             return ikinci(), 2
         except LookupError as e2:
             raise LookupError(f"Muavin Defter ({str(e1)[:110]}) ve İşletme Defteri Dökümü ({str(e2)[:110]}) açılamadı")
+    if satirlar:
+        return satirlar, 1
+    yaz("    Muavin boş (0 kayıt): firma 2. sınıf olabilir; İşletme Defteri Dökümü deneniyor", log)
+    try:
+        satirlar2 = ikinci()
+    except LookupError as e2:
+        yaz(f"    İşletme Defteri Dökümü açılamadı ({str(e2)[:100]}); boş muavin sonucu kullanılıyor", log)
+        return satirlar, 1
+    if satirlar2:
+        return satirlar2, 2
+    yaz("    İşletme Defteri Dökümü de boş; boş muavin sonucu kullanılıyor", log)
+    return satirlar, 1
 
 
 def faturasi_indirilmis_firmalar(firmalar, fatura_klasoru, bas, bit, log):
@@ -270,6 +296,7 @@ def hesabi_isle(pw, sira, hesap_adi, ayar_h, args, ayarlar, log, tani, indirme, 
                 sonuc = mk.firma_sonucu(firma, donem, {}, [], hata=type(e).__name__, kaynak="muavin" if sinif == 1 else "isletme")
             islenen.add(firma)
             sonuc["hesap"] = sahip_adi(hesap_adi, firma)             # Adem Yilmaz / Ali Karaahmet / Adem Gurbetci
+            sonuc["sorgu"] = datetime.now().strftime("%d.%m.%Y %H:%M")   # Excel'de eski/guncel sorgu ayirt edilsin
             sonuclar[firma] = sonuc
             mk.kaydet(kayit_yolu, donem, {firma: sonuc})
             if ardisik >= ARDISIK_HATA_SINIRI:
@@ -323,7 +350,10 @@ def muavin_cek(args, ayarlar, p):
         try:   # Excel, onceki sorgulari da icerir (json birlesik)
             import json
             tum = json.loads(kayit_yolu.read_text(encoding="utf-8")).get("firmalar") or []
-            yaz(f"EXCEL RAPOR: {mk.excel_yaz(CIKTI / 'muavin.xlsx', donem, tum)}", log)
+            yaz(f"EXCEL RAPOR: {excel_guvenli_yaz(CIKTI / 'muavin.xlsx', donem, tum, log)}", log)
+            if sonuclar:   # yalniz BU calismanin firmalari (birlesik rapor eski sorgulari da icerir)
+                yaz(f"EXCEL RAPOR (yalnız bu çalışma): "
+                    f"{excel_guvenli_yaz(CIKTI / 'muavin-bu-calisma.xlsx', donem, list(sonuclar.values()), log)}", log)
         except Exception as e:
             yaz(f"UYARI: Excel yazılamadı ({type(e).__name__}: {e})", log)
     fark = sum(1 for s in sonuclar.values() if s["durum"] == "fark var")

@@ -465,12 +465,12 @@ def excel_yaz(yol, donem, firmalar):
     for s in firmalar:
         kaynak = KAYNAK_ADI.get(s.get("kaynak", "muavin"), "")
         if s.get("hata"):
-            ozet.append([s["firma"], s.get("donem") or donem, "HATA", kaynak, "", "", "", "", "", "", "", s["hata"]])
+            ozet.append([s["firma"], s.get("donem") or donem, "HATA", kaynak, "", "", "", "", "", "", "", s["hata"], s.get("sorgu", "")])
             continue
         a, t = s["yon"]["alis"], s["yon"]["satis"]
         ozet.append([s["firma"], s.get("donem") or donem, "SORUN VAR" if s["durum"] == "fark var" else "Tamam", kaynak,
                      a["fatura"], len(a["eksik"]), len(a["tutar_farki"]), t["fatura"], len(t["eksik"]), len(t["tutar_farki"]),
-                     a["iptal"] + t["iptal"] + a["kdvsiz"] + t["kdvsiz"], ""])
+                     a["iptal"] + t["iptal"] + a["kdvsiz"] + t["kdvsiz"], "", s.get("sorgu", "")])
         for yon in ("alis", "satis"):
             for f in s["yon"][yon]["eksik"]:
                 eksikler.append([s["firma"], YON_ADI[yon], f["tarih"], f["no"], f["unvan"], f["kdv"], f["toplam"]])
@@ -478,8 +478,8 @@ def excel_yaz(yol, donem, firmalar):
                 farklar.append([s["firma"], YON_ADI[yon], f["tarih"], f["no"], f["unvan"], f["kdv"], f["toplam"],
                                 ", ".join(f"{x:.2f}" for x in f.get("kayit", [])), f.get("fis", "")])
     tablo(ws, ["Firma", "Dönem", "Durum", "Kaynak", "Alış fatura", "Alış eksik", "Alış tutar uyuşmuyor", "Satış fatura",
-               "Satış eksik", "Satış tutar uyuşmuyor", "İptal/KDV'siz (sayılmadı)", "Not"], ozet,
-          [26, 24, 11, 26, 10, 10, 12, 10, 10, 12, 14, 50])
+               "Satış eksik", "Satış tutar uyuşmuyor", "İptal/KDV'siz (sayılmadı)", "Not", "Sorgu zamanı"], ozet,
+          [26, 24, 11, 26, 10, 10, 12, 10, 10, 12, 14, 50, 17])
     sayfa = wb.create_sheet("Eksik (muavinde yok)")
     tablo(sayfa, ["Firma", "Yön", "Tarih", "Fatura No", "Ünvan / İsim", "KDV", "KDV dahil tutar"], eksikler,
           [26, 8, 11, 20, 34, 14, 18])
