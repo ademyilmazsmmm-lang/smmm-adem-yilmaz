@@ -22,9 +22,11 @@ function hesaplaFatura(m) {
     let matrah, kdv, ozel = 0;
     if (ozm) { /* Özel matrah: mal bedeli olduğu gibi yazılır; KDV yalnız girilen özel matrah tutarı üzerinden hesaplanır */
       matrah = brut; ozel = Math.round((Number(k.ozelTutar) || 0) * 100); kdv = Math.round(ozel * oran / 100);
-    } else if (m.kdvDahil) { matrah = Math.round(brut / (1 + oran / 100)); kdv = brut - matrah; }
+    } else if (m.kdvDahil) { matrah = Math.round(brut / (1 + (oran + kon) / 100)); } /* "KDV dahil" girilen tutar konaklama vergisini de içerir: brüt = matrah + KDV + konaklama */
     else { matrah = brut; kdv = Math.round(matrah * oran / 100); }
-    const tevKdv = Math.round(kdv * t / 10), konV = kon > 0 ? Math.round(matrah * kon / 100) : 0;
+    const konV = kon > 0 ? Math.round(matrah * kon / 100) : 0;
+    if (!ozm && m.kdvDahil) kdv = brut - matrah - konV;
+    const tevKdv = Math.round(kdv * t / 10);
     return { matrah, kdv, tev: t, tevKdv, konV, konOran: kon, toplam: matrah + kdv + konV, oran, miktar, ozel };
   });
   if (!satirlar.length) throw new Error("En az bir mal/hizmet satırı gerekli.");
