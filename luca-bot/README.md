@@ -692,3 +692,8 @@ python testler/uctan_uca.py                    # programın tamamı, sahte Luca 
   (filtre ve sıralama uygulanmış) .xlsx olarak kaydeder. Beyanname filtresi artık Luca'da **onaylı olup ayrıca izlenmeyen** beyannameleri de içerir (örn. firmanın ayarında KDV2 kapalıysa bile Luca'da
   onaylı KDV2 varsa "KDV 2 (sorumlu sıfatıyla)" satırı **Verildi** olarak, not sütununda "ayarda izlenmiyor" yazısıyla listelenir; uyarıya / eksik hesabına girmez). Tanınmayan türler Luca'daki koduyla görünür.
 
+
+- **İptal/İtiraz sorgusu iki bölümlüdür (alış ve satış ekranlarında):** Luca'nın "Seçili Entegrasyonlardan İptal/İtiraz Sorgula" penceresinde (1) e-Arşiv vb. için tarih aralığı + düğme,
+  (2) GİB e-Fatura için "tarih aralığı kullanılmaz, listede seçili faturalar sorgulanır" + "buraya" bağlantısı + ayrı düğme bulunur. Program her parça için önce (1)'i (ilk düğme), sonra
+  (2)'yi yapar: listeyi dönem için yeniler, "buraya" ile e-Fatura faturalarını seçer, e-Fatura bölümünün düğmesine basar. Pencerede hangi bölümlerin olduğu her çalışmada okunur
+  (günlükte `TANI: iptal penceresi: ...`); yalnız bir bölüm varsa yalnız o yapılır. Önceden aynı adlı iki düğmeden **sonuncuya** basıldığı için tarih aralıklı e-Arşiv sorgusu atlanıyordu.

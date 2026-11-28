@@ -283,7 +283,10 @@ class UctanUca(unittest.TestCase):
         S = sahte_luca.SAYAC
         self.assertEqual(S["toplu_yasak"], 0, "yasakli entegrasyon secildi")
         self.assertEqual((S["toplu_getir"], S["toplu_excel"], S["toplu_zip"]), (2, 2, 2))   # alis + satis; XML: alista e-Arsiv, satista 5000/30000
-        self.assertEqual(S.get("toplu_iptal"), 2)                      # iptal/itiraz sorgusu alista ve satista
+        self.assertEqual(S.get("toplu_iptal"), 2)                      # iptal/itiraz sorgusu alista ve satista (e-Arsiv/tarih bolumu)
+        self.assertEqual(S.get("toplu_iptal_efatura"), 2)              # ayrica e-Fatura bolumu: alista ve satista
+        self.assertTrue(all(n > 0 for n in S["toplu_iptal_efatura_secili"]), S["toplu_iptal_efatura_secili"])  # 'buraya' listeyi secti
+        self.assertIn("e-Fatura iptal/itiraz sorgusu", cikti)
         self.assertEqual(rapor["AKIN COBAN"]["iptal"]["e-arsiv-alis"], 1)       # sahte Luca 2. faturayi iptal isaretler
         zip_ent = set(S.get("toplu_zip_ent", []))      # XML paketine yalniz GIB e-Arsiv alis girer
         self.assertEqual(zip_ent, {"GİB E-Arşiv Alış Faturaları Entegrasyon", "GİB 5000/30000 Entegrasyon"}, zip_ent)

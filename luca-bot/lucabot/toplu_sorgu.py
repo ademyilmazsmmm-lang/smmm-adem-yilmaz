@@ -735,7 +735,10 @@ def toplu_getir(page, bas, bit, log, iptal=False):
     yaz(f"    Tarih araligi girildi: {yazilan}", log)
     once = _ekran_metni(page)   # eski bildirimler bu sorgunun bitisi sayilmasin
     _gozlemci_kur(page)
-    tik = pencerede_tikla(page, pencere, onaylar, sure=5000) if pencere is not None else None
+    tik = None
+    if iptal and pencere is not None:   # pencerede e-Arsiv (tarih aralikli) + e-Fatura (listede secili) iki dugme olabilir
+        tik = _iptal_dugmesine_bas(page, pencere, 0)
+    tik = tik or (pencerede_tikla(page, pencere, onaylar, sure=5000) if pencere is not None else None)
     tik = tik or varsa_tikla(page, onaylar if iptal else TOPLU_GETIR_ONAY, sure=5000)
     if not tik:
         raise TopluBasarisiz("Toplu getir onay butonu bulunamadi")
@@ -747,19 +750,139 @@ def toplu_getir(page, bas, bit, log, iptal=False):
     return durum
 
 
+def _pencere_dugmeleri(pencere, ad):
+    """Pencerede adi tam `ad` olan gorunur dugmeler, ekrandaki sirayla (role=button, yoksa tam metin)."""
+    for kurucu in (lambda: pencere.get_by_role("button", name=ad, exact=True),
+                   lambda: pencere.get_by_text(ad, exact=True)):
+        try:
+            loc = kurucu()
+            gorunen = [loc.nth(i) for i in range(loc.count()) if loc.nth(i).is_visible()]
+            if gorunen:
+                return gorunen
+        except Exception:
+            continue
+    return []
+
+
+def _iptal_dugmesine_bas(page, pencere, sira):
+    """Iptal/Itiraz penceresindeki sira'inci 'Iptal/Itiraz Sorgula' dugmesine basar (0 = ilk = e-Arsiv/tarih bolumu,
+    -1 = son = e-Fatura bolumu); dugme yoksa None. Tek bolumlu pencerede ikisi de ayni dugmedir."""
+    dugmeler = _pencere_dugmeleri(pencere, TOPLU_IPTAL)
+    if not dugmeler:
+        return None
+    try:
+        dugmeler[sira].click(timeout=5000)
+        sayfa_durulsun(page, azami_ms=600)
+        return TOPLU_IPTAL
+    except Exception:
+        return None
+
+
+def _iptal_bolumleri(page, log):
+    """Iptal/Itiraz penceresini acip bolumlerini okur ve kapatir: (tarih_bolumu_var, efatura_bolumu_var).
+
+    Luca, secili entegrasyonlara gore iki bolum gosterir: e-Arsiv/diger entegrasyonlar icin tarih araligi + dugme;
+    GIB e-Fatura icin 'listede secili faturalar sorgulanir' + 'buraya' baglantisi + ayri dugme. Okunamazsa eski
+    davranis (yalniz tarih bolumu)."""
+    varsayilan = (True, False)
+    try:
+        acik_pencereleri_kapat(page, log)
+        if not _arac_dugmesine_bas(page, TOPLU_IPTAL, log):
+            return varsayilan
+        pencere = _pencere_bekle(page, ["İPTAL/İTİRAZ", "Tarih Aralığı", "e-Fatura"])
+        if pencere is None:
+            return varsayilan
+        metin = " ".join(pencere.inner_text(timeout=2000).split())
+        tarih = pencere.locator(METIN_KUTUSU).count() >= 2
+        efatura = "listede" in metin.lower().replace("İ", "i") and "buraya" in metin.lower()
+        gunluge_yaz(f"    TANI: iptal penceresi: tarih bolumu={tarih}, e-Fatura bolumu={efatura}; " + metin[:230], log)
+        acik_pencereleri_kapat(page, log)
+        if not tarih and not efatura:
+            return varsayilan
+        return tarih, efatura
+    except Exception:
+        return varsayilan
+
+
+def _buraya_tikla(page, pencere):
+    for kurucu in (lambda: pencere.get_by_role("link", name="buraya", exact=True),
+                   lambda: pencere.get_by_text("buraya", exact=True)):
+        try:
+            loc = kurucu()
+            if loc.count() and loc.last.is_visible():
+                loc.last.click(timeout=4000)
+                sayfa_durulsun(page, azami_ms=600)
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def efatura_iptal_sorgula(page, bas, bit, log):
+    """GIB e-Fatura entegrasyonu icin iptal/itiraz: bu entegrasyonda tarih araligi kullanilmaz, LISTEDE SECILI
+    faturalar sorgulanir. Liste donem icin yenilenir, penceredeki 'buraya' baglantisi e-Fatura faturalarini secer,
+    e-Fatura bolumunun (son) 'Iptal/Itiraz Sorgula' dugmesine basilir. Dondurur: _sonucu_bekle durumu."""
+    yaz(f"    e-Fatura iptal/itiraz sorgusu ({bas} - {bit}): liste yenileniyor, e-Fatura faturalari seciliyor", log)
+    _islem_bitsin(page, log)
+    if not belge_ara(page, bas, bit, log, acik_pencere_once=True):
+        raise TopluBasarisiz("e-Fatura iptal sorgusu icin liste yenilenemedi")
+    sayfa_durulsun(page, azami_ms=1500)
+    acik_pencereleri_kapat(page, log)
+    if not _arac_dugmesine_bas(page, TOPLU_IPTAL, log):
+        raise TopluBasarisiz(f"'{TOPLU_IPTAL}' butonuna basilamadi")
+    pencere = _pencere_bekle(page, ["İPTAL/İTİRAZ", "e-Fatura"])
+    if pencere is None:
+        raise TopluBasarisiz("e-Fatura iptal penceresi acilmadi")
+    if not _buraya_tikla(page, pencere):
+        raise TopluBasarisiz("e-Fatura faturalarini secen 'buraya' baglantisi bulunamadi")
+    _, pencere2 = acik_pencere(page)
+    if pencere2 is None:   # baglanti pencereyi kapattiysa yeniden acilir (secim listede kalir)
+        if not _arac_dugmesine_bas(page, TOPLU_IPTAL, log):
+            raise TopluBasarisiz(f"'{TOPLU_IPTAL}' butonuna basilamadi")
+        pencere2 = _pencere_bekle(page, ["İPTAL/İTİRAZ", "e-Fatura"])
+        if pencere2 is None:
+            raise TopluBasarisiz("e-Fatura iptal penceresi yeniden acilmadi")
+    once = _ekran_metni(page)
+    _gozlemci_kur(page)
+    if not _iptal_dugmesine_bas(page, pencere2, -1):
+        raise TopluBasarisiz("e-Fatura bolumunun 'Iptal/Itiraz Sorgula' dugmesi bulunamadi")
+    yaz("    e-Fatura bolumunde 'İptal/İtiraz Sorgula' tiklandi, sorgu basladi", log)
+    durum = _sonucu_bekle(page, log, min(AYAR["azami_saniye"], IPTAL_AZAMI_SANIYE), once)
+    if durum == "tamam":
+        yaz("    e-Fatura iptal/itiraz sorgusu tamamlandı", log)
+    _bildirimi_kapat(page)
+    return durum
+
+
 def toplu_iptal_sorgula(page, parcalar, log):
     """Seçili Entegrasyonlardan İptal/İtiraz Sorgula (en fazla 1 aylik parcalarla). Hata sorgulamayi
-    keser ama firmanin fatura bilgisini bozmaz; basarili parca sayisini dondurur."""
+    keser ama firmanin fatura bilgisini bozmaz; basarili parca sayisini dondurur.
+
+    Pencerede iki bolum olabilir: (1) e-Arsiv vb. icin tarih araligi, (2) GIB e-Fatura icin listede secili
+    faturalar. Ikisi de varsa parca basina once (1) sonra (2) sorgulanir; (2) basarisizsa uyari verilir ama
+    (1)'in sonucu korunur."""
     basarili = 0
+    tarih_var, efatura_var = _iptal_bolumleri(page, log)
     for bas, bit in parcalar:
         try:
-            durum = toplu_getir(page, bas, bit, log, iptal=True)
+            if tarih_var:
+                durum = toplu_getir(page, bas, bit, log, iptal=True)
+                if durum not in ("tamam", "tamam_turmob_eksik"):
+                    yaz(f"    UYARI: iptal/itiraz sorgusu sonucu: {durum}; kalan parcalar atlandi", log)
+                    break
+            if efatura_var:
+                try:
+                    durum = efatura_iptal_sorgula(page, bas, bit, log)
+                except TopluBasarisiz as e:
+                    yaz(f"    UYARI: e-Fatura iptal/itiraz sorgulanamadi ({e})", log)
+                    acik_pencereleri_kapat(page, log)
+                    break
+                if durum not in ("tamam", "tamam_turmob_eksik"):
+                    yaz(f"    UYARI: e-Fatura iptal/itiraz sorgusu sonucu: {durum}", log)
+                    break
         except TopluBasarisiz as e:
             yaz(f"    UYARI: iptal/itiraz sorgulanamadi ({e})", log)
             acik_pencereleri_kapat(page, log)
-            break
-        if durum not in ("tamam", "tamam_turmob_eksik"):
-            yaz(f"    UYARI: iptal/itiraz sorgusu sonucu: {durum}; kalan parcalar atlandi", log)
             break
         basarili += 1
     return basarili

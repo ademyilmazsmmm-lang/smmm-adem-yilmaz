@@ -641,7 +641,10 @@ TOPLU_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Akıl
    iptal: () => sonra(300, () => ac('<span>SEÇİLİ ENTEGRASYONLARDAN İPTAL/İTİRAZ SORGULA</span> <span>Tarih Aralığı</span> '
        + '<input type="text" name="ibas" value="01/10/2026"> <input type="text" name="ibit" value="31/10/2026">'
        + '<small>Seçili entegrasyonlar sırayla sorgulanır. En fazla 1 aylık sorgulama yapılabilir.</small> '
-       + '<button id="iptalOnay">İptal/İtiraz Sorgula</button>' + kapatDugmesi())),
+       + '<button id="iptalOnay">İptal/İtiraz Sorgula</button><hr><b>GİB e-Fatura Entegrasyonu</b> '
+       + '<span>GİB e-Fatura entegrasyonundan gelen faturalar için tarih aralığı kullanılmaz; listede seçili faturalar sorgulanır. '
+       + 'GİB e-Fatura entegrasyonuna ait faturaları seçmek için <a href="#" id="buraya">buraya</a> tıklayınız.</span> '
+       + '<button id="iptalEfatura">İptal/İtiraz Sorgula</button>' + kapatDugmesi())),
    bilgi: () => mesaj('Entegrasyon bilgileri'), sil: () => mesaj('Belge sil'),
  };
  document.addEventListener('click', async e => {
@@ -660,6 +663,9 @@ TOPLU_SAYFASI = """<!doctype html><html><head><meta charset="utf-8"><title>Akıl
            + '<label><input type=checkbox checked>Otomatik aşağı kaydır</label><button onclick="kapat()">Kapat</button>');
          sonra(j.gecikme, async () => { await fetch('/api/toplu-bitti?' + q, {method: 'POST'}); kapat(); mesaj(j.mesaj); });
        } else if (j.mesaj) sonra(1200, () => mesaj(j.mesaj)); }); }
+   if (t.id === 'iptalEfatura') { const n = document.querySelectorAll('#liste tbody input:checked').length;
+     kapat(); sonra(300, async () => { await fetch('/api/toplu-iptal?' + q + '&tur=efatura&secili=' + n, {method: 'POST'});
+       sonra(800, () => mesaj('Seçili entegrasyonların sorgulanması tamamlandı.')); }); }
    if (t.id === 'iptalOnay') { kapat(); sonra(300, async () => { await fetch('/api/toplu-iptal?' + q, {method: 'POST'});
        sonra(800, () => mesaj('Seçili entegrasyonların sorgulanması tamamlandı.')); }); }
    if (t.id === 'buraya') { e.preventDefault(); document.querySelectorAll('#liste tbody input').forEach(k => k.checked = true); }
@@ -818,6 +824,10 @@ class Isleyici(BaseHTTPRequestHandler):
             if yol == "/api/toplu-bitti":
                 d["bitti"] = True
                 return self._yanit("{}", "application/json")
+            if yol == "/api/toplu-iptal" and q.get("tur") == "efatura":
+                SAYAC["toplu_iptal_efatura"] = SAYAC.get("toplu_iptal_efatura", 0) + 1
+                SAYAC.setdefault("toplu_iptal_efatura_secili", []).append(int(q.get("secili") or 0))
+                return self._yanit("{}", "application/json")
             if yol == "/api/toplu-iptal":
                 SAYAC["toplu_iptal"] = SAYAC.get("toplu_iptal", 0) + 1
                 if SAYAC["toplu_gecikme"] and not d.get("bitti"):
@@ -877,6 +887,8 @@ def sifirla():
         TOPLU.clear()
         SAYAC.pop("toplu_zip_ent", None)
         SAYAC.pop("toplu_iptal", None)
+        SAYAC.pop("toplu_iptal_efatura", None)
+        SAYAC.pop("toplu_iptal_efatura_secili", None)
         SAYAC.update(toplu_kod=False, toplu_gecikme=0, toplu_erken_iptal=0, toplu_sessiz=False, toplu=False, toplu_yasak=0, toplu_getir=0, toplu_excel=0, toplu_zip=0, ara_menu=False, sso=0, ilk_bos=False, gib_hatasi=0, excel=0, excel_gecikme=0, zip_basarisiz=0)
 
 
