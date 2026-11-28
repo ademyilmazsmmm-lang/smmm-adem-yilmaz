@@ -20,7 +20,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-28-324";
+const SURUM = "2026-11-28-325";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -87,9 +87,10 @@ const markaTemiz = (m) => {
   const r = (x) => (typeof x === "string" && x.length <= 450000 && RESIM.test(x) ? x : "");
   return { logo: r(m.logo), imza: r(m.imza) }; // ad, unvan ve web sabittir (istemcide)
 };
+const HIZMET_BIRIM = ["C62", "GRM", "KGM", "TNE", "LTR", "MTR", "MTK", "MTQ", "DAY", "MON", "HUR", "PA", "BX"]; /* hizmetin varsayılan birimi (boş = Adet; konaklamada Gün) */
 const hizmetTemiz = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 100).map((h, i) => ({
   id: String(h.id || "h" + i).slice(0, 40), etiket: String(h.etiket || "").slice(0, 120), ad: String(h.ad || "").slice(0, 150), kdv: Number(h.kdv) >= 0 ? Number(h.kdv) : 20,
-  tev: Math.min(9, Math.max(0, parseInt(h.tev, 10) || 0)), kod: String(h.kod || "").slice(0, 10), istisna: String(h.istisna || "").slice(0, 4), ozel: /^8(0[1-9]|1[0-2])$/.test(String(h.ozel || "")) ? String(h.ozel) : "", konaklama: Math.min(20, Math.max(0, Number(h.konaklama) || 0)), anah: String(h.anah || "").slice(0, 200) }));
+  tev: Math.min(9, Math.max(0, parseInt(h.tev, 10) || 0)), kod: String(h.kod || "").slice(0, 10), istisna: String(h.istisna || "").slice(0, 4), ozel: /^8(0[1-9]|1[0-2])$/.test(String(h.ozel || "")) ? String(h.ozel) : "", konaklama: Math.min(20, Math.max(0, Number(h.konaklama) || 0)), birim: HIZMET_BIRIM.includes(h.birim) ? h.birim : "", anah: String(h.anah || "").slice(0, 200) }));
 const aliciTemiz = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 2000).map((a) => ({ id: String(a.id), ad: String(a.ad || "").slice(0, 150), vkn: String(a.vkn || "").slice(0, 11), adres: String(a.adres || "").slice(0, 250), vd: String(a.vd || "").slice(0, 100), ulke: String(a.ulke || "").slice(0, 60), yurtdisi: a.yurtdisi === true || String(a.vkn || "") === "2222222222", eposta: posta.EPOSTA.test(String(a.eposta || "").trim()) ? String(a.eposta).trim().slice(0, 120) : "" }));
 /* Mükellef profili: yalnız program içinde (yerel fatura kopyası, iletişim bilgisi) kullanılır; GİB'deki resmî satıcı bilgisini değiştirmez */
 const profilTemiz = (p) => {

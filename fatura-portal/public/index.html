@@ -1337,7 +1337,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   /* Hazır hizmetteki kodlara göre fatura tipi: özel matrah nedeni varsa Özel matrah, istisna kodu varsa İstisna, tevkifat varsa Tevkifat, yoksa Satış */
   function tipKalemden(k){ return k && k.ozelNeden ? "OZELMATRAH" : k && k.istisna ? "ISTISNA" : k && k.tev && k.tev !== "0" ? "TEVKIFAT" : "SATIS"; }
   function hazirUygula(k, h){
-    k.preset = h.id; k.ad = h.ad; k.kdv = String(h.kdv); k.tev = String(h.tev); k.kod = h.kod || ""; k.istisna = h.istisna || ""; k.ozelNeden = h.ozel || ""; k.konaklamaVar = h.konaklama > 0; k.konaklama = h.konaklama > 0 ? String(h.konaklama) : ""; k.kodDiger = false; if (h.ozel === "805" || h.ozel === "808") { k.birim = "GRM"; k.gramKur = ""; k.tahsilat = ""; }
+    k.preset = h.id; k.ad = h.ad; k.kdv = String(h.kdv); k.tev = String(h.tev); k.kod = h.kod || ""; k.istisna = h.istisna || ""; k.ozelNeden = h.ozel || ""; k.konaklamaVar = h.konaklama > 0; k.konaklama = h.konaklama > 0 ? String(h.konaklama) : ""; k.kodDiger = false; if (h.birim || h.konaklama > 0) k.birim = h.birim || "DAY"; if (h.ozel === "805" || h.ozel === "808") { k.birim = "GRM"; k.gramKur = ""; k.tahsilat = ""; }
     /* Tek satırlı faturada hazır hizmet, fatura tipini de belirler (iade tipi korunur) */
     if (F.tip === "IADE") return;
     if (h.ozel) { F.tip = "OZELMATRAH"; F.dahil = false; k.istisna = ""; if (!(Number(k.kdv) > 0)) k.kdv = "20"; } else if (h.istisna) F.tip = "ISTISNA"; else if (h.tev > 0) F.tip = "TEVKIFAT"; else if (F.kalemler.length < 2) F.tip = "SATIS";
@@ -2301,6 +2301,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
         '<div><label>Listede görünen ad</label><input data-f="etiket" value="' + esc(x.etiket || x.ad) + '"></div>' +
         '<div><label>Faturaya yazılacak hizmet adı</label><input data-f="ad" value="' + esc(x.ad) + '"></div>' +
         '<div class="satir"><div><label>KDV %</label><select data-f="kdv">' + kdvOranSec(x.kdv) + '</select></div><div><label>Tevkifat oranı (x/10)</label><select data-f="tev">' + tevOranSec(x.tev) + '</select></div></div>' +
+        '<div><label>Faturada birim</label><select data-f="birim">' + BIRIMLER.map(function(b){ var sec = x.birim || (x.konaklama > 0 ? "DAY" : "C62"); return '<option value="' + b[0] + '"' + (b[0] === sec ? " selected" : "") + '>' + esc(b[1]) + '</option>'; }).join("") + '</select></div>' +
         '<div><label>Konaklama vergisi (isteğe bağlı)</label><select data-f="konaklama"><option value=""' + (!(x.konaklama > 0) ? " selected" : "") + '>Yok</option><option value="1"' + (x.konaklama === 1 ? " selected" : "") + '>%1</option><option value="2"' + (x.konaklama === 2 ? " selected" : "") + '>%2</option></select><span class="not" style="margin:2px 0 0;font-size:.78rem">Seçilirse bu hizmet faturaya eklendiğinde konaklama vergisi alanı açılır. Yasal oran: 31.12.2027’ye kadar %1 (12059 sayılı Karar), uzatılmazsa 2028’den itibaren %2.</span></div>' +
         '<div><label>Tevkifat kodu (yazın ya da listeden seçin; oran kendiliğinden gelir)</label><input data-f="kod" inputmode="numeric" autocomplete="off" list="tevListe" placeholder="Örn: 624" value="' + esc(x.kod) + '"><span class="not" data-tevnot style="margin:2px 0 0;font-size:.8rem">' + tevKodNot(x.kod) + '</span></div>' +
         '<div><label>İstisna sebep kodu (istisna ise, örn. 302)</label><input data-f="istisna" inputmode="numeric" value="' + esc(x.istisna || "") + '"></div>' +
@@ -2861,6 +2862,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     var mm = mBul(mEl.getAttribute("data-mid")), hEl = e.target.closest("[data-hid]"), v = e.target.value;
     if (hEl) {
       var x = (mm.hizmetler || []).filter(function(q){ return q.id === hEl.getAttribute("data-hid"); })[0]; x[f] = f === "kdv" ? sayi(v) : f === "konaklama" ? (Number(v) || 0) : f === "tev" ? Math.min(9, Math.max(0, parseInt(v, 10) || 0)) : v;
+      if (f === "konaklama" && x.konaklama > 0 && !x.birim) { x.birim = "DAY"; var bsel = hEl.querySelector('[data-f="birim"]'); if (bsel) bsel.value = "DAY"; } /* konaklamada varsayılan birim Gün */
       var h1 = hEl.querySelector("summary [data-ozet]"), h2 = hEl.querySelector("summary [data-ozet2]");
       if (f === "kod") { var tb = tevKodBul(v), tn = hEl.querySelector("[data-tevnot]"), ts = hEl.querySelector('[data-f="tev"]'); if (tb) { x.tev = tb[2]; if (ts) ts.value = String(tb[2]); } if (tn) tn.innerHTML = tevKodNot(v); }
       if (f === "ad" && h1) h1.textContent = v || "(adsız)"; if (h2 && (f === "kdv" || f === "tev" || f === "kod" || f === "ozel" || f === "istisna" || f === "konaklama")) h2.innerHTML = hizmetOzet(x);
