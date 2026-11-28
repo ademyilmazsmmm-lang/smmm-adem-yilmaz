@@ -20,7 +20,7 @@ const DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const GUVENLI = process.env.GUVENLI === "1"; // internete açık (sunucu) kipi
 const PROXY = process.env.TRUST_PROXY === "1"; // önünde HTTPS vekil sunucu (Caddy, Render vb.) var
 const ITER = 250000;
-const SURUM = "2026-11-28-325";
+const SURUM = "2026-11-28-326";
 
 const oturumlar = new Map(); // çerez -> { rol, mid, K, M, kullanici, bitis } (anahtarlar yalnız bellekte)
 const gibler = new Map(); // mükellef id -> istemci (taslak/sms/imza aynı oturumda)
@@ -87,6 +87,8 @@ const markaTemiz = (m) => {
   const r = (x) => (typeof x === "string" && x.length <= 450000 && RESIM.test(x) ? x : "");
   return { logo: r(m.logo), imza: r(m.imza) }; // ad, unvan ve web sabittir (istemcide)
 };
+/* Alıcı T.C. kimlik numarasını vermek istemezse, tutarı bu sınırı aşmayan e-Arşiv faturalarında kimlik alanına 11111111111 yazılır */
+const KIMLIKSIZ_VKN = "11111111111", KIMLIKSIZ_LIMIT = 12000;
 const HIZMET_BIRIM = ["C62", "GRM", "KGM", "TNE", "LTR", "MTR", "MTK", "MTQ", "DAY", "MON", "HUR", "PA", "BX"]; /* hizmetin varsayılan birimi (boş = Adet; konaklamada Gün) */
 const hizmetTemiz = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 100).map((h, i) => ({
   id: String(h.id || "h" + i).slice(0, 40), etiket: String(h.etiket || "").slice(0, 120), ad: String(h.ad || "").slice(0, 150), kdv: Number(h.kdv) >= 0 ? Number(h.kdv) : 20,
@@ -396,6 +398,7 @@ function modelTemiz(g, tam, banka) {
   const m = { alici, tip, para, kur: para === "TRY" ? 0 : kur, kdvDahil: tip === "OZELMATRAH" ? false : !!g.kdvDahil, tarih, iade, kalemler, notEk: T(g.notEk, 300), notIrsaliye: g.notIrsaliye !== false };
   m._h = gib.hesaplaFatura(m);
   if (tam && !(m._h.toplam.odenecek > 0)) throw new Error("Ödenecek tutar sıfırdan büyük olmalı.");
+  if (tam && alici.vkn === KIMLIKSIZ_VKN && (m._h.toplam.toplam / 100) * (para === "TRY" ? 1 : kur) > KIMLIKSIZ_LIMIT) throw new Error("Alıcı kimlik numarası vermediğinde (11111111111) fatura tutarı " + KIMLIKSIZ_LIMIT.toLocaleString("tr-TR") + " TL ve altında olmalı; bu tutarın üzerinde alıcının T.C. kimlik / vergi numarası gerekir.");
   m.banka = String(banka || "").slice(0, 250); m.not = gib.notUret(m, m._h.toplam);
   if (tip === "OZELMATRAH") { const sb = [...new Set(kalemler.map((k) => k.ozelNeden).filter(Boolean))].map((c) => c + " - " + (OZEL_AD[c] || "")); if (sb.length) m.not = ("Özel matrah: " + sb.join("; ") + "\n" + m.not).trim(); }
   if (tip === "ISTISNA") { const sb = [...new Set(kalemler.map((k) => k.istisna).filter(Boolean))].map((c) => c + " - " + (ISTISNA_AD[c] || "")); if (sb.length) m.not = ("KDV istisnası: " + sb.join("; ") + "\n" + m.not).trim(); }
