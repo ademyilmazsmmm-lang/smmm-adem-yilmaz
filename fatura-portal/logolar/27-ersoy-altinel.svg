@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 606 150" width="606" height="150" font-family="Segoe UI,Helvetica,Arial,sans-serif">
+  <circle cx="75" cy="75" r="68" fill="#0f2a4a"/><circle cx="75" cy="75" r="62" fill="none" stroke="#c8962e" stroke-width="2"/>
+  <g transform="translate(26 38) scale(.98)"><path d="M14 14v52M86 36v30M14 56h72" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 40h72V56" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><rect x="24" y="22" width="22" height="14" rx="5" fill="#c8962e"/><path d="M52 40v-6a6 6 0 0 1 6-6h22a6 6 0 0 1 6 6v6" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="168" y="74" font-size="40" font-weight="700" fill="#0f2a4a" letter-spacing="2.5">ERSOY ALTINEL</text>
+  <rect x="170" y="86" width="56" height="3" fill="#c8962e"/>
+  <text x="170" y="114" font-size="14" font-weight="600" fill="#4a5a6e" letter-spacing="3.5">KONAKLAMA HİZMETLERİ</text>
+</svg>
