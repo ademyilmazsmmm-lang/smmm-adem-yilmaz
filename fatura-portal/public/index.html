@@ -450,7 +450,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
     <div><label for="alici">Alıcı</label><select id="alici"></select></div>
     <div class="alt" id="yeniAlici" hidden>
       <p class="not" id="ydNot" hidden style="margin:0;padding:8px 10px;border-radius:10px;background:var(--accent-soft)">🌍 <b>Yurtdışı alıcı:</b> VKN/TCKN yerine <b>2222222222</b> yazılır (kendiliğinden gelir). e-Arşiv’de <b>ülke zorunludur</b>. Döviz faturasında kur, para birimini seçince TCMB döviz alış kurundan (fatura tarihinden bir önceki iş günü) otomatik gelir.</p>
-      <p class="not" id="kvNot" hidden style="margin:0;padding:8px 10px;border-radius:10px;background:var(--accent-soft)">👤 <b>Kimlik numarası vermiyor:</b> müşteri T.C. kimlik numarasını paylaşmak istemezse kimlik alanına <b>11111111111</b> yazılır (kendiliğinden gelir). Bu yalnız fatura tutarı <b>12.000 TL ve altındaysa</b> geçerlidir. Alıcı adı soyadını yazın.</p>
+      <p class="not" id="kvNot" hidden style="margin:0;padding:8px 10px;border-radius:10px;background:var(--accent-soft)">👤 <b>Nihai tüketici:</b> müşteri T.C. kimlik numarasını paylaşmak istemezse kimlik alanına <b>11111111111</b>, ad soyad alanına <b>Nihai Tüketici</b> yazılır (kendiliğinden gelir; müşteri adını söylerse değiştirebilirsiniz). Bu yalnız fatura tutarı <b>12.000 TL ve altındaysa</b> geçerlidir.</p>
       <div><label for="yVkn">VKN / TCKN</label><input id="yVkn" inputmode="numeric" autocomplete="off" placeholder="10 ya da 11 hane — yazınca GİB’den sorgulanır"></div>
       <div><label for="yAd" id="yAdEt">Alıcı unvanı / ad soyad</label><input id="yAd" autocomplete="off"></div>
       <div id="yUlkeKutu" hidden><label for="yUlke">Ülke *</label><input id="yUlke" list="ulkeListe" autocomplete="off" placeholder="Örn. Almanya"><datalist id="ulkeListe"><option value="Almanya"><option value="Amerika Birleşik Devletleri"><option value="Avusturya"><option value="Azerbaycan"><option value="Belçika"><option value="Birleşik Arap Emirlikleri"><option value="Birleşik Krallık"><option value="Bulgaristan"><option value="Çin"><option value="Fransa"><option value="Gürcistan"><option value="Hollanda"><option value="Irak"><option value="İspanya"><option value="İsveç"><option value="İsviçre"><option value="İtalya"><option value="Japonya"><option value="Kanada"><option value="Katar"><option value="Kazakistan"><option value="Kuveyt"><option value="Libya"><option value="Rusya"><option value="Suudi Arabistan"><option value="Yunanistan"></datalist></div>
@@ -1127,7 +1127,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   function cizAlici(){
     var m = mk(), h = '<option value="">— Alıcı seç —</option>';
     if (m) m.aliciler.forEach(function(a){ h += '<option value="' + a.id + '"' + (a.id === F.alici ? " selected" : "") + '>' + (a.yurtdisi || a.vkn === "2222222222" ? "🌍 " : a.vkn === KIMLIKSIZ ? "👤 " : "") + esc(a.ad) + (a.yurtdisi && a.ulke ? " · " + esc(a.ulke) : "") + '</option>'; });
-    h += '<option value="__yeni"' + (F.alici === "__yeni" ? " selected" : "") + '>+ Yeni alıcı…</option><option value="__yd"' + (F.alici === "__yd" ? " selected" : "") + '>🌍 Yeni alıcı — yurtdışı…</option><option value="__kv"' + (F.alici === "__kv" ? " selected" : "") + '>👤 Yeni alıcı — kimlik vermiyor (≤ 12.000 TL)</option>';
+    h += '<option value="__yeni"' + (F.alici === "__yeni" ? " selected" : "") + '>+ Yeni alıcı…</option><option value="__yd"' + (F.alici === "__yd" ? " selected" : "") + '>🌍 Yeni alıcı — yurtdışı…</option><option value="__kv"' + (F.alici === "__kv" ? " selected" : "") + '>👤 Nihai tüketici — kimlik vermiyor (≤ 12.000 TL)</option>';
     $("alici").innerHTML = h; $("yeniAlici").hidden = !F.alici;
     var k = m && m.aliciler.filter(function(a){ return a.id === F.alici; })[0];
     if (k) { $("yAd").value = k.ad; $("yVkn").value = k.vkn; $("yAdres").value = k.adres || ""; $("yVd").value = k.vd || ""; $("yEposta").value = k.eposta || ""; $("yUlke").value = k.ulke || ""; }
@@ -1138,7 +1138,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   var KIMLIKSIZ = "11111111111";
   function kvMi(){ if (F.alici === "__kv") return true; var m = mk(), k = m && F.alici ? m.aliciler.filter(function(a){ return a.id === F.alici; })[0] : null; return !!(k && k.vkn === KIMLIKSIZ); }
   function ydGoster(){
-    var kv = kvMi(); $("kvNot").hidden = !kv; if (kv) { $("yVkn").readOnly = true; $("yVkn").value = KIMLIKSIZ; $("sorgula").hidden = true; $("yVdKutu").hidden = true; $("sorguDurum").textContent = ""; if (!ydMi()) { $("ydNot").hidden = true; $("yUlkeKutu").hidden = true; $("yAdEt").textContent = "Alıcı adı soyadı"; $("yAdresEt").textContent = "Adres (faturaya yazılır)"; } return; }
+    var kv = kvMi(); $("kvNot").hidden = !kv; if (kv) { $("yVkn").readOnly = true; $("yVkn").value = KIMLIKSIZ; $("sorgula").hidden = true; $("yVdKutu").hidden = true; $("sorguDurum").textContent = ""; if (!ydMi()) { $("ydNot").hidden = true; $("yUlkeKutu").hidden = true; $("yAdEt").textContent = "Alıcı adı soyadı (varsayılan: Nihai Tüketici)"; $("yAdresEt").textContent = "Adres (faturaya yazılır)"; } return; }
     var yd = ydMi(); $("ydNot").hidden = !yd; $("yUlkeKutu").hidden = !yd; $("yVdKutu").hidden = yd; $("sorgula").hidden = yd; $("yVkn").readOnly = yd;
     $("yAdEt").textContent = yd ? "Alıcı unvanı (yabancı firma / kişi adı)" : "Alıcı unvanı / ad soyad"; $("yAdresEt").textContent = yd ? "Adres (şehir ve ülke dahil)" : "Adres (faturaya yazılır)";
     if (yd) { $("yVkn").value = "2222222222"; $("sorguDurum").textContent = ""; }
@@ -1562,7 +1562,7 @@ details.gsatir[open] .gs-ok{transform:rotate(-135deg);margin:11px 4px 0 0}
   document.addEventListener("click", function(e){ var b = e.target.closest && e.target.closest("[data-dahil]"); if (!b || F.tip === "OZELMATRAH") return; F.dahil = b.getAttribute("data-dahil") === "1"; formDoldur(); onizle(); });
   $("alici").addEventListener("change", function(){
     F.alici = this.value;
-    if (F.alici === "__yeni" || F.alici === "__yd" || F.alici === "__kv") { $("yAd").value = ""; $("yVkn").value = ""; $("yAdres").value = ""; $("yVd").value = ""; $("yEposta").value = ""; $("yUlke").value = ""; $("sorguDurum").textContent = ""; }
+    if (F.alici === "__yeni" || F.alici === "__yd" || F.alici === "__kv") { $("yAd").value = ""; $("yVkn").value = ""; $("yAdres").value = ""; $("yVd").value = ""; $("yEposta").value = ""; $("yUlke").value = ""; $("sorguDurum").textContent = ""; if (F.alici === "__kv") $("yAd").value = "Nihai Tüketici"; }
     cizAlici(); onizle();
   });
   ["tarih", "ekNot", "notIrs", "iadeNo", "iadeTarih", "yAd", "yVkn", "yAdres", "yVd", "yEposta", "yUlke"].forEach(function(i){ $(i).addEventListener("input", onizle); $(i).addEventListener("change", onizle); });
